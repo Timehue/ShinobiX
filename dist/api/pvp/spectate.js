@@ -40,14 +40,14 @@ async function handler(req, res) {
             const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
             if (!identity)
                 return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(name)) {
                 return res.status(403).json({ error: 'Cannot spectate as another player.' });
             }
             const existing = await _storage_js_1.kv.get(key) ?? [];
             // Remove stale + the named spectator (for both join and leave)
-            const filtered = existing.filter(s => Date.now() - s.joinedAt < STALE_MS && s.name !== name.toLowerCase().trim());
+            const filtered = existing.filter(s => Date.now() - s.joinedAt < STALE_MS && s.name !== (0, _utils_js_1.safeName)(name));
             if (action === 'join') {
-                filtered.push({ name: name.toLowerCase().trim(), joinedAt: Date.now() });
+                filtered.push({ name: (0, _utils_js_1.safeName)(name), joinedAt: Date.now() });
             }
             await _storage_js_1.kv.set(key, filtered, { ex: KV_TTL_SECONDS });
             return res.status(200).json(filtered);

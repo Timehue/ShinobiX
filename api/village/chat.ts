@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // (or anyone else) in village chat.
             const identity = await authedPlayerOrAdmin(req, author);
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== author.toLowerCase().trim()) {
+            if (!identity.admin && identity.name !== safeName(author)) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
 

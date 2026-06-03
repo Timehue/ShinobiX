@@ -43,7 +43,7 @@ import { setRealtimeEmitter } from './notify.js';
 // from the SAME origin (Railway), so CORS isn't even exercised there; this list
 // only matters for cross-origin clients (e.g. a dev build pointed at a remote
 // backend — set VITE_REALTIME_URL).
-import { ALLOWED_ORIGINS } from '../_utils.js';
+import { ALLOWED_ORIGINS, safeName } from '../_utils.js';
 
 let _io: IOServer | null = null;
 
@@ -138,9 +138,9 @@ function wireRealtime(io: IOServer): void {
             const identity = await authedPlayerOrAdmin({ headers });
             if (!identity) return next(new Error('unauthorized'));
 
-            // Presence is keyed by player name. An admin-only connection has no
-            // name — derive it from the claimed x-player-name (admins trusted).
-            const claimed = (headers['x-player-name'] ?? '').trim().toLowerCase();
+            // Presence is keyed by the safeName slug. An admin-only connection has
+            // no name — derive it from the claimed x-player-name (admins trusted).
+            const claimed = safeName(headers['x-player-name'] ?? '');
             const canonicalName = identity.admin ? claimed : identity.name;
             if (!canonicalName) return next(new Error('no player name'));
 
@@ -164,11 +164,11 @@ function wireRealtime(io: IOServer): void {
         // this socket's authed identity — preserves nice casing, blocks anyone
         // rendering as a different player.
         const displayNameFor = (claimed: unknown): string => {
-            if (typeof claimed === 'string' && claimed.trim() && claimed.trim().toLowerCase() === name) {
+            if (typeof claimed === 'string' && claimed.trim() && safeName(claimed) === name) {
                 return claimed.trim();
             }
             const stored = onlineStore.get(name)?.displayName;
-            return stored && stored.toLowerCase() === name ? stored : name;
+            return stored && safeName(stored) === name ? stored : name;
         };
 
         const applyPresence = (payload: unknown): void => {

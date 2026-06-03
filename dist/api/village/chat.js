@@ -52,7 +52,7 @@ async function handler(req, res) {
             const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, author);
             if (!identity)
                 return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== author.toLowerCase().trim()) {
+            if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(author)) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
             // Silenced players can read but not post. Admin bypasses.

@@ -11,13 +11,17 @@
  * `OnlineStateStore` interface — no consumer changes.
  */
 import type { OnlinePlayer, OnlineStateStore, PresenceUpsert } from './types.js';
+import { safeName } from '../_utils.js';
 
 // A player is considered offline if not seen within this window. Matches the
 // legacy `presence:<name>` 60s TTL so behavior is unchanged after the cutover.
 export const OFFLINE_AFTER_MS = 60_000;
 
+// Canonical presence key = the safeName slug, matching the identity returned by
+// authedPlayer and every `save:`/`user:` key, so a display name with spaces
+// resolves to the same presence entry the heartbeat and kick paths use.
 function canon(name: string): string {
-    return name.trim().toLowerCase();
+    return safeName(name);
 }
 
 export class MemoryOnlineStateStore implements OnlineStateStore {

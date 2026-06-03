@@ -730,7 +730,9 @@ async function validateClanAndVillageIdentity(
         if (inFounder !== exFounder) {
             if (inFounder && inClan) {
                 const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(inClan)}`);
-                const isFounder = (rec?.founderName ?? '').toLowerCase() === playerName.toLowerCase();
+                // playerName is the safeName slug; founderName is a stored
+                // display name — canonicalize it through safeName to compare.
+                const isFounder = safeName(rec?.founderName ?? '') === playerName;
                 if (!isFounder) out.clanFounder = exFounder;
             } else {
                 // Demoting self (inFounder=false): always allowed.
@@ -746,8 +748,10 @@ async function validateClanAndVillageIdentity(
         // membership server-side BEFORE the character flip, so a legit
         // join will pass; a forged save POST will not.
         const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(inClan)}`);
-        const lower = playerName.toLowerCase();
-        const isMember = !!rec?.members?.some(m => (m?.name ?? '').toLowerCase() === lower);
+        // playerName is already the safeName slug; member/founder names are
+        // stored display names, so canonicalize them through safeName to compare.
+        const slug = playerName;
+        const isMember = !!rec?.members?.some(m => safeName(m?.name ?? '') === slug);
         if (!isMember) {
             // Reject the clan change entirely.
             out.clan = exClan || undefined;
@@ -755,7 +759,7 @@ async function validateClanAndVillageIdentity(
         } else {
             // Membership confirmed. Founder flag is authoritative from the
             // clan record, not the client.
-            out.clanFounder = (rec?.founderName ?? '').toLowerCase() === lower;
+            out.clanFounder = safeName(rec?.founderName ?? '') === slug;
         }
     }
 
@@ -800,7 +804,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // achievement / lifetime-counter fields that combat never reads.
         // Used by client fetchPlayerCombatSave() to shave ~50–150KB per
         // PvP fetch (challenge accept + village raid prep do 2 fetches each).
-        const isOwner = identity.admin || isClanSave || identity.name === name.toLowerCase().trim();
+        // identity.name and `name` are both safeName slugs, so a direct compare
+        // correctly recognises the owner (the old `.toLowerCase().trim()` left a
+        // spaced-name owner looking like a foreigner and served them a stripped
+        // public projection of their own save).
+        const isOwner = identity.admin || isClanSave || identity.name === name;
         const combatOnly = req.query.combatOnly === '1';
         let payload = isOwner ? data : publicProjection(stripPrivateFields(data));
         if (combatOnly) payload = combatProjection(payload);
@@ -878,8 +886,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             // exists, the membership check is the only path.
                             const existingClan = await kv.get<Record<string, unknown>>(key);
                             const incomingBody = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
-                            const bodyFounder = String(incomingBody?.founderName ?? '').toLowerCase();
-                            const allowCreate = !existingClan && bodyFounder && bodyFounder === identity.name.toLowerCase();
+                            const bodyFounder = safeName(String(incomingBody?.founderName ?? ''));
+                            const allowCreate = !existingClan && bodyFounder && bodyFounder === identity.name;
                             if (!allowCreate) {
                                 return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
                             }
@@ -1166,7 +1174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // the founder's canonical name. If the record is already gone
                     // there is nothing to protect, so we no-op rather than 403.
                     const clanRec = await kv.get<{ founderName?: string }>(key);
-                    const founder = String(clanRec?.founderName ?? '').toLowerCase();
+                    const founder = safeName(String(clanRec?.founderName ?? ''));
                     if (clanRec && founder !== identity.name) {
                         return res.status(403).json({ error: 'Only the clan founder can delete this clan.' });
                     }

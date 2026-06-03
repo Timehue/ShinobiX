@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { getActiveSilence } from './admin/moderation.js';
@@ -30,7 +30,10 @@ const INBOX_MAX = 60;         // conversations kept per inbox
 const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 function norm(name: string): string {
-    return String(name ?? '').toLowerCase().trim();
+    // Canonicalize to the safeName slug so DM thread/inbox keys and the
+    // recipient `save:` lookup line up with the player's identity — a recipient
+    // whose display name has a space resolves to their real save record.
+    return safeName(String(name ?? ''));
 }
 
 // Stable thread key for a pair of players, independent of who sends.

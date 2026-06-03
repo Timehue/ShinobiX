@@ -33,7 +33,11 @@ const MAX_NAMES_PER_FP = 50;
 // Stops the header from being abused to dump arbitrary garbage into KV.
 const FP_PATTERN = /^[0-9a-f]{16,64}$/;
 function normalizeName(name) {
-    return name.trim().toLowerCase();
+    // Canonicalize to the same safeName slug used for the player's save/auth
+    // identity, so ban/silence/IP/fp keys line up with the identity returned by
+    // authedPlayer — otherwise a name with stripped chars (e.g. a space) would
+    // be banned under one key but checked under another, evading the ban.
+    return (0, _utils_js_1.safeName)(name);
 }
 function banKey(name) { return `${BAN_KEY_PREFIX}${normalizeName(name)}`; }
 function silenceKey(name) { return `${SILENCE_KEY_PREFIX}${normalizeName(name)}`; }

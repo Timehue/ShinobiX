@@ -20,7 +20,7 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(name)) {
             return res.status(403).json({ error: 'Cannot queue as another player.' });
         }
         // Per-actor rate limit. The legit flow is "queue once when you go
@@ -58,7 +58,7 @@ async function handler(req, res) {
                 return res.status(403).json({ error: `Reach Genin (level ${presence_gating_js_1.ACADEMY_MIN_LEVEL}) before signing up for guard duty.` });
             }
         }
-        const normalizedName = name.toLowerCase().trim();
+        const normalizedName = (0, _utils_js_1.safeName)(name);
         await _storage_js_1.kv.set(`guard:${normalizedName}`, { name, village: serverVillage, level: serverLevel, lastSeen: Date.now() }, { ex: 300 });
         return res.status(200).json({ ok: true });
     }

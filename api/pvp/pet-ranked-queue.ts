@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 
@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'GET') {
         // Return queue status for a specific player (don't expose other names)
-        const name = typeof req.query.name === 'string' ? req.query.name.trim().toLowerCase() : '';
+        const name = typeof req.query.name === 'string' ? safeName(req.query.name) : '';
         const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
         const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
         const inQueue = active.some(e => e.name === name);
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Require auth, body name must match identity.
             const identity = await authedPlayerOrAdmin(req, name);
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            if (!identity.admin && identity.name !== safeName(name)) {
                 return res.status(403).json({ error: 'Cannot queue as another player.' });
             }
 
@@ -75,16 +75,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
 
                 if (action === 'leave') {
-                    const filtered = active.filter(e => e.name !== name.toLowerCase().trim());
+                    const filtered = active.filter(e => e.name !== safeName(name));
                     await kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
                     return { status: 200, body: { inQueue: false, queueSize: filtered.length, match: null } };
                 }
 
                 if (action === 'join') {
                     // Remove existing entry for this player, then add fresh
-                    const filtered = active.filter(e => e.name !== name.toLowerCase().trim());
+                    const filtered = active.filter(e => e.name !== safeName(name));
                     const entry: QueueEntry = {
-                        name: name.toLowerCase().trim(),
+                        name: safeName(name),
                         level: serverLevel,
                         elo: serverElo,
                         joinedAt: Date.now(),
@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 if (action === 'poll') {
-                    const me = active.find(e => e.name === name.toLowerCase().trim());
+                    const me = active.find(e => e.name === safeName(name));
                     if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
 
                     const others = active.filter(e => e.name !== me.name);

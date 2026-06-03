@@ -35,7 +35,7 @@ async function handler(req, res) {
         // Attacker's reported name (if any) must match the authed identity —
         // a player can't initiate an attack masquerading as someone else.
         if (!identity.admin && attacker && attacker.name) {
-            const claimedName = String(attacker.name).trim().toLowerCase();
+            const claimedName = (0, _utils_js_1.safeName)(String(attacker.name));
             if (claimedName !== identity.name) {
                 return res.status(403).json({ error: 'Attacker name does not match authenticated user.' });
             }

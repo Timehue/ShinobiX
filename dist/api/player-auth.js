@@ -24,7 +24,7 @@ const crypto_1 = __importDefault(require("crypto"));
 // Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/App.tsx.
 exports.RESERVED_USERNAMES = new Set(['rill']);
 function isReservedUsername(name) {
-    return exports.RESERVED_USERNAMES.has(name.trim().toLowerCase());
+    return exports.RESERVED_USERNAMES.has((0, _utils_js_1.safeName)(name));
 }
 // Storage-layer name prefixes that must NOT be allowed as player usernames.
 // `save:<name>` routes saves through different validators depending on the
@@ -37,7 +37,10 @@ function isReservedUsername(name) {
 const RESERVED_NAME_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
 const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player']);
 function isReservedNameShape(name) {
-    const n = name.trim().toLowerCase();
+    // Check the safeName slug — that's the form the storage key actually uses,
+    // so a display name like "clan - cheat" (slug "clan-cheat") is caught by
+    // the `clan-` prefix guard exactly as a literal "clan-cheat" would be.
+    const n = (0, _utils_js_1.safeName)(name);
     if (!n)
         return true;
     if (RESERVED_NAME_LITERALS.has(n))
@@ -95,7 +98,7 @@ function verifyAgainst(record, password) {
     return safeStringEqual(hashLegacy(password, record.salt), record.hash);
 }
 function authKey(name) {
-    return `auth:${name.trim().toLowerCase()}`;
+    return `auth:${(0, _utils_js_1.safeName)(name)}`;
 }
 async function verifyPlayerPassword(name, password) {
     const record = await _storage_js_1.kv.get(authKey(name));
@@ -133,6 +136,12 @@ async function handler(req, res) {
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (!password)
             return res.status(400).json({ ok: false, error: 'Missing password.' });
+        // Empty-slug guard: the account identity is the safeName slug. A name
+        // made entirely of characters safeName strips (all emoji / punctuation)
+        // collapses to '' and would write the bare `auth:` / `save:` keys.
+        if (!(0, _utils_js_1.safeName)(name)) {
+            return res.status(400).json({ ok: false, error: 'Pick a name with at least one letter or number.' });
+        }
         // Reserved-shape defense: storage-layer prefixes like `clan-` route
         // saves through the wrong validator (`validateClanSaveWrite` instead
         // of `sanitizeCharacterSave`), bypassing every character-level cap.
@@ -170,7 +179,7 @@ async function handler(req, res) {
             // leaderboard could call register and claim that account.
             // Legitimate legacy reclaim still works via the admin reset flow
             // (action='adminreset' with x-admin-password).
-            const saveBlob = await _storage_js_1.kv.get(`save:${name.trim().toLowerCase()}`);
+            const saveBlob = await _storage_js_1.kv.get(`save:${(0, _utils_js_1.safeName)(name)}`);
             if (saveBlob) {
                 return res.status(409).json({
                     ok: false,

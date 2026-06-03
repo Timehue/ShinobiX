@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // The attacker name in the body must match the authed identity (admins exempt).
         if (!identity.admin && attackerCharacter) {
-            const attackerName = String(attackerCharacter.name ?? '').toLowerCase().trim();
+            const attackerName = safeName(String(attackerCharacter.name ?? ''));
             if (attackerName && attackerName !== identity.name) {
                 return res.status(403).json({ error: 'Cannot attack as another player.' });
             }
@@ -65,11 +65,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Use the requested guard when the client already picked one for a shared PvP session.
-        const requestedGuard = guardName ? guards.find(g => g.name.toLowerCase().trim() === guardName.toLowerCase().trim()) : undefined;
+        const requestedGuard = guardName ? guards.find(g => safeName(g.name) === safeName(guardName)) : undefined;
         const guard = requestedGuard ?? guards[Math.floor(Math.random() * guards.length)];
 
         // Fetch guard's full character from their persistent save
-        const guardSave = await kv.get<Record<string, unknown>>(`save:${guard.name.toLowerCase()}`);
+        const guardSave = await kv.get<Record<string, unknown>>(`save:${safeName(guard.name)}`);
         const guardCharacter = (guardSave?.character as Record<string, unknown>) ?? null;
 
         if (!guardCharacter) {
@@ -99,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(battleId ? { battleId } : {}),
             };
 
-            const challengeKey = `challenges:${guard.name.toLowerCase().trim()}`;
+            const challengeKey = `challenges:${safeName(guard.name)}`;
             // Lock the guard's inbox during the read-append-write so a
             // concurrent /api/player/challenge POST can't be overwritten.
             await withKvLock(challengeKey, async () => {

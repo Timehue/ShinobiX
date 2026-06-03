@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { onlineStore } from '../_realtime/online-store.js';
 
@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Can only clear your own pending attacker.
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== safeName(name)) {
             return res.status(403).json({ error: 'Cannot clear another player.' });
         }
 

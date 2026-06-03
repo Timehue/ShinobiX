@@ -65,10 +65,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? session.p2.name : '';
         const loserName = session.winner === 'p1' ? session.p2.name : session.winner === 'p2' ? session.p1.name : '';
-        if (winnerName.toLowerCase() !== playerName.toLowerCase()) {
+        // winnerName/loserName are stored DISPLAY names; playerName/opponentName
+        // are safeName slugs — canonicalize both sides through safeName to compare.
+        if (safeName(winnerName) !== playerName) {
             return res.status(403).json({ error: 'You are not the winner of this battle.' });
         }
-        if (loserName.toLowerCase() !== opponentName.toLowerCase()) {
+        if (safeName(loserName) !== opponentName) {
             return res.status(400).json({ error: 'Opponent name does not match the recorded loser.' });
         }
 

@@ -47,10 +47,10 @@ function projectChallenge(c) {
     return out;
 }
 function challengeKey(name) {
-    return `challenges:${name.toLowerCase().trim()}`;
+    return `challenges:${(0, _utils_js_1.safeName)(name)}`;
 }
 function outgoingKey(name) {
-    return `challenge-outgoing:${name.toLowerCase().trim()}`;
+    return `challenge-outgoing:${(0, _utils_js_1.safeName)(name)}`;
 }
 function challengeId(challenge) {
     return challenge && typeof challenge === 'object' && 'id' in challenge
@@ -129,8 +129,8 @@ async function handler(req, res) {
             // clearing someone else's inbox/outgoing slot. Admins bypass.
             if (!identity.admin) {
                 const me = identity.name;
-                const ownsTarget = targetName ? targetName.toLowerCase().trim() === me : false;
-                const ownsFrom = fromName ? fromName.toLowerCase().trim() === me : false;
+                const ownsTarget = targetName ? (0, _utils_js_1.safeName)(targetName) === me : false;
+                const ownsFrom = fromName ? (0, _utils_js_1.safeName)(fromName) === me : false;
                 if (!ownsTarget && !ownsFrom) {
                     return res.status(403).json({ error: 'Cannot delete another player\'s challenges.' });
                 }
@@ -161,7 +161,7 @@ async function handler(req, res) {
         const record = challenge;
         const fromName = challengeFromName(challenge);
         // The challenge's fromName (sender) must match the authed identity unless admin.
-        if (!identity.admin && fromName && fromName.toLowerCase() !== identity.name) {
+        if (!identity.admin && fromName && (0, _utils_js_1.safeName)(fromName) !== identity.name) {
             return res.status(403).json({ error: 'Cannot send a challenge as another player.' });
         }
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.

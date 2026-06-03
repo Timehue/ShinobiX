@@ -467,6 +467,7 @@ import {
     currentMonthKey,
     currentDateKey,
     makeId,
+    playerSlug,
 } from "./lib/utils";
 
 // XP / ranked progression helpers extracted to ./lib/progression. The
@@ -3524,7 +3525,9 @@ export default function App() {
     // channel just for incoming challenges.
     useEffect(() => {
         if (!character?.name || !realtimeAvailable()) return;
-        const myKey = `challenges:${character.name.toLowerCase().trim()}`;
+        // Must match the server's `challenges:<safeName slug>` key (heartbeat /
+        // player-challenge write it through safeName), so subscribe via playerSlug.
+        const myKey = `challenges:${playerSlug(character.name)}`;
         const unsubscribe = subscribeKvKey<DuelChallenge[]>(myKey, (next) => {
             if (!Array.isArray(next)) return;
             const myNameLower = character.name.toLowerCase();
@@ -5528,6 +5531,11 @@ export default function App() {
                         ...snap.payload,
                         _saveVersion: latestSaveVersionRef.current,
                     });
+                } else if (!res.ok) {
+                    // Rejected (401/403/413/426/5xx). Don't silently drop it —
+                    // warn and re-arm the dirty flag so the next tick retries.
+                    console.warn(`[autosave] server rejected save (status ${res.status})`);
+                    charDirtyRef.current = true;
                 }
             }).catch(() => { charDirtyRef.current = true; });
         }, 3000);
@@ -5567,6 +5575,11 @@ export default function App() {
                         ...snap.payload,
                         _saveVersion: latestSaveVersionRef.current,
                     });
+                } else if (!res.ok) {
+                    // Rejected (401/403/413/426/5xx). Re-arm dirty + warn so a
+                    // persistent rejection is visible rather than silently lost.
+                    console.warn(`[autosave] server rejected save (status ${res.status})`);
+                    charDirtyRef.current = true;
                 }
             }).catch(() => {
                 charDirtyRef.current = true; // restore so next tick retries
@@ -5658,7 +5671,18 @@ export default function App() {
         setPendingAiProfileId("");
         setCurrentSector(40);
         setScreen("villageLore");
-        void pushSaveToServer(newCharacter, newCharacter.name).catch(() => {});
+        // Surface a failed FIRST save instead of swallowing it. A silent first-save
+        // failure is the precondition for total character loss: the character lives
+        // only in memory, and on the next refresh the login save-GET 404s and the
+        // account gets cleared. The 3s autosave will also retry (charDirtyRef is set
+        // by setCharacter above), but warn the player so they don't refresh on a
+        // dropped connection before the retry lands.
+        try {
+            await pushSaveToServer(newCharacter, newCharacter.name);
+        } catch (err) {
+            console.error("[createPlayerAccount] first save failed", err);
+            alert("Your character was created, but the first save to the server didn't go through. Keep this tab open — it will retry automatically. Don't refresh yet, or your new character could be lost.");
+        }
         void pullSharedAdminContent();
     }
 
