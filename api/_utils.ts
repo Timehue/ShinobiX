@@ -69,7 +69,6 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
 const ALLOWED_ORIGINS = new Set([
     'https://theravensark.com',
     'https://www.theravensark.com',
-    'https://test-five-delta-37.vercel.app',
     // Local dev — Vite default ports
     'http://localhost:5173',
     'http://localhost:3000',

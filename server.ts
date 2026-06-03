@@ -16,6 +16,7 @@ import './api/_force-ipv4.js';
 
 import { startGameLoop } from './api/_realtime/game-loop.js';
 import { attachSocketServer } from './api/_realtime/socket.js';
+import { startSnapshotCron } from './api/cron/_scheduler.js';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -127,7 +128,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 const ALLOWED_ORIGINS = new Set<string>([
     'https://theravensark.com',
     'https://www.theravensark.com',
-    'https://test-five-delta-37.vercel.app',
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
@@ -479,6 +479,9 @@ server.listen(PORT, () => {
     console.log(`ShinobiX API listening on port ${PORT}`);
     // Phase 2: start the 1s in-memory presence/game tick (single instance).
     startGameLoop();
+    // Vercel removal: the always-on server now runs the daily save-snapshot
+    // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
+    startSnapshotCron();
 });
 
 export default app;
