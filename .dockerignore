@@ -1,0 +1,30 @@
+# Dependencies — reinstalled inside the image
+node_modules
+shinobij.client/node_modules
+
+# Build output — rebuilt inside the image (avoid shipping stale committed dist/)
+dist
+shinobij.client/dist
+
+# Secrets — never bake into the image; set env vars in the platform dashboard
+.env
+shinobij.client/.env
+
+# VCS / tooling / editor
+.git
+.gitignore
+.vs
+.claude
+.vercel
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Logs and local artifacts
+*.log
+npm-debug.log*
+tmp
+publish
+deploy.zip
+upstash-backup-*.json
