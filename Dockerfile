@@ -11,7 +11,11 @@
 # `node dist/server.js` directly instead. cPanel is unaffected — it still uses
 # app.js as before.
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:20-bookworm-slim
+# Node 22+ is required: @supabase/supabase-js's createClient() builds a Realtime
+# client that needs a native global WebSocket, which only exists in Node 22+.
+# On Node 20 createClient() throws ("Node.js 20 detected without native WebSocket
+# support"), breaking every Supabase read. (engines allow >=20; 22 is current LTS.)
+FROM node:22-bookworm-slim
 
 WORKDIR /app
 
