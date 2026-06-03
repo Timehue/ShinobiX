@@ -223,7 +223,7 @@
     text-transform: uppercase;
     border: none !important;
 }
-/* Collapsible round accordion (TNR-style battle log). The header is a button;
+/* Collapsible round accordion (battle log). The header is a button;
    the chevron rotates when the round is collapsed and entries hide. */
 .arena-fullscreen .timeline-round-toggle {
     display: flex !important;

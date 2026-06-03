@@ -27585,7 +27585,7 @@ function Arena({
     const [activeActor, setActiveActor] = useState<BattleActor>(rollInitiative);
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
-    // Battle-log round accordion (TNR-style): records only the rounds the user
+    // Battle-log round accordion: records only the rounds the user
     // has explicitly toggled; default-open is the latest two rounds, computed in
     // render. Keeps long fights from becoming a wall of text.
     const [logRoundOverridesA, setLogRoundOverridesA] = useState<Record<number, boolean>>({});

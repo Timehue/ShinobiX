@@ -11793,9 +11793,9 @@ button.combat-jutsu-button,
 }
 
 .combat-jutsu-button {
-    /* TheNinjaRPG-style cards: a square image with the name (+ a quiet cost
-       line) below. Height follows content (auto rows) so nothing clips and the
-       card stays compact — per-viewport blocks below only set the card width. */
+    /* Square-image cards: a square image with the name (+ a quiet cost line)
+       below. Height follows content (auto rows) so nothing clips and the card
+       stays compact — per-viewport blocks below only set the card width. */
     min-height: 0 !important;
     padding: 4px !important;
     gap: 2px !important;
@@ -11803,13 +11803,13 @@ button.combat-jutsu-button,
 }
 
 .combat-jutsu-thumb {
-    /* Square thumbnail (aspect-ratio) — the image is the card, like TNR. */
+    /* Square thumbnail (aspect-ratio) — the image is the card. */
     height: auto !important;
     min-height: 0 !important;
     aspect-ratio: 1 / 1 !important;
 }
 
-/* Cost line: kept for reference but quiet (TNR keeps AP/range in the tooltip). */
+/* Cost line: kept for reference but quiet (AP/range also live in the tooltip). */
 .arena-fullscreen .combat-jutsu-info {
     color: rgba(203, 213, 225, 0.62) !important;
     font-weight: 600 !important;
@@ -19586,7 +19586,7 @@ html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small {
     font-size: clamp(10px, 0.65vw, 13px) !important;
 }
 
-/* Jutsu cards — compact TNR-style square icons (1400–2199px). */
+/* Jutsu cards — compact square-image icons (1400–2199px). */
 html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid {
     grid-template-columns: repeat(auto-fill, minmax(clamp(100px, 6.4vw, 116px), 1fr)) !important;
     gap: 7px !important;
@@ -19612,7 +19612,7 @@ html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info {
     font-size: clamp(9px, 0.6vw, 11px) !important;
 }
 
-/* Jutsu cards on laptops (1180–1399px) — compact TNR-style square icons. */
+/* Jutsu cards on laptops (1180–1399px) — compact square-image icons. */
 html[data-vp="lg"] .arena-fullscreen .combat-equipped-jutsu-grid {
     grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)) !important;
     gap: 6px !important;
@@ -19825,7 +19825,7 @@ html[data-vp="xxl"] .arena-fullscreen .basic-action-bar button small {
     font-size: 14px !important;
 }
 
-/* Jutsu cards — compact TNR-style square icons (a touch larger on huge displays). */
+/* Jutsu cards — compact square-image icons (a touch larger on huge displays). */
 html[data-vp="xxl"] .arena-fullscreen .combat-equipped-jutsu-grid {
     grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)) !important;
     gap: 9px !important;
