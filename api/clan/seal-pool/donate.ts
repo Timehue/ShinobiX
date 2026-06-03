@@ -96,11 +96,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             await kv.set(saveKey, mergePreservingImages(updatedRecord, record));
 
-            // Credit pool. Pool itself has its own internal lock inside savePool.
-            const pool = await loadPool(clanName);
-            pool.balance += amount;
-            pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
-            await savePool(pool);
+            // Credit the shared clan pool under the pool's OWN lock. The outer
+            // lock above is the DONOR's `save:<name>` lock, which does NOT
+            // serialize two different donors — without this, two concurrent
+            // donations both read the pre-credit balance and one credit is lost.
+            // distribute.ts locks the same `clan-seal-pool:<clan>` key, so this
+            // also serializes donate-vs-distribute. NOT failClosed: the donor is
+            // already debited above, so on rare lock contention we fall through
+            // to an unlocked credit rather than throw and lose the donated Seals
+            // (same trade-off as distribute.ts's recipient credit).
+            const poolBalance = await withKvLock(`clan-seal-pool:${clanName.toLowerCase()}`, async () => {
+                const pool = await loadPool(clanName);
+                pool.balance += amount;
+                pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
+                await savePool(pool);
+                return pool.balance;
+            });
 
             return {
                 status: 200 as const,
@@ -108,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ok: true,
                     donated: amount,
                     honorSealsRemaining: balance - amount,
-                    poolBalance: pool.balance,
+                    poolBalance,
                     dailyDonatedToday: donatedToday + amount,
                     dailyCap,
                 },

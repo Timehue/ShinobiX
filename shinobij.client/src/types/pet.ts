@@ -21,6 +21,11 @@ export type PetExpedition = {
     endsAt: number;
     startedAt: number;
     durationMs: number;
+    // Single-use server token minted by /api/missions/expedition-start at launch
+    // and consumed by /api/missions/report-pet-event on collect. Lives in the
+    // persisted expedition state so it survives reloads. Absent on expeditions
+    // started before this feature (those forfeit Tamer rewards on collect).
+    token?: string;
 };
 
 // Pet loadout — four equip slots surfaced in the Pet Yard. The Collar slot is

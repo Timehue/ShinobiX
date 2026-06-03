@@ -50,7 +50,10 @@ Frontend (run inside `shinobij.client/`):
   Upstash/Redis KV layer is being migrated out (see `scripts/migrate-upstash-*`
   and `api/kv-proxy.ts`).
 - **`scripts/`** — one-off migration and PvP balance-simulation scripts.
-- **`docs/`** — design docs (e.g. `professions.md`).
+- **`docs/`** — design docs (e.g. `professions.md`) and security/auth
+  references. See **`docs/auth-and-anti-cheat-patterns.md`** for the token-first
+  auth model and the server-minted single-use token pattern for client-reported
+  rewards.
 - **`ShinobiJ.Server/`, `*.slnx`, `*.esproj`** — Visual Studio solution scaffolding; not the runtime.
 
 ## Deployment
@@ -79,11 +82,34 @@ work on cPanel.**
   built-in `node:test` runner via `tsx`. Add new tests to the `test` script in
   the relevant `package.json` if they aren't picked up automatically.
 
+## Security & Anti-Cheat
+
+Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invariants:
+
+- **Auth is token-first.** A 24h HMAC session token (minted by `/api/player-auth`,
+  requires `SESSION_SECRET`) is the preferred credential; the password is the
+  fallback. The client (`shinobij.client/src/authFetch.ts`) must **not persist the
+  plaintext password once a token exists**, and must keep working when the server
+  issues no token (`SESSION_SECRET` unset). Online login always mints a fresh
+  token, so the worst failure is a re-login, never a lockout.
+- **Never trust the client for rewards/currency/XP/outcomes.** Recompute them
+  server-side, or gate them on a **server-minted, single-use token**: a `*-start`
+  endpoint mints a token (daily cap, reward params *sealed in*), and the report
+  endpoint requires it, atomically deletes it on use, and pays out from the sealed
+  values — not the client body. Examples: `expedition-start` → `report-pet-event`
+  (pet expeditions), `raid-start` → `report-raid` (AI raids). PvP cross-validates
+  the real `PvpSession` instead.
+- **Shared-state read-modify-write** (treasury, seal pool, bank, territory) goes
+  through `withKvLock` (`api/_lock.ts`) with `{ failClosed: true }` for currency
+  paths, locking the **shared resource** key — not just the actor's `save:`.
+
 ## Hard Rules
 
 - Do not rewrite large systems unless explicitly asked. Prefer small, incremental changes.
 - Do not change Supabase schema, SQL migration files, or storage structure without approval.
 - Do not modify auth, password, admin, rate-limit, or IP-tracking logic without explaining the risk first.
+- Keep player auth **token-first**: never reintroduce durable plaintext-password storage on the client, and never break the no-token (`SESSION_SECRET` unset) fallback path.
+- A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
 - Do not remove cPanel/Passenger support when changing API handlers.
 - When adding a new API endpoint, update both:
   - the `api/` handler for Vercel

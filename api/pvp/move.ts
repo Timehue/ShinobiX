@@ -537,6 +537,19 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
         damage = Math.max(0, Math.floor(damage * (1 - effectiveDR) * ampMult));
     }
 
+    // ── Post-damage consequence pipeline (resolution order is load-bearing) ──
+    // Every consequence below reads the FINAL post-mitigation damage (finalDmg),
+    // so the order is fixed and documented here to keep it auditable / drift-free:
+    //   1. shield block         → finalDmg = damage − blocked
+    //   2. reflect (status)      % of finalDmg back to the attacker
+    //   3. absorb (status)       % of finalDmg healed to the defender
+    //   4. item absorb / reflect / lifesteal (named-armor passives)
+    //   5. wound                 bleed seeded from finalDmg (rank-capped)
+    //   6. recoil (status)       attacker self-damage from their own hit
+    //   7. lifesteal (status)    attacker heal from finalDmg
+    //   8. siphon                attacker heal from finalDmg
+    // All post-damage effects are capped at 60% of finalDmg via cappedPostDamage().
+    // Pierce skips shield/reflect/absorb (true damage). Reordering changes outcomes.
     if (damage > 0) {
         const blocked = pierce ? 0 : Math.min(o.shield, damage);
         const finalDmg = Math.max(0, damage - blocked);
