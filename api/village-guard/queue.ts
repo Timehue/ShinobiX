@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { isAcademyProtectedLevel, ACADEMY_MIN_LEVEL } from '../_realtime/presence-gating.js';
@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== safeName(name)) {
             return res.status(403).json({ error: 'Cannot queue as another player.' });
         }
 
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        const normalizedName = name.toLowerCase().trim();
+        const normalizedName = safeName(name);
         await kv.set(`guard:${normalizedName}`, { name, village: serverVillage, level: serverLevel, lastSeen: Date.now() }, { ex: 300 });
         return res.status(200).json({ ok: true });
     } catch (err) {

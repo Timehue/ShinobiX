@@ -160,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // POST body). Admin always passes.
         if (!identity.admin) {
             const kageState = await kv.get<VillageKageState>(kageKey(village));
-            const seated = (kageState?.seatedKage ?? '').toLowerCase().trim();
+            const seated = safeName(kageState?.seatedKage ?? '');
             if (!kageState?.kageSystemUnlocked || !seated || seated !== identity.name) {
                 return res.status(403).json({ error: 'Only the seated Kage may transfer village treasury.' });
             }

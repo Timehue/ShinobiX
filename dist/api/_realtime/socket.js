@@ -97,9 +97,9 @@ function wireRealtime(io) {
             const identity = await (0, _auth_js_1.authedPlayerOrAdmin)({ headers });
             if (!identity)
                 return next(new Error('unauthorized'));
-            // Presence is keyed by player name. An admin-only connection has no
-            // name — derive it from the claimed x-player-name (admins trusted).
-            const claimed = (headers['x-player-name'] ?? '').trim().toLowerCase();
+            // Presence is keyed by the safeName slug. An admin-only connection has
+            // no name — derive it from the claimed x-player-name (admins trusted).
+            const claimed = (0, _utils_js_1.safeName)(headers['x-player-name'] ?? '');
             const canonicalName = identity.admin ? claimed : identity.name;
             if (!canonicalName)
                 return next(new Error('no player name'));
@@ -121,11 +121,11 @@ function wireRealtime(io) {
         // this socket's authed identity — preserves nice casing, blocks anyone
         // rendering as a different player.
         const displayNameFor = (claimed) => {
-            if (typeof claimed === 'string' && claimed.trim() && claimed.trim().toLowerCase() === name) {
+            if (typeof claimed === 'string' && claimed.trim() && (0, _utils_js_1.safeName)(claimed) === name) {
                 return claimed.trim();
             }
             const stored = online_store_js_1.onlineStore.get(name)?.displayName;
-            return stored && stored.toLowerCase() === name ? stored : name;
+            return stored && (0, _utils_js_1.safeName)(stored) === name ? stored : name;
         };
         const applyPresence = (payload) => {
             const p = (payload ?? {});

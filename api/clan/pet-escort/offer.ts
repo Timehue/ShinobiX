@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const clanSlug = clanName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const clanRecord = await kv.get<Record<string, unknown>>(`save:clan-${clanSlug}`);
         const members = Array.isArray(clanRecord?.members) ? (clanRecord!.members as Array<Record<string, unknown>>) : [];
-        const isMember = members.some((m) => String(m?.name ?? '').toLowerCase() === playerName.toLowerCase());
+        const isMember = members.some((m) => safeName(String(m?.name ?? '')) === playerName);
         if (!isMember) {
             return res.status(403).json({ error: 'You are no longer a member of that clan.' });
         }

@@ -1020,7 +1020,7 @@ async function handler(req, res) {
             return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin) {
             const claimedFighter = role === 'p1' ? session.p1 : session.p2;
-            const claimedName = String(claimedFighter.name ?? '').trim().toLowerCase();
+            const claimedName = (0, _utils_js_1.safeName)(String(claimedFighter.name ?? ''));
             if (claimedName !== identity.name) {
                 return res.status(403).json({ error: 'Cannot move as another player.' });
             }

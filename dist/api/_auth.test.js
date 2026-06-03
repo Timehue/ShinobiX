@@ -26,6 +26,29 @@ const PRIOR_SECRET = process.env.SESSION_SECRET;
         const token = (0, _auth_js_1.issuePlayerToken)('  MiXeDCase  ');
         node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)(token), 'mixedcase');
     });
+    // Regression: the token identity must equal the safeName storage-key slug,
+    // not a raw trim+lowercase. A name with a space used to mint a token for
+    // "cool ninja" while every `save:`/`auth:` key was `coolninja`, so the save
+    // handler 403'd the owner and the character was lost on refresh. The slug
+    // must match the key form so the ownership check passes.
+    (0, node_test_1.it)('encodes the safeName slug — spaces and stripped chars are removed', () => {
+        node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)((0, _auth_js_1.issuePlayerToken)('Cool Ninja')), 'coolninja');
+        node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)((0, _auth_js_1.issuePlayerToken)("Naruto Uzumaki")), 'narutouzumaki');
+        // Hyphen + underscore are part of the slug charset and survive.
+        node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)((0, _auth_js_1.issuePlayerToken)('Naruto-Uzumaki_99')), 'naruto-uzumaki_99');
+        // Accents / emoji are stripped to their bare ascii (or nothing).
+        node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)((0, _auth_js_1.issuePlayerToken)('Zoë🍜')), 'zo');
+    });
+    (0, node_test_1.it)('truncates the slug to 32 chars (matches safeName key cap)', () => {
+        const token = (0, _auth_js_1.issuePlayerToken)('a'.repeat(40));
+        node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)(token), 'a'.repeat(32));
+    });
+    (0, node_test_1.it)('an all-symbol name has an empty slug → no usable identity', () => {
+        // safeName('🎉🎉🎉') === '' → the token carries no name and must not
+        // verify to a usable identity (mirrors the register-time empty-slug guard).
+        const token = (0, _auth_js_1.issuePlayerToken)('🎉🎉🎉');
+        node_assert_1.strict.equal((0, _auth_js_1.verifyPlayerToken)(token), null);
+    });
     (0, node_test_1.it)('rejects a tampered name segment', () => {
         const token = (0, _auth_js_1.issuePlayerToken)('alice');
         const parts = token.split('.');

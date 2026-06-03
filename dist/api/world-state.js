@@ -73,8 +73,8 @@ async function isSeatedKageOf(playerName, village) {
         return false;
     try {
         const vs = await _storage_js_1.kv.get(`${VILLAGE_STATE_KEY_PREFIX}${normalizeVillageKey(village)}`);
-        const seated = String(vs?.seatedKage ?? '').trim().toLowerCase();
-        return seated === playerName.trim().toLowerCase();
+        const seated = (0, _utils_js_1.safeName)(String(vs?.seatedKage ?? ''));
+        return seated === (0, _utils_js_1.safeName)(playerName);
     }
     catch {
         return false;

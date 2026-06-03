@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { safeEqual, issuePlayerToken } from './_auth.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
@@ -14,7 +14,7 @@ import crypto from 'crypto';
 // Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/App.tsx.
 export const RESERVED_USERNAMES = new Set<string>(['rill']);
 export function isReservedUsername(name: string): boolean {
-    return RESERVED_USERNAMES.has(name.trim().toLowerCase());
+    return RESERVED_USERNAMES.has(safeName(name));
 }
 
 // Storage-layer name prefixes that must NOT be allowed as player usernames.
@@ -28,7 +28,10 @@ export function isReservedUsername(name: string): boolean {
 const RESERVED_NAME_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
 const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player']);
 export function isReservedNameShape(name: string): boolean {
-    const n = name.trim().toLowerCase();
+    // Check the safeName slug — that's the form the storage key actually uses,
+    // so a display name like "clan - cheat" (slug "clan-cheat") is caught by
+    // the `clan-` prefix guard exactly as a literal "clan-cheat" would be.
+    const n = safeName(name);
     if (!n) return true;
     if (RESERVED_NAME_LITERALS.has(n)) return true;
     return RESERVED_NAME_PREFIXES.some((p) => n.startsWith(p));
@@ -97,7 +100,7 @@ function verifyAgainst(record: AuthRecord, password: string): boolean {
 }
 
 export function authKey(name: string): string {
-    return `auth:${name.trim().toLowerCase()}`;
+    return `auth:${safeName(name)}`;
 }
 
 export async function verifyPlayerPassword(name: string, password: string): Promise<boolean> {
@@ -141,6 +144,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (!password) return res.status(400).json({ ok: false, error: 'Missing password.' });
 
+        // Empty-slug guard: the account identity is the safeName slug. A name
+        // made entirely of characters safeName strips (all emoji / punctuation)
+        // collapses to '' and would write the bare `auth:` / `save:` keys.
+        if (!safeName(name)) {
+            return res.status(400).json({ ok: false, error: 'Pick a name with at least one letter or number.' });
+        }
+
         // Reserved-shape defense: storage-layer prefixes like `clan-` route
         // saves through the wrong validator (`validateClanSaveWrite` instead
         // of `sanitizeCharacterSave`), bypassing every character-level cap.
@@ -180,7 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // leaderboard could call register and claim that account.
             // Legitimate legacy reclaim still works via the admin reset flow
             // (action='adminreset' with x-admin-password).
-            const saveBlob = await kv.get<Record<string, unknown>>(`save:${name.trim().toLowerCase()}`);
+            const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
             if (saveBlob) {
                 return res.status(409).json({
                     ok: false,

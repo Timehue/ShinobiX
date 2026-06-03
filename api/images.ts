@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
@@ -135,9 +135,11 @@ function ownershipReject(
         return { status: 403, error: `${prefix} images are admin-only.` };
     }
     if (prefix === 'avatar') {
-        // avatar:<lowercased player name>. Only the player themselves may
-        // upload or replace their own avatar.
-        if (rest.toLowerCase() !== identity.name.toLowerCase()) {
+        // avatar:<player name>. Only the player themselves may upload or replace
+        // their own avatar. Canonicalize the id's name part through safeName so it
+        // matches identity.name (the safeName slug) — otherwise a player whose
+        // name has a space could never set their own avatar.
+        if (safeName(rest) !== identity.name) {
             return { status: 403, error: 'You can only set your own avatar.' };
         }
     }

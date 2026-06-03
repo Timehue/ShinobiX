@@ -37,7 +37,7 @@ const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 const CLAIM_TTL_SECONDS = 24 * 60 * 60;
 
 function claimKey(playerName: string, battleId: string): string {
-    return `pvp:rewarded:${playerName.toLowerCase()}:${battleId}`;
+    return `pvp:rewarded:${safeName(playerName)}:${battleId}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== playerName.toLowerCase()) {
+        if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only claim your own rewards.' });
         }
 
@@ -86,9 +86,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const winnerName = (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
         const loserName = (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
-        const callerLower = playerName.toLowerCase();
+        // winnerName/loserName are stored DISPLAY names (may contain spaces);
+        // canonicalize through safeName to compare with the slug `playerName`.
         const expectedSide = outcome === 'win' ? winnerName : loserName;
-        if (!identity.admin && expectedSide.toLowerCase() !== callerLower) {
+        if (!identity.admin && safeName(expectedSide) !== playerName) {
             return res.status(403).json({
                 error: `Recorded ${outcome === 'win' ? 'winner' : 'loser'} of this battle is not you.`,
             });
@@ -120,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             (session.winner === 'p1' || session.winner === 'p2');
         const creditBase = session.baseRewards === true && outcome === 'win';
         if (isRankedClaim || creditBase) {
-            const saveKey = `save:${callerLower}`;
+            const saveKey = `save:${playerName}`;
             // Ranked params — only consulted when isRankedClaim.
             const kind = session.rankedKind as 'player' | 'pet';
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';

@@ -44,7 +44,7 @@ async function handler(req, res) {
         const clanSlug = clanName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
         const clanRecord = await _storage_js_1.kv.get(`save:clan-${clanSlug}`);
         const members = Array.isArray(clanRecord?.members) ? clanRecord.members : [];
-        const isMember = members.some((m) => String(m?.name ?? '').toLowerCase() === playerName.toLowerCase());
+        const isMember = members.some((m) => (0, _utils_js_1.safeName)(String(m?.name ?? '')) === playerName);
         if (!isMember) {
             return res.status(403).json({ error: 'You are no longer a member of that clan.' });
         }

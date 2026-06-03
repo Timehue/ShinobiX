@@ -68,7 +68,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const c = rec.character as Record<string, unknown> | undefined;
             if (!c) continue;
             const name = String(c.name ?? '');
-            if (!name || name.toLowerCase() === healerName.toLowerCase()) continue;
+            // healerName is a safeName slug; c.name is a display name — canonicalize
+            // to skip the healer's own record even when their name has a space.
+            if (!name || safeName(name) === healerName) continue;
             if (c.village !== healerVillage) continue;
             const hp = Number(c.hp ?? 0);
             const maxHp = Number(c.maxHp ?? 0);

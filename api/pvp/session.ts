@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { randomUUID, randomBytes } from 'crypto';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 
@@ -516,8 +516,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const p1Name = (p1Character.name as string) ?? 'Player 1';
             const p2Name = (p2Character.name as string) ?? 'Player 2';
 
-            const p1Norm = String(p1Name).trim().toLowerCase();
-            const p2Norm = String(p2Name).trim().toLowerCase();
+            const p1Norm = safeName(String(p1Name));
+            const p2Norm = safeName(String(p2Name));
 
             if (!identity.admin) {
                 const me = identity.name;

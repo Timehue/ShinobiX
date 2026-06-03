@@ -34,7 +34,7 @@ const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 // 60-min session TTL, so even a slow re-mount can't slip past.)
 const CLAIM_TTL_SECONDS = 24 * 60 * 60;
 function claimKey(playerName, battleId) {
-    return `pvp:rewarded:${playerName.toLowerCase()}:${battleId}`;
+    return `pvp:rewarded:${(0, _utils_js_1.safeName)(playerName)}:${battleId}`;
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -61,7 +61,7 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== playerName.toLowerCase()) {
+        if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only claim your own rewards.' });
         }
         // Authoritative outcome check — load the actual session and verify
@@ -83,9 +83,10 @@ async function handler(req, res) {
         }
         const winnerName = (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
         const loserName = (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
-        const callerLower = playerName.toLowerCase();
+        // winnerName/loserName are stored DISPLAY names (may contain spaces);
+        // canonicalize through safeName to compare with the slug `playerName`.
         const expectedSide = outcome === 'win' ? winnerName : loserName;
-        if (!identity.admin && expectedSide.toLowerCase() !== callerLower) {
+        if (!identity.admin && (0, _utils_js_1.safeName)(expectedSide) !== playerName) {
             return res.status(403).json({
                 error: `Recorded ${outcome === 'win' ? 'winner' : 'loser'} of this battle is not you.`,
             });
@@ -114,7 +115,7 @@ async function handler(req, res) {
             (session.winner === 'p1' || session.winner === 'p2');
         const creditBase = session.baseRewards === true && outcome === 'win';
         if (isRankedClaim || creditBase) {
-            const saveKey = `save:${callerLower}`;
+            const saveKey = `save:${playerName}`;
             // Ranked params — only consulted when isRankedClaim.
             const kind = session.rankedKind;
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';

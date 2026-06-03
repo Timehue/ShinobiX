@@ -53,7 +53,7 @@ async function handler(req, res) {
             const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, author);
             if (!identity)
                 return res.status(401).json({ error: 'Authentication required.' });
-            const authorNorm = author.toLowerCase().trim();
+            const authorNorm = (0, _utils_js_1.safeName)(author);
             if (!identity.admin && identity.name !== authorNorm) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
@@ -88,8 +88,8 @@ async function handler(req, res) {
                 return res.status(503).json({ error: 'Could not verify battle role — please retry.' });
             }
             if (session) {
-                const p1Norm = String(session.p1?.name ?? '').toLowerCase().trim();
-                const p2Norm = String(session.p2?.name ?? '').toLowerCase().trim();
+                const p1Norm = (0, _utils_js_1.safeName)(String(session.p1?.name ?? ''));
+                const p2Norm = (0, _utils_js_1.safeName)(String(session.p2?.name ?? ''));
                 if (authorNorm === p1Norm || authorNorm === p2Norm) {
                     derivedRole = 'fighter';
                 }

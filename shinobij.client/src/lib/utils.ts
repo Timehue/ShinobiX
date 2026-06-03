@@ -43,3 +43,13 @@ export function currentDateKey(): string {
 export function makeId() {
     return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
+
+// Canonical account slug for a display name. MUST stay byte-identical to the
+// server's `safeName` (api/_utils.ts): lowercase, strip anything outside
+// [a-z0-9_-], cap at 32 chars. The server keys every `save:` / `auth:` record
+// and Realtime channel (e.g. `challenges:<slug>`) by this, so any client key
+// that has to match a server row must run the name through here first. Returns
+// '' for a name made entirely of stripped characters (caller must reject).
+export function playerSlug(name: string): string {
+    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, "").slice(0, 32);
+}

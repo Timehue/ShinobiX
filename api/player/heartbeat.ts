@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // untouchable, faking travelingUntil, teleporting others, etc.
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== safeName(name)) {
             return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
         }
 
@@ -61,8 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (fp) void recordClientFingerprint(identity.name, fp);
         }
 
-        const challengeKey = `challenges:${name.toLowerCase().trim()}`;
-        const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;
+        const challengeKey = `challenges:${safeName(name)}`;
+        const resetSignalKey = `reset-signal:${safeName(name)}`;
 
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).

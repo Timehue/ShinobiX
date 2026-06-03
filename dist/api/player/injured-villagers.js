@@ -61,7 +61,9 @@ async function handler(req, res) {
             if (!c)
                 continue;
             const name = String(c.name ?? '');
-            if (!name || name.toLowerCase() === healerName.toLowerCase())
+            // healerName is a safeName slug; c.name is a display name — canonicalize
+            // to skip the healer's own record even when their name has a space.
+            if (!name || (0, _utils_js_1.safeName)(name) === healerName)
                 continue;
             if (c.village !== healerVillage)
                 continue;

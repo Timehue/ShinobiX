@@ -52,7 +52,7 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Missing village.' });
         // The attacker name in the body must match the authed identity (admins exempt).
         if (!identity.admin && attackerCharacter) {
-            const attackerName = String(attackerCharacter.name ?? '').toLowerCase().trim();
+            const attackerName = (0, _utils_js_1.safeName)(String(attackerCharacter.name ?? ''));
             if (attackerName && attackerName !== identity.name) {
                 return res.status(403).json({ error: 'Cannot attack as another player.' });
             }
@@ -65,10 +65,10 @@ async function handler(req, res) {
             return res.status(200).json({ noGuard: true });
         }
         // Use the requested guard when the client already picked one for a shared PvP session.
-        const requestedGuard = guardName ? guards.find(g => g.name.toLowerCase().trim() === guardName.toLowerCase().trim()) : undefined;
+        const requestedGuard = guardName ? guards.find(g => (0, _utils_js_1.safeName)(g.name) === (0, _utils_js_1.safeName)(guardName)) : undefined;
         const guard = requestedGuard ?? guards[Math.floor(Math.random() * guards.length)];
         // Fetch guard's full character from their persistent save
-        const guardSave = await _storage_js_1.kv.get(`save:${guard.name.toLowerCase()}`);
+        const guardSave = await _storage_js_1.kv.get(`save:${(0, _utils_js_1.safeName)(guard.name)}`);
         const guardCharacter = guardSave?.character ?? null;
         if (!guardCharacter) {
             // Guard's save is missing — fall back to AI. Cap the defense
@@ -95,7 +95,7 @@ async function handler(req, res) {
                 sectorAttack: true,
                 ...(battleId ? { battleId } : {}),
             };
-            const challengeKey = `challenges:${guard.name.toLowerCase().trim()}`;
+            const challengeKey = `challenges:${(0, _utils_js_1.safeName)(guard.name)}`;
             // Lock the guard's inbox during the read-append-write so a
             // concurrent /api/player/challenge POST can't be overwritten.
             await (0, _lock_js_1.withKvLock)(challengeKey, async () => {

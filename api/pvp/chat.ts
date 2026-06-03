@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
@@ -65,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Auth required so spectators can't impersonate fighters in battle chat.
             const identity = await authedPlayerOrAdmin(req, author);
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-            const authorNorm = author.toLowerCase().trim();
+            const authorNorm = safeName(author);
             if (!identity.admin && identity.name !== authorNorm) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
@@ -101,8 +101,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ error: 'Could not verify battle role — please retry.' });
             }
             if (session) {
-                const p1Norm = String(session.p1?.name ?? '').toLowerCase().trim();
-                const p2Norm = String(session.p2?.name ?? '').toLowerCase().trim();
+                const p1Norm = safeName(String(session.p1?.name ?? ''));
+                const p2Norm = safeName(String(session.p2?.name ?? ''));
                 if (authorNorm === p1Norm || authorNorm === p2Norm) {
                     derivedRole = 'fighter';
                 }
