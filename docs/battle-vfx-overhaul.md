@@ -65,13 +65,14 @@ Returns `{ key: "" }` → caller falls back to particle burst only.
 — pet Arena. Mirrors the existing beat×actionKind block but: routes
 `blood/shadow/poison` (folders now exist; poison gets `fx-poison`), adds a
 `ko → kaboom` case, and a **signature** branch (charge beat → `charge` on caster;
-impact → element-heavy: Fire→`kaboom`, Water→`explosion`, Earth/Iron→`bighit`,
-Wind→`vortex`, Lightning→`spark`, else→`explosion`). KO + signature picks carry
-the `fx-signature` marquee variant.
+impact → `power` when `flagship`, else element-heavy: Fire→`kaboom`,
+Water→`explosion`, Earth/Iron→`bighit`, Wind→`vortex`, Lightning→`spark`,
+else→`explosion`). KO + signature picks carry the `fx-signature` marquee variant.
 
-Reserved for a future tier (folder committed, not yet wired): `power` — the
-apex/flagship signature burst. Wiring it needs the cast's rarity threaded onto
-`PetArenaFrame.signatureMove`; left out of v1 to avoid touching the simulator.
+`flagship` is the apex tier: `PetArenaFrame.signatureMove.flagship` is set in the
+simulator when the casting pet's rarity is `mythic` (derived deterministically
+from rarity — cosmetic only, no combat/replay impact), so the rarest pets detonate
+the over-the-top `power` burst while lower-tier signatures stay element-themed.
 
 ### 2b. Call sites
 

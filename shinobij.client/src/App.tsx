@@ -10940,7 +10940,10 @@ export type PetArenaFrame = {
     isPrefight?: boolean;
     isKO?: boolean;
     // Set when a pet unleashes its signature jutsu — drives the anime cut-in.
-    signatureMove?: { name: string; petName: string; side: "player" | "enemy" };
+    // `flagship` marks an apex-tier (mythic) signature so the arena plays the
+    // over-the-top `power` burst instead of the element-heavy hit (cosmetic only,
+    // derived deterministically from the pet's rarity).
+    signatureMove?: { name: string; petName: string; side: "player" | "enemy"; flagship?: boolean };
     playerStatus?: PetFrameStatus;
     enemyStatus?: PetFrameStatus;
     // ── 4-pet simultaneous fields (Pokémon-doubles style 2v2) ────────
@@ -12166,6 +12169,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             actionKind: frame?.actionKind,
             vfxKey: activeAnimEvent.vfxKey,
             signature: !!frame?.signatureMove,
+            flagship: !!frame?.signatureMove?.flagship,
             element: actorElement,
             isKO: !!frame?.isKO,
         });
