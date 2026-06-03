@@ -33,6 +33,7 @@ const overlayStyle: React.CSSProperties = {
 };
 const cardStyle: React.CSSProperties = {
     maxWidth: 460, width: "100%", maxHeight: "86vh", overflowY: "auto",
+    textAlign: "center",
 };
 const bannerStyle: React.CSSProperties = {
     position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)",
@@ -103,7 +104,7 @@ export function OnboardingCoach({
                     >
                         Start my first training →
                     </button>
-                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "block" }} onClick={skip}>
+                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
                         Skip tutorial
                     </button>
                 </div>
