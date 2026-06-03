@@ -16,7 +16,7 @@ import {
     type HollowGateIconSlot,
 } from "../data/hollow-gate-atlas";
 import { hollowGateTileIconForKind } from "../data/hollow-gate-flavor";
-import { publishSharedImage } from "../App";
+import { publishSharedImage } from "../lib/shared-images";
 
 export function KenneyAtlasPicker({
     sharedImages,

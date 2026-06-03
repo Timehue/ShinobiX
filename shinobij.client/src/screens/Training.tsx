@@ -5,7 +5,7 @@
  * (training timers, costs, durations, XP/stat formulas unchanged). The
  * file-wide eslint-disable mirrors App.tsx for the verbatim-moved logic.
  */
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
