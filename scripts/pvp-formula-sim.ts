@@ -234,8 +234,8 @@ function applyJutsu(self: Fighter, opp: Fighter, jutsu: Jutsu, mastery = JUTSU_M
             case 'Cleanse Prevent':       addStatus(opp, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }); break;
             case 'Clear Prevent':         addStatus(self, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }); break;
             case 'Stun Prevent':          addStatus(self, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }); break;
-            case 'Lag':                   addStatus(opp, { name: 'Lag', rounds: 2, percent: pct, kind: 'negative' }); break;
-            case 'Overclock':             addStatus(self, { name: 'Overclock', rounds: 2, percent: pct, kind: 'positive' }); break;
+            case 'Lag':                   addStatus(opp, { name: 'Lag', rounds: 1, percent: pct, kind: 'negative' }); break;
+            case 'Overclock':             addStatus(self, { name: 'Overclock', rounds: 1, percent: pct, kind: 'positive' }); break;
             case 'Mirror': {
                 // COPY self's non-DoT negative effects to opponent — they
                 // remain on self too. No longer a free cleanse, just a

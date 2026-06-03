@@ -29469,8 +29469,9 @@ function Arena({
             }
 
             if (["Clear Prevent", "Stun Prevent", "Overclock", "Increase Heal"].includes(tagName)) {
-                queuePlayerStatus({ name: tagName, rounds: 2, percent: pct, kind: "positive" });
-                effectLines.push(`${character.name} gains ${tagName} for 2 rounds${tagTimingText}`);
+                const statusRounds = tagName === "Overclock" ? 1 : 2;
+                queuePlayerStatus({ name: tagName, rounds: statusRounds, percent: pct, kind: "positive" });
+                effectLines.push(`${character.name} gains ${tagName} for ${statusRounds} round${statusRounds === 1 ? "" : "s"}${tagTimingText}`);
             }
 
             if (tag.name === "Debuff Prevent") {
@@ -30044,10 +30045,11 @@ function Arena({
 
             if (["Clear Prevent", "Stun Prevent", "Overclock", "Increase Heal"].includes(normalizeTagName(tag.name))) {
                 const statusName = normalizeTagName(tag.name);
+                const statusRounds = statusName === "Overclock" ? 1 : 2;
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s ${statusName} was prevented`);
                 else {
-                    queueToEnemy({ name: statusName, rounds: 2, percent: pct, kind: "positive" });
-                    effectLines.push(`${opponentName} gains ${statusName} for 2 rounds`);
+                    queueToEnemy({ name: statusName, rounds: statusRounds, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName} gains ${statusName} for ${statusRounds} round${statusRounds === 1 ? "" : "s"}`);
                 }
             }
             if (tag.name === "Debuff Prevent") {

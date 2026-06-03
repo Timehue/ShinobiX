@@ -60,7 +60,7 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
     if (tag.name === "Mirror") return { summary: "Mirrors negative effects back to the enemy.", rule: "Always transfers the user's non-damage-over-time negative statuses to the target.", duration: "Up to 2 rounds", value: "Always" };
     if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP for 1 round.", duration: "1 round", value: "Always" };
-    if (tagMatchesName(tag.name, "Overclock")) return { summary: "Reduces the user's AP costs.", rule: "Always adds a positive status that makes the user's actions cost less AP.", duration: "2 rounds", value: "Always" };
+    if (tagMatchesName(tag.name, "Overclock")) return { summary: "Reduces the user's AP costs.", rule: "Always adds a positive status that makes the user's actions cost less AP for 1 round.", duration: "1 round", value: "Always" };
     if (tag.name === "Increase Heal") return { summary: `Increases healing by ${pct}%.`, rule: "Always adds a positive status that boosts future healing and lifesteal by this amount.", duration: "2 rounds", value: `${pct}%` };
     return { summary: tag.name || "Unnamed effect", rule: "Custom effect tag.", duration: "Varies", value: percentLabel };
 }
