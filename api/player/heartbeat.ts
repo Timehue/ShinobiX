@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
 import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
@@ -170,6 +171,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // No JSONB hash merge means no O(N-players) CPU work per heartbeat.
         // Also stamp the current request IP for anti-alt overlap checks
         // (player-ip:{name}:{ip} keys with 7-day TTL, idempotent).
+        // Phase 2 (Step 2a): ALSO mirror presence into the in-memory store so it
+        // is populated in production with ZERO behavior change — reads still come
+        // from the DB for now. Step 2b flips readers to the store and drops the
+        // per-second `kv.set(presenceKey)` write (the actual cost win).
+        onlineStore.upsert({
+            name,
+            sector: entrySector,
+            character: slimChar as Record<string, unknown> | null,
+            travelingUntil: (safeTravelUntil && safeTravelUntil > now) ? safeTravelUntil : undefined,
+            inBattle: inBattle === true ? true : undefined,
+        });
+
         await Promise.all([
             kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
