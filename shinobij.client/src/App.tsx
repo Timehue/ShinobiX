@@ -1215,7 +1215,7 @@ function normalizePet(pet: Pet): Pet {
         unlockedForPve: Boolean(merged.unlockedForPve || Math.floor(merged.level ?? 1) >= 50),
         happiness: petHappiness(merged),
         expedition: merged.expedition
-            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000) }
+            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000), token: typeof merged.expedition.token === "string" ? merged.expedition.token : undefined }
             : undefined,
     });
 }
@@ -9803,17 +9803,47 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         });
     }
 
-    function startExpedition() {
+    async function startExpedition() {
         if (!selectedPet) return;
         if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         const option = petExpeditionOptions.find(entry => entry.type === expeditionType) ?? petExpeditionOptions[0];
+
+        // Pet Tamers mint a single-use server token at launch — the ONLY way to
+        // earn expedition Ryo/drops/Tamer XP on collect (server requires it; no
+        // fallback). Non-Tamers run expeditions for pet XP/stats only and need
+        // no token. On a genuine server/network failure we block (don't waste an
+        // expedition that would have earned currency). Past the daily reward cap
+        // the trip still runs for pet XP/stats with no token — the same 12/day
+        // currency ceiling as before, so no blocking prompt is needed.
+        let token: string | undefined;
+        if (character.profession === "petTamer") {
+            let data: { token?: string; reason?: string } | null;
+            try {
+                const r = await fetch('/api/missions/expedition-start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, expType: option.type, petLevel: selectedPet.level }),
+                });
+                if (!r.ok) return alert("Couldn't start the expedition (server error). Please try again.");
+                data = await r.json();
+            } catch {
+                return alert("Couldn't reach the expedition server. Please try again.");
+            }
+            token = typeof data?.token === "string" ? data.token : undefined;
+            // No token AND not the daily-cap path means an unexpected response —
+            // don't burn an expedition that should have earned rewards.
+            if (!token && data?.reason !== "daily-mint-cap") {
+                return alert("Couldn't start the expedition. Please try again.");
+            }
+        }
+
         updateCharacter({
             ...character,
             activePetId: character.activePetId === selectedPet.id ? undefined : character.activePetId,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs } } : p),
+            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
         });
         alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
     }
@@ -9889,6 +9919,9 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                     durationMinutes: minutes,
                     expType,
                     petLevel: selectedPet.level,
+                    // Single-use token minted at launch; the server requires it
+                    // (and that the run has fully elapsed) before paying out.
+                    expeditionToken: selectedPet.expedition?.token,
                 }),
             }).then(r => r.ok ? r.json() : null).then(data => {
                 if (!data) return;
