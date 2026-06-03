@@ -10,6 +10,10 @@
  *   the /api prefix before it reaches the Node process.
  */
 
+// Must be first: pins outbound connections to IPv4 when FORCE_IPV4=1 (Railway).
+// No-op on cPanel (gated on the env var) so it never clobbers app.js's dispatcher.
+import './api/_force-ipv4.js';
+
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
