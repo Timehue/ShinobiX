@@ -18,12 +18,18 @@ WORKDIR /app
 # Install API/server dependencies first for better layer caching.
 # There is no committed package-lock.json (it's .gitignored), so use
 # `npm install` rather than `npm ci`.
+#
+# IMPORTANT: Railway (and most PaaS) set NODE_ENV=production during the build,
+# which makes npm OMIT devDependencies. But the build toolchain — typescript/tsc,
+# vite, sharp — lives in devDependencies, so we must force them in with
+# `--include=dev` or the build dies at `tsc: not found`.
 COPY package.json ./
-RUN npm install
+RUN npm install --include=dev
 
-# Install client dependencies.
+# Install client dependencies (vite, typescript, sharp are devDependencies too —
+# same --include=dev requirement as above).
 COPY shinobij.client/package.json ./shinobij.client/
-RUN cd shinobij.client && npm install
+RUN cd shinobij.client && npm install --include=dev
 
 # Copy the rest of the source. node_modules and the committed dist/ are excluded
 # via .dockerignore, so the installs above are preserved and the build is fresh.
