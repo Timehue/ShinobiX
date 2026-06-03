@@ -62,7 +62,8 @@ export type Screen =
     | "endlessTower"
     | "weeklyBoss"
     | "villageWar"
-    | "tilecardsDuel";
+    | "tilecardsDuel"
+    | "messages";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";
 export type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";

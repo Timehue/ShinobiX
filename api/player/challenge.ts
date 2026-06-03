@@ -168,8 +168,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
         if (!record.accepted && !record.declined && !record.battleId) {
-            const reason = challengeBlock(onlineStore.get(targetName));
-            if (reason) return res.status(409).json({ error: reason });
+            // Presence is in process memory; challengeBlock carries the
+            // traveling / in-battle / engaged gates AND the Academy-Student
+            // protection (sub-Genin can't be challenged). An OFFLINE target is
+            // NOT blocked — the challenge is queued in their inbox for later.
+            const block = challengeBlock(onlineStore.get(targetName));
+            if (block) return res.status(block.status).json({ error: block.error });
         }
 
         if (record.accepted || record.declined) {
