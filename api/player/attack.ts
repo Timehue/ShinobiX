@@ -4,6 +4,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { attackBlock } from '../_realtime/presence-gating.js';
+import { kickPlayer } from '../_realtime/notify.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -48,6 +49,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const block = attackBlock(onlineStore.get(targetName));
         if (block) return res.status(block.status).json({ error: block.error });
         onlineStore.setPendingAttacker(targetName, attacker ?? null);
+        // Instant delivery: nudge the target to run an immediate heartbeat (which
+        // is the authoritative path that reads + clears pendingAttacker). No-op if
+        // the target has no socket / realtime is off — the poll still delivers it.
+        kickPlayer(targetName, 'attack');
         return res.status(200).json({ ok: true });
     } catch (err) {
         console.error('[attack]', err);
