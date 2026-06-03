@@ -23,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-        return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in Vercel environment variables.' });
+        return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in the server environment variables.' });
     }
 
     try {
