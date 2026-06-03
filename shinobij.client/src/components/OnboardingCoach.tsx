@@ -14,6 +14,7 @@
  * dependency.
  */
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { Character, Screen } from "../App";
 
 const MENU_TOUR: { icon: string; name: string; blurb: string }[] = [
@@ -84,7 +85,7 @@ export function OnboardingCoach({
     const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
 
     if (step === "tour") {
-        return (
+        return createPortal(
             <div style={overlayStyle}>
                 <div className="card" style={cardStyle}>
                     <h2 style={{ marginTop: 0 }}>Welcome, {character.name}!</h2>
@@ -108,31 +109,34 @@ export function OnboardingCoach({
                         Skip tutorial
                     </button>
                 </div>
-            </div>
+            </div>,
+            document.body,
         );
     }
 
     if (step === "training") {
-        return (
+        return createPortal(
             <div style={bannerStyle}>
                 <span>📍 <strong>Tutorial:</strong> pick a stat and a timer, then start your first training.</span>
                 {screen !== "training" && (
                     <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Stat Training</button>
                 )}
                 <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>
+            </div>,
+            document.body,
         );
     }
 
     if (step === "jutsu") {
-        return (
+        return createPortal(
             <div style={bannerStyle}>
                 <span>📍 <strong>Tutorial:</strong> unlock your first jutsu — it's free. Pick one and press Unlock.</span>
                 {screen !== "jutsuTraining" && (
                     <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>
                 )}
                 <button style={skipStyle} onClick={skip}>Skip</button>
-            </div>
+            </div>,
+            document.body,
         );
     }
 
