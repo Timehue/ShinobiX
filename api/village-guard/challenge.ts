@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { stripNonCombatFields } from '../pvp/session.js';
+import { kickPlayer } from '../_realtime/notify.js';
 
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number; defenseBonusPercent?: number };
 
@@ -102,6 +103,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const existing = await kv.get<unknown[]>(challengeKey) ?? [];
                 await kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
             });
+
+            // Instant delivery: nudge the guard to run an immediate heartbeat —
+            // same one-shot "poll now" kick the player attack/challenge paths use.
+            // The Supabase Realtime challenges:* subscription also pushes this, but
+            // the kick removes any reliance on that being configured, which matters
+            // now the queued-guard heartbeat is 20s while the socket is connected.
+            kickPlayer(guard.name, 'challenge');
         }
 
         // Project the guard down to the combat-safe field set before returning
