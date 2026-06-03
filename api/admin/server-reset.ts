@@ -59,6 +59,19 @@ const WIPE_PATTERNS = [
     // every game:village-state:* clear. (This is what kept a stale Kage
     // seated through a server reset.)
     'village:kage:*',
+
+    // ── Per-player ephemeral state added since this list was first written.
+    // All are TTL-backed (self-expire), but a full reset should zero them
+    // immediately so a wiped player starts truly clean. These are dedup /
+    // counter / transient keys — NOT admin content (which lives under
+    // save:admin* / shared:* / admin:*, none of which is touched here).
+    'missions:daily:*',             // per-player daily mission progress
+    'missions:raid-reported:*',     // per-player village-raid report dedup
+    'pet:reported:*',               // per-player pet-battle anti-replay dedup
+    'raid-token:*',                 // per-player raid anti-replay tokens
+    'raid-report-count:*',          // per-player daily raid-report counters
+    'raid-start-count:*',           // per-player daily raid-start counters
+    'chat:battle:*',                // transient PvP battle chat logs
 ];
 
 // Villages with NPC Kage + 3 Elders configured on the Village Leaders admin tab.
