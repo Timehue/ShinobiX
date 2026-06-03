@@ -1,0 +1,2 @@
+[build]
+installCommand = "npm install && cd shinobij.client && npm install"
