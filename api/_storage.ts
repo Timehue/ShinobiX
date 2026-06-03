@@ -403,12 +403,18 @@ const supabaseKv = {
 //
 // Routing rule: a key matches DISK when its prefix is one of:
 //   save:                 — player save blobs
+//   save-snapshot:        — daily/manual backup copies of those saves (full
+//                           blobs, 90-day TTL). Kept on the same free cPanel
+//                           disk as the live saves they copy, so backups don't
+//                           pile up on Supabase. NOTE: 'save:' does NOT match
+//                           'save-snapshot:' (5th char ':' vs '-'), so this
+//                           prefix is required explicitly.
 //   shared:images*        — uploaded image blobs (incl. bloodline images)
 //   shared:imgfields*     — uploaded image hash fields
 //
 // All other keys keep using pgKv / supabaseKv as before.
 
-const _DISK_PREFIXES = ['save:', 'shared:images', 'shared:imgfields'] as const;
+const _DISK_PREFIXES = ['save:', 'save-snapshot:', 'shared:images', 'shared:imgfields'] as const;
 function _routesToDisk(keyOrPattern: string): boolean {
     return _DISK_PREFIXES.some((p) => keyOrPattern.startsWith(p));
 }
