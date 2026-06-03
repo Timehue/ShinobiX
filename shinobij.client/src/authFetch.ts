@@ -65,6 +65,20 @@ function getActivePassword(): string | null {
     }
 }
 
+/**
+ * Remove the persisted plaintext password from BOTH stores. Called the moment a
+ * session token becomes available — the token supersedes the password as the
+ * credential, so the reusable plaintext should not linger (audit M5).
+ */
+function clearPersistedPassword(): void {
+    try {
+        sessionStorage.removeItem(ACTIVE_PASSWORD_KEY);
+        localStorage.removeItem(ACTIVE_PASSWORD_LS_KEY);
+    } catch {
+        /* storage disabled — ignore */
+    }
+}
+
 function getActiveToken(): string | null {
     try {
         return sessionStorage.getItem(ACTIVE_TOKEN_KEY)
@@ -87,6 +101,11 @@ export function setActiveToken(token: string | null): void {
         }
         sessionStorage.setItem(ACTIVE_TOKEN_KEY, token);
         localStorage.setItem(ACTIVE_TOKEN_LS_KEY, token);
+        // M5: the token is now the durable credential — drop the reusable
+        // plaintext password from storage. Cleared only AFTER the token is
+        // safely stored above, so a storage failure can never strand us with
+        // neither credential.
+        clearPersistedPassword();
     } catch {
         /* storage disabled — ignore */
     }
@@ -138,8 +157,17 @@ export function setActivePlayer(name: string | null, password?: string | null): 
         sessionStorage.setItem(ACTIVE_PLAYER_KEY, name);
         localStorage.setItem(ACTIVE_PLAYER_LS_KEY, name);
         if (password !== undefined && password !== null) {
-            sessionStorage.setItem(ACTIVE_PASSWORD_KEY, password);
-            localStorage.setItem(ACTIVE_PASSWORD_LS_KEY, password);
+            // M5: token-first. If the server is issuing session tokens, the token
+            // is the credential and we do NOT persist the reusable plaintext
+            // password. Only fall back to persisting it when no token exists
+            // (server has SESSION_SECRET unset) — otherwise later requests would
+            // have nothing to authenticate with.
+            if (getActiveToken()) {
+                clearPersistedPassword();
+            } else {
+                sessionStorage.setItem(ACTIVE_PASSWORD_KEY, password);
+                localStorage.setItem(ACTIVE_PASSWORD_LS_KEY, password);
+            }
         }
     } catch {
         /* storage disabled — ignore */

@@ -1,9 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { attackBlock } from '../_realtime/presence-gating.js';
 
@@ -40,16 +38,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Lock the target's presence row around the check-and-write so a
-        // concurrent heartbeat from the target doesn't get clobbered by our
-        // pendingAttacker stamp (and vice versa). The previous code spread
-        // a stale `target` snapshot into the write, which could revert a
-        // freshly-changed sector or battle flag.
         // Presence is in process memory; get → check → set runs synchronously on
         // Node's single thread (no await gap for a concurrent heartbeat to
         // interleave), so no lock is needed. setPendingAttacker does NOT bump the
         // target's lastSeen — the same "can't be perpetually refreshed" property
-        // the old `ex: 60` re-stamp guaranteed.
+        // the old `ex: 60` re-stamp guaranteed. attackBlock carries the offline
+        // (404), Academy-protection (403 for sub-Genin), and traveling / engaged
+        // / in-battle (409) gates.
         const block = attackBlock(onlineStore.get(targetName));
         if (block) return res.status(block.status).json({ error: block.error });
         onlineStore.setPendingAttacker(targetName, attacker ?? null);

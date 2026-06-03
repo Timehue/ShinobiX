@@ -6,6 +6,7 @@ import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
+import { useBoardScale } from "./lib/use-board-scale";
 import {
     percentageTags,
     cappedDamageTags,
@@ -204,6 +205,7 @@ import { JutsuEffectCards } from "./components/JutsuEffectCards";
 import { AiImagePrompt } from "./components/AiImagePrompt";
 import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
 import { TagPicker } from "./components/TagPicker";
+import { OnboardingCoach } from "./components/OnboardingCoach";
 import { Village } from "./screens/Village";
 import { ProfessionRankBar } from "./screens/ProfessionRankBar";
 
@@ -478,6 +480,7 @@ import {
 // All-users directory screen moved to ./screens/UserHub. Lazy-loaded — accessed
 // from the Central Hub menu, not on first paint.
 const UserHub = lazy(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
+const Messages = lazy(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 // Read-only profile screen for viewing other players moved to ./screens/UserView.
 // Lazy-loaded — only mounts when the player clicks into another player's profile.
 const UserView = lazy(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
@@ -905,7 +908,12 @@ export type CreatorEvent = {
 // moved to ./types/missions and imported back near the top of this file.
 
 type PlayerAccountSave = {
+    // Legacy: plaintext password (no-token deployments only). Token-issuing
+    // servers store `token` instead and never persist this (audit M5).
     password?: string;
+    // Per-account session token (24h). Present once the account has logged into
+    // a token-issuing server; supersedes `password`.
+    token?: string;
     snapshot?: {
         character: Character;
         currentBiome: Biome;
@@ -1212,7 +1220,7 @@ function normalizePet(pet: Pet): Pet {
         unlockedForPve: Boolean(merged.unlockedForPve || Math.floor(merged.level ?? 1) >= 50),
         happiness: petHappiness(merged),
         expedition: merged.expedition
-            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000) }
+            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000), token: typeof merged.expedition.token === "string" ? merged.expedition.token : undefined }
             : undefined,
     });
 }
@@ -2314,6 +2322,13 @@ function getCurrentStory(character: Character) {
 }
 
 export function createCharacter(name: string, village: string, specialty: JutsuType, bloodline: string): Character {
+    // New shinobi auto-learn their chosen bloodline's jutsu (mastery level 1) so
+    // they spawn combat-ready instead of with an empty loadout. The universal
+    // "Flicker" is intentionally NOT seeded here — the guided first-session
+    // sequence has the player free-unlock it (the "first jutsu is free" beat).
+    const starterBloodlineName = bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : bloodline;
+    const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
+    const bloodlineJutsuIds = starterBloodline ? starterBloodline.jutsus.map((j) => j.id) : [];
     return {
         name,
         village,
@@ -2340,12 +2355,13 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         stamina: maxStaminaForLevel(1),
         maxStamina: maxStaminaForLevel(1),
         rankTitle: "Academy Student",
+        onboardingStep: "tour",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
-        equippedJutsuIds: [],
+        equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
         inventory: ["rustfang-kunai", "shinobi-vest"],
         equipment: {},
-        jutsuMastery: [],
+        jutsuMastery: bloodlineJutsuIds.map((id) => ({ jutsuId: id, level: 1, xp: 0 })),
         pets: [],
         activePetId: undefined,
         boneCharms: 0,
@@ -3035,6 +3051,20 @@ export default function App() {
     const LAST_SCREEN_KEY = "lastScreen.v1";
     useEffect(() => {
         try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
+    }, [screen]);
+    // ── Shareable URL hash ──────────────────────────────────────────────
+    // Reflect the active screen in the URL (e.g. #/village) so links are
+    // visible, bookmarkable, and shareable. replaceState only — no new history
+    // entries and no popstate — so it never conflicts with the localStorage
+    // restore or the mobile back-stack. We deliberately skip the "start" (login)
+    // screen so a bookmarked deep-link hash isn't wiped before the post-login
+    // restore can read it.
+    useEffect(() => {
+        if (screen === "start") return;
+        try {
+            const want = `#/${screen}`;
+            if (window.location.hash !== want) window.history.replaceState(null, "", want);
+        } catch { /* sandboxed / SSR */ }
     }, [screen]);
     // ── PvP session persistence ─────────────────────────────────────────
     // PvP keys are declared / used here, but the useEffect that consumes
@@ -4490,7 +4520,13 @@ export default function App() {
                     return;
                 }
                 try {
-                    const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
+                    // A bookmarked/shared URL hash (#/village) takes precedence
+                    // over the last-visited screen — but only for deep-linkable
+                    // hub screens; mid-encounter screens fall back to localStorage
+                    // and the safe-screen routing below.
+                    const DEEP_LINKABLE = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                    const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
+                    const persisted = (DEEP_LINKABLE.has(hashRaw) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                         // Mid-encounter screens that can't resume from
@@ -4562,7 +4598,11 @@ export default function App() {
             // getActivePlayer/Password already read from localStorage via the fallback,
             // but we call setActivePlayer here to populate sessionStorage for the session.
             const persistedPw = localStorage.getItem('shinobix:activePasswordPersist');
-            if (persistedPw) setActivePlayer(localAccountName, persistedPw);
+            // Token-first (M5): when a session token is persisted (localStorage),
+            // auth rides on it and no password is stored — this call just re-syncs
+            // the name into sessionStorage. When no token exists (legacy / no-token
+            // server) the persisted password is restored as the credential.
+            setActivePlayer(localAccountName, persistedPw ?? undefined);
 
             pullSaveFromServer(localAccountName).then((snap) => {
                 if (snap) applySnapshot(snap);
@@ -5498,6 +5538,7 @@ export default function App() {
 
     async function createPlayerAccount(newCharacter: Character, password: string) {
         const key = accountKey(newCharacter.name);
+        let regToken: string | undefined;
         try {
             const authRes = await fetch('/api/player-auth', {
                 method: 'POST',
@@ -5515,14 +5556,20 @@ export default function App() {
             // Capture the session token from registration so the first
             // requests use the cheap HMAC path right away.
             const regData = await authRes.json().catch(() => null) as { token?: string } | null;
-            if (regData?.token) setActiveToken(regData.token);
+            regToken = regData?.token ?? undefined;
+            if (regToken) setActiveToken(regToken);
         } catch {
             alert("Could not reach the server to create the account. Check your connection and try again.");
             return;
         }
 
         const accounts = loadPlayerAccounts();
-        accounts[key] = { ...(accounts[key] ?? {}), password };
+        // M5: on a token-issuing server, store the per-account token and DROP the
+        // plaintext password. Only persist the password when no token was issued
+        // (SESSION_SECRET unset), since then it's the only credential available.
+        accounts[key] = regToken
+            ? { ...(accounts[key] ?? {}), token: regToken, password: undefined }
+            : { ...(accounts[key] ?? {}), password };
         savePlayerAccounts(accounts);
         // Pass the password so the global authFetch interceptor can attach
         // x-player-name / x-player-password to every /api/ request from now on.
@@ -5653,7 +5700,22 @@ export default function App() {
                     authVerified = true;
                     // Store the session token so every later /api/ request uses
                     // the cheap HMAC path instead of re-running scrypt server-side.
-                    if (authData.ok && authData.token) setActiveToken(authData.token);
+                    if (authData.ok && authData.token) {
+                        setActiveToken(authData.token);
+                        // M5: migrate this account to token-only — drop any
+                        // previously-persisted plaintext password from the blob.
+                        // (Only runs on a successful ONLINE login; the offline
+                        // fallback below never reaches here, so it keeps its
+                        // password until the next successful online login.)
+                        const mk = accountKey(name);
+                        if (mk) {
+                            const maccs = loadPlayerAccounts();
+                            if (maccs[mk]) {
+                                maccs[mk] = { ...maccs[mk], token: authData.token, password: undefined };
+                                savePlayerAccounts(maccs);
+                            }
+                        }
+                    }
                 } else {
                     // Non-retriable HTTP error — stop
                     authVerified = true;
@@ -5786,6 +5848,9 @@ export default function App() {
         savePlayerAccounts(accounts);
         setCharacter(null);
         setCurrentAccountName("");
+        // Account deleted — also wipe the persisted password + session token
+        // (same credential-clear as logoutPlayer; the account no longer exists).
+        setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
         setAcceptedMissionIds([]);
@@ -5805,6 +5870,11 @@ export default function App() {
         }
         setCharacter(null);
         setCurrentAccountName("");
+        // Clear the persisted player password + session token from local/session
+        // storage on logout. Without this they survive logout (the sync effect
+        // only ever passes "" — never null — so it never triggers the clear),
+        // leaving a reusable plaintext password readable on a shared machine.
+        setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
         setAcceptedMissionIds([]);
@@ -8728,6 +8798,22 @@ export default function App() {
                     />
                 )}
 
+                {character
+                    && character.onboardingStep
+                    && character.onboardingStep !== "done"
+                    && screen !== "villageLore"
+                    && character.name !== "Admin 1"
+                    && character.name !== "Admin 2"
+                    && (
+                    <OnboardingCoach
+                        character={character}
+                        screen={screen}
+                        activeTraining={activeTraining}
+                        setScreen={navigate}
+                        updateCharacter={setCharacter}
+                    />
+                )}
+
                 {!activeTriggeredEvent && screen === "village" && character && (
                     <Village
                         characterVillage={character.village}
@@ -9029,6 +9115,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
@@ -9747,17 +9834,47 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         });
     }
 
-    function startExpedition() {
+    async function startExpedition() {
         if (!selectedPet) return;
         if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         const option = petExpeditionOptions.find(entry => entry.type === expeditionType) ?? petExpeditionOptions[0];
+
+        // Pet Tamers mint a single-use server token at launch — the ONLY way to
+        // earn expedition Ryo/drops/Tamer XP on collect (server requires it; no
+        // fallback). Non-Tamers run expeditions for pet XP/stats only and need
+        // no token. On a genuine server/network failure we block (don't waste an
+        // expedition that would have earned currency). Past the daily reward cap
+        // the trip still runs for pet XP/stats with no token — the same 12/day
+        // currency ceiling as before, so no blocking prompt is needed.
+        let token: string | undefined;
+        if (character.profession === "petTamer") {
+            let data: { token?: string; reason?: string } | null;
+            try {
+                const r = await fetch('/api/missions/expedition-start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, expType: option.type, petLevel: selectedPet.level }),
+                });
+                if (!r.ok) return alert("Couldn't start the expedition (server error). Please try again.");
+                data = await r.json();
+            } catch {
+                return alert("Couldn't reach the expedition server. Please try again.");
+            }
+            token = typeof data?.token === "string" ? data.token : undefined;
+            // No token AND not the daily-cap path means an unexpected response —
+            // don't burn an expedition that should have earned rewards.
+            if (!token && data?.reason !== "daily-mint-cap") {
+                return alert("Couldn't start the expedition. Please try again.");
+            }
+        }
+
         updateCharacter({
             ...character,
             activePetId: character.activePetId === selectedPet.id ? undefined : character.activePetId,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs } } : p),
+            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
         });
         alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
     }
@@ -9833,6 +9950,9 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                     durationMinutes: minutes,
                     expType,
                     petLevel: selectedPet.level,
+                    // Single-use token minted at launch; the server requires it
+                    // (and that the run has fully elapsed) before paying out.
+                    expeditionToken: selectedPet.expedition?.token,
                 }),
             }).then(r => r.ok ? r.json() : null).then(data => {
                 if (!data) return;
@@ -25653,6 +25773,9 @@ function Logbook({
     setCurrentWeather: (weather: WeatherType) => void;
     setScreen: (screen: Screen) => void;
 }) {
+    // Rank-up ceremony: set to the exam title when a promotion is claimed, so we
+    // celebrate with a modal instead of a bare alert().
+    const [ceremonyTitle, setCeremonyTitle] = useState<string | null>(null);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const ownedElements = getCharacterElements(character);
     const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
@@ -25688,10 +25811,11 @@ function Logbook({
             unlockLevel: 11,
             requirements: [
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
-                { label: "Train 1000 stats", progress: statsTrained, target: 1000 },
+                { label: "Train 400 stats", progress: statsTrained, target: 400 },
                 { label: "Complete 20 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 20 },
                 { label: "Kill 20 AI", progress: character.totalAiKills ?? 0, target: 20 },
                 { label: "Explore 50 tiles", progress: character.totalTilesExplored ?? 0, target: 50 },
+                { label: "Sharpen a jutsu to Lv 3", progress: Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level))), target: 3, detail: "Use a jutsu in battle to level it" },
             ],
         } : null,
         character.level >= 21 ? {
@@ -25731,6 +25855,27 @@ function Logbook({
         };})() : null,
     ];
     const examMissions = maybeExamMissions.filter((mission): mission is ExamLogbookMission => mission !== null);
+
+    // Academy Training checklist — the level 1-14 onboarding guidance that fills
+    // the gap before the first rank exam (Genin) appears. Soft, teach-by-doing
+    // goals that each read an existing counter; hidden once claimed or once the
+    // player outgrows Academy rank. Same row format as the exams.
+    const highestJutsuMastery = Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level)));
+    const academyChecklist: { title: string; requirements: ExamRequirement[] } | null =
+        (!character.academyChecklistClaimed && rankFromLevel(character.level) === "Academy Student")
+            ? {
+                title: "Academy Training",
+                requirements: [
+                    { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2" },
+                    { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu" },
+                    { label: "Win your first battle", progress: character.totalAiKills ?? 0, target: 1, detail: "Fight in the Arena or a hunt" },
+                    { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds" },
+                    { label: "Complete your first mission", progress: character.totalMissionsCompleted ?? 0, target: 1, detail: "Accept a D-rank mission below" },
+                    { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it" },
+                ],
+            }
+            : null;
+    const academyComplete = academyChecklist ? academyChecklist.requirements.every((r) => r.progress >= r.target) : false;
 
     function claimMission(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
@@ -25835,7 +25980,31 @@ function Logbook({
     return (
         <div className="card logbook-screen">
             <h2>Logbook</h2>
+            {ceremonyTitle && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9000, padding: 16 }}>
+                    <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
+                        <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
+                        <h2 style={{ marginTop: 0 }}>{ceremonyTitle} Passed!</h2>
+                        <p>Congratulations, {character.name} — you've been promoted. Your level cap is lifted and new content awaits.</p>
+                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremonyTitle(null)}>Continue →</button>
+                    </div>
+                </div>
+            )}
             <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
+            {academyChecklist && (
+                <>
+                    <h3>Academy Training</h3>
+                    <section className="summary-box mission-board-section">
+                        <p className="hint">New shinobi: complete these to prepare for the Genin Exam.</p>
+                        <div className="location-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
+                        {academyComplete && (
+                            <div className="menu">
+                                <button onClick={() => updateCharacter({ ...character, academyChecklistClaimed: true })}>Claim Academy Reward</button>
+                            </div>
+                        )}
+                    </section>
+                </>
+            )}
             {examMissions.length > 0 && (
                 <>
                     <h3>Rank Exams</h3>
@@ -25853,7 +26022,7 @@ function Logbook({
                                 {!passed && <div className="menu">
                                     <button disabled={!complete} onClick={() => {
                                         updateCharacter({ ...character, examsPassed: [...(character.examsPassed ?? []), exam.examKey] });
-                                        alert(`${exam.title} passed! You have been promoted. Level cap removed.`);
+                                        setCeremonyTitle(exam.title);
                                     }}>{complete ? `Pass ${exam.title}` : "Requirements Incomplete"}</button>
                                 </div>}
                             </section>
@@ -27108,62 +27277,10 @@ function Arena({
     const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
     const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
 
-    // Callback ref — fires whenever the hex-battlefield element mounts or unmounts.
-    // This ensures the ResizeObserver is always attached even when the element first
-    // renders mid-session (e.g. after the lobby?battle transition or prefight countdown).
-    const battlefieldRef = useRef<HTMLDivElement | null>(null);
-    const [boardScale, setBoardScale] = useState(1);
-    // Container dimensions stored in state so the JSX centering math is always
-    // in sync with the scale that was computed from the same measurement.
-    const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
-    // User-controlled zoom offset on top of the auto scale (mobile slider)
-    const [userScaleOffset, setUserScaleOffset] = useState(0);
-
-    const battlefieldCallbackRef = useCallback((el: HTMLDivElement | null) => {
-        battlefieldRef.current = el;
-
-        // Clean up any previous observer stored on the element
-        if ((el as (HTMLDivElement & { _roCleanup?: () => void }) | null)?._roCleanup) {
-            (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup!();
-        }
-
-        if (!el) return;
-
-        function updateBoardScale() {
-            if (!el) return;
-            const cw = el.clientWidth;
-            const ch = el.clientHeight;
-            const isMobileNarrow = cw < 600;
-            const edgeBuffer = 0;
-            const availableW = Math.max(1, cw - edgeBuffer * 2);
-            const availableH = Math.max(1, ch - edgeBuffer * 2);
-
-            // Fit-to-container with NO upper cap so the grid scales UP to fill a
-            // wide/tall board. Was Math.min(1, …), which pinned the grid to its
-            // intrinsic px size and left it floating small on widescreen. Using
-            // min() of the two fit ratios guarantees scaledW≤cw and scaledH≤ch,
-            // so the centering math below stays valid and never clips.
-            const nextScale = Math.min(availableW / GRID_LAYER_W, availableH / GRID_LAYER_H);
-            const minScale = isMobileNarrow ? 0.15 : 0.45;
-            const clamped = Math.max(minScale, Number(nextScale.toFixed(3)));
-            setBoardScale(clamped);
-            setBoardContainerSize({ w: cw, h: ch });
-        }
-
-        updateBoardScale();
-
-        const observer = new ResizeObserver(updateBoardScale);
-        observer.observe(el);
-        window.addEventListener("resize", updateBoardScale);
-
-        const cleanup = () => {
-            observer.disconnect();
-            window.removeEventListener("resize", updateBoardScale);
-        };
-        (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
-    }, [GRID_LAYER_W, GRID_LAYER_H]);
-    // Clamp effective scale between 0.15 and 1.5
-    const effectiveScale = Math.max(0.15, Math.min(2.5, boardScale + userScaleOffset));
+    // Auto-fit board scale + manual zoom — shared with the live-PvP battle via
+    // the useBoardScale hook (this logic was previously duplicated inline in
+    // both battle components, which is how the grid-scaling bug existed twice).
+    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
 
     // Keep stable refs in sync with the latest arena function versions every render.
     // Timer callbacks read these so they always call fresh closures.
@@ -31339,9 +31456,8 @@ function PvpBattleScreen({
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
-    const [boardScale, setBoardScale] = useState(1);
-    const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
-    const [userScaleOffset, setUserScaleOffset] = useState(0);
+    // Auto-fit board scale + manual zoom — shared hook (see lib/use-board-scale).
+    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
     const [pvpRoundTimer, setPvpRoundTimer] = useState(45);
     const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
     // When the round timer hits 0 we queue an auto-wait. If the player has
@@ -31361,7 +31477,6 @@ function PvpBattleScreen({
     // this on Realtime status callbacks and SSE error/open events.
     const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
-    const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
     // Battle-log round accordion overrides (default-open = latest two rounds).
     const [logRoundOverrides, setLogRoundOverrides] = useState<Record<number, boolean>>({});
@@ -31399,33 +31514,8 @@ function PvpBattleScreen({
         };
     }
 
-    // ResizeObserver — exact match to arena pattern
-    const battlefieldCallbackRef = useCallback((el: HTMLDivElement | null) => {
-        battlefieldRef.current = el;
-        if ((el as (HTMLDivElement & { _roCleanup?: () => void }) | null)?._roCleanup) {
-            (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup!();
-        }
-        if (!el) return;
-        function updateScale() {
-            if (!el) return;
-            const cw = el.clientWidth;
-            const ch = el.clientHeight;
-            const isMobileNarrow = cw < 600;
-            // Fit-to-container with NO upper cap (see arena path for rationale) —
-            // lets the grid scale up to fill the board instead of floating small.
-            const nextScale = Math.min(cw / GRID_LAYER_W, ch / GRID_LAYER_H);
-            const minScale = isMobileNarrow ? 0.15 : 0.45;
-            setBoardScale(Math.max(minScale, Number(nextScale.toFixed(3))));
-            setBoardContainerSize({ w: cw, h: ch });
-        }
-        updateScale();
-        const observer = new ResizeObserver(updateScale);
-        observer.observe(el);
-        window.addEventListener("resize", updateScale);
-        const cleanup = () => { observer.disconnect(); window.removeEventListener("resize", updateScale); };
-        (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
-    }, []);  
-    const effectiveScale = Math.max(0.15, Math.min(2.5, boardScale + userScaleOffset));
+    // Board scale, zoom, and the battlefield callback-ref are now provided by
+    // the shared useBoardScale hook destructured above.
 
     useEffect(() => {
         let active = true;

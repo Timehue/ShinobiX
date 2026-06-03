@@ -104,6 +104,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const saveKeys = await kv.keys(`${SAVE_PREFIX}*`);
+        // Alarm on an empty keyspace. On Vercel the live saves live on the disk
+        // overlay reached via KV_PROXY_URL / KV_PROXY_TOKEN; if those env vars
+        // are missing, `kv.keys('save:*')` hits the (empty) base store and this
+        // cron would silently "succeed" while snapshotting ZERO players —
+        // exactly when you'd most want a backup. Fail loudly (non-2xx so Vercel
+        // surfaces it as a failed cron) instead of masquerading as healthy. No
+        // writes happen before this point, so the early return is side-effect free.
+        if (saveKeys.length === 0) {
+            console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — KV overlay/proxy likely misconfigured (check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
+            return res.status(500).json({
+                ok: false,
+                error: 'No save rows found — refusing to report a healthy backup. Check KV_PROXY_URL / KV_PROXY_TOKEN on this deployment.',
+                snapshotted: 0,
+                total: 0,
+            });
+        }
         // Filter out admin saves — they don't represent player progress and
         // bloat the snapshot table. Admin accounts (`save:Admin*`, `save:Rill`)
         // store content authoring data which has its own backups.
@@ -138,11 +154,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const elapsed = Date.now() - startedAt;
         const truncated = result.processed < result.total;
-        return res.status(200).json({
-            ok: true,
+        // Backup-health alarm: we had players to snapshot but wrote none and at
+        // least one failed — i.e. the snapshot store is rejecting writes. (All-
+        // skipped is normal: it just means every player already has a recent
+        // snapshot via the dedup window, so we don't alarm on that.)
+        const writeOutage = result.snapshotted === 0 && result.failed.length > 0;
+        if (writeOutage) {
+            console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
+        }
+        return res.status(writeOutage ? 500 : 200).json({
+            ok: !writeOutage,
             ...result,
             elapsedMs: elapsed,
             truncated,
+            warning: writeOutage
+                ? 'Every snapshot write failed — the snapshot store may be unavailable. No player was backed up this run.'
+                : undefined,
             note: truncated
                 ? 'Hit runtime deadline before processing all players. The next cron firing will pick up the rest (dedup window prevents double-snapshots).'
                 : undefined,
