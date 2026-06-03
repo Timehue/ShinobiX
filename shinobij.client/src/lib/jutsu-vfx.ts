@@ -173,21 +173,25 @@ export function petFxSpriteKey(input: {
     actionKind?: string;
     vfxKey?: PetVfxKey;
     signature?: boolean;
+    /** Apex-tier (mythic) signature → the over-the-top `power` burst. */
+    flagship?: boolean;
     element?: string | null;
     isKO?: boolean;
 }): FxSpritePick {
-    const { beat, actionKind: ak, vfxKey: vk, signature, isKO } = input;
+    const { beat, actionKind: ak, vfxKey: vk, signature, flagship, isKO } = input;
     const el = String(input.element ?? "").toLowerCase();
     const isHitBeat = beat === "impact" || beat === "beam";
 
     // KO finisher — the loudest beat, regardless of element.
     if (isKO && isHitBeat) return { key: "kaboom", variant: "fx-signature" };
 
-    // Signature unleash — its own marquee tier (charge wind-up on caster, then an
-    // element-heavy flagship hit).
+    // Signature unleash — its own marquee tier (charge wind-up on caster, then a
+    // flagship hit). An apex (mythic) signature detonates the `power` burst; lower
+    // tiers get an element-heavy hit.
     if (signature) {
         if (beat === "charge") return { key: "charge", variant: "fx-signature" };
         if (isHitBeat) {
+            if (flagship) return { key: "power", variant: "fx-signature" };
             const k =
                 el === "fire" ? "kaboom" :
                 el === "water" ? "explosion" :
