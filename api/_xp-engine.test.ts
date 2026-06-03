@@ -14,7 +14,7 @@ import {
 // sweep below. If the client formula changes, BOTH this replica and the port
 // must change in lockstep — that's the point (the "server == client" rule).
 
-const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 45;
+const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 3;
 const C_HP_CAP = 10000, C_CHAKRA_CAP = 5000, C_STAMINA_CAP = 5000;
 const C_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -100,14 +100,14 @@ describe('xp-engine sub-formulas match the client', () => {
             assert.equal(rankFromLevel(lvl), cRankFrom(lvl), `rankFromLevel(${lvl})`);
         }
     });
-    it('effectiveCharacterXpGain applies the ×45 testing mult + elder bonus', () => {
-        assert.equal(CHARACTER_XP_GAIN_MULTIPLIER, 45);
+    it('effectiveCharacterXpGain applies the ×3 boost mult + elder bonus', () => {
+        assert.equal(CHARACTER_XP_GAIN_MULTIPLIER, 3);
         for (const amt of [0, 1, 75, 100, 125, 250]) {
             assert.equal(effectiveCharacterXpGain({}, amt), cEffXp({}, amt), `plain ${amt}`);
             assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, amt), cEffXp({ elderFocus: 'training' }, amt), `training ${amt}`);
         }
-        assert.equal(effectiveCharacterXpGain({}, 100), 4500);
-        assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, 100), 4950);
+        assert.equal(effectiveCharacterXpGain({}, 100), 300);
+        assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, 100), 330);
     });
 });
 
@@ -155,26 +155,26 @@ describe('gainXp golden anchors', () => {
         assert.equal(out.xp, 0);
         assert.equal(out.unspentStats, 20);
     });
-    it('level 1 + 100 base XP (×45 = 4500) climbs to level 10, xp 0', () => {
+    it('level 1 + 100 base XP (×3 = 300) climbs to level 3, xp 0', () => {
         const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
-        assert.equal(out.level, 10);
+        assert.equal(out.level, 3);
         assert.equal(out.xp, 0);
-        assert.equal(out.maxHp, 1000);
-        assert.equal(out.hp, 1000);
-        assert.equal(out.maxChakra, 545);
-        assert.equal(out.maxStamina, 545);
+        assert.equal(out.maxHp, 300);
+        assert.equal(out.hp, 300);
+        assert.equal(out.maxChakra, 198);
+        assert.equal(out.maxStamina, 198);
         assert.equal(out.rankTitle, 'Academy Student');
-        assert.equal(out.unspentStats, 291);
+        assert.equal(out.unspentStats, 38);
     });
     it('exam gate clamps level + XP (no genin exam → cap 20)', () => {
-        const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 100);
+        const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 2000);
         assert.equal(out.level, 20);
         assert.equal(out.xp, 1999); // clamped to xpNeeded(20)-1
         assert.equal(out.rankTitle, 'Genin');
         assert.equal(out.maxHp, 2000);
     });
     it('clamps to MAX_LEVEL and 0 xp at the top', () => {
-        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 1000);
+        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 5000);
         assert.equal(out.level, MAX_LEVEL);
         assert.equal(out.xp, 0);
     });

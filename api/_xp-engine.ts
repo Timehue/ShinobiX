@@ -22,7 +22,7 @@
 export const MAX_LEVEL = 100;
 export const MAX_STAT = 2500;
 export const STARTING_STAT_POINTS = 20;
-export const CHARACTER_XP_GAIN_MULTIPLIER = 45;
+export const CHARACTER_XP_GAIN_MULTIPLIER = 3;
 export const HP_CAP = 10000;
 export const CHAKRA_CAP = 5000;
 export const STAMINA_CAP = 5000;

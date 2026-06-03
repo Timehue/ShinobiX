@@ -2316,6 +2316,13 @@ function getCurrentStory(character: Character) {
 }
 
 export function createCharacter(name: string, village: string, specialty: JutsuType, bloodline: string): Character {
+    // New shinobi auto-learn their chosen bloodline's jutsu (mastery level 1) so
+    // they spawn combat-ready instead of with an empty loadout. The universal
+    // "Flicker" is intentionally NOT seeded here — the guided first-session
+    // sequence has the player free-unlock it (the "first jutsu is free" beat).
+    const starterBloodlineName = bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : bloodline;
+    const starterBloodline = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
+    const bloodlineJutsuIds = starterBloodline ? starterBloodline.jutsus.map((j) => j.id) : [];
     return {
         name,
         village,
@@ -2344,10 +2351,10 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         rankTitle: "Academy Student",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
-        equippedJutsuIds: [],
+        equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
         inventory: ["rustfang-kunai", "shinobi-vest"],
         equipment: {},
-        jutsuMastery: [],
+        jutsuMastery: bloodlineJutsuIds.map((id) => ({ jutsuId: id, level: 1, xp: 0 })),
         pets: [],
         activePetId: undefined,
         boneCharms: 0,
@@ -25711,7 +25718,7 @@ function Logbook({
             unlockLevel: 11,
             requirements: [
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
-                { label: "Train 1000 stats", progress: statsTrained, target: 1000 },
+                { label: "Train 400 stats", progress: statsTrained, target: 400 },
                 { label: "Complete 20 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 20 },
                 { label: "Kill 20 AI", progress: character.totalAiKills ?? 0, target: 20 },
                 { label: "Explore 50 tiles", progress: character.totalTilesExplored ?? 0, target: 50 },
@@ -25754,6 +25761,27 @@ function Logbook({
         };})() : null,
     ];
     const examMissions = maybeExamMissions.filter((mission): mission is ExamLogbookMission => mission !== null);
+
+    // Academy Training checklist — the level 1-14 onboarding guidance that fills
+    // the gap before the first rank exam (Genin) appears. Soft, teach-by-doing
+    // goals that each read an existing counter; hidden once claimed or once the
+    // player outgrows Academy rank. Same row format as the exams.
+    const highestJutsuMastery = Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level)));
+    const academyChecklist: { title: string; requirements: ExamRequirement[] } | null =
+        (!character.academyChecklistClaimed && rankFromLevel(character.level) === "Academy Student")
+            ? {
+                title: "Academy Training",
+                requirements: [
+                    { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2" },
+                    { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu" },
+                    { label: "Win your first battle", progress: character.totalAiKills ?? 0, target: 1, detail: "Fight in the Arena or a hunt" },
+                    { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds" },
+                    { label: "Complete your first mission", progress: character.totalMissionsCompleted ?? 0, target: 1, detail: "Accept a D-rank mission below" },
+                    { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it" },
+                ],
+            }
+            : null;
+    const academyComplete = academyChecklist ? academyChecklist.requirements.every((r) => r.progress >= r.target) : false;
 
     function claimMission(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
@@ -25859,6 +25887,20 @@ function Logbook({
         <div className="card logbook-screen">
             <h2>Logbook</h2>
             <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
+            {academyChecklist && (
+                <>
+                    <h3>Academy Training</h3>
+                    <section className="summary-box mission-board-section">
+                        <p className="hint">New shinobi: complete these to prepare for the Genin Exam.</p>
+                        <div className="location-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
+                        {academyComplete && (
+                            <div className="menu">
+                                <button onClick={() => updateCharacter({ ...character, academyChecklistClaimed: true })}>Claim Academy Reward</button>
+                            </div>
+                        )}
+                    </section>
+                </>
+            )}
             {examMissions.length > 0 && (
                 <>
                     <h3>Rank Exams</h3>
