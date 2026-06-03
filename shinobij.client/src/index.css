@@ -11793,9 +11793,10 @@ button.combat-jutsu-button,
 }
 
 .combat-jutsu-button {
-    height: var(--jutsu-card-h) !important;
+    /* min-height (not a fixed height/max-height) so the card grows to fit its
+       thumb + name + info. A hard height cap here clipped the 2nd name line and
+       the AP/R/CD line on xl/lg — see the per-tier blocks below. */
     min-height: var(--jutsu-card-h) !important;
-    max-height: var(--jutsu-card-h) !important;
     grid-template-rows: minmax(44px, 1fr) auto auto !important;
 }
 
@@ -19574,29 +19575,55 @@ html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small {
     font-size: clamp(10px, 0.65vw, 13px) !important;
 }
 
-/* Jutsu card grid: smaller cards, more columns */
+/* Jutsu cards — roomy enough that names + cost stay readable (matches xxl). */
 html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid {
-    grid-template-columns: repeat(auto-fill, minmax(clamp(80px, 5.5vw, 108px), 1fr)) !important;
-    gap: clamp(4px, 0.45vw, 9px) !important;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(128px, 8vw, 150px), 1fr)) !important;
+    gap: clamp(7px, 0.6vw, 11px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-button {
-    min-height: clamp(82px, 5.7vw, 112px) !important;
-    padding: clamp(3px, 0.3vw, 6px) !important;
-    grid-template-rows: clamp(52px, 3.6vw, 72px) auto auto !important;
-    gap: clamp(1px, 0.18vw, 3px) !important;
+    min-height: clamp(140px, 9.5vw, 165px) !important;
+    padding: clamp(7px, 0.55vw, 10px) !important;
+    grid-template-rows: clamp(82px, 5.4vw, 102px) auto auto !important;
+    gap: clamp(2px, 0.22vw, 4px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-thumb {
-    height: clamp(52px, 3.6vw, 72px) !important;
+    height: clamp(82px, 5.4vw, 102px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-name {
-    font-size: clamp(11px, 0.78vw, 15px) !important;
+    font-size: clamp(13px, 0.82vw, 16px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info {
-    font-size: clamp(10px, 0.65vw, 13px) !important;
+    font-size: clamp(11px, 0.68vw, 13px) !important;
+}
+
+/* Jutsu cards on laptops (1180–1399px) — same clean layout, scaled down a notch
+   so names + the AP/R/CD line don't get clipped. */
+html[data-vp="lg"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)) !important;
+    gap: 8px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 138px !important;
+    padding: 7px !important;
+    grid-template-rows: 76px auto auto !important;
+    gap: 3px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-thumb {
+    height: 76px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-name {
+    font-size: 13px !important;
+}
+
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-info {
+    font-size: 11px !important;
 }
 
 /* Jutsu layout card: tighter, less max-height so it doesn't dominate */
