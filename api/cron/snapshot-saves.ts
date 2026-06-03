@@ -12,20 +12,20 @@ import { isFullAdmin, safeEqual } from '../_auth.js';
  * protect against an undetected wipe (player loses data and only notices
  * a week later, or a buggy admin tool quietly corrupts many saves at once).
  *
- * This cron fills that gap. Once per day Vercel invokes this endpoint;
+ * This cron fills that gap. Once per day the in-process scheduler
+ * (`api/cron/_scheduler.ts`, started by the always-on server) runs this logic;
  * it iterates every `save:*` row in KV and copies each one to a daily
  * snapshot key with a 90-day TTL. With the manual snapshots also under
  * the same prefix, the admin "list" + "restore" actions transparently
  * pick up the daily versions too — no UI change needed.
  *
  * Dedup: skip a player whose most-recent snapshot is younger than
- * SKIP_IF_RECENT_HOURS. Vercel cron firing at 03:00 UTC + a 20h skip
- * window means we get one snapshot per player per day regardless of
- * cron retries / accidental double-firings.
+ * SKIP_IF_RECENT_HOURS. The 03:00 UTC firing + a 20h skip window means we get
+ * one snapshot per player per day regardless of retries / double-firings.
  *
- * Auth: Vercel sets the `x-vercel-cron` header (or sometimes
- * `Authorization: Bearer <CRON_SECRET>`) on cron invocations. We accept
- * either, plus an admin password fallback for manual ops triggering.
+ * Auth: this endpoint stays mounted for manual/admin triggering and still
+ * honors the legacy cron headers — `x-vercel-cron` or
+ * `Authorization: Bearer <CRON_SECRET>` — plus an admin password fallback.
  *
  * Safety: snapshots are READ-ONLY copies — the live `save:<name>` row
  * is never written. If KV is read-only or partially down, the worst

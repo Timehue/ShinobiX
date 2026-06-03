@@ -2,8 +2,10 @@
 
 ShinobiX / "Shinobi Journey" — a shinobi RPG browser game. React 19 + Vite SPA
 frontend, a set of Vercel-style TypeScript serverless handlers for the API, and
-Supabase (Postgres) for storage. The same API runs two ways: as Vercel
-Functions, and as a single Express server for cPanel / Phusion Passenger.
+Supabase (Postgres) for storage. The handlers run under a single Express server
+(`server.ts` → `dist/server.js`) that serves both the API and the SPA on one
+port — deployed on Railway (Docker) and cPanel / Phusion Passenger. (Vercel was
+the original target and is retired; the handlers keep their Vercel-style shape.)
 
 ## Commands
 
@@ -31,9 +33,9 @@ Frontend (run inside `shinobij.client/`):
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
   validators. Import from these; don't add a route file starting with `_`.
-- **`server.ts`** (repo root) — the Express wrapper for cPanel. It imports the
-  Vercel handlers unchanged and registers each on **both** the bare path and the
-  `/api`-prefixed path (Passenger may or may not strip `/api`). It also serves
+- **`server.ts`** (repo root) — the Express server (Railway + cPanel). It imports
+  the `api/**` handlers unchanged and registers each on **both** the bare path and
+  the `/api`-prefixed path (Passenger may or may not strip `/api`). It also serves
   the React SPA static build and provides `/health` and `/restart`. Compiles to
   `dist/server.js`.
 - **`app.js`** (repo root, CommonJS) — the Passenger entry point that `server.ts`
@@ -58,18 +60,24 @@ Frontend (run inside `shinobij.client/`):
 
 ## Deployment
 
-Two targets share the `api/` handlers:
+Two targets run the same Express server (`dist/server.js`), which serves the API
+**and** the React SPA on one port, plus the in-process daily snapshot cron:
 
-- **Vercel** (`vercel.json`) — `api/**/*.ts` deploy as Functions (30s, 256MB).
-  Build runs the client; SPA rewrites send non-`/api` paths to `index.html`.
-  Cron `GET /api/cron/snapshot-saves` runs daily at 03:00.
-- **cPanel / Phusion Passenger** — `app.js` → `dist/server.js` (Express).
+- **Railway** (`railway.json` → `Dockerfile`) — `node dist/server.js`. The Docker
+  build runs `npm run build` fresh (server + client), so it self-builds from
+  source. Health check `/health`.
+- **cPanel / Phusion Passenger** — `app.js` → `dist/server.js`. The `.cpanel.yml`
+  auto-deploy does **not** build — it serves the committed `dist/` verbatim, so
+  `npm run build` must be run and committed before deploying (**both** root
+  `dist/` and `shinobij.client/dist/`, the latter force-added past `.gitignore`).
   See `CPANEL_SETUP.md` and `Passengerfile.json`.
 
-Note: `server.ts` only routes a subset of `api/**` handlers explicitly — see the
-`NOTE:` block near the bottom of the file. Vercel reaches every handler via the
-folder convention, but **a new endpoint must be added to `server.ts` manually to
-work on cPanel.**
+(Vercel was the original target and is retired — `vercel.json` is deleted.)
+
+Note: there is **no folder-convention auto-routing** anymore — every `api/**`
+handler must be imported and `route()`-registered in `server.ts` or it is
+unreachable on both targets. `server-routes.test.ts` enforces this both ways
+(client call ↔ registration, and handler file ↔ wiring).
 
 ## Conventions
 
@@ -110,11 +118,13 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - Do not modify auth, password, admin, rate-limit, or IP-tracking logic without explaining the risk first.
 - Keep player auth **token-first**: never reintroduce durable plaintext-password storage on the client, and never break the no-token (`SESSION_SECRET` unset) fallback path.
 - A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
-- Do not remove cPanel/Passenger support when changing API handlers.
-- When adding a new API endpoint, update both:
-  - the `api/` handler for Vercel
-  - `server.ts` route registration for cPanel
-- Keep Vercel and cPanel behavior consistent.
+- Do not remove cPanel/Passenger or Railway support when changing API handlers.
+- When adding a new API endpoint, you must BOTH create the `api/**` handler AND
+  import + `route()`-register it in `server.ts` — there is no auto-routing, so an
+  unregistered handler is unreachable on Railway and cPanel alike.
+- After any `api/`/`server.ts` change destined for cPanel, run `npm run build` and
+  commit the regenerated `dist/` in the same change — the cPanel auto-deploy serves
+  committed `dist/` verbatim and will otherwise ship stale code. (Railway self-builds.)
 - Keep CORS headers in `api/_utils.ts` and `server.ts` synchronized.
 - Do not commit secrets, API keys, Supabase service keys, passwords, or `.env` contents.
 - Always run the relevant tests before saying a task is complete.
