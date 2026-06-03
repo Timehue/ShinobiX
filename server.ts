@@ -14,6 +14,7 @@
 // No-op on cPanel (gated on the env var) so it never clobbers app.js's dispatcher.
 import './api/_force-ipv4.js';
 
+import { startGameLoop } from './api/_realtime/game-loop.js';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -464,6 +465,8 @@ const PORT = Number(process.env.PORT ?? 3000);
 const server = createServer(app);
 server.listen(PORT, () => {
     console.log(`ShinobiX API listening on port ${PORT}`);
+    // Phase 2: start the 1s in-memory presence/game tick (single instance).
+    startGameLoop();
 });
 
 export default app;

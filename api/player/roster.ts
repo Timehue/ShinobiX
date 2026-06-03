@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 const REGISTRY_KEY = 'player:registry';
 const PRESENCE_KEY_PREFIX = 'presence:';
@@ -152,17 +153,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // PET_PUBLIC_FIELDS whitelist before going out.
 
     try {
-        // Read individual presence:<name> TTL keys written by heartbeat.ts.
-        // kv.keys() only returns non-expired keys, so no manual TTL filter needed.
-        const presenceKeys = await kv.keys(`${PRESENCE_KEY_PREFIX}*`);
-        const presenceValues = presenceKeys.length > 0
-            ? await kv.mget<PresenceEntry[]>(...presenceKeys)
-            : [];
-        const now = Date.now();
-        const presenceEntries: PresenceEntry[] = presenceValues.filter(
-            (v): v is PresenceEntry => Boolean(v?.name) && now - ((v as PresenceEntry).lastSeen ?? 0) <= PRESENCE_TTL_MS
-        );
-        const livePresenceByName = new Map(presenceEntries.map(entry => [entry.name.toLowerCase(), entry]));
+        // Live presence comes from the in-memory store (no DB scan). `name` is
+        // already lowercased; `character` is the slim presence character.
+        const presenceEntries = onlineStore.list();
+        const livePresenceByName = new Map(presenceEntries.map(p => [p.name, p]));
         const onlineNames = new Set(livePresenceByName.keys());
 
         // Primary: persistent registry (every player who ever connected)
@@ -194,7 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     online: onlineNames.has((entry.name ?? '').toLowerCase()),
                     character,
                     currentSector: normalizeSector(livePresence?.sector, normalizeSector(save?.currentSector, 40)),
-                    lastSeenAt: livePresence?.lastSeen ?? entry.lastSeen ?? 0,
+                    lastSeenAt: livePresence?.lastSeenAt ?? entry.lastSeen ?? 0,
                 });
             } catch { /* skip malformed */ }
         }
@@ -228,7 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 online: true,
                 character,
                 currentSector: normalizeSector(entry.sector, 40),
-                lastSeenAt: entry.lastSeen ?? 0,
+                lastSeenAt: entry.lastSeenAt ?? 0,
             });
         }
 
