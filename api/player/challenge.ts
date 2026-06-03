@@ -177,6 +177,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (targetPresence.pendingAttacker) {
                     return res.status(409).json({ error: 'Target is already engaged in combat.' });
                 }
+                // Academy-Student PvP protection — shinobi below Genin (level 15)
+                // can't be challenged. Mirrors the guard in api/player/attack.ts.
+                const tChar = targetPresence.character as Record<string, unknown> | null;
+                const tLevel = Number(tChar?.level ?? 0);
+                if (tLevel > 0 && tLevel < 15) {
+                    return res.status(403).json({ error: 'This shinobi is under Academy protection (cannot be challenged until they reach Genin, level 15).' });
+                }
             }
         }
 
