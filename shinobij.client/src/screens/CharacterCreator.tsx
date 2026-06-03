@@ -4,6 +4,7 @@ import {
     villages,
     starterBloodlines,
     starterBloodlineOffense,
+    starterSavedBloodlines,
     createCharacter,
 } from "../App";
 
@@ -169,6 +170,14 @@ export function CharacterCreator({ onCreate }: { onCreate: (character: Character
                     {starterBloodlines.map((b) => <option key={b} value={b}>{b} ({starterBloodlineOffense[b]})</option>)}
                 </select>
             </label>
+
+            <p className="hint" style={{ margin: "-6px 0 10px" }}>
+                {(() => {
+                    const element = starterSavedBloodlines.find((b) => b.name === bloodline)?.specialElement;
+                    const offense = starterBloodlineOffense[bloodline] ?? "Ninjutsu";
+                    return `${bloodline}: a ${offense} bloodline${element ? ` (${element} element)` : ""}. You'll start already knowing its jutsu — pick the combat style you want to play.`;
+                })()}
+            </p>
 
             <button className="start-primary-btn" onClick={submitCharacter}>Begin Your Journey</button>
         </div>
