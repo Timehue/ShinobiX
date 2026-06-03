@@ -114,6 +114,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const snap = await kv.get<Record<string, unknown>>(snapshotKey);
             if (!snap) return res.status(404).json({ error: 'Snapshot not found or expired.' });
 
+            // Age check. Snapshots have a 90-day TTL but restoring a 60-day-old
+            // snapshot would silently erase weeks of progress. Require explicit
+            // confirmation in the request body when the snapshot is older than
+            // 7 days. The admin sees the snapshot age on the list and can pass
+            // `confirmOldSnapshot: true` if they really mean it.
+            const tsMatch = snapshotKey.match(/:(\d+)$/);
+            const snapTs = tsMatch ? Number(tsMatch[1]) : 0;
+            const ageMs = snapTs ? (Date.now() - snapTs) : 0;
+            const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+            if (ageMs > SEVEN_DAYS_MS && body.confirmOldSnapshot !== true) {
+                return res.status(400).json({
+                    error: `Snapshot is ${Math.floor(ageMs / (24 * 60 * 60 * 1000))} days old. Pass confirmOldSnapshot: true to proceed.`,
+                    ageMs,
+                });
+            }
+
             // Lock the live save while we (a) snapshot the current state,
             // then (b) overwrite with the requested snapshot. Both steps
             // happen under the same lock so a player autosave landing

@@ -54,14 +54,18 @@ async function handler(req, res) {
         res.status(403).json({ error: 'forbidden' });
         return;
     }
-    const expectedToken = process.env.KV_PROXY_TOKEN;
-    if (!expectedToken) {
+    // Accept either KV_PROXY_TOKEN (current) or KV_PROXY_TOKEN_NEXT (during a
+    // rotation). Set both during the rotation window, switch callers to NEXT,
+    // then drop the old. Avoids the all-or-nothing swap that causes 401 storms.
+    const expectedTokens = [process.env.KV_PROXY_TOKEN, process.env.KV_PROXY_TOKEN_NEXT].filter(Boolean);
+    if (expectedTokens.length === 0) {
         res.status(500).json({ error: 'KV_PROXY_TOKEN not configured on server' });
         return;
     }
     const providedRaw = req.headers['x-kv-token'];
     const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
-    if (!provided || !(0, _auth_js_1.safeEqual)(provided, expectedToken)) {
+    const tokenOk = !!provided && expectedTokens.some((t) => (0, _auth_js_1.safeEqual)(provided, t));
+    if (!tokenOk) {
         // Audit + brute-force throttle. Each failure consumes the per-IP bucket;
         // once exhausted, further attempts get 429 instead of 401 so guessing
         // the token is bounded to FAILED_AUTH_MAX tries per window.

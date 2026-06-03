@@ -61,6 +61,13 @@ const LEET_MAP: Readonly<Record<string, string>> = {
     '@': 'a', '4': 'a', '8': 'b', '(': 'c', '3': 'e', '6': 'g',
     '9': 'g', '!': 'i', '1': 'i', '|': 'i', '0': 'o', '$': 's',
     '5': 's', '+': 't', '7': 't', '2': 'z',
+    // Cyrillic / Greek lookalikes that render identically to Latin chars
+    // in most fonts — common in slur-evasion attempts.
+    'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p',
+    'с': 'c', 'х': 'x', 'у': 'y', 'ο': 'o',
+    'α': 'a', 'ε': 'e', 'ρ': 'p',
+    // Full-width Latin lookalikes
+    'ａ': 'a', 'ｅ': 'e', 'ｏ': 'o', 'ｉ': 'i',
 };
 
 // Two normalizer variants. We check BOTH against the blocklist — either

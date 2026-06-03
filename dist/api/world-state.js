@@ -127,7 +127,29 @@ function normalizeSectorTerritory(data) {
         sector,
         controlScore: clampNumber(Math.floor(Number(data.controlScore ?? 0)), 0, TERRITORY_CONTROL_MAX),
         hp: clampNumber(Math.floor(Number(data.hp ?? TERRITORY_HP_MAX)), 0, TERRITORY_HP_MAX),
-        guards: Array.isArray(data.guards) ? data.guards.filter(Boolean).map(String).slice(0, 20) : [],
+        guards: Array.isArray(data.guards)
+            ? (() => {
+                // Dedup by lowercase comparison but keep the first display-case
+                // spelling we see. UI expects "Alice", not "alice".
+                const seen = new Set();
+                const out = [];
+                for (const raw of data.guards) {
+                    if (!raw)
+                        continue;
+                    const display = String(raw).trim();
+                    if (!display)
+                        continue;
+                    const lower = display.toLowerCase();
+                    if (seen.has(lower))
+                        continue;
+                    seen.add(lower);
+                    out.push(display);
+                    if (out.length >= 20)
+                        break;
+                }
+                return out;
+            })()
+            : [],
         warSupply: Math.min(TERRITORY_WAR_SUPPLY_MAX, Math.max(0, Math.floor(Number(data.warSupply ?? 0)))),
         terrainBuffStat: normalizeTerrainBuffStat(data.terrainBuffStat),
         updatedAt: data.updatedAt ?? Date.now(),
