@@ -12871,7 +12871,7 @@ function AdminPanel({
             try {
                 const customPrompt = itemBulkCustomPrompts[item.id]?.trim();
                 const slotLabel = equipmentSlotLabel(item.slot);
-                const autoPrompt = `${item.name} ${item.rarity} ${slotLabel} shinobi shinobi RPG equipment game art`;
+                const autoPrompt = `${item.name} ${item.rarity} ${slotLabel} shinobi RPG equipment game art`;
                 const response = await fetch("/api/generate-image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
