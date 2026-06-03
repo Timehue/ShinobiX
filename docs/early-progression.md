@@ -327,7 +327,7 @@ Genin Exam" call-to-action so players never silently hit an invisible cap.
 Both are already built and are core early-progression spines. Audit + changes:
 
 **Exams (the Logbook checklists, `App.tsx:26283-26332`):** keep the model — it's
-the genre-proven rank-up-as-checklist (TheNinja-RPG/Ninpocho). Changes:
+the genre-proven rank-up-as-checklist (the genre leader/Ninpocho). Changes:
 - **Add a jutsu-mastery requirement to the Genin exam** — e.g. "raise a jutsu to
   mastery level 3" (combat-driven, ~8 casts). Today the Genin checklist teaches
   stats/missions/AI/explore/awaken but **nothing about the jutsu system**. Ties to
