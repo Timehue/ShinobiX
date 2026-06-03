@@ -66,6 +66,11 @@ import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js'
 import villageClaimMapControlHandler from './api/village/claim-map-control.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
+// Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
+// startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
+// ops/admin triggers. On Vercel the api/ folder convention exposed it; off
+// Vercel it must be registered explicitly or it 404s.
+import snapshotSavesHandler from './api/cron/snapshot-saves.js';
 
 // Clan — wars
 import clanWarListHandler      from './api/clan/war/list.js';
@@ -380,6 +385,13 @@ route('/bank/claim-interest', bankClaimInterestHandler);
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
 route('/admin/save-snapshot', saveSnapshotHandler);
+
+// ─── Cron: manual save-snapshot trigger ────────────────────────────────────────
+// The nightly run happens in-process (startSnapshotCron, below). This HTTP
+// endpoint matches the documented GET /api/cron/snapshot-saves so ops/admin can
+// force a run manually; auth is CRON_SECRET bearer or full-admin password (the
+// handler enforces it). Read-only — it only writes save-snapshot: copies.
+route('/cron/snapshot-saves', snapshotSavesHandler);
 
 // ─── Clan: wars ────────────────────────────────────────────────────────────────
 // Council Hall "Clan Battles" tab + the village-war flow (which reuses the

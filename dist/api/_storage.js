@@ -25,6 +25,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports._diskKvForProxy = exports.kv = void 0;
+exports._makeRoutedKv = _makeRoutedKv;
 exports.migrateDiskRoutedKeysToOverlay = migrateDiskRoutedKeysToOverlay;
 const _readCache = new Map();
 // These prefixes change too rapidly to benefit from caching.
@@ -89,8 +90,18 @@ function getPool() {
         user: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
         database: parsed.pathname.replace(/^\//, ''),
-        ssl: { rejectUnauthorized: false },
-        max: 5,
+        // SSL on by default (Supabase requires it, as does Railway's PUBLIC proxy
+        // URL). Set PG_SSL=disable ONLY when connecting over Railway's PRIVATE
+        // network (host postgres.railway.internal): that listener is on an
+        // isolated per-project overlay, serves plaintext, and rejects an SSL
+        // handshake — so forcing SSL there fails to connect. Never disable SSL on
+        // a public/internet connection string.
+        ssl: process.env.PG_SSL === 'disable' ? false : { rejectUnauthorized: false },
+        // Pool size PER PROCESS. cPanel/Passenger runs many small worker
+        // processes, so 5 each is plenty. A single always-on Railway/VPS instance
+        // serving every player's heartbeat writes wants more headroom — set
+        // PG_POOL_MAX=15 (or higher) there. Default unchanged at 5.
+        max: Number(process.env.PG_POOL_MAX ?? 5),
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 15_000,
     });
@@ -361,11 +372,17 @@ const supabaseKv = {
 //
 // Routing rule: a key matches DISK when its prefix is one of:
 //   save:                 — player save blobs
+//   save-snapshot:        — daily/manual backup copies of those saves (full
+//                           blobs, 90-day TTL). Kept on the same free cPanel
+//                           disk as the live saves they copy, so backups don't
+//                           pile up on Supabase. NOTE: 'save:' does NOT match
+//                           'save-snapshot:' (5th char ':' vs '-'), so this
+//                           prefix is required explicitly.
 //   shared:images*        — uploaded image blobs (incl. bloodline images)
 //   shared:imgfields*     — uploaded image hash fields
 //
 // All other keys keep using pgKv / supabaseKv as before.
-const _DISK_PREFIXES = ['save:', 'shared:images', 'shared:imgfields'];
+const _DISK_PREFIXES = ['save:', 'save-snapshot:', 'shared:images', 'shared:imgfields'];
 function _routesToDisk(keyOrPattern) {
     return _DISK_PREFIXES.some((p) => keyOrPattern.startsWith(p));
 }
@@ -604,8 +621,22 @@ function _makeRoutedKv(base, disk) {
             return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
         },
         async mget(...keys) {
-            // Use the per-key get path so disk-routed keys benefit from fallback.
-            return Promise.all(keys.map((k) => _routesToDisk(k) ? diskGet(k) : base.get(k)));
+            // Batch per backend so the remote (Vercel) disk overlay does ONE
+            // round-trip for all disk-routed keys instead of one HTTP call per
+            // key. Migration is complete, so disk reads no longer need a per-key
+            // fallback path (see diskGet above). Results are re-interleaved into
+            // the caller's original key order — byte-identical to the per-key
+            // path, just fewer network calls.
+            const { diskKeys, baseKeys, order } = split(keys);
+            const [diskVals, baseVals] = await Promise.all([
+                diskKeys.length ? disk.mget(...diskKeys) : Promise.resolve([]),
+                baseKeys.length ? base.mget(...baseKeys) : Promise.resolve([]),
+            ]);
+            const out = [];
+            let di = 0, bi = 0;
+            for (const src of order)
+                out.push(src === 'disk' ? diskVals[di++] : baseVals[bi++]);
+            return out;
         },
         async hgetall(key) {
             return _routesToDisk(key) ? diskGet(key) : base.hgetall(key);

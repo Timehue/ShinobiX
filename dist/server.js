@@ -14,6 +14,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+// Must be first: pins outbound connections to IPv4 when FORCE_IPV4=1 (Railway).
+// No-op on cPanel (gated on the env var) so it never clobbers app.js's dispatcher.
+require("./api/_force-ipv4.js");
+const game_loop_js_1 = require("./api/_realtime/game-loop.js");
+const socket_js_1 = require("./api/_realtime/socket.js");
+const _scheduler_js_1 = require("./api/cron/_scheduler.js");
 const express_1 = __importDefault(require("express"));
 const node_http_1 = require("node:http");
 const node_path_1 = require("node:path");
@@ -44,6 +50,7 @@ const challenge_js_2 = __importDefault(require("./api/village-guard/challenge.js
 const generate_image_js_1 = __importDefault(require("./api/generate-image.js"));
 const game_state_js_1 = __importDefault(require("./api/game-state.js"));
 const world_state_js_1 = __importDefault(require("./api/world-state.js"));
+const messages_js_1 = __importDefault(require("./api/messages.js"));
 const kage_js_1 = __importDefault(require("./api/village/kage.js"));
 const bloodline_review_js_1 = __importDefault(require("./api/admin/bloodline-review.js"));
 const item_review_js_1 = __importDefault(require("./api/admin/item-review.js"));
@@ -53,12 +60,18 @@ const leave_js_1 = __importDefault(require("./api/ranked-queue/leave.js"));
 const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
-const treasury_transfer_js_1 = __importDefault(require("./api/village/treasury-transfer.js"));
+const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
+const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.js"));
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
 const claim_daily_agenda_js_1 = __importDefault(require("./api/village/claim-daily-agenda.js"));
 const claim_map_control_js_1 = __importDefault(require("./api/village/claim-map-control.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
+// Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
+// startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
+// ops/admin triggers. On Vercel the api/ folder convention exposed it; off
+// Vercel it must be registered explicitly or it 404s.
+const snapshot_saves_js_1 = __importDefault(require("./api/cron/snapshot-saves.js"));
 // Clan — wars
 const list_js_4 = __importDefault(require("./api/clan/war/list.js"));
 const declare_js_1 = __importDefault(require("./api/clan/war/declare.js"));
@@ -104,22 +117,19 @@ const weekly_boss_js_1 = __importDefault(require("./api/weekly-boss.js"));
 const moderation_js_1 = __importDefault(require("./api/admin/moderation.js"));
 // Shared auth helper — constant-time compare for the restart endpoint.
 const _auth_js_1 = require("./api/_auth.js");
+// CORS origin allowlist — single source of truth, shared with cors() and the
+// Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md).
+const _utils_js_1 = require("./api/_utils.js");
 // ─── App setup ───────────────────────────────────────────────────────────────
 const app = (0, express_1.default)();
 // Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
 app.use(express_1.default.json({ limit: '50mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
 // Global CORS — restrict to known origins so a malicious site can't initiate
-// authenticated requests from a visitor's browser. Same allowlist as
-// api/_utils.ts cors().
-const ALLOWED_ORIGINS = new Set([
-    'https://theravensark.com',
-    'https://www.theravensark.com',
-    'https://test-five-delta-37.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-]);
+// authenticated requests from a visitor's browser. The origin allowlist is
+// imported from api/_utils.ts (single source of truth) so this middleware and
+// cors() can never drift.
+const ALLOWED_ORIGIN_SET = new Set(_utils_js_1.ALLOWED_ORIGINS);
 // Mirror the safe-method allowlist from api/_utils.ts cors(). The old
 // version sent `*` for ANY method when no Origin was present, which is
 // strictly looser than the Vercel path (which only allows `*` for safe
@@ -129,7 +139,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 app.use((req, res, next) => {
     const origin = req.headers.origin ?? '';
     const method = (req.method ?? 'GET').toUpperCase();
-    if (origin && ALLOWED_ORIGINS.has(origin)) {
+    if (origin && ALLOWED_ORIGIN_SET.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }
@@ -138,6 +148,15 @@ app.use((req, res, next) => {
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
+    // HSTS: tell browsers to always use HTTPS for this host (1 year). Only emit
+    // it on responses that actually arrived over HTTPS — both Railway's edge and
+    // cPanel's Apache terminate TLS and forward with x-forwarded-proto. Per the
+    // HSTS spec the header must not be sent over plain HTTP, and gating this way
+    // also avoids HSTS-locking http://localhost during local dev. Apex only — no
+    // includeSubDomains, so it can't affect a not-yet-configured subdomain.
+    if (req.headers['x-forwarded-proto'] === 'https') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -287,6 +306,7 @@ route('/generate-image', generate_image_js_1.default);
 // Game / world state
 route('/game-state', game_state_js_1.default);
 route('/world-state', world_state_js_1.default);
+route('/messages', messages_js_1.default);
 // Village
 route('/village/kage', kage_js_1.default);
 // Bloodlines
@@ -305,9 +325,12 @@ route('/admin/migrate-kv', migrate_kv_js_1.default);
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).
 route('/missions/raid-start', raid_start_js_1.default);
+// Missions — pet expedition token mint (single-use, time-gated; redeemed by
+// report-pet-event so expedition rewards require a real, fully-elapsed run).
+route('/missions/expedition-start', expedition_start_js_1.default);
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
-route('/village/treasury/transfer', treasury_transfer_js_1.default);
+route('/village/treasury/transfer', transfer_js_1.default);
 // Village treasury — atomic player donation (debit donor + credit treasury).
 route('/village/treasury/donate', donate_js_1.default);
 // Village daily-agenda — server-authoritative shared-treasury credit (NX once/day).
@@ -322,6 +345,12 @@ route('/bank/claim-interest', claim_interest_js_1.default);
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
 route('/admin/save-snapshot', save_snapshot_js_1.default);
+// ─── Cron: manual save-snapshot trigger ────────────────────────────────────────
+// The nightly run happens in-process (startSnapshotCron, below). This HTTP
+// endpoint matches the documented GET /api/cron/snapshot-saves so ops/admin can
+// force a run manually; auth is CRON_SECRET bearer or full-admin password (the
+// handler enforces it). Read-only — it only writes save-snapshot: copies.
+route('/cron/snapshot-saves', snapshot_saves_js_1.default);
 // ─── Clan: wars ────────────────────────────────────────────────────────────────
 // Council Hall "Clan Battles" tab + the village-war flow (which reuses the
 // clan-war engine with the village name as the clan key).
@@ -397,7 +426,17 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
 const server = (0, node_http_1.createServer)(app);
+// Phase 2/Step 3: attach the Socket.IO realtime layer to the SAME HTTP server
+// (registers the sweep→presence:gone listener). No-op when DISABLE_REALTIME=1;
+// the client then falls back to the HTTP heartbeat. Done before startGameLoop
+// so the sweep listener is registered before the first tick.
+(0, socket_js_1.attachSocketServer)(server);
 server.listen(PORT, () => {
     console.log(`ShinobiX API listening on port ${PORT}`);
+    // Phase 2: start the 1s in-memory presence/game tick (single instance).
+    (0, game_loop_js_1.startGameLoop)();
+    // Vercel removal: the always-on server now runs the daily save-snapshot
+    // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
+    (0, _scheduler_js_1.startSnapshotCron)();
 });
 exports.default = app;

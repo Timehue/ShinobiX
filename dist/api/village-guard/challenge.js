@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const session_js_1 = require("../pvp/session.js");
+const notify_js_1 = require("../_realtime/notify.js");
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
 // Match the public projection in api/player/challenge.ts. The challenges:*
 // key prefix is anon-readable via Supabase Realtime, so the attacker's
@@ -98,6 +99,12 @@ async function handler(req, res) {
                 const existing = await _storage_js_1.kv.get(challengeKey) ?? [];
                 await _storage_js_1.kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
             });
+            // Instant delivery: nudge the guard to run an immediate heartbeat —
+            // same one-shot "poll now" kick the player attack/challenge paths use.
+            // The Supabase Realtime challenges:* subscription also pushes this, but
+            // the kick removes any reliance on that being configured, which matters
+            // now the queued-guard heartbeat is 20s while the socket is connected.
+            (0, notify_js_1.kickPlayer)(guard.name, 'challenge');
         }
         // Project the guard down to the combat-safe field set before returning
         // it to the ATTACKER. Previously the guard's full private save (ryo,
