@@ -762,6 +762,15 @@ body:has(.arena-fullscreen) .left-profile-card,
     z-index: 16;
     filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.45));
 }
+/* Tint variants (recolour-free drop-shadow glows, matching the pet arena): a
+   green restorative wisp for heals, a toxic green puff for poison DoTs — so a
+   support/DoT cast no longer reads like a neutral elemental hit. */
+.arena-fullscreen .jutsu-sprite-fx.fx-heal {
+    filter: drop-shadow(0 0 7px #34d399) drop-shadow(0 0 3px #6ee7b7);
+}
+.arena-fullscreen .jutsu-sprite-fx.fx-poison {
+    filter: drop-shadow(0 0 7px #4ade80) drop-shadow(0 0 3px #a3e635);
+}
 
 /* Brief bright pop on the tile a jutsu lands on (element colour comes from the
    particles; this is a neutral flash for punch). Added/removed via JS. */

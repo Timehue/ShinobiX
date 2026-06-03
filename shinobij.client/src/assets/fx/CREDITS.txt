@@ -1,15 +1,18 @@
 Battle VFX frames (jutsu + pet abilities)
 =========================================
 
-All sources are Creative Commons Zero (CC0 1.0 Universal) — public domain,
-free for commercial use/modification/redistribution, attribution not required
-(recorded here for provenance only).
+All sources are public domain / royalty-free — free for commercial use,
+modification, and redistribution, with no attribution required (recorded here
+for provenance only).
 
-Source A: "Pixel Magic Effects" by Foozle (commissioned from lordfitoi).
+Source A: "Pixel Magic Effects" by Foozle (commissioned from lordfitoi). CC0.
           https://foozlecc.itch.io/pixel-magic-sprite-effects
-Source B: "Ninja Adventure - Asset Pack" by Pixel-boy / AAA.
+Source B: "Ninja Adventure - Asset Pack" by Pixel-boy / AAA. CC0.
           https://pixel-boy.itch.io/ninja-adventure-asset-pack
           (FX strips sliced into individual frames; see scripts note below.)
+Source C: "Free VFX Asset Pack" by CodeManu. Public domain (personal +
+          commercial, no credit required). https://codemanu.itch.io/vfx-free-pack
+          (Effect_* frame sequences; sliced by scripts/slice-battle-vfx.mjs.)
 
 Mapping (folder -> in-game element/key):
   fire      <- [A] Fire_Ball      (10 frames)
@@ -27,10 +30,30 @@ Pet ability "kind" effects (pet arena only, chosen by ability kind):
   heal      <- [B] FX/Magic/Spirit         (5 frames @ fw32)   [+ green CSS glow .fx-heal]
   slash     <- [B] FX/Slash (Slash01)      (5 frames @ fw26)   [basic physical attack]
 
+Intent/discipline effects (jutsu + pet arenas, chosen by intent — see
+src/lib/jutsu-vfx.ts jutsuFxSpriteKey / petFxSpriteKey). All [C], 10 frames each,
+fit onto a 64x64 transparent canvas; the two additive (glow-on-black) sequences
+are luminance-keyed to alpha during slicing so they render with no blend mode:
+  blood     <- [C] Effect_BloodImpact      [lifesteal / Wound / Blood nature]
+  shadow    <- [C] Effect_Tentacles        [seal / stat-down / Shadow nature]
+  poison    <- [C] Effect_PuffAndStars     [Poison DoT, + green CSS glow .fx-poison]
+  burn      <- [C] Effect_DitheredFire     [Ignition / burn DoT]
+  impact    <- [C] Effect_Impact           [neutral non-elemental hit]
+  spark     <- [C] Effect_SmallHit         [Stun / light lightning hit]
+  bighit    <- [C] Effect_BigHit           [heavy hit / Iron nature]
+  kaboom    <- [C] Effect_Kabooms          [KO finisher / Fire signature]
+  explosion <- [C] Effect_Explosion2       [heavy / Water signature]
+  magma     <- [C] Effect_Magma            [Lava nature]
+  charge    <- [C] Effect_Charged          [signature wind-up on the caster]
+  aura      <- [C] Effect_Anima            [big self-buff / alt wind-up]
+  eshield   <- [C] Effect_ElectricShield   [strong shield / absorb / reflect]
+  vortex    <- [C] Effect_TheVortex        [drain / siphon / Wind signature] (keyed)
+  power     <- [C] Effect_PowerChords      [flagship / apex signature] (keyed)
+
 Each folder is an ordered frame sequence (001.png, 002.png, ...). The client
 loads them via import.meta.glob in src/lib/jutsu-fx-assets.ts and plays them as
 a short frame-swap animation over the struck tile (see JutsuSpriteFx in App.tsx).
 
-Elements without bundled frames (lightning, shadow, blood, iron) fall back to
-the procedural element-tinted particle burst. Drop a matching folder here (e.g.
-fx/lightning/) to give them a sprite too — no code change needed.
+A key with no folder here (e.g. the pet-only "chakra" tint, or "none"/neutral
+beats) falls back to the procedural element-tinted particle burst. Drop a
+matching folder here to give it a sprite too — no code change needed.
