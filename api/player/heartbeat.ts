@@ -6,56 +6,13 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
 import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { normalizeSector, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
-// roster comes from onlineStore.list(); writes from onlineStore.upsert().
-
-// Max time the client can claim to be traveling (10 min). Caps an exploited
-// travelingUntil that would make a player permanently unreachable.
-const MAX_TRAVEL_WINDOW_MS = 10 * 60_000;
-
-function normalizeSector(value: unknown, fallback = 40) {
-    const sector = Number(value);
-    if (!Number.isFinite(sector)) return fallback;
-    return Math.max(0, Math.floor(sector));
-}
-
-// Server-side defense-in-depth: project the incoming character down to the
-// display fields the presence row is actually read for (by roster.ts, plus
-// `pets` for Pet Arena challenges) BEFORE storing it. The current client
-// already slims this (see presenceCharacter() in App.tsx), but an old or
-// hostile client could still POST the full multi-MB blob (avatar data URL,
-// inventory, jutsu, mission logs, …). Slimming here keeps the presence row —
-// and the roster `mget` that reads every row back — small regardless of what
-// the client sends. Gameplay/PvP paths never read this character (they read
-// sector/inBattle/travelingUntil/pendingAttacker, and combat hydrates from
-// save:<name>), so trimming it cannot affect battle or PvP behavior.
-const PRESENCE_CHAR_KEEP = new Set<string>([
-    'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
-    'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
-    'clan', 'clanFounder', 'hp', 'maxHp',
-]);
-const PRESENCE_PET_KEEP = new Set<string>([
-    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
-    'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
-]);
-function slimPresenceCharacter(input: unknown): Record<string, unknown> | null {
-    if (!input || typeof input !== 'object') return null;
-    const src = input as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    for (const k of PRESENCE_CHAR_KEEP) if (k in src) out[k] = src[k];
-    if (Array.isArray(src.pets)) {
-        out.pets = src.pets.map((p) => {
-            if (!p || typeof p !== 'object') return p;
-            const ps = p as Record<string, unknown>;
-            const pet: Record<string, unknown> = {};
-            for (const f of PRESENCE_PET_KEEP) if (f in ps) pet[f] = ps[f];
-            return pet;
-        });
-    }
-    return out;
-}
+// roster comes from onlineStore.list(); writes from onlineStore.upsert(). The
+// slim/cap/shape helpers live in ../_realtime/presence-input.ts so the WS
+// presence path (api/_realtime/socket.ts) uses byte-for-byte the same logic.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -123,10 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const now = Date.now();
 
         // Cap client-supplied travelingUntil so an exploit can't make a player
-        // permanently untouchable (e.g. client sends year 9999 epoch).
-        const safeTravelUntil = travelingUntil
-            ? Math.min(travelingUntil, now + MAX_TRAVEL_WINDOW_MS)
-            : undefined;
+        // permanently untouchable (capTravelingUntil returns undefined unless
+        // it's still in the future).
+        const safeTravelUntil = capTravelingUntil(travelingUntil, now);
 
         // Slim the incoming character to display fields before storing (defense
         // in depth — see slimPresenceCharacter). Fall back to the already-slim
@@ -143,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             name,
             sector: entrySector,
             character: slimChar as Record<string, unknown> | null,
-            travelingUntil: (safeTravelUntil && safeTravelUntil > now) ? safeTravelUntil : undefined,
+            travelingUntil: safeTravelUntil,
             inBattle: inBattle === true ? true : undefined,
         });
         const pendingAttacker = stored.pendingAttacker ?? null;
@@ -155,32 +111,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
 
         // The in-memory store IS the live roster — no DB scan, no cache layer.
+        // toPlayerRecord (shared with the WS path) shapes each entry; avatar
+        // image is omitted (client resolves it from its name-keyed cache).
         const allEntries = onlineStore.list();
-
-        const toRecord = (p: typeof allEntries[number]) => {
-            const ch = p.character as Record<string, unknown> | null;
-            return {
-                name: p.displayName, sector: p.sector,
-                // Avatar image intentionally omitted — the client resolves avatars
-                // from its name-keyed cache (sharedImages['avatar:<name>'], hydrated
-                // from /api/images?cat=avatar). Sending the base64 blob on every ~1s
-                // presence response was by far the largest egress cost.
-                character: { avatarImage: '' },
-                level: ch?.level ?? 1,
-                village: ch?.village ?? '',
-                specialty: ch?.specialty ?? 'Ninjutsu',
-                currentSector: p.sector,
-                lastSeenAt: p.lastSeenAt,
-                travelingUntil: p.travelingUntil ?? 0,
-                inBattle: p.inBattle ?? false,
-            };
-        };
 
         const sectorMates = allEntries
             .filter(p => normalizeSector(p.sector) === entrySector)
-            .map(toRecord);
+            .map(toPlayerRecord);
 
-        const allPlayers = allEntries.map(toRecord);
+        const allPlayers = allEntries.map(toPlayerRecord);
 
         return res.status(200).json({
             sectorMates,
