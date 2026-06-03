@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { isAcademyProtectedLevel, ACADEMY_MIN_LEVEL } from '../_realtime/presence-gating.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -44,6 +45,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Only allow guarding the village your save says you belong to.
             if (serverVillage !== village) {
                 return res.status(403).json({ error: 'Cannot guard a village other than your own.' });
+            }
+            // Academy protection: guard duty exposes you to sector attacks, so
+            // sub-Genin players can't sign up. Same threshold combat uses, so a
+            // brand-new player can't opt out of the protection by guarding.
+            if (isAcademyProtectedLevel(serverLevel)) {
+                return res.status(403).json({ error: `Reach Genin (level ${ACADEMY_MIN_LEVEL}) before signing up for guard duty.` });
             }
         }
 

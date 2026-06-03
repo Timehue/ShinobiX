@@ -11039,20 +11039,24 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: toName, challenge }),
             });
-            if (res.status === 409) {
-                // Server supersedes a stale pending challenge now, so a 409 is a
-                // genuine block (target traveling / in battle). Show its message.
+            if (!res.ok) {
+                // The server returns a specific reason for every reject: a 409
+                // block (target traveling / in battle / engaged), or a 403
+                // Academy protection (sub-Genin targets — a fresh Lv 1 can't be
+                // challenged until Genin). Surface that message instead of a
+                // blanket "could not reach", which made a deliberate block look
+                // like a typo or a connectivity failure.
                 const data = await res.json().catch(() => ({} as { error?: string }));
-                setPetChallengeMsg(data?.error ?? "This challenge can't be sent right now.");
+                setPetChallengeMsg(`❌ ${data?.error ?? `Could not reach ${toName}. Check the name and try again.`}`);
                 return;
             }
             // Drop our prior pending outgoing challenge (server just superseded
             // it) and keep this fresh one.
-            if (res.ok) setDuelChallenges([
+            setDuelChallenges([
                 ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
                 challenge,
             ]);
-            setPetChallengeMsg(res.ok ? `✅ Pet challenge sent to ${toName}! They'll see it shortly.` : `❌ Could not reach ${toName}. Check the name and try again.`);
+            setPetChallengeMsg(`✅ Pet challenge sent to ${toName}! They'll see it shortly.`);
         } catch {
             setPetChallengeMsg(`❌ Network error sending challenge.`);
         }
@@ -28028,15 +28032,18 @@ function Arena({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: opponent.name, challenge }),
             });
-            if (res.status === 409) {
-                // The server now supersedes a stale pending challenge rather than
-                // rejecting a new one, so a 409 here means a genuine block (target
-                // traveling / already in a battle / engaged). Surface its message.
+            if (!res.ok) {
+                // The server returns a specific reason for every reject: a 409
+                // block (target traveling / already in a battle / engaged), or a
+                // 403 Academy protection (sub-Genin targets — a fresh Lv 1 can't
+                // be challenged until Genin). Surface that message rather than the
+                // generic "not reachable", which made a deliberate block look like
+                // the target was simply offline. A thrown fetch (real network
+                // failure) still lands in the catch below.
                 const data = await res.json().catch(() => ({} as { error?: string }));
-                alert(data?.error ?? "This challenge can't be sent right now.");
+                alert(data?.error ?? `${opponent.name} is not reachable live right now. Challenge was not sent.`);
                 return;
             }
-            if (!res.ok) throw new Error(`Server returned ${res.status}`);
             // Drop any prior pending outgoing challenge of ours (the server just
             // superseded it) and keep only this fresh one.
             setDuelChallenges([
