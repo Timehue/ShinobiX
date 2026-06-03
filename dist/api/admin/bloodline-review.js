@@ -13,13 +13,46 @@ const BLOODLINE_UPDATE_ALLOWED_FIELDS = new Set([
     'name', 'rank', 'image', 'specialElement', 'lore', 'jutsus', 'totalPoints',
     'description', 'icon', 'color', 'isApproved',
 ]);
+// Per-field validators for the allowlisted fields. Each runs after the
+// allowlist check; if the value fails validation we drop the field rather
+// than write garbage. The image / icon checks here mirror the save-side
+// bloodline image whitelist so an admin payload can't smuggle external SVG
+// URLs onto a player record.
+function isAllowedImageish(v) {
+    if (typeof v !== 'string')
+        return false;
+    const s = v.trim();
+    if (!s)
+        return false;
+    if (s.length > 250_000)
+        return false;
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(s))
+        return true;
+    if (s.startsWith('/api/images') || s.startsWith('/images/'))
+        return true;
+    return false;
+}
+function isShortText(v, max) {
+    return typeof v === 'string' && v.length <= max;
+}
 function filterBloodlineFields(input) {
     if (!input || typeof input !== 'object')
         return {};
     const out = {};
     for (const [k, v] of Object.entries(input)) {
-        if (BLOODLINE_UPDATE_ALLOWED_FIELDS.has(k))
-            out[k] = v;
+        if (!BLOODLINE_UPDATE_ALLOWED_FIELDS.has(k))
+            continue;
+        if ((k === 'image' || k === 'icon') && !isAllowedImageish(v))
+            continue;
+        if (k === 'description' && !isShortText(v, 4000))
+            continue;
+        if (k === 'lore' && !isShortText(v, 4000))
+            continue;
+        if (k === 'name' && !isShortText(v, 80))
+            continue;
+        if (k === 'color' && !(typeof v === 'string' && /^#?[0-9a-fA-F]{3,8}$/.test(v)))
+            continue;
+        out[k] = v;
     }
     return out;
 }

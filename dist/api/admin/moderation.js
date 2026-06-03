@@ -20,7 +20,11 @@ const BY_IP_KEY_PREFIX = 'mod:by-ip:';
 const FP_KEY_PREFIX = 'mod:fp:';
 const BY_FP_KEY_PREFIX = 'mod:by-fp:';
 const AUDIT_KEY = 'mod:audit';
-const MAX_AUDIT_ENTRIES = 200;
+// Audit log retention. Was 200 entries (≈ 1–2 weeks for a small live game),
+// which made post-incident forensic review impossible. 5000 covers months
+// of moderation activity at typical volumes and is still well under the KV
+// 10 MB value size cap.
+const MAX_AUDIT_ENTRIES = 5000;
 const MAX_IPS_PER_ACCOUNT = 25;
 const MAX_NAMES_PER_IP = 50;
 const MAX_FPS_PER_ACCOUNT = 10;

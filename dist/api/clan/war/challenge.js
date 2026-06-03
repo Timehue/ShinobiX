@@ -91,17 +91,21 @@ async function handler(req, res) {
                 }
                 const isTwoV = TWO_V_TWO.has(mode);
                 const fromPlayer = identity.admin ? String(body?.fromPlayer ?? '') : ctx.name;
-                // Per-player cap: count in-flight challenges (pending or
-                // queuing) where this player sits in EITHER challenger
-                // slot. Stops a single player from carpet-bombing the
-                // defender. 2v2 partners count too — joining a partner's
-                // queue eats one of your slots.
+                // Per-player cap: count ANY in-flight challenge involvement
+                // (pending, queuing, OR accepted), in either challenger or
+                // defender slots. Previously only outgoing slots were counted,
+                // so a player could initiate the cap as challenger AND
+                // separately accept the cap again as a defender, doubling
+                // their effective active footprint.
                 if (!identity.admin) {
+                    const me = fromPlayer.toLowerCase();
                     const myInFlight = war.pendingChallenges.filter(c => {
-                        if (c.status !== 'pending' && c.status !== 'queuing')
+                        if (c.status !== 'pending' && c.status !== 'queuing' && c.status !== 'accepted')
                             return false;
-                        return (c.fromPlayer ?? '').toLowerCase() === fromPlayer.toLowerCase()
-                            || (c.fromPlayer2 ?? '').toLowerCase() === fromPlayer.toLowerCase();
+                        return (c.fromPlayer ?? '').toLowerCase() === me
+                            || (c.fromPlayer2 ?? '').toLowerCase() === me
+                            || (c.acceptedPlayer ?? '').toLowerCase() === me
+                            || (c.acceptedPlayer2 ?? '').toLowerCase() === me;
                     }).length;
                     if (myInFlight >= _storage_js_2.MAX_PENDING_PER_PLAYER) {
                         return { status: 429, body: { error: `You already have ${_storage_js_2.MAX_PENDING_PER_PLAYER} active challenges. Wait for them to resolve, cancel one, or expire.` } };
@@ -152,13 +156,16 @@ async function handler(req, res) {
                 // queue — keeps the slot count honest across both
                 // challenger paths.
                 if (!identity.admin) {
+                    const me = joiner.toLowerCase();
                     const myInFlight = war.pendingChallenges.filter(c => {
                         if (c.id === ch.id)
                             return false;
-                        if (c.status !== 'pending' && c.status !== 'queuing')
+                        if (c.status !== 'pending' && c.status !== 'queuing' && c.status !== 'accepted')
                             return false;
-                        return (c.fromPlayer ?? '').toLowerCase() === joiner.toLowerCase()
-                            || (c.fromPlayer2 ?? '').toLowerCase() === joiner.toLowerCase();
+                        return (c.fromPlayer ?? '').toLowerCase() === me
+                            || (c.fromPlayer2 ?? '').toLowerCase() === me
+                            || (c.acceptedPlayer ?? '').toLowerCase() === me
+                            || (c.acceptedPlayer2 ?? '').toLowerCase() === me;
                     }).length;
                     if (myInFlight >= _storage_js_2.MAX_PENDING_PER_PLAYER) {
                         return { status: 429, body: { error: `You already have ${_storage_js_2.MAX_PENDING_PER_PLAYER} active challenges. Wait for them to resolve, cancel one, or expire.` } };

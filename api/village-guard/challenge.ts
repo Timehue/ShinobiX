@@ -73,8 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const guardCharacter = (guardSave?.character as Record<string, unknown>) ?? null;
 
         if (!guardCharacter) {
-            // Guard's save is missing — fall back to AI
-            return res.status(200).json({ pvp: false, guardName: guard.name, guardLevel: guard.level, defenseBonusPercent: guard.defenseBonusPercent ?? 0 });
+            // Guard's save is missing — fall back to AI. Cap the defense
+            // bonus at 100% so a stale guard entry with an absurd value
+            // (admin edit, corrupted state) can't make raids unwinnable.
+            const cappedBonus = Math.max(0, Math.min(100, Number(guard.defenseBonusPercent ?? 0) || 0));
+            return res.status(200).json({ pvp: false, guardName: guard.name, guardLevel: guard.level, defenseBonusPercent: cappedBonus });
         }
 
         // Send a sectorAttack-style DuelChallenge to the guard.

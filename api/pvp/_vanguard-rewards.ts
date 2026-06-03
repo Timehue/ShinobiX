@@ -1,6 +1,6 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
-import { hasRecentIpOverlap } from '../_player-ips.js';
+import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import type { PvpSession } from './session.js';
 
@@ -57,7 +57,7 @@ export function rankFromXp(xp: number): number {
 
 export type GrantResult = {
     granted: boolean;
-    reason?: 'not-vanguard' | 'not-human-pvp' | 'too-quick' | 'too-young' | 'same-ip' | 'level-gap' | 'capped' | 'already-granted';
+    reason?: 'not-vanguard' | 'not-human-pvp' | 'too-quick' | 'too-young' | 'same-ip' | 'same-device' | 'level-gap' | 'capped' | 'already-granted';
     seals?: number;
     xp?: number;
 };
@@ -108,8 +108,11 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
             return { granted: false, reason: 'too-young' };
         }
-        const sharesIp = await hasRecentIpOverlap(winnerName, loserName);
-        if (sharesIp) return { granted: false, reason: 'same-ip' };
+        // Includes browser-fingerprint overlap, so VPN rotation alone no
+        // longer defeats the check — an attacker would also need a different
+        // browser profile per alt.
+        const sharesDevice = await hasRecentIpOrFpOverlap(winnerName, loserName);
+        if (sharesDevice) return { granted: false, reason: 'same-device' };
 
         // Level-gap rule.
         const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));

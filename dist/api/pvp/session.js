@@ -500,7 +500,10 @@ async function handler(req, res) {
             // advantage and previously the attacker (always p1) won by default.
             // Now both sides have an equal shot at the opening move; the
             // prefight overlay's "X goes first!" reveal matches the server roll.
-            const firstActor = Math.random() < 0.5 ? 'p1' : 'p2';
+            // Use crypto.randomBytes for the coin flip — Math.random() is
+            // V8-seeded and at session-creation rates could in principle be
+            // biased/predicted via timing correlation.
+            const firstActor = ((0, crypto_1.randomBytes)(1)[0] & 1) === 0 ? 'p1' : 'p2';
             const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
             // ── Ranked snapshot (audit #7 / Stage 3) ─────────────────────────
             // When the client flags this match ranked, record each fighter's
