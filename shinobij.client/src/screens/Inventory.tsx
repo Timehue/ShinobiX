@@ -9,16 +9,15 @@ import {
     WARFORGED_RELIC_ID,
     armorReductionForQuality,
     consolidateItemBonuses,
-    equipmentSlotLabel,
     getAllItems,
     getAllTileCards,
     getItemById,
-    hasCharacterElement,
     nonVanguardCharmSubstitute,
-    normalizeEquipmentSlot,
     petFeedXpForItem,
     vanguardOnlyHonorSeals,
 } from "../App";
+import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
+import { hasCharacterElement } from "../lib/elements";
 
 export function Inventory({
     character,

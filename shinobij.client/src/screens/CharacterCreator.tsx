@@ -1,12 +1,12 @@
 import { useState } from "react";
 import {
     type Character,
-    villages,
     starterBloodlines,
     starterBloodlineOffense,
     starterSavedBloodlines,
     createCharacter,
 } from "../App";
+import { villages } from "../data/sectors";
 
 function IconUser() {
     return (
