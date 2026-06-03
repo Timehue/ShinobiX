@@ -54,8 +54,6 @@ import kageHandler         from './api/village/kage.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
-import rankedJoinHandler  from './api/ranked-queue/join.js';
-import rankedLeaveHandler from './api/ranked-queue/leave.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import raidStartHandler   from './api/missions/raid-start.js';
@@ -348,10 +346,6 @@ route('/bloodlines/list', bloodlinesListHandler);
 // Admin review queues
 route('/admin/bloodline-review', bloodlineReviewHandler);
 route('/admin/item-review',      itemReviewHandler);
-
-// Ranked queue
-route('/ranked-queue/join',  rankedJoinHandler);
-route('/ranked-queue/leave', rankedLeaveHandler);
 
 // Internal KV proxy — Vercel forwards disk-routed keys here.
 // Mounted with a trailing :op param so /api/kv/get etc. all hit one handler.

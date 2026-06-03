@@ -55,8 +55,6 @@ const kage_js_1 = __importDefault(require("./api/village/kage.js"));
 const bloodline_review_js_1 = __importDefault(require("./api/admin/bloodline-review.js"));
 const item_review_js_1 = __importDefault(require("./api/admin/item-review.js"));
 const list_js_3 = __importDefault(require("./api/bloodlines/list.js"));
-const join_js_1 = __importDefault(require("./api/ranked-queue/join.js"));
-const leave_js_1 = __importDefault(require("./api/ranked-queue/leave.js"));
 const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
@@ -314,9 +312,6 @@ route('/bloodlines/list', list_js_3.default);
 // Admin review queues
 route('/admin/bloodline-review', bloodline_review_js_1.default);
 route('/admin/item-review', item_review_js_1.default);
-// Ranked queue
-route('/ranked-queue/join', join_js_1.default);
-route('/ranked-queue/leave', leave_js_1.default);
 // Internal KV proxy — Vercel forwards disk-routed keys here.
 // Mounted with a trailing :op param so /api/kv/get etc. all hit one handler.
 route('/kv/:op', kv_proxy_js_1.default);
