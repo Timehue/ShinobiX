@@ -8,11 +8,14 @@
  * is NOT node-testable — keep it out of the test runner. The pure element →
  * palette/burst logic lives in jutsu-vfx.ts instead.
  *
- * Bundled today: fire, water, earth, wind, lava, none (Foozle) + lightning, ice
- * (Ninja Adventure). An element with no folder (shadow / blood / iron, and the
- * pet-only poison/chakra keys) returns null and the renderer falls back to the
- * procedural element-tinted particle burst. Adding fx/<element>/ frames is all
- * it takes to give one a sprite — no code change.
+ * Bundled today: the element folders fire/water/earth/wind/lava/none (Foozle) +
+ * lightning/ice (Ninja Adventure), the pet-kind folders buff/heal/shield/slash
+ * (Ninja Adventure), and the intent/discipline folders blood/shadow/poison/burn/
+ * impact/spark/bighit/kaboom/explosion/magma/charge/aura/eshield/vortex/power
+ * (CodeManu — see CREDITS.txt + lib/jutsu-vfx.ts). A key with no folder (the
+ * pet-only "chakra" tint) returns null and the renderer falls back to the
+ * procedural particle burst. Adding fx/<key>/ frames is all it takes to give one
+ * a sprite — no code change.
  */
 
 // eager: resolve URLs at build time; import the default (the asset URL string).

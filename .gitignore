@@ -403,3 +403,7 @@ tmp/
 
 # Composite badge sources — re-export from AI tool if needed; sliced output in shinobij.client/public/badges/ is committed
 scripts/badge-sources/
+
+# Battle-VFX source frames (CodeManu "Free VFX Asset Pack") — re-extract on a dev
+# machine if re-slicing; sliced output in shinobij.client/src/assets/fx/ is committed
+scripts/vfx-sources/
