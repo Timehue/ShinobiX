@@ -80,8 +80,11 @@ export function CharacterCreator({ onCreate }: { onCreate: (character: Character
     const [bloodline, setBloodline] = useState(starterBloodlines[0]);
 
     function submitCharacter() {
-        if (name.trim().length < 2) return alert("Enter a ninja name first.");
-        if (password.length < 4) return alert("Create a password with at least 4 characters.");
+        if (name.trim().length < 3) return alert("Pick a ninja name with at least 3 characters.");
+        if (password.length < 8) return alert("Create a password with at least 8 characters.");
+        if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+            return alert("Password must include at least one letter and one number.");
+        }
         if (password !== confirmPassword) return alert("Passwords do not match.");
         onCreate(createCharacter(name.trim(), village, starterBloodlineOffense[bloodline] ?? "Ninjutsu", bloodline), password);
     }
@@ -90,31 +93,35 @@ export function CharacterCreator({ onCreate }: { onCreate: (character: Character
         <div className="card creator-card start-card">
             <h2 className="start-card-title">Character Creator</h2>
 
-            <label className="start-field">
+            <label className="start-field" htmlFor="cc-name">
                 <span className="start-field-label">
                     <span className="start-field-icon"><IconUser /></span>
                     Name
                 </span>
                 <input
+                    id="cc-name"
                     className="start-input"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your shinobi name"
+                    autoComplete="username"
                 />
             </label>
 
-            <label className="start-field">
+            <label className="start-field" htmlFor="cc-password">
                 <span className="start-field-label">
                     <span className="start-field-icon"><IconLock /></span>
                     Password
                 </span>
                 <span className="start-input-wrap">
                     <input
+                        id="cc-password"
                         className="start-input has-toggle"
                         type={showPw ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Create a login password"
+                        autoComplete="new-password"
                     />
                     <button
                         type="button"
@@ -127,18 +134,20 @@ export function CharacterCreator({ onCreate }: { onCreate: (character: Character
                 </span>
             </label>
 
-            <label className="start-field">
+            <label className="start-field" htmlFor="cc-confirm-password">
                 <span className="start-field-label">
                     <span className="start-field-icon"><IconLock /></span>
                     Confirm Password
                 </span>
                 <span className="start-input-wrap">
                     <input
+                        id="cc-confirm-password"
                         className="start-input has-toggle"
                         type={showConfirm ? "text" : "password"}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="Retype password"
+                        autoComplete="new-password"
                     />
                     <button
                         type="button"
@@ -151,22 +160,22 @@ export function CharacterCreator({ onCreate }: { onCreate: (character: Character
                 </span>
             </label>
 
-            <label className="start-field">
+            <label className="start-field" htmlFor="cc-village">
                 <span className="start-field-label">
                     <span className="start-field-icon"><IconBuilding /></span>
                     Village
                 </span>
-                <select className="start-input" value={village} onChange={(e) => setVillage(e.target.value)}>
+                <select id="cc-village" className="start-input" value={village} onChange={(e) => setVillage(e.target.value)}>
                     {villages.map((v) => <option key={v}>{v}</option>)}
                 </select>
             </label>
 
-            <label className="start-field">
+            <label className="start-field" htmlFor="cc-bloodline">
                 <span className="start-field-label">
                     <span className="start-field-icon"><IconEye /></span>
                     Starter Bloodline
                 </span>
-                <select className="start-input" value={bloodline} onChange={(e) => setBloodline(e.target.value)}>
+                <select id="cc-bloodline" className="start-input" value={bloodline} onChange={(e) => setBloodline(e.target.value)}>
                     {starterBloodlines.map((b) => <option key={b} value={b}>{b} ({starterBloodlineOffense[b]})</option>)}
                 </select>
             </label>

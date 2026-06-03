@@ -36,6 +36,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const clanName = typeof char.clan === 'string' ? char.clan : '';
         if (!clanName) return res.status(400).json({ error: 'You must be in a clan to offer escort.' });
 
+        // Verify the offerer is actually in the clan's member roster. A
+        // kicked player whose own save still says clan="X" must not be able
+        // to keep offering escorts to clan X.
+        const clanSlug = clanName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        const clanRecord = await kv.get<Record<string, unknown>>(`save:clan-${clanSlug}`);
+        const members = Array.isArray(clanRecord?.members) ? (clanRecord!.members as Array<Record<string, unknown>>) : [];
+        const isMember = members.some((m) => String(m?.name ?? '').toLowerCase() === playerName.toLowerCase());
+        if (!isMember) {
+            return res.status(403).json({ error: 'You are no longer a member of that clan.' });
+        }
+
         await offerEscort(clanName, playerName);
         return res.status(200).json({ ok: true, clanName, petTamer: playerName, expiresInSeconds: 60 * 60 });
     } catch (err) {

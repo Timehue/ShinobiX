@@ -129,7 +129,13 @@ async function handler(req, res) {
             // disagree with the authoritative session winner. This blocks
             // colluding-pair / sock-puppet fake wins. Pet modes (no
             // battleId) skip this and rely on two-phase reporting alone.
-            if (!identity.admin && result !== 'draw') {
+            //
+            // Includes 'draw' reports: previously a losing side could
+            // immediately self-report 'draw' to deny the legitimate winner
+            // their reward, because the session check was skipped for draws.
+            // Now any non-draw session outcome refuses the contradictory
+            // draw claim.
+            if (!identity.admin) {
                 const sessionError = await validateAgainstPvpSession(ch, result);
                 if (sessionError)
                     return sessionError;

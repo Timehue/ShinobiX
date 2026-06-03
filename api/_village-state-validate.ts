@@ -311,6 +311,10 @@ export async function validateVillageStateWrite(
                     suppressed.push(`kageChallenge rejected (challenger "${lower(chal.challenger)}" ≠ caller)`);
                     continue;
                 }
+                // Server-stamp createdAt. Never trust the client — a future
+                // value would make the lazy-expiry below never fire, keeping a
+                // challenge actionable forever.
+                chal.createdAt = Date.now();
                 cleaned.push(chal);
             } else {
                 // Update — caller must be challenger, seatedKage, or admin.
@@ -325,6 +329,9 @@ export async function validateVillageStateWrite(
                     cleaned.push(existing); // discard edit, keep original
                     suppressed.push(`kageChallenge update on "${id}" rejected (not party to challenge)`);
                 } else {
+                    // Preserve the server-stamped createdAt across updates; the
+                    // client may patch status/response but must not re-stamp the clock.
+                    if (orig.createdAt != null) chal.createdAt = orig.createdAt;
                     cleaned.push(chal);
                 }
             }

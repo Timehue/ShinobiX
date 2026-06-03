@@ -61,7 +61,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                     title="View character profile"
                 >
                     {character.avatarImage ? (
-                        <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                        <img src={character.avatarImage} alt={`Character avatar for ${character.name}`} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                         character.name.slice(0, 2).toUpperCase()
                     )}

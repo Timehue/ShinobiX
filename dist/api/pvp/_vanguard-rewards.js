@@ -101,9 +101,12 @@ async function grantVanguardRewardsForSession(session) {
         if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
             return { granted: false, reason: 'too-young' };
         }
-        const sharesIp = await (0, _player_ips_js_1.hasRecentIpOverlap)(winnerName, loserName);
-        if (sharesIp)
-            return { granted: false, reason: 'same-ip' };
+        // Includes browser-fingerprint overlap, so VPN rotation alone no
+        // longer defeats the check — an attacker would also need a different
+        // browser profile per alt.
+        const sharesDevice = await (0, _player_ips_js_1.hasRecentIpOrFpOverlap)(winnerName, loserName);
+        if (sharesDevice)
+            return { granted: false, reason: 'same-device' };
         // Level-gap rule.
         const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));
         const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
