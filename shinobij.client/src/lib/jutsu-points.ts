@@ -34,9 +34,10 @@ export function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
         if (tag.percent >= 30) return 0.5;
         return 0;
     }
-    if (["Stun", "Bloodline Seal", "Copy", "Mirror", "Lag", "Overclock", "Debuff Prevent"].includes(tagName)) return 2;
-    if (["Reflect", "Buff Prevent", "Cleanse Prevent", "Clear Prevent"].includes(tagName)) return 1.5;
-    if (["Shield", "Heal", "Pierce", "Wound", "Barrier", "Drain"].includes(tagName)) return 1;
+    if (["Copy", "Mirror"].includes(tagName)) return 3;
+    if (["Stun", "Bloodline Seal", "Lag", "Overclock", "Debuff Prevent", "Buff Prevent"].includes(tagName)) return 2;
+    if (["Reflect", "Cleanse Prevent", "Clear Prevent", "Heal", "Elemental Seal"].includes(tagName)) return 1.5;
+    if (["Shield", "Pierce", "Wound", "Barrier", "Drain"].includes(tagName)) return 1;
     if (tagName === "Push") return 1;
     if (tagName === "Pull") return 0.75;
     if (["Move", "Poison", "Ignition"].includes(tagName)) return 0.5;
