@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 const REGISTRY_KEY = 'player:registry';
 
@@ -28,9 +29,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
 
-        // Pull presence keys to determine who is online right now
-        const presenceKeys = await kv.keys('presence:*');
-        const onlineNames = new Set(presenceKeys.map(k => k.replace('presence:', '').toLowerCase()));
+        // Who is online right now — from the in-memory presence store.
+        const onlineNames = new Set(onlineStore.list().map(p => p.name));
 
         // Primary source: persistent player registry (hset by heartbeat + save API)
         const rawRegistry = await kv.hgetall<Record<string, string>>(REGISTRY_KEY) ?? {};

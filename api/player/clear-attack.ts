@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -20,9 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Cannot clear another player.' });
         }
 
-        const key = `presence:${name}`;
-        const entry = await kv.get<Record<string, unknown>>(key);
-        if (entry) await kv.set(key, { ...entry, pendingAttacker: null }, { ex: 60 });
+        onlineStore.clearPendingAttacker(name);
         return res.status(200).json({ ok: true });
     } catch (err) {
         console.error('[clear-attack]', err);
