@@ -38,18 +38,12 @@ import { onlineStore } from './online-store.js';
 import { normalizeSector, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
 import { setOnSweep } from './game-loop.js';
 import { setRealtimeEmitter } from './notify.js';
-
-// Mirror the allowlist in server.ts cors() / api/_utils.ts. Production serves
-// the SPA and the socket from the SAME origin (Railway), so CORS isn't even
-// exercised there; this list only matters for cross-origin clients during the
-// hosting transition. KEEP IN SYNC with server.ts ALLOWED_ORIGINS.
-const ALLOWED_ORIGINS = [
-    'https://theravensark.com',
-    'https://www.theravensark.com',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-];
+// CORS origin allowlist — single source of truth in api/_utils.ts, shared with
+// cors() and the Express middleware. Production serves the SPA and the socket
+// from the SAME origin (Railway), so CORS isn't even exercised there; this list
+// only matters for cross-origin clients (e.g. a dev build pointed at a remote
+// backend — set VITE_REALTIME_URL).
+import { ALLOWED_ORIGINS } from '../_utils.js';
 
 let _io: IOServer | null = null;
 
@@ -104,7 +98,7 @@ export function attachSocketServer(httpServer: HttpServer): void {
         if (_io) return;
 
         const io = new IOServerCtor(httpServer, {
-            cors: { origin: ALLOWED_ORIGINS, methods: ['GET', 'POST'], credentials: true },
+            cors: { origin: [...ALLOWED_ORIGINS], methods: ['GET', 'POST'], credentials: true },
             // Detect dead sockets within ~45s (matches the offline window). The
             // client ping cadence (~20s) sits well inside this.
             pingInterval: 25_000,
