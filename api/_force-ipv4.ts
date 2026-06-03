@@ -23,7 +23,10 @@ import { setGlobalDispatcher, Agent } from 'undici';
 
 if (process.env.FORCE_IPV4 === '1') {
     try {
-        setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
+        // undici's `connect` option type wrongly requires a `port` field (it's
+        // supplied per-request at runtime), so cast past the overly-strict type.
+        // app.js does the equivalent in plain JS (no type checking).
+        setGlobalDispatcher(new Agent({ connect: { family: 4 } as never }));
         console.log('[ipv4] outbound connections pinned to IPv4 (FORCE_IPV4=1)');
     } catch (err) {
         console.warn('[ipv4] could not set IPv4 dispatcher:', (err as Error).message);
