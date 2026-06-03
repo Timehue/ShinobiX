@@ -205,6 +205,7 @@ import { JutsuEffectCards } from "./components/JutsuEffectCards";
 import { AiImagePrompt } from "./components/AiImagePrompt";
 import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
 import { TagPicker } from "./components/TagPicker";
+import { OnboardingCoach } from "./components/OnboardingCoach";
 import { Village } from "./screens/Village";
 import { ProfessionRankBar } from "./screens/ProfessionRankBar";
 
@@ -2349,6 +2350,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         stamina: maxStaminaForLevel(1),
         maxStamina: maxStaminaForLevel(1),
         rankTitle: "Academy Student",
+        onboardingStep: "tour",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
         equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
@@ -8754,6 +8756,22 @@ export default function App() {
                                 professionChosenAt: Date.now(),
                             });
                         }}
+                    />
+                )}
+
+                {character
+                    && character.onboardingStep
+                    && character.onboardingStep !== "done"
+                    && screen !== "villageLore"
+                    && character.name !== "Admin 1"
+                    && character.name !== "Admin 2"
+                    && (
+                    <OnboardingCoach
+                        character={character}
+                        screen={screen}
+                        activeTraining={activeTraining}
+                        setScreen={navigate}
+                        updateCharacter={setCharacter}
                     />
                 )}
 
@@ -25722,6 +25740,7 @@ function Logbook({
                 { label: "Complete 20 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 20 },
                 { label: "Kill 20 AI", progress: character.totalAiKills ?? 0, target: 20 },
                 { label: "Explore 50 tiles", progress: character.totalTilesExplored ?? 0, target: 50 },
+                { label: "Sharpen a jutsu to Lv 3", progress: Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level))), target: 3, detail: "Use a jutsu in battle to level it" },
             ],
         } : null,
         character.level >= 21 ? {
