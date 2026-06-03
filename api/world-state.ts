@@ -17,6 +17,15 @@ const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
 const TERRITORY_HP_MAX_DELTA_PER_REQUEST = 1000;
 // Same idea for raising HP via rebuild — bound the per-request gain.
 const TERRITORY_HP_MAX_REPAIR_PER_REQUEST = 1000;
+// Anti-cheat: hard ceiling on a single sector's stored War Supply. War Supply
+// accrues at 100/day and is the one territory field a claiming clan/village
+// writer can set freely (HP + ownership are clamped separately). Without a cap
+// a client could POST an arbitrarily large warSupply and then bank it into the
+// clan treasury via /api/clan/territory/collect-supply, which trusts the stored
+// value as its accrual base. 36,500 == one full year (365 × 100) of
+// uninterrupted accrual on one sector — far above any realistic uncollected
+// balance, so legitimate play is never clamped.
+const TERRITORY_WAR_SUPPLY_MAX = 36_500;
 // Village War damage per write — typical legit raid is 5–50 (role × 1).
 // 100 leaves plenty of headroom for elite raiders + the +750 capture
 // bonus, which is applied as a SECOND write rather than one fat one.
@@ -184,7 +193,7 @@ function normalizeSectorTerritory(data: Partial<SectorTerritory>): SectorTerrito
         controlScore: clampNumber(Math.floor(Number(data.controlScore ?? 0)), 0, TERRITORY_CONTROL_MAX),
         hp: clampNumber(Math.floor(Number(data.hp ?? TERRITORY_HP_MAX)), 0, TERRITORY_HP_MAX),
         guards: Array.isArray(data.guards) ? data.guards.filter(Boolean).map(String).slice(0, 20) : [],
-        warSupply: Math.max(0, Math.floor(Number(data.warSupply ?? 0))),
+        warSupply: Math.min(TERRITORY_WAR_SUPPLY_MAX, Math.max(0, Math.floor(Number(data.warSupply ?? 0)))),
         terrainBuffStat: normalizeTerrainBuffStat(data.terrainBuffStat),
         updatedAt: data.updatedAt ?? Date.now(),
     };
