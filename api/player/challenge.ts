@@ -159,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { targetName, challenge } = body as { targetName?: string; challenge?: unknown };
         if (!targetName || !challenge) return res.status(400).json({ error: 'Missing targetName or challenge.' });
 
-        const record = challenge as { accepted?: boolean; declined?: boolean; battleId?: string };
+        const record = challenge as { accepted?: boolean; declined?: boolean; battleId?: string; mode?: string };
         const fromName = challengeFromName(challenge);
 
         // The challenge's fromName (sender) must match the authed identity unless admin.
@@ -171,9 +171,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!record.accepted && !record.declined && !record.battleId) {
             // Presence is in process memory; challengeBlock carries the
             // traveling / in-battle / engaged gates AND the Academy-Student
-            // protection (sub-Genin can't be challenged). An OFFLINE target is
-            // NOT blocked — the challenge is queued in their inbox for later.
-            const block = challengeBlock(onlineStore.get(targetName));
+            // protection (sub-Genin can't be challenged). Spar and pet-battle
+            // modes are exempt from the Academy gate (passed via record.mode) so
+            // brand-new players can still practice-fight; ranked / clan-war keep
+            // it. An OFFLINE target is NOT blocked — the challenge is queued in
+            // their inbox for later.
+            const block = challengeBlock(onlineStore.get(targetName), record.mode);
             if (block) return res.status(block.status).json({ error: block.error });
         }
 
