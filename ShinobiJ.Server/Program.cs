@@ -162,7 +162,7 @@ Asset label:
 {request.Label}
 
 Style rules:
-- original ninja RPG fantasy style
+- original shinobi RPG fantasy style
 - clean game asset composition
 - dramatic lighting
 - no text

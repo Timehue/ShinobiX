@@ -12871,7 +12871,7 @@ function AdminPanel({
             try {
                 const customPrompt = itemBulkCustomPrompts[item.id]?.trim();
                 const slotLabel = equipmentSlotLabel(item.slot);
-                const autoPrompt = `${item.name} ${item.rarity} ${slotLabel} shinobi ninja RPG equipment game art`;
+                const autoPrompt = `${item.name} ${item.rarity} ${slotLabel} shinobi RPG equipment game art`;
                 const response = await fetch("/api/generate-image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -17015,7 +17015,7 @@ function AdminPanel({
                         key: "ai:boss-hollow-gate-warden",
                         name: "Hollow Gate Warden (boss portrait)",
                         category: "Boss AI",
-                        defaultPrompt: "Hollow Gate Warden, hulking corrupted shinobi warden in black ritual armor, glowing purple shrine sigils across chest plate, violet chakra burning in cracked mask eyes, ancient torii gate burning behind, dark shadow-temple boss portrait, dramatic ninja RPG character art",
+                        defaultPrompt: "Hollow Gate Warden, hulking corrupted shinobi warden in black ritual armor, glowing purple shrine sigils across chest plate, violet chakra burning in cracked mask eyes, ancient torii gate burning behind, dark shadow-temple boss portrait, dramatic shinobi RPG character art",
                         onSave: (image) => {
                             // Mirror to creatorAis so the existing AI image lookup picks it up.
                             const next = creatorAis.some(a => a.id === "boss-hollow-gate-warden")
@@ -17035,50 +17035,50 @@ function AdminPanel({
                         key: "shrine:hollow-gate-background",
                         name: "Hollow Gate Shrine — main background",
                         category: "Location",
-                        defaultPrompt: "Hollow Gate Shrine interior, dark ancient shadow temple with broken torii arches, glowing purple seal runes etched into stone floor, violet chakra mist drifting through corridors, dim spirit lanterns, dungeon crawler background, painted ninja RPG environment art",
+                        defaultPrompt: "Hollow Gate Shrine interior, dark ancient shadow temple with broken torii arches, glowing purple seal runes etched into stone floor, violet chakra mist drifting through corridors, dim spirit lanterns, dungeon crawler background, painted shinobi RPG environment art",
                     },
                     {
                         key: "shrine:hidden-chamber-background",
                         name: "Hidden Chamber background",
                         category: "Location",
-                        defaultPrompt: "Hidden Chamber inside the Hollow Gate Shrine, secret ritual circle pulsing violet, spirit lanterns hovering over a cracked altar, ancient tablet humming with sealed chakra, floating shrine relic surrounded by purple energy, mystical dungeon discovery scene, painted ninja RPG environment art",
+                        defaultPrompt: "Hidden Chamber inside the Hollow Gate Shrine, secret ritual circle pulsing violet, spirit lanterns hovering over a cracked altar, ancient tablet humming with sealed chakra, floating shrine relic surrounded by purple energy, mystical dungeon discovery scene, painted shinobi RPG environment art",
                     },
                     // ── Tile / scene illustrations ────────────────────────────
                     {
                         key: "shrine:tile-sealed-door",
                         name: "Sealed Door scene",
                         category: "Tile / Scene",
-                        defaultPrompt: "Ancient sealed stone door inside a shadow shinobi shrine, bound by thick chakra chains and glowing purple seal kanji, faint torch light, painted ninja RPG event scene art",
+                        defaultPrompt: "Ancient sealed stone door inside a shadow shinobi shrine, bound by thick chakra chains and glowing purple seal kanji, faint torch light, painted shinobi RPG event scene art",
                     },
                     {
                         key: "shrine:tile-trap",
                         name: "Ancient Seal Trap scene",
                         category: "Tile / Scene",
-                        defaultPrompt: "Ancient seal trap inside a shadow shinobi shrine, paper-thin runes flaring red and violet underfoot, venomous chakra mist hissing from cracked stones, painted ninja RPG event scene art",
+                        defaultPrompt: "Ancient seal trap inside a shadow shinobi shrine, paper-thin runes flaring red and violet underfoot, venomous chakra mist hissing from cracked stones, painted shinobi RPG event scene art",
                     },
                     {
                         key: "shrine:tile-ancient-chest",
                         name: "Ancient Chest scene",
                         category: "Tile / Scene",
-                        defaultPrompt: "Ancient lacquered shrine offering chest, glowing violet chakra runes around the lock, dim shrine torches, glowing pawprints leading toward it, painted ninja RPG event scene art",
+                        defaultPrompt: "Ancient lacquered shrine offering chest, glowing violet chakra runes around the lock, dim shrine torches, glowing pawprints leading toward it, painted shinobi RPG event scene art",
                     },
                     {
                         key: "shrine:tile-pet-encounter",
                         name: "Glowing Pawprints / Pet encounter scene",
                         category: "Tile / Scene",
-                        defaultPrompt: "Glowing violet pawprints leading toward a sleeping shrine spirit beast, ancient stone shadow temple corridor, mystical chakra aura, painted ninja RPG event scene art",
+                        defaultPrompt: "Glowing violet pawprints leading toward a sleeping shrine spirit beast, ancient stone shadow temple corridor, mystical chakra aura, painted shinobi RPG event scene art",
                     },
                     {
                         key: "shrine:tile-corrupted-shinobi",
                         name: "Corrupted Shinobi (normal battle scene)",
                         category: "Tile / Scene",
-                        defaultPrompt: "Corrupted shinobi rising from violet chakra mist inside a shadow temple, glowing hollow eyes, fractured mask, broken kunai in hand, painted ninja RPG combat scene art",
+                        defaultPrompt: "Corrupted shinobi rising from violet chakra mist inside a shadow temple, glowing hollow eyes, fractured mask, broken kunai in hand, painted shinobi RPG combat scene art",
                     },
                     {
                         key: "shrine:tile-shrine-keeper",
                         name: "Shrine Keeper (NPC portrait)",
                         category: "Tile / Scene",
-                        defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted ninja RPG character art",
+                        defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted shinobi RPG character art",
                     },
                     {
                         // Shared wild-pet portrait for Hollow Gate pet_battle
@@ -17088,7 +17088,7 @@ function AdminPanel({
                         key: "shrine:tile-hollow-beast",
                         name: "Hollow Beast (wild pet portrait)",
                         category: "Tile / Scene",
-                        defaultPrompt: "Hollow Beast, corrupted spirit beast bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured shadow body, faint ancient sigils orbiting it, painted ninja RPG creature portrait",
+                        defaultPrompt: "Hollow Beast, corrupted spirit beast bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured shadow body, faint ancient sigils orbiting it, painted shinobi RPG creature portrait",
                     },
                     {
                         // Tile-game scene + the shadow NPC opponent who runs
@@ -17097,56 +17097,56 @@ function AdminPanel({
                         key: "shrine:tile-tile-game",
                         name: "Shinobi Tile Game (NPC + table)",
                         category: "Tile / Scene",
-                        defaultPrompt: "A hooded shadow opponent sits across a glowing stone table inside a Hollow Gate shrine, nine tile-shaped slots etched into the table glowing violet, faint chakra cards floating between them, painted ninja RPG card-game scene art",
+                        defaultPrompt: "A hooded shadow opponent sits across a glowing stone table inside a Hollow Gate shrine, nine tile-shaped slots etched into the table glowing violet, faint chakra cards floating between them, painted shinobi RPG card-game scene art",
                     },
                     {
                         key: "shrine:tile-wall",
                         name: "Wall tile texture",
                         category: "Tile / Scene",
-                        defaultPrompt: "Seamless dark stone shrine wall texture tile, weathered ancient masonry with violet chakra-burned cracks, faint purple seal runes faded into the stone, top-down dungeon tile, game-ready square tile art, painted ninja RPG environment art",
+                        defaultPrompt: "Seamless dark stone shrine wall texture tile, weathered ancient masonry with violet chakra-burned cracks, faint purple seal runes faded into the stone, top-down dungeon tile, game-ready square tile art, painted shinobi RPG environment art",
                     },
                     {
                         key: "shrine:tile-room-floor",
                         name: "Room floor tile texture",
                         category: "Tile / Scene",
-                        defaultPrompt: "Seamless polished dark slate shrine room floor texture, faint violet chakra grout between stone tiles, scattered dust and old ash, gently glowing seal runes inset, top-down dungeon floor tile, game-ready square tile art, painted ninja RPG environment art",
+                        defaultPrompt: "Seamless polished dark slate shrine room floor texture, faint violet chakra grout between stone tiles, scattered dust and old ash, gently glowing seal runes inset, top-down dungeon floor tile, game-ready square tile art, painted shinobi RPG environment art",
                     },
                     {
                         key: "shrine:tile-corridor-floor",
                         name: "Corridor floor tile texture",
                         category: "Tile / Scene",
-                        defaultPrompt: "Seamless narrow shrine corridor floor texture, dark rough cobblestone with violet chakra moss in the cracks, water-stained edges, dim, claustrophobic top-down dungeon corridor tile, game-ready square tile art, painted ninja RPG environment art",
+                        defaultPrompt: "Seamless narrow shrine corridor floor texture, dark rough cobblestone with violet chakra moss in the cracks, water-stained edges, dim, claustrophobic top-down dungeon corridor tile, game-ready square tile art, painted shinobi RPG environment art",
                     },
                     {
                         key: "shrine:tile-door",
                         name: "Door / threshold tile texture",
                         category: "Tile / Scene",
-                        defaultPrompt: "Top-down view of an open shrine doorway, warm warded wood threshold framed by violet seal kanji on the floor, between a dark corridor and a torchlit room, game-ready square tile art, painted ninja RPG environment art",
+                        defaultPrompt: "Top-down view of an open shrine doorway, warm warded wood threshold framed by violet seal kanji on the floor, between a dark corridor and a torchlit room, game-ready square tile art, painted shinobi RPG environment art",
                     },
                     {
                         key: "shrine:tile-story",
                         name: "Hollow Gate Echo (story / engraving scene)",
                         category: "Tile / Scene",
-                        defaultPrompt: "Hollow Gate Echo, ancient stone tablet inside a shadow shinobi shrine, etched with names of the shrine's first guardians, a shattered mural in the background depicts shinobi sealing the gate from the inside, glowing violet kanji bleeding faintly across the stone, painted ninja RPG event scene art",
+                        defaultPrompt: "Hollow Gate Echo, ancient stone tablet inside a shadow shinobi shrine, etched with names of the shrine's first guardians, a shattered mural in the background depicts shinobi sealing the gate from the inside, glowing violet kanji bleeding faintly across the stone, painted shinobi RPG event scene art",
                     },
                     // ── Intro Visual Novel scenes (3 pages) ───────────────────
                     {
                         key: "shrine:intro-1",
                         name: "Intro VN Page 1 — The Broken Torii",
                         category: "Tile / Scene",
-                        defaultPrompt: "Broken torii arch leaning against itself, bound with glowing violet chakra rope and ancient seals, view from the player approaching with a Hollow Gate Key, dark cliffside path, cinematic painted ninja RPG scene art",
+                        defaultPrompt: "Broken torii arch leaning against itself, bound with glowing violet chakra rope and ancient seals, view from the player approaching with a Hollow Gate Key, dark cliffside path, cinematic painted shinobi RPG scene art",
                     },
                     {
                         key: "shrine:intro-2",
                         name: "Intro VN Page 2 — The First Step",
                         category: "Tile / Scene",
-                        defaultPrompt: "First step inside the Hollow Gate Shrine, stone teeth biting the air, glowing violet pawprints pulsing down a long corridor of ancient shadow temple, dim torch light, cinematic painted ninja RPG scene art",
+                        defaultPrompt: "First step inside the Hollow Gate Shrine, stone teeth biting the air, glowing violet pawprints pulsing down a long corridor of ancient shadow temple, dim torch light, cinematic painted shinobi RPG scene art",
                     },
                     {
                         key: "shrine:intro-3",
                         name: "Intro VN Page 3 — What Waits Below",
                         category: "Tile / Scene",
-                        defaultPrompt: "Five descending floors of the Hollow Gate Shrine seen as a cross-section, with the silhouette of the Hollow Gate Warden waiting on the deepest floor, surrounded by violet chakra fire, cinematic painted ninja RPG scene art",
+                        defaultPrompt: "Five descending floors of the Hollow Gate Shrine seen as a cross-section, with the silhouette of the Hollow Gate Warden waiting on the deepest floor, surrounded by violet chakra fire, cinematic painted shinobi RPG scene art",
                     },
                 ];
 

@@ -19,13 +19,13 @@ clusters: direct ninja/anime browser RPGs, the classic stat-training/energy
 These share ShinobiX's exact DNA: Academy→Genin→Chunin ranks, real-time resource
 pools, learn-and-level jutsu, bloodlines.
 
-### the genre leader — the genre ancestor
+### The genre leader — the genre ancestor
 - **Start as an Academy Student** with HP/Chakra/Stamina pools and essentially
   no offense; your first task is to **learn 3 academy jutsu** (Clone,
   Replacement, Transform) by spending Ryo.
 - **Rank-up is a checklist, not just XP:** Academy→Genin requires **18,000 XP +
   Academy level 10 + all 3 starter jutsu at level 5 + 12 Intelligence.** The
-  academy *is* the tutorial-by-objective. ([KISS Guide](http://kiss-tnrguide.blogspot.com/2013/05/kisss-beginners-guide.html))
+  academy *is* the tutorial-by-objective.
 - **Training grows your max pools**, so early training is self-reinforcing
   ("cap your pools first"). A **Sensei system** grants up to **+200% stat gain**
   to soften the early grind.
@@ -209,9 +209,7 @@ mechanics. Updates to fold into the other two docs:
 
 ## Sources
 
-Ninja RPGs: the genre leader's player guide ·
-[KISS Beginners Guide](http://kiss-tnrguide.blogspot.com/2013/05/kisss-beginners-guide.html) ·
-[Ninpocho](https://ninpocho.com/) ·
+Shinobi RPGs: [Ninpocho](https://ninpocho.com/) ·
 [Ninja Saga Tutorial](https://ninjasaga.fandom.com/wiki/Tutorial) ·
 [Naruto Online review (MMOs.com)](https://mmos.com/review/naruto-online) ·
 [Common Sense Media](https://www.commonsensemedia.org/game-reviews/naruto-online)
