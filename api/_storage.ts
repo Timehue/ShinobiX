@@ -95,8 +95,18 @@ function getPool(): pg.Pool {
         user: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
         database: parsed.pathname.replace(/^\//, ''),
-        ssl: { rejectUnauthorized: false },
-        max: 5,
+        // SSL on by default (Supabase requires it, as does Railway's PUBLIC proxy
+        // URL). Set PG_SSL=disable ONLY when connecting over Railway's PRIVATE
+        // network (host postgres.railway.internal): that listener is on an
+        // isolated per-project overlay, serves plaintext, and rejects an SSL
+        // handshake — so forcing SSL there fails to connect. Never disable SSL on
+        // a public/internet connection string.
+        ssl: process.env.PG_SSL === 'disable' ? false : { rejectUnauthorized: false },
+        // Pool size PER PROCESS. cPanel/Passenger runs many small worker
+        // processes, so 5 each is plenty. A single always-on Railway/VPS instance
+        // serving every player's heartbeat writes wants more headroom — set
+        // PG_POOL_MAX=15 (or higher) there. Default unchanged at 5.
+        max: Number(process.env.PG_POOL_MAX ?? 5),
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 15_000,
     });
