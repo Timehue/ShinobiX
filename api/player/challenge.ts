@@ -3,6 +3,8 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { onlineStore } from '../_realtime/online-store.js';
+import { challengeBlock } from '../_realtime/presence-gating.js';
 
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 
@@ -166,18 +168,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
         if (!record.accepted && !record.declined && !record.battleId) {
-            const targetPresence = await kv.get<Record<string, unknown>>(`presence:${targetName}`);
-            if (targetPresence) {
-                if (Number(targetPresence.travelingUntil ?? 0) > Date.now()) {
-                    return res.status(409).json({ error: 'Target is traveling.' });
-                }
-                if (targetPresence.inBattle) {
-                    return res.status(409).json({ error: 'Target is already in a battle.' });
-                }
-                if (targetPresence.pendingAttacker) {
-                    return res.status(409).json({ error: 'Target is already engaged in combat.' });
-                }
-            }
+            const reason = challengeBlock(onlineStore.get(targetName));
+            if (reason) return res.status(409).json({ error: reason });
         }
 
         if (record.accepted || record.declined) {

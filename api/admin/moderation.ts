@@ -4,6 +4,7 @@ import { cors } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 // ─── Moderation key model ─────────────────────────────────────────────────────
 //
@@ -300,7 +301,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(banKey(targetName), rec);
             // Also clear active presence + any auth header session won't help, so
             // the player will be kicked on next auth check.
-            await kv.del(`presence:${targetName}`).catch(() => 0);
+            onlineStore.remove(targetName);
             await appendAudit({
                 ts: Date.now(),
                 actor: actorName,
@@ -362,7 +363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Force-kick: clear presence + active PvP session pointers. The player
             // stays logged in but is dropped from active state.
             if (!targetName) return res.status(400).json({ error: 'Missing target.' });
-            await kv.del(`presence:${targetName}`).catch(() => 0);
+            onlineStore.remove(targetName);
             await kv.set(`reset-signal:${targetName}`, { reason: 'admin-kick', at: Date.now() }, { ex: 60 }).catch(() => null);
             await appendAudit({
                 ts: Date.now(),
@@ -437,7 +438,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 kv.get<Record<string, unknown>>(`save:${targetName}`),
                 kv.get<BanRecord>(banKey(targetName)),
                 kv.get<SilenceRecord>(silenceKey(targetName)),
-                kv.get<Record<string, unknown>>(`presence:${targetName}`),
+                Promise.resolve(onlineStore.get(targetName)),
             ]);
             if (!save) return res.status(200).json({ target: targetName, exists: false });
             const ch = (save.character ?? {}) as Record<string, unknown>;
@@ -457,7 +458,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     totalAiKills: Number(ch.totalAiKills ?? 0),
                     hospitalized: Boolean(ch.hospitalized),
                     createdAt: created,
-                    lastSeenAt: presence ? Number(presence.lastSeen ?? 0) : 0,
+                    lastSeenAt: presence ? Number(presence.lastSeenAt ?? 0) : 0,
                     currentSector: presence ? Number(presence.sector ?? 0) : 0,
                     online: !!presence,
                 },

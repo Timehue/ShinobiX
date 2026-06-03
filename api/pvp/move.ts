@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
 import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
+import { onlineStore } from '../_realtime/online-store.js';
 
 // All session writes flow through here so the combat log gets capped
 // + the idempotency token ring buffer is appended before it hits KV.
@@ -1251,21 +1252,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // entry blocks third parties from attacking them. Best-effort —
         // failures don't undo the battle resolution.
         if (result.status === 'done') {
-            const p1Key = `presence:${result.p1.name}`;
-            const p2Key = `presence:${result.p2.name}`;
-            try {
-                const [p1Presence, p2Presence] = await Promise.all([
-                    kv.get<{ inBattle?: boolean; pendingAttacker?: unknown; [k: string]: unknown }>(p1Key),
-                    kv.get<{ inBattle?: boolean; pendingAttacker?: unknown; [k: string]: unknown }>(p2Key),
-                ]);
-                const PRESENCE_TTL_S = 60;
-                await Promise.all([
-                    p1Presence ? kv.set(p1Key, { ...p1Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
-                    p2Presence ? kv.set(p2Key, { ...p2Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
-                ]);
-            } catch (err) {
-                console.error('[pvp/move] presence cleanup failed', err);
-            }
+            // Clear both fighters' inBattle + pendingAttacker in the in-memory
+            // store so third parties can attack them again right after the fight
+            // resolves. No-ops if either has since gone offline.
+            onlineStore.setInBattle(result.p1.name, false);
+            onlineStore.clearPendingAttacker(result.p1.name);
+            onlineStore.setInBattle(result.p2.name, false);
+            onlineStore.clearPendingAttacker(result.p2.name);
         }
         // Cap log size — UI only renders the last ~20 entries anyway, and an
         // Final commit also threads the moveToken into the recent-tokens

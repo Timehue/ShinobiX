@@ -4,6 +4,8 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { onlineStore } from '../_realtime/online-store.js';
+import { attackBlock } from '../_realtime/presence-gating.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -43,32 +45,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // pendingAttacker stamp (and vice versa). The previous code spread
         // a stale `target` snapshot into the write, which could revert a
         // freshly-changed sector or battle flag.
-        const key = `presence:${targetName}`;
-        const outcome = await withKvLock(key, async () => {
-            const target = await kv.get<Record<string, unknown>>(key);
-            if (!target) return { status: 404 as const, body: { error: 'Target not online.' } };
-
-            const travelingUntil = Number(target.travelingUntil ?? 0);
-            if (travelingUntil > Date.now()) {
-                return { status: 409 as const, body: { error: 'Target is traveling and cannot be attacked.' } };
-            }
-            if (target.pendingAttacker) {
-                return { status: 409 as const, body: { error: 'Target is already engaged in combat.' } };
-            }
-            if (target.inBattle) {
-                return { status: 409 as const, body: { error: 'Target is already in a battle.' } };
-            }
-
-            // Re-stamp only — and crucially DO NOT extend the original TTL
-            // beyond the standard 60s. The presence row stays exactly as
-            // long as the target's heartbeat owns it; we just splice in
-            // pendingAttacker. Original TTL is preserved by passing ex: 60
-            // (same as heartbeat), so it can't be perpetually refreshed.
-            await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
-            return { status: 200 as const, body: { ok: true } };
-        });
-
-        return res.status(outcome.status).json(outcome.body);
+        // Presence is in process memory; get → check → set runs synchronously on
+        // Node's single thread (no await gap for a concurrent heartbeat to
+        // interleave), so no lock is needed. setPendingAttacker does NOT bump the
+        // target's lastSeen — the same "can't be perpetually refreshed" property
+        // the old `ex: 60` re-stamp guaranteed.
+        const block = attackBlock(onlineStore.get(targetName));
+        if (block) return res.status(block.status).json({ error: block.error });
+        onlineStore.setPendingAttacker(targetName, attacker ?? null);
+        return res.status(200).json({ ok: true });
     } catch (err) {
         console.error('[attack]', err);
         return res.status(500).json({ error: 'Internal server error.' });

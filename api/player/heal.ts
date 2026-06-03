@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { onlineStore } from '../_realtime/online-store.js';
 import {
     reportMissionEvent,
     awardProfessionXp,
@@ -218,8 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // to be hospitalized); Rank 1-9 heals are blocked earlier by the
         // hospitalized check (KO'd players aren't in a live battle).
         if (!identity.admin) {
-            const presence = await kv.get<{ inBattle?: boolean }>(`presence:${targetName}`);
-            if (presence?.inBattle) {
+            if (onlineStore.get(targetName)?.inBattle) {
                 return res.status(409).json({ error: 'Target is in an active battle.' });
             }
         }
