@@ -42,7 +42,7 @@ async function handler(req, res) {
             if (!v || !playerName)
                 return res.status(400).json({ error: 'Missing village or playerName.' });
             // Players may only act as themselves (or admin can act for anyone).
-            if (!identity.admin && identity.name !== playerName.toLowerCase().trim()) {
+            if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(playerName)) {
                 return res.status(403).json({ error: 'Cannot perform Kage actions as another player.' });
             }
             const key = kageKey(v);
@@ -101,13 +101,13 @@ async function handler(req, res) {
                     return res.status(400).json({ error: 'Kage system not unlocked for this village.' });
                 }
                 // Only the current seated Kage or an admin may install a new Kage.
-                const currentKage = (current.seatedKage ?? '').toLowerCase().trim();
+                const currentKage = (0, _utils_js_1.safeName)(current.seatedKage ?? '');
                 if (!identity.admin && identity.name !== currentKage) {
                     return res.status(403).json({ error: 'Only the seated Kage or admin can change the Kage.' });
                 }
                 // Verify the candidate actually belongs to this village. Stops the
                 // seated Kage from installing someone from a different village.
-                const candidateNorm = playerName.toLowerCase().trim();
+                const candidateNorm = (0, _utils_js_1.safeName)(playerName);
                 if (!identity.admin) {
                     try {
                         const candSave = await _storage_js_1.kv.get(`save:${candidateNorm}`);

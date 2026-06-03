@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
@@ -808,7 +808,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin) {
             const claimedFighter = role === 'p1' ? session.p1 : session.p2;
-            const claimedName = String(claimedFighter.name ?? '').trim().toLowerCase();
+            const claimedName = safeName(String(claimedFighter.name ?? ''));
             if (claimedName !== identity.name) {
                 return res.status(403).json({ error: 'Cannot move as another player.' });
             }

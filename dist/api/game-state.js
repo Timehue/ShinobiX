@@ -201,7 +201,7 @@ async function handler(req, res) {
                         return names;
                     }
                     function listIncludesMe(list) {
-                        return list.some((f) => fighterNames(f).some((n) => n.toLowerCase().trim() === me));
+                        return list.some((f) => fighterNames(f).some((n) => (0, _utils_js_1.safeName)(n) === me));
                     }
                     const inNewList = listIncludesMe(fights);
                     let inOldList = false;

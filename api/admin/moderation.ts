@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -74,7 +74,11 @@ const MAX_NAMES_PER_FP = 50;
 const FP_PATTERN = /^[0-9a-f]{16,64}$/;
 
 function normalizeName(name: string): string {
-    return name.trim().toLowerCase();
+    // Canonicalize to the same safeName slug used for the player's save/auth
+    // identity, so ban/silence/IP/fp keys line up with the identity returned by
+    // authedPlayer — otherwise a name with stripped chars (e.g. a space) would
+    // be banned under one key but checked under another, evading the ban.
+    return safeName(name);
 }
 
 function banKey(name: string): string { return `${BAN_KEY_PREFIX}${normalizeName(name)}`; }

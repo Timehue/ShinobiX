@@ -138,9 +138,11 @@ function ownershipReject(id, identity) {
         return { status: 403, error: `${prefix} images are admin-only.` };
     }
     if (prefix === 'avatar') {
-        // avatar:<lowercased player name>. Only the player themselves may
-        // upload or replace their own avatar.
-        if (rest.toLowerCase() !== identity.name.toLowerCase()) {
+        // avatar:<player name>. Only the player themselves may upload or replace
+        // their own avatar. Canonicalize the id's name part through safeName so it
+        // matches identity.name (the safeName slug) — otherwise a player whose
+        // name has a space could never set their own avatar.
+        if ((0, _utils_js_1.safeName)(rest) !== identity.name) {
             return { status: 403, error: 'You can only set your own avatar.' };
         }
     }

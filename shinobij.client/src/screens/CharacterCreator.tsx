@@ -7,6 +7,7 @@ import {
     createCharacter,
 } from "../App";
 import { villages } from "../data/sectors";
+import { playerSlug } from "../lib/utils";
 
 function IconUser() {
     return (
@@ -81,6 +82,10 @@ export function CharacterCreator({ onCreate }: { onCreate: (character: Character
 
     function submitCharacter() {
         if (name.trim().length < 3) return alert("Pick a ninja name with at least 3 characters.");
+        // The account is keyed by the name's slug (letters/digits/_/- only). A name
+        // made entirely of spaces/punctuation/emoji has an empty slug and can't be
+        // saved or logged back into — reject it here with a clear message.
+        if (!playerSlug(name)) return alert("Your name needs at least one letter or number (A–Z or 0–9).");
         if (password.length < 8) return alert("Create a password with at least 8 characters.");
         if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
             return alert("Password must include at least one letter and one number.");

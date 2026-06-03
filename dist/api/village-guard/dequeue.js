@@ -18,10 +18,10 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(name)) {
             return res.status(403).json({ error: 'Cannot dequeue another player.' });
         }
-        await _storage_js_1.kv.del(`guard:${name.toLowerCase().trim()}`);
+        await _storage_js_1.kv.del(`guard:${(0, _utils_js_1.safeName)(name)}`);
         return res.status(200).json({ ok: true });
     }
     catch (err) {

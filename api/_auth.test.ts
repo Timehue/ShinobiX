@@ -28,6 +28,32 @@ describe('player session tokens', () => {
         assert.equal(verifyPlayerToken(token!), 'mixedcase');
     });
 
+    // Regression: the token identity must equal the safeName storage-key slug,
+    // not a raw trim+lowercase. A name with a space used to mint a token for
+    // "cool ninja" while every `save:`/`auth:` key was `coolninja`, so the save
+    // handler 403'd the owner and the character was lost on refresh. The slug
+    // must match the key form so the ownership check passes.
+    it('encodes the safeName slug — spaces and stripped chars are removed', () => {
+        assert.equal(verifyPlayerToken(issuePlayerToken('Cool Ninja')!), 'coolninja');
+        assert.equal(verifyPlayerToken(issuePlayerToken("Naruto Uzumaki")!), 'narutouzumaki');
+        // Hyphen + underscore are part of the slug charset and survive.
+        assert.equal(verifyPlayerToken(issuePlayerToken('Naruto-Uzumaki_99')!), 'naruto-uzumaki_99');
+        // Accents / emoji are stripped to their bare ascii (or nothing).
+        assert.equal(verifyPlayerToken(issuePlayerToken('Zoë🍜')!), 'zo');
+    });
+
+    it('truncates the slug to 32 chars (matches safeName key cap)', () => {
+        const token = issuePlayerToken('a'.repeat(40))!;
+        assert.equal(verifyPlayerToken(token), 'a'.repeat(32));
+    });
+
+    it('an all-symbol name has an empty slug → no usable identity', () => {
+        // safeName('🎉🎉🎉') === '' → the token carries no name and must not
+        // verify to a usable identity (mirrors the register-time empty-slug guard).
+        const token = issuePlayerToken('🎉🎉🎉')!;
+        assert.equal(verifyPlayerToken(token), null);
+    });
+
     it('rejects a tampered name segment', () => {
         const token = issuePlayerToken('alice')!;
         const parts = token.split('.');

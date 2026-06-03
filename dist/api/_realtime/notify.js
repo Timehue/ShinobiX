@@ -17,13 +17,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setRealtimeEmitter = setRealtimeEmitter;
 exports.kickPlayer = kickPlayer;
+const _utils_js_1 = require("../_utils.js");
 let _emit = null;
 /** socket.ts calls this once at attach; pass null to detach (tests). */
 function setRealtimeEmitter(fn) {
     _emit = fn;
 }
+// Same safeName slug used for the socket's `user:<slug>` room join, so a kick
+// reaches a player whose display name contains spaces / stripped chars.
 function canon(name) {
-    return name.trim().toLowerCase();
+    return (0, _utils_js_1.safeName)(name);
 }
 /**
  * Nudge a player to run an immediate heartbeat (instant attack/challenge

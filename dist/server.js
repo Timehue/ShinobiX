@@ -312,8 +312,9 @@ route('/bloodlines/list', list_js_3.default);
 // Admin review queues
 route('/admin/bloodline-review', bloodline_review_js_1.default);
 route('/admin/item-review', item_review_js_1.default);
-// Internal KV proxy — Vercel forwards disk-routed keys here.
-// Mounted with a trailing :op param so /api/kv/get etc. all hit one handler.
+// Internal KV proxy — a remote server (e.g. Railway) forwards disk-routed keys
+// to the cPanel disk overlay here. Mounted with a trailing :op param so
+// /api/kv/get etc. all hit one handler.
 route('/kv/:op', kv_proxy_js_1.default);
 // Admin: migrate disk-routed keys from Supabase → disk overlay.
 route('/admin/migrate-kv', migrate_kv_js_1.default);
@@ -395,11 +396,11 @@ route('/player/injured-villagers', injured_villagers_js_1.default);
 route('/weekly-boss', weekly_boss_js_1.default);
 // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
 route('/admin/moderation', moderation_js_1.default);
-// NOTE: Route parity between Vercel (folder convention) and cPanel (this file)
-// is now guarded by `server-routes.test.ts`, which fails CI/`npm test` if the
-// client calls an /api path that isn't registered here. Add the route above
-// AND the import when you add a client-facing endpoint — do not rely on this
-// comment alone.
+// NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
+// `npm test` if the client calls an /api path that isn't registered here, or if
+// an api/** handler file is never wired in. There is no folder-convention
+// auto-routing (Vercel is retired) — add the route above AND the import when you
+// add a client-facing endpoint; do not rely on this comment alone.
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).

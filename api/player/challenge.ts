@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -43,11 +43,11 @@ function projectChallenge(c: unknown): unknown {
 }
 
 function challengeKey(name: string) {
-    return `challenges:${name.toLowerCase().trim()}`;
+    return `challenges:${safeName(name)}`;
 }
 
 function outgoingKey(name: string) {
-    return `challenge-outgoing:${name.toLowerCase().trim()}`;
+    return `challenge-outgoing:${safeName(name)}`;
 }
 
 function challengeId(challenge: unknown) {
@@ -131,8 +131,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // clearing someone else's inbox/outgoing slot. Admins bypass.
             if (!identity.admin) {
                 const me = identity.name;
-                const ownsTarget = targetName ? targetName.toLowerCase().trim() === me : false;
-                const ownsFrom = fromName ? fromName.toLowerCase().trim() === me : false;
+                const ownsTarget = targetName ? safeName(targetName) === me : false;
+                const ownsFrom = fromName ? safeName(fromName) === me : false;
                 if (!ownsTarget && !ownsFrom) {
                     return res.status(403).json({ error: 'Cannot delete another player\'s challenges.' });
                 }
@@ -163,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fromName = challengeFromName(challenge);
 
         // The challenge's fromName (sender) must match the authed identity unless admin.
-        if (!identity.admin && fromName && fromName.toLowerCase() !== identity.name) {
+        if (!identity.admin && fromName && safeName(fromName) !== identity.name) {
             return res.status(403).json({ error: 'Cannot send a challenge as another player.' });
         }
 

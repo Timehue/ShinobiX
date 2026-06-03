@@ -122,7 +122,7 @@ async function handler(req, res) {
         // POST body). Admin always passes.
         if (!identity.admin) {
             const kageState = await _storage_js_1.kv.get(kageKey(village));
-            const seated = (kageState?.seatedKage ?? '').toLowerCase().trim();
+            const seated = (0, _utils_js_1.safeName)(kageState?.seatedKage ?? '');
             if (!kageState?.kageSystemUnlocked || !seated || seated !== identity.name) {
                 return res.status(403).json({ error: 'Only the seated Kage may transfer village treasury.' });
             }
