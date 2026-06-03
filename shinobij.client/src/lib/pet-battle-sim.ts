@@ -1100,7 +1100,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             const coverNote = defenderBehindCover ? " 🧱 Behind cover!" : "";
             // Signature cut-in when this jutsu is the actor's strongest move.
             const sigMove: PetArenaFrame["signatureMove"] = (jutsuName && jutsuName === petSignatureJutsu(actor2.pet))
-                ? { name: jutsuName, petName: actor2.pet.name, side: actorSide as "player" | "enemy" }
+                ? { name: jutsuName, petName: actor2.pet.name, side: actorSide as "player" | "enemy", flagship: actor2.pet.rarity === "mythic" }
                 : undefined;
             const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}${coverNote}${procNote}.`;
             logs.push(msg);
@@ -2265,7 +2265,7 @@ export function runPetArenaParty(
                 (dmgBonus > 1 && actor.pet.trait === "Battleborn") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Battleborn" } :
                 undefined;
             const sigMove: PetArenaFrame["signatureMove"] = (jutsuName === petSignatureJutsu(actor.pet))
-                ? { name: jutsuName, petName: actor.pet.name, side: actorIsPlayer ? "player" : "enemy" }
+                ? { name: jutsuName, petName: actor.pet.name, side: actorIsPlayer ? "player" : "enemy", flagship: actor.pet.rarity === "mythic" }
                 : undefined;
             pushPartyFrame(round, msg, actorSlot, kind, damage, crit, traitFlash, undefined, fighters[targetSlot!]!.hp <= 0, targetSlot!, sigMove);
         }

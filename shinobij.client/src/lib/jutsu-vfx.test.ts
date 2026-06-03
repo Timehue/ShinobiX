@@ -133,6 +133,15 @@ test("pet KO and signature beats get the cinematic tier", () => {
     assert.deepEqual(petFxSpriteKey({ beat: "impact", signature: true, element: "Earth" }), { key: "bighit", variant: "fx-signature" });
 });
 
+test("an apex (flagship) signature detonates the power burst, overriding element", () => {
+    // Flagship beats the element-heavy hit on the impact beat...
+    assert.deepEqual(petFxSpriteKey({ beat: "impact", signature: true, flagship: true, element: "Fire" }), { key: "power", variant: "fx-signature" });
+    assert.deepEqual(petFxSpriteKey({ beat: "impact", signature: true, flagship: true, element: "None" }), { key: "power", variant: "fx-signature" });
+    // ...but the wind-up still gathers as a charge, and a flagship KO is still the finisher.
+    assert.deepEqual(petFxSpriteKey({ beat: "charge", signature: true, flagship: true }), { key: "charge", variant: "fx-signature" });
+    assert.deepEqual(petFxSpriteKey({ beat: "impact", signature: true, flagship: true, isKO: true }), { key: "kaboom", variant: "fx-signature" });
+});
+
 test("pet hit beats route basic / DoT / element distinctly", () => {
     assert.equal(petFxSpriteKey({ beat: "impact", actionKind: "basic" }).key, "slash");
     assert.deepEqual(petFxSpriteKey({ beat: "statusApply", vfxKey: "poison" }), { key: "poison", variant: "fx-poison" });
