@@ -423,6 +423,8 @@ import { startBattleMusic, stopBattleMusic } from "./lib/pet-music";
 import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey } from "./lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "./lib/pet-battle-camera";
 import { PetParticleField, vfxBurstForEvent } from "./lib/pet-vfx-particles";
+import { jutsuVfxBurst } from "./lib/jutsu-vfx";
+import { bundledJutsuFxFrames } from "./lib/jutsu-fx-assets";
 import { petArchetypeFor, petTacticalZone, type ArenaTile } from "./lib/pet-tactics";
 import { collectActorStatuses, BATTLE_STATUS_DEFS } from "./lib/pet-moves";
 
@@ -11843,6 +11845,13 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         window.addEventListener("resize", onResize);
         return () => { window.removeEventListener("resize", onResize); field?.dispose(); vfxFieldRef.current = null; };
     }, []);
+    // Elemental sprite-effect overlay (CC0 frames) played on the focal tile for
+    // elemental hit/beam/status beats — layered OVER the particle burst. Purely
+    // cosmetic; resolved from the active beat's vfxKey, never the pet art (pets
+    // keep their existing portraits/sprites). Falls back to particles when the
+    // element has no bundled sprite (poison/shadow/chakra/blood/none).
+    const petSpriteFxSeq = useRef(0);
+    const [petSpriteFx, setPetSpriteFx] = useState<{ id: number; frames: string[]; x: number; y: number; variant?: string } | null>(null);
     useLayoutEffect(() => {
         const grid = petArenaGridRef.current;
         if (!grid) return;
@@ -12127,20 +12136,48 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     // self for a charge). Positions read from the live tile DOM rect — same
     // approach the FLIP glide uses. Skipped under reduced-motion + once resolved.
     useEffect(() => {
-        const field = vfxFieldRef.current;
-        if (!field || winnerPet || !activeAnimEvent) return;
+        if (winnerPet || !activeAnimEvent) return;
         if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-        const spec = vfxBurstForEvent(activeAnimEvent, { crit: !!frame?.crit, isKO: !!frame?.isKO });
-        if (spec.kind === "none") return;
-        const focusTile = activeAnimEvent.type === "charge" ? selfTile : (effectTile >= 0 ? effectTile : selfTile);
         const grid = petArenaGridRef.current;
         const canvas = vfxCanvasRef.current;
-        if (!grid || !canvas || focusTile < 0) return;
+        if (!grid || !canvas) return;
+        const focusTile = activeAnimEvent.type === "charge" ? selfTile : (effectTile >= 0 ? effectTile : selfTile);
+        if (focusTile < 0) return;
         const tileEl = grid.querySelector<HTMLElement>(`.pet-park-tile[data-tile="${focusTile}"]`);
         if (!tileEl) return;
         const t = tileEl.getBoundingClientRect();
         const c = canvas.getBoundingClientRect();
-        field.burst((t.left + t.right) / 2 - c.left, (t.top + t.bottom) / 2 - c.top, spec);
+        const cx = (t.left + t.right) / 2 - c.left;
+        const cy = (t.top + t.bottom) / 2 - c.top;
+        // Particle burst (Phase A).
+        const field = vfxFieldRef.current;
+        if (field) {
+            const spec = vfxBurstForEvent(activeAnimEvent, { crit: !!frame?.crit, isKO: !!frame?.isKO });
+            if (spec.kind !== "none") field.burst(cx, cy, spec);
+        }
+        // Sprite overlay (CC0 frames), chosen by beat type + ability kind so each
+        // ability reads distinctly. Element impacts use the element sheet; basics
+        // a slash; self-buffs/heals/shields their own sheets. Kinds without a
+        // bundled sheet (poison/debuff/movelock, neutral hits) fall back to the
+        // particle burst above.
+        const vk = activeAnimEvent.vfxKey;
+        const ak = frame?.actionKind;
+        const beat = activeAnimEvent.type;
+        let fxKey = "";
+        let fxVariant: string | undefined;
+        if (beat === "impact" || beat === "beam" || beat === "statusApply") {
+            if (ak === "basic") fxKey = "slash";                              // physical strike
+            else if (vk && vk !== "none" && vk !== "chakra") fxKey = vk;      // elemental hit
+        } else if (beat === "charge") {
+            if (ak === "heal") { fxKey = "heal"; fxVariant = "fx-heal"; }     // green-glow wisp
+            else if (ak === "buff") fxKey = "buff";                          // rising sparkles
+        } else if (beat === "guard") {
+            fxKey = "shield";                                                // barrier / shield / absorb dome
+        }
+        if (fxKey) {
+            const frames = bundledJutsuFxFrames(fxKey);
+            if (frames) setPetSpriteFx({ id: petSpriteFxSeq.current++, frames, x: cx, y: cy, variant: fxVariant });
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [animIdx, frame?.message]);
 
@@ -12335,6 +12372,20 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                 {/* Particle VFX layer (Phase A) — overlays the stage; driven by
                     the animation-event queue via vfxFieldRef. Cosmetic only. */}
                 <canvas ref={vfxCanvasRef} className="pet-vfx-canvas" aria-hidden="true" />
+                {/* Elemental sprite effect (CC0 frames) over the struck tile, above
+                    the particle canvas. Re-keyed per beat so it restarts cleanly.
+                    Pets themselves are untouched — this is an effect overlay only. */}
+                {petSpriteFx && (
+                    <JutsuSpriteFx
+                        key={petSpriteFx.id}
+                        frames={petSpriteFx.frames}
+                        single={false}
+                        x={petSpriteFx.x}
+                        y={petSpriteFx.y}
+                        variant={petSpriteFx.variant}
+                        onDone={() => setPetSpriteFx((s) => (s && s.id === petSpriteFx.id ? null : s))}
+                    />
+                )}
                 {/* Mute toggle for the synthesized battle SFX. */}
                 <button
                     type="button"
@@ -27240,6 +27291,50 @@ function hydrateSharedGameState(data: {
 
 // rankedDelta moved to ./lib/progression.
 
+/**
+ * A short, cosmetic sprite animation played over a struck tile when a jutsu's
+ * element has bundled CC0 FX frames (or a KV `jutsufx:` override). Cycles a
+ * frame sequence then unmounts via onDone; a single-image source (e.g. an
+ * animated GIF/WebP override) is just held briefly and self-animates. Pixel
+ * art, never interactive. Remount per cast by keying on the FX id.
+ */
+function JutsuSpriteFx({ frames, single, x, y, onDone, variant }: {
+    frames: string[];
+    single: boolean;
+    x: number;
+    y: number;
+    onDone: () => void;
+    /** Optional extra class for tinting (e.g. "fx-heal" → green glow). */
+    variant?: string;
+}) {
+    const [i, setI] = useState(0);
+    useEffect(() => {
+        setI(0);
+        if (single || frames.length <= 1) {
+            const t = window.setTimeout(onDone, 680);
+            return () => window.clearTimeout(t);
+        }
+        let idx = 0;
+        const id = window.setInterval(() => {
+            idx++;
+            if (idx >= frames.length) { window.clearInterval(id); onDone(); return; }
+            setI(idx);
+        }, 55);
+        return () => window.clearInterval(id);
+        // onDone is recreated per render, but the component is keyed by the FX id
+        // at the call site (it remounts per cast), so we resync only on frames.
+    }, [frames, single]);
+    return (
+        <img
+            src={frames[Math.min(i, frames.length - 1)]}
+            className={`jutsu-sprite-fx${variant ? ` ${variant}` : ""}`}
+            style={{ left: x, top: y }}
+            alt=""
+            aria-hidden="true"
+        />
+    );
+}
+
 function Arena({
     lobbyMode = "battleArena",
     character,
@@ -27392,6 +27487,76 @@ function Arena({
         .map((id) => getItemById(allItems, id))
         .filter((item): item is GameItem => Boolean(item));
     const [battleStarted, setBattleStarted] = useState(false);
+
+    // ── Combat VFX (cosmetic only) ───────────────────────────────────────────
+    // An elemental particle burst on each jutsu cast, drawn on a <canvas> that
+    // overlays the hex board. Reuses the pet arena's PetParticleField engine.
+    // The main Arena fight is computed client-side with NO ranked-replay /
+    // determinism constraint (unlike the pet sim and live PvP), so this layer is
+    // purely visual and can never affect balance, rewards, or outcomes.
+    const combatVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const combatVfxFieldRef = useRef<PetParticleField | null>(null);
+    const combatFxSeq = useRef(0);
+    const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean } | null>(null);
+    // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
+    // the burst effect (its on-screen x/y is read from the live tile DOM rect).
+    const [combatSpriteFx, setCombatSpriteFx] = useState<{ id: number; frames: string[]; single: boolean; x: number; y: number } | null>(null);
+    // Queue a burst at a board tile for a cast jutsu (called from castJutsu and
+    // the enemy AI turn). focusPos < 0 means "no anchor" → skip.
+    const triggerCombatFx = (
+        jutsu: Jutsu,
+        opts: { selfCast: boolean; focusPos: number; heavy: boolean; isKO: boolean },
+    ) => {
+        if (opts.focusPos < 0) return;
+        const spec = jutsuVfxBurst({ element: jutsu.element, selfCast: opts.selfCast, heavy: opts.heavy, isKO: opts.isKO });
+        // Sprite layer: a KV override (jutsufx:<id> / jutsufx:<element>, which may
+        // be an animated GIF/WebP) wins; else the bundled CC0 frame sequence for
+        // the element; else null → particle burst only.
+        const elKey = String(jutsu.element ?? "").toLowerCase();
+        const kvFx = sharedImages[`jutsufx:${jutsu.id}`] || sharedImages[`jutsufx:${elKey}`] || "";
+        const frames = kvFx ? [kvFx] : bundledJutsuFxFrames(jutsu.element);
+        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single: !!kvFx });
+    };
+    // Spin up / tear down the canvas particle field when the battlefield mounts.
+    useEffect(() => {
+        if (!battleStarted) return;
+        const canvas = combatVfxCanvasRef.current;
+        if (!canvas) return;
+        let field: PetParticleField | null = null;
+        try { field = new PetParticleField(canvas); } catch { return; }
+        combatVfxFieldRef.current = field;
+        const onResize = () => field?.resize();
+        window.addEventListener("resize", onResize);
+        return () => { window.removeEventListener("resize", onResize); field?.dispose(); combatVfxFieldRef.current = null; };
+    }, [battleStarted]);
+    // Keep the canvas backing store matched to the board as it resizes / zooms.
+    useEffect(() => { combatVfxFieldRef.current?.resize(); }, [boardContainerSize, effectiveScale, battleStarted]);
+    // Fire the queued burst at its focal tile (target for a hit, caster for a
+    // self-buff), reading the live tile DOM rect so it stays correct under the
+    // board's scale transform. Also pulses a brief flash on the struck tile.
+    // Skipped under prefers-reduced-motion.
+    useEffect(() => {
+        if (!combatFx) return;
+        const field = combatVfxFieldRef.current;
+        const canvas = combatVfxCanvasRef.current;
+        const board = battlefieldRef.current;
+        if (!field || !canvas || !board) return;
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+        const tileEl = board.querySelector<HTMLElement>(`.hex-tile[data-tile="${combatFx.focusPos}"]`);
+        if (!tileEl) return;
+        const t = tileEl.getBoundingClientRect();
+        const c = canvas.getBoundingClientRect();
+        const cx = (t.left + t.right) / 2 - c.left;
+        const cy = (t.top + t.bottom) / 2 - c.top;
+        field.burst(cx, cy, combatFx.spec);
+        if (combatFx.frames && combatFx.frames.length) {
+            setCombatSpriteFx({ id: combatFx.id, frames: combatFx.frames, single: combatFx.single, x: cx, y: cy });
+        }
+        tileEl.classList.add("jutsu-impact-flash");
+        const clear = window.setTimeout(() => tileEl.classList.remove("jutsu-impact-flash"), 460);
+        return () => window.clearTimeout(clear);
+    }, [combatFx]);
+
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
     const [petChallengeSearch, setPetChallengeSearch] = useState("");
@@ -29451,6 +29616,15 @@ function Arena({
             character.name
         );
 
+        triggerCombatFx(jutsu, {
+            selfCast: isSelfSupportJutsu(jutsu),
+            focusPos: isSelfSupportJutsu(jutsu)
+                ? playerPos
+                : (groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE")) ? targetTile : enemyPos,
+            heavy: totalDamage >= enemyMaxHp * 0.18,
+            isKO: enemyHp - finalDamage - extraEnemyDamage <= 0,
+        });
+
         if (enemyHp - finalDamage - extraEnemyDamage <= 0) return winBattle();
 
         setLog((groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"))
@@ -29928,6 +30102,12 @@ function Arena({
         ].filter(Boolean).join("\n");
 
         addCombatLog(enemyTimelineParts, jutsu.id, opponentName);
+        triggerCombatFx(jutsu, {
+            selfCast: isSelfSupportJutsu(jutsu),
+            focusPos: isSelfSupportJutsu(jutsu) ? enemyPos : playerPos,
+            heavy: (finalDamage + extraDamage) >= Math.max(1, character.maxHp) * 0.18,
+            isKO: playerHp - finalDamage - extraDamage <= 0,
+        });
         setLog(`${opponentName} used ${jutsu.name}.`);
 
         if (playerHp - finalDamage - extraDamage <= 0) {
@@ -30822,6 +31002,7 @@ function Arena({
                                     return (
                                         <button
                                             key={i}
+                                            data-tile={i}
                                             className={`hex-tile ${i === playerPos ? "hex-player" : ""
                                                 } ${i === enemyPos ? "hex-enemy" : ""
                                                 } ${isBarrierTile ? "hex-barrier" : ""
@@ -30856,6 +31037,21 @@ function Arena({
                             )}
                         </div>
                         </div>{/* end clip-wrapper */}
+                        {/* Cosmetic elemental cast/impact particles (jutsu VFX). Sits
+                            above the board, never intercepts clicks. */}
+                        <canvas ref={combatVfxCanvasRef} className="combat-vfx-canvas" aria-hidden="true" />
+                        {/* Sprite-sheet effect overlay (CC0 art / KV override), above
+                            the particles. Re-keyed per cast so it restarts cleanly. */}
+                        {combatSpriteFx && (
+                            <JutsuSpriteFx
+                                key={combatSpriteFx.id}
+                                frames={combatSpriteFx.frames}
+                                single={combatSpriteFx.single}
+                                x={combatSpriteFx.x}
+                                y={combatSpriteFx.y}
+                                onDone={() => setCombatSpriteFx((s) => (s && s.id === combatSpriteFx.id ? null : s))}
+                            />
+                        )}
                     </div>
 
                     <div className="basic-action-bar shinobi-command-bar">
