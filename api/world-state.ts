@@ -4,6 +4,7 @@ import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
+import { resolveClaimedWarSupply } from './_territory-supply.js';
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
@@ -535,6 +536,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             if (ownershipFlipping && !prevHpZero && (prevOwnerVillage || prevOwnerClan)) {
                                 return res.status(400).json({ error: 'Owner can only change after the sector reaches 0 HP.' });
                             }
+                        }
+
+                        // ── Server-authoritative War Supply (anti-mint, audit H4) ──
+                        // collectTerritorySupply banks a sector's stored warSupply
+                        // straight into the clan treasury, so warSupply must never
+                        // come from the client. The raider / owner-rebuild branches
+                        // above already carried prev via Object.assign; this owns
+                        // warSupply + lastSupplyAt for the claiming path (and the
+                        // prev === null first-write case): same owner → carry prev
+                        // (accrual is recomputed lazily from lastSupplyAt at collect
+                        // time, so nothing is lost); fresh claim / ownership flip →
+                        // reset to 0 and re-anchor to now. The absolute cap in
+                        // normalizeSectorTerritory remains a backstop for the
+                        // admin-exempt path.
+                        if (matchesClan || matchesVillage) {
+                            const owned = resolveClaimedWarSupply(prev, incomingTerritory, Date.now());
+                            incomingTerritory.warSupply = owned.warSupply;
+                            incomingTerritory.lastSupplyAt = owned.lastSupplyAt;
                         }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify territory participation.' });
