@@ -116,7 +116,7 @@ export function OnboardingCoach({
 
     if (step === "training") {
         return createPortal(
-            <div style={bannerStyle}>
+            <div className="onboarding-coach-banner" style={bannerStyle}>
                 <span>📍 <strong>Tutorial:</strong> pick a stat and a timer, then start your first training.</span>
                 {screen !== "training" && (
                     <button className="start-primary-btn" onClick={() => setScreen("training")}>Go to Stat Training</button>
@@ -129,7 +129,7 @@ export function OnboardingCoach({
 
     if (step === "jutsu") {
         return createPortal(
-            <div style={bannerStyle}>
+            <div className="onboarding-coach-banner" style={bannerStyle}>
                 <span>📍 <strong>Tutorial:</strong> unlock your first jutsu — it's free. Pick one and press Unlock.</span>
                 {screen !== "jutsuTraining" && (
                     <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>

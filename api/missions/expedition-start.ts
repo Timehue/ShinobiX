@@ -4,6 +4,7 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 
 /*
  * /api/missions/expedition-start  — POST only
@@ -93,11 +94,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // each other).
         const today = utcDateKey();
         const dailyKey = `pet-exp-start-count:${playerName}:${today}`;
-        const startedToday = Number((await kv.get<number>(dailyKey)) ?? 0);
-        if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY) {
+        // Read-check-increment under a lock so concurrent -start calls can't both
+        // read N and both write N+1, slipping past the cap on the boundary
+        // (mirrors report-raid.ts). Defense-in-depth only — the real currency
+        // payout in report-pet-event has its own locked claim cap — so the default
+        // fall-through policy is right here (no failClosed): a rare over-mint
+        // costs nothing, and we'd rather mint than 500 a launch under contention.
+        const capCheck = await withKvLock(dailyKey, async () => {
+            const startedToday = Number((await kv.get<number>(dailyKey)) ?? 0);
+            if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY) {
+                return { capped: true as const };
+            }
+            await kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
+            return { capped: false as const };
+        });
+        if (capCheck.capped) {
             return res.status(200).json({ ok: true, petTamer: true, reason: 'daily-mint-cap', token: null });
         }
-        await kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
 
         const durationMinutes = EXP_DURATION_MINUTES[expType];
         const mintedAt = Date.now();
