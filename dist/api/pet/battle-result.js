@@ -156,35 +156,58 @@ async function handler(req, res) {
         // the swing. reportKey is REQUIRED (for losses too, since a ranked loss
         // also moves the rating) so the receipt is stable across refresh-replays.
         if (ranked) {
-            if (!identity.admin && !reportKey) {
-                return res.status(400).json({ error: 'Missing or invalid reportKey for ranked result.' });
+            // #9: a ranked pet result REQUIRES a server-minted match token (from
+            // /api/pet/ranked-start) that sealed BOTH fighters' pre-match
+            // petRankedRating. Without it a client could move the ladder by
+            // asserting ranked:true against an arbitrary opponent. The token also
+            // lets the server settle BOTH accounts from the SAME sealed snapshot,
+            // exactly once each — so the loser can't dodge their drop by never
+            // reporting. (Pet ranked is dormant on the client; this is the server
+            // half — see api/pet/ranked-start.ts.)
+            const matchToken = typeof body.matchToken === 'string' ? body.matchToken.trim() : '';
+            const tok = matchToken
+                ? await _storage_js_1.kv.get(`pet:ranked-token:${matchToken}`)
+                : null;
+            if (!tok) {
+                return res.status(400).json({ error: 'A valid pet ranked match token is required (start via /api/pet/ranked-start).' });
             }
-            const receiptKey = `pet:ranked-rewarded:${playerName.toLowerCase()}:${reportKey}`;
+            if (tok.a !== playerName && tok.b !== playerName) {
+                return res.status(403).json({ error: 'Match token does not name you.' });
+            }
+            const callerIsA = tok.a === playerName;
+            const opponentName = callerIsA ? tok.b : tok.a;
+            const myRating = Number(callerIsA ? tok.aRating : tok.bRating);
+            const oppRating = Number(callerIsA ? tok.bRating : tok.aRating);
+            const winnerName = outcome === 'win' ? playerName : opponentName;
+            const loserName = outcome === 'win' ? opponentName : playerName;
+            const winnerRating = outcome === 'win' ? myRating : oppRating;
+            const loserRating = outcome === 'win' ? oppRating : myRating;
+            // Settle ONE side's petRankedRating once (NX receipt keyed by token +
+            // slug) and report its resulting rating.
+            const settlePet = async (slug, role) => {
+                const sk = `save:${slug}`;
+                const record = await _storage_js_1.kv.get(sk);
+                const char = (record?.character ?? null);
+                if (!record || !char)
+                    return undefined;
+                const placed = await _storage_js_1.kv.set(`pet:ranked-settled:${slug}:${matchToken}`, { role, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS });
+                const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind: 'pet' });
+                if (placed) {
+                    await _storage_js_1.kv.set(sk, (0, _utils_js_1.mergePreservingImages)({ ...record, character: { ...char, ...r.patch } }, record));
+                    return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
+                }
+                const cur = Number(char.petRankedRating);
+                return { field: 'petRankedRating', value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta };
+            };
             try {
-                const out = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
-                    // Admin without a reportKey can't be deduped (no stable key);
-                    // treat as a fresh credit each call (admin-only test path).
-                    const placed = reportKey
-                        ? await _storage_js_1.kv.set(receiptKey, { outcome, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS })
-                        : true;
-                    const already = !placed;
-                    const record = await _storage_js_1.kv.get(saveKey);
-                    const char = (record?.character ?? null);
-                    if (!record || !char)
-                        return { error: 'no-save' };
-                    const credit = (0, _ranked_rating_js_1.creditRankedFromSelf)(char, { outcome, opponentRating: opponentPetRating, kind: 'pet' });
-                    if (!already) {
-                        const nextChar = { ...char, ...credit.patch };
-                        await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: nextChar }, record));
-                        return { already, rating: { field: 'petRankedRating', value: credit.newRating, delta: credit.delta } };
-                    }
-                    // Already credited on a prior call — echo the stored rating.
-                    const cur = Number(char.petRankedRating);
-                    return { already, rating: { field: 'petRankedRating', value: Number.isFinite(cur) ? cur : credit.newRating, delta: credit.delta } };
-                }, { failClosed: true });
-                if ('error' in out)
-                    return res.status(404).json({ error: out.error });
-                return res.status(200).json({ ok: true, ranked: true, reward: 0, alreadyReported: out.already, rating: out.rating });
+                // Lock both saves in deterministic key order (deadlock-free).
+                const [k1, k2] = [`save:${winnerName}`, `save:${loserName}`].sort();
+                const out = await (0, _lock_js_1.withKvLock)(k1, () => (0, _lock_js_1.withKvLock)(k2, async () => {
+                    const w = await settlePet(winnerName, 'winner');
+                    const l = (loserName !== winnerName) ? await settlePet(loserName, 'loser') : undefined;
+                    return { rating: playerName === winnerName ? w : l };
+                }, { failClosed: true }), { failClosed: true });
+                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating });
             }
             catch (rankedErr) {
                 // Lock contention/outage (failClosed) — receipt NOT placed, so
