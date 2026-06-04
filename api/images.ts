@@ -120,21 +120,6 @@ const catKey = (cat: string) => `shared:images:${cat}`;
 // each other and permanently lose images.
 const catHashKey = (cat: string) => `shared:imgfields:${cat}`;
 
-// Avatars live in their OWN map, deliberately keyed so it does NOT match the
-// disk-overlay prefixes (save: / shared:images / shared:imgfields) — so it
-// routes to the base Postgres store, not the cPanel disk overlay.
-//
-// Why: avatars are the one image written on every profile change, and on the
-// disk overlay `hset` is a whole-blob read-modify-write — it rewrites EVERY
-// player's avatar on each upload. Once the blob grew (a ~400 KB animated GIF
-// tipped it over) that write started throwing, surfacing as a 500 "Internal
-// server error" on upload. In Postgres, `kv_hset` is an ATOMIC JSONB merge
-// (`value || field`), so each upload touches only its own field and never
-// rewrites the whole blob. Reads merge this map OVER the legacy disk hash, so
-// existing avatars keep resolving and a re-upload transparently migrates a
-// player from the disk overlay to Postgres. (avatar storage move)
-const AVATAR_MAP_KEY = 'shared:avatarmap';
-
 // Backcompat (audit #16): leader:* portraits uploaded before 'leader' was a
 // known category were stored in the 'misc' hash. Pull those fields back out so
 // they still resolve; new uploads now route to the 'leader' hash and win.
@@ -247,30 +232,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Fetch hash (primary) and old blob (backward-compat) in parallel.
                 // Skip the legacy single-blob key — it's empty after migration and
                 // is multi-MB; reading it on every request causes Vercel timeouts.
-                const [hashImages, catImages, legacyLeader, avatarMap] = await Promise.all([
+                const [hashImages, catImages, legacyLeader] = await Promise.all([
                     withTimeout(kv.hgetall<Record<string, string>>(catHashKey(cat))),
                     withTimeout(kv.get<Record<string, string>>(catKey(cat))),
                     // audit #16: leader:* portraits uploaded before 'leader' was a
                     // known category landed in the 'misc' hash. Pull them back out
                     // so old portraits still resolve (new uploads go to 'leader').
                     cat === 'leader' ? leaderImagesFromMisc(withTimeout) : Promise.resolve({}),
-                    // Postgres-backed avatar map (see AVATAR_MAP_KEY). Merged last so
-                    // a migrated avatar wins over any stale copy still in the disk hash.
-                    cat === 'avatar' ? withTimeout(kv.hgetall<Record<string, string>>(AVATAR_MAP_KEY)) : Promise.resolve({}),
                 ]);
 
-                // Merge: legacy misc < old blob < disk hash < Postgres avatar map.
+                // Merge: legacy misc < old blob < new hash (newest always wins)
                 return res.status(200).json({
                     ...(legacyLeader ?? {}),
                     ...(catImages ?? {}),
                     ...(hashImages ?? {}),
-                    ...(avatarMap ?? {}),
                 });
             }
 
             // No category param — return everything (admin / bulk use).
             // Run per-category fetches in parallel with individual timeouts.
-            const [categoryEntries, legacyLeader, avatarMap] = await Promise.all([
+            const [categoryEntries, legacyLeader] = await Promise.all([
                 Promise.all(
                     KNOWN_CATEGORIES.flatMap((category) => [
                         withTimeout(kv.get<Record<string, string>>(catKey(category))),
@@ -279,12 +260,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ),
                 // audit #16 backcompat — legacy leader portraits parked in 'misc'.
                 leaderImagesFromMisc(withTimeout),
-                // Postgres-backed avatar map (see AVATAR_MAP_KEY).
-                withTimeout(kv.hgetall<Record<string, string>>(AVATAR_MAP_KEY)),
             ]);
-            // legacyLeader first so the real 'leader' hash (in categoryEntries) wins;
-            // avatarMap last so migrated avatars win over stale disk-hash copies.
-            return res.status(200).json(Object.assign({}, legacyLeader, ...categoryEntries.map((entry) => entry ?? {}), avatarMap ?? {}));
+            // legacyLeader first so the real 'leader' hash (in categoryEntries) wins.
+            return res.status(200).json(Object.assign({}, legacyLeader, ...categoryEntries.map((entry) => entry ?? {})));
         } catch (err) {
             console.error('[images GET error]', err);
             // Override the success Cache-Control set above — an empty result
@@ -340,23 +318,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Atomic HSET — sets exactly this one field without touching any other
             // image in the same category. Eliminates the race condition.
-            // Avatars route to the Postgres-backed map (AVATAR_MAP_KEY) instead of
-            // the disk overlay, whose whole-blob rewrite was 500ing on large
-            // avatars; every other category keeps using its per-category disk hash.
-            await kv.hset(cat === 'avatar' ? AVATAR_MAP_KEY : catHashKey(cat), { [id]: image });
+            await kv.hset(catHashKey(cat), { [id]: image });
 
             return res.status(200).end();
         } catch (err) {
             console.error('[images]', err);
-            // Surface a SANITIZED hint (errno / upstream HTTP status only — never
-            // the raw message, which can leak disk paths) so the client shows WHY
-            // a write failed instead of a blank "internal error" (diagnostic).
-            const m = err instanceof Error ? err.message : String(err);
-            const codeMatch = m.match(/"code":"([A-Za-z0-9_]+)"/)
-                ?? m.match(/\b(E[A-Z]{2,})\b/)       // errno: ENOSPC, ETIMEDOUT, ECONNREFUSED, EACCES…
-                ?? m.match(/\bHTTP (\d{3})\b/);
-            const hint = codeMatch ? ` (${codeMatch[1]})` : '';
-            return res.status(500).json({ error: `Internal server error${hint}.` });
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
