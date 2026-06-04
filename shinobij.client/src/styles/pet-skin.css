@@ -264,6 +264,7 @@
 /* ----- Tags + chips ----- */
 .pet-yard-screen .pet-trait-tag,
 .pet-yard-screen .pet-active-tag,
+.pet-yard-screen .pet-2v2-tag,
 .pet-yard-screen .pet-ready-tag,
 .pet-yard-screen .pet-training-tag {
     display: inline-block;
@@ -283,6 +284,11 @@
     background: rgba(111,212,122,0.15) !important;
     color: #86efac !important;
     border: 1px solid rgba(111,212,122,0.5) !important;
+}
+.pet-yard-screen .pet-2v2-tag {
+    background: rgba(232,121,249,0.15) !important;
+    color: #f0abfc !important;
+    border: 1px solid rgba(232,121,249,0.5) !important;
 }
 .pet-yard-screen .pet-ready-tag {
     background: rgba(78,168,255,0.15) !important;
