@@ -106,8 +106,31 @@ export function setActiveToken(token: string | null): void {
         // safely stored above, so a storage failure can never strand us with
         // neither credential.
         clearPersistedPassword();
+        // A fresh token re-arms the expiry notice so a future expiry can prompt
+        // re-login again. (#14)
+        _sessionExpiredNotified = false;
     } catch {
         /* storage disabled — ignore */
+    }
+}
+
+// ── Session-expiry signal (audit #14) ────────────────────────────────────────
+// A token-first client clears its stored password once it has a token (M5), so
+// after the 24h token expires — or SESSION_SECRET is rotated — there is nothing
+// left to re-mint from. The interceptor below detects that "401 and can't
+// refresh" case and fires this ONCE so the app can show a clear re-login prompt
+// instead of leaving the player on a frozen, silently-unauthenticated screen.
+// Listen for it with: window.addEventListener('shinobix:session-expired', ...).
+// The latch resets whenever a fresh token is stored (setActiveToken above).
+export const SESSION_EXPIRED_EVENT = 'shinobix:session-expired';
+let _sessionExpiredNotified = false;
+function notifySessionExpired(): void {
+    if (_sessionExpiredNotified) return;
+    _sessionExpiredNotified = true;
+    try {
+        window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    } catch {
+        /* SSR / no window — ignore */
     }
 }
 
@@ -316,6 +339,10 @@ export function installAuthFetch(): void {
                 retryHeaders.delete('x-player-password');
                 return originalFetch(input, { ...newInit, headers: retryHeaders });
             }
+            // No fresh token — couldn't re-mint (token-first client with no
+            // stored password to refresh from). Tell the app so it can prompt a
+            // clean re-login rather than silently returning the 401. (#14)
+            if (!fresh) notifySessionExpired();
         }
         return response;
     };

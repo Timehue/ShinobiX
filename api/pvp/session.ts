@@ -4,6 +4,8 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { onlineStore } from '../_realtime/online-store.js';
+import { sessionOpponentBlock } from '../_realtime/presence-gating.js';
 
 export type PvpStatus = {
     name: string;
@@ -531,6 +533,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // winner and loser). Admins keep the override (test fights).
                 if (p1Norm && p2Norm && p1Norm === p2Norm) {
                     return res.status(400).json({ error: 'You cannot duel yourself.' });
+                }
+
+                // #4: enforce the anti-grief presence gate HERE, at session
+                // creation — the real gate. The client creates the session
+                // BEFORE /api/player/challenge (which skips its own gate once a
+                // battleId exists) or /api/player/attack, so without this a
+                // player could fight a traveling / already-in-battle / engaged
+                // target by pre-creating the session. Only the opponent (the
+                // fighter who is NOT the creator) is gated, only when they're a
+                // real ONLINE player; offline targets stay optimistic/queued.
+                const opponentNorm = me === p1Norm ? p2Norm : p1Norm;
+                if (opponentNorm) {
+                    const block = sessionOpponentBlock(onlineStore.get(opponentNorm), me);
+                    if (block) return res.status(block.status).json({ error: block.error });
                 }
             }
 
