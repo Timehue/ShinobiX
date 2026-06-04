@@ -228,10 +228,16 @@ function sanitizeCharacterSave(incoming, existing) {
     if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
         char.customTitle = (0, _text_moderation_js_1.sanitizeUserText)(char.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
     }
-    // Level: can't jump more than MAX_LEVEL_GAIN levels per save; hard cap at LEVEL_CAP.
+    // Level: monotonic. Cap upward gain at +MAX_LEVEL_GAIN/save and hard-cap at
+    // LEVEL_CAP — but ALSO floor at the existing level so a stale/frozen client
+    // save (e.g. one replayed after a silent token-expiry) can never REGRESS a
+    // player's level. Levels only ever increase through play; admin saves bypass
+    // this sanitizer (the !isAdminSave gate), so admin tooling can still correct
+    // a level directly. (xp is intentionally NOT floored: it's per-level progress
+    // that resets on level-up, and the client clamps it to xpNeeded(level) on load.)
     const exLevel = Math.max(1, Number(exChar.level ?? 1));
     const inLevel = Math.max(1, Number(char.level ?? 1));
-    char.level = Math.min(LEVEL_CAP, Math.min(inLevel, exLevel + MAX_LEVEL_GAIN));
+    char.level = Math.min(LEVEL_CAP, Math.max(exLevel, Math.min(inLevel, exLevel + MAX_LEVEL_GAIN)));
     // Ryo: cap the gain per cycle; can't go below zero.
     const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
     const inRyo = Math.max(0, Number(char.ryo ?? 0));
