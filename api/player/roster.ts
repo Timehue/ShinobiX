@@ -4,8 +4,6 @@ import { cors } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
 
 const REGISTRY_KEY = 'player:registry';
-const PRESENCE_KEY_PREFIX = 'presence:';
-const PRESENCE_TTL_MS = 65_000; // kept for belt-and-suspenders staleness check
 
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
@@ -125,13 +123,6 @@ type RosterPlayer = {
     character?: unknown;
     currentSector?: number;
     lastSeenAt?: number;
-};
-
-type PresenceEntry = {
-    name: string;
-    sector: number;
-    character?: unknown;
-    lastSeen?: number;
 };
 
 function normalizeSector(value: unknown, fallback = 40) {

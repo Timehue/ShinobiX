@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { sessionOpponentBlock } from '../_realtime/presence-gating.js';
+import { consumeRankedMatchToken } from '../_ranked-match-token.js';
 
 export type PvpStatus = {
     name: string;
@@ -628,30 +629,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const firstActor: 'p1' | 'p2' = (randomBytes(1)[0] & 1) === 0 ? 'p1' : 'p2';
             const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
 
-            // ── Ranked snapshot (audit #7 / Stage 3) ─────────────────────────
-            // When the client flags this match ranked, record each fighter's
+            // ── Ranked snapshot (audit #7 / Stage 3; gated by audit #10) ──────
+            // When the match is honored as ranked, record each fighter's
             // pre-match Elo read from their SAVE (authoritative), keyed to the
             // ladder. claim-rewards reads these back + the server winner to
             // compute and durably credit the rating change — the client can no
             // longer compute or self-apply the delta. NPC fighters (no save)
-            // default to 1000, matching the client's `?? 1000`. The `ranked`
-            // assertion itself is currently client-supplied (a documented
-            // follow-up will tie it to the queue/challenge record); the RATINGS,
-            // WINNER and MAGNITUDE are all server-authoritative regardless.
+            // default to 1000, matching the client's `?? 1000`.
+            //
+            // #10: `ranked` from the body is only a client CLAIM. Require a
+            // server-minted match token (from the ranked queue, sealed to THESE
+            // two fighters on THIS ladder) and consume it single-use before
+            // honoring it. No token → record the session as CASUAL (no stamp); the
+            // battle still runs, and the RATINGS, WINNER and MAGNITUDE stay
+            // server-authoritative regardless. Admins keep their override (test
+            // fights never queue, so they'd have no token).
             let rankedStamp: Pick<PvpSession, 'ranked' | 'rankedKind' | 'p1Rating' | 'p2Rating'> = {};
             if (ranked === true && (rankedKind === 'player' || rankedKind === 'pet')) {
-                const ratingField = rankedKind === 'pet' ? 'petRankedRating' : 'rankedRating';
-                const ratingOf = (save: Record<string, unknown> | null): number => {
-                    const c = (save?.character ?? null) as Record<string, unknown> | null;
-                    const r = Number(c?.[ratingField]);
-                    return Number.isFinite(r) ? r : 1000;
-                };
-                rankedStamp = {
-                    ranked: true,
-                    rankedKind,
-                    p1Rating: ratingOf(p1Save),
-                    p2Rating: ratingOf(p2Save),
-                };
+                const proven = identity.admin
+                    || await consumeRankedMatchToken(p1Norm, p2Norm, rankedKind);
+                if (proven) {
+                    const ratingField = rankedKind === 'pet' ? 'petRankedRating' : 'rankedRating';
+                    const ratingOf = (save: Record<string, unknown> | null): number => {
+                        const c = (save?.character ?? null) as Record<string, unknown> | null;
+                        const r = Number(c?.[ratingField]);
+                        return Number.isFinite(r) ? r : 1000;
+                    };
+                    rankedStamp = {
+                        ranked: true,
+                        rankedKind,
+                        p1Rating: ratingOf(p1Save),
+                        p2Rating: ratingOf(p2Save),
+                    };
+                }
             }
 
             // ── Base-reward stamp (audit #7 / Stage 3 Phase 3) ───────────────

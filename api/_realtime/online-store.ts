@@ -9,6 +9,17 @@
  * handler imports the same `onlineStore` singleton below. Going multi-instance
  * later (Phase 9) means swapping in a Redis-backed implementation of the same
  * `OnlineStateStore` interface — no consumer changes.
+ *
+ * ⚠️ DEPLOYMENT INVARIANT: the host serving player API traffic
+ * (heartbeat / roster / attack / challenge / heal / pvp-move) MUST run a single
+ * process. Railway does (one container). cPanel/Passenger spawns MANY workers
+ * (see .env.example "Pool size PER process. … cPanel's many worker processes")
+ * and is therefore for image + KV-proxy storage ONLY — it must NOT serve those
+ * routes, or presence splits across workers (heartbeat lands on worker A,
+ * roster/attack read worker B → players show offline, "Target not online",
+ * sector-mates vanish). If cPanel ever needs to serve the game API, either pin
+ * Passenger to one worker (passenger_max_pool_size=1) on that box or swap in the
+ * Redis-backed store first.
  */
 import type { OnlinePlayer, OnlineStateStore, PresenceUpsert } from './types.js';
 import { safeName } from '../_utils.js';
