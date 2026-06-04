@@ -22,9 +22,19 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method === 'GET') {
         try {
-            const [villageStateKeys, leadershipImages, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
+            // Village leadership portraits are large base64 images that change
+            // rarely. They used to ride this frame — which clients poll every 5s
+            // — at ~355KB per response. They're now served only on an explicit
+            // ?images=1 request (long CDN TTL); the default frame below omits
+            // them so the hot poll stays tiny. The client polls the images
+            // variant on a slow ~5-min cadence. Mirrors the presence/pet-image strip.
+            if (req.query.images === '1') {
+                const leadershipImages = await _storage_js_1.kv.get(LEADERSHIP_IMAGES_KEY);
+                res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+                return res.status(200).json({ villageLeadershipImages: leadershipImages ?? null });
+            }
+            const [villageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
                 _storage_js_1.kv.keys(`${VILLAGE_STATE_PREFIX}*`),
-                _storage_js_1.kv.get(LEADERSHIP_IMAGES_KEY),
                 _storage_js_1.kv.get(ARENA_TOURNAMENT_KEY),
                 _storage_js_1.kv.get(ARENA_ACTIVE_FIGHTS_KEY),
                 _storage_js_1.kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
@@ -58,7 +68,6 @@ async function handler(req, res) {
             res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
             return res.status(200).json({
                 villageStates,
-                villageLeadershipImages: leadershipImages ?? null,
                 arenaTournament: arenaTournament ?? null,
                 arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                 clanPetBattles,

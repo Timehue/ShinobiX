@@ -3320,6 +3320,38 @@ export default function App() {
             clearInterval(id);
         };
     }, [currentAccountName, character?.name, tabVisible]);
+    // Village leadership portraits are large base64 images that change rarely,
+    // so they ride a separate slow poll (api/game-state.ts ?images=1) instead of
+    // the 5s game-state frame — keeping the hot frame ~355KB lighter per poll.
+    // Only logged-in players need them (Town Hall / admin), so this stays idle
+    // pre-login. Bumps the shared version itself when the portraits actually change.
+    useEffect(() => {
+        if (!tabVisible || !character?.name) return;
+        let alive = true;
+        let lastSig = "";
+        async function refreshLeadershipImages() {
+            try {
+                const response = await fetch(`${GAME_STATE_API}?images=1`, { cache: "no-store" });
+                if (!response.ok) return;
+                const data = await response.json() as { villageLeadershipImages?: VillageLeadershipImages | null };
+                if (!alive) return;
+                const normalized = normalizeVillageLeadershipImages(data.villageLeadershipImages ?? undefined);
+                const sig = JSON.stringify(normalized);
+                if (sig === lastSig) return;
+                lastSig = sig;
+                sharedVillageLeadershipImagesCache = normalized;
+                setSharedGameStateVersion(version => version + 1);
+            } catch {
+                // Portraits will refresh on the next slow tick.
+            }
+        }
+        refreshLeadershipImages();
+        const id = setInterval(refreshLeadershipImages, 5 * 60_000); // every 5 min — portraits change rarely
+        return () => {
+            alive = false;
+            clearInterval(id);
+        };
+    }, [character?.name, tabVisible]);
     useEffect(() => {
         setEditablePets((currentPets) => {
             const mergedPets = mergeMissingBuiltInPets(currentPets);
@@ -4236,6 +4268,11 @@ export default function App() {
     }, [character?.name]);
 
     useEffect(() => {
+        // /api/bloodlines/list is auth-gated (it scans every save), so it 401s
+        // for anonymous visitors. The public-bloodline gallery only shows inside
+        // the logged-in codex anyway, so skip the fetch until a character is
+        // active — this drops a wasted 401 on every cold landing.
+        if (!character?.name) return;
         async function fetchPublicBloodlines() {
             try {
                 const res = await fetch('/api/bloodlines/list');
@@ -4251,7 +4288,7 @@ export default function App() {
         fetchPublicBloodlines();
         const id = setInterval(fetchPublicBloodlines, 300000);
         return () => clearInterval(id);
-    }, []);
+    }, [character?.name]);
 
     // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
     // the shared PvP battle (battleId present) or legacy arena as fallback.
@@ -4680,9 +4717,12 @@ export default function App() {
             pullSaveFromServer(localAccountName).then((snap) => {
                 if (snap) applySnapshot(snap);
             }).finally(() => { void pullSharedAdminContent(); });
-        } else {
-            void pullSharedAdminContent();
         }
+        // No stored account = anonymous visitor on the landing screen. The shared
+        // admin content (custom jutsu/items/events) pulls Admin 1 / Admin 2 saves,
+        // which 401 without auth — so skip it here. It loads as soon as they log in
+        // or create a character (both call pullSharedAdminContent), dropping two
+        // wasted 401s on every cold landing.
     }, []);
 
     useEffect(() => {
@@ -27477,7 +27517,6 @@ function savePendingClanPetBattle(battle: PendingClanPetBattle | null) {
 let lastSharedGameStateSnapshot = "";
 function hydrateSharedGameState(data: {
     villageStates?: Record<string, unknown> | (Partial<VillageState> & { village?: string })[];
-    villageLeadershipImages?: VillageLeadershipImages;
     arenaTournament?: ArenaTournament | null;
     arenaActiveFights?: ArenaSpectatorFight[];
     pendingClanPetBattle?: PendingClanPetBattle | null;
@@ -27503,7 +27542,9 @@ function hydrateSharedGameState(data: {
         }
     }
     sharedVillageStateCache = villageStates;
-    sharedVillageLeadershipImagesCache = normalizeVillageLeadershipImages(data.villageLeadershipImages);
+    // Leadership portraits no longer ride the 5s frame (see refreshLeadershipImages
+    // and api/game-state.ts ?images=1) — don't touch the cache here, or an absent
+    // field would wipe the loaded portraits every poll.
     sharedArenaTournamentCache = data.arenaTournament ?? null;
     const serverFights = Array.isArray(data.arenaActiveFights)
         ? data.arenaActiveFights.filter((fight: ArenaSpectatorFight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000)
@@ -27534,7 +27575,7 @@ function hydrateSharedGameState(data: {
     // See hydrateSharedWorldState: report change so the 5s poller skips the
     // wasted full-app re-render when the server payload is unchanged.
     const snapshot = JSON.stringify([
-        sharedVillageStateCache, sharedVillageLeadershipImagesCache,
+        sharedVillageStateCache,
         sharedArenaTournamentCache, sharedArenaActiveFightsCache,
         sharedPendingClanPetBattleCache, sharedWeeklyBossAiIdCache,
     ]);
