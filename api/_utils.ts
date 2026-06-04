@@ -10,6 +10,19 @@ export function safeName(name: string) {
     return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, SAFE_NAME_MAX_LEN);
 }
 
+// Canonical clan-record key derivation (audit #19). A clan's shared save lives
+// at `save:clan-<bareSlug>` where bareSlug strips the display name down to
+// [a-z0-9] only ("Storm Clan" → "stormclan"). Many call sites inline this rule;
+// centralize it here so a new caller can't drift — e.g. pet-escort/offer.ts
+// once derived a HYPHENATED slug ("storm-clan") and so silently failed to find
+// any multi-word clan's record. Use clanRecordKey() for the full KV key.
+export function clanBareSlug(name: string): string {
+    return name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+export function clanRecordKey(name: string): string {
+    return `save:clan-${clanBareSlug(name)}`;
+}
+
 function recordId(value: unknown) {
     return value && typeof value === 'object' && 'id' in value
         ? String((value as { id?: unknown }).id)
