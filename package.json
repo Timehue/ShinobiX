@@ -19,6 +19,7 @@
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.106.1",
+        "compression": "^1.8.1",
         "dotenv": "^17.0.0",
         "express": "^5.0.1",
         "pg": "^8.21.0",
@@ -26,6 +27,7 @@
         "undici": "^6.0.0"
     },
     "devDependencies": {
+        "@types/compression": "^1.8.1",
         "@types/express": "^5.0.0",
         "@types/node": "^22.0.0",
         "@types/pg": "^8.11.0",
