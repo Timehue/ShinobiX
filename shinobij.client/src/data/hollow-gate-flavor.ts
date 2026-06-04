@@ -63,7 +63,8 @@ export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "The corridor opens into a vast chamber. The Hollow Gate Warden waits at its center.",
     ],
     exit: [
-        "A staircase descends further. The Hollow Gate echoes grow louder below.",
+        "A broken torii leans across this tile, its chakra chains slackened. Beyond it, pale daylight from the world above bleeds through — the way out.",
+        "The seal on this threshold has frayed. Step through and the Hollow Gate releases you back to the world map.",
     ],
     locked: [
         "A sealed door, bound by chakra chains. Without a Shrine Key it will not yield.",
@@ -140,7 +141,7 @@ export function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "shrine": return "⛩";
         case "story": return "📜";
         case "boss": return "👹";
-        case "exit": return "⇩";     // Leave tile
+        case "exit": return "🚪";    // Leave tile — exit to world map (distinct from ▼ descend)
         case "locked": return "🔒";
         case "npc": return "👤";      // Shrine Keeper
         case "descend": return "▼";   // Staircase to next floor
