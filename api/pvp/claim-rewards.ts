@@ -40,6 +40,23 @@ function claimKey(playerName: string, battleId: string): string {
     return `pvp:rewarded:${safeName(playerName)}:${battleId}`;
 }
 
+// Lock a set of save keys in a deterministic (sorted) order before running fn,
+// so two concurrent claims that each touch BOTH fighters' saves (e.g. winner
+// and loser claiming at the same instant) can't acquire the two locks in
+// opposite orders and deadlock. failClosed: a contended lock aborts the whole
+// settlement (caller returns 503 → client retries) rather than racing a
+// currency/rating write. (#8)
+async function withSavesLocked<T>(slugs: string[], fn: () => Promise<T>): Promise<T> {
+    const ordered = [...new Set(slugs.filter(Boolean))].sort();
+    let run = fn;
+    for (let i = ordered.length - 1; i >= 0; i--) {
+        const slug = ordered[i];
+        const next = run;
+        run = () => withKvLock(`save:${slug}`, next, { failClosed: true });
+    }
+    return run();
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -97,88 +114,112 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const key = claimKey(playerName, battleId);
 
-        // ── Server-credited paths (audit #7 / Stage 3) ─────────────────────
+        // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
         // Two server-authoritative credits can apply to a claim:
-        //   • RANKED rating (Phase 1) — when the session was stamped ranked at
-        //     creation, the SERVER owns the rating change (computed from the
-        //     pre-match Elo snapshot + the server-verified winner). Draws skip
-        //     (the Elo formula is win/loss only).
-        //   • BASE ryo + XP (Phase 3) — when the session was stamped baseRewards
-        //     AND this is the WINNER's claim. The amount comes from the verbatim
-        //     gainXp port computed on the winner's full save (pet trait + elder
-        //     focus + exam gates), with the Death's Gate (sector 99) 2× bonus
-        //     keyed off the session's stamped rewardSector. Loser/draw earn none.
-        // When either applies we take the save lock ONCE, place the receipt, and
-        // apply BOTH credits in a single atomic write keyed by the same NX
-        // receipt — a ranked win credits rating + ryo/xp exactly-once, and a
-        // contention abort (failClosed → 503) leaves NOTHING placed so a retry
-        // credits cleanly without ever double-crediting. A casual,
-        // non-baseRewards session keeps the byte-for-byte unchanged NX-only path
-        // below, so this is a no-op until a client opts a session into either.
+        //   • RANKED rating — when the session was stamped ranked at creation,
+        //     the SERVER owns the Elo change (pre-match snapshot + verified
+        //     winner). Settled for BOTH fighters from EITHER player's claim, each
+        //     exactly once via a per-player `pvp:ranked-rating:<slug>:<battleId>`
+        //     NX receipt — so a loser can no longer dodge the rating drop by
+        //     simply never claiming (#8). Draws skip (Elo is win/loss only).
+        //   • BASE ryo + XP — when the session was stamped baseRewards AND this is
+        //     the WINNER's own claim, computed from the verbatim gainXp port on
+        //     the winner's save (Death's Gate sector-99 2× via rewardSector).
+        // `alreadyClaimed` tracks ONLY the caller's own claim receipt (`key`),
+        // which gates the client's local self-apply — kept INDEPENDENT of the
+        // rating settlement, so the winner pre-settling the loser's RATING does
+        // not suppress the loser's own later local grants. A contention abort
+        // (failClosed → 503) leaves the relevant NX receipts unplaced so a retry
+        // settles cleanly without ever double-crediting. Casual, non-baseRewards
+        // sessions keep the unchanged NX-only path below.
         const isRankedClaim =
             session.ranked === true &&
             (session.rankedKind === 'player' || session.rankedKind === 'pet') &&
             (session.winner === 'p1' || session.winner === 'p2');
         const creditBase = session.baseRewards === true && outcome === 'win';
         if (isRankedClaim || creditBase) {
-            const saveKey = `save:${playerName}`;
-            // Ranked params — only consulted when isRankedClaim.
-            const kind = session.rankedKind as 'player' | 'pet';
+            const kind: 'player' | 'pet' = session.rankedKind === 'pet' ? 'pet' : 'player';
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
             const winnerRating = Number((session.winner === 'p1' ? session.p1Rating : session.p2Rating) ?? 1000);
             const loserRating = Number((session.winner === 'p1' ? session.p2Rating : session.p1Rating) ?? 1000);
-            const role: 'winner' | 'loser' = outcome === 'win' ? 'winner' : 'loser';
+            const winnerSlug = safeName(winnerName);
+            const loserSlug = safeName(loserName);
+            const claimerSlug = playerName; // already safeName()'d above
             type RatingOut = { field: string; value: number; delta: number };
             type BaseOut = ReturnType<typeof creditPvpWinBase>['summary'];
+
+            // Apply ONE fighter's once-per-battle ranked-rating delta (guarded by
+            // its own NX receipt) and return that fighter's resulting rating. A
+            // re-settle (receipt already placed) reads back the stored value.
+            const settleRatingFor = async (slug: string, role: 'winner' | 'loser'): Promise<RatingOut | undefined> => {
+                if (!isRankedClaim || !slug) return undefined;
+                const saveKey = `save:${slug}`;
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = (record?.character ?? null) as Record<string, unknown> | null;
+                if (!record || !char) return undefined;
+                const placed = await kv.set(`pvp:ranked-rating:${slug}:${battleId}`, { role, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
+                const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
+                if (placed) {
+                    await kv.set(saveKey, mergePreservingImages({ ...record, character: { ...char, ...r.patch } }, record));
+                    return { field: ratingField, value: r.newRating, delta: r.delta };
+                }
+                const cur = Number(char[ratingField]);
+                return { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta };
+            };
+
+            // Credit the winner's base ryo+XP (once), gated on `alreadyForWinner`
+            // (the winner's own claim receipt). Re-reads the save so a rating
+            // patch applied just above is preserved.
+            const settleBaseForWinner = async (alreadyForWinner: boolean): Promise<BaseOut | undefined> => {
+                const saveKey = `save:${winnerSlug}`;
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = (record?.character ?? null) as Record<string, unknown> | null;
+                if (!record || !char) return undefined;
+                const { xpGain, ryoGain } = computePvpWinGains(char, session.rewardSector);
+                if (!alreadyForWinner) {
+                    const credit = creditPvpWinBase(char, xpGain, ryoGain);
+                    await kv.set(saveKey, mergePreservingImages({ ...record, character: credit.char }, record));
+                    return credit.summary;
+                }
+                return {
+                    ryo: Number(char.ryo) || 0,
+                    xp: Number(char.xp) || 0,
+                    level: Number(char.level) || 0,
+                    rankTitle: typeof char.rankTitle === 'string' ? char.rankTitle : '',
+                    maxHp: Number(char.maxHp) || 0,
+                    maxChakra: Number(char.maxChakra) || 0,
+                    maxStamina: Number(char.maxStamina) || 0,
+                    unspentStats: Number(char.unspentStats) || 0,
+                };
+            };
+
             try {
-                const out = await withKvLock(saveKey, async () => {
-                    const placed = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-                    const already = !placed;
-                    const record = await kv.get<Record<string, unknown>>(saveKey);
-                    const char = (record?.character ?? null) as Record<string, unknown> | null;
-                    if (!record || !char) return { already, rating: undefined as RatingOut | undefined, base: undefined as BaseOut | undefined };
-                    let nextChar: Record<string, unknown> = { ...char };
-                    let rating: RatingOut | undefined;
-                    let base: BaseOut | undefined;
+                // Lock every save we may write — claimer + opponent for a ranked
+                // settlement, winner-only for a casual base reward.
+                const locks = isRankedClaim ? [winnerSlug, loserSlug] : [winnerSlug];
+                const out = await withSavesLocked(locks, async () => {
+                    // Caller's own claim receipt — gates the client's local
+                    // self-apply (alreadyClaimed). Distinct from the per-player
+                    // rating receipts below.
+                    const placedSelf = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
+                    const already = !placedSelf;
 
-                    if (isRankedClaim) {
-                        const r = creditRankedOutcome(nextChar, { role, winnerRating, loserRating, kind });
-                        if (!already) nextChar = { ...nextChar, ...r.patch };
-                        // First call → the freshly computed value; re-claim →
-                        // the stored value (falling back to computed on garbage).
-                        const cur = Number(char[ratingField]);
-                        rating = { field: ratingField, value: already ? (Number.isFinite(cur) ? cur : r.newRating) : r.newRating, delta: r.delta };
-                    }
+                    // Settle BOTH ratings (each exactly once across the battle).
+                    const winnerRatingOut = await settleRatingFor(winnerSlug, 'winner');
+                    const loserRatingOut = (loserSlug && loserSlug !== winnerSlug)
+                        ? await settleRatingFor(loserSlug, 'loser')
+                        : undefined;
 
-                    if (creditBase) {
-                        // Gains depend only on pets + the stamped sector, so read
-                        // them from the original save; apply gainXp to nextChar so
-                        // a ranked rating patch above is preserved.
-                        const { xpGain, ryoGain } = computePvpWinGains(char, session.rewardSector);
-                        if (!already) {
-                            const credit = creditPvpWinBase(nextChar, xpGain, ryoGain);
-                            nextChar = credit.char;
-                            base = credit.summary;
-                        } else {
-                            // Already credited on a prior call — report stored values.
-                            base = {
-                                ryo: Number(char.ryo) || 0,
-                                xp: Number(char.xp) || 0,
-                                level: Number(char.level) || 0,
-                                rankTitle: typeof char.rankTitle === 'string' ? char.rankTitle : '',
-                                maxHp: Number(char.maxHp) || 0,
-                                maxChakra: Number(char.maxChakra) || 0,
-                                maxStamina: Number(char.maxStamina) || 0,
-                                unspentStats: Number(char.unspentStats) || 0,
-                            };
-                        }
-                    }
+                    // Winner base reward — only when the WINNER is the caller.
+                    const base = (creditBase && claimerSlug === winnerSlug)
+                        ? await settleBaseForWinner(already)
+                        : undefined;
 
-                    if (!already) {
-                        await kv.set(saveKey, mergePreservingImages({ ...record, character: nextChar }, record));
-                    }
+                    const rating = claimerSlug === winnerSlug ? winnerRatingOut
+                        : claimerSlug === loserSlug ? loserRatingOut
+                        : undefined;
                     return { already, rating, base };
-                }, { failClosed: true });
+                });
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
@@ -186,7 +227,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(out.base ? { base: out.base } : {}),
                 });
             } catch (creditErr) {
-                // Lock contention/outage (failClosed) — receipt NOT placed, so
+                // Lock contention/outage (failClosed) — receipts NOT placed, so
                 // the client can safely retry. 503 signals "transient, retry".
                 console.error('[pvp/claim-rewards] server credit failed', creditErr);
                 return res.status(503).json({ error: 'Could not record battle result — please retry.' });
