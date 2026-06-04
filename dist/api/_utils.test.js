@@ -24,6 +24,41 @@ const _utils_js_1 = require("./_utils.js");
         node_assert_1.strict.equal((0, _utils_js_1.safeName)(''), '');
     });
 });
+(0, node_test_1.describe)('isAllowedOrigin (CORS predicate, #12)', () => {
+    (0, node_test_1.it)('allows the static production + localhost origins', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://theravensark.com'), true);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://www.theravensark.com'), true);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('http://localhost:5173'), true);
+    });
+    (0, node_test_1.it)('allows any https *.up.railway.app origin (service + PR-preview subdomains)', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://shinobix.up.railway.app'), true);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://pr-12-shinobix.up.railway.app'), true);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://up.railway.app'), true);
+    });
+    (0, node_test_1.it)('rejects http (non-TLS) railway + lookalike suffix attacks', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('http://shinobix.up.railway.app'), false);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://up.railway.app.attacker.com'), false);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://notrailway.com'), false);
+    });
+    (0, node_test_1.it)('rejects empty / undefined origin', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)(''), false);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)(undefined), false);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)(null), false);
+    });
+});
+(0, node_test_1.describe)('clanRecordKey / clanBareSlug (#19)', () => {
+    (0, node_test_1.it)('strips a multi-word clan name to a bare slug (no spaces, no hyphens)', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.clanBareSlug)('Storm Clan'), 'stormclan');
+        node_assert_1.strict.equal((0, _utils_js_1.clanRecordKey)('Storm Clan'), 'save:clan-stormclan');
+    });
+    (0, node_test_1.it)('drops punctuation too — matches save/[name].ts clanRecordSlug', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.clanRecordKey)("Aka's Crew!"), 'save:clan-akascrew');
+    });
+    (0, node_test_1.it)('the old hyphenated form would NOT have matched (regression guard)', () => {
+        const hyphenated = 'clan-' + 'Storm Clan'.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        node_assert_1.strict.notEqual(`save:${hyphenated}`, (0, _utils_js_1.clanRecordKey)('Storm Clan'));
+    });
+});
 (0, node_test_1.describe)('mergePreservingImages', () => {
     (0, node_test_1.it)('returns incoming for non-object types', () => {
         node_assert_1.strict.equal((0, _utils_js_1.mergePreservingImages)('foo', { existing: 'val' }), 'foo');

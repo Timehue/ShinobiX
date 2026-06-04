@@ -69,3 +69,41 @@ const images_js_1 = require("./images.js");
         node_assert_1.strict.equal((0, images_js_1.isValidImageString)('x'.repeat(3_000_001)), false);
     });
 });
+(0, node_test_1.describe)('base64DecodedByteLength', () => {
+    (0, node_test_1.it)('computes decoded size from the base64 part (handles padding)', () => {
+        node_assert_1.strict.equal((0, images_js_1.base64DecodedByteLength)('data:image/png;base64,AAAA'), 3); // no pad
+        node_assert_1.strict.equal((0, images_js_1.base64DecodedByteLength)('data:image/png;base64,AAA='), 2); // 1 pad
+        node_assert_1.strict.equal((0, images_js_1.base64DecodedByteLength)('data:image/png;base64,AA=='), 1); // 2 pad
+        node_assert_1.strict.equal((0, images_js_1.base64DecodedByteLength)(''), 0);
+    });
+});
+(0, node_test_1.describe)('avatarImageReject (avatar hardening, #15)', () => {
+    (0, node_test_1.it)('accepts a small raster data-URL avatar (incl. animated gif/webp)', () => {
+        node_assert_1.strict.equal((0, images_js_1.avatarImageReject)('data:image/png;base64,' + 'A'.repeat(100)), null);
+        node_assert_1.strict.equal((0, images_js_1.avatarImageReject)('data:image/gif;base64,' + 'A'.repeat(100)), null);
+        node_assert_1.strict.equal((0, images_js_1.avatarImageReject)('data:image/webp;base64,' + 'A'.repeat(100)), null);
+    });
+    (0, node_test_1.it)('rejects a remote http(s) URL avatar — must be inline', () => {
+        const r = (0, images_js_1.avatarImageReject)('https://cdn.example.com/a.png');
+        node_assert_1.strict.ok(r && /data url|uploaded image/i.test(r), r ?? 'expected rejection');
+    });
+    (0, node_test_1.it)('rejects SVG avatars (XSS vector)', () => {
+        node_assert_1.strict.ok((0, images_js_1.avatarImageReject)('data:image/svg+xml;base64,AAAA'));
+    });
+    (0, node_test_1.it)('rejects an avatar over the 2 MB decoded cap', () => {
+        // 'A'.repeat(3,000,000) base64 → ~2.25 MB decoded, over the 2 MB cap.
+        const big = 'data:image/png;base64,' + 'A'.repeat(3_000_000);
+        const r = (0, images_js_1.avatarImageReject)(big);
+        node_assert_1.strict.ok(r && /2 MB/i.test(r), r ?? 'expected size rejection');
+    });
+});
+(0, node_test_1.describe)('categoryFromId — leader category (#16)', () => {
+    (0, node_test_1.it)('routes leader:* to its own category instead of misc', () => {
+        node_assert_1.strict.equal((0, images_js_1.categoryFromId)('leader:konoha:kage'), 'leader');
+        node_assert_1.strict.equal((0, images_js_1.categoryFromId)('leader:suna:elder:1'), 'leader');
+    });
+    (0, node_test_1.it)('routes avatar:* and unknown prefixes correctly', () => {
+        node_assert_1.strict.equal((0, images_js_1.categoryFromId)('avatar:rill'), 'avatar');
+        node_assert_1.strict.equal((0, images_js_1.categoryFromId)('whatever:foo'), 'misc');
+    });
+});

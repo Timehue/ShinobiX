@@ -11,6 +11,8 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
+const presence_gating_js_1 = require("../_realtime/presence-gating.js");
 exports.PVP_MOVE_TOKEN_HISTORY = 20;
 // Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
 // minutes, so a 15-min TTL covers the live fight plus a buffer for the
@@ -426,6 +428,28 @@ async function handler(req, res) {
                 const me = identity.name;
                 if (me !== p1Norm && me !== p2Norm) {
                     return res.status(403).json({ error: 'Can only create sessions you are a fighter in.' });
+                }
+                // Reject self-duels. With p1 and p2 resolving to the SAME
+                // account, a player controls both sides — letting them farm a
+                // guaranteed win on the ranked / vanguard / base-reward paths
+                // (and the reward settlement would read+write one save as both
+                // winner and loser). Admins keep the override (test fights).
+                if (p1Norm && p2Norm && p1Norm === p2Norm) {
+                    return res.status(400).json({ error: 'You cannot duel yourself.' });
+                }
+                // #4: enforce the anti-grief presence gate HERE, at session
+                // creation — the real gate. The client creates the session
+                // BEFORE /api/player/challenge (which skips its own gate once a
+                // battleId exists) or /api/player/attack, so without this a
+                // player could fight a traveling / already-in-battle / engaged
+                // target by pre-creating the session. Only the opponent (the
+                // fighter who is NOT the creator) is gated, only when they're a
+                // real ONLINE player; offline targets stay optimistic/queued.
+                const opponentNorm = me === p1Norm ? p2Norm : p1Norm;
+                if (opponentNorm) {
+                    const block = (0, presence_gating_js_1.sessionOpponentBlock)(online_store_js_1.onlineStore.get(opponentNorm), me);
+                    if (block)
+                        return res.status(block.status).json({ error: block.error });
                 }
             }
             // ── Hydrate both fighters from authoritative saves ───────────────

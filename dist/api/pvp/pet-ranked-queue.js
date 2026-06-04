@@ -10,6 +10,11 @@ const _lock_js_1 = require("../_lock.js");
 const QUEUE_KEY = 'pvp:pet-ranked-queue';
 const KV_TTL_SECONDS = 2 * 60 * 60; // 2-hour TTL
 const STALE_MS = 60 * 1000; // Remove entries older than 60s (must re-queue)
+// Durable per-player match record (audit #10) — see ranked-queue.ts for the
+// rationale. BOTH matched players get one so neither silently vanishes from the
+// queue when only one polled; short TTL re-opens matchmaking if no fight starts.
+const MATCH_TTL_SECONDS = 30;
+const matchKey = (slug) => `${QUEUE_KEY}:match:${slug}`;
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -64,7 +69,10 @@ async function handler(req, res) {
                 const active = queue.filter(e => Date.now() - e.joinedAt < STALE_MS);
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== (0, _utils_js_1.safeName)(name));
-                    await _storage_js_1.kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
+                    await Promise.all([
+                        _storage_js_1.kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
+                        _storage_js_1.kv.del(matchKey((0, _utils_js_1.safeName)(name))), // drop any pending match too
+                    ]);
                     return { status: 200, body: { inQueue: false, queueSize: filtered.length, match: null } };
                 }
                 if (action === 'join') {
@@ -77,10 +85,21 @@ async function handler(req, res) {
                         joinedAt: Date.now(),
                     };
                     filtered.push(entry);
-                    await _storage_js_1.kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
+                    await Promise.all([
+                        _storage_js_1.kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
+                        _storage_js_1.kv.del(matchKey((0, _utils_js_1.safeName)(name))), // clear any stale prior match
+                    ]);
                     return { status: 200, body: { inQueue: true, queueSize: filtered.length, match: null } };
                 }
                 if (action === 'poll') {
+                    // #10: if a prior poll (mine OR the opponent's) already matched
+                    // me, return that durable match instead of re-matching — so the
+                    // side that didn't poll first still gets the match rather than a
+                    // bare inQueue:false that looks like "you left".
+                    const myMatch = await _storage_js_1.kv.get(matchKey((0, _utils_js_1.safeName)(name)));
+                    if (myMatch) {
+                        return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
+                    }
                     const me = active.find(e => e.name === (0, _utils_js_1.safeName)(name));
                     if (!me)
                         return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
@@ -93,15 +112,20 @@ async function handler(req, res) {
                     others.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
                     const opponent = others[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
-                    await _storage_js_1.kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS });
-                    return {
-                        status: 200,
-                        body: {
-                            inQueue: false,
-                            queueSize: remaining.length,
-                            match: { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level },
-                        },
-                    };
+                    // Deterministic initiator (lexicographically smaller slug) so
+                    // exactly ONE side sends the ranked challenge and the other
+                    // waits for it — no double-challenge, no silent drop. Both get a
+                    // durable match record so neither vanishes if a poll is missed.
+                    const initiatorName = me.name < opponent.name ? me.name : opponent.name;
+                    const now = Date.now();
+                    const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now };
+                    const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now };
+                    await Promise.all([
+                        _storage_js_1.kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
+                        _storage_js_1.kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
+                        _storage_js_1.kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
+                    ]);
+                    return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
                 }
                 return { status: 400, body: { error: 'Invalid action.' } };
             });
