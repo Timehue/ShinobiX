@@ -117,6 +117,12 @@ export function attachSocketServer(httpServer: HttpServer): void {
             // client ping cadence (~20s) sits well inside this.
             pingInterval: 25_000,
             pingTimeout: 20_000,
+            // Cap inbound frame size (default 1 MB). The presence frame is the
+            // only client→server payload, and now that pet image data URLs are
+            // dropped from it (see presence-input.ts PRESENCE_PET_KEEP) it's a few
+            // KB of display scalars + pet stats. 64 KB is generous headroom while
+            // refusing an oversized frame that would otherwise buffer per socket.
+            maxHttpBufferSize: 64 * 1024,
         });
         _io = io;
         wireRealtime(io);
