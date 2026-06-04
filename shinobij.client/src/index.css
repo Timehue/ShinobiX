@@ -11687,7 +11687,14 @@ button.combat-jutsu-button,
 
 .sector-instance-wrap,
 .map-instance .instance-frame {
-    height: min(952px, calc(100dvh - var(--banner-h) + 150px)) !important;
+    /* Fit the map frame within the scrolling center column so the bottom tile
+       row is always visible. The old `+ 150px` inflated the frame taller than
+       the viewport on short widescreens (e.g. 1366×768, any laptop/ultrawide
+       under ~960px tall), pushing the bottom ~3 tile rows below the fold and
+       clipping them via the frame's own overflow:hidden. `+ 40px` keeps the
+       952px cap binding on tall (1080p+) screens — so those are unchanged —
+       while guaranteeing the frame fits on shorter ones. */
+    height: min(952px, calc(100dvh - var(--banner-h) + 40px)) !important;
     min-height: clamp(560px, 76dvh, 872px) !important;
 }
 
@@ -19713,30 +19720,54 @@ html[data-vp="xl"] .arena-fullscreen .combat-tabs button {
     padding: clamp(3px, 0.35vw, 7px) clamp(8px, 0.65vw, 14px) !important;
 }
 
-/* Village stormveil map: fit on 1080p without scrolling */
-html[data-vp="xl"] .stormveil-village-screen {
+/* Village stormveil map: fit the whole town scene within the viewport so the
+   bottom row of building tiles is always visible.
+
+   This used to be gated to data-vp="xl" (1400–2199px wide) on the assumption
+   that "xl == 1080p desktop". But the clip is driven by viewport HEIGHT, not
+   width: any desktop bucket on a short viewport (1366×768 laptops → "lg",
+   ultrawides ≥2200px → "xxl", small windows → "md") kept the fixed 820px
+   min-height and pushed the bottom ~3 building tiles below the fold. So the
+   fit rule now covers every desktop bucket (md/lg/xl/xxl). Mobile (≤800px) is
+   unaffected — its own media query relaxes the map to natural height + scroll. */
+html[data-vp="md"] .stormveil-village-screen,
+html[data-vp="lg"] .stormveil-village-screen,
+html[data-vp="xl"] .stormveil-village-screen,
+html[data-vp="xxl"] .stormveil-village-screen {
     min-height: unset !important;
     margin-top: 96px !important;
 }
 
-html[data-vp="xl"] .stormveil-map {
+html[data-vp="md"] .stormveil-map,
+html[data-vp="lg"] .stormveil-map,
+html[data-vp="xl"] .stormveil-map,
+html[data-vp="xxl"] .stormveil-map {
     /* 156 = 60 prior pad + 96 new top margin, keeps the scene scroll-free */
     min-height: calc(100dvh - var(--banner-h) - 156px) !important;
     max-height: calc(100dvh - var(--banner-h) - 156px) !important;
 }
 
-html[data-vp="xl"] .stormveil-map-button {
+html[data-vp="md"] .stormveil-map-button,
+html[data-vp="lg"] .stormveil-map-button,
+html[data-vp="xl"] .stormveil-map-button,
+html[data-vp="xxl"] .stormveil-map-button {
     min-width: 90px !important;
     padding: 4px 6px !important;
     gap: 1px !important;
     border-radius: 7px !important;
 }
 
-html[data-vp="xl"] .stormveil-map-button span {
+html[data-vp="md"] .stormveil-map-button span,
+html[data-vp="lg"] .stormveil-map-button span,
+html[data-vp="xl"] .stormveil-map-button span,
+html[data-vp="xxl"] .stormveil-map-button span {
     font-size: 18px !important;
 }
 
-html[data-vp="xl"] .stormveil-map-button strong {
+html[data-vp="md"] .stormveil-map-button strong,
+html[data-vp="lg"] .stormveil-map-button strong,
+html[data-vp="xl"] .stormveil-map-button strong,
+html[data-vp="xxl"] .stormveil-map-button strong {
     font-size: 10px !important;
 }
 
