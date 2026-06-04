@@ -44,8 +44,13 @@ const PRESENCE_CHAR_KEEP = new Set<string>([
     'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
     'clan', 'clanFounder', 'hp', 'maxHp',
 ]);
+// pet `image` is intentionally dropped (mirrors the client's PRESENCE_PET_FIELDS
+// in App.tsx): every pet render site resolves the sprite from the viewer's own
+// sharedImages['pet:<id>'|'pet:<base>'] cache, so the data URL on the presence
+// row was redundant and bloated the per-second frame. Stats/jutsus stay so the
+// pet battle sim is unaffected. Keep this list in sync with PRESENCE_PET_FIELDS.
 const PRESENCE_PET_KEEP = new Set<string>([
-    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
+    'id', 'name', 'rarity', 'level', 'element', 'trait', 'species',
     'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
 ]);
 
