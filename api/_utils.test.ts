@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { safeName, mergePreservingImages, isAllowedOrigin } from './_utils.js';
+import { safeName, mergePreservingImages, isAllowedOrigin, clanBareSlug, clanRecordKey } from './_utils.js';
 
 describe('safeName', () => {
     it('lowercases', () => {
@@ -51,6 +51,20 @@ describe('isAllowedOrigin (CORS predicate, #12)', () => {
         assert.equal(isAllowedOrigin(''), false);
         assert.equal(isAllowedOrigin(undefined), false);
         assert.equal(isAllowedOrigin(null), false);
+    });
+});
+
+describe('clanRecordKey / clanBareSlug (#19)', () => {
+    it('strips a multi-word clan name to a bare slug (no spaces, no hyphens)', () => {
+        assert.equal(clanBareSlug('Storm Clan'), 'stormclan');
+        assert.equal(clanRecordKey('Storm Clan'), 'save:clan-stormclan');
+    });
+    it('drops punctuation too — matches save/[name].ts clanRecordSlug', () => {
+        assert.equal(clanRecordKey("Aka's Crew!"), 'save:clan-akascrew');
+    });
+    it('the old hyphenated form would NOT have matched (regression guard)', () => {
+        const hyphenated = 'clan-' + 'Storm Clan'.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        assert.notEqual(`save:${hyphenated}`, clanRecordKey('Storm Clan'));
     });
 });
 
