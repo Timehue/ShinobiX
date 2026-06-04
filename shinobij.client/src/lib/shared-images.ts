@@ -49,15 +49,42 @@ function categoryFromImageKey(id: string): string {
     return CLIENT_KNOWN_PREFIXES[prefix] ?? 'misc';
 }
 
-export async function publishSharedImage(id: string, img: string): Promise<boolean> {
-    if (!id) return false;
+export interface PublishImageResult {
+    ok: boolean;
+    /** HTTP status when the server responded but rejected (400/401/403/413/429/500). Undefined on a network failure. */
+    status?: number;
+    /** The server's own rejection message (`{ error }` body), or a network-error description. Empty on success. */
+    error?: string;
+}
+
+/**
+ * POST an image to /api/images, returning the outcome WITH the server's actual
+ * rejection reason. publishSharedImage() wraps this and returns just the
+ * boolean for the many fire-and-forget call sites; callers that surface the
+ * failure to the user (e.g. the avatar upload) use this so they can show the
+ * real reason — a 400 "too large", a 401 "authentication required", a 413 from
+ * an edge proxy, etc. — instead of a hardcoded guess.
+ */
+export async function publishSharedImageResult(id: string, img: string): Promise<PublishImageResult> {
+    if (!id) return { ok: false, error: 'Missing image id.' };
     try {
         const res = await fetch('/api/images', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, image: img }),
         });
-        if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
+        if (!res.ok) {
+            // The handler returns a `{ error }` JSON body on every rejection
+            // path; surface it so the caller shows the real reason. An edge
+            // proxy (413 / 502) may return non-JSON — fall back to status only.
+            let serverError = '';
+            try {
+                const data = await res.json() as { error?: string } | null;
+                serverError = data?.error ?? '';
+            } catch { /* non-JSON body — status alone will have to do */ }
+            console.warn(`Could not save shared image ${id}: HTTP ${res.status}${serverError ? ` — ${serverError}` : ''}`);
+            return { ok: false, status: res.status, error: serverError };
+        }
         // Bust the per-category sessionStorage cache so a page reload fetches
         // fresh from KV instead of hydrating the pre-publish snapshot. Without
         // this, the 10-minute IMG_CACHE_TTL would mask new assignments for
@@ -66,11 +93,16 @@ export async function publishSharedImage(id: string, img: string): Promise<boole
             const cat = categoryFromImageKey(id);
             sessionStorage.removeItem(`imgcat:${cat}`);
         } catch { /* sessionStorage unavailable — ignore */ }
-        return true;
+        return { ok: true };
     } catch (error) {
+        // Network / CORS / abort — no HTTP status available.
         console.warn(`Could not save shared image ${id}:`, error);
-        return false;
+        return { ok: false, error: 'Network error — could not reach the server.' };
     }
+}
+
+export async function publishSharedImage(id: string, img: string): Promise<boolean> {
+    return (await publishSharedImageResult(id, img)).ok;
 }
 
 // Cap animated uploads tighter than still uploads — canvas compression
