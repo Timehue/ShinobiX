@@ -94,6 +94,34 @@ grant  select   on public.kv_store to   anon;
 -- authenticated would see all rows" footgun. Do NOT re-add a grant here.
 revoke all      on public.kv_store from authenticated;
 
+-- ── Realtime publication (audit #13) ─────────────────────────────────────────
+-- The browser subscribes to kv_store row changes via Supabase Realtime (see
+-- shinobij.client/src/lib/realtime.ts + the PvP battle screen). For those WS
+-- pushes to arrive, kv_store must be a member of the `supabase_realtime`
+-- publication AND publish full row images on UPDATE (so the new session JSON
+-- rides along). Without this the channel still SUBSCRIBES fine but never
+-- delivers a payload — the silent failure behind audit #11. The client now
+-- falls back to SSE in that case, so this is a latency optimisation, not a
+-- correctness requirement, but enabling it restores the ~30-80ms WS path.
+--
+-- Idempotent: REPLICA IDENTITY FULL is a no-op if already set, and the table is
+-- only added to the publication when not already a member. `supabase_realtime`
+-- is created by Supabase on every project; guard in case a bare Postgres lacks it.
+alter table public.kv_store replica identity full;
+do $$
+begin
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+       and not exists (
+            select 1 from pg_publication_tables
+            where pubname = 'supabase_realtime'
+              and schemaname = 'public'
+              and tablename  = 'kv_store'
+       )
+    then
+        alter publication supabase_realtime add table public.kv_store;
+    end if;
+end $$;
+
 -- ── kv_set_nx — atomic set-if-not-exists for PvP lock semantics ──────────────
 
 create or replace function public.kv_set_nx(
