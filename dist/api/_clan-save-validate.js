@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateClanSaveWrite = validateClanSaveWrite;
 const _text_moderation_js_1 = require("./_text-moderation.js");
 const _treasury_donate_js_1 = require("./_treasury-donate.js");
+const _utils_js_1 = require("./_utils.js");
 const TREASURY_KEYS = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'warSupply'];
 // #17 — clan-treasury currencies are now CREDITED ONLY by server endpoints, not
 // the save blob: the donatable currencies (ryo/fateShards/boneCharms/auraStones/
@@ -33,15 +34,18 @@ function lower(v) {
     return String(v ?? '').trim().toLowerCase();
 }
 function callerRole(blob, callerName) {
-    if (!blob)
+    if (!blob || !callerName)
         return '';
-    const founder = lower(blob.founderName);
-    if (founder && founder === callerName)
+    // callerName is a safeName() slug ([a-z0-9_-]); founderName + override keys
+    // are stored DISPLAY names, so canonicalize them through safeName() before
+    // comparing. A plain lower() left a multi-word founder (e.g. "Aka Ito" →
+    // "aka ito" ≠ slug "akaito") unrecognized as their own clan's Founder.
+    if ((0, _utils_js_1.safeName)(String(blob.founderName ?? '')) === callerName)
         return 'Founder';
     const overrides = (blob.roleOverrides ?? {});
-    // roleOverrides may be keyed by display name OR lowercased name — try both.
+    // roleOverrides may be keyed by display name OR slug — canonicalize both.
     for (const [k, v] of Object.entries(overrides)) {
-        if (lower(k) === callerName)
+        if ((0, _utils_js_1.safeName)(k) === callerName || lower(k) === callerName)
             return String(v);
     }
     return ''; // ordinary member
@@ -55,12 +59,29 @@ function validateClanSaveWrite(existing, incoming, ctx) {
     const prev = existing ?? {};
     const next = { ...prev, ...incoming };
     const role = callerRole(prev, ctx.callerName);
-    const callerIsFounder = ctx.isAdmin || role === 'Founder';
+    // ── Bootstrap (first clan write) ─────────────────────────────────
+    // `existing === null` means this is the very first write of the clan
+    // record. The save handler only reaches the validator with a null
+    // existing after it has already verified (its `allowCreate` gate) that
+    // the caller is the declared founder of a not-yet-existing clan, so we
+    // trust the creator to seed the clan's identity + their own membership
+    // here. Without this, the founder/roster fields below get stripped
+    // against the empty `prev`, producing an ownerless clan that breaks
+    // founder-only delete + seal-pool distribution auth. Treasury / activeWar
+    // / warHistory are deliberately NOT relaxed (a fresh clan has none, and
+    // relaxing them would let a creator mint a war crate on the first write).
+    const bootstrapping = !existing && !prev.founderName && !prev.name;
+    const callerClaimsFounder = (0, _utils_js_1.safeName)(String(incoming.founderName ?? '')) === ctx.callerName;
+    const bootstrapFounder = bootstrapping && (ctx.isAdmin || callerClaimsFounder);
+    const callerIsFounder = ctx.isAdmin || role === 'Founder' || bootstrapFounder;
     const callerIsAdminRole = ctx.isAdmin || ADMIN_ROLES.has(role);
+    // Roster/social fields — also writable by the founder creating the clan.
+    const callerCanManageRoster = callerIsAdminRole || bootstrapFounder;
     // ── founderName ─────────────────────────────────────────────────
-    // Never change unless admin. Hard-pin to the existing value otherwise.
+    // Never change unless admin (or the founder claiming a brand-new clan).
+    // Hard-pin to the existing value otherwise.
     if (lower(incoming.founderName) !== lower(prev.founderName)) {
-        if (!ctx.isAdmin) {
+        if (!ctx.isAdmin && !bootstrapFounder) {
             next.founderName = prev.founderName;
             suppressed.push('founderName change (admin only)');
         }
@@ -113,7 +134,7 @@ function validateClanSaveWrite(existing, incoming, ctx) {
         for (const n of prevByName.keys())
             if (n && !incomingByName.has(n))
                 removed.push(n);
-        if (!callerIsAdminRole) {
+        if (!callerCanManageRoster) {
             // Only self-membership changes are allowed.
             const illegalAdds = added.filter((n) => n !== ctx.callerName);
             const illegalRemoves = removed.filter((n) => n !== ctx.callerName);

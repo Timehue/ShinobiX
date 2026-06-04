@@ -82,6 +82,65 @@ function items(next) {
         node_assert_1.strict.deepEqual(hist(next), [{ id: 'w9', result: 'Won' }]);
     });
 });
+(0, node_test_1.describe)('validateClanSaveWrite — bootstrap (first clan write, #2)', () => {
+    (0, node_test_1.it)('keeps founderName + self-membership when the founder creates the clan', () => {
+        const ctx = { callerName: 'akira', isAdmin: false };
+        const incoming = {
+            name: 'Storm', village: 'Leaf', founderName: 'Akira', createdAt: 123,
+            members: [{ name: 'Akira', isFounder: true }],
+        };
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(null, incoming, ctx);
+        node_assert_1.strict.equal(next.founderName, 'Akira');
+        node_assert_1.strict.deepEqual(next.members, [{ name: 'Akira', isFounder: true }]);
+        node_assert_1.strict.equal(next.createdAt, 123);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('founderName')), false);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('members illegal')), false);
+    });
+    (0, node_test_1.it)('matches a multi-word founder via safeName (Aka Ito → akaito)', () => {
+        const ctx = { callerName: 'akaito', isAdmin: false };
+        const incoming = { name: 'Storm', village: 'Leaf', founderName: 'Aka Ito', members: [{ name: 'Aka Ito', isFounder: true }] };
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(null, incoming, ctx);
+        node_assert_1.strict.equal(next.founderName, 'Aka Ito');
+        node_assert_1.strict.deepEqual(next.members, [{ name: 'Aka Ito', isFounder: true }]);
+        node_assert_1.strict.equal(suppressed.length, 0);
+    });
+    (0, node_test_1.it)('does NOT let a non-founder bootstrap someone else as founder', () => {
+        const ctx = { callerName: 'mallory', isAdmin: false };
+        const incoming = { name: 'Storm', village: 'Leaf', founderName: 'Akira', members: [{ name: 'Akira', isFounder: true }] };
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(null, incoming, ctx);
+        node_assert_1.strict.notEqual(next.founderName, 'Akira');
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('founderName')), true);
+    });
+    (0, node_test_1.it)('still pins founderName on an EXISTING clan (no bootstrap)', () => {
+        const prev = { name: 'Storm', founderName: 'Kaze' };
+        const ctx = { callerName: 'akira', isAdmin: false };
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, { name: 'Storm', founderName: 'Akira' }, ctx);
+        node_assert_1.strict.equal(next.founderName, 'Kaze');
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('founderName')), true);
+    });
+    (0, node_test_1.it)('recognizes a stored multi-word founder on later writes (callerRole via safeName)', () => {
+        // Founder "Aka Ito" kicks a member on a later (non-bootstrap) write.
+        // Under the old lower() comparison "aka ito" !== slug "akaito", so the
+        // founder was unrecognized and the kick reverted.
+        const prev = { name: 'Storm', founderName: 'Aka Ito', members: [{ name: 'Aka Ito' }, { name: 'Grunt' }] };
+        const ctx = { callerName: 'akaito', isAdmin: false };
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, { ...prev, members: [{ name: 'Aka Ito' }] }, ctx);
+        node_assert_1.strict.deepEqual(next.members, [{ name: 'Aka Ito' }]);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('members illegal')), false);
+    });
+    (0, node_test_1.it)('does not relax treasury minting on bootstrap (war crate / currency stay locked)', () => {
+        const ctx = { callerName: 'akira', isAdmin: false };
+        const incoming = {
+            name: 'Storm', village: 'Leaf', founderName: 'Akira',
+            members: [{ name: 'Akira', isFounder: true }],
+            treasury: { ryo: 999999, items: [{ itemId: 'legendary-blade', count: 1 }] },
+        };
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(null, incoming, ctx);
+        node_assert_1.strict.equal(next.treasury.ryo, 0);
+        node_assert_1.strict.deepEqual(next.treasury.items, []);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('treasury')), true);
+    });
+});
 (0, node_test_1.describe)('validateClanSaveWrite — currency lockdown (#17, step 1a)', () => {
     (0, node_test_1.it)('blocks a non-admin clan ryo increase via the save blob (credit-without-debit)', () => {
         const prev = clanWith([], { ryo: 0 });

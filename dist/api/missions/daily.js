@@ -39,7 +39,18 @@ async function handler(req, res) {
         });
     }
     catch (err) {
-        console.error('[missions/daily]', err);
+        // Structured log so a Railway/cPanel 500 here is diagnosable without a
+        // repro. The likely causes are storage-layer, not logic: a missing DB
+        // env var (DATABASE_URL / SUPABASE_*), an absent kv_store table or
+        // kv_set_nx/kv_hset RPC, or the disk-overlay proxy (save:<player> reads)
+        // being unreachable. The error message/stack distinguishes which.
+        const e = err;
+        console.error('[missions/daily] failed', JSON.stringify({
+            playerName: (0, _utils_js_1.safeName)(String(req.query.playerName ?? '')),
+            name: e?.name,
+            message: e?.message,
+            stack: e?.stack?.split('\n').slice(0, 4).join(' | '),
+        }));
         return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -40,9 +40,11 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'You must be in a clan to offer escort.' });
         // Verify the offerer is actually in the clan's member roster. A
         // kicked player whose own save still says clan="X" must not be able
-        // to keep offering escorts to clan X.
-        const clanSlug = clanName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        const clanRecord = await _storage_js_1.kv.get(`save:clan-${clanSlug}`);
+        // to keep offering escorts to clan X. Use the canonical clan-record key
+        // (bare slug) — the old hyphenated slug here ("storm-clan") never
+        // matched the actual record key ("stormclan"), so the membership check
+        // silently failed for every multi-word clan name. (audit #19)
+        const clanRecord = await _storage_js_1.kv.get((0, _utils_js_1.clanRecordKey)(clanName));
         const members = Array.isArray(clanRecord?.members) ? clanRecord.members : [];
         const isMember = members.some((m) => (0, _utils_js_1.safeName)(String(m?.name ?? '')) === playerName);
         if (!isMember) {

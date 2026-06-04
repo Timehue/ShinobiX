@@ -4,6 +4,8 @@ exports.ACADEMY_MIN_LEVEL = void 0;
 exports.isAcademyProtectedLevel = isAcademyProtectedLevel;
 exports.attackBlock = attackBlock;
 exports.challengeBlock = challengeBlock;
+exports.sessionOpponentBlock = sessionOpponentBlock;
+const _utils_js_1 = require("../_utils.js");
 // Shinobi below this level are under "Academy protection" — they can't be
 // attacked in the sectors (or sign up for guard duty, which exposes them to
 // sector attacks), so brand-new players aren't farmed before they learn the
@@ -77,4 +79,38 @@ function challengeBlock(target, mode, now = Date.now()) {
     if (mode && ACADEMY_EXEMPT_CHALLENGE_MODES.has(mode))
         return null;
     return academyBlock(target, 'challenged');
+}
+/**
+ * Why a player-vs-player SESSION against `target` must be rejected, or null if
+ * it may proceed. Enforced at /api/pvp/session creation (audit #4) so a client
+ * that pre-creates the session — before /api/player/challenge (which skips its
+ * own gate once a battleId exists) or /api/player/attack — can't bypass the
+ * traveling / in-battle / engaged presence gate and fight an unavailable target.
+ *
+ * Differences from attack/challengeBlock, by design:
+ *   • No Academy gate — it's mode-specific and the challenge/attack handlers
+ *     already own it; re-applying it here (session has no mode) would wrongly
+ *     block legitimate sub-Genin spars.
+ *   • An engagement set by the CALLER themselves (`byName`, a safeName slug) is
+ *     exempt — that's the legit attack→create-session flow, where the caller's
+ *     own /api/player/attack just stamped the target's pendingAttacker.
+ *   • An OFFLINE target is NOT blocked (challenges queue for later; the session
+ *     is created optimistically, matching today's behaviour).
+ */
+function sessionOpponentBlock(target, byName, now = Date.now()) {
+    if (!target)
+        return null;
+    if (target.travelingUntil && target.travelingUntil > now) {
+        return { status: 409, error: 'Opponent is traveling and cannot be fought right now.' };
+    }
+    if (target.inBattle)
+        return { status: 409, error: 'Opponent is already in a battle.' };
+    // pendingAttacker is stored loosely (the attacker's character or {}), so
+    // read its name defensively before canonicalizing.
+    const pendingName = target.pendingAttacker?.name;
+    const engagedBy = pendingName ? (0, _utils_js_1.safeName)(String(pendingName)) : '';
+    if (engagedBy && engagedBy !== byName) {
+        return { status: 409, error: 'Opponent is already engaged in combat.' };
+    }
+    return null;
 }

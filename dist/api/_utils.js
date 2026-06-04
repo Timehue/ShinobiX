@@ -3,7 +3,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ALLOWED_ORIGINS = void 0;
 exports.safeName = safeName;
+exports.clanBareSlug = clanBareSlug;
+exports.clanRecordKey = clanRecordKey;
 exports.mergePreservingImages = mergePreservingImages;
+exports.isAllowedOrigin = isAllowedOrigin;
 exports.cors = cors;
 // Max length for a player / clan-slug name. KV keys like `save:<name>`,
 // `ratelimit:save:<name>:gains`, `presence:<name>`, etc. embed this string,
@@ -13,6 +16,18 @@ exports.cors = cors;
 const SAFE_NAME_MAX_LEN = 32;
 function safeName(name) {
     return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, SAFE_NAME_MAX_LEN);
+}
+// Canonical clan-record key derivation (audit #19). A clan's shared save lives
+// at `save:clan-<bareSlug>` where bareSlug strips the display name down to
+// [a-z0-9] only ("Storm Clan" → "stormclan"). Many call sites inline this rule;
+// centralize it here so a new caller can't drift — e.g. pet-escort/offer.ts
+// once derived a HYPHENATED slug ("storm-clan") and so silently failed to find
+// any multi-word clan's record. Use clanRecordKey() for the full KV key.
+function clanBareSlug(name) {
+    return name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function clanRecordKey(name) {
+    return `save:clan-${clanBareSlug(name)}`;
 }
 function recordId(value) {
     return value && typeof value === 'object' && 'id' in value
@@ -79,7 +94,39 @@ exports.ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:5173',
 ];
-const ALLOWED_ORIGIN_SET = new Set(exports.ALLOWED_ORIGINS);
+// Operators can add the deployment's OWN origin without a code change via the
+// EXTRA_ALLOWED_ORIGINS env var (comma-separated) — e.g. a Railway custom
+// domain, or a transient preview URL during the migration. Every CORS surface
+// (cors() here, the Express middleware in server.ts, and the Socket.IO layer in
+// api/_realtime/socket.ts) routes through isAllowedOrigin(), so all three stay
+// in lockstep (CLAUDE.md: keep CORS synchronized).
+const EXTRA_ALLOWED_ORIGINS = (process.env.EXTRA_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+const ALLOWED_ORIGIN_SET = new Set([...exports.ALLOWED_ORIGINS, ...EXTRA_ALLOWED_ORIGINS]);
+// Railway gives every service a stable `<service>.up.railway.app` origin (and
+// `<branch>-<service>.up.railway.app` for PR previews). Allow any HTTPS origin
+// on that exact suffix so the API + Socket.IO handshake keep working when the
+// app is reached at its Railway URL before a custom domain is attached. Matched
+// on the PARSED hostname (not a substring) so a lookalike like
+// `up.railway.app.attacker.com` can't slip through.
+function isRailwayOrigin(origin) {
+    try {
+        const u = new URL(origin);
+        return u.protocol === 'https:' && (u.hostname === 'up.railway.app' || u.hostname.endsWith('.up.railway.app'));
+    }
+    catch {
+        return false;
+    }
+}
+// The single predicate every CORS surface uses to decide if an Origin is
+// trusted. Exported so server.ts + socket.ts share the exact same logic.
+function isAllowedOrigin(origin) {
+    if (!origin)
+        return false;
+    return ALLOWED_ORIGIN_SET.has(origin) || isRailwayOrigin(origin);
+}
 // Methods that browsers consider "safe" — these can't mutate state, so even
 // a CSRF-style attack from a third-party page can't do damage. For these we
 // allow the open '*' fallback when no Origin header is present.
@@ -88,7 +135,7 @@ function cors(res, req) {
     const originHeader = req?.headers?.origin;
     const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
     const method = (req?.method ?? 'GET').toUpperCase();
-    if (origin && ALLOWED_ORIGIN_SET.has(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }
