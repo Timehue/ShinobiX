@@ -74,7 +74,7 @@ import {
     inventoryItemStacks,
     type TreasuryItemStack,
 } from "./lib/items";
-import { compressDataUrl, publishSharedImage, publishSharedImageResult, readImageFile, isAnimatedImageFile } from "./lib/shared-images";
+import { compressDataUrl, publishSharedImage, readImageFile, isAnimatedImageFile } from "./lib/shared-images";
 import { getAllTileCards, shinobiTileCards, ELEMENT_COUNTERS, type TileCard, type TileCardArrow } from "./data/tile-cards";
 import type {
     ClanMemberEntry, ClanJoinRequest, NoticePostType, NoticePost,
@@ -26543,17 +26543,9 @@ function Profile({
                 // rejects (server enforces a 2 MB decoded cap + data-URL-only).
                 // Fail closed. (#15)
                 const apply = async (img: string) => {
-                    const result = await publishSharedImageResult('avatar:' + character.name.toLowerCase(), img);
-                    if (!result.ok) {
-                        // Show the server's real reason (e.g. "Avatar image too
-                        // large — must be under 2 MB.", "You can only set your own
-                        // avatar.", an edge-proxy 413) instead of a hardcoded guess.
-                        const reason = result.error
-                            ? result.error
-                            : result.status
-                                ? `The server rejected it (HTTP ${result.status}).`
-                                : "The server couldn't be reached — check your connection and try again.";
-                        alert(`Your avatar couldn't be saved. ${reason}`);
+                    const ok = await publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                    if (!ok) {
+                        alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
                         return;
                     }
                     updateCharacter({ ...character, avatarImage: img });
