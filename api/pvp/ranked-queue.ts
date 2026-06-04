@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { mintRankedMatchToken } from '../_ranked-match-token.js';
 
 type QueueEntry = {
     name: string;
@@ -140,6 +141,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
                         kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
                         kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
+                        // #10: server proof that THESE two players genuinely matched
+                        // on the player ladder. pvp/session.ts consumes it (single-
+                        // use) before honoring a `ranked` claim, so the ranked flag
+                        // can no longer be self-asserted by the client.
+                        mintRankedMatchToken(me.name, opponent.name, 'player'),
                     ]);
 
                     return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
