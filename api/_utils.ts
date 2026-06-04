@@ -79,7 +79,39 @@ export const ALLOWED_ORIGINS: readonly string[] = [
     'http://localhost:3000',
     'http://127.0.0.1:5173',
 ];
-const ALLOWED_ORIGIN_SET = new Set<string>(ALLOWED_ORIGINS);
+// Operators can add the deployment's OWN origin without a code change via the
+// EXTRA_ALLOWED_ORIGINS env var (comma-separated) — e.g. a Railway custom
+// domain, or a transient preview URL during the migration. Every CORS surface
+// (cors() here, the Express middleware in server.ts, and the Socket.IO layer in
+// api/_realtime/socket.ts) routes through isAllowedOrigin(), so all three stay
+// in lockstep (CLAUDE.md: keep CORS synchronized).
+const EXTRA_ALLOWED_ORIGINS: readonly string[] = (process.env.EXTRA_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+const ALLOWED_ORIGIN_SET = new Set<string>([...ALLOWED_ORIGINS, ...EXTRA_ALLOWED_ORIGINS]);
+
+// Railway gives every service a stable `<service>.up.railway.app` origin (and
+// `<branch>-<service>.up.railway.app` for PR previews). Allow any HTTPS origin
+// on that exact suffix so the API + Socket.IO handshake keep working when the
+// app is reached at its Railway URL before a custom domain is attached. Matched
+// on the PARSED hostname (not a substring) so a lookalike like
+// `up.railway.app.attacker.com` can't slip through.
+function isRailwayOrigin(origin: string): boolean {
+    try {
+        const u = new URL(origin);
+        return u.protocol === 'https:' && (u.hostname === 'up.railway.app' || u.hostname.endsWith('.up.railway.app'));
+    } catch {
+        return false;
+    }
+}
+
+// The single predicate every CORS surface uses to decide if an Origin is
+// trusted. Exported so server.ts + socket.ts share the exact same logic.
+export function isAllowedOrigin(origin: string | undefined | null): boolean {
+    if (!origin) return false;
+    return ALLOWED_ORIGIN_SET.has(origin) || isRailwayOrigin(origin);
+}
 
 // Methods that browsers consider "safe" — these can't mutate state, so even
 // a CSRF-style attack from a third-party page can't do damage. For these we
@@ -93,7 +125,7 @@ export function cors(
     const originHeader = req?.headers?.origin;
     const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
     const method = (req?.method ?? 'GET').toUpperCase();
-    if (origin && ALLOWED_ORIGIN_SET.has(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     } else if (!origin && SAFE_METHODS.has(method)) {

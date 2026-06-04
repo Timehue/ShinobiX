@@ -33,12 +33,39 @@ export async function fetchClanDataDetailed(name: string): Promise<{ ok: true; d
         return { ok: false, reason: "error" };
     }
 }
+// Thrown by writeClanData when the server rejects or can't be reached, so
+// callers stop optimistically flipping local clan state (joining/founding/
+// donating) on a write that never persisted. `status` is the HTTP status, or
+// 0 for a network-level failure.
+export class ClanSaveError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+        super(message);
+        this.name = "ClanSaveError";
+        this.status = status;
+    }
+}
+
 export async function writeClanData(data: ClanData): Promise<void> {
-    await fetch(`/api/save/${clanSlug(data.name)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-    });
+    let res: Response;
+    try {
+        res = await fetch(`/api/save/${clanSlug(data.name)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+    } catch {
+        throw new ClanSaveError(0, "Couldn't reach the clan server. Check your connection and try again.");
+    }
+    if (!res.ok) {
+        let detail = "";
+        try { detail = ((await res.json()) as { error?: string })?.error ?? ""; } catch { /* non-JSON body */ }
+        const fallback =
+            res.status === 429 ? "The clan server is busy (rate limited). Wait a moment and retry." :
+            res.status === 401 || res.status === 403 ? "You're not authorized to change this clan right now." :
+            `Clan save failed (HTTP ${res.status}).`;
+        throw new ClanSaveError(res.status, detail || fallback);
+    }
 }
 export async function postGuardQueue(action: "queue" | "dequeue", payload: object): Promise<void> {
     await fetch(`/api/village-guard/${action}`, {

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { safeName, mergePreservingImages } from './_utils.js';
+import { safeName, mergePreservingImages, isAllowedOrigin } from './_utils.js';
 
 describe('safeName', () => {
     it('lowercases', () => {
@@ -25,6 +25,32 @@ describe('safeName', () => {
 
     it('empty input → empty string', () => {
         assert.equal(safeName(''), '');
+    });
+});
+
+describe('isAllowedOrigin (CORS predicate, #12)', () => {
+    it('allows the static production + localhost origins', () => {
+        assert.equal(isAllowedOrigin('https://theravensark.com'), true);
+        assert.equal(isAllowedOrigin('https://www.theravensark.com'), true);
+        assert.equal(isAllowedOrigin('http://localhost:5173'), true);
+    });
+
+    it('allows any https *.up.railway.app origin (service + PR-preview subdomains)', () => {
+        assert.equal(isAllowedOrigin('https://shinobix.up.railway.app'), true);
+        assert.equal(isAllowedOrigin('https://pr-12-shinobix.up.railway.app'), true);
+        assert.equal(isAllowedOrigin('https://up.railway.app'), true);
+    });
+
+    it('rejects http (non-TLS) railway + lookalike suffix attacks', () => {
+        assert.equal(isAllowedOrigin('http://shinobix.up.railway.app'), false);
+        assert.equal(isAllowedOrigin('https://up.railway.app.attacker.com'), false);
+        assert.equal(isAllowedOrigin('https://notrailway.com'), false);
+    });
+
+    it('rejects empty / undefined origin', () => {
+        assert.equal(isAllowedOrigin(''), false);
+        assert.equal(isAllowedOrigin(undefined), false);
+        assert.equal(isAllowedOrigin(null), false);
     });
 });
 
