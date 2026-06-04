@@ -20,6 +20,7 @@ require("./api/_force-ipv4.js");
 const game_loop_js_1 = require("./api/_realtime/game-loop.js");
 const socket_js_1 = require("./api/_realtime/socket.js");
 const _scheduler_js_1 = require("./api/cron/_scheduler.js");
+const compression_1 = __importDefault(require("compression"));
 const express_1 = __importDefault(require("express"));
 const node_http_1 = require("node:http");
 const node_path_1 = require("node:path");
@@ -405,6 +406,7 @@ route('/admin/moderation', moderation_js_1.default);
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
 const staticDir = process.env.STATIC_DIR ?? (0, node_path_1.join)(__dirname, '..', 'shinobij.client', 'dist');
+app.use((0, compression_1.default)());
 app.use(express_1.default.static(staticDir));
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 app.get(/(.*)/, (_req, res) => {

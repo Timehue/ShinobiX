@@ -17,6 +17,7 @@ import './api/_force-ipv4.js';
 import { startGameLoop } from './api/_realtime/game-loop.js';
 import { attachSocketServer } from './api/_realtime/socket.js';
 import { startSnapshotCron } from './api/cron/_scheduler.js';
+import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -461,6 +462,7 @@ route('/admin/moderation', moderationHandler);
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
 const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.client', 'dist');
 
+app.use(compression());
 app.use(express.static(staticDir));
 
 // SPA fallback — any non-API path serves index.html so React Router handles it.
