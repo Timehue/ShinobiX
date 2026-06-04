@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
+const _ranked_match_token_js_1 = require("../_ranked-match-token.js");
 const QUEUE_KEY = 'pvp:ranked-queue';
 const KV_TTL_SECONDS = 2 * 60 * 60; // 2-hour TTL
 const STALE_MS = 60 * 1000; // Remove entries older than 60s (must re-queue)
@@ -125,6 +126,11 @@ async function handler(req, res) {
                         _storage_js_1.kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
                         _storage_js_1.kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
                         _storage_js_1.kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
+                        // #10: server proof that THESE two players genuinely matched
+                        // on the player ladder. pvp/session.ts consumes it (single-
+                        // use) before honoring a `ranked` claim, so the ranked flag
+                        // can no longer be self-asserted by the client.
+                        (0, _ranked_match_token_js_1.mintRankedMatchToken)(me.name, opponent.name, 'player'),
                     ]);
                     return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
                 }

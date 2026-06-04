@@ -174,18 +174,59 @@ function wireRealtime(io) {
                 broadcastSector(io, newSector);
             }
         };
+        // Per-socket throttle for the `presence` event. Each applyPresence runs
+        // an O(n) onlineStore scan plus a sector room broadcast, and — unlike the
+        // HTTP heartbeat (90/min cap, see api/player/heartbeat.ts) — the socket
+        // path is otherwise uncapped, so an authed client could loop `presence`
+        // emits to amplify broadcasts far past the heartbeat budget. Bound it to
+        // one apply per PRESENCE_MIN_INTERVAL_MS with a LEADING edge (first emit
+        // applies instantly, so a real sector change is never delayed) plus a
+        // TRAILING edge that applies the latest coalesced payload at the window
+        // boundary (so the final state in a burst still lands — just collapsed
+        // into one broadcast). Legitimate clients ping ~every 20s and on sector
+        // change, so normal play is never throttled.
+        const PRESENCE_MIN_INTERVAL_MS = 1000;
+        const onPresence = (payload) => {
+            const now = Date.now();
+            const elapsed = now - (socket.data.lastPresenceAt ?? 0);
+            if (elapsed >= PRESENCE_MIN_INTERVAL_MS) {
+                socket.data.lastPresenceAt = now;
+                applyPresence(payload);
+                return;
+            }
+            // Inside the window: keep only the latest payload and schedule a
+            // single trailing apply at the boundary (coalescing a burst).
+            socket.data.pendingPresence = payload;
+            if (!socket.data.presenceTimer) {
+                socket.data.presenceTimer = setTimeout(() => {
+                    socket.data.presenceTimer = null;
+                    socket.data.lastPresenceAt = Date.now();
+                    const pending = socket.data.pendingPresence;
+                    socket.data.pendingPresence = undefined;
+                    applyPresence(pending);
+                }, PRESENCE_MIN_INTERVAL_MS - elapsed);
+            }
+        };
         // Initial presence may ride on the handshake for an instant first paint,
         // or arrive as the first 'presence' event.
         const initialPresence = socket.handshake.auth?.presence;
-        if (initialPresence)
+        if (initialPresence) {
+            socket.data.lastPresenceAt = Date.now();
             applyPresence(initialPresence);
-        socket.on('presence', applyPresence);
+        }
+        socket.on('presence', onPresence);
         // On-demand snapshot (e.g. right after a reconnect).
         socket.on('presence:request', (payload) => {
             const sector = (0, presence_input_js_1.normalizeSector)(payload?.sector, socket.data.sector >= 0 ? socket.data.sector : 40);
             socket.emit('presence:sector', { sector, players: sectorSnapshot(sector) });
         });
         socket.on('disconnect', () => {
+            // Cancel any pending trailing presence apply so the timer can't fire
+            // (and broadcast) for an already-departed socket.
+            if (socket.data.presenceTimer) {
+                clearTimeout(socket.data.presenceTimer);
+                socket.data.presenceTimer = null;
+            }
             // Do NOT remove from the store here. Per the presence spec the player
             // stays "online" until the 45-60s sweep (they may reconnect, and the
             // HTTP heartbeat may still own the row). Just leave the room; the

@@ -5,8 +5,6 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const REGISTRY_KEY = 'player:registry';
-const PRESENCE_KEY_PREFIX = 'presence:';
-const PRESENCE_TTL_MS = 65_000; // kept for belt-and-suspenders staleness check
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
 // inventory, equipment, jutsu loadouts, currencies, daily-claim ledgers,
