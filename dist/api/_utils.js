@@ -87,6 +87,13 @@ function mergePreservingImages(incoming, existing) {
 // import this exact array, so the three surfaces can no longer drift apart
 // (CLAUDE.md: keep CORS in api/_utils.ts and server.ts synchronized).
 exports.ALLOWED_ORIGINS = [
+    // Player-facing site (Railway primary). Pinned here in code so the Socket.IO
+    // handshake + any cross-origin call keep working even if EXTRA_ALLOWED_ORIGINS
+    // is ever dropped/mistyped on a redeploy — realtime no longer depends on that
+    // env var being set correctly.
+    'https://shinobijourney.com',
+    'https://www.shinobijourney.com',
+    // cPanel backend tier (KV-proxy + image bulk storage; not front-facing).
     'https://theravensark.com',
     'https://www.theravensark.com',
     // Local dev — Vite default ports
