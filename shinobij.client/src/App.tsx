@@ -7855,7 +7855,10 @@ export default function App() {
         <div
             className={`app-shell shell-biome-${currentBiome} screen-${screen}`}
             style={{
-                backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76)), url(${backgroundImage})`,
+                // Darkening overlay only — the full-bleed scene is painted once by
+                // the fixed `.app-background` layer below (cover/no-repeat). Tiling the
+                // image here too made the portrait art repeat across wide viewports.
+                backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76))`,
             }}
         >
             <GameAlertHost />
@@ -7963,7 +7966,9 @@ export default function App() {
             <main
                 className={`center-game screen-${screen}`}
                 style={{
-                    backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.30), rgba(2, 6, 23, 0.72)), url(${backgroundImage})`,
+                    // Darkening overlay only — the scene comes from `.app-background`.
+                    // (Re-tiling the image here was the second source of the repeat.)
+                    backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.30), rgba(2, 6, 23, 0.72))`,
                 }}
             >
                 {/* Suspense boundary for lazy-loaded screens (Inventory, Hospital,
