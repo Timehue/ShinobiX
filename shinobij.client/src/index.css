@@ -1677,6 +1677,13 @@ button {
 .scene-tile {
     min-width: 0;
     min-height: 0;
+    /* These tiles are <button>s and would otherwise inherit the global
+       button padding (10px 13px). That asymmetric padding shrinks each
+       tile's content box to a small, non-square area, which squashes the
+       88%-sized avatar into an off-center oval — catastrophically so on
+       mobile, where tiles are only ~25-30px. The 88% sizing provides the
+       inset, so the tile itself needs none. */
+    padding: 0;
     display: grid;
     place-items: center;
     border: 1px solid rgba(0,0,0,.12);
