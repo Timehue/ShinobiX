@@ -76,6 +76,39 @@ export function isValidImageString(s: string): boolean {
     return false;
 }
 
+// ── Avatar-specific validation (audit #15) ──────────────────────────────────
+// Avatars are the only player-set image rendered at scale across rosters /
+// leaderboards / PvP, and animated ones bypass canvas compression (raw bytes
+// hit storage), so they get a tighter, decoded-size cap than the generic 3 MB
+// string limit — and must be INLINE data URLs. A remote http(s) URL can't be
+// size- or animation-verified server-side and would let an avatar point at an
+// arbitrary (or rotating) external resource that every other player's browser
+// then fetches; we reject those for avatars even though they're allowed for
+// other categories.
+const MAX_AVATAR_DECODED_BYTES = 2 * 1024 * 1024; // 2 MB
+
+// Decoded byte length of a base64 data URL, computed from the string without
+// allocating the buffer (3 bytes per 4 base64 chars, minus '=' padding).
+export function base64DecodedByteLength(dataUrl: string): number {
+    const comma = dataUrl.indexOf(',');
+    const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+    const len = b64.length;
+    if (len === 0) return 0;
+    const pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    return Math.floor((len * 3) / 4) - pad;
+}
+
+// Returns an error string if the avatar image is unacceptable, else null.
+export function avatarImageReject(image: string): string | null {
+    if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image)) {
+        return 'Avatars must be an uploaded image (data URL), not an external link.';
+    }
+    if (base64DecodedByteLength(image) > MAX_AVATAR_DECODED_BYTES) {
+        return 'Avatar image too large — must be under 2 MB.';
+    }
+    return null;
+}
+
 // Legacy single-blob key (kept for backward-compat reads during migration)
 const LEGACY_KEY = 'shared:images';
 
@@ -86,6 +119,18 @@ const catKey = (cat: string) => `shared:images:${cat}`;
 // the GET→modify→SET race condition that caused concurrent uploads to overwrite
 // each other and permanently lose images.
 const catHashKey = (cat: string) => `shared:imgfields:${cat}`;
+
+// Backcompat (audit #16): leader:* portraits uploaded before 'leader' was a
+// known category were stored in the 'misc' hash. Pull those fields back out so
+// they still resolve; new uploads now route to the 'leader' hash and win.
+async function leaderImagesFromMisc(
+    withTimeout: <T>(p: Promise<T | null>) => Promise<T | null>,
+): Promise<Record<string, string>> {
+    const misc = await withTimeout(kv.hgetall<Record<string, string>>(catHashKey('misc')));
+    const out: Record<string, string> = {};
+    if (misc) for (const [k, v] of Object.entries(misc)) if (k.startsWith('leader:')) out[k] = v;
+    return out;
+}
 
 const KNOWN_PREFIXES: Record<string, string> = {
     avatar:    'avatar',
@@ -103,10 +148,16 @@ const KNOWN_PREFIXES: Record<string, string> = {
     // (which only walks KNOWN_CATEGORIES) would never return them.
     shrine:    'shrine',
     landmark:  'landmark',
+    // Village leadership portraits (kage / elders), shown in each village's
+    // Town Hall. The client publishes `leader:<village>:kage` /
+    // `leader:<village>:elder:<n>`. Without this entry these fell into 'misc'
+    // (so the bulk GET, which only walks KNOWN_CATEGORIES, never returned them).
+    // Admin-only — see ADMIN_ONLY_PREFIXES. (audit #16)
+    leader:    'leader',
 };
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 
-function categoryFromId(id: string): string {
+export function categoryFromId(id: string): string {
     const prefix = id.split(':')[0];
     return KNOWN_PREFIXES[prefix] ?? 'misc';
 }
@@ -116,7 +167,7 @@ function categoryFromId(id: string): string {
 // landmarks). Players can't add or replace them — without this gate, any
 // authed player can POST id="jutsu:fireball" with an arbitrary image and
 // overwrite the actual jutsu icon shown to everyone.
-const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline']);
+const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline', 'leader']);
 
 // Returns null if the identity may write to this image id; otherwise an
 // HTTP { status, error } describing the rejection.
@@ -181,13 +232,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Fetch hash (primary) and old blob (backward-compat) in parallel.
                 // Skip the legacy single-blob key — it's empty after migration and
                 // is multi-MB; reading it on every request causes Vercel timeouts.
-                const [hashImages, catImages] = await Promise.all([
+                const [hashImages, catImages, legacyLeader] = await Promise.all([
                     withTimeout(kv.hgetall<Record<string, string>>(catHashKey(cat))),
                     withTimeout(kv.get<Record<string, string>>(catKey(cat))),
+                    // audit #16: leader:* portraits uploaded before 'leader' was a
+                    // known category landed in the 'misc' hash. Pull them back out
+                    // so old portraits still resolve (new uploads go to 'leader').
+                    cat === 'leader' ? leaderImagesFromMisc(withTimeout) : Promise.resolve({}),
                 ]);
 
-                // Merge: old blob < new hash (newest always wins)
+                // Merge: legacy misc < old blob < new hash (newest always wins)
                 return res.status(200).json({
+                    ...(legacyLeader ?? {}),
                     ...(catImages ?? {}),
                     ...(hashImages ?? {}),
                 });
@@ -195,13 +251,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // No category param — return everything (admin / bulk use).
             // Run per-category fetches in parallel with individual timeouts.
-            const categoryEntries = await Promise.all(
-                KNOWN_CATEGORIES.flatMap((category) => [
-                    withTimeout(kv.get<Record<string, string>>(catKey(category))),
-                    withTimeout(kv.hgetall<Record<string, string>>(catHashKey(category))),
-                ]),
-            );
-            return res.status(200).json(Object.assign({}, ...categoryEntries.map((entry) => entry ?? {})));
+            const [categoryEntries, legacyLeader] = await Promise.all([
+                Promise.all(
+                    KNOWN_CATEGORIES.flatMap((category) => [
+                        withTimeout(kv.get<Record<string, string>>(catKey(category))),
+                        withTimeout(kv.hgetall<Record<string, string>>(catHashKey(category))),
+                    ]),
+                ),
+                // audit #16 backcompat — legacy leader portraits parked in 'misc'.
+                leaderImagesFromMisc(withTimeout),
+            ]);
+            // legacyLeader first so the real 'leader' hash (in categoryEntries) wins.
+            return res.status(200).json(Object.assign({}, legacyLeader, ...categoryEntries.map((entry) => entry ?? {})));
         } catch (err) {
             console.error('[images GET error]', err);
             // Override the success Cache-Control set above — an empty result
@@ -233,6 +294,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (reject) return res.status(reject.status).json({ error: reject.error });
 
             const cat = categoryFromId(id);
+
+            // Avatar hardening (audit #15): inline data URL only + 2 MB decoded
+            // cap. Applied after isValidImageString (which would otherwise let a
+            // remote http(s) URL or a 3 MB still through for an avatar).
+            if (cat === 'avatar') {
+                const avReject = avatarImageReject(image);
+                if (avReject) return res.status(400).json({ error: avReject });
+            }
 
             // Per-player cap on "misc" (uncategorized) uploads — stops a single
             // account filling the shared bucket. Tracked by uploader; admins exempt.

@@ -82,29 +82,68 @@ export async function publishSharedImage(id: string, img: string): Promise<boole
 
 /**
  * Detect whether an upload contains animation. Canvas re-encoding flattens
- * everything to a single frame, so we want to skip compressDataUrl for these
- * formats and pass the original bytes through to preserve movement.
+ * everything to a single frame, so we skip compressDataUrl for these formats
+ * and pass the original bytes through to preserve movement.
  *
- *   GIF, APNG          → assumed animated by MIME alone (single-frame GIFs are
- *                        rare in practice and still render fine raw)
- *   WebP               → may or may not be animated. Animated WebP files
- *                        contain an "ANIM" chunk in the RIFF container — we
- *                        scan the first 1 KB for that marker.
+ * Detection is by MIME, file extension, AND file signature/chunk inspection,
+ * because MIME alone is unreliable:
+ *   GIF   → any GIF (signature "GIF8"); animated is the common case and a
+ *           still GIF renders fine raw.
+ *   APNG  → browsers report APNG as "image/png", so MIME never says "apng".
+ *           Animated PNGs carry an "acTL" chunk before the first IDAT — scan
+ *           for it (a plain still PNG has none).
+ *   WebP  → animated WebP has an "ANIM" chunk and/or a "VP8X" chunk whose flags
+ *           byte sets the animation bit (0x02).
+ * The animation markers sit near the file start but a leading EXIF/ICCP/text
+ * chunk can push them past 1 KB, so scan a generous 64 KB window.
  */
 export async function isAnimatedImageFile(file: File): Promise<boolean> {
-    if (file.type === "image/gif" || file.type === "image/apng") return true;
-    if (file.type === "image/webp") {
-        try {
-            const header = await file.slice(0, 1024).arrayBuffer();
-            const bytes = new Uint8Array(header);
-            // Look for the literal ASCII "ANIM" chunk header.
-            for (let i = 0; i < bytes.length - 4; i++) {
-                if (bytes[i] === 0x41 && bytes[i + 1] === 0x4E && bytes[i + 2] === 0x49 && bytes[i + 3] === 0x4D) {
-                    return true;
-                }
-            }
-        } catch { /* fall through to non-animated */ }
+    const type = (file.type || "").toLowerCase();
+    const name = (file.name || "").toLowerCase();
+    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : "";
+
+    // GIF: treat any GIF as animated (still GIFs render fine raw).
+    if (type === "image/gif" || ext === "gif") return true;
+
+    let bytes: Uint8Array;
+    try {
+        bytes = new Uint8Array(await file.slice(0, 64 * 1024).arrayBuffer());
+    } catch {
+        // Can't read bytes — fall back to MIME/extension hints only.
+        return type === "image/apng" || ext === "apng";
     }
+
+    // ASCII match at a fixed offset (out-of-range bytes compare false).
+    const at = (i: number, s: string): boolean =>
+        [...s].every((ch, k) => bytes[i + k] === ch.charCodeAt(0));
+    // Scan for an ASCII marker anywhere in the window.
+    const has = (marker: string): boolean => {
+        for (let i = 0; i + marker.length <= bytes.length; i++) if (at(i, marker)) return true;
+        return false;
+    };
+
+    if (at(0, "GIF8")) return true;
+
+    // PNG / APNG.
+    const isPng = bytes[0] === 0x89 && at(1, "PNG");
+    if (isPng || type === "image/apng" || type === "image/png" || ext === "png" || ext === "apng") {
+        if (has("acTL")) return true;          // animation-control chunk → APNG
+        if (isPng) return false;               // confirmed still PNG
+    }
+
+    // WebP.
+    const isWebp = at(0, "RIFF") && at(8, "WEBP");
+    if (isWebp || type === "image/webp" || ext === "webp") {
+        if (has("ANIM")) return true;
+        for (let i = 0; i + 9 <= bytes.length; i++) {
+            if (at(i, "VP8X")) {
+                // VP8X marker, 4-byte chunk size, then flags byte; bit 1 = anim.
+                if ((bytes[i + 8] & 0x02) !== 0) return true;
+                break;
+            }
+        }
+    }
+
     return false;
 }
 

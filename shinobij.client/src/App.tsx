@@ -26385,15 +26385,25 @@ function Profile({
             }
             const reader = new FileReader();
             reader.onload = () => {
-                const apply = (img: string) => {
-                    publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                // Publish to shared storage FIRST and only adopt the avatar
+                // locally if the server accepted it. Otherwise the character
+                // would carry an avatarImage no other player can load — and a
+                // later autosave could ship a too-large image the save endpoint
+                // rejects (server enforces a 2 MB decoded cap + data-URL-only).
+                // Fail closed. (#15)
+                const apply = async (img: string) => {
+                    const ok = await publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                    if (!ok) {
+                        alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
+                        return;
+                    }
                     updateCharacter({ ...character, avatarImage: img });
                 };
                 const dataUrl = String(reader.result);
                 if (animated) {
                     // Skip canvas compression — it would strip every frame
                     // after the first and turn the avatar back into a still.
-                    apply(dataUrl);
+                    void apply(dataUrl);
                 } else {
                     // Compress to 256px — avatars are displayed at ≤84px so 512 is wasteful
                     void compressDataUrl(dataUrl, 256, 0.80).then(apply);
@@ -31880,6 +31890,16 @@ function PvpBattleScreen({
         let es: EventSource | null = null;
         let pollTimer: number | null = null;
         let unsubscribeRealtime: (() => void) | null = null;
+        // Set once we've escalated from Realtime to the SSE/poll fallback, so
+        // the channel-error path and the no-payload watchdog can't start SSE
+        // twice. (#11)
+        let fallbackStarted = false;
+        // Watchdog: if the Realtime subscription comes up but never delivers a
+        // payload within this window, we assume it's silently dead (e.g.
+        // kv_store not in the supabase_realtime publication, #13) and fall back
+        // to SSE so the board still updates. Canceled on the first real push.
+        let firstPayloadTimer: number | null = null;
+        const REALTIME_PAYLOAD_WATCHDOG_MS = 10_000;
 
         // Tier 0 fetch — even with Realtime/SSE pushing changes, we
         // need an initial snapshot since subscriptions only fire on
@@ -31962,6 +31982,19 @@ function PvpBattleScreen({
             }
         }
 
+        // Escalate from a degraded/silent Realtime channel to the SSE (then
+        // poll) fallback. Tears down the Realtime subscription so SSE is the
+        // sole transport — no double setSession, no competing auto-retries.
+        // Idempotent via fallbackStarted. (#11)
+        function escalateToStreamFallback() {
+            if (!active || fallbackStarted) return;
+            fallbackStarted = true;
+            if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
+            if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
+            setConnectionState("reconnecting");
+            startStream();
+        }
+
         // Primary path: Supabase Realtime. Subscribes directly to the
         // kv_store row for this battle — Supabase pushes the new
         // session JSON via WebSocket the moment Postgres commits the
@@ -31971,24 +32004,32 @@ function PvpBattleScreen({
             unsubscribeRealtime = subscribeKvKey<PvpSessionState>(
                 `pvp:${battleId}`,
                 (next) => {
-                    if (!active) return;
-                    // Updates only arrive while the channel is healthy,
-                    // so the act of receiving one clears any "reconnecting"
-                    // state set by an earlier CHANNEL_ERROR.
+                    if (!active || fallbackStarted) return;
+                    // A real push proves the channel is healthy: cancel the
+                    // no-payload watchdog and clear any "reconnecting" state.
+                    if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
                     setConnectionState("connected");
                     setSession(next);
                 },
                 (status) => {
-                    if (!active) return;
+                    if (!active || fallbackStarted) return;
                     if (status === "SUBSCRIBED") setConnectionState("connected");
                     else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-                        // Supabase auto-retries the channel; we just surface
-                        // the gap so the player has a signal that something
-                        // is off. The next setSession push flips us back.
-                        setConnectionState("reconnecting");
+                        // Don't trust Supabase's auto-retry alone — if the
+                        // channel can't recover the board would freeze on
+                        // "reconnecting…" forever. Fall back to SSE (then poll),
+                        // which is independent of the Realtime publication.
+                        escalateToStreamFallback();
                     }
                 },
             );
+            // Arm the silent-failure watchdog. If no payload arrives in the
+            // window (subscription "up" but the row isn't published, #13),
+            // switch to SSE. A genuinely quiet battle just gets SSE as its
+            // transport — harmless (same data, ~100ms).
+            firstPayloadTimer = window.setTimeout(() => {
+                escalateToStreamFallback();
+            }, REALTIME_PAYLOAD_WATCHDOG_MS);
         }
         // Skip the initial GET when the parent has a matching seed —
         // checked off the seedSession prop directly (not local state)
@@ -32012,6 +32053,7 @@ function PvpBattleScreen({
             if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
             if (es) { try { es.close(); } catch { /* noop */ } es = null; }
             if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
+            if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
         };
     }, [battleId]);
 
