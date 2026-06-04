@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../../_storage.js';
-import { cors, safeName } from '../../_utils.js';
+import { cors, safeName, clanBareSlug, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
@@ -36,10 +36,6 @@ import { collectTerritorySupply } from '../../_territory-supply.js';
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const AUDIT_LOG_PREFIX = 'audit:clan-collect-supply:';
 
-function clanSlugBare(name: string): string {
-    return name.toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -60,9 +56,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-collect-supply', 30, 60_000, identity.name))) return;
 
-        const targetSlug = clanSlugBare(clan);
+        const targetSlug = clanBareSlug(clan);
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
-        const clanSaveKey = `save:clan-${targetSlug}`;
+        const clanSaveKey = clanRecordKey(clan);
 
         const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
         if (!clanRec) return res.status(404).json({ error: 'Clan not found.' });
@@ -72,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const donorRec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const donorChar = (donorRec?.character ?? null) as Record<string, unknown> | null;
             if (!donorChar) return res.status(404).json({ error: 'Your save was not found.' });
-            if (clanSlugBare(String(donorChar.clan ?? '')) !== targetSlug) {
+            if (clanBareSlug(String(donorChar.clan ?? '')) !== targetSlug) {
                 return res.status(403).json({ error: 'You are not a member of this clan.' });
             }
         }

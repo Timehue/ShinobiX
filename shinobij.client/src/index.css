@@ -17410,6 +17410,15 @@ button.combat-jutsu-button,
     padding-bottom: 70px !important;
   }
 
+  /* The onboarding tutorial banner is fixed to the bottom (inline bottom:16px)
+     and sits at z-index 9000 — above the bottom nav (z-index 1000). On mobile
+     the nav occupies that bottom strip (~70px + safe-area inset), so the banner
+     overlapped it and intercepted nav taps. Lift the banner clear of the nav
+     here; desktop has no bottom nav, so the inline bottom:16px stands. */
+  .onboarding-coach-banner {
+    bottom: calc(70px + env(safe-area-inset-bottom) + 8px) !important;
+  }
+
   .mobile-bottom-nav {
     display: flex;
     position: fixed;
@@ -17646,9 +17655,15 @@ button.combat-jutsu-button,
    - Switch buttons from absolute-positioned to a
      flex-wrap grid so none overlap
    - Push safe-zone badge below the button grid
-   ============================================= */
 
-@media (max-width: 800px) {
+   Breakpoint is 979px (not 800px) so it covers the WHOLE sub-desktop range:
+   the data-vp fit rules below only start at "md" (≥980px), so 801–979px
+   (portrait tablets ~810/834px, landscape phones) used to fall through to the
+   base .stormveil-map { min-height: 820px } and clip the bottom building row.
+   979px hands off cleanly to "md" at 980px — no gap, no overlap. ≤800px is
+   unchanged (same rules, just a wider ceiling). */
+
+@media (max-width: 979px) {
   .stormveil-village-screen {
     min-height: unset !important;
     margin-top: 18px !important; /* tight on mobile — vertical space is scarce */

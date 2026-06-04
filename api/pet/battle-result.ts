@@ -100,12 +100,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // omit opponentName (legacy clients, AI duels with no named foe)
         // fall back to the level-cap rule below.
         let opponentLevel = opponentLevelRaw;
-        // Opponent's saved petRankedRating, used ONLY by the ranked branch
-        // below to compute the caller's Elo swing. Defaults to 1000 (matching
-        // the client's `opponent.opponentRating ?? 1000`) for AI / roster foes
-        // with no save. Read here from the same oppSave we already load for the
-        // level cross-check, so the ranked path adds no extra KV read.
-        let opponentPetRating = 1000;
         if (opponentNameRaw && opponentNameRaw !== playerName) {
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentNameRaw}`);
             const oppChar = (oppSave?.character ?? null) as Record<string, unknown> | null;
@@ -115,8 +109,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // higher. This silently corrects the claim rather than
                 // erroring (so the player still gets a valid reward).
                 opponentLevel = actualLevel;
-                const oppRating = Number(oppChar.petRankedRating);
-                if (Number.isFinite(oppRating)) opponentPetRating = oppRating;
             }
         } else if (!identity.admin) {
             // No opponent name supplied — clamp claimed level to

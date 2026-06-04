@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { mintRankedMatchToken } from '../_ranked-match-token.js';
 
 type QueueEntry = {
     name: string;
@@ -140,6 +141,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
                         kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
                         kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
+                        // #10: server proof that THESE two players genuinely matched
+                        // on the PET ladder, mirroring the player queue. Consumed by
+                        // pvp/session.ts before honoring a `ranked`+rankedKind:'pet'
+                        // claim. (Today the live pet ladder settles via the pet
+                        // battle flow, not session.ts, so this token simply expires
+                        // unused there — it keeps session.ts's pet branch honest if a
+                        // client ever routes a pet-ranked session through it.)
+                        mintRankedMatchToken(me.name, opponent.name, 'pet'),
                     ]);
 
                     return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
