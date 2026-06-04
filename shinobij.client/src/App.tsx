@@ -2021,10 +2021,14 @@ export { normalizeJutsu };
 //   • inventory / jutsu / stats / bloodlines / mission+quest logs / currencies
 //     — never read off the presence row; roster.ts strips them anyway.
 // Pets are kept but projected to the same public fields roster.ts exposes, so
-// Pet Arena opponent selection keeps working without shipping pet movesets,
-// raw images, etc.
+// Pet Arena opponent selection keeps working without shipping pet movesets etc.
+// pet `image` is dropped for the SAME reason as avatarImage: every pet render
+// site (PetArenaCard / PetBattleAvatar) resolves the sprite from the viewer's
+// own sharedImages['pet:<id>'|'pet:<base>'] cache and only falls back to
+// pet.image, so shipping the (often multi-100 KB) data URL on every 1s heartbeat
+// was pure waste. Stats/jutsus stay, so the pet battle sim is unaffected.
 const PRESENCE_PET_FIELDS = [
-    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
+    'id', 'name', 'rarity', 'level', 'element', 'trait', 'species',
     'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
 ] as const;
 function presenceCharacter(c: Character): Partial<Character> {
