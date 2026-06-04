@@ -164,6 +164,21 @@ app.use((req, res, next) => {
     }
     next();
 });
+// gzip/deflate response compression. Registered BEFORE the routes so it covers
+// API JSON responses too — not just the static SPA bundle (it used to sit after
+// every route(), so only the bundle was ever compressed). The filter skips
+// Server-Sent Events (text/event-stream, e.g. api/pvp/stream.ts): compression
+// buffers the response, which would stall a live stream, so SSE must pass
+// through uncompressed. Params are left unannotated so they pick up
+// compression's own (IncomingMessage, ServerResponse) signature.
+app.use((0, compression_1.default)({
+    filter: (req, res) => {
+        const type = String(res.getHeader('Content-Type') ?? '');
+        if (type.includes('text/event-stream'))
+            return false;
+        return compression_1.default.filter(req, res);
+    },
+}));
 /**
  * Register a handler on both the bare path and /api-prefixed path.
  * req.params are merged into req.query so handlers using req.query.name
@@ -471,7 +486,6 @@ route('/admin/moderation', moderation_js_1.default);
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
 const staticDir = process.env.STATIC_DIR ?? (0, node_path_1.join)(__dirname, '..', 'shinobij.client', 'dist');
-app.use((0, compression_1.default)());
 app.use(express_1.default.static(staticDir));
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 app.get(/(.*)/, (_req, res) => {
