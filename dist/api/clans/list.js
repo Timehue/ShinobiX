@@ -10,8 +10,22 @@ async function handler(req, res) {
     if (req.method !== 'GET')
         return res.status(405).end();
     try {
-        // Clans are stored with key pattern clan:{id}
-        const keys = await _storage_js_1.kv.keys('clan:*');
+        // Clans are written by the client (clan-api.ts writeClanData) to
+        // `save:clan-<slug>` via the /api/save endpoint — the same key the
+        // Clan Hall reads back. So that is the authoritative pattern to scan.
+        // `clan:*` is an older/legacy layout kept here as a fallback so a
+        // pre-migration clan record still surfaces in the list. Dedupe by key
+        // (a migrated clan can exist under both) preferring the `save:clan-*`
+        // copy, which is the one the rest of the app reads/writes.
+        const [saveKeys, legacyKeys] = await Promise.all([
+            _storage_js_1.kv.keys('save:clan-*'),
+            _storage_js_1.kv.keys('clan:*').catch(() => []),
+        ]);
+        // Normalize both layouts (`save:clan-storm` and legacy `clan:storm`)
+        // to the bare slug so a clan present under both isn't listed twice.
+        const bareSlug = (k) => k.replace(/^save:clan-/, '').replace(/^clan[:-]/, '');
+        const seen = new Set(saveKeys.map(bareSlug));
+        const keys = [...saveKeys, ...legacyKeys.filter((k) => !seen.has(bareSlug(k)))];
         // 30s edge cache + 60s SWR. The public clan list changes when a
         // clan is created/disbanded/edited — minute-scale latency is
         // fine, and the underlying mget is expensive (one row per clan).

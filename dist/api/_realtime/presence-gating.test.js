@@ -88,3 +88,29 @@ function player(over = {}) {
 (0, node_test_1.test)('challengeBlock: Genin (level 15) is NOT Academy-protected', () => {
     strict_1.default.equal((0, presence_gating_js_1.challengeBlock)(player({ character: { level: 15 } }), 'ranked', NOW), null);
 });
+(0, node_test_1.test)('sessionOpponentBlock: offline opponent → allowed (optimistic / queued)', () => {
+    strict_1.default.equal((0, presence_gating_js_1.sessionOpponentBlock)(null, 'me', NOW), null);
+});
+(0, node_test_1.test)('sessionOpponentBlock: idle online opponent → allowed', () => {
+    strict_1.default.equal((0, presence_gating_js_1.sessionOpponentBlock)(player(), 'me', NOW), null);
+});
+(0, node_test_1.test)('sessionOpponentBlock: traveling → 409', () => {
+    const b = (0, presence_gating_js_1.sessionOpponentBlock)(player({ travelingUntil: NOW + 5_000 }), 'me', NOW);
+    strict_1.default.equal(b?.status, 409);
+    strict_1.default.match(b.error, /traveling/i);
+});
+(0, node_test_1.test)('sessionOpponentBlock: already in a battle → 409', () => {
+    strict_1.default.equal((0, presence_gating_js_1.sessionOpponentBlock)(player({ inBattle: true }), 'me', NOW)?.status, 409);
+});
+(0, node_test_1.test)('sessionOpponentBlock: engaged by ANOTHER player → 409', () => {
+    const b = (0, presence_gating_js_1.sessionOpponentBlock)(player({ pendingAttacker: { name: 'Rival' } }), 'me', NOW);
+    strict_1.default.equal(b?.status, 409);
+    strict_1.default.match(b.error, /engaged/i);
+});
+(0, node_test_1.test)('sessionOpponentBlock: engaged by the CALLER themselves → allowed (attack→session flow)', () => {
+    // caller display "Aka Ito" → slug "akaito"; pendingAttacker stores the display name.
+    strict_1.default.equal((0, presence_gating_js_1.sessionOpponentBlock)(player({ pendingAttacker: { name: 'Aka Ito' } }), 'akaito', NOW), null);
+});
+(0, node_test_1.test)('sessionOpponentBlock: no Academy gate — sub-Genin opponent allowed', () => {
+    strict_1.default.equal((0, presence_gating_js_1.sessionOpponentBlock)(player({ character: { level: 3 } }), 'me', NOW), null);
+});
