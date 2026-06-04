@@ -38,12 +38,14 @@ import { onlineStore } from './online-store.js';
 import { normalizeSector, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
 import { setOnSweep } from './game-loop.js';
 import { setRealtimeEmitter } from './notify.js';
-// CORS origin allowlist — single source of truth in api/_utils.ts, shared with
-// cors() and the Express middleware. Production serves the SPA and the socket
-// from the SAME origin (Railway), so CORS isn't even exercised there; this list
-// only matters for cross-origin clients (e.g. a dev build pointed at a remote
-// backend — set VITE_REALTIME_URL).
-import { ALLOWED_ORIGINS, safeName } from '../_utils.js';
+// CORS origin predicate — single source of truth in api/_utils.ts, shared with
+// cors() and the Express middleware. Even when production serves the SPA and the
+// socket from the SAME origin (Railway), the browser still sends an Origin
+// header on the Socket.IO polling handshake, so that origin must pass the
+// predicate or the handshake fails while the page itself loads fine. The shared
+// isAllowedOrigin() covers the static allowlist + EXTRA_ALLOWED_ORIGINS +
+// *.up.railway.app, so the Railway URL works out of the box.
+import { isAllowedOrigin, safeName } from '../_utils.js';
 
 let _io: IOServer | null = null;
 
@@ -98,7 +100,19 @@ export function attachSocketServer(httpServer: HttpServer): void {
         if (_io) return;
 
         const io = new IOServerCtor(httpServer, {
-            cors: { origin: [...ALLOWED_ORIGINS], methods: ['GET', 'POST'], credentials: true },
+            cors: {
+                // Function form so the same isAllowedOrigin() predicate gates the
+                // handshake (static allowlist + EXTRA_ALLOWED_ORIGINS +
+                // *.up.railway.app). A missing Origin (native/server clients) is
+                // allowed — CORS only governs browsers, which always send one.
+                // Params typed explicitly (compatible with @types/cors
+                // CustomOrigin) so this compiles even when socket.io's own types
+                // aren't resolvable in a given build env.
+                origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) =>
+                    cb(null, !origin || isAllowedOrigin(origin)),
+                methods: ['GET', 'POST'],
+                credentials: true,
+            },
             // Detect dead sockets within ~45s (matches the offline window). The
             // client ping cadence (~20s) sits well inside this.
             pingInterval: 25_000,
