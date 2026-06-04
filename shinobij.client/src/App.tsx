@@ -2139,6 +2139,7 @@ function normalizeCharacter(parsed: Character): Character {
         jutsuMastery: parsed.jutsuMastery ?? [],
         pets: (parsed.pets ?? []).slice(0, 5).map(normalizePet),
         activePetId: parsed.activePetId,
+        activePetId2v2: parsed.activePetId2v2,
         boneCharms: parsed.boneCharms ?? 0,
         auraStones: parsed.auraStones ?? 0,
         mythicSeals: parsed.mythicSeals ?? 0,
@@ -2367,6 +2368,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         jutsuMastery: bloodlineJutsuIds.map((id) => ({ jutsuId: id, level: 1, xp: 0 })),
         pets: [],
         activePetId: undefined,
+        activePetId2v2: undefined,
         boneCharms: 0,
         auraStones: 0,
         mythicSeals: 0,
@@ -9970,6 +9972,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         updateCharacter({
             ...character,
             activePetId: character.activePetId === selectedPet.id ? undefined : character.activePetId,
+            activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : character.activePetId2v2,
             pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
         });
         alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
@@ -10246,6 +10249,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
             ...character,
             pets: updatedPets,
             activePetId: character.activePetId === selectedPet.id ? updatedPets[0]?.id : character.activePetId,
+            activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : character.activePetId2v2,
         });
         setSelectedPetId(updatedPets[0]?.id ?? "");
     }
@@ -10332,6 +10336,9 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                     {character.activePetId && (
                         <p className="hint">Active: {character.pets.find((p) => p.id === character.activePetId)?.name ?? "—"}</p>
                     )}
+                    {character.activePetId2v2 && (
+                        <p className="hint">2v2 Partner: {character.pets.find((p) => p.id === character.activePetId2v2)?.name ?? "—"}</p>
+                    )}
                 </div>
 
                 <div className="pet-slots-row">
@@ -10352,6 +10359,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
                                         {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
+                                        {character.activePetId2v2 === pet.id && <span className="pet-2v2-tag">2v2</span>}
                                         {pet.expedition && Date.now() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>}
                                         {pet.expedition && Date.now() >= pet.expedition.endsAt && <span className="pet-ready-tag" onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }}>🎁 Claim</span>}
                                         {pet.training && Date.now() < pet.training.endsAt && (
@@ -10447,6 +10455,15 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                             <div className="menu">
                                 <button onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
                                     {character.activePetId === selectedPet.id ? "⭐ Active Pet" : "Set as Active"}
+                                </button>
+                                <button
+                                    onClick={() => updateCharacter({
+                                        ...character,
+                                        activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : selectedPet.id,
+                                    })}
+                                    title="The 2v2 partner pre-fills your reserve slot in the Pet Arena. It is never summoned into PvE."
+                                >
+                                    {character.activePetId2v2 === selectedPet.id ? "🐾 2v2 Partner" : "Set as 2v2 Partner"}
                                 </button>
                                 <button className="danger-button" onClick={releasePet}>Release</button>
                             </div>
@@ -11013,7 +11030,9 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     // the duel challenge so the target's client knows to run the party variant
     // (with their own top-2 pets auto-selected for them).
     const [partyMode, setPartyMode] = useState(false);
-    const [reservePetId, setReservePetId] = useState<string>("");
+    // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
+    // (character.activePetId2v2). Still overridable per battle via the dropdown.
+    const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
     // Last party result, shown as a summary block ("2–0 — You take the set!").
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
 

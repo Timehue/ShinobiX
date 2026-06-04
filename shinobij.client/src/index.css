@@ -2357,6 +2357,15 @@ button {
     font-weight: 900;
 }
 
+.pet-2v2-tag {
+    font-size: 0.6rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(232,121,249,.3);
+    color: #e879f9;
+    font-weight: 900;
+}
+
 .pet-training-tag {
     font-size: 0.6rem;
     color: #93c5fd;
