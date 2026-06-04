@@ -3000,23 +3000,30 @@ export default function App() {
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
-    // Session-expiry handling (audit #14). A token-first client that dropped its
-    // stored password can't re-mint an expired 24h token (or one invalidated by
-    // a SESSION_SECRET rotation); authFetch fires SESSION_EXPIRED_EVENT in that
-    // case. Rather than leave the player on a silently-401 frozen screen, clear
-    // the session and route to the start screen with a clear re-login prompt.
+    // Session-expiry handling (audit #14 + data-loss fix). A token-first client
+    // that dropped its stored password can't re-mint an expired 24h token (or one
+    // invalidated by a SESSION_SECRET rotation); authFetch fires
+    // SESSION_EXPIRED_EVENT in that case.
+    //
+    // The DANGEROUS reaction (and the cause of the "refresh and lose levels" bug)
+    // is to wipe the session and force a full re-login: every autosave since the
+    // token died silently 401'd, so the SERVER save is stale, and re-login reloads
+    // that stale save — discarding all progress made since expiry. Instead we keep
+    // the live in-memory state, prompt for the password, mint a fresh token
+    // WITHOUT reloading, and immediately persist. Nothing is lost. (Token-first is
+    // preserved: no plaintext password is stored — this is a one-shot re-auth.)
+    const [sessionExpired, setSessionExpired] = useState(false);
+    const [reauthPw, setReauthPw] = useState("");
+    const [reauthError, setReauthError] = useState("");
+    const [reauthBusy, setReauthBusy] = useState(false);
     useEffect(() => {
         const onExpired = () => {
-            if (!character) return; // not logged in → nothing to prompt
-            setActivePlayer(null);
-            setCharacter(null);
-            setCurrentAccountName("");
-            setScreen("start");
-            alert("Your session expired. Please log in again to keep playing.");
+            if (!characterRef.current) return; // not logged in → start screen already handles it
+            setSessionExpired(true);
         };
         window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
         return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
-    }, [character]);
+    }, []);
 
     // ── Last-screen persistence ─────────────────────────────────────────
     // Refresh used to dump the player back to the village every time because
@@ -4455,6 +4462,15 @@ export default function App() {
             const normalized = normalizeAdminCharacter(snap.character);
             prevCharRef.current = normalized;
             charDirtyRef.current = false;
+            // Capture the server-issued save version on the refresh/boot load too
+            // (applyServerSnapshot already does this on the login/409 paths). Without
+            // it, latestSaveVersionRef stays 0 after a refresh, so the first autosave
+            // echoes _baseSaveVersion:0, 409s against the stored version, and the
+            // player visibly rubber-bands a few seconds of progress before it heals.
+            const snapVersion = (snap as Record<string, unknown>)._saveVersion;
+            if (typeof snapVersion === "number" && Number.isFinite(snapVersion)) {
+                latestSaveVersionRef.current = snapVersion;
+            }
             setCharacter(normalized);
             setCurrentAccountName(snap.character.name);
             setCurrentBiome(snap.currentBiome ?? "central");
@@ -4752,6 +4768,69 @@ export default function App() {
                 if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
             } catch { /* server may return 200 with an empty body; ignore */ }
         }
+    }
+
+    // Re-authenticate after a session-expiry WITHOUT reloading game state, then
+    // persist the live in-memory save. This is what prevents the "refresh and
+    // lose levels" data loss: the player's unsaved progress is still in memory,
+    // so once a fresh token is minted the immediate save below commits it. We
+    // deliberately do NOT call applyServerSnapshot here (that would overwrite the
+    // live state with the stale server save the expiry left behind).
+    async function reauthKeepState() {
+        const name = currentAccountName;
+        const char = characterRef.current;
+        if (!name || !char) { setSessionExpired(false); return; }
+        setReauthError("");
+        setReauthBusy(true);
+        try {
+            const res = await fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'verify', name: name.toLowerCase(), password: reauthPw }),
+            });
+            const data = await res.json().catch(() => null) as { ok?: boolean; token?: string } | null;
+            if (res.ok && data?.ok) {
+                if (data.token) {
+                    // Fresh token → future requests authenticate again, and
+                    // setActiveToken re-arms the expiry latch in authFetch.
+                    setActiveToken(data.token);
+                } else {
+                    // SESSION_SECRET unset server-side — no token issued. Re-seed
+                    // the password fallback so requests keep authenticating.
+                    setActivePlayer(name, reauthPw);
+                }
+                // Persist the live state NOW so progress made since the token died
+                // is saved, rather than waiting on the 15s autosave tick. On a 409
+                // (another device wrote first) pushSaveToServer reconciles instead.
+                try {
+                    await pushSaveToServer(char, name);
+                } catch {
+                    charDirtyRef.current = true; // immediate save failed — let the autosave retry
+                }
+                setSessionExpired(false);
+                setReauthPw("");
+                return;
+            }
+            setReauthError("Incorrect password. Try again.");
+        } catch {
+            setReauthError("Couldn't reach the server. Check your connection and try again.");
+        } finally {
+            setReauthBusy(false);
+        }
+    }
+
+    // Escape hatch from the re-auth prompt: if the player can't recall the
+    // password, fall back to the old wipe-and-return-to-login behavior. Any
+    // unsaved progress is forfeited (the server save is the source of truth),
+    // but they're never trapped behind the modal.
+    function logoutFromExpiry() {
+        setSessionExpired(false);
+        setReauthPw("");
+        setReauthError("");
+        setActivePlayer(null);
+        setCharacter(null);
+        setCurrentAccountName("");
+        setScreen("start");
     }
 
     async function pullSaveFromServer(name: string): Promise<ReturnType<typeof buildPlayerSavePayload> | null> {
@@ -7840,6 +7919,67 @@ export default function App() {
             }}
         >
             <GameAlertHost />
+            {sessionExpired && (
+                <div
+                    style={{
+                        position: "fixed", inset: 0, zIndex: 100000,
+                        display: "grid", placeItems: "center",
+                        background: "rgba(2, 6, 23, 0.82)", padding: "1rem",
+                    }}
+                >
+                    <div
+                        style={{
+                            background: "#0f172a", border: "1px solid #475569",
+                            borderRadius: 12, padding: "1.5rem", maxWidth: 380, width: "100%",
+                            boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+                        }}
+                    >
+                        <h3 style={{ marginTop: 0, color: "#e2e8f0" }}>Session timed out</h3>
+                        <p style={{ color: "#cbd5e1", fontSize: "0.95rem" }}>
+                            Your login session expired. Enter your password to keep playing —{" "}
+                            <strong>your progress is safe and will be saved.</strong>
+                        </p>
+                        <input
+                            type="password"
+                            value={reauthPw}
+                            onChange={(e) => setReauthPw(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter" && !reauthBusy) void reauthKeepState(); }}
+                            placeholder="Password"
+                            autoFocus
+                            style={{
+                                width: "100%", padding: "0.55rem 0.7rem", marginBottom: "0.5rem",
+                                borderRadius: 8, border: "1px solid #475569",
+                                background: "#1e293b", color: "#e2e8f0", boxSizing: "border-box",
+                            }}
+                        />
+                        {reauthError && (
+                            <p style={{ color: "#f87171", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>{reauthError}</p>
+                        )}
+                        <button
+                            onClick={() => { if (!reauthBusy) void reauthKeepState(); }}
+                            disabled={reauthBusy}
+                            style={{
+                                width: "100%", padding: "0.6rem", borderRadius: 8, border: "none",
+                                background: reauthBusy ? "#334155" : "linear-gradient(#15803d,#0a4019)",
+                                color: "#fff", cursor: reauthBusy ? "default" : "pointer", fontWeight: 600,
+                            }}
+                        >
+                            {reauthBusy ? "Signing in…" : "Continue playing"}
+                        </button>
+                        <button
+                            onClick={logoutFromExpiry}
+                            disabled={reauthBusy}
+                            style={{
+                                width: "100%", padding: "0.5rem", marginTop: "0.5rem",
+                                borderRadius: 8, border: "1px solid #475569",
+                                background: "transparent", color: "#94a3b8", cursor: "pointer",
+                            }}
+                        >
+                            Log out instead
+                        </button>
+                    </div>
+                </div>
+            )}
             <div
                 className="app-background"
                 style={{ backgroundImage: `url(${backgroundImage})` }}
