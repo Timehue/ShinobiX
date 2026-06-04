@@ -6794,10 +6794,25 @@ export default function App() {
     }
 
     function continuePendingArenaStoryBattle() {
-        const returnScreen = pendingArenaStoryBattle?.returnScreen ?? "storyHall";
+        const pending = pendingArenaStoryBattle;
+        const returnScreen = pending?.returnScreen ?? "storyHall";
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
+        // Hollow Gate: a battle KO ends the run, matching trap death (the intro
+        // promises "only the Leave tile or your own corpse carries you out").
+        // The arena defeat path has already set hp:0 / hospitalized:true before
+        // this runs, so that flag cleanly distinguishes a loss from a win-continue
+        // (a win leaves the character un-hospitalized with an advanced run). On a
+        // loss we clear the saved run + local shrine state so re-entry costs a new
+        // Hollow Gate Key instead of resuming for free.
+        if (pending?.kind === "hollowGateShrine" && character && (character.hospitalized || character.hp <= 0)) {
+            setHollowGateRun(null);
+            setHollowGateEvent(null);
+            setHollowGateHiddenChamber(null);
+            setHollowGateLog([]);
+            setCharacter({ ...character, hollowGateRun: null });
+        }
         setScreen(returnScreen);
     }
 
@@ -7763,14 +7778,23 @@ export default function App() {
                 return prev;
             }
             const tiles = prev.tiles.slice();
-            const wasRevealed = tile.revealed;
             tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
             // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
             const torchDrain = Math.random() < 0.33 ? 1 : 0;
             const nextTorch = Math.max(0, prev.torch - torchDrain);
             const threatMultiplier = nextTorch === 0 ? 2 : 1;
             const nextThreat = Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
-            const justResolved = !tile.resolved && !wasRevealed;
+            // Fire the tile's event on every step onto an UNRESOLVED tile. We gate
+            // ONLY on `resolved`, never on whether the tile was previously revealed.
+            // Tiles that intentionally never mark themselves resolved — Leave/exit,
+            // the descend staircase, a locked door reached without a key, and the
+            // boss — MUST re-fire their prompt when the player steps back onto them.
+            // The old `!wasRevealed` clause silently broke that: once a tile had
+            // been stepped on it went permanently inert, so (e.g.) returning to a
+            // locked door WITH a key did nothing, and the Leave tile could soft-lock
+            // a run after a single "Step Back". Every reward-granting tile calls
+            // markResolved(), so `resolved` alone still prevents any double-grant.
+            const justResolved = !tile.resolved;
             outcome = {
                 ...outcome,
                 torchSputtered: nextTorch === 0 && prev.torch > 0,
