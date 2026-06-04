@@ -12010,6 +12010,34 @@ button.combat-jutsu-button,
     }
 }
 
+/* Desktop complement to the ≤980px tile-scene grid blocks above. Those give
+   .map-instance's <main.tile-scene> a `grid-template-rows: auto 1fr` layout so
+   the 12×12 sector map sits in the 1fr row BELOW the .scene-title bar and never
+   overflows the frame. On desktop (>980px) the tile-scene was left as the
+   default display:block, so `.sector-image-map { height:100% }` resolved to 100%
+   of the tile-scene INCLUDING the title's space — the grid spilled past the
+   frame's overflow:hidden and clipped the bottom ~3 tile rows on tall/widescreen
+   monitors (measured at 1365×911 and 2005×1271: 11–9 of 12 rows visible). Same
+   fix, applied to desktop so all 12 rows always show. Mobile (≤980px) keeps its
+   own blocks; this is min-width:981px so the two never overlap. */
+@media (min-width: 981px) {
+    .map-instance .instance-frame > main.tile-scene {
+        display: grid !important;
+        grid-template-rows: auto minmax(0, 1fr) !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene > .pixel-map,
+    .map-instance .instance-frame > main.tile-scene > .sector-image-map,
+    .map-instance .instance-frame > main.tile-scene > .walkable-sector-map {
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+    }
+}
+
 @media (max-width: 560px) {
     :root {
         --battle-board-h: clamp(240px, 34dvh, 320px);
