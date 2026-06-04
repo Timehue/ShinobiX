@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../../_storage.js';
-import { safeName, cors } from '../../_utils.js';
+import { safeName, cors, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { offerEscort } from './_storage.js';
@@ -38,9 +38,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Verify the offerer is actually in the clan's member roster. A
         // kicked player whose own save still says clan="X" must not be able
-        // to keep offering escorts to clan X.
-        const clanSlug = clanName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        const clanRecord = await kv.get<Record<string, unknown>>(`save:clan-${clanSlug}`);
+        // to keep offering escorts to clan X. Use the canonical clan-record key
+        // (bare slug) — the old hyphenated slug here ("storm-clan") never
+        // matched the actual record key ("stormclan"), so the membership check
+        // silently failed for every multi-word clan name. (audit #19)
+        const clanRecord = await kv.get<Record<string, unknown>>(clanRecordKey(clanName));
         const members = Array.isArray(clanRecord?.members) ? (clanRecord!.members as Array<Record<string, unknown>>) : [];
         const isMember = members.some((m) => safeName(String(m?.name ?? '')) === playerName);
         if (!isMember) {
