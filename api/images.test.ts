@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { isUnsafeImageUrlHost, isValidImageString } from './images.js';
+import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId } from './images.js';
 
 // Pure validation logic for the shared-image upload endpoint (audit #23). No KV,
 // no network — covers the internal-host / SSRF guard and the data-URL allowlist.
@@ -78,5 +78,46 @@ describe('isValidImageString', () => {
         assert.equal(isValidImageString('https://'), false);
         assert.equal(isValidImageString('ftp://example.com/a.png'), false);
         assert.equal(isValidImageString('x'.repeat(3_000_001)), false);
+    });
+});
+
+describe('base64DecodedByteLength', () => {
+    it('computes decoded size from the base64 part (handles padding)', () => {
+        assert.equal(base64DecodedByteLength('data:image/png;base64,AAAA'), 3); // no pad
+        assert.equal(base64DecodedByteLength('data:image/png;base64,AAA='), 2); // 1 pad
+        assert.equal(base64DecodedByteLength('data:image/png;base64,AA=='), 1); // 2 pad
+        assert.equal(base64DecodedByteLength(''), 0);
+    });
+});
+
+describe('avatarImageReject (avatar hardening, #15)', () => {
+    it('accepts a small raster data-URL avatar (incl. animated gif/webp)', () => {
+        assert.equal(avatarImageReject('data:image/png;base64,' + 'A'.repeat(100)), null);
+        assert.equal(avatarImageReject('data:image/gif;base64,' + 'A'.repeat(100)), null);
+        assert.equal(avatarImageReject('data:image/webp;base64,' + 'A'.repeat(100)), null);
+    });
+    it('rejects a remote http(s) URL avatar — must be inline', () => {
+        const r = avatarImageReject('https://cdn.example.com/a.png');
+        assert.ok(r && /data url|uploaded image/i.test(r), r ?? 'expected rejection');
+    });
+    it('rejects SVG avatars (XSS vector)', () => {
+        assert.ok(avatarImageReject('data:image/svg+xml;base64,AAAA'));
+    });
+    it('rejects an avatar over the 2 MB decoded cap', () => {
+        // 'A'.repeat(3,000,000) base64 → ~2.25 MB decoded, over the 2 MB cap.
+        const big = 'data:image/png;base64,' + 'A'.repeat(3_000_000);
+        const r = avatarImageReject(big);
+        assert.ok(r && /2 MB/i.test(r), r ?? 'expected size rejection');
+    });
+});
+
+describe('categoryFromId — leader category (#16)', () => {
+    it('routes leader:* to its own category instead of misc', () => {
+        assert.equal(categoryFromId('leader:konoha:kage'), 'leader');
+        assert.equal(categoryFromId('leader:suna:elder:1'), 'leader');
+    });
+    it('routes avatar:* and unknown prefixes correctly', () => {
+        assert.equal(categoryFromId('avatar:rill'), 'avatar');
+        assert.equal(categoryFromId('whatever:foo'), 'misc');
     });
 });
