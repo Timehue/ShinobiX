@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
-import { installAuthFetch, setActivePlayer, setActiveToken } from "./authFetch";
+import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
@@ -1581,27 +1581,10 @@ function claimPendingWarCrates(
 // extracted to ./lib/weekly-boss. weeklyBossSchedule is imported back near the
 // top of this file; it was not part of the public "../App" surface.
 
-type PlayerTransferCurrencyKey = "ryo" | "honorSeals" | "fateShards" | "boneCharms" | "auraStones" | "mythicSeals";
-
-async function patchPlayerSaveCharacter(playerName: string, mutate: (character: Character) => Character): Promise<boolean> {
-    try {
-        const key = encodeURIComponent(playerName.trim().toLowerCase());
-        const res = await fetch(`/api/save/${key}`, { cache: "no-store" });
-        if (!res.ok) return false;
-        const snap = await res.json() as Record<string, unknown> & { character?: Character };
-        if (!snap.character) return false;
-        const recipient = normalizeCharacter(snap.character);
-        const next = { ...snap, character: mutate(recipient) };
-        const saveRes = await fetch(`/api/save/${key}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(next, (_k, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value),
-        });
-        return saveRes.ok;
-    } catch {
-        return false;
-    }
-}
+// (Removed: patchPlayerSaveCharacter + grantCurrencyToPlayer /
+// grantInventoryItemToPlayer — the cross-player save-write gift paths that
+// 403'd for non-admins. Clan/village treasury gifts now go through the atomic
+// /api/{clan,village}/treasury/transfer endpoints. audit #18.)
 
 type TreasuryDonationBody =
     | { currency: string; amount: number }
@@ -1645,31 +1628,6 @@ async function postVillageTreasuryDonation(playerName: string, village: string, 
         alert("Donation failed. Please try again.");
         return null;
     }
-}
-
-async function grantInventoryItemToPlayer(playerName: string, itemId: string, currentCharacter: Character, updateCharacter: (character: Character) => void) {
-    if (playerName === currentCharacter.name) {
-        updateCharacter({ ...currentCharacter, inventory: [...currentCharacter.inventory, itemId] });
-        return true;
-    }
-
-    return patchPlayerSaveCharacter(playerName, recipient => ({
-        ...recipient,
-        inventory: [...recipient.inventory, itemId],
-    }));
-}
-
-async function grantCurrencyToPlayer(playerName: string, currency: PlayerTransferCurrencyKey, amount: number, currentCharacter: Character, updateCharacter: (character: Character) => void) {
-    const value = Math.max(1, Math.floor(amount));
-    if (playerName === currentCharacter.name) {
-        updateCharacter({ ...currentCharacter, [currency]: (currentCharacter[currency] ?? 0) + value } as Character);
-        return true;
-    }
-
-    return patchPlayerSaveCharacter(playerName, recipient => ({
-        ...recipient,
-        [currency]: (recipient[currency] ?? 0) + value,
-    } as Character));
 }
 
 // -- Shinobi Tiles card game (types, ELEMENT_COUNTERS, the 150-card catalog,
@@ -3041,6 +2999,24 @@ export default function App() {
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
+
+    // Session-expiry handling (audit #14). A token-first client that dropped its
+    // stored password can't re-mint an expired 24h token (or one invalidated by
+    // a SESSION_SECRET rotation); authFetch fires SESSION_EXPIRED_EVENT in that
+    // case. Rather than leave the player on a silently-401 frozen screen, clear
+    // the session and route to the start screen with a clear re-login prompt.
+    useEffect(() => {
+        const onExpired = () => {
+            if (!character) return; // not logged in → nothing to prompt
+            setActivePlayer(null);
+            setCharacter(null);
+            setCurrentAccountName("");
+            setScreen("start");
+            alert("Your session expired. Please log in again to keep playing.");
+        };
+        window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+        return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    }, [character]);
 
     // ── Last-screen persistence ─────────────────────────────────────────
     // Refresh used to dump the player back to the village every time because
@@ -18405,8 +18381,31 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         const amount = Math.max(1, Math.floor(clanSendAmount));
         if (!clanSendPlayer) return alert("Choose a clan member.");
         if ((clanData.treasury[clanSendCurrency] ?? 0) < amount) return alert("Not enough treasury resources.");
-        if (!(await grantCurrencyToPlayer(clanSendPlayer, clanSendCurrency, amount, character, updateCharacter))) return alert("Could not find that player account.");
-        await saveClan({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } });
+        // Route through the atomic server endpoint (audit #18). The old
+        // grant-then-save flow PATCHed the recipient's save directly, which
+        // /api/save 403s for non-admins — so leadership gifts silently failed.
+        // The server moves BOTH sides under per-row locks; check the response
+        // before reflecting the deduction locally.
+        try {
+            const r = await fetch("/api/clan/treasury/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ clanName: clanData.name, recipientName: clanSendPlayer, currency: clanSendCurrency, amount }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
+            }
+        } catch (err) {
+            return alert(`Transfer failed: ${(err as Error).message}`);
+        }
+        // Server already persisted both sides — reflect the deduction in local
+        // clan state (no redundant clan write) and credit the actor's in-memory
+        // character if they gifted themselves.
+        if (clanSendPlayer === character.name) {
+            updateCharacter({ ...character, [clanSendCurrency]: (character[clanSendCurrency] ?? 0) + amount } as Character);
+        }
+        setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } }));
         alert(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
     }
     async function sendClanItem() {
@@ -18415,8 +18414,20 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         if (!clanSendPlayer) return alert("Choose a clan member.");
         if (!clanSendItemId) return alert("Choose an item.");
         if (!clanData.treasury.items.some(stack => stack.itemId === clanSendItemId && stack.count > 0)) return alert("That item is not in the clan treasury.");
-        if (!(await grantInventoryItemToPlayer(clanSendPlayer, clanSendItemId, character, updateCharacter))) return alert("Could not find that player account.");
-        await saveClan({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } });
+        try {
+            const r = await fetch("/api/clan/treasury/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ clanName: clanData.name, recipientName: clanSendPlayer, itemId: clanSendItemId }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
+            }
+        } catch (err) {
+            return alert(`Transfer failed: ${(err as Error).message}`);
+        }
+        setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
         alert(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
     }
     // Legacy scripted clan-war helpers — superseded by the live /api/clan/war/*
@@ -27688,11 +27699,18 @@ function Arena({
                     if (!active) return;
                     setRankedQueueSize(data.queueSize ?? 0);
                     if (data.match) {
-                        // Found a match — challenge that player
+                        // Found a match. Only the deterministic INITIATOR sends the
+                        // ranked challenge; the other side waits for it to land in
+                        // their challenge inbox (audit #10 — both sides now discover
+                        // the match via their durable match record, so neither
+                        // silently vanishes). `initiator` is absent on older servers
+                        // → default true, preserving the prior single-challenger flow.
                         setRankedQueueActive(false);
-                        const opName = data.match.opponent;
-                        const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, rankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                        challengePlayer(stub, "ranked");
+                        if (data.match.initiator !== false) {
+                            const opName = data.match.opponent;
+                            const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, rankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                            challengePlayer(stub, "ranked");
+                        }
                     }
                     if (!data.inQueue) {
                         setRankedQueueActive(false);
@@ -27748,10 +27766,15 @@ function Arena({
                     if (!active) return;
                     setPetRankedQueueSize(data.queueSize ?? 0);
                     if (data.match) {
+                        // #10: only the deterministic initiator sends the challenge;
+                        // the other waits for it. `initiator` absent (old server) →
+                        // default true, preserving the prior behavior.
                         setPetRankedQueueActive(false);
-                        const opName = data.match.opponent;
-                        const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, petRankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                        challengePlayer(stub, "rankedPet");
+                        if (data.match.initiator !== false) {
+                            const opName = data.match.opponent;
+                            const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, petRankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                            challengePlayer(stub, "rankedPet");
+                        }
                     }
                     if (!data.inQueue) {
                         setPetRankedQueueActive(false);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attackBlock, challengeBlock } from './presence-gating.js';
+import { attackBlock, challengeBlock, sessionOpponentBlock } from './presence-gating.js';
 import type { OnlinePlayer } from './types.js';
 
 const NOW = 1_000_000;
@@ -86,4 +86,31 @@ test('challengeBlock: travel/battle 409 still applies even for exempt spar/pet m
 });
 test('challengeBlock: Genin (level 15) is NOT Academy-protected', () => {
     assert.equal(challengeBlock(player({ character: { level: 15 } }), 'ranked', NOW), null);
+});
+
+test('sessionOpponentBlock: offline opponent → allowed (optimistic / queued)', () => {
+    assert.equal(sessionOpponentBlock(null, 'me', NOW), null);
+});
+test('sessionOpponentBlock: idle online opponent → allowed', () => {
+    assert.equal(sessionOpponentBlock(player(), 'me', NOW), null);
+});
+test('sessionOpponentBlock: traveling → 409', () => {
+    const b = sessionOpponentBlock(player({ travelingUntil: NOW + 5_000 }), 'me', NOW);
+    assert.equal(b?.status, 409);
+    assert.match(b!.error, /traveling/i);
+});
+test('sessionOpponentBlock: already in a battle → 409', () => {
+    assert.equal(sessionOpponentBlock(player({ inBattle: true }), 'me', NOW)?.status, 409);
+});
+test('sessionOpponentBlock: engaged by ANOTHER player → 409', () => {
+    const b = sessionOpponentBlock(player({ pendingAttacker: { name: 'Rival' } }), 'me', NOW);
+    assert.equal(b?.status, 409);
+    assert.match(b!.error, /engaged/i);
+});
+test('sessionOpponentBlock: engaged by the CALLER themselves → allowed (attack→session flow)', () => {
+    // caller display "Aka Ito" → slug "akaito"; pendingAttacker stores the display name.
+    assert.equal(sessionOpponentBlock(player({ pendingAttacker: { name: 'Aka Ito' } }), 'akaito', NOW), null);
+});
+test('sessionOpponentBlock: no Academy gate — sub-Genin opponent allowed', () => {
+    assert.equal(sessionOpponentBlock(player({ character: { level: 3 } }), 'me', NOW), null);
 });

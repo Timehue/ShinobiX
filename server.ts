@@ -83,6 +83,7 @@ import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
 import clanSealPoolDistributeHandler from './api/clan/seal-pool/distribute.js';
 // Clan — treasury donate (atomic)
 import clanTreasuryDonateHandler     from './api/clan/treasury/donate.js';
+import clanTreasuryTransferHandler   from './api/clan/treasury/transfer.js';
 // Clan — territory war-supply collect (server-authoritative)
 import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.js';
 // Clan — pet escort
@@ -103,6 +104,7 @@ import pvpRankedQueueHandler    from './api/pvp/ranked-queue.js';
 import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 // Pet
 import petBattleResultHandler from './api/pet/battle-result.js';
+import petRankedStartHandler from './api/pet/ranked-start.js';
 // Jutsu
 import jutsuSpeedupHandler       from './api/jutsu/speedup.js';
 import jutsuTrainWithSealsHandler from './api/jutsu/train-with-seals.js';
@@ -473,6 +475,7 @@ route('/clan/seal-pool/distribute', clanSealPoolDistributeHandler);
 // ─── Clan: treasury donate ─────────────────────────────────────────────────────
 // Atomic player donation (debit donor save + credit clan treasury).
 route('/clan/treasury/donate',      clanTreasuryDonateHandler);
+route('/clan/treasury/transfer',    clanTreasuryTransferHandler);
 
 // ─── Clan: collect territory war supply (server-authoritative) ──────────────────
 // Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
@@ -501,6 +504,7 @@ route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 
 // ─── Pet battle result ─────────────────────────────────────────────────────────
 route('/pet/battle-result', petBattleResultHandler);
+route('/pet/ranked-start',  petRankedStartHandler);
 
 // ─── Jutsu training ────────────────────────────────────────────────────────────
 route('/jutsu/speedup',         jutsuSpeedupHandler);

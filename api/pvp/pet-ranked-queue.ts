@@ -16,6 +16,11 @@ type QueueEntry = {
 const QUEUE_KEY = 'pvp:pet-ranked-queue';
 const KV_TTL_SECONDS = 2 * 60 * 60;   // 2-hour TTL
 const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-queue)
+// Durable per-player match record (audit #10) — see ranked-queue.ts for the
+// rationale. BOTH matched players get one so neither silently vanishes from the
+// queue when only one polled; short TTL re-opens matchmaking if no fight starts.
+const MATCH_TTL_SECONDS = 30;
+const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -76,7 +81,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if (action === 'leave') {
                     const filtered = active.filter(e => e.name !== safeName(name));
-                    await kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
+                    await Promise.all([
+                        kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
+                        kv.del(matchKey(safeName(name))),  // drop any pending match too
+                    ]);
                     return { status: 200, body: { inQueue: false, queueSize: filtered.length, match: null } };
                 }
 
@@ -90,11 +98,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         joinedAt: Date.now(),
                     };
                     filtered.push(entry);
-                    await kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
+                    await Promise.all([
+                        kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
+                        kv.del(matchKey(safeName(name))),  // clear any stale prior match
+                    ]);
                     return { status: 200, body: { inQueue: true, queueSize: filtered.length, match: null } };
                 }
 
                 if (action === 'poll') {
+                    // #10: if a prior poll (mine OR the opponent's) already matched
+                    // me, return that durable match instead of re-matching — so the
+                    // side that didn't poll first still gets the match rather than a
+                    // bare inQueue:false that looks like "you left".
+                    const myMatch = await kv.get<Record<string, unknown>>(matchKey(safeName(name)));
+                    if (myMatch) {
+                        return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
+                    }
+
                     const me = active.find(e => e.name === safeName(name));
                     if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
 
@@ -108,16 +128,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     others.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
                     const opponent = others[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
-                    await kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS });
+                    // Deterministic initiator (lexicographically smaller slug) so
+                    // exactly ONE side sends the ranked challenge and the other
+                    // waits for it — no double-challenge, no silent drop. Both get a
+                    // durable match record so neither vanishes if a poll is missed.
+                    const initiatorName = me.name < opponent.name ? me.name : opponent.name;
+                    const now = Date.now();
+                    const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now };
+                    const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now };
+                    await Promise.all([
+                        kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
+                        kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
+                        kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
+                    ]);
 
-                    return {
-                        status: 200,
-                        body: {
-                            inQueue: false,
-                            queueSize: remaining.length,
-                            match: { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level },
-                        },
-                    };
+                    return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
                 }
 
                 return { status: 400, body: { error: 'Invalid action.' } };
