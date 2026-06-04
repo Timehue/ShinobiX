@@ -148,6 +148,10 @@ export type Character = {
     jutsuMastery: JutsuMastery[];
     pets: Pet[];
     activePetId?: string;
+    // Second active pet — the default 2v2 arena partner (reserve). Unlike
+    // activePetId (the PvE summon) this pet is never summoned in PvE; it only
+    // pre-fills the 2v2 reserve slot, which stays overridable per battle.
+    activePetId2v2?: string;
     tileCards: string[];
     savedTileDeck?: string[];
     element?: string;
