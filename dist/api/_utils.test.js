@@ -26,6 +26,10 @@ const _utils_js_1 = require("./_utils.js");
 });
 (0, node_test_1.describe)('isAllowedOrigin (CORS predicate, #12)', () => {
     (0, node_test_1.it)('allows the static production + localhost origins', () => {
+        // Player-facing site (pinned in code so realtime CORS no longer depends
+        // on the EXTRA_ALLOWED_ORIGINS env var being set).
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://shinobijourney.com'), true);
+        node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://www.shinobijourney.com'), true);
         node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://theravensark.com'), true);
         node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('https://www.theravensark.com'), true);
         node_assert_1.strict.equal((0, _utils_js_1.isAllowedOrigin)('http://localhost:5173'), true);

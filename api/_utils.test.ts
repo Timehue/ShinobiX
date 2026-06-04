@@ -30,6 +30,10 @@ describe('safeName', () => {
 
 describe('isAllowedOrigin (CORS predicate, #12)', () => {
     it('allows the static production + localhost origins', () => {
+        // Player-facing site (pinned in code so realtime CORS no longer depends
+        // on the EXTRA_ALLOWED_ORIGINS env var being set).
+        assert.equal(isAllowedOrigin('https://shinobijourney.com'), true);
+        assert.equal(isAllowedOrigin('https://www.shinobijourney.com'), true);
         assert.equal(isAllowedOrigin('https://theravensark.com'), true);
         assert.equal(isAllowedOrigin('https://www.theravensark.com'), true);
         assert.equal(isAllowedOrigin('http://localhost:5173'), true);
