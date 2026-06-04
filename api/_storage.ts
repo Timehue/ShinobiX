@@ -741,6 +741,22 @@ if (_diskRoot) {
     console.log('[kv] remote proxy overlay active at', _proxyUrl);
 }
 
+// Fail-closed guard. On Railway/cPanel the live player saves (`save:*`) live on
+// the disk overlay; if its env (DISK_KV_DIR, or KV_PROXY_URL + KV_PROXY_TOKEN)
+// is missing on a deploy, save reads/writes SILENTLY fall back to the base store
+// — which doesn't have them — so every player looks logged-out / wiped and new
+// progress is written to the wrong place. When an operator declares the overlay
+// mandatory via REQUIRE_DISK_OVERLAY=1, refuse to boot instead (health check
+// fails loudly) rather than serving/clobbering saves from the base store. Opt-in
+// so legacy single-tier setups are unaffected.
+if (process.env.REQUIRE_DISK_OVERLAY === '1' && !_diskOverlay) {
+    throw new Error(
+        '[kv] REQUIRE_DISK_OVERLAY=1 but no disk overlay is configured ' +
+        '(set DISK_KV_DIR, or KV_PROXY_URL + KV_PROXY_TOKEN). Refusing to serve ' +
+        'save:* from the base store.'
+    );
+}
+
 export const kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
 
 // Expose the disk backend directly for the /api/kv proxy endpoint to use.
