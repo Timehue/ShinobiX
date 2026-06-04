@@ -11687,14 +11687,20 @@ button.combat-jutsu-button,
 
 .sector-instance-wrap,
 .map-instance .instance-frame {
-    /* Fit the map frame within the scrolling center column so the bottom tile
-       row is always visible. The old `+ 150px` inflated the frame taller than
-       the viewport on short widescreens (e.g. 1366×768, any laptop/ultrawide
-       under ~960px tall), pushing the bottom ~3 tile rows below the fold and
-       clipping them via the frame's own overflow:hidden. `+ 40px` keeps the
-       952px cap binding on tall (1080p+) screens — so those are unchanged —
-       while guaranteeing the frame fits on shorter ones. */
-    height: min(952px, calc(100dvh - var(--banner-h) + 40px)) !important;
+    /* Fill the available viewport height so the sector/town map is as large as
+       fits and the bottom tile row is always visible — on every desktop height.
+
+       The old `min(952px, calc(100dvh - var(--banner-h) ± Npx))` was wrong two
+       ways on the screens players actually use (measured at 1365×911 and
+       2005×1271, dpr=1): the 952px hard cap left a ~300px dead band at the
+       bottom of tall/ultrawide viewports, and subtracting `--banner-h`
+       over-reserved ~120px of top space that these map screens don't use (their
+       banner collapses to 0). The net was a short, floating map with empty bands
+       above and below. Filling `100dvh − 24px` (≈ the frame's ~16px top offset +
+       a small bottom margin) tracks the viewport: it grows to fill tall screens
+       and shrinks to fit short laptops (768px) without overflow. */
+    height: calc(100dvh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
     min-height: clamp(560px, 76dvh, 872px) !important;
 }
 
@@ -19742,9 +19748,15 @@ html[data-vp="md"] .stormveil-map,
 html[data-vp="lg"] .stormveil-map,
 html[data-vp="xl"] .stormveil-map,
 html[data-vp="xxl"] .stormveil-map {
-    /* 156 = 60 prior pad + 96 new top margin, keeps the scene scroll-free */
-    min-height: calc(100dvh - var(--banner-h) - 156px) !important;
-    max-height: calc(100dvh - var(--banner-h) - 156px) !important;
+    /* Fill the viewport below the 96px top margin so the town scene is as large
+       as fits and the bottom building-tile row stays visible, with no dead band
+       at the bottom on tall/ultrawide screens. The earlier `- var(--banner-h) -
+       156px` over-reserved ~120px (the banner is collapsed here) and left a
+       ~170px band at 2005×1271. 131px ≈ the 96px top margin + the screen's own
+       top offset + a small bottom margin; verified to fill (≤22px band) and not
+       overflow at 1366×768, 1365×911, and 2005×1271. */
+    min-height: calc(100dvh - 131px) !important;
+    max-height: calc(100dvh - 131px) !important;
 }
 
 html[data-vp="md"] .stormveil-map-button,
