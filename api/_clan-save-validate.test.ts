@@ -106,6 +106,71 @@ describe('validateClanSaveWrite — warHistory same-length content (#16 secondar
     });
 });
 
+describe('validateClanSaveWrite — bootstrap (first clan write, #2)', () => {
+    it('keeps founderName + self-membership when the founder creates the clan', () => {
+        const ctx = { callerName: 'akira', isAdmin: false };
+        const incoming = {
+            name: 'Storm', village: 'Leaf', founderName: 'Akira', createdAt: 123,
+            members: [{ name: 'Akira', isFounder: true }],
+        };
+        const { next, suppressed } = validateClanSaveWrite(null, incoming, ctx);
+        assert.equal(next.founderName, 'Akira');
+        assert.deepEqual(next.members, [{ name: 'Akira', isFounder: true }]);
+        assert.equal(next.createdAt, 123);
+        assert.equal(suppressed.some((s) => s.includes('founderName')), false);
+        assert.equal(suppressed.some((s) => s.includes('members illegal')), false);
+    });
+
+    it('matches a multi-word founder via safeName (Aka Ito → akaito)', () => {
+        const ctx = { callerName: 'akaito', isAdmin: false };
+        const incoming = { name: 'Storm', village: 'Leaf', founderName: 'Aka Ito', members: [{ name: 'Aka Ito', isFounder: true }] };
+        const { next, suppressed } = validateClanSaveWrite(null, incoming, ctx);
+        assert.equal(next.founderName, 'Aka Ito');
+        assert.deepEqual(next.members, [{ name: 'Aka Ito', isFounder: true }]);
+        assert.equal(suppressed.length, 0);
+    });
+
+    it('does NOT let a non-founder bootstrap someone else as founder', () => {
+        const ctx = { callerName: 'mallory', isAdmin: false };
+        const incoming = { name: 'Storm', village: 'Leaf', founderName: 'Akira', members: [{ name: 'Akira', isFounder: true }] };
+        const { next, suppressed } = validateClanSaveWrite(null, incoming, ctx);
+        assert.notEqual(next.founderName, 'Akira');
+        assert.equal(suppressed.some((s) => s.includes('founderName')), true);
+    });
+
+    it('still pins founderName on an EXISTING clan (no bootstrap)', () => {
+        const prev = { name: 'Storm', founderName: 'Kaze' };
+        const ctx = { callerName: 'akira', isAdmin: false };
+        const { next, suppressed } = validateClanSaveWrite(prev, { name: 'Storm', founderName: 'Akira' }, ctx);
+        assert.equal(next.founderName, 'Kaze');
+        assert.equal(suppressed.some((s) => s.includes('founderName')), true);
+    });
+
+    it('recognizes a stored multi-word founder on later writes (callerRole via safeName)', () => {
+        // Founder "Aka Ito" kicks a member on a later (non-bootstrap) write.
+        // Under the old lower() comparison "aka ito" !== slug "akaito", so the
+        // founder was unrecognized and the kick reverted.
+        const prev = { name: 'Storm', founderName: 'Aka Ito', members: [{ name: 'Aka Ito' }, { name: 'Grunt' }] };
+        const ctx = { callerName: 'akaito', isAdmin: false };
+        const { next, suppressed } = validateClanSaveWrite(prev, { ...prev, members: [{ name: 'Aka Ito' }] }, ctx);
+        assert.deepEqual(next.members, [{ name: 'Aka Ito' }]);
+        assert.equal(suppressed.some((s) => s.includes('members illegal')), false);
+    });
+
+    it('does not relax treasury minting on bootstrap (war crate / currency stay locked)', () => {
+        const ctx = { callerName: 'akira', isAdmin: false };
+        const incoming = {
+            name: 'Storm', village: 'Leaf', founderName: 'Akira',
+            members: [{ name: 'Akira', isFounder: true }],
+            treasury: { ryo: 999999, items: [{ itemId: 'legendary-blade', count: 1 }] },
+        };
+        const { next, suppressed } = validateClanSaveWrite(null, incoming, ctx);
+        assert.equal((next.treasury as Record<string, number>).ryo, 0);
+        assert.deepEqual((next.treasury as Record<string, unknown>).items, []);
+        assert.equal(suppressed.some((s) => s.includes('treasury')), true);
+    });
+});
+
 describe('validateClanSaveWrite — currency lockdown (#17, step 1a)', () => {
     it('blocks a non-admin clan ryo increase via the save blob (credit-without-debit)', () => {
         const prev = clanWith([], { ryo: 0 });

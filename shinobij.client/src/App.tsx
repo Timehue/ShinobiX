@@ -18193,7 +18193,11 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
     function myMemberEntry(): ClanMemberEntry {
         return { name: character.name, village: character.village, level: character.level, specialty: character.specialty, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
     }
-    async function saveClan(next: EnhancedClanData) { const enhanced = enhanceClanData(next); setClanData(enhanced); await writeClanData(enhanced); }
+    async function saveClan(next: EnhancedClanData) {
+        const enhanced = enhanceClanData(next); setClanData(enhanced);
+        try { await writeClanData(enhanced); }
+        catch (e) { alert(e instanceof Error ? e.message : "Clan changes couldn't be saved. Please retry."); }
+    }
 
     async function loadAvailableClans() {
         setClanListLoading(true);
@@ -18227,7 +18231,11 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
             const myEntry = myMemberEntry();
             const exists = enhanced.members.find(m => m.name === character.name);
             const synced = enhanceClanData({ ...enhanced, members: exists ? enhanced.members.map(m => m.name === character.name ? { ...m, ...myEntry, isFounder: m.isFounder || myEntry.isFounder } : m) : [...enhanced.members, myEntry] });
-            setClanData(synced); setClanLoadStatus("ok"); await writeClanData(synced); setLoading(false);
+            setClanData(synced); setClanLoadStatus("ok");
+            // Background member-sync write — non-fatal if it fails (the next
+            // clan load re-syncs), so don't let a rejection block setLoading.
+            writeClanData(synced).catch(() => { /* re-syncs on next load */ });
+            setLoading(false);
         });
     }, [character.clan, character.name, character.level, character.village, character.specialty, character.clanBattleContrib, character.clanEventContrib, character.clanMissionContrib]);
 
@@ -18258,7 +18266,12 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         const name = clanName.trim(); if (name.length < 3) return alert("Clan name must be at least 3 characters.");
         const existing = await fetchClanData(name); if (existing) return alert("That clan already exists.");
         const newClan = enhanceClanData({ name, image: clanImage, village: character.village, founderName: character.name, createdAt: Date.now(), members: [{ ...myMemberEntry(), isFounder: true }] });
-        await writeClanData(newClan); updateCharacter({ ...character, clan: name, clanFounder: true }); setClanData(newClan);
+        // Only flip the character into the new clan once the server has
+        // actually persisted the record — otherwise a failed write leaves the
+        // player pointing at a clan that doesn't exist ("can't reach clan server").
+        try { await writeClanData(newClan); }
+        catch (e) { return alert(e instanceof Error ? e.message : "Couldn't create the clan. Please retry."); }
+        updateCharacter({ ...character, clan: name, clanFounder: true }); setClanData(newClan);
     }
     async function requestJoinClan(targetClan: EnhancedClanData) {
         if (targetClan.village !== character.village) return alert("You can only request clans from your own village.");
@@ -18269,7 +18282,8 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         if (targetClan.joinRequests.some(request => request.name === character.name)) return alert("You already requested to join this clan.");
         const request: ClanJoinRequest = { ...myMemberEntry(), isFounder: false, requestedAt: Date.now() };
         const updated = enhanceClanData({ ...targetClan, joinRequests: [...targetClan.joinRequests, request] });
-        await writeClanData(updated);
+        try { await writeClanData(updated); }
+        catch (e) { return alert(e instanceof Error ? e.message : "Couldn't send the join request. Please retry."); }
         setAvailableClans(availableClans.map(clan => clan.name === updated.name ? updated : clan));
         alert(`Join request sent to ${updated.name}. A clan leader or elder can accept it in the Clan Hall.`);
     }
@@ -18296,7 +18310,12 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
             return;
         }
         const data = await fetchClanData(character.clan);
-        if (data) await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }));
+        if (data) {
+            // Best-effort roster removal — the player is leaving locally
+            // regardless; the member list re-syncs on the next clan load.
+            await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }))
+                .catch(() => { /* non-fatal */ });
+        }
         updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false });
         setClanData(null);
     }
@@ -18326,7 +18345,8 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
             createdAt: Date.now(),
             members: [{ ...myMemberEntry(), isFounder: true }],
         });
-        await writeClanData(newClan);
+        try { await writeClanData(newClan); }
+        catch (e) { return alert(e instanceof Error ? e.message : "Couldn't reclaim the clan. Please retry."); }
         updateCharacter(founderCharacter);
         setClanData(newClan);
         setClanLoadStatus("ok");

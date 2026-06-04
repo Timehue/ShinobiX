@@ -117,9 +117,10 @@ import moderationHandler from './api/admin/moderation.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual } from './api/_auth.js';
-// CORS origin allowlist — single source of truth, shared with cors() and the
-// Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md).
-import { ALLOWED_ORIGINS } from './api/_utils.js';
+// CORS origin predicate — single source of truth, shared with cors() and the
+// Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
+// the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
+import { isAllowedOrigin } from './api/_utils.js';
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
@@ -130,10 +131,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Global CORS — restrict to known origins so a malicious site can't initiate
-// authenticated requests from a visitor's browser. The origin allowlist is
+// authenticated requests from a visitor's browser. The origin predicate is
 // imported from api/_utils.ts (single source of truth) so this middleware and
 // cors() can never drift.
-const ALLOWED_ORIGIN_SET = new Set<string>(ALLOWED_ORIGINS);
 // Mirror the safe-method allowlist from api/_utils.ts cors(). The old
 // version sent `*` for ANY method when no Origin was present, which is
 // strictly looser than the Vercel path (which only allows `*` for safe
@@ -143,7 +143,7 @@ const SAFE_METHODS = new Set<string>(['GET', 'HEAD', 'OPTIONS']);
 app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = (req.headers.origin as string | undefined) ?? '';
     const method = (req.method ?? 'GET').toUpperCase();
-    if (origin && ALLOWED_ORIGIN_SET.has(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     } else if (!origin && SAFE_METHODS.has(method)) {
@@ -220,8 +220,75 @@ const _BUILD_INFO = (() => {
     }
 })();
 
-app.get(['/health', '/api/health'], (_req, res) => {
+app.get(['/health', '/api/health'], async (req, res) => {
+    // Default: cheap process-liveness (what Railway's configured health check
+    // hits — must stay fast so a slow DB can't flap the deploy). ?deep=1 runs
+    // the full DB/KV readiness probe (same as /health/db).
+    if (req.query.deep === '1') {
+        res.setHeader('Cache-Control', 'no-store');
+        const result = await runDbHealthProbe();
+        res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
+        return;
+    }
     res.json({ ok: true, ..._BUILD_INFO });
+});
+
+// Deep DB/KV readiness probe. The plain /health above only proves the process
+// is up — Railway can report "healthy" while the storage layer is unreachable,
+// which is exactly the failure that makes /api/missions/daily and
+// /api/clans/list return 500. This endpoint exercises the real kv operations
+// those endpoints depend on against throwaway probe keys (base store: get/set/
+// set-nx/hset/hdel/del, plus the disk-routed `save:` overlay), so an operator
+// can tell a DB outage apart from a code bug. Reachable at /health/db or
+// /health?deep=1. Never cached. Returns 503 (not 200) when any check fails.
+async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string, boolean>; latencyMs: number; error?: string }> {
+    const checks: Record<string, boolean> = {};
+    const t0 = Date.now();
+    try {
+        const { kv } = await import('./api/_storage.js');
+        const tag = `${process.pid}-${Date.now()}`;
+        const token = Math.random().toString(36).slice(2);
+
+        // Base store: write → read-back → delete.
+        const baseKey = `health:probe:${tag}`;
+        await kv.set(baseKey, token, { ex: 60 });
+        checks.set = true;
+        checks.get = (await kv.get<string>(baseKey)) === token;
+        checks.del = (await kv.del(baseKey)) >= 1;
+
+        // kv_set_nx RPC.
+        const nxKey = `health:probe:nx:${tag}`;
+        checks.setNx = (await kv.set(nxKey, token, { nx: true, ex: 60 })) === 'OK';
+        await kv.del(nxKey).catch(() => undefined);
+
+        // kv_hset / kv_hdel RPCs.
+        const hashKey = `health:probe:hash:${tag}`;
+        await kv.hset(hashKey, { f: token });
+        const hash = await kv.hgetall<Record<string, unknown>>(hashKey);
+        checks.hset = !!hash && hash.f === token;
+        await kv.hdel(hashKey, 'f');
+        checks.hdel = true;
+        await kv.del(hashKey).catch(() => undefined);
+
+        // Disk-routed overlay (the `save:<player>` reads missions depend on).
+        const diskKey = `save:health-probe-${tag}`;
+        await kv.set(diskKey, { probe: token });
+        checks.diskWrite = true;
+        const disk = await kv.get<{ probe?: string }>(diskKey);
+        checks.diskRead = !!disk && disk.probe === token;
+        await kv.del(diskKey).catch(() => undefined);
+
+        const ok = Object.values(checks).every(Boolean);
+        return { ok, checks, latencyMs: Date.now() - t0 };
+    } catch (err) {
+        return { ok: false, checks, latencyMs: Date.now() - t0, error: (err as Error).message };
+    }
+}
+
+app.get(['/health/db', '/api/health/db'], async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const result = await runDbHealthProbe();
+    res.status(result.ok ? 200 : 503).json({ ...result, ..._BUILD_INFO });
 });
 
 // Normalize a possibly-array header to a single string (Express can hand

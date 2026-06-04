@@ -1,5 +1,6 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
+import { safeName } from '../_utils.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import type { PvpSession } from './session.js';
@@ -74,6 +75,14 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
     const loserSlot = session.winner === 'p1' ? session.p2 : session.p1;
     const winnerName = winnerSlot.name;
     const loserName = loserSlot.name;
+    // Player saves are keyed `save:<safeName-slug>`. The fighter `.name` is the
+    // DISPLAY name (may contain spaces / uppercase), so building `save:${name}`
+    // directly missed the real row for any non-trivial name — the lookup
+    // returned null and the grant silently no-op'd (winner got nothing). Use the
+    // canonical slug for every save key + the lock target. (audit #7)
+    const winnerSlug = safeName(String(winnerName));
+    const loserSlug = safeName(String(loserName));
+    if (!winnerSlug || !loserSlug) return { granted: false };
 
     // Fight duration anti-abuse.
     const started = Number(session.createdAt ?? 0);
@@ -88,10 +97,18 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
     // only one fight's worth of Honor Seals + XP credited even though
     // they earned both. The lock serializes the two grants so they
     // each see the updated daily counter from the prior commit.
-    return withKvLock(`save:${winnerName}`, async () => {
+    // NOTE: deliberately NOT failClosed. The grant fires on the single terminal
+    // move that flips the session to 'done'; move.ts then early-returns on any
+    // later move (status==='done') and claim-rewards does not re-invoke this, so
+    // there is no retry path. A failClosed throw under lock contention would
+    // therefore PERMANENTLY lose the winner's earned Seals. Idempotency instead
+    // comes from the durable NX receipt below, which is what actually prevents a
+    // same-battle replay double-pay; the lock just serializes the common
+    // back-to-back-fights case. (audit #7 — fail-open chosen over reward loss.)
+    return withKvLock(`save:${winnerSlug}`, async () => {
         // Load winner save (inside the lock so we observe the latest
         // committed value).
-        const winnerKey = `save:${winnerName}`;
+        const winnerKey = `save:${winnerSlug}`;
         const winnerRecord = await kv.get<Record<string, unknown>>(winnerKey);
         const winnerChar = winnerRecord?.character as Record<string, unknown> | undefined;
         if (!winnerChar) return { granted: false };
@@ -99,7 +116,7 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
 
         // Load loser save for anti-alt checks. Loser save is read-only
         // here, so it doesn't need a lock.
-        const loserRecord = await kv.get<Record<string, unknown>>(`save:${loserName}`);
+        const loserRecord = await kv.get<Record<string, unknown>>(`save:${loserSlug}`);
         const loserChar = loserRecord?.character as Record<string, unknown> | undefined;
         if (!loserChar) return { granted: false };
 
@@ -128,7 +145,7 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         const byTarget: Record<string, number> = dailyActive
             ? ((winnerChar.dailyHonorSealsByTarget as Record<string, number>) ?? {})
             : {};
-        const loserKey = loserName.toLowerCase();
+        const loserKey = loserSlug; // per-target daily cap keyed by canonical slug
         const targetSoFar = byTarget[loserKey] ?? 0;
         seals = Math.min(seals, Math.max(0, DAILY_SEAL_CAP - dailySoFar));
         seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
@@ -160,15 +177,24 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         const nextRank = rankFromXp(nextProfessionXp);
         const nextByTarget = { ...byTarget, [loserKey]: targetSoFar + seals };
 
+        // Durable idempotency receipt (audit #7). Claimed atomically (NX) right
+        // before any reward write. The session-only `vanguardRewardsGranted`
+        // flag is lost if the session save crashes after the grant, which would
+        // let a replayed terminal move re-pay; this receipt survives independent
+        // of the session row, so a second grant attempt for the same battleId
+        // short-circuits here. 7-day TTL outlives the 15-min session TTL by a
+        // wide margin. (A crash AFTER claiming but BEFORE the winner write can
+        // under-grant on retry — an accepted trade: never double-pay currency.)
+        const receiptKey = `pvp:vanguard-rewarded:${session.battleId}`;
+        const receipt = await kv.set(receiptKey, { winner: winnerSlug, at: Date.now() }, { nx: true, ex: 7 * 24 * 60 * 60 });
+        if (!receipt) return { granted: false, reason: 'already-granted' };
+
         // Transactional ordering: escort stamps go FIRST. Each escort stamp is
         // idempotent (setting petEscortBonusReady=true twice is a no-op), so if
         // we crash between escorts the next retry safely re-stamps any missed
-        // ones. The winner save commits LAST — that's the "transaction commit"
-        // and the only write that's hard to retry without double-grant. If the
-        // winner save fails, the session's vanguardRewardsGranted flag never
-        // gets set, so the next call retries the whole grant.
+        // ones. The winner save commits LAST — that's the "transaction commit".
         await Promise.all(escorters.map(async (escorterName) => {
-            const eKey = `save:${escorterName}`;
+            const eKey = `save:${safeName(String(escorterName))}`;
             const eRecord = await kv.get<Record<string, unknown>>(eKey);
             const eChar = eRecord?.character as Record<string, unknown> | undefined;
             if (!eChar || eChar.profession !== 'petTamer') return;
