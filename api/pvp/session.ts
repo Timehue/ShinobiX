@@ -524,6 +524,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (me !== p1Norm && me !== p2Norm) {
                     return res.status(403).json({ error: 'Can only create sessions you are a fighter in.' });
                 }
+                // Reject self-duels. With p1 and p2 resolving to the SAME
+                // account, a player controls both sides — letting them farm a
+                // guaranteed win on the ranked / vanguard / base-reward paths
+                // (and the reward settlement would read+write one save as both
+                // winner and loser). Admins keep the override (test fights).
+                if (p1Norm && p2Norm && p1Norm === p2Norm) {
+                    return res.status(400).json({ error: 'You cannot duel yourself.' });
+                }
             }
 
             // ── Hydrate both fighters from authoritative saves ───────────────

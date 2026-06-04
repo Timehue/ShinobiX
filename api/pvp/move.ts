@@ -800,7 +800,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const weatherPositiveElement: string = session.weatherPositiveElement ?? '';
         const weatherNegativeElement: string = session.weatherNegativeElement ?? '';
         if (session.status === 'done') return res.status(200).json(session);
-        if (session.activePlayer !== role) return res.status(200).json(session);
+        // Out-of-turn actions are ignored — EXCEPT 'claim-afk-win', which is by
+        // definition submitted by the INACTIVE player (the one claiming the
+        // active player went AFK). Letting only that action through the guard;
+        // the switch case re-validates that the claimant is indeed inactive.
+        if (session.activePlayer !== role && action !== 'claim-afk-win') {
+            return res.status(200).json(session);
+        }
 
         // Verify the requester actually owns the role they're moving as.
         // Without this, anyone could submit moves on another player's behalf.
@@ -816,12 +822,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-        // 10s lock (was 3s) — long enough that a move taking a few seconds
-        // under load can't have the lock expire and a concurrent move slip in.
-        // Lock TTL: 3s. The critical section is <50ms in 99% of cases;
-        // 10s used to be the budget for "what if the lambda crashed
-        // holding the lock?" but 3s is plenty for that recovery while
-        // letting legitimate retries proceed faster.
+        // Per-session move lock, 3s TTL. The critical section is <50ms in the
+        // common case; 3s is generous headroom while still releasing quickly if
+        // a process dies mid-move. A contended move just returns the current
+        // session (the client polls/retries). Reward idempotency does NOT rely
+        // on this lock — terminal grants use a durable NX receipt keyed on the
+        // battleId (see _vanguard-rewards.ts), so even a lock-expiry + replay
+        // can't double-pay.
         const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
         if (!lockResult) return res.status(200).json(session);
 
