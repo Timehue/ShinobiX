@@ -35,9 +35,6 @@ const _territory_supply_js_1 = require("../../_territory-supply.js");
  */
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const AUDIT_LOG_PREFIX = 'audit:clan-collect-supply:';
-function clanSlugBare(name) {
-    return name.toLowerCase().replace(/[^a-z0-9]/g, '');
-}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -59,10 +56,10 @@ async function handler(req, res) {
         }
         if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'clan-collect-supply', 30, 60_000, identity.name)))
             return;
-        const targetSlug = clanSlugBare(clan);
+        const targetSlug = (0, _utils_js_1.clanBareSlug)(clan);
         if (!targetSlug)
             return res.status(400).json({ error: 'Invalid clan name.' });
-        const clanSaveKey = `save:clan-${targetSlug}`;
+        const clanSaveKey = (0, _utils_js_1.clanRecordKey)(clan);
         const clanRec = await _storage_js_1.kv.get(clanSaveKey);
         if (!clanRec)
             return res.status(404).json({ error: 'Clan not found.' });
@@ -72,7 +69,7 @@ async function handler(req, res) {
             const donorChar = (donorRec?.character ?? null);
             if (!donorChar)
                 return res.status(404).json({ error: 'Your save was not found.' });
-            if (clanSlugBare(String(donorChar.clan ?? '')) !== targetSlug) {
+            if ((0, _utils_js_1.clanBareSlug)(String(donorChar.clan ?? '')) !== targetSlug) {
                 return res.status(403).json({ error: 'You are not a member of this clan.' });
             }
         }
