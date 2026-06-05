@@ -1,11 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
+
+    // Require auth, matching every other GET (spectate / messages / save). The
+    // clan browser is only reached by a logged-in player or admin, and the
+    // global fetch interceptor attaches their credentials to this call — so
+    // gating it changes nothing for real clients but stops an unauthenticated
+    // client from bulk-scraping every clan's treasury + roster + emblem.
+    const identity = await authedPlayerOrAdmin(req);
+    if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
         // Clans are written by the client (clan-api.ts writeClanData) to
@@ -24,10 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const bareSlug = (k: string) => k.replace(/^save:clan-/, '').replace(/^clan[:-]/, '');
         const seen = new Set(saveKeys.map(bareSlug));
         const keys = [...saveKeys, ...legacyKeys.filter((k) => !seen.has(bareSlug(k)))];
-        // 30s edge cache + 60s SWR. The public clan list changes when a
-        // clan is created/disbanded/edited — minute-scale latency is
-        // fine, and the underlying mget is expensive (one row per clan).
-        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
+        // 30s browser-private cache. Now that the list is auth-gated it must
+        // NOT sit in a shared/edge cache (that could re-serve the authed list to
+        // an unauthenticated client and defeat the gate); `private` keeps the
+        // per-client caching benefit — the expensive mget is one row per clan —
+        // without that risk. The list changes only on create/disband/edit, so
+        // 30s latency is fine.
+        res.setHeader('Cache-Control', 'private, max-age=30');
         if (!keys.length) return res.status(200).json([]);
         const clans = await kv.mget(...keys);
         return res.status(200).json(clans.filter(Boolean));

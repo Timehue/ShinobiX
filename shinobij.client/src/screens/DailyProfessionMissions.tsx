@@ -99,6 +99,9 @@ export function DailyProfessionMissions({ character }: { character: Character })
     if (!character.profession) return null;
     const accent = PROFESSION_ACCENT[character.profession];
     const label = PROFESSION_LABEL[character.profession];
+    // Guard against a 200 response that omits `missions` — render off a safe
+    // local so a partial payload can't throw `.length`/`.map` during render.
+    const missions = data?.missions ?? [];
 
     return (
         <div className="card" style={{ border: `1px solid ${accent}55`, marginBottom: "1rem" }}>
@@ -107,14 +110,14 @@ export function DailyProfessionMissions({ character }: { character: Character })
             </h3>
             {loading && <p className="hint">Loading…</p>}
             {error && <p style={{ color: "#f87171" }}>{error}</p>}
-            {!loading && !error && data && data.missions.length === 0 && (
+            {!loading && !error && data && missions.length === 0 && (
                 <p className="hint" style={{ margin: 0 }}>
                     No daily missions available right now.
                 </p>
             )}
-            {!loading && !error && data && data.missions.length > 0 && (
+            {!loading && !error && data && missions.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {data.missions.map(m => {
+                    {missions.map(m => {
                         const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
                         const done = m.completedAt !== null;
                         return (
