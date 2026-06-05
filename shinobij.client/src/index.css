@@ -5857,6 +5857,16 @@ body {
     box-shadow: 0 0 6px rgba(0,0,0,0.6) !important;
 }
 
+/* On the sector map the oval is wider than tall, so `object-fit: cover` with the
+   default center anchor crops a full-body avatar through its torso — the figure
+   ends up sitting low in the oval (head high, body/legs hanging below center).
+   Anchor the crop toward the top of the source so the head/upper body shows and
+   the character reads as standing ON the tile. Scoped to .sector-image-map so
+   combat orbs (.avatar-orb) and the arena hex avatar are untouched. */
+.sector-image-map .tiny-map-avatar {
+    object-position: center 22% !important;
+}
+
 /* 3D orb wrapper — rendered as overlay above hex tiles so it isn't clipped */
 .avatar-orb {
     position: relative;
