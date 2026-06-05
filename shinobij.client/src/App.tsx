@@ -4878,13 +4878,22 @@ export default function App() {
     }
 
     async function pullSaveFromServer(name: string): Promise<ReturnType<typeof buildPlayerSavePayload> | null> {
-        try {
-            const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
-            if (!res.ok) return null;
-            return await res.json();
-        } catch {
-            return null;
+        // Retry once on a TRANSIENT failure (network blip or a Supabase cold-start
+        // 5xx) — mirrors the login path's cold-start handling so a refresh/restore
+        // doesn't silently strand the player on stale localStorage state with no
+        // recovery until they manually refresh again. A 4xx (401/404) is
+        // authoritative (logged out / no save) and is never retried.
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+                if (res.ok) return await res.json();
+                if (res.status < 500) return null; // not transient — don't retry
+            } catch {
+                // network error — fall through and retry once
+            }
+            if (attempt === 0) await new Promise((r) => setTimeout(r, 2000));
         }
+        return null;
     }
 
     function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
@@ -32291,7 +32300,7 @@ function PvpBattleScreen({
 
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-    }, [session?.log.length]);
+    }, [session?.log?.length]);
 
     // Desktop combat hotkeys — A=Attack M=Move D=Dash H=Heal C=Clear X=Cleanse
     // F=Flee W/Space=End turn Esc=Deselect. Reads the latest handlers via a ref
