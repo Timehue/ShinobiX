@@ -42,7 +42,7 @@ export function CombatSideHud({
     statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
     isActive?: boolean;
 }) {
-    const hpPct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+    const hpPct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
     const hpColor = hpPct > 50 ? "#22c55e" : hpPct > 25 ? "#f59e0b" : "#ef4444";
     return (
         <aside className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}`}>
@@ -72,14 +72,14 @@ export function CombatSideHud({
             <div className="resource-line">
                 <span className="resource-label">Chakra <small>{chakra} / {maxChakra}</small></span>
                 <div className="hud-bar chakra-bar">
-                    <span style={{ width: `${Math.max(0, Math.min(100, (chakra / maxChakra) * 100))}%` }} />
+                    <span style={{ width: `${Math.max(0, Math.min(100, (chakra / Math.max(1, maxChakra)) * 100))}%` }} />
                 </div>
             </div>
 
             <div className="resource-line">
                 <span className="resource-label">Stamina <small>{stamina} / {maxStamina}</small></span>
                 <div className="hud-bar stamina-bar">
-                    <span style={{ width: `${Math.max(0, Math.min(100, (stamina / maxStamina) * 100))}%` }} />
+                    <span style={{ width: `${Math.max(0, Math.min(100, (stamina / Math.max(1, maxStamina)) * 100))}%` }} />
                 </div>
             </div>
 

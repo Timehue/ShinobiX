@@ -8,8 +8,12 @@ import {
     IconEyeOff,
 } from "./CharacterCreator";
 
-const DISCORD_URL = "https://discord.gg/shinobi-journey";
-const GUIDES_URL = "https://shinobi-journey.com/guides";
+// The real community invite, matching RightMenu / MobileNav. The old
+// "discord.gg/shinobi-journey" vanity link did not resolve.
+const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
+// No standalone guides site exists yet, so "Guides" routes to the Discord (where
+// help/guides live). Repoint this if a real guides page is published.
+const GUIDES_URL = "https://discord.gg/bCQGs8r6SK";
 
 type StartView = "main" | "leaderboard";
 

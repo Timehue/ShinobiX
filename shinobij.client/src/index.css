@@ -257,6 +257,7 @@ html, body, #root {
 
 body {
     min-height: 100vh;
+    min-height: 100dvh; /* fill the visible viewport on mobile (dynamic toolbar) */
     color: #e8eef8;
     font-family: Verdana, Arial, sans-serif;
     background: radial-gradient(circle at 20% 0%, rgba(56,189,248,.18), transparent 32%), radial-gradient(circle at 90% 15%, rgba(250,204,21,.10), transparent 30%), linear-gradient(135deg, #07111f, #101827 45%, #05070d);
@@ -273,6 +274,7 @@ textarea {
     max-width: 100vw;
     width: 100%;
     height: 100vh;
+    height: 100dvh;
     margin: 0 auto;
     padding: 0;
     overflow: hidden;
@@ -5587,6 +5589,7 @@ body {
 .app-shell {
     width: 100vw !important;
     min-height: 100vh !important;
+    min-height: 100dvh !important;
     overflow-x: hidden !important;
 }
 
@@ -5602,6 +5605,7 @@ body {
     /* Allow the center column to scroll independently so the world map
        isn't clipped on short viewports — sidebars stay fixed. */
     height: 100vh !important;
+    height: 100dvh !important;
     overflow-y: auto !important;
 }
 
@@ -6794,6 +6798,7 @@ body {
 .village-screen {
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     background-size: cover;
     background-position: center;
     position: relative;
@@ -7605,6 +7610,7 @@ body {
     inset: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

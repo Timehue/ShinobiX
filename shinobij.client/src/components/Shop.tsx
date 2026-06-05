@@ -202,10 +202,6 @@ function ShopBase({
                                     </span>
                                 </div>
 
-                                <p className="item-popup-updated">
-                                    Created: 1/21/2026 &nbsp; Updated: 1/21/2026
-                                </p>
-
                                 <p className="item-popup-description">
                                     {selectedItem.description}
                                 </p>
