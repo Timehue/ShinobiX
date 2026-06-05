@@ -72,7 +72,6 @@ const K_DR = 0.5; // DR pool soft cap: effDR = raw / (raw + K_DR)
 // (defender), and Ignition (defender) all feed one pool with diminishing
 // returns, so 4 stacks of 35% multiply by ~1.74× instead of ~3.32×.
 const K_AMP = 0.5;
-const AMP_EXP_CAP = 4; // legacy safety cap; pool below already softcaps
 const DR_DOT_SCALE = 0.5; // DR mitigation against DoT ticks (0..1)
 const HEAL_FLAT = 750; // Heal tag value at max jutsu mastery
 const SHIELD_FLAT = 750; // Shield tag value at max jutsu mastery
@@ -87,6 +86,11 @@ const WOUND_CAP_BY_RANK = {
     S: 35, // S rank bloodline jutsus
 };
 const WOUND_HARD_CAP_PCT = 60;
+// AP penalty applied when a Stunned fighter starts their turn. Server-side
+// this lives at the next-turn setup in endTurn (baseAp = 100 - STUN_AP_PENALTY).
+// Client mirrors via shinobij.client/src/constants/game.ts STUN_AP_PENALTY.
+// Pinned by the combat-formula-parity test so this can never drift again.
+const STUN_AP_PENALTY = 40;
 // Buff/debuff durations: amps run 4 rounds (was 2) so stacking to 2 is reliable
 const STATUS_DURATIONS_OVERRIDE = {
     'Increase Damage Given': 4,
@@ -956,9 +960,11 @@ function endTurn(session) {
     s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log });
     if (s.status === 'done')
         return s;
-    // Stun applies a 40 AP penalty instead of skipping the turn entirely
+    // Stun applies a flat AP penalty instead of skipping the turn entirely.
+    // STUN_AP_PENALTY is pinned by the combat-formula-parity test against the
+    // client's constants/game.ts so the two halves can't drift.
     const stunStatus = activeStatuses(nextFighter, newRound).find(st => st.name === 'Stun');
-    const baseAp = stunStatus ? Math.max(0, 100 - 40) : 100;
+    const baseAp = stunStatus ? Math.max(0, 100 - STUN_AP_PENALTY) : 100;
     if (stunStatus) {
         const unstunned = { ...nextFighter, statuses: nextFighter.statuses.filter(st => st.name !== 'Stun') };
         // Append to s.log directly: `lines` was already merged into s.log above
