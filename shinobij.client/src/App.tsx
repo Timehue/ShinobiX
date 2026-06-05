@@ -3863,10 +3863,10 @@ export default function App() {
 
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
-    // loss + route back to the shrine afterwards.
-    // _hollowGateTileGameActive intentionally unread — only the setter is used as a marker.
-    const [_hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
-    void _hollowGateTileGameActive;
+    // loss + route back to the shrine afterwards. Now also read: it drives the
+    // App-level battle-lock keeper for the hollow-gate tile seal so a refresh
+    // can't flee the seal back to the shrine.
+    const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
@@ -4742,6 +4742,17 @@ export default function App() {
                                 setPendingArenaStoryBattle(ctx.battle as PendingArenaStoryBattle);
                                 setPendingAiProfileId(ctx.aiId);
                             }
+                        } else if (bootLock.kind === "hollowGateTiles") {
+                            // Re-enter the hollow-gate tile seal (fresh game). Hydrate
+                            // the run + biome (like the shrine restore) and re-arm the
+                            // active flag so the App-level keeper re-establishes/clears
+                            // the lock.
+                            if (normalized.hollowGateRun) {
+                                setHollowGateRun(normalized.hollowGateRun);
+                                setCurrentBiome("shadow");
+                                setCurrentWeather(weatherForBiome("shadow"));
+                            }
+                            setHollowGateTileGameActive(true);
                         }
                         setScreen(bootLock.screen as Screen);
                         return;
@@ -4782,6 +4793,12 @@ export default function App() {
                             setHospitalEntryTime(Date.now());
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
+                        } else if (bootLock.kind === "hollowGateTiles") {
+                            // Hollow-gate seal but no active run (it ended) — the seal
+                            // is moot; just clear the lock and route to a safe screen.
+                            // No penalty: the run is already over.
+                            void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
+                            setScreen(normalized.hollowGateRun && !normalized.hollowGateRun.completed ? "hollowGateShrine" : "village");
                         } else {
                             // arena (and other hospitalizing fights): the server
                             // applies hp:0 + hospitalized atomically with the unlock,
@@ -8490,6 +8507,24 @@ export default function App() {
                             }
                             navigate(adminLoggedIn ? "adminPanel" : "adminLogin");
                         }}
+                    />
+                )}
+
+                {/* App-level battle-lock keeper for the Hollow Gate tile seal.
+                    Lives here (not inside ShinobiTiles, which has many render
+                    branches + leave paths) and is driven by the App-level
+                    hollowGateTileGameActive flag, so it reliably locks while the
+                    seal is in progress and resolves on win/lose/leave. A refresh
+                    is forced back into the seal instead of escaping to the shrine.
+                    (The tile board itself isn't persisted — re-entry starts a
+                    fresh seal; exact board-resume isn't worth the risk for a card
+                    game.) */}
+                {character && (
+                    <BattleLockKeeper
+                        active={hollowGateTileGameActive}
+                        kind="hollowGateTiles"
+                        screen="hollowGateTiles"
+                        playerName={character.name}
                     />
                 )}
 
@@ -32414,6 +32449,13 @@ function battleResumeStateExists(lock: ClientBattleLock, playerName: string, cha
             if (!raw) return false;
             const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
             return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
+        }
+        if (lock.kind === "hollowGateTiles") {
+            // Hollow-gate tile seal: the run is server-saved (survives a wipe), so
+            // "resumable" just means an active run still exists — re-entry starts a
+            // fresh seal (the board isn't persisted). If the run is gone the seal is
+            // moot, so it falls to the (no-op) cleared-state path.
+            return Boolean(character?.hollowGateRun && !character.hollowGateRun.completed);
         }
     } catch { return false; }
     return false;
