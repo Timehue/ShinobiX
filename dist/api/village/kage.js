@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 function kageKey(village) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
@@ -46,98 +47,110 @@ async function handler(req, res) {
                 return res.status(403).json({ error: 'Cannot perform Kage actions as another player.' });
             }
             const key = kageKey(v);
-            const current = await _storage_js_1.kv.get(key) ?? { kageSystemUnlocked: false };
-            if (action === 'unlock') {
-                if (current.kageSystemUnlocked) {
-                    // Already unlocked — return current without changing the seated kage
-                    return res.status(200).json(current);
-                }
-                // ── Server-side requirement gate ──────────────────────────
-                // Only a player who has completed the level-100 Kage story
-                // fight should be able to unlock the Kage system. Verify
-                // their saved character data in KV to prevent exploits
-                // (e.g. calling this endpoint directly from devtools).
-                if (!identity.admin) {
-                    const save = await _storage_js_1.kv.get(`save:${identity.name}`);
-                    const char = save?.character;
-                    if (!char) {
-                        return res.status(400).json({ error: 'Character save not found.' });
+            // The unlock/seat/reset mutations are read-modify-writes on a shared,
+            // permission-bearing key (the seated Kage authorizes village-treasury
+            // transfers, and `firstLiberator` is permanent). Without a lock, two
+            // players racing the once-per-village `unlock` both read
+            // `kageSystemUnlocked:false`, both pass, and last-writer-wins can seat
+            // the race loser + brand the wrong firstLiberator. Wrap the whole
+            // read-check-write under the kage-key lock and re-read inside it so
+            // the second writer observes the first's commit. failClosed: a KV
+            // hiccup aborts (caller retries) rather than racing this state.
+            const result = await (0, _lock_js_1.withKvLock)(key, async () => {
+                const current = await _storage_js_1.kv.get(key) ?? { kageSystemUnlocked: false };
+                if (action === 'unlock') {
+                    if (current.kageSystemUnlocked) {
+                        // Already unlocked — return current without changing the seated kage
+                        return { status: 200, body: current };
                     }
-                    const level = Number(char.level ?? 0);
-                    const storyProgress = Number(char.storyProgress ?? 0);
-                    // The kage finale story step is the level-100 boss fight
-                    // (the 9th milestone at index 8). After defeating it the
-                    // client increments storyProgress to 9. Level must also
-                    // be ≥ 100.
-                    if (level < 100) {
-                        return res.status(403).json({ error: `Must be level 100 to unlock the Kage system (current: ${level}).` });
-                    }
-                    if (storyProgress < 9) {
-                        return res.status(403).json({ error: `Must complete the village story to unlock the Kage system (progress: ${storyProgress}/9).` });
-                    }
-                }
-                const next = {
-                    kageSystemUnlocked: true,
-                    seatedKage: playerName,
-                    firstLiberator: playerName,
-                    unlockedAt: Date.now(),
-                };
-                await _storage_js_1.kv.set(key, next);
-                return res.status(200).json(next);
-            }
-            if (action === 'reset') {
-                // Admin-only: reset the Kage system back to NPC / sealed state.
-                if (!identity.admin) {
-                    return res.status(403).json({ error: 'Only admins can reset the Kage system.' });
-                }
-                const next = {
-                    kageSystemUnlocked: false,
-                };
-                await _storage_js_1.kv.set(key, next);
-                return res.status(200).json(next);
-            }
-            if (action === 'seat') {
-                if (!current.kageSystemUnlocked) {
-                    return res.status(400).json({ error: 'Kage system not unlocked for this village.' });
-                }
-                // Only the current seated Kage or an admin may install a new Kage.
-                const currentKage = (0, _utils_js_1.safeName)(current.seatedKage ?? '');
-                if (!identity.admin && identity.name !== currentKage) {
-                    return res.status(403).json({ error: 'Only the seated Kage or admin can change the Kage.' });
-                }
-                // Verify the candidate actually belongs to this village. Stops the
-                // seated Kage from installing someone from a different village.
-                const candidateNorm = (0, _utils_js_1.safeName)(playerName);
-                if (!identity.admin) {
-                    try {
-                        const candSave = await _storage_js_1.kv.get(`save:${candidateNorm}`);
-                        const candChar = (candSave?.character ?? null);
-                        if (!candChar) {
-                            return res.status(400).json({ error: 'Candidate save not found.' });
+                    // ── Server-side requirement gate ──────────────────────────
+                    // Only a player who has completed the level-100 Kage story
+                    // fight should be able to unlock the Kage system. Verify
+                    // their saved character data in KV to prevent exploits
+                    // (e.g. calling this endpoint directly from devtools).
+                    if (!identity.admin) {
+                        const save = await _storage_js_1.kv.get(`save:${identity.name}`);
+                        const char = save?.character;
+                        if (!char) {
+                            return { status: 400, body: { error: 'Character save not found.' } };
                         }
-                        const candVillage = candChar.village ?? '';
-                        if (candVillage.trim() !== v.trim()) {
-                            return res.status(403).json({ error: 'Candidate is not a member of this village.' });
+                        const level = Number(char.level ?? 0);
+                        const storyProgress = Number(char.storyProgress ?? 0);
+                        // The kage finale story step is the level-100 boss fight
+                        // (the 9th milestone at index 8). After defeating it the
+                        // client increments storyProgress to 9. Level must also
+                        // be ≥ 100.
+                        if (level < 100) {
+                            return { status: 403, body: { error: `Must be level 100 to unlock the Kage system (current: ${level}).` } };
+                        }
+                        if (storyProgress < 9) {
+                            return { status: 403, body: { error: `Must complete the village story to unlock the Kage system (progress: ${storyProgress}/9).` } };
                         }
                     }
-                    catch {
-                        return res.status(500).json({ error: 'Unable to verify candidate.' });
-                    }
+                    const next = {
+                        kageSystemUnlocked: true,
+                        seatedKage: playerName,
+                        firstLiberator: playerName,
+                        unlockedAt: Date.now(),
+                    };
+                    await _storage_js_1.kv.set(key, next);
+                    return { status: 200, body: next };
                 }
-                // firstLiberator gate: once a firstLiberator exists, only they
-                // (or the seated Kage who chose to step down) can be re-seated
-                // when the seat is empty. We accept the seated-Kage path above
-                // and ensure that admin / seated Kage actions still proceed
-                // here; the firstLiberator is preserved in the next-state.
-                const next = {
-                    ...current,
-                    seatedKage: playerName,
-                    firstLiberator: current.firstLiberator ?? playerName,
-                };
-                await _storage_js_1.kv.set(key, next);
-                return res.status(200).json(next);
-            }
-            return res.status(400).json({ error: 'Invalid action.' });
+                if (action === 'reset') {
+                    // Admin-only: reset the Kage system back to NPC / sealed state.
+                    if (!identity.admin) {
+                        return { status: 403, body: { error: 'Only admins can reset the Kage system.' } };
+                    }
+                    const next = {
+                        kageSystemUnlocked: false,
+                    };
+                    await _storage_js_1.kv.set(key, next);
+                    return { status: 200, body: next };
+                }
+                if (action === 'seat') {
+                    if (!current.kageSystemUnlocked) {
+                        return { status: 400, body: { error: 'Kage system not unlocked for this village.' } };
+                    }
+                    // Only the current seated Kage or an admin may install a new Kage.
+                    const currentKage = (0, _utils_js_1.safeName)(current.seatedKage ?? '');
+                    if (!identity.admin && identity.name !== currentKage) {
+                        return { status: 403, body: { error: 'Only the seated Kage or admin can change the Kage.' } };
+                    }
+                    // Verify the candidate actually belongs to this village. Stops the
+                    // seated Kage from installing someone from a different village.
+                    const candidateNorm = (0, _utils_js_1.safeName)(playerName);
+                    if (!identity.admin) {
+                        try {
+                            const candSave = await _storage_js_1.kv.get(`save:${candidateNorm}`);
+                            const candChar = (candSave?.character ?? null);
+                            if (!candChar) {
+                                return { status: 400, body: { error: 'Candidate save not found.' } };
+                            }
+                            const candVillage = candChar.village ?? '';
+                            if (candVillage.trim() !== v.trim()) {
+                                return { status: 403, body: { error: 'Candidate is not a member of this village.' } };
+                            }
+                        }
+                        catch {
+                            return { status: 500, body: { error: 'Unable to verify candidate.' } };
+                        }
+                    }
+                    // firstLiberator gate: once a firstLiberator exists, only they
+                    // (or the seated Kage who chose to step down) can be re-seated
+                    // when the seat is empty. We accept the seated-Kage path above
+                    // and ensure that admin / seated Kage actions still proceed
+                    // here; the firstLiberator is preserved in the next-state.
+                    const next = {
+                        ...current,
+                        seatedKage: playerName,
+                        firstLiberator: current.firstLiberator ?? playerName,
+                    };
+                    await _storage_js_1.kv.set(key, next);
+                    return { status: 200, body: next };
+                }
+                return { status: 400, body: { error: 'Invalid action.' } };
+            }, { failClosed: true });
+            return res.status(result.status).json(result.body);
         }
         catch (err) {
             console.error('[village/kage]', err);

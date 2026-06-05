@@ -35,10 +35,10 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const threadRef = useRef<HTMLDivElement>(null);
 
     const loadInbox = useCallback(async () => {
-        try { const r = await fetch("/api/messages"); if (r.ok) setInbox(await r.json()); } catch { /* offline */ }
+        try { const r = await fetch("/api/messages"); if (r.ok) { const j = await r.json(); setInbox(Array.isArray(j) ? j : []); } } catch { /* offline */ }
     }, []);
     const loadThread = useCallback(async (withName: string) => {
-        try { const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`); if (r.ok) setThread(await r.json()); } catch { /* offline */ }
+        try { const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`); if (r.ok) { const j = await r.json(); setThread(Array.isArray(j) ? j : []); } } catch { /* offline */ }
     }, []);
 
     useEffect(() => { void loadInbox(); }, [loadInbox]);
