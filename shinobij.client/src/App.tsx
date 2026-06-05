@@ -4732,6 +4732,16 @@ export default function App() {
                                 setEndlessBattleWave(ctx.wave);
                                 setPendingAiProfileId(ctx.aiId);
                             }
+                        } else if (bootLock.kind === "arenaStory") {
+                            // Same, for a pendingArenaStoryBattle fight (weekly boss /
+                            // dungeon-AI / arena story boss / triggered event / hollow
+                            // gate): restore the battle context + scaled enemy first.
+                            const ctx = readArenaStoryContext(normalized.name);
+                            if (ctx) {
+                                setTemporaryStoryAi(ctx.ai);
+                                setPendingArenaStoryBattle(ctx.battle as PendingArenaStoryBattle);
+                                setPendingAiProfileId(ctx.aiId);
+                            }
                         }
                         setScreen(bootLock.screen as Screen);
                         return;
@@ -4757,6 +4767,18 @@ export default function App() {
                             setEndlessBattleWave(0);
                             setTemporaryStoryAi(null);
                             setCharacter({ ...normalized, hp: 0, hospitalized: true, endlessTowerRun: null });
+                            setHospitalEntryTime(Date.now());
+                            void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
+                            setScreen("hospital");
+                        } else if (bootLock.kind === "arenaStory") {
+                            // Arena story fights (weekly boss / dungeon-AI / etc.) use
+                            // the arena's standard defeat = hospitalized; the server
+                            // applies it atomically. Any unclaimed fight reward is
+                            // simply not granted (the win path never ran).
+                            try { localStorage.removeItem(arenaStoryCtxKey(normalized.name)); } catch { /* ignore */ }
+                            setPendingArenaStoryBattle(null);
+                            setTemporaryStoryAi(null);
+                            setCharacter({ ...normalized, hp: 0, hospitalized: true });
                             setHospitalEntryTime(Date.now());
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
@@ -6506,6 +6528,25 @@ export default function App() {
             }
         } catch { /* quota / SSR — ignore */ }
     }, [endlessBattleActive, endlessBattleWave, temporaryStoryAi, pendingAiProfileId, character?.name]);
+
+    // ── Arena story-fight context persistence (battle-lock resume) ──────
+    // Same idea as endless, for every pendingArenaStoryBattle fight (weekly
+    // boss / dungeon-AI / arena story boss / triggered event / hollow-gate
+    // arena). Persisted only while the fight is actually on the arena screen.
+    useEffect(() => {
+        const name = character?.name;
+        if (!name) return;
+        const key = arenaStoryCtxKey(name);
+        try {
+            if (pendingArenaStoryBattle && screen === "arena") {
+                const stripImages = (_k: string, v: unknown) => (typeof v === "string" && v.startsWith("data:image") ? "" : v);
+                const ctx = { battle: pendingArenaStoryBattle, aiId: pendingAiProfileId, ai: temporaryStoryAi, savedAt: Date.now() };
+                localStorage.setItem(key, JSON.stringify(ctx, stripImages));
+            } else {
+                localStorage.removeItem(key);
+            }
+        } catch { /* quota / SSR — ignore */ }
+    }, [pendingArenaStoryBattle, temporaryStoryAi, pendingAiProfileId, screen, character?.name]);
 
     // ── Back-navigation history capture ─────────────────────────────────
     // Pushes the current screen onto a capped 20-deep stack whenever it
@@ -31395,6 +31436,19 @@ function Arena({
                 screen="arena"
                 playerName={character.name}
             />
+            {/* Story/boss/event arena fights (kind="arenaStory") — weekly boss,
+                dungeon-AI warden, arena story boss, triggered-event battle, hollow-
+                gate arena fight. All carry a pendingArenaStoryBattle, persisted by
+                the App-level arena-story context effect so they resume on refresh.
+                Mutually exclusive with the other two keepers. */}
+            <BattleLockKeeper
+                active={battleStarted && !battleEnded
+                    && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
+                    && !opponentCharacter && !endlessBattleActive && Boolean(pendingStoryBattle)}
+                kind="arenaStory"
+                screen="arena"
+                playerName={character.name}
+            />
             {/* Mid-battle state persistence — isolated in a child component
                 so Arena's hook count is unchanged. Renders nothing visible. */}
             <ArenaBattlePersister
@@ -32270,6 +32324,25 @@ function readEndlessContext(name: string): EndlessContext | null {
     } catch { return null; }
 }
 
+// Arena "story" context persistence. Covers EVERY pendingArenaStoryBattle fight
+// (weekly boss, dungeon-AI warden, arena story boss, triggered-event battle,
+// hollow-gate arena fight) — they all fight on screen "arena" with the combat
+// snapshot saved by ArenaBattlePersister; what's lost on refresh is the
+// pendingArenaStoryBattle context + the scaled enemy. Persist just those (images
+// stripped) so the boot path rebuilds the fight. 1h TTL.
+const ARENA_STORY_CTX_TTL_MS = 60 * 60 * 1000;
+type ArenaStoryContext = { battle: unknown; aiId: string; ai: CreatorAi | null; savedAt: number };
+function arenaStoryCtxKey(name: string): string { return `arenaStory.context.v1.${name}`; }
+function readArenaStoryContext(name: string): ArenaStoryContext | null {
+    try {
+        const raw = localStorage.getItem(arenaStoryCtxKey(name));
+        if (!raw) return null;
+        const ctx = JSON.parse(raw) as ArenaStoryContext;
+        if (Date.now() - (ctx.savedAt ?? 0) > ARENA_STORY_CTX_TTL_MS) return null;
+        return ctx?.battle ? ctx : null;
+    } catch { return null; }
+}
+
 type ClientBattleLock = { battleId: string; kind: string; screen: string; startedAt: number; meta?: Record<string, unknown> };
 
 function mintBattleId(): string {
@@ -32328,6 +32401,15 @@ function battleResumeStateExists(lock: ClientBattleLock, playerName: string, cha
             // Needs BOTH the endless app-context (wave + scaled enemy) AND the
             // arena combat snapshot — the fight runs on screen "arena".
             if (!readEndlessContext(playerName)) return false;
+            const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
+            if (!raw) return false;
+            const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
+            return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
+        }
+        if (lock.kind === "arenaStory") {
+            // Same as endless: needs the pendingArenaStoryBattle context AND the
+            // arena combat snapshot.
+            if (!readArenaStoryContext(playerName)) return false;
             const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
             if (!raw) return false;
             const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
