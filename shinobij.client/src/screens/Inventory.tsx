@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
     type Character,
     type EquipmentSlot,
@@ -563,7 +564,7 @@ export function Inventory({
                 </section>
             </div>
 
-            {selected && (
+            {selected && createPortal(
                 <div className="item-popup-backdrop" onClick={() => setSelectedInventoryItem(null)}>
                     <div className="item-popup-card" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -762,7 +763,8 @@ export function Inventory({
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </>
     );
