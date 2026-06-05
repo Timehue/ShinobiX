@@ -70,4 +70,18 @@ const PAIRS = [
         node_assert_1.strict.match(CLIENT, /export function woundCapForRankPVE/, 'woundCapForRankPVE helper missing from combat-math.ts');
         node_assert_1.strict.ok(CLIENT_APP.includes('woundCapForRankPVE('), 'App.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again');
     });
+    // #2 amp duration: PvP forces IDG/IDT/DDG/DDT to 4 rounds (STATUS_DURATIONS_OVERRIDE);
+    // PvE centralizes the same value in AMP_STATUS_ROUNDS_PVE. Assert all four server
+    // overrides equal the client constant AND that App.tsx actually consumes it (so the
+    // amp duration can't silently drift back to the old per-site `rounds: 2`).
+    (0, node_test_1.it)('amp status duration matches (IDG/IDT/DDG/DDT) and PvE consumes the constant', () => {
+        const ampNames = ['Increase Damage Given', 'Increase Damage Taken', 'Decrease Damage Given', 'Decrease Damage Taken'];
+        const clientAmp = num(CLIENT, 'AMP_STATUS_ROUNDS_PVE');
+        for (const name of ampNames) {
+            const m = SERVER.match(new RegExp(`'${name}':\\s*([0-9]+)`));
+            node_assert_1.strict.ok(m, `server STATUS_DURATIONS_OVERRIDE missing "${name}"`);
+            node_assert_1.strict.equal(Number(m[1]), clientAmp, `${name} duration (${m[1]}) != AMP_STATUS_ROUNDS_PVE (${clientAmp})`);
+        }
+        node_assert_1.strict.ok(CLIENT_APP.includes('AMP_STATUS_ROUNDS_PVE'), 'App.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals');
+    });
 });
