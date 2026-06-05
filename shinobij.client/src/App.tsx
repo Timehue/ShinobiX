@@ -4038,13 +4038,17 @@ export default function App() {
                     });
                 }
                 if (data.pendingAttacker && !isTraveling) {
+                    // Heartbeat says someone is attacking us, but we haven't received the
+                    // DuelChallenge with the server battleId yet (it arrives a beat
+                    // later). Just show the banner — when the challenge lands, the
+                    // duelChallenges effect routes us to PvpBattleScreen with the real
+                    // battleId. Previously we set pendingPvpOpponent + setScreen('arena')
+                    // here, which dropped the defender into the local-sim arena where a
+                    // "win" was client-decided (honor seals, ryo, kill counters, etc.).
+                    // The session-backed PvpBattleScreen is the only correct path.
                     const attacker = normalizeCharacter(data.pendingAttacker);
                     setIncomingAttackBanner(`${attacker.name} is attacking you!`);
                     setTimeout(() => setIncomingAttackBanner(""), 4000);
-                    setPendingAiProfileId('');
-                    setPendingPvpOpponent(attacker);
-                    setRaidBattleKind("defense");
-                    setScreen('arena');
                 }
             } catch {
                 // Server unavailable — silently skip
@@ -4337,9 +4341,13 @@ export default function App() {
             setPvpBattleContext({ mode: incoming.mode, clanWarPoints: incoming.clanWarPoints, sectorAttack: true, raidKind: "defense", sector: currentSector, kageChallengeId: incoming.kageChallengeId, kageVillage: incoming.kageVillage });
             setScreen("pvpBattle");
         } else {
-            setPendingPvpOpponent(normalizeCharacter(incoming.challenger));
-            setRaidBattleKind("defense");
-            setScreen("arena");
+            // Legacy challenge missing a server battleId — refuse to fall through
+            // to local-sim arena. All current attacker paths create a server
+            // session BEFORE notifying the defender, so this branch only fires
+            // for stale/pre-session-creation clients. A "defense win" in the
+            // local sim used to grant honor seals + kill counters from a
+            // client-decided outcome; drop the challenge instead of routing.
+            alert(`${incoming.challenger?.name ?? "Someone"} tried to attack you but their client is out of date — ask them to reload.`);
         }
     }, [duelChallenges, character?.name, isTraveling]);
 
@@ -4465,9 +4473,12 @@ export default function App() {
                     // Phase 3): the server credits the winner's base ryo + XP on
                     // claim-rewards. rewardSector feeds ONLY the Death's Gate (99)
                     // 2× bonus and must mirror handlePvpWin's `context?.sector ??
-                    // currentSector`. The client still self-applies (converges —
-                    // same gainXp, same base), so this is rollout-safe.
-                    baseRewards: true,
+                    // currentSector`. Spar is the no-stakes practice mode (mode
+                    // === "standard" with no clan-war points and no sector
+                    // attack), so we OPT OUT of base XP/ryo there — practice
+                    // matches shouldn't pay 100 XP + 75 ryo per round-robin.
+                    // Every other mode (ranked, clan war, sector raid) keeps it.
+                    baseRewards: !(challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack),
                     rewardSector: currentSector,
                     // Biome + weather. Ranked forces neutral; everything else
                     // ships the live values so terrainMultiplier/weatherMultiplier
@@ -28485,7 +28496,7 @@ function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: true, rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
+                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: !(challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack), rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
@@ -29481,22 +29492,43 @@ function Arena({
             return;
         }
 
+        // No PvP win can be decided client-side. All real human-vs-human fights
+        // (sector raid / village guard / spar / ranked / clan war / defense)
+        // route through PvpBattleScreen, where the SERVER resolves the winner
+        // and `/api/pvp/claim-rewards` credits ranked rating + base XP/ryo
+        // with NX receipts under save locks. If something ever sets
+        // opponentCharacter and lands us here (a future routing bug, a
+        // resurrected fallback path), refuse to award rewards rather than
+        // silently inflate kill counters / honor seals / ryo / XP from a
+        // local outcome. AI fights (opponentCharacter === null) are unchanged.
+        if (opponentCharacter) {
+            setBattleEnded(true);
+            setBattleResult("win");
+            setRaidBattleKind("none");
+            setClanWarPointsActive(0);
+            setLog(`${opponentName} defeated, but the battle never reached the server. No rewards granted — please retry the action through the PvP screen.`);
+            addCombatLog(`Local-only PvP win against ${opponentName} — rewards withheld (no server session).`, "defeat", character.name);
+            console.warn("[winBattle] PvP outcome decided client-side; rewards withheld. This path should be unreachable — investigate the route that landed here.");
+            return;
+        }
+
+        // Past the opponentCharacter guard above: this is an AI fight (story
+        // boss already returned earlier). All PvP reward paths are dead code
+        // here — ratingGain / rankedWins / totalPvpKills / monthlyPvpKills /
+        // villageWarPvpNote / deathsGatePvp / clan-war-point bonus are all
+        // intrinsically zero or only set when opponentCharacter is truthy.
+        // Stripped to keep the function honest (a future code change can't
+        // resurrect a dead branch and start writing PvP counters by accident).
         const activeTrait = getActivePetTrait(character);
-        const deathsGatePvp = currentSector === 99 && !!opponentCharacter;
-        const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGatePvp ? 2 : 1);
-        const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGatePvp ? 2 : 1);
-        const honorSealGain = raidBattleKind === "defense" ? 20 : opponentCharacter ? 15 : raidBattleKind === "raidAi" ? 5 : 0;
-        const auraDustGain = raidBattleKind === "defense" ? 8 : opponentCharacter ? 6 : raidBattleKind === "raidAi" ? 4 : 0;
+        const xpGain = activeTrait === "Swift" ? 125 : 100;
+        const ryoGain = activeTrait === "Lucky" ? 90 : 75;
+        const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
+        const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
         const leveled = gainXp({ ...character, hp: playerHp }, xpGain);
         const defeatedAiIds = pendingAiProfile?.id && !(character.defeatedAiIds ?? []).includes(pendingAiProfile.id)
             ? [...(character.defeatedAiIds ?? []), pendingAiProfile.id]
             : character.defeatedAiIds ?? [];
-        const ratingGain = rankedBattleActive && opponentCharacter ? rankedDelta(character.rankedRating ?? 1000, opponentCharacter.rankedRating ?? 1000) : 0;
-        // Old point-based clan war scoring removed — territoryScrollReward
-        // below still gates on clanWarPointsActive > 0 to preserve the
-        // "extra scroll yield on clan-war flagged fights" behavior even
-        // without the score writeback.
-        const territoryScrollReward = clanWarPointsActive > 0 ? 25 : opponentCharacter ? 5 : 1;
+        const territoryScrollReward = 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
         // Village War HP/ground damage is gated to PvP raids only. AI raids
@@ -29505,56 +29537,44 @@ function Arena({
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
         const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector, playerRoster) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
-        const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
             ...rewarded,
             ...villageWarRaid.characterPatch,
-            // ryo / fateShards include the war-ground bounty if eligible
-            // (daily-capped, see recordVillageWarRaid). Zero otherwise.
             ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards + nonVanguardShardSubstitute(rewarded, honorSealGain),
             honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
-            boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm + nonVanguardCharmSubstitute(rewarded, honorSealGain),
+            boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain),
             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
-            // Stamp canonical crate ID alongside the inline grant — see
-            // matching block in handlePvpWin (App.tsx ~13140).
             claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                 : (rewarded.claimedWarCrateIds ?? []),
-            clanBattleContrib: (rewarded.clanBattleContrib ?? 0) + 1,
-            totalAiKills: (rewarded.totalAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
-            dailyAiKills: (rewarded.dailyAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
-            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (opponentCharacter ? 1 : 0),
-            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (opponentCharacter ? 1 : 0),
-            pvpKillMonth: currentMonthKey(),
+            // clanBattleContrib intentionally NOT incremented here — it's a
+            // PvP-only contribution counter and the AI-only branch shouldn't
+            // touch it (the save endpoint also caps growth, but the cleaner
+            // contract is "only PvP wins move clan-war contribs").
+            totalAiKills: (rewarded.totalAiKills ?? 0) + 1,
+            dailyAiKills: (rewarded.dailyAiKills ?? 0) + 1,
             totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
             defeatedAiIds,
-            rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
-            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
-            clanContribMonth: new Date().toISOString().slice(0, 7),
         });
         if (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") {
             onMissionRaidComplete?.(currentSector);
         }
 
         const bonusNote = activeTrait === "Swift" ? " (Swift +25% XP)" : activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
-        const deathsGateNote = deathsGatePvp ? ` 💀 Death's Gate 2× bonus!${deathsGateBoneCharm ? " +1 Bone Charm!" : ""}` : "";
         const honorNote = honorSealGain > 0 ? ` +${honorSealGain} Honor Seals.` : "";
         const auraDustNote = auraDustGain > 0 ? ` +${auraDustGain} Aura Dust.` : "";
         setBattleEnded(true);
         setBattleResult("win");
-        const rankedNote = ratingGain > 0 ? ` Ranked +${ratingGain} Elo.` : "";
-        const clanWarNote = clanWarPointsActive > 0 ? ` Clan War +${clanWarPointsActive} points.` : "";
-        const scrollNote = ` +${territoryScrollReward} Territory Control Scroll${territoryScrollReward === 1 ? "" : "s"}.`;
+        const scrollNote = ` +${territoryScrollReward} Territory Control Scroll.`;
         const raidNote = territoryRaidDamage?.ownerClan ? ` Sector ${currentSector} HP -${territoryRaidDamageAmount}.` : territoryRaidDamage ? ` Sector ${currentSector} control broken.` : "";
-        const villageWarNote = `${villageWarRaid.note}${villageWarRaid.warCrate ? " Your village won the war. +1 Legendary War Crate." : ""}${villageWarPvpNote}`;
+        const villageWarNote = `${villageWarRaid.note}${villageWarRaid.warCrate ? " Your village won the war. +1 Legendary War Crate." : ""}`;
         const effectiveXpGain = effectiveCharacterXpGain(character, xpGain);
-        setLog(`${opponentName} defeated. +${effectiveXpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}${deathsGateNote}${rankedNote}${clanWarNote}${scrollNote}${raidNote}${villageWarNote}`);
-        addCombatLog(`${opponentName} is defeated. ${character.name} gains ${effectiveXpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${deathsGateNote}${rankedNote}${clanWarNote}${scrollNote}${raidNote}${villageWarNote}`);
+        setLog(`${opponentName} defeated. +${effectiveXpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}${scrollNote}${raidNote}${villageWarNote}`);
+        addCombatLog(`${opponentName} is defeated. ${character.name} gains ${effectiveXpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${scrollNote}${raidNote}${villageWarNote}`);
         setRaidBattleKind("none");
         setClanWarPointsActive(0);
     }

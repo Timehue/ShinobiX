@@ -3,7 +3,10 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
-import { mintRankedMatchToken } from '../_ranked-match-token.js';
+// NOTE: pet ranked is NOT gated by the player-side ranked-match-token system.
+// The pet ladder settles via api/pet/battle-result.ts, which requires its OWN
+// server-minted token from /api/pet/ranked-start (different keyspace:
+// pet:ranked-token:<id>). Don't import mintRankedMatchToken here.
 
 type QueueEntry = {
     name: string;
@@ -148,18 +151,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const now = Date.now();
                     const matchForMe = { opponent: opponent.name, opponentElo: opponent.elo, opponentLevel: opponent.level, initiator: me.name === initiatorName, createdAt: now };
                     const matchForOpp = { opponent: me.name, opponentElo: me.elo, opponentLevel: me.level, initiator: opponent.name === initiatorName, createdAt: now };
+                    // NOTE: no mintRankedMatchToken(..., 'pet') call here. The
+                    // pet ladder is gated by /api/pet/ranked-start (own keyspace:
+                    // pet:ranked-token:<id>) and settled by /api/pet/battle-result,
+                    // not by pvp/session.ts. A pet-side `ranked` claim through
+                    // session.ts would fail the player-token consume and degrade
+                    // to casual, which is the correct conservative outcome.
                     await Promise.all([
                         kv.set(QUEUE_KEY, remaining, { ex: KV_TTL_SECONDS }),
                         kv.set(matchKey(me.name), matchForMe, { ex: MATCH_TTL_SECONDS }),
                         kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
-                        // #10: server proof that THESE two players genuinely matched
-                        // on the PET ladder, mirroring the player queue. Consumed by
-                        // pvp/session.ts before honoring a `ranked`+rankedKind:'pet'
-                        // claim. (Today the live pet ladder settles via the pet
-                        // battle flow, not session.ts, so this token simply expires
-                        // unused there — it keeps session.ts's pet branch honest if a
-                        // client ever routes a pet-ranked session through it.)
-                        mintRankedMatchToken(me.name, opponent.name, 'pet'),
                     ]);
 
                     return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
