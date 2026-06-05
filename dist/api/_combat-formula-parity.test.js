@@ -27,6 +27,9 @@ const ROOT = process.cwd();
 const SERVER = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
 const CLIENT = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
 const CLIENT_APP = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'App.tsx'), 'utf8');
+// STUN_AP_PENALTY lives in the client constants module, not combat-math —
+// pinned here so the server endTurn AP penalty can't drift from the client's.
+const CLIENT_GAME_CONSTS = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
 function num(src, name) {
     const m = src.match(new RegExp(`(?:export\\s+)?const\\s+${name}(?:\\s*:[^=]+)?\\s*=\\s*([0-9.]+)`));
     node_assert_1.strict.ok(m, `Could not find numeric const "${name}"`);
@@ -79,6 +82,14 @@ const PAIRS = [
     }
     (0, node_test_1.it)('WOUND_CAP_BY_RANK matches (basic / AB / S)', () => {
         node_assert_1.strict.deepEqual(woundCaps(SERVER), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
+    });
+    // Stun AP penalty: server move.ts uses `100 - STUN_AP_PENALTY` for the
+    // stunned fighter's starting AP; client App.tsx uses `STUN_AP_PENALTY`
+    // from constants/game.ts. Drift here means a stunned player on one side
+    // takes a different AP hit than on the other — pin to keep the numbers
+    // identical.
+    (0, node_test_1.it)('STUN_AP_PENALTY (server) === STUN_AP_PENALTY (client constants/game.ts)', () => {
+        node_assert_1.strict.equal(num(SERVER, 'STUN_AP_PENALTY'), num(CLIENT_GAME_CONSTS, 'STUN_AP_PENALTY'), 'STUN_AP_PENALTY diverged between server move.ts and client constants/game.ts');
     });
     // Regression guard for the 2026-06-05 audit finding: WOUND_CAP_BY_RANK_PVE was
     // DEFINED BUT NEVER READ, so the cap-value assertion above passed while the PvE

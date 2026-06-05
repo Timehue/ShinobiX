@@ -375,6 +375,35 @@ function sanitizeCharacterSave(
         (char as Record<string, unknown>)[field] = clamped;
     }
 
+    // ── Monthly clan contribution counters ─────────────────────────────────
+    // clanBattleContrib / clanEventContrib / clanMissionContrib feed the
+    // clan-roster leaderboard and the "Clan Patriot" achievement (500 battle
+    // contrib), so a tampered save could otherwise jump 0 → 999K in one POST.
+    // These are MONTHLY counters (the client resets them when clanContribMonth
+    // ticks over), so we cannot disallow decreases like the lifetime counters
+    // above — instead we clamp the absolute value to a generous monthly max
+    // AND cap upward delta per save. A new-month reset arrives as a DECREASE
+    // (handled), and within a month the value can only grow by maxDelta/save.
+    const MONTHLY_CLAN_CONTRIB_CAPS: Record<string, { absMax: number; maxDelta: number }> = {
+        // +1 per PvP win → 30 days × 20 fights/day = 600/month upper bound;
+        // 1500 leaves comfortable headroom for the most-active legit player.
+        clanBattleContrib: { absMax: 1500, maxDelta: 20 },
+        // Treasury donations can grant variable amounts (ryo / 1000 or 1-per-
+        // donation depending on currency) — a bit higher cap and delta.
+        clanEventContrib:  { absMax: 5000, maxDelta: 200 },
+        // +1 per completed clan mission; ~5/save tracks the totalMissionsCompleted pacing.
+        clanMissionContrib: { absMax: 1000, maxDelta: 10 },
+    };
+    for (const [field, { absMax, maxDelta }] of Object.entries(MONTHLY_CLAN_CONTRIB_CAPS)) {
+        const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
+        const exV = Math.max(0, Number((exChar as Record<string, unknown>)[field] ?? 0));
+        // Allow decreases freely (monthly reset). On the way up, cap at
+        // min(absMax, exV + maxDelta).
+        const upperBound = Math.min(absMax, exV + maxDelta);
+        const clamped = inV <= exV ? Math.min(inV, absMax) : Math.min(inV, upperBound);
+        (char as Record<string, unknown>)[field] = clamped;
+    }
+
     // ── rankedRating / petRankedRating: server-authoritative ──────────────
     // (audit #7 / Stage 3, final step.) These ratings are now credited ONLY by
     // the server — pvp/claim-rewards (player) and pet/battle-result (pet) — under
