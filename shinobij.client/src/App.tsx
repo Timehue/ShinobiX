@@ -31269,10 +31269,19 @@ function Arena({
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Server battle-lock keeper — registers an un-skippable lock while a
-                non-PvP arena fight is live so a refresh can't flee it (PvP uses
-                its own server session). Headless, isolated hooks. */}
+                live arena fight can ACTUALLY resume from disk, so a refresh can't
+                flee it. Limited to plain AI-profile fights: those rebuild from the
+                persisted pendingAiProfileId + ArenaBattlePersister. Story / weekly
+                boss / dungeon-AI / endless / human-opponent (spar) fights carry
+                their enemy + context in React-only state that a refresh loses, so
+                the persister can't restore them — locking those would force re-
+                entry into an empty lobby and (after the persister TTL) a false
+                loss. They stay on the Phase-A safe-routing until each gets its own
+                context-persister. PvP/ranked have their own server session. */}
             <BattleLockKeeper
-                active={battleStarted && !battleEnded && !(raidBattleKind === "raidPlayer" || rankedBattleActive)}
+                active={battleStarted && !battleEnded
+                    && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
+                    && !opponentCharacter && !pendingStoryBattle && !endlessBattleActive}
                 kind="arena"
                 screen="arena"
                 playerName={character.name}

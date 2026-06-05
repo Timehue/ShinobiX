@@ -43,7 +43,11 @@ export type BattleLock = {
     meta?: Record<string, unknown>; // optional encounter params for reconstruct-on-load
 };
 
-const LOCK_TTL_SECONDS = 6 * 60 * 60; // 6h self-heal
+// 1h — matches the client ArenaBattlePersister TTL so the lock and the
+// resumable state expire TOGETHER. If the lock outlived the resumable state
+// there'd be a window where a refresh finds a lock but no resume state and
+// wrongly counts a loss; aligning the TTLs closes that window.
+const LOCK_TTL_SECONDS = 60 * 60;
 const BATTLE_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 const KIND_RE = /^[A-Za-z0-9:_-]{1,40}$/;
 const SCREEN_RE = /^[A-Za-z0-9_]{1,40}$/;
