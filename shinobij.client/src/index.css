@@ -5857,14 +5857,30 @@ body {
     box-shadow: 0 0 6px rgba(0,0,0,0.6) !important;
 }
 
-/* On the sector map the oval is wider than tall, so `object-fit: cover` with the
-   default center anchor crops a full-body avatar through its torso — the figure
-   ends up sitting low in the oval (head high, body/legs hanging below center).
-   Anchor the crop toward the top of the source so the head/upper body shows and
-   the character reads as standing ON the tile. Scoped to .sector-image-map so
-   combat orbs (.avatar-orb) and the arena hex avatar are untouched. */
+/* Sector-map avatar sizing + crop.
+   The sector tile cell is wider than tall, and its grid-row height is NOT a
+   containing block the avatar's `height: 88%` can resolve against — so the image
+   fell back to its intrinsic (portrait) aspect scaled by `width: 88%` and
+   overflowed the BOTTOM of the tile (the figure "bled" out below its cell).
+   Fix: make each tile a size-query container and size the player's OWN avatar as
+   a square in `cqmin` (88% of the tile's SHORTER side), so `object-fit: cover`
+   crops it to a centered circle that always fits — at any viewport, responsively.
+   The `>` combinator targets only the player's own avatar (a direct tile child);
+   the small stacked other-player avatars (nested in .other-player-map-dot) keep
+   their own sizing. `object-position: center 22%` keeps the head-anchored crop,
+   now actually effective since the box is finally constrained in both axes.
+   Scoped to .sector-image-map so combat orbs (.avatar-orb) and the arena hex
+   avatar are untouched. */
+.sector-image-map .scene-tile {
+    container-type: size;
+}
 .sector-image-map .tiny-map-avatar {
     object-position: center 22% !important;
+}
+.sector-image-map .scene-tile > .tiny-map-avatar {
+    width: 88cqmin !important;
+    height: 88cqmin !important;
+    aspect-ratio: 1 / 1 !important;
 }
 
 /* 3D orb wrapper — rendered as overlay above hex tiles so it isn't clipped */
