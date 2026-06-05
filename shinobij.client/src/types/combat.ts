@@ -121,6 +121,10 @@ export type ActiveTraining = {
     statGain: number;
     staminaCost: number;
     endsAt: number;
+    // Total run length in ms, recorded at start so a cancel can prorate the
+    // reward by elapsed time. Optional: saves created before this field shipped
+    // fall back to a label-based duration lookup.
+    durationMs?: number;
 };
 
 export type ActiveJutsuTraining = {
