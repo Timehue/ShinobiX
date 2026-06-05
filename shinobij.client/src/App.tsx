@@ -30,6 +30,7 @@ import {
     HEAL_FLAT_PVE,
     SHIELD_FLAT_PVE,
     woundCapForRankPVE,
+    AMP_STATUS_ROUNDS_PVE,
 } from "./lib/combat-math";
 import {
     auraSphereDustNeeded,
@@ -29153,11 +29154,11 @@ function Arena({
             effectLines.push(`Reflect: ${character.name} reflects ${effectVal}% damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Increase Damage Given") {
-            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             effectLines.push(`Increase Damage Given: ${character.name}'s next attacks deal ${effectVal}% more damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Decrease Damage Given") {
-            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: 2, percent: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "negative" }]);
             effectLines.push(`Decrease Damage Given: ${opponentName} deals ${effectVal}% less damage for 2 rounds.`);
         }
         if (item.weaponEffect === "Shield") {
@@ -29207,10 +29208,10 @@ function Arena({
                     setEnemyStatuses((s) => [...s, { name: "Drain", rounds: 2, percent: p, kind: "negative" }]);
                     effectLines.push(`Drain ${p}%`);
                 } else if (wt.name === "Increase Damage Given") {
-                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% Damage Given`);
                 } else if (wt.name === "Decrease Damage Taken") {
-                    setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: 2, percent: p, kind: "positive" }]);
+                    setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`-${p}% Damage Taken`);
                 } else if (wt.name === "Pierce") {
                     effectLines.push(`Pierce`);
@@ -29274,7 +29275,7 @@ function Arena({
         const isBothTarget = item.weaponEffectTarget === "both";
         const itemEffectLines: string[] = [];
         if (item.weaponEffect === "Increase Damage Given") {
-            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             itemEffectLines.push(`boosts your damage by ${effectVal}% for 2 rounds`);
         }
         if (item.weaponEffect === "Decrease Damage Given") {
@@ -29289,7 +29290,7 @@ function Arena({
             }
         }
         if (item.weaponEffect === "Decrease Damage Taken") {
-            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: 2, percent: effectVal, kind: "positive" }]);
+            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: effectVal, kind: "positive" }]);
             itemEffectLines.push(`reduces damage you take by ${effectVal}% for 2 rounds`);
         }
         if (item.weaponEffect === "Shield") {
@@ -29648,7 +29649,7 @@ function Arena({
             if (tag.name === "Increase Damage Given") {
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Damage Given was prevented`);
                 else {
-                    queuePlayerStatus({ name: "Increase Damage Given", rounds: 2, percent: pct, kind: "positive" });
+                    queuePlayerStatus({ name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`Increase Damage Given: ${character.name} deals ${pct}% more ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
@@ -29656,7 +29657,7 @@ function Arena({
             if (tag.name === "Increase Damage Taken") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists damage taken debuff`);
                 else {
-                    queueEnemyStatus({ name: "Increase Damage Taken", rounds: 2, percent: pct, kind: "negative" });
+                    queueEnemyStatus({ name: "Increase Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "negative" });
                     effectLines.push(`Increase Damage Taken: ${opponentName} takes ${pct}% more ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
@@ -29664,7 +29665,7 @@ function Arena({
             if (tag.name === "Decrease Damage Taken") {
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s damage taken buff was prevented`);
                 else {
-                    queuePlayerStatus({ name: "Decrease Damage Taken", rounds: 2, percent: pct, kind: "positive" });
+                    queuePlayerStatus({ name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`Decrease Damage Taken: ${character.name} takes ${pct}% less ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
@@ -29672,7 +29673,7 @@ function Arena({
             if (tag.name === "Decrease Damage Given") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists damage given debuff`);
                 else {
-                    queueEnemyStatus({ name: "Decrease Damage Given", rounds: 2, percent: pct, kind: "negative" });
+                    queueEnemyStatus({ name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "negative" });
                     effectLines.push(`Decrease Damage Given: ${opponentName} deals ${pct}% less damage for 2 rounds${tagTimingText}.`);
                 }
             }
@@ -30346,14 +30347,14 @@ function Arena({
             if (tag.name === "Decrease Damage Given") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents damage given debuff`);
                 else {
-                    queueToPlayer({ name: "Decrease Damage Given", rounds: 2, percent: pct, kind: "negative" });
+                    queueToPlayer({ name: "Decrease Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name}'s damage given is decreased by ${pct}%`);
                 }
             }
             if (tag.name === "Increase Damage Taken") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents damage taken debuff`);
                 else {
-                    queueToPlayer({ name: "Increase Damage Taken", rounds: 2, percent: pct, kind: "negative" });
+                    queueToPlayer({ name: "Increase Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name}'s damage taken is increased by ${pct}%`);
                 }
             }

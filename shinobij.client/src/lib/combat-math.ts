@@ -106,6 +106,15 @@ export function woundCapForRankPVE(bloodlineRank?: string | null): number {
     return WOUND_CAP_BY_RANK_PVE.basic;
 }
 
+// Active-round duration for the four amp statuses (Increase/Decrease Damage
+// Given/Taken). Mirrors api/pvp/move.ts STATUS_DURATIONS_OVERRIDE, which forces
+// all four to 4 rounds ("amps run 4 rounds so stacking to 2 is reliable"). PvE
+// previously hardcoded `rounds: 2` at every amp site → amps lasted ~half as long
+// as in PvP. Centralized here so the value can't drift per-site and the parity
+// test can guard it. (Special-duration amps — e.g. the smoke-bomb DDG — keep
+// their own explicit rounds and intentionally do NOT use this.)
+export const AMP_STATUS_ROUNDS_PVE = 4;
+
 // Structural type used by the helpers below — CombatStatus is declared
 // locally inside the battle component (out of module scope here), so we
 // accept any object shape that exposes the fields these helpers read.
