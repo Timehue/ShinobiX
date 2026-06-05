@@ -25,6 +25,7 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const SERVER = readFileSync(join(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
 const CLIENT = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
+const CLIENT_APP = readFileSync(join(ROOT, 'shinobij.client', 'src', 'App.tsx'), 'utf8');
 
 function num(src: string, name: string): number {
     const m = src.match(new RegExp(`(?:export\\s+)?const\\s+${name}(?:\\s*:[^=]+)?\\s*=\\s*([0-9.]+)`));
@@ -63,5 +64,16 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     }
     it('WOUND_CAP_BY_RANK matches (basic / AB / S)', () => {
         assert.deepEqual(woundCaps(SERVER), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
+    });
+    // Regression guard for the 2026-06-05 audit finding: WOUND_CAP_BY_RANK_PVE was
+    // DEFINED BUT NEVER READ, so the cap-value assertion above passed while the PvE
+    // wound path applied no rank cap at all. Assert the cap is actually consumed so
+    // it can't silently go dead again (which would re-open the PvE↔PvP divergence).
+    it('PvE actually consumes the wound rank cap (not a dead constant)', () => {
+        assert.match(CLIENT, /export function woundCapForRankPVE/, 'woundCapForRankPVE helper missing from combat-math.ts');
+        assert.ok(
+            CLIENT_APP.includes('woundCapForRankPVE('),
+            'App.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again',
+        );
     });
 });
