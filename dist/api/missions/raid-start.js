@@ -84,8 +84,12 @@ async function handler(req, res) {
         // a corresponding report still counts toward the mint cap).
         const today = utcDateKey();
         const dailyKey = `raid-start-count:${playerName}:${today}`;
-        const startedToday = Number((await _storage_js_1.kv.get(dailyKey)) ?? 0);
-        if (startedToday >= MAX_RAID_STARTS_PER_DAY) {
+        // Atomic increment (kv_incr) so two concurrent mints can't both read the
+        // same count and both slip under the cap — the old get-then-set was a
+        // raceable read-modify-write. incr returns the post-increment count, so
+        // the (cap+1)-th call is the first to exceed it.
+        const startedToday = await _storage_js_1.kv.incr(dailyKey, { ex: 25 * 60 * 60 });
+        if (startedToday > MAX_RAID_STARTS_PER_DAY) {
             return res.status(200).json({
                 ok: true,
                 vanguard: true,
@@ -93,7 +97,6 @@ async function handler(req, res) {
                 token: null,
             });
         }
-        await _storage_js_1.kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
         // Mint a UUID-keyed token. Single-use (deleted on consume in
         // report-raid). 5-min TTL covers the longest realistic AI raid.
         const tokenId = (0, node_crypto_1.randomUUID)().replace(/-/g, '');

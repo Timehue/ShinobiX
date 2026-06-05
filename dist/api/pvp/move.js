@@ -694,6 +694,20 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
             }
             continue;
         }
+        // Recoil is a flat-percent debuff that must apply regardless of THIS
+        // jutsu's damage — a zero-damage 40-AP utility jutsu carrying Recoil
+        // still seeds it (matches the client/PvE, which applies it
+        // unconditionally). The self-damage from HAVING Recoil is resolved in
+        // the damage block below (gated on finalDmg, which is correct). Uses the
+        // raw tag percent (un-scaled), exactly as the previous in-damage path did.
+        if (tag.name === 'Recoil') {
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                const rPct = (tag.percent ?? 0) || 30;
+                o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: rPct, kind: 'negative' }, round);
+                lines.push(`Recoil: ${o.name} will suffer ${rPct}% recoil on their attacks for 2 turns.`);
+            }
+            continue;
+        }
     }
     if (pierce) {
         // v3: replaces the old binary "900 if ap≥60 else 0" with offense-scaled true damage.
@@ -772,13 +786,9 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
                 o = addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round);
                 lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
-            if (tag.name === 'Recoil') {
-                if (!hasStatus(o, 'Debuff Prevent', round)) {
-                    o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: pct || 30, kind: 'negative' }, round);
-                    lines.push(`Recoil: ${o.name} will suffer ${pct || 30}% recoil on their attacks for 2 turns.`);
-                }
-                continue;
-            }
+            // Recoil debuff application moved to the main tag loop above so it
+            // applies even on zero-damage utility jutsu. (Self-recoil damage is
+            // still resolved below, gated on finalDmg.)
             if (normalizeTagName(tag.name) === 'Siphon') {
                 const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost);
                 s = { ...s, hp: Math.min(s.maxHp, s.hp + h) };

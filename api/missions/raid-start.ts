@@ -82,8 +82,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // a corresponding report still counts toward the mint cap).
         const today = utcDateKey();
         const dailyKey = `raid-start-count:${playerName}:${today}`;
-        const startedToday = Number((await kv.get<number>(dailyKey)) ?? 0);
-        if (startedToday >= MAX_RAID_STARTS_PER_DAY) {
+        // Atomic increment (kv_incr) so two concurrent mints can't both read the
+        // same count and both slip under the cap — the old get-then-set was a
+        // raceable read-modify-write. incr returns the post-increment count, so
+        // the (cap+1)-th call is the first to exceed it.
+        const startedToday = await kv.incr(dailyKey, { ex: 25 * 60 * 60 });
+        if (startedToday > MAX_RAID_STARTS_PER_DAY) {
             return res.status(200).json({
                 ok: true,
                 vanguard: true,
@@ -91,7 +95,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 token: null,
             });
         }
-        await kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
 
         // Mint a UUID-keyed token. Single-use (deleted on consume in
         // report-raid). 5-min TTL covers the longest realistic AI raid.
