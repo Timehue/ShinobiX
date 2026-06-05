@@ -3072,6 +3072,16 @@ export default function App() {
     // otherwise) so the player never lands in a broken half-loaded battle.
     const LAST_SCREEN_KEY = "lastScreen.v1";
     useEffect(() => {
+        // Skip "start" for the same reason the hash writer below does: every
+        // page load initializes `screen` to "start", and this effect fires on
+        // mount BEFORE the async snapshot restore reads the key back. Writing
+        // "start" here clobbers the genuine last screen, so any screen that the
+        // restore resolves via this key (every screen not deep-linkable from the
+        // hash — i.e. all battle/encounter screens) falls back to "start" and is
+        // routed to the village. That was the bug that let players refresh-flee a
+        // fight. Leaving the prior value intact lets the restore read the real
+        // last screen.
+        if (screen === "start") return;
         try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
     }, [screen]);
     // ── Shareable URL hash ──────────────────────────────────────────────
@@ -4684,22 +4694,32 @@ export default function App() {
                     const persisted = (DEEP_LINKABLE.has(hashRaw) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
-                        // Mid-encounter screens that can't resume from
-                        // local state alone. arena CAN resume via its own
-                        // localStorage restore (added back with a smaller
-                        // hook footprint after the React #310 incident).
-                        const UNSAFE: Screen[] = ["petArena", "hollowGateTiles"];
-                        if (persisted === "pvpBattle" && !restoredPvpBattleId) {
-                            // No PvP breadcrumb to restore — fall through
-                            // to a safe screen.
-                            target = "village";
-                        } else if (UNSAFE.includes(persisted)) {
-                            target = inHollowGateRun ? "hollowGateShrine" : "village";
-                        } else if (persisted === "start") {
-                            target = "village";
-                        } else {
-                            target = persisted;
-                        }
+                        // Screens that render correctly from the LOADED SAVE
+                        // ALONE after a refresh: the hub/lobby screens (same set
+                        // as DEEP_LINKABLE) plus the arena lobby family — an
+                        // in-progress PvE arena fight additionally resumes via
+                        // ArenaBattlePersister, and the lobby renders fine with no
+                        // fight in flight. Listed explicitly so the routing is
+                        // intentional, never "by omission".
+                        //
+                        // Anything NOT in this set is a mid-encounter / transient
+                        // screen whose state lives only in React and is lost on a
+                        // refresh (dungeon, storyBoss, weeklyBoss, endlessTower,
+                        // tilecardsDuel, petArena, the event battles, userView,
+                        // pvpBattle without a live server session, …). Those route
+                        // to a safe parent — the Hollow Gate shrine when a run is
+                        // active, otherwise the village — so the player never lands
+                        // on a blank/half-loaded screen. (Live PvP and pet-PvP
+                        // re-entry are forced above and never reach here.) Phase C
+                        // replaces this safe-parent routing with server-backed
+                        // force-re-entry for the battle screens.
+                        const RESTORABLE = new Set<string>([
+                            ...DEEP_LINKABLE,
+                            "arena", "battleArena", "arenaDistrict", "userHub",
+                        ]);
+                        target = RESTORABLE.has(persisted)
+                            ? persisted
+                            : inHollowGateRun ? "hollowGateShrine" : "village";
                     }
                 } catch { /* localStorage unavailable — default to village */ }
                 // If we're landing back on the shrine, hydrate the local run
