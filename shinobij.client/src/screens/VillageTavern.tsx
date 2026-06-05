@@ -22,7 +22,8 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
             // Server sends X-Message-Count so we can skip JSON parse when unchanged
             const count = Number(res.headers.get("X-Message-Count") ?? -1);
             if (count !== -1 && count === lastCountRef.current) return;
-            const data: TavernMessage[] = await res.json();
+            const parsed = await res.json();
+            const data: TavernMessage[] = Array.isArray(parsed) ? parsed : [];
             lastCountRef.current = data.length;
             setMessages(data);
         } catch { /* silently ignore network errors */ }

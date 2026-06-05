@@ -11,13 +11,16 @@ export function Bank({ character, updateCharacter }: { character: Character; upd
     const projectedInterest = Math.max(0, Math.floor(character.bankRyo * (interestPercent / 100)));
 
     function deposit() {
-        const value = Math.max(0, Math.floor(amount));
+        // Number.isFinite guard: a non-numeric input yields NaN, and `NaN > ryo`
+        // is false — without this the transfer would proceed and write `ryo - NaN
+        // = NaN`, corrupting the save.
+        const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
         if (value > character.ryo) return alert("Not enough ryo.");
         updateCharacter({ ...character, ryo: character.ryo - value, bankRyo: character.bankRyo + value });
     }
 
     function withdraw() {
-        const value = Math.max(0, Math.floor(amount));
+        const value = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
         if (value > character.bankRyo) return alert("Not enough banked ryo.");
         updateCharacter({ ...character, ryo: character.ryo + value, bankRyo: character.bankRyo - value });
     }
