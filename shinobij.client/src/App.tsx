@@ -3050,6 +3050,27 @@ export default function App() {
     const [reauthPw, setReauthPw] = useState("");
     const [reauthError, setReauthError] = useState("");
     const [reauthBusy, setReauthBusy] = useState(false);
+
+    // ── Session restore on refresh/restart ──────────────────────────────
+    // A hard refresh re-inits `screen` to "start" and the snapshot restore in
+    // the boot effect below is async. Without a gate we flash the login form on
+    // every refresh — and STRAND the player on it if the save pull is slow,
+    // retrying, or the 24h token has expired (token-first: no password is kept
+    // to silently re-mint with). `restoringSession` starts true whenever a
+    // previously-logged-in account is on disk, so we show a "restoring"
+    // placeholder instead of the login form until the boot load resolves. On
+    // failure we fall back to the login form — pre-filled with the name and a
+    // notice — instead of a silent dead-end. Pure UX around the existing load
+    // path: no credentials are read or stored here, and the no-token fallback
+    // is untouched.
+    const [bootAccountName] = useState<string>(() => {
+        try {
+            const raw = localStorage.getItem(STORAGE);
+            return raw ? String((JSON.parse(raw) as { currentAccountName?: string })?.currentAccountName ?? "") : "";
+        } catch { return ""; }
+    });
+    const [restoringSession, setRestoringSession] = useState<boolean>(() => Boolean(bootAccountName));
+    const [restoreFailed, setRestoreFailed] = useState(false);
     useEffect(() => {
         const onExpired = () => {
             if (!characterRef.current) return; // not logged in → start screen already handles it
@@ -4779,9 +4800,28 @@ export default function App() {
             // server) the persisted password is restored as the credential.
             setActivePlayer(localAccountName, persistedPw ?? undefined);
 
+            // Safety backstop: pullSaveFromServer has no request timeout, so a
+            // connection that hangs with no response would pin the "restoring"
+            // gate forever. After 12s, drop to the login fallback.
+            const restoreTimer = window.setTimeout(() => {
+                setRestoreFailed(true);
+                setRestoringSession(false);
+            }, 12000);
             pullSaveFromServer(localAccountName).then((snap) => {
                 if (snap) applySnapshot(snap);
-            }).finally(() => { void pullSharedAdminContent(); });
+                // Stored account but the pull failed (expired token / 4xx /
+                // network after retries) — surface the pre-filled login instead
+                // of silently sitting on the start screen.
+                else setRestoreFailed(true);
+            }).finally(() => {
+                window.clearTimeout(restoreTimer);
+                setRestoringSession(false);
+                void pullSharedAdminContent();
+            });
+        } else {
+            // No stored account → brand-new / anonymous visitor: show the login
+            // form immediately, nothing to restore.
+            setRestoringSession(false);
         }
         // No stored account = anonymous visitor on the landing screen. The shared
         // admin content (custom jutsu/items/events) pulls Admin 1 / Admin 2 saves,
@@ -8286,10 +8326,25 @@ export default function App() {
                     )}
                 </div>
 
-                {screen === "start" && (
+                {screen === "start" && restoringSession && (
+                    <div className="start-screen">
+                        <div className="start-title-block">
+                            <h1 className="start-title">
+                                Shinobi<span className="start-title-mark">✦</span>Journey
+                            </h1>
+                            <p className="start-subtitle">
+                                Restoring {bootAccountName || "your session"}…
+                            </p>
+                        </div>
+                        <p className="start-hint">Reconnecting to your save — this only takes a moment.</p>
+                    </div>
+                )}
+                {screen === "start" && !restoringSession && (
                     <StartScreen
                         onCreate={createPlayerAccount}
                         onLogin={loginPlayerAccount}
+                        initialName={restoreFailed ? bootAccountName : ""}
+                        notice={restoreFailed ? "Your session timed out — log back in to restore your save. No progress is lost." : ""}
                         onAdmin={(prefilledPassword) => {
                             // If the user typed "Admin 1" / "Admin 2" in the
                             // player login form, the StartScreen forwards the

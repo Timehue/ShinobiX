@@ -36,13 +36,18 @@ type PublicTournament = {
     advancedPlayers?: string[];
 } | null;
 
-export function StartScreen({ onCreate, onLogin, onAdmin }: {
+export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", notice = "" }: {
     onCreate: (character: Character, password: string) => void;
     onLogin: (name: string, password: string) => void;
     onAdmin: (prefilledPassword?: string) => void;
+    // Pre-filled login name + notice, set by App when a session restore failed
+    // on refresh (expired token / unreachable server) so the player lands on a
+    // pre-filled login with an explanation instead of a blank, silent form.
+    initialName?: string;
+    notice?: string;
 }) {
     const [view, setView] = useState<StartView>("main");
-    const [loginName, setLoginName] = useState("");
+    const [loginName, setLoginName] = useState(initialName);
     const [loginPassword, setLoginPassword] = useState("");
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [loginStatus, setLoginStatus] = useState("");
@@ -124,6 +129,12 @@ export function StartScreen({ onCreate, onLogin, onAdmin }: {
 
                     <div className="card creator-card start-card">
                         <h2 className="start-card-title">Player Login</h2>
+
+                        {notice && (
+                            <p className="start-hint" style={{ color: "#ffcf5a", marginBottom: 8 }}>
+                                {notice}
+                            </p>
+                        )}
 
                         <label className="start-field">
                             <span className="start-field-label">
