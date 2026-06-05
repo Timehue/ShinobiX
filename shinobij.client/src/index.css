@@ -15853,7 +15853,11 @@ button.combat-jutsu-button,
     background: radial-gradient(ellipse at center, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.92));
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
-    z-index: 2000;
+    /* Above every fixed side rail (right-menu 999999, left-profile 10000,
+       sector-banner 9999) so the alert captures the screen instead of rendering
+       beneath lit, clickable sidebars. GameAlertHost also portals to <body> so
+       it escapes the .app-shell stacking context. */
+    z-index: 1000000;
     overflow-y: auto;
     display: flex;
     align-items: center;

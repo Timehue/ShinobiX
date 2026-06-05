@@ -21,6 +21,29 @@ const CHALLENGER_PUBLIC_FIELDS = new Set([
     // handlers read challenge.challenger.pets to find the matching pet.
     'pets',
 ]);
+// Keep parity with api/player/challenge.ts: strip inline base64 (data:) image
+// blobs so they don't leak / bloat on the anon-readable challenges:* prefix.
+// Hosted-URL refs are kept; pets keep combat stats but lose inline sprites.
+function isInlineImage(v) {
+    return typeof v === 'string' && v.startsWith('data:');
+}
+function stripPetInlineImages(pets) {
+    if (!Array.isArray(pets))
+        return pets;
+    return pets.map((p) => {
+        if (!p || typeof p !== 'object')
+            return p;
+        const pet = p;
+        if (!isInlineImage(pet.image) && !isInlineImage(pet.bodyImage))
+            return pet;
+        const out = { ...pet };
+        if (isInlineImage(out.image))
+            delete out.image;
+        if (isInlineImage(out.bodyImage))
+            delete out.bodyImage;
+        return out;
+    });
+}
 function projectChallengerCharacter(c) {
     if (!c)
         return {};
@@ -28,6 +51,10 @@ function projectChallengerCharacter(c) {
     for (const k of CHALLENGER_PUBLIC_FIELDS)
         if (k in c)
             out[k] = c[k];
+    if (isInlineImage(out.avatarImage))
+        delete out.avatarImage;
+    if ('pets' in out)
+        out.pets = stripPetInlineImages(out.pets);
     return out;
 }
 async function handler(req, res) {

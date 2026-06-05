@@ -158,6 +158,7 @@ export function ProfessionPicker({
                             src={elderImage}
                             alt="Village elder"
                             style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: 8, marginBottom: 16 }}
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
                         />
                     )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
@@ -242,6 +243,7 @@ export function ProfessionPicker({
                                             src={portrait}
                                             alt={p.name}
                                             style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8 }}
+                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
                                         />
                                     )}
                                     <div style={{
