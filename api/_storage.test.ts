@@ -26,6 +26,7 @@ function makeStub(label: string, store: Record<string, unknown>, log: string[]):
         },
         set: unused('set') as KvLike['set'],
         del: unused('del') as KvLike['del'],
+        incr: unused('incr') as KvLike['incr'],
         keys: unused('keys') as KvLike['keys'],
         hgetall: unused('hgetall') as KvLike['hgetall'],
         hset: unused('hset') as KvLike['hset'],

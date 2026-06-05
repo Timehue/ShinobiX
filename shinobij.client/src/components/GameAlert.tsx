@@ -19,6 +19,7 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Listener = (message: string) => void;
 
@@ -72,7 +73,11 @@ export function GameAlertHost() {
     const current = queue[0];
     const moreCount = queue.length - 1;
 
-    return (
+    // Portal to <body> so the modal escapes the .app-shell stacking context.
+    // Mounted inline, it rendered BENEATH the fixed side rails (right-menu
+    // z-index 999999, etc.), which stayed lit and clickable over the "modal".
+    // The portal + the raised .game-alert-backdrop z-index put it on top.
+    return createPortal(
         <div className="game-alert-backdrop" onClick={dismiss} role="presentation">
             <div
                 className="game-alert-card"
@@ -112,6 +117,7 @@ export function GameAlertHost() {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

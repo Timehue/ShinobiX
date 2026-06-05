@@ -82,10 +82,14 @@ See `.env.example` for the annotated list. Minimum to boot:
 | `PG_POOL_MAX` | ▲ | Pool size; `15` recommended for the single always-on instance. |
 | `CRON_SECRET` | ▲ | Guards the daily snapshot job (set if you use Railway Cron). |
 | `RESTART_TOKEN` | ▲ | Guards `POST /restart`. |
+| `KV_PROXY_URL` | ▲▲ | **Production uses this.** Points Railway's save/image keys at the cPanel disk overlay (e.g. `https://theravensark.com/api/kv`). See "Storage topology" below. |
+| `KV_PROXY_TOKEN` | ▲▲ | Shared secret for the proxy; must equal the cPanel box's KV token. Required whenever `KV_PROXY_URL` is set. |
+| `REQUIRE_DISK_OVERLAY` | ▲▲ | Set to `1` on any instance that serves `/api/save/*` from the overlay — refuses to boot if the overlay env is missing instead of silently serving wiped saves. |
 | `OPENAI_API_KEY` | ○ | Only if the AI image endpoint is used. |
 
-Do **not** set `PORT`, `STATIC_DIR`, `PG_SSL`, `DISK_KV_DIR`, or the `KV_PROXY_*`
-vars (see `.env.example` for why).
+Do **not** set `PORT`, `STATIC_DIR`, `PG_SSL`, or `DISK_KV_DIR` on Railway
+(containers have an ephemeral filesystem; reach the cPanel disk via `KV_PROXY_*`
+instead). See "Storage topology" below for the `KV_PROXY_*` decision.
 
 ---
 
@@ -123,14 +127,30 @@ add that origin to `ALLOWED_ORIGINS` in **both** `server.ts` **and**
 
 ## Migration considerations (read before cutting over)
 
-- **`KV_PROXY_*` overlay.** Off-Railway, the server can route some key prefixes
-  to a remote proxy on the cPanel box (`api/_storage.ts:716`, `kv-proxy.ts`).
-  If you retire cPanel, that data path disappears. Leave `KV_PROXY_URL` unset on
-  Railway so all keys live on the base Postgres — but first confirm nothing
-  important currently lives only behind that proxy and migrate it if so.
-- **Ephemeral filesystem.** Containers reset their disk on every deploy. Never
-  set `DISK_KV_DIR`; keep all state in Postgres (or a Railway Volume if you
-  truly need disk).
+- **Storage topology (read carefully — getting this wrong wipes saves).** The
+  server runs in one of two modes:
+  - **Mode A — Supabase-only.** Every key, including `save:*`, lives on the base
+    Postgres store. Leave `DISK_KV_DIR` and `KV_PROXY_*` unset, and leave
+    `REQUIRE_DISK_OVERLAY` unset.
+  - **Mode B — cPanel disk overlay (what production runs).** `save:` /
+    `save-snapshot:` / `shared:images` / `shared:imgfields` keys route to the
+    free cPanel disk (unlimited bandwidth — keeps heavy save/image blobs off
+    metered Railway egress and off Supabase). Railway reaches it via the KV proxy
+    (`api/_storage.ts`, `kv-proxy.ts`): set `KV_PROXY_URL` (e.g.
+    `https://theravensark.com/api/kv`) **and** `KV_PROXY_TOKEN`. The cPanel box
+    itself uses `DISK_KV_DIR=/home/<user>/kv-storage` to read the disk directly.
+  - **Always, in mode B: set `REQUIRE_DISK_OVERLAY=1`** on every instance that
+    serves `/api/save/*`. Without it, a missing/typo'd proxy env makes `kv`
+    silently fall back to the (empty) base store — every player looks
+    logged-out/wiped and new progress is written to the wrong place. With it, the
+    server refuses to boot loudly instead.
+  - **Verify after every deploy:** `GET /api/health?deep=1` returns a `saveStore`
+    field (`disk` / `remote-proxy` / `base-store`). On a save-serving host it must
+    NOT be `base-store`.
+- **Ephemeral filesystem.** Railway containers reset their disk on every deploy,
+  so never use `DISK_KV_DIR` there — reach the cPanel disk via `KV_PROXY_*`
+  (mode B) instead. `DISK_KV_DIR` is correct only on the cPanel box, whose disk
+  is persistent.
 - **Cross-provider DB traffic.** Railway↔Supabase round trips cost latency +
   egress on both sides, and the 1-second heartbeat write is the worst offender.
   The realtime layer (in-memory presence + WebSocket) removes it — that's the

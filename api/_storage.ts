@@ -183,6 +183,16 @@ const pgKv = {
         return rowCount ?? 0;
     },
 
+    async incr(key: string, options?: { ex?: number }): Promise<number> {
+        _cacheInvalidate(key);
+        const exp = options?.ex ? expiresAt(options.ex) : null;
+        const { rows } = await getPool().query<{ kv_incr: string }>(
+            `SELECT public.kv_incr($1, $2::timestamptz) AS kv_incr`,
+            [key, exp]
+        );
+        return Number(rows[0].kv_incr);
+    },
+
     async keys(pattern: string): Promise<string[]> {
         const { rows } = await getPool().query<{ key: string }>(
             `SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())`,
@@ -252,15 +262,20 @@ function getSupabase(): SupabaseClient {
     // always fails. We bypass DNS entirely by hardcoding the known IPv4 address
     // (Cloudflare CDN) and passing a custom lookup to the undici Agent.
     // Resolved externally: nslookup soaychxshtbgwujhytsf.supabase.co 8.8.8.8
+    // The IP is a Cloudflare CDN anycast address that Supabase can rotate; keep
+    // it overridable via SUPABASE_HARDCODED_IP so a rotation is a config change
+    // (env edit + restart) instead of a code+rebuild+redeploy. Falls back to the
+    // last-known-good IP when the env var is unset (current behaviour preserved).
+    const _HARDCODED_IP = process.env.SUPABASE_HARDCODED_IP || '172.64.149.246';
     const _HARDCODED_IPS: Record<string, string> = {
-        'soaychxshtbgwujhytsf.supabase.co': '172.64.149.246',
+        'soaychxshtbgwujhytsf.supabase.co': _HARDCODED_IP,
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function _hardcodedLookup(hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => void): void {
         if (_HARDCODED_IPS[hostname]) return callback(null, _HARDCODED_IPS[hostname], 4);
         // Fallback: any *.supabase.co host hits the same Cloudflare CDN —
         // CageFS blocks DNS so dns.lookup would fail anyway.
-        if (hostname.endsWith('.supabase.co')) return callback(null, '172.64.149.246', 4);
+        if (hostname.endsWith('.supabase.co')) return callback(null, _HARDCODED_IP, 4);
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         require('dns').lookup(hostname, options, callback);
     }
@@ -327,6 +342,14 @@ const supabaseKv = {
         const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).in('key', keys);
         if (error) throw new Error(`kv.del: ${error.message}`);
         return count ?? 0;
+    },
+
+    async incr(key: string, options?: { ex?: number }): Promise<number> {
+        const db = getSupabase();
+        const exp = options?.ex ? expiresAt(options.ex) : null;
+        const { data, error } = await db.rpc('kv_incr', { p_key: key, p_expires_at: exp });
+        if (error) throw new Error(`kv.incr(${key}): ${error.message}`);
+        return Number(data);
     },
 
     async keys(pattern: string): Promise<string[]> {
@@ -511,6 +534,12 @@ export interface KvLike {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null>;
     del(...keys: string[]): Promise<number>;
+    // Atomic increment — returns the post-increment counter value. Backed by the
+    // kv_incr RPC on Postgres/Supabase so the rate limiter can't be raced (a
+    // read-then-set RMW let concurrent requests all read the same value and all
+    // pass). Disk/remote overlays fall back to a non-atomic RMW, but no
+    // disk-routed key (save:/shared:) ever uses incr, so that path is never hit.
+    incr(key: string, options?: { ex?: number }): Promise<number>;
     keys(pattern: string): Promise<string[]>;
     mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]>;
     hgetall<T = Record<string, unknown>>(key: string): Promise<T | null>;
@@ -542,6 +571,15 @@ function _makeDiskKv(root: string): KvLike {
             let n = 0;
             for (const k of keys) if (await _diskUnlink(root, k)) n++;
             return n;
+        },
+        // Non-atomic RMW. Disk-routed keys (save:/shared:) never use incr, so
+        // this exists only to satisfy KvLike — the rate limiter's incr always
+        // routes to the base Postgres/Supabase store (atomic kv_incr).
+        async incr(key, options) {
+            const cur = Number((await this.get<number>(key)) ?? 0);
+            const next = cur + 1;
+            await this.set(key, next, options);
+            return next;
         },
         async keys(pattern) {
             const files: string[] = [];
@@ -598,6 +636,15 @@ function _makeRemoteKv(baseUrl: string, token: string): KvLike {
         async del(...keys) {
             return (await call<{ count: number }>('del', { keys })).count;
         },
+        // Non-atomic RMW over the proxy. Never used for disk-routed keys (the
+        // only keys that reach the remote overlay), so the rate limiter never
+        // hits this path — see the routed incr below.
+        async incr(key, options) {
+            const cur = Number((await this.get<number>(key)) ?? 0);
+            const next = cur + 1;
+            await this.set(key, next, options);
+            return next;
+        },
         async keys(pattern) {
             return (await call<{ keys: string[] }>('keys', { pattern })).keys;
         },
@@ -650,6 +697,9 @@ export function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
                 diskKeys.length ? base.del(...diskKeys).catch(() => 0) : Promise.resolve(0),
             ]);
             return a + b + c;
+        },
+        async incr(key, options) {
+            return _routesToDisk(key) ? disk.incr(key, options) : base.incr(key, options);
         },
         async keys(pattern) {
             return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
@@ -758,6 +808,14 @@ if (process.env.REQUIRE_DISK_OVERLAY === '1' && !_diskOverlay) {
 }
 
 export const kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
+
+// Which backend the disk-routed `save:*` keys actually resolve to. Surfaced by
+// the /health?deep=1 probe so an operator can instantly catch a misconfigured
+// deploy that silently routes saves to the (empty) base store instead of the
+// disk overlay — the exact failure REQUIRE_DISK_OVERLAY guards against. A value
+// of 'base-store' on a host that serves /api/save/* means saves are misrouted.
+export const saveStoreKind: 'disk' | 'remote-proxy' | 'base-store' =
+    _diskRoot ? 'disk' : ((_proxyUrl && _proxyToken) ? 'remote-proxy' : 'base-store');
 
 // Expose the disk backend directly for the /api/kv proxy endpoint to use.
 export const _diskKvForProxy: KvLike | null = _diskRoot ? _makeDiskKv(_diskRoot) : null;

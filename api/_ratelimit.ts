@@ -83,14 +83,20 @@ export async function allowKv(key: string, limit: number, windowMs: number, stri
     const windowIndex = Math.floor(now / windowMs);
     const kvKey = `ratelimit:${key}:${windowIndex}`;
     try {
-        const current = Number((await kv.get<number>(kvKey)) ?? 0);
-        if (current >= limit) {
+        // ATOMIC increment (kv_incr RPC). The previous get-then-set was a
+        // non-atomic read-modify-write: concurrent requests in the same window
+        // all read the same `current`, all passed the `< limit` check, and all
+        // wrote `current+1`, so a burst could blow past the limit — exactly the
+        // concurrency this tier exists to stop. kv.incr returns the post-
+        // increment count, so the Nth allowed hit returns N; reject when the
+        // count exceeds `limit`. TTL ~2x the window so stale keys self-clean
+        // (and pg_cron purges them server-side).
+        const ttlSec = Math.max(1, Math.ceil((windowMs / 1000) * 2));
+        const count = await kv.incr(kvKey, { ex: ttlSec });
+        if (count > limit) {
             const resetAt = (windowIndex + 1) * windowMs;
             return { ok: false, retryAfterMs: Math.max(0, resetAt - now) };
         }
-        // Best-effort increment with TTL ~2x the window so stale keys self-clean.
-        const ttlSec = Math.max(1, Math.ceil((windowMs / 1000) * 2));
-        await kv.set(kvKey, current + 1, { ex: ttlSec }).catch(() => undefined);
         return { ok: true };
     } catch {
         // KV unavailable. Strict callers fall back to a per-instance bucket so
