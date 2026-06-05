@@ -66,6 +66,10 @@ const PAIRS = [
     ['DRAIN_BASE_TICK', 'DRAIN_BASE_TICK_PVE'],
     ['DRAIN_PER_LEVEL', 'DRAIN_PER_LEVEL_PVE'],
     ['DRAIN_MAX_TICK', 'DRAIN_MAX_TICK_PVE'],
+    // #2 DoT DR mitigation: server applyDoTs scales every Wound/Poison/Drain
+    // tick by (1 - effDR × DR_DOT_SCALE); PvE used to skip this entirely.
+    // Now centralized in dotMitigationPVE, which #4 below proves App.tsx calls.
+    ['DR_DOT_SCALE', 'DR_DOT_SCALE_PVE'],
 ];
 (0, node_test_1.describe)('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     for (const [s, c] of PAIRS) {
@@ -106,6 +110,16 @@ const PAIRS = [
         node_assert_1.strict.match(CLIENT, /export function drainTickPVE/, 'drainTickPVE helper missing from combat-math.ts');
         node_assert_1.strict.ok(CLIENT_APP.includes('drainTickPVE('), 'App.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
         node_assert_1.strict.ok(!CLIENT_APP.includes('drainStamina'), 'App.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
+    });
+    // DoT DR mitigation: the DR_DOT_SCALE value parity is covered in PAIRS
+    // above; this guards that PvE actually CONSUMES the dotMitigationPVE
+    // helper (App.tsx applies it where it ticks Wound/Poison/Drain). Without
+    // the helper, PvE applied DoTs raw and a heavy-armor build tanked DoTs
+    // harder in PvP than in PvE — the same balance gap the wound-cap and amp
+    // duration regression guards catch.
+    (0, node_test_1.it)('PvE consumes the DoT DR-mitigation helper (not raw ticks)', () => {
+        node_assert_1.strict.match(CLIENT, /export function dotMitigationPVE/, 'dotMitigationPVE helper missing from combat-math.ts');
+        node_assert_1.strict.ok(CLIENT_APP.includes('dotMitigationPVE('), 'App.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity');
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
     // re-apply) must match the client's STACKABLE_STATUS_PVE, and App.tsx must

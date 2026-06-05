@@ -15,6 +15,15 @@ const STALE_MS = 60 * 1000; // Remove entries older than 60s (must re-queue)
 // a match that never turns into a fight re-opens matchmaking for both sides.
 const MATCH_TTL_SECONDS = 30;
 const matchKey = (slug) => `${QUEUE_KEY}:match:${slug}`;
+// Matchmaking level band. Without this, the queue paired purely by Elo
+// proximity — a level-5 player and a level-100 player with default 1000 Elo
+// would match, which guaranteed the low-level player a free loss. Opens
+// linearly with wait time (joinedAt → now) so a niche level stays matchable;
+// after ~LEVEL_BAND_OPEN_INTERVAL_MS × LEVEL_BAND_MAX_STEPS the band is wide
+// enough to match anyone. Falls back to "any opponent" once the band fully
+// opens, so the queue never starves.
+const LEVEL_BAND_BASE = 10;
+const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000; // widen by 1 level every 15s waiting
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -111,8 +120,16 @@ async function handler(req, res) {
                         await _storage_js_1.kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
                     }
-                    others.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
-                    const opponent = others[0];
+                    // Level band, widens with the caller's wait time so an
+                    // off-curve level eventually matches anyone. Falls back to
+                    // pure-Elo selection when the band has nobody in it (queue
+                    // never starves).
+                    const waitMs = Math.max(0, Date.now() - me.joinedAt);
+                    const band = LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
+                    const inBand = others.filter(e => Math.abs(e.level - me.level) <= band);
+                    const candidates = inBand.length > 0 ? inBand : others;
+                    candidates.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
+                    const opponent = candidates[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
                     // Deterministic initiator (lexicographically smaller slug) so
                     // exactly ONE side sends the ranked challenge and the other
