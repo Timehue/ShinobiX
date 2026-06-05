@@ -30,6 +30,12 @@ const WEEKLY_BOSS_DMG_ABSOLUTE_CAP = 20000;
 // Legit late-game attackers top out around 5–7k per attack × ~30 attacks
 // before being KO'd = ~150–200k. 500k is a generous ceiling.
 const WEEKLY_BOSS_LOG_FIGHT_CAP = 500000;
+// Generous max number of attacks per arena fight, used to derive a stat-aware
+// per-fight cap (fair-per-hit × this). A real fight runs ~30 attacks, so 80 is
+// ~2.7× headroom — a legitimate fight is never clipped, but a weak/no-stat
+// account is bounded well below the flat 500k (which a tampered client could
+// otherwise claim to steal MVP share). A maxed attacker still hits the flat cap.
+const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 80;
 // 24h fight window. After this the boss "despawns" and rewards are
 // auto-distributed on the next POST that lands.
 const WEEKLY_BOSS_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -444,11 +450,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return res.status(429).json({ error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
                     }
                 }
+                // Stat-derived per-fight cap (mirrors the per-tap `damage` cap,
+                // scaled by a generous max-hits-per-fight so a legitimate full
+                // arena fight is never clipped). Bounds a tampered/weak-account
+                // report well below the flat cap; a maxed attacker is unaffected.
+                let perFightCap = WEEKLY_BOSS_LOG_FIGHT_CAP;
+                if (!identity.admin) {
+                    try {
+                        const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
+                        const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
+                        const stats = (actorChar?.stats ?? {}) as Record<string, number>;
+                        const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
+                        const rawBest = Math.max(
+                            Number(stats.bukijutsuOffense ?? 0),
+                            Number(stats.taijutsuOffense ?? 0),
+                            Number(stats.ninjutsuOffense ?? 0),
+                            Number(stats.genjutsuOffense ?? 0),
+                        );
+                        const best = Math.min(2500, rawBest); // matches the per-tap cap's MAX_OFFENSE_STAT_FOR_CAP
+                        const fairPerHit = Math.max(50, Math.floor(best * (1 + level / 100) * 1.4));
+                        perFightCap = Math.min(WEEKLY_BOSS_LOG_FIGHT_CAP, fairPerHit * WEEKLY_BOSS_LOG_FIGHT_MAX_HITS);
+                    } catch {
+                        // Can't load stats — fall back to the flat cap.
+                    }
+                }
                 const requested = Math.floor(Number(amount ?? 0));
                 if (!Number.isFinite(requested) || requested < 0) {
                     return res.status(400).json({ error: 'Invalid damage amount.' });
                 }
-                const logged = Math.min(WEEKLY_BOSS_LOG_FIGHT_CAP, Math.max(0, requested));
+                const logged = Math.min(perFightCap, Math.max(0, requested));
 
                 const result = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
                     const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
