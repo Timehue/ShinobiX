@@ -147,6 +147,7 @@ function ShopBase({
                                                 src={item.image}
                                                 alt={item.name}
                                                 className="shop-item-thumb"
+                                                onError={(e) => { e.currentTarget.style.display = "none"; }}
                                             />
                                         )}
 
@@ -187,7 +188,7 @@ function ShopBase({
                         <div className="item-popup-top">
                             <div className="item-popup-art-box">
                                 {selectedItem.image ? (
-                                    <img src={selectedItem.image} alt={selectedItem.name} />
+                                    <img src={selectedItem.image} alt={selectedItem.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                 ) : (
                                     <span>{rarityIcon[selectedItem.rarity]}</span>
                                 )}

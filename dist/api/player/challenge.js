@@ -27,6 +27,34 @@ const CHALLENGER_PUBLIC_FIELDS = new Set([
     // pet challenge (TypeError on .find).
     'pets',
 ]);
+// The challenges:* prefix is anon-readable via Supabase Realtime, so any inline
+// base64 (data:) image kept here is BOTH world-readable to any anon WS
+// subscriber AND a large recurring payload on the wire (a live challenge with a
+// full avatar + pet sprites measured ~450KB). Hosted-URL image refs are fine
+// (small, already public) — only inline `data:` blobs are stripped. Pets keep
+// their combat stats (the accept handler matches by id and needs them) but lose
+// inline sprite blobs. The recipient resolves avatars/pet art by name from the
+// shared-image cache, same as presence does.
+function isInlineImage(v) {
+    return typeof v === 'string' && v.startsWith('data:');
+}
+function stripPetInlineImages(pets) {
+    if (!Array.isArray(pets))
+        return pets;
+    return pets.map((p) => {
+        if (!p || typeof p !== 'object')
+            return p;
+        const pet = p;
+        if (!isInlineImage(pet.image) && !isInlineImage(pet.bodyImage))
+            return pet;
+        const out = { ...pet };
+        if (isInlineImage(out.image))
+            delete out.image;
+        if (isInlineImage(out.bodyImage))
+            delete out.bodyImage;
+        return out;
+    });
+}
 function projectChallengerCharacter(c) {
     if (!c || typeof c !== 'object')
         return c;
@@ -35,6 +63,10 @@ function projectChallengerCharacter(c) {
     for (const k of CHALLENGER_PUBLIC_FIELDS)
         if (k in src)
             out[k] = src[k];
+    if (isInlineImage(out.avatarImage))
+        delete out.avatarImage;
+    if ('pets' in out)
+        out.pets = stripPetInlineImages(out.pets);
     return out;
 }
 function projectChallenge(c) {

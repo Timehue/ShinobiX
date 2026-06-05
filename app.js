@@ -10,11 +10,17 @@
  * 4. Requires the compiled Express server from dist/server.js.
  */
 
+// Load .env FIRST so SUPABASE_HARDCODED_IP (and other vars) are available when
+// the DNS map below is built at module load.
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+
 // Hardcoded IPv4 addresses for hostnames that CageFS cannot resolve via DNS.
 // Resolved externally: nslookup soaychxshtbgwujhytsf.supabase.co 8.8.8.8
-// These are Cloudflare CDN IPs — update if Supabase changes their CDN.
+// This is a Cloudflare CDN anycast IP that Supabase can rotate. Override via the
+// SUPABASE_HARDCODED_IP env var so a rotation is a config change + restart, not a
+// code edit + rebuild + redeploy. Falls back to the last-known-good IP when unset.
 const HARDCODED_DNS = {
-    'soaychxshtbgwujhytsf.supabase.co': '172.64.149.246',
+    'soaychxshtbgwujhytsf.supabase.co': process.env.SUPABASE_HARDCODED_IP || '172.64.149.246',
 };
 
 // Custom lookup function shared by dns.lookup patch and undici Agent.
@@ -71,8 +77,6 @@ try {
         console.warn('[app] Could not set undici dispatcher:', e2.message);
     }
 }
-
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 // Start the compiled Express server.
 require('./dist/server.js');
