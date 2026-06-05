@@ -8,6 +8,7 @@
  */
 /* eslint-disable react-hooks/purity */ // Math.random in card-pack draw; matches App.tsx's file-wide suppression (verbatim)
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { getAllItems } from "../lib/items";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
@@ -183,7 +184,7 @@ function ShopBase({
                 );
             })}
 
-            {selectedItem && (
+            {selectedItem && createPortal(
                 <div className="item-popup-backdrop" onClick={() => setSelectedItem(null)}>
                     <div className="item-popup-card" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -312,7 +313,8 @@ function ShopBase({
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </div>
     );
