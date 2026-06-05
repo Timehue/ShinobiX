@@ -4719,6 +4719,20 @@ export default function App() {
                     } else if (battleResumeStateExists(bootLock, normalized.name, normalized)) {
                         // Resume state intact → drop back into the same fight; the
                         // screen's persister rehydrates it at the same HP/turn.
+                        if (bootLock.kind === "endless") {
+                            // Rebuild the endless app-context (wave + scaled enemy)
+                            // BEFORE the Arena mounts so it sets up the endless fight;
+                            // the scaled clone goes back into the AI pool and the
+                            // saved pendingAiProfileId resolves to it. ArenaBattle-
+                            // Persister then restores the HP/turn snapshot.
+                            const ctx = readEndlessContext(normalized.name);
+                            if (ctx) {
+                                setTemporaryStoryAi(ctx.ai);
+                                setEndlessBattleActive(true);
+                                setEndlessBattleWave(ctx.wave);
+                                setPendingAiProfileId(ctx.aiId);
+                            }
+                        }
                         setScreen(bootLock.screen as Screen);
                         return;
                     } else {
@@ -4733,6 +4747,19 @@ export default function App() {
                             setCharacter({ ...normalized, hp: 0 });
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
                             setScreen("storyHall");
+                        } else if (bootLock.kind === "endless") {
+                            // Endless death = forfeit the run (banked ryo/XP lost)
+                            // + downed/hospitalized, mirroring endEndlessBattle. The
+                            // server applies hp:0 + hospitalized atomically; the run
+                            // is cleared client-side (already live-saved each wave).
+                            try { localStorage.removeItem(endlessCtxKey(normalized.name)); } catch { /* ignore */ }
+                            setEndlessBattleActive(false);
+                            setEndlessBattleWave(0);
+                            setTemporaryStoryAi(null);
+                            setCharacter({ ...normalized, hp: 0, hospitalized: true, endlessTowerRun: null });
+                            setHospitalEntryTime(Date.now());
+                            void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
+                            setScreen("hospital");
                         } else {
                             // arena (and other hospitalizing fights): the server
                             // applies hp:0 + hospitalized atomically with the unlock,
@@ -6459,6 +6486,26 @@ export default function App() {
         setEndlessBattleWave(0);
         setTemporaryStoryAi(null);
     }
+
+    // ── Endless-tower context persistence (battle-lock resume) ──────────
+    // Mirror the live endless wave/flag + scaled enemy to localStorage so a
+    // refresh can rebuild the fight (the combat snapshot itself is saved by
+    // ArenaBattlePersister). Cleared the moment the run ends. data:image strings
+    // are stripped so a big enemy portrait can't blow the localStorage quota.
+    useEffect(() => {
+        const name = character?.name;
+        if (!name) return;
+        const key = endlessCtxKey(name);
+        try {
+            if (endlessBattleActive && temporaryStoryAi) {
+                const stripImages = (_k: string, v: unknown) => (typeof v === "string" && v.startsWith("data:image") ? "" : v);
+                const ctx = { wave: endlessBattleWave, aiId: pendingAiProfileId, ai: temporaryStoryAi, savedAt: Date.now() };
+                localStorage.setItem(key, JSON.stringify(ctx, stripImages));
+            } else {
+                localStorage.removeItem(key);
+            }
+        } catch { /* quota / SSR — ignore */ }
+    }, [endlessBattleActive, endlessBattleWave, temporaryStoryAi, pendingAiProfileId, character?.name]);
 
     // ── Back-navigation history capture ─────────────────────────────────
     // Pushes the current screen onto a capped 20-deep stack whenever it
@@ -31335,6 +31382,19 @@ function Arena({
                 screen="arena"
                 playerName={character.name}
             />
+            {/* Endless-tower fights (kind="endless") — resumable now that the
+                endless wave/flag + scaled enemy are persisted (see the App-level
+                endless-context effect). Mutually exclusive with the plain-AI keeper
+                above (they split on endlessBattleActive), so the shared lock id is
+                never contended. */}
+            <BattleLockKeeper
+                active={battleStarted && !battleEnded
+                    && !(raidBattleKind === "raidPlayer" || rankedBattleActive)
+                    && !opponentCharacter && endlessBattleActive}
+                kind="endless"
+                screen="arena"
+                playerName={character.name}
+            />
             {/* Mid-battle state persistence — isolated in a child component
                 so Arena's hook count is unchanged. Renders nothing visible. */}
             <ArenaBattlePersister
@@ -32191,6 +32251,25 @@ const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
 const STORY_BOSS_SAVE_TTL_MS = 60 * 60 * 1000;
 function storyBossSaveKey(name: string): string { return `storyBoss.battle.v1.${name}`; }
 
+// Endless-tower context persistence. The COMBAT state (HP/turn) is saved by
+// ArenaBattlePersister like any arena fight; what's lost on refresh is the
+// endless WAVE + flag + the scaled enemy (App state). We persist just those so
+// the boot path can rebuild the endless fight (the enemy itself resolves from
+// the already-saved pendingAiProfileId once the scaled clone is back in the AI
+// pool). 1h TTL to match the combat persister.
+const ENDLESS_CTX_TTL_MS = 60 * 60 * 1000;
+type EndlessContext = { wave: number; aiId: string; ai: CreatorAi; savedAt: number };
+function endlessCtxKey(name: string): string { return `endless.context.v1.${name}`; }
+function readEndlessContext(name: string): EndlessContext | null {
+    try {
+        const raw = localStorage.getItem(endlessCtxKey(name));
+        if (!raw) return null;
+        const ctx = JSON.parse(raw) as EndlessContext;
+        if (Date.now() - (ctx.savedAt ?? 0) > ENDLESS_CTX_TTL_MS) return null;
+        return ctx?.ai ? ctx : null;
+    } catch { return null; }
+}
+
 type ClientBattleLock = { battleId: string; kind: string; screen: string; startedAt: number; meta?: Record<string, unknown> };
 
 function mintBattleId(): string {
@@ -32244,6 +32323,15 @@ function battleResumeStateExists(lock: ClientBattleLock, playerName: string, cha
             // clears the save, so a mismatch means a stale/foreign save.)
             if (character && saved.storyProgress !== character.storyProgress) return false;
             return (saved.bossHp ?? 0) > 0 && (saved.playerHp ?? 0) > 0;
+        }
+        if (lock.kind === "endless") {
+            // Needs BOTH the endless app-context (wave + scaled enemy) AND the
+            // arena combat snapshot — the fight runs on screen "arena".
+            if (!readEndlessContext(playerName)) return false;
+            const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
+            if (!raw) return false;
+            const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
+            return Boolean(saved?.battleStarted) && (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
         }
     } catch { return false; }
     return false;
