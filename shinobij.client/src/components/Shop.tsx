@@ -7,8 +7,9 @@
  * are imported back from ../App.
  */
 /* eslint-disable react-hooks/purity */ // Math.random in card-pack draw; matches App.tsx's file-wide suppression (verbatim)
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getAllItems } from "../lib/items";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
@@ -24,6 +25,15 @@ function ShopBase({
     currency?: "ryo" | "fateShards";
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
+
+    // Lock background scroll + allow Escape-to-close while the item popup is open.
+    useBodyScrollLock(selectedItem !== null);
+    useEffect(() => {
+        if (!selectedItem) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedItem(null); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [selectedItem]);
 
     const allItems = getAllItems(creatorItems);
     const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "accessory"];

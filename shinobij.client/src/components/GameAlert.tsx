@@ -20,6 +20,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 
 type Listener = (message: string) => void;
 
@@ -67,6 +68,8 @@ export function GameAlertHost() {
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [queue.length]);
+
+    useBodyScrollLock(queue.length > 0);
 
     if (queue.length === 0) return null;
 
