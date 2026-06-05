@@ -93,6 +93,19 @@ export const WOUND_CAP_BY_RANK_PVE: Record<string, number> = {
     basic: 25, AB: 30, S: 35,
 };
 
+// Wound rank cap → max allowed Wound percent. Mirrors api/pvp/move.ts
+// `woundCapForJutsu` (basic/non-bloodline 25, A·B 30, S 35) EXACTLY, including
+// the rank-prefix regex. "Wound" is deliberately NOT in `cappedDamageTags`, so
+// `effectiveTagPercent` does not rank-cap it — the PvE combat paths apply this
+// directly before `cappedPostDamage`, matching PvP. (Keeping WOUND_CAP_BY_RANK_PVE
+// consumed also gives the combat-formula parity test real teeth — it was dead.)
+export function woundCapForRankPVE(bloodlineRank?: string | null): number {
+    const rank = (bloodlineRank ?? '').trim();
+    if (/^S/i.test(rank)) return WOUND_CAP_BY_RANK_PVE.S;
+    if (/^[AB]/i.test(rank)) return WOUND_CAP_BY_RANK_PVE.AB;
+    return WOUND_CAP_BY_RANK_PVE.basic;
+}
+
 // Structural type used by the helpers below — CombatStatus is declared
 // locally inside the battle component (out of module scope here), so we
 // accept any object shape that exposes the fields these helpers read.
