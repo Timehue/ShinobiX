@@ -33,6 +33,8 @@ import {
     AMP_STATUS_ROUNDS_PVE,
     drainTickPVE,
     mergeCombatStatus,
+    dotMitigationPVE,
+    armorFactorToRawDr,
 } from "./lib/combat-math";
 import {
     auraSphereDustNeeded,
@@ -2475,6 +2477,30 @@ function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
 }
 
+// PvP session environment selector. The server reads biome + weather elements
+// from the SEALED session at create time and intentionally ignores them on
+// every move (it would otherwise be a trust-the-client hole). Until this
+// helper landed, no session-create payload shipped biome/weather at all, so
+// the server's terrainMultiplier (+10% type-matched) and weatherMultiplier
+// (+5%/-2% by element) were dead in live PvP. Ranked still ships neutral
+// (biome='central', no weather) so element-of-the-day can't skew ladder play.
+// All other PvP modes (sector, village-guard, spar, clan-war) ride the live
+// biome/weather. Falls through normalizeBiome/normalizeElement on the server,
+// so unknown values become 'central' / '' rather than failing the request.
+function pvpSessionEnvironment(
+    isRanked: boolean,
+    biome: string,
+    positiveElement: string | undefined,
+    negativeElement: string | undefined,
+): { biome: string; weatherPositiveElement: string; weatherNegativeElement: string } {
+    if (isRanked) return { biome: "central", weatherPositiveElement: "", weatherNegativeElement: "" };
+    return {
+        biome,
+        weatherPositiveElement: positiveElement ?? "",
+        weatherNegativeElement: negativeElement ?? "",
+    };
+}
+
 async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -4443,6 +4469,10 @@ export default function App() {
                     // same gainXp, same base), so this is rollout-safe.
                     baseRewards: true,
                     rewardSector: currentSector,
+                    // Biome + weather. Ranked forces neutral; everything else
+                    // ships the live values so terrainMultiplier/weatherMultiplier
+                    // actually fire server-side (they were dead before this).
+                    ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
                     p1Character: {
                         ...p1Character,
                         jutsu: p1Jutsus,
@@ -9221,6 +9251,8 @@ export default function App() {
                                         // Phase 3: server credits base ryo + XP on the win.
                                         baseRewards: true,
                                         rewardSector: currentSector,
+                                        // Sector attacks ride the live biome/weather (not ranked).
+                                        ...pvpSessionEnvironment(false, currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement),
                                         p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
                                         p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                                     }),
@@ -9236,14 +9268,20 @@ export default function App() {
                             } catch { /* fallback below */ }
 
                             if (!battleId) {
-                                // Session creation failed — drop into the local
-                                // arena fight so the user isn't stranded on the
-                                // "Connecting..." card forever.
+                                // Session creation failed — refuse to fall through
+                                // to the local-sim arena. That fallback used to
+                                // award PvP-win counters / Vanguard seals / ryo /
+                                // XP from a CLIENT-decided outcome, with no server
+                                // session to cross-check. Better UX: route back to
+                                // the world map with an error so the player can
+                                // retry rather than have rewards quietly inflated
+                                // (or denied) by a transient outage.
                                 setPvpBattleId('');
                                 setPvpSeedSession(null);
-                                setPendingPvpOpponent(oppChar);
-                                setRaidBattleKind("raidPlayer");
-                                setScreen("arena");
+                                setPendingPvpOpponent(null);
+                                setRaidBattleKind("none");
+                                setScreen("worldMap");
+                                alert("Couldn't reach the battle server. Please try the attack again in a moment.");
                                 return;
                             }
 
@@ -24145,6 +24183,8 @@ function WorldMap({
                     // is this raid's target (= handlePvpWin's reward sector).
                     baseRewards: true,
                     rewardSector: sector,
+                    // Sector raids ride the sector's biome/weather (not ranked).
+                    ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement),
                     p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfCharacter, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfCharacter, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfCharacter, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfCharacter, selfAllItems, "shield") },
                     p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(opponentCharacter, opponentAllItems, "shield") },
                 }),
@@ -24160,13 +24200,18 @@ function WorldMap({
         } catch { /* fallback below */ }
 
         if (!battleId) {
-            // Session creation failed — drop into the local arena fight so
-            // the user isn't stranded on the "Connecting..." card forever.
+            // Session creation failed — refuse to fall through to the local-sim
+            // arena. That fallback used to award PvP-win counters / Vanguard
+            // seals / ryo / XP from a CLIENT-decided outcome with no server
+            // session to cross-check. Route back to the world map with an
+            // error so the player can retry, rather than have rewards quietly
+            // inflated (or denied) by a transient outage.
             setPvpBattleId('');
             setPvpSeedSession(null);
-            setPendingPvpOpponent(normalizeCharacter(opponent));
-            setRaidBattleKind("raidPlayer");
-            setScreen("arena");
+            setPendingPvpOpponent(null);
+            setRaidBattleKind("none");
+            setScreen("worldMap");
+            alert("Couldn't reach the battle server. Please try the raid again in a moment.");
             return;
         }
 
@@ -25260,7 +25305,7 @@ function WorldMap({
                                                     const sr = await fetch('/api/pvp/session', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: stringifyPvpSessionPayload({ useCurrentVitals: true, baseRewards: true, rewardSector: virtualSector, p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } }),
+                                                        body: stringifyPvpSessionPayload({ useCurrentVitals: true, baseRewards: true, rewardSector: virtualSector, ...pvpSessionEnvironment(false, biome, weatherEffects[weather]?.positiveElement, weatherEffects[weather]?.negativeElement), p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } }),
                                                     });
                                                     if (sr.ok) {
                                                         // Seed PvpBattleScreen with the session returned
@@ -25285,10 +25330,15 @@ function WorldMap({
                                                     setScreen("pvpBattle");
                                                     return;
                                                 }
-                                                // Session creation failed — fallback to arena
-                                                setPendingPvpOpponent(normalizeCharacter(guardChar));
-                                                setRaidBattleKind("raidPlayer");
-                                                setScreen("arena");
+                                                // Session creation failed — refuse to fall through to the
+                                                // local-sim arena for a HUMAN guard. (The AI-guard fallback
+                                                // below is fine — no human win-counter inflation possible.)
+                                                // The local fallback would award PvP-win counters / honor
+                                                // seals / ryo / XP from a client-decided outcome with no
+                                                // server session to cross-check.
+                                                setPendingPvpOpponent(null);
+                                                setRaidBattleKind("none");
+                                                alert("Couldn't reach the battle server. Please try challenging the guard again in a moment.");
                                                 return;
                                             }
 
@@ -28435,7 +28485,7 @@ function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: true, rewardSector: currentSector, p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
+                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", baseRewards: true, rewardSector: currentSector, ...pvpSessionEnvironment(challenge.mode === "ranked", currentBiome, weatherEffects[currentWeather]?.positiveElement, weatherEffects[currentWeather]?.negativeElement), p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
@@ -28454,14 +28504,16 @@ function Arena({
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
-            // Fallback to old arena if session creation fails
-            setPendingAiProfileId("");
-            setRaidBattleKind("raidPlayer");
-            setRankedBattleActive(challenge.mode === "ranked");
-            setClanWarPointsActive(challenge.clanWarPoints ?? 0);
-            setOpponentCharacter(challenger);
-            setEnemyHp(challenger.maxHp);
-            startPrefight(challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked PvP duel" : challenge.clanWarPoints ? "Clan war PvP duel" : "PvP duel"} accepted against ${challenge.fromName}.`);
+            // Refuse to fall through to the local-sim arena. That fallback
+            // used to grant ranked/clan-war wins from a CLIENT-decided
+            // outcome with no server session to cross-check. Better UX: keep
+            // the challenge in the inbox so the player can retry once the
+            // transient session-create error clears.
+            // (Arena's setDuelChallenges prop takes a DuelChallenge[] directly,
+            // not the functional updater form — re-add by value.)
+            const stillPresent = duelChallenges.some(c => c.id === challenge.id);
+            if (!stillPresent) setDuelChallenges([challenge, ...duelChallenges]);
+            alert("Couldn't reach the battle server to start the duel. The challenge is still in your inbox — try accepting again in a moment.");
         }
     }
 
@@ -30478,7 +30530,48 @@ function Arena({
         setEnemyStatuses((s) => tickStatuses(s));
         const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
         pendingPlayerStunApPenaltyRef.current = false;
-        setPlayerStatuses((s) => tickStatuses(withoutStun(s)));
+        // Tick player statuses inline so we can apply Wound/Poison/Drain to the
+        // POST-tick list — same ordering as api/pvp/move.ts endTurn (ticks the
+        // outgoing player, then DoTs the incoming player at turn start).
+        const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses));
+        setPlayerStatuses(tickedPlayerStatuses);
+        // Player DoT tick at start of next turn (PvE↔PvP parity). The server
+        // applies Wound/Poison/Drain to BOTH fighters; PvE used to apply DoTs
+        // only to the enemy, so a stacked Wound on the player did nothing.
+        // DR-mitigated via the same dotMitigationPVE used for the enemy side.
+        const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), tickedPlayerStatuses);
+        let pDotDamage = 0;
+        let pDrainChakra = 0;
+        tickedPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
+            if (s.name === "Wound") pDotDamage += Math.floor((s.amount || 0) * playerDotMit);
+            if (s.name === "Drain") {
+                const amt = Math.floor((s.amount ?? 250) * playerDotMit);
+                pDotDamage += amt;
+                pDrainChakra += amt;
+            }
+            if (s.name === "Poison") {
+                const raw = s.amount ?? Math.floor(character.maxChakra * (s.percent ?? 6) / 100);
+                pDotDamage += Math.floor(raw * playerDotMit);
+            }
+        });
+        if (pDotDamage > 0) {
+            const nextHp = Math.max(0, playerHp - pDotDamage);
+            setPlayerHp(nextHp);
+            const nextChakra = pDrainChakra > 0 ? Math.max(0, character.chakra - pDrainChakra) : character.chakra;
+            if (pDrainChakra > 0) updateCharacter({ ...character, hp: nextHp, chakra: nextChakra });
+            else updateCharacter({ ...character, hp: nextHp });
+            const drainNote = pDrainChakra > 0 ? ` Drain also removes ${pDrainChakra} chakra.` : "";
+            addCombatLog(`Damage over time: ${character.name} takes ${pDotDamage} damage from active effects.${drainNote}`, "effects", character.name);
+            if (nextHp <= 0) {
+                setBattleEnded(true);
+                setBattleResult("loss");
+                setRaidBattleKind("none");
+                setLog(`${character.name} bleeds out from active effects.`);
+                addCombatLog(`${character.name} is defeated by damage over time.`, "defeat", opponentName);
+                if (rankedBattleActive) applyRankedLoss();
+                return;  // don't set up the next turn for a downed player
+            }
+        }
         setBarrierTiles((prev) => prev.map((b) => ({ ...b, rounds: b.rounds - 1 })).filter((b) => b.rounds > 0));
         reduceCooldowns();
         setAp(playerStunned ? Math.max(0, 100 - STUN_AP_PENALTY) : 100);
@@ -30508,19 +30601,28 @@ function Arena({
             addCombatLog(`Lag: ${opponentName}'s actions cost 10 more AP this turn.`, "lag", opponentName);
         }
 
+        // DoT DR mitigation (PvE↔PvP parity, mirrors api/pvp/move.ts applyDoTs):
+        // ticks scale by (1 - effDR × DR_DOT_SCALE) using the defender's own
+        // armor + Decrease Damage Taken stacks. Without this PvE DoTs landed
+        // raw while the same Wound/Poison/Drain stack was DR-mitigated server-
+        // side — heavy-armor PvE enemies took ~2× the DoT they would in PvP.
+        const enemyDotMit = dotMitigationPVE(armorFactorToRawDr(enemyArmorFactor), enemyStatuses);
         let dotDamage = 0;
         let drainChakra = 0;
         enemyStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
-            if (s.name === "Wound") dotDamage += s.amount || 0;
+            if (s.name === "Wound") dotDamage += Math.floor((s.amount || 0) * enemyDotMit);
             if (s.name === "Drain") {
                 // Match PvP: Drain hits HP + chakra only (never stamina). Jutsu drain
                 // carries a mastery-scaled `amount`; weapon-proc drain (no amount)
                 // keeps its prior 250 magnitude via the fallback.
-                const amt = s.amount ?? 250;
+                const amt = Math.floor((s.amount ?? 250) * enemyDotMit);
                 dotDamage += amt;
                 drainChakra += amt;
             }
-            if (s.name === "Poison") dotDamage += s.amount ?? Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
+            if (s.name === "Poison") {
+                const raw = s.amount ?? Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
+                dotDamage += Math.floor(raw * enemyDotMit);
+            }
         });
 
         if (dotDamage > 0) {
@@ -32728,18 +32830,18 @@ function PvpBattleScreen({
         if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
         setSubmitting(true);
         try {
-            const wfx = weatherEffects[currentWeather];
             // Per-move idempotency token. If this request retries (network
             // blip, double-tap), the server's recentMoveTokens check
             // short-circuits the second arrival without re-applying.
             const moveToken = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
                 ? crypto.randomUUID()
                 : `mt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            // Biome + weather are NOT sent here — the server intentionally
+            // ignores them on every move (it would be a trust-the-client hole)
+            // and reads from the sealed session instead. Sealing happens at
+            // /api/pvp/session POST via pvpSessionEnvironment().
             const body: Record<string, unknown> = {
                 battleId, role, action: pvpAction,
-                weatherPositiveElement: wfx.positiveElement ?? "",
-                weatherNegativeElement: wfx.negativeElement ?? "",
-                biome: currentBiome,
                 moveToken,
             };
             if (opts?.auto) body.auto = true;

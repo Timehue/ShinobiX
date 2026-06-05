@@ -69,6 +69,10 @@ const PAIRS: Array<[string, string]> = [
     ['DRAIN_BASE_TICK', 'DRAIN_BASE_TICK_PVE'],
     ['DRAIN_PER_LEVEL', 'DRAIN_PER_LEVEL_PVE'],
     ['DRAIN_MAX_TICK', 'DRAIN_MAX_TICK_PVE'],
+    // #2 DoT DR mitigation: server applyDoTs scales every Wound/Poison/Drain
+    // tick by (1 - effDR × DR_DOT_SCALE); PvE used to skip this entirely.
+    // Now centralized in dotMitigationPVE, which #4 below proves App.tsx calls.
+    ['DR_DOT_SCALE', 'DR_DOT_SCALE_PVE'],
 ];
 
 describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
@@ -116,6 +120,19 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.match(CLIENT, /export function drainTickPVE/, 'drainTickPVE helper missing from combat-math.ts');
         assert.ok(CLIENT_APP.includes('drainTickPVE('), 'App.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
         assert.ok(!CLIENT_APP.includes('drainStamina'), 'App.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
+    });
+    // DoT DR mitigation: the DR_DOT_SCALE value parity is covered in PAIRS
+    // above; this guards that PvE actually CONSUMES the dotMitigationPVE
+    // helper (App.tsx applies it where it ticks Wound/Poison/Drain). Without
+    // the helper, PvE applied DoTs raw and a heavy-armor build tanked DoTs
+    // harder in PvP than in PvE — the same balance gap the wound-cap and amp
+    // duration regression guards catch.
+    it('PvE consumes the DoT DR-mitigation helper (not raw ticks)', () => {
+        assert.match(CLIENT, /export function dotMitigationPVE/, 'dotMitigationPVE helper missing from combat-math.ts');
+        assert.ok(
+            CLIENT_APP.includes('dotMitigationPVE('),
+            'App.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity',
+        );
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
     // re-apply) must match the client's STACKABLE_STATUS_PVE, and App.tsx must

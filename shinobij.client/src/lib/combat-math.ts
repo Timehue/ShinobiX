@@ -126,6 +126,26 @@ export function drainTickPVE(masteryLevel: number): number {
     return Math.max(DRAIN_BASE_TICK_PVE, Math.min(DRAIN_MAX_TICK_PVE, DRAIN_BASE_TICK_PVE + masteryLevel * DRAIN_PER_LEVEL_PVE));
 }
 
+// DoT ticks (Wound / Poison / Drain) are partially mitigated by the defender's
+// own DR pool (armor + Decrease Damage Taken stacks), scaled by DR_DOT_SCALE_PVE
+// so DoTs can never be fully invulnerable. Mirrors api/pvp/move.ts DR_DOT_SCALE
+// (0.5) EXACTLY — without this helper, PvE applied DoT ticks UNMITIGATED while
+// the server PvP path scaled them down, so the same Wound/Poison/Drain stack
+// hit harder in PvE than in PvP. Use as:
+//   const mit = dotMitigationPVE(armorFactorToRawDr(defenderArmorFactor), defenderStatuses);
+//   const tickDamage = Math.floor(rawTick * mit);
+export const DR_DOT_SCALE_PVE = 0.5;
+export function dotMitigationPVE(armorRawDR: number, defenderStatuses: PvpStatusLike[] = []): number {
+    let statusDR = 0;
+    for (const s of defenderStatuses) {
+        if (s.name === "Decrease Damage Taken") statusDR += (s.percent ?? 0) / 100;
+    }
+    const rawTotal = Math.max(0, armorRawDR) + statusDR;
+    if (rawTotal <= 0) return 1;
+    const effDR = rawTotal / (rawTotal + K_DR_PVE);
+    return Math.max(0, 1 - effDR * DR_DOT_SCALE_PVE);
+}
+
 // Statuses that allow multiple coexisting instances. Mirrors api/pvp/move.ts
 // STACKABLE_STATUS EXACTLY. Everything NOT in this set (Stun, Bloodline/Elemental
 // Seal, the Prevents, and the DoTs Poison / Drain / Recoil) REPLACES a same-named
