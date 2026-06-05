@@ -29,6 +29,7 @@ import {
     calculateDamage,
     HEAL_FLAT_PVE,
     SHIELD_FLAT_PVE,
+    woundCapForRankPVE,
 } from "./lib/combat-math";
 import {
     auraSphereDustNeeded,
@@ -29880,7 +29881,10 @@ function Arena({
         postDamageTags.forEach((tag) => {
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, mastery.level);
             if (tag.name === "Wound" && !enemyDebuffPrevented) {
-                const wound = cappedPostDamage(finalDamage, pct);
+                // Rank-cap the wound % to match PvP (api/pvp/move.ts woundCapForJutsu):
+                // "Wound" isn't in cappedDamageTags, so effectiveTagPercent leaves pct
+                // uncapped — apply the rank cap (25/30/35) here, as PvP does.
+                const wound = cappedPostDamage(finalDamage, Math.min(pct, woundCapForRankPVE(jutsu.bloodlineRank)));
                 queueEnemyStatus({ name: "Wound", rounds: 2, amount: wound, kind: "negative" });
                 effectLines.push(`Wound: ${opponentName} bleeds for ${wound} damage on their turns${tagTimingText}.`);
             }
@@ -30304,7 +30308,8 @@ function Arena({
                 }
             }
             if (tag.name === "Wound") {
-                const dot = cappedPostDamage(damage, pct);
+                // Rank-cap the wound % to match PvP (api/pvp/move.ts woundCapForJutsu).
+                const dot = cappedPostDamage(damage, Math.min(pct, woundCapForRankPVE(jutsu.bloodlineRank)));
                 extraDamage += dot;
                 effectLines.push(`${character.name} takes ${dot} wound damage`);
             }
