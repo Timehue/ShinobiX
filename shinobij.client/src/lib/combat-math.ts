@@ -115,6 +115,37 @@ export function woundCapForRankPVE(bloodlineRank?: string | null): number {
 // their own explicit rounds and intentionally do NOT use this.)
 export const AMP_STATUS_ROUNDS_PVE = 4;
 
+// Drain per-tick = clamp(50 + attacker-mastery×5, 50, 300), draining HP + chakra
+// ONLY (never stamina). Mirrors api/pvp/move.ts DRAIN_BASE_TICK / DRAIN_PER_LEVEL
+// / DRAIN_MAX_TICK. PvE previously drained a flat 250 from HP + chakra + stamina,
+// ignoring attacker mastery — this aligns the jutsu Drain to PvP.
+export const DRAIN_BASE_TICK_PVE = 50;
+export const DRAIN_PER_LEVEL_PVE = 5;
+export const DRAIN_MAX_TICK_PVE = 300;
+export function drainTickPVE(masteryLevel: number): number {
+    return Math.max(DRAIN_BASE_TICK_PVE, Math.min(DRAIN_MAX_TICK_PVE, DRAIN_BASE_TICK_PVE + masteryLevel * DRAIN_PER_LEVEL_PVE));
+}
+
+// Statuses that allow multiple coexisting instances. Mirrors api/pvp/move.ts
+// STACKABLE_STATUS EXACTLY. Everything NOT in this set (Stun, Bloodline/Elemental
+// Seal, the Prevents, and the DoTs Poison / Drain / Recoil) REPLACES a same-named
+// instance on re-apply instead of piling up — see mergeCombatStatus.
+export const STACKABLE_STATUS_PVE: ReadonlySet<string> = new Set([
+    'Increase Damage Given', 'Increase Damage Taken', 'Ignition',
+    'Decrease Damage Given', 'Decrease Damage Taken',
+    'Wound', 'Lifesteal', 'Reflect', 'Absorb',
+]);
+
+// Apply a status to a PvE status list, mirroring api/pvp/move.ts addStatus:
+// stackable statuses append (coexist); every other status replaces a same-named
+// one. PvE previously always appended, so non-stackable statuses could stack
+// (e.g. two Stuns, or DoTs ticking multiple times). Status duration is applied at
+// the call sites (AMP_STATUS_ROUNDS_PVE etc.), not here.
+export function mergeCombatStatus<T extends { name: string }>(list: T[], status: T): T[] {
+    if (STACKABLE_STATUS_PVE.has(status.name)) return [...list, status];
+    return [...list.filter((x) => x.name !== status.name), status];
+}
+
 // Structural type used by the helpers below — CombatStatus is declared
 // locally inside the battle component (out of module scope here), so we
 // accept any object shape that exposes the fields these helpers read.
