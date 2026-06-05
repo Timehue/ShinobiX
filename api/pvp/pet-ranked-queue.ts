@@ -22,6 +22,11 @@ const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-
 // queue when only one polled; short TTL re-opens matchmaking if no fight starts.
 const MATCH_TTL_SECONDS = 30;
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;
+// Matchmaking level band — mirrors ranked-queue.ts. Widens linearly with the
+// caller's wait so a sparse pet-ladder level eventually matches anyone, but
+// the initial pairing prefers same-level opponents.
+const LEVEL_BAND_BASE = 10;
+const LEVEL_BAND_OPEN_INTERVAL_MS = 15_000;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -126,8 +131,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
                     }
 
-                    others.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
-                    const opponent = others[0];
+                    // Level band — mirrors ranked-queue.ts. Widens with the
+                    // caller's wait time, falls back to pure-Elo if nothing fits.
+                    const waitMs = Math.max(0, Date.now() - me.joinedAt);
+                    const band = LEVEL_BAND_BASE + Math.floor(waitMs / LEVEL_BAND_OPEN_INTERVAL_MS);
+                    const inBand = others.filter(e => Math.abs(e.level - me.level) <= band);
+                    const candidates = inBand.length > 0 ? inBand : others;
+                    candidates.sort((a, b) => Math.abs(a.elo - me.elo) - Math.abs(b.elo - me.elo));
+                    const opponent = candidates[0];
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
                     // Deterministic initiator (lexicographically smaller slug) so
                     // exactly ONE side sends the ranked challenge and the other
