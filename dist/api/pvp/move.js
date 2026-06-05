@@ -961,8 +961,13 @@ function endTurn(session) {
     const baseAp = stunStatus ? Math.max(0, 100 - 40) : 100;
     if (stunStatus) {
         const unstunned = { ...nextFighter, statuses: nextFighter.statuses.filter(st => st.name !== 'Stun') };
-        s = next === 'p1' ? { ...s, p1: unstunned } : { ...s, p2: unstunned };
-        lines.push(`${nextFighter.name} is stunned — starts turn with ${baseAp} AP.`);
+        // Append to s.log directly: `lines` was already merged into s.log above
+        // (via checkWinner) before this point, so a late lines.push() here was
+        // silently dropped — the stun message never reached the combat log.
+        const stunMsg = `${nextFighter.name} is stunned — starts turn with ${baseAp} AP.`;
+        s = next === 'p1'
+            ? { ...s, p1: unstunned, log: [...s.log, stunMsg] }
+            : { ...s, p2: unstunned, log: [...s.log, stunMsg] };
     }
     // Lag: next player's AP costs increase by percent
     // Overclock: next player's AP costs decrease by percent — stored on fighter, applied by canAct in handler
