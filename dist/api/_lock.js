@@ -11,7 +11,7 @@
  *       await kv.set('chat:village:foo', next);
  *   });
  *
- * The lock key is `lock:<target>` with a short TTL (default 2s) so a crashed
+ * The lock key is `lock:<target>` with a short TTL (default 5s) so a crashed
  * lambda can't deadlock the key forever. Acquire is attempted up to
  * `maxAttempts` times with exponential backoff (25ms → 50ms → 100ms → 200ms).
  *
@@ -59,7 +59,14 @@ function sleep(ms) {
  * the real KV store; tests exercise this directly with fake primitives.
  */
 async function withLockCore(target, fn, primitives, opts = {}) {
-    const ttlSec = opts.ttlSec ?? 2;
+    // Default 5s (raised from 2s): currency RMW critical sections route save:
+    // keys to the remote cPanel disk proxy over HTTP (several round-trips), which
+    // a 2s TTL could occasionally outlive — the lock would expire mid-operation,
+    // a second writer could slip in, and the slow holder would then delete the
+    // NEW holder's lock on release. 5s comfortably covers a normal op; a crashed
+    // holder still auto-releases (just 5s later), and failClosed waiters that
+    // can't acquire within the retry budget throw + retry rather than race.
+    const ttlSec = opts.ttlSec ?? 5;
     const maxAttempts = opts.maxAttempts ?? 5;
     const base = opts.baseBackoffMs ?? 25;
     const lockKey = `lock:${target}`;
