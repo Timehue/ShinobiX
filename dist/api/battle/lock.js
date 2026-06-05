@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 const LOCK_TTL_SECONDS = 6 * 60 * 60; // 6h self-heal
 const BATTLE_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
 const KIND_RE = /^[A-Za-z0-9:_-]{1,40}$/;
@@ -86,12 +87,39 @@ async function handler(req, res) {
         }
         if (action === 'resolve') {
             const battleId = String(body.battleId ?? '');
+            const outcome = String(body.outcome ?? '');
             const existing = await _storage_js_1.kv.get(key);
             // Only the matching battleId clears the lock. A mismatch is a stale
             // / replayed report → no-op success (don't clear someone else's
             // freshly-started fight).
             if (existing && existing.battleId === battleId) {
-                await _storage_js_1.kv.del(key).catch(() => undefined);
+                if (outcome === 'loss') {
+                    // Cleared-state defeat: the client returned to a locked fight
+                    // with NO recoverable resume state (localStorage was wiped),
+                    // so per design it counts as a loss. Apply the defeat
+                    // server-side under the save lock and delete the lock in the
+                    // SAME critical section, so the loss is atomic with the unlock
+                    // and can't be dodged by a fast double-refresh. (Normal in-
+                    // session wins/losses are still applied client-side and just
+                    // pass no outcome here — this branch is only the boot-time
+                    // cleared-state fallback.) A PvE defeat is simply hp:0 +
+                    // hospitalized; the hospital timer is client-side.
+                    await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                        const fresh = await _storage_js_1.kv.get(`save:${playerName}`);
+                        const freshChar = fresh?.character;
+                        if (freshChar) {
+                            const updated = {
+                                ...fresh,
+                                character: { ...freshChar, hp: 0, hospitalized: true },
+                            };
+                            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
+                        }
+                        await _storage_js_1.kv.del(key).catch(() => undefined);
+                    });
+                }
+                else {
+                    await _storage_js_1.kv.del(key).catch(() => undefined);
+                }
             }
             return res.status(200).json({ ok: true });
         }

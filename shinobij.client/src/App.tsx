@@ -4571,7 +4571,7 @@ export default function App() {
 
     useEffect(() => {
         // Helper: apply a full server/local snapshot to state
-        function applySnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
+        function applySnapshot(snap: ReturnType<typeof buildPlayerSavePayload>, bootLock?: ClientBattleLock | null) {
             // Seed prevCharRef so the auto-save interval treats this load as clean
             // (no local changes yet). Without this, a second logged-in device would
             // immediately auto-save the just-loaded snapshot, overwriting progress
@@ -4705,6 +4705,35 @@ export default function App() {
                     setScreen("petArena");
                     return;
                 }
+                // Server battle lock: an unresolved PvE fight cannot be fled by a
+                // refresh, even one that wiped localStorage.
+                if (bootLock && bootLock.screen) {
+                    let recentlyResolved = "";
+                    try { recentlyResolved = localStorage.getItem(BATTLE_LOCK_RESOLVED_KEY) ?? ""; } catch { /* ignore */ }
+                    if (recentlyResolved && recentlyResolved === bootLock.battleId) {
+                        // The fight already ended on this client; the server
+                        // resolve just didn't land (network). Retry the clear and
+                        // do NOT re-punish — fall through to normal restore routing.
+                        try { localStorage.removeItem(BATTLE_LOCK_RESOLVED_KEY); } catch { /* ignore */ }
+                        void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId });
+                    } else if (battleResumeStateExists(bootLock, normalized.name)) {
+                        // Resume state intact → drop back into the same fight; the
+                        // screen's persister rehydrates it at the same HP/turn.
+                        setScreen(bootLock.screen as Screen);
+                        return;
+                    } else {
+                        // Resume state is GONE (localStorage wiped) → counts as a
+                        // loss. Reflect the KO locally and have the server apply +
+                        // persist it atomically with clearing the lock, so it can't
+                        // be dodged by a fast double-refresh.
+                        setCharacter({ ...normalized, hp: 0, hospitalized: true });
+                        setHospitalEntryTime(Date.now());
+                        try { localStorage.removeItem(BATTLE_LOCK_ID_KEY); } catch { /* ignore */ }
+                        void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
+                        setScreen("hospital");
+                        return;
+                    }
+                }
                 try {
                     // A bookmarked/shared URL hash (#/village) takes precedence
                     // over the last-visited screen — but only for deep-linkable
@@ -4807,8 +4836,14 @@ export default function App() {
                 setRestoreFailed(true);
                 setRestoringSession(false);
             }, 12000);
-            pullSaveFromServer(localAccountName).then((snap) => {
-                if (snap) applySnapshot(snap);
+            // Pull the save AND the server battle-lock together so the restore
+            // routing can force re-entry into an unresolved PvE fight (a refresh
+            // must not let a player flee a battle). The lock fetch never rejects.
+            Promise.all([
+                pullSaveFromServer(localAccountName),
+                fetchBattleLockStatus(localAccountName),
+            ]).then(([snap, lock]) => {
+                if (snap) applySnapshot(snap, lock);
                 // Stored account but the pull failed (expired token / 4xx /
                 // network after retries) — surface the pre-filled login instead
                 // of silently sitting on the start screen.
@@ -31233,6 +31268,15 @@ function Arena({
 
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+            {/* Server battle-lock keeper — registers an un-skippable lock while a
+                non-PvP arena fight is live so a refresh can't flee it (PvP uses
+                its own server session). Headless, isolated hooks. */}
+            <BattleLockKeeper
+                active={battleStarted && !battleEnded && !(raidBattleKind === "raidPlayer" || rankedBattleActive)}
+                kind="arena"
+                screen="arena"
+                playerName={character.name}
+            />
             {/* Mid-battle state persistence — isolated in a child component
                 so Arena's hook count is unchanged. Renders nothing visible. */}
             <ArenaBattlePersister
@@ -32067,6 +32111,109 @@ type PvpMotionFx = {
     from: number;
     to: number;
 };
+
+// ── Battle lock (server-side refresh-flee guard) ─────────────────────────
+// A PvE fight registers a server-side lock (api/battle/lock.ts) on start and
+// clears it on end. On boot the app reads the lock and forces re-entry, so a
+// refresh — or a wiped localStorage — can't escape an unresolved fight. The
+// battle STATE still lives client-side (ArenaBattlePersister); the lock only
+// makes the fight un-skippable. Resume-only: nothing is paid or punished here,
+// except the deliberate cleared-localStorage case, which the boot path resolves
+// as a loss (see applySnapshot).
+const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
+// Set when a fight ENDS (alongside the resolve call) and cleared once boot
+// consumes it. It distinguishes "fight ended, but the network resolve didn't
+// land" (marker present → retry clear, never re-punish) from "localStorage was
+// wiped mid-fight" (marker gone → the cleared-state loss). Lives in the same
+// localStorage that a wipe destroys, which is exactly what makes the distinction
+// work — a winner whose resolve failed keeps the marker and is not penalized.
+const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
+
+type ClientBattleLock = { battleId: string; kind: string; screen: string; startedAt: number; meta?: Record<string, unknown> };
+
+function mintBattleId(): string {
+    try {
+        if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, "");
+    } catch { /* fall through to the non-crypto id */ }
+    return `${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Best-effort POST to the battle-lock endpoint. Never throws and never blocks
+// combat — a failed lock call just means the (already client-resolved) fight
+// isn't server-guarded that one time, which is strictly no worse than before.
+async function postBattleLock(body: Record<string, unknown>): Promise<{ ok?: boolean; lock?: ClientBattleLock | null; alreadyLocked?: boolean } | null> {
+    try {
+        const res = await fetch("/api/battle/lock", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) return null;
+        return await res.json();
+    } catch {
+        return null;
+    }
+}
+
+async function fetchBattleLockStatus(playerName: string): Promise<ClientBattleLock | null> {
+    const data = await postBattleLock({ action: "status", playerName });
+    return data?.lock ?? null;
+}
+
+// True when the client can actually resume the locked fight from local state.
+// "arena" is backed by ArenaBattlePersister (key below, with the same 1h TTL it
+// restores under). Other PvE kinds have no persister yet (Phase C rollout), so
+// they report false and fall to the boot cleared-state path. Only "arena" sets a
+// lock in this slice, so other kinds never reach here today.
+function battleResumeStateExists(lock: ClientBattleLock, playerName: string): boolean {
+    if (lock.kind === "arena") {
+        try {
+            const raw = localStorage.getItem(`arena.battle.v3.${playerName}`);
+            if (!raw) return false;
+            const saved = JSON.parse(raw) as { battleStarted?: boolean; savedAt?: number };
+            if (!saved?.battleStarted) return false;
+            return (Date.now() - (saved.savedAt ?? 0)) <= ARENA_SAVE_TTL_MS;
+        } catch { return false; }
+    }
+    return false;
+}
+
+// Headless child (mounts inside a battle screen) that registers/clears the
+// server battle lock as the fight starts and ends. Isolated like
+// ArenaBattlePersister so the parent's hook count is untouched. `active` is true
+// only while an unresolved, non-PvP fight is in progress (PvP has its own
+// server session). It adopts an existing battleId on resume (localStorage
+// intact) so the eventual resolve clears the right lock.
+function BattleLockKeeper({ active, kind, screen, playerName }: { active: boolean; kind: string; screen: Screen; playerName: string }) {
+    // Fires once per active-transition; lockedRef guards against the (mid-fight
+    // stable) kind/screen/playerName deps re-running the effect and double-firing.
+    const lockedRef = useRef(false);
+    useEffect(() => {
+        if (active && !lockedRef.current) {
+            lockedRef.current = true;
+            let battleId = "";
+            try { battleId = localStorage.getItem(BATTLE_LOCK_ID_KEY) ?? ""; } catch { /* ignore */ }
+            if (!battleId) {
+                battleId = mintBattleId();
+                try { localStorage.setItem(BATTLE_LOCK_ID_KEY, battleId); } catch { /* ignore */ }
+            }
+            void postBattleLock({ action: "start", playerName, battleId, kind, screen });
+        } else if (!active && lockedRef.current) {
+            lockedRef.current = false;
+            let battleId = "";
+            try {
+                battleId = localStorage.getItem(BATTLE_LOCK_ID_KEY) ?? "";
+                localStorage.removeItem(BATTLE_LOCK_ID_KEY);
+                // Mark the fight as ended locally so that if the network resolve
+                // below fails, a later boot retries the clear instead of treating
+                // the leftover lock as a cleared-state loss.
+                if (battleId) localStorage.setItem(BATTLE_LOCK_RESOLVED_KEY, battleId);
+            } catch { /* ignore */ }
+            if (battleId) void postBattleLock({ action: "resolve", playerName, battleId });
+        }
+    }, [active, kind, screen, playerName]);
+    return null;
+}
 
 // ── ArenaBattlePersister ─────────────────────────────────────────────────
 // Headless child component (renders nothing) that serializes a PvE Arena

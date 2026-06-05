@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { safeName, cors } from '../_utils.js';
+import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 
 /*
  * /api/battle/lock  — POST only, multiplexed by `action`
@@ -125,12 +126,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (action === 'resolve') {
             const battleId = String(body.battleId ?? '');
+            const outcome = String(body.outcome ?? '');
             const existing = await kv.get<BattleLock>(key);
             // Only the matching battleId clears the lock. A mismatch is a stale
             // / replayed report → no-op success (don't clear someone else's
             // freshly-started fight).
             if (existing && existing.battleId === battleId) {
-                await kv.del(key).catch(() => undefined);
+                if (outcome === 'loss') {
+                    // Cleared-state defeat: the client returned to a locked fight
+                    // with NO recoverable resume state (localStorage was wiped),
+                    // so per design it counts as a loss. Apply the defeat
+                    // server-side under the save lock and delete the lock in the
+                    // SAME critical section, so the loss is atomic with the unlock
+                    // and can't be dodged by a fast double-refresh. (Normal in-
+                    // session wins/losses are still applied client-side and just
+                    // pass no outcome here — this branch is only the boot-time
+                    // cleared-state fallback.) A PvE defeat is simply hp:0 +
+                    // hospitalized; the hospital timer is client-side.
+                    await withKvLock(`save:${playerName}`, async () => {
+                        const fresh = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                        const freshChar = fresh?.character as Record<string, unknown> | undefined;
+                        if (freshChar) {
+                            const updated = {
+                                ...fresh,
+                                character: { ...freshChar, hp: 0, hospitalized: true },
+                            };
+                            await kv.set(`save:${playerName}`, mergePreservingImages(updated, fresh));
+                        }
+                        await kv.del(key).catch(() => undefined);
+                    });
+                } else {
+                    await kv.del(key).catch(() => undefined);
+                }
             }
             return res.status(200).json({ ok: true });
         }
