@@ -841,7 +841,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         if (status === "confuse" && trait === "Lucky") return target;        // immune
         if (rounds <= 0) return target;
         switch (status) {
-            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: Math.min(target.attackBuff, -2) };
+            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: target.attackBuff - 2 };
             case "freeze":  return { ...target, freezeRounds: Math.max(target.freezeRounds, rounds) };
             case "confuse": return { ...target, confuseRounds: Math.max(target.confuseRounds, rounds) };
             case "stun":    return { ...target, stunRounds: Math.max(target.stunRounds, rounds) };
@@ -1115,8 +1115,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             return [procActor, procTarget];
         }
 
-        // Finisher mode: close the gap aggressively when target is near death
-        if (isFinisher && dist > 2) {
+        // Finisher mode: close the gap aggressively when target is near death.
+        // A movement-locked (rooted) pet cannot advance even to finish a low-HP
+        // foe — fall through to the scored decision (which has its own movelock
+        // handling) instead of silently breaking the root via doMove().
+        if (isFinisher && dist > 2 && actor.moveLocked <= 0) {
             return doMove("lunges in for the kill!");
         }
 
@@ -2031,7 +2034,7 @@ export function runPetArenaParty(
         if (status === "confuse" && trait === "Lucky") return target;
         if (rounds <= 0) return target;
         switch (status) {
-            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: Math.min(target.attackBuff, -2) };
+            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: target.attackBuff - 2 };
             case "freeze":  return { ...target, freezeRounds: Math.max(target.freezeRounds, rounds) };
             case "confuse": return { ...target, confuseRounds: Math.max(target.confuseRounds, rounds) };
             case "stun":    return { ...target, stunRounds: Math.max(target.stunRounds, rounds) };
@@ -2401,7 +2404,13 @@ export function runPetArenaParty(
                 const after = fighters[targetSlot]!;
                 const actualDmg = Math.max(0, preHp - after.hp);
                 const steal = Math.max(1, Math.floor(actualDmg * 0.40));
-                fighters[actorSlot] = { ...cdActor, hp: Math.min(cdActor.pet.hp, cdActor.hp + steal) };
+                // Heal from the POST-hit attacker: applyDmg may have written
+                // thorns/reflect damage (or a KO) into fighters[actorSlot].
+                // Rebuilding from the pre-hit cdActor snapshot erased that and
+                // could even revive a thorns-killed attacker. (1v1 path heals
+                // from returnedActor — the post-hit actor — and is correct.)
+                const lsActor = fighters[actorSlot]!;
+                fighters[actorSlot] = { ...lsActor, hp: Math.min(lsActor.pet.hp, lsActor.hp + steal) };
                 return;
             }
             // ── Phase 12 archetype kinds (2v2) ─────────────────────────

@@ -258,11 +258,17 @@ app.get(['/health', '/api/health'], async (req, res) => {
 // set-nx/hset/hdel/del, plus the disk-routed `save:` overlay), so an operator
 // can tell a DB outage apart from a code bug. Reachable at /health/db or
 // /health?deep=1. Never cached. Returns 503 (not 200) when any check fails.
-async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string, boolean>; latencyMs: number; error?: string }> {
+async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string, boolean>; latencyMs: number; saveStore?: string; error?: string }> {
     const checks: Record<string, boolean> = {};
     const t0 = Date.now();
+    // Which backend `save:*` resolves to. 'base-store' on a host that serves
+    // /api/save/* means the disk overlay is misconfigured and saves are being
+    // read/written against the wrong (empty) store — see REQUIRE_DISK_OVERLAY
+    // in api/_storage.ts. Surfacing it here lets an operator catch that instantly.
+    let saveStore: string | undefined;
     try {
-        const { kv } = await import('./api/_storage.js');
+        const { kv, saveStoreKind } = await import('./api/_storage.js');
+        saveStore = saveStoreKind;
         const tag = `${process.pid}-${Date.now()}`;
         const token = Math.random().toString(36).slice(2);
 
@@ -296,9 +302,9 @@ async function runDbHealthProbe(): Promise<{ ok: boolean; checks: Record<string,
         await kv.del(diskKey).catch(() => undefined);
 
         const ok = Object.values(checks).every(Boolean);
-        return { ok, checks, latencyMs: Date.now() - t0 };
+        return { ok, checks, latencyMs: Date.now() - t0, saveStore };
     } catch (err) {
-        return { ok: false, checks, latencyMs: Date.now() - t0, error: (err as Error).message };
+        return { ok: false, checks, latencyMs: Date.now() - t0, saveStore, error: (err as Error).message };
     }
 }
 
@@ -548,10 +554,31 @@ route('/admin/moderation', moderationHandler);
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
 const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.client', 'dist');
 
-app.use(express.static(staticDir));
+// Cache-Control for static assets. Cloudflare (the edge cache in front of
+// Railway) only caches what the origin marks cacheable, so without these
+// headers edge caching is a near no-op. Two rules:
+//   • Content-hashed bundle files (e.g. index-a1b2c3d4.js) are immutable — a
+//     content change yields a new filename — so cache them for a year. This is
+//     what lets the heavy JS/CSS/img bytes serve from the edge instead of the
+//     Railway origin (the only metered-egress tier).
+//   • index.html must NEVER be cached: it's the chunk map. A stale index.html
+//     pins old hashed <script> URLs that 404 after a deploy — the exact cause
+//     of the post-deploy white screen (also guarded now by the ErrorBoundary).
+const _HASHED_ASSET_RE = /\.[0-9a-f]{8,}\.(?:js|css|woff2?|png|jpe?g|webp|gif|svg|avif|mp3|ogg|wav)$/i;
+app.use(express.static(staticDir, {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        } else if (_HASHED_ASSET_RE.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    },
+}));
 
 // SPA fallback — any non-API path serves index.html so React Router handles it.
+// no-cache so a deploy never serves a stale chunk map (matches express.static above).
 app.get(/(.*)/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(join(staticDir, 'index.html'));
 });
 

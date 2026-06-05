@@ -73,7 +73,7 @@ export function JutsuDropdownList({
                                 type="button"
                             >
                                 <span className="technique-thumb">
-                                    {image ? <img src={image} alt={jutsu.name} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
+                                    {image ? <img src={image} alt={jutsu.name} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
                                 </span>
                                 <span className="technique-name">{jutsu.name}</span>
                                 <span className="technique-cost">{jutsu.ap}</span>

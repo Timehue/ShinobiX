@@ -326,6 +326,7 @@ export function Inventory({
                                         <img
                                             src={equipped.image}
                                             alt={equipped.name}
+                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
                                             style={{
                                                 width: "100%",
                                                 height: "100%",
@@ -436,6 +437,7 @@ export function Inventory({
                                                     <img
                                                         src={item.image}
                                                         alt={item.name}
+                                                        onError={(e) => { e.currentTarget.style.display = "none"; }}
                                                         style={{
                                                             width: "100%",
                                                             height: "100%",
@@ -515,7 +517,7 @@ export function Inventory({
                                         >
                                             <div className="tile-card-inventory-art">
                                                 {card?.image ? (
-                                                    <img src={card.image} alt={card.name} />
+                                                    <img src={card.image} alt={card.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                                 ) : (
                                                     <span>🃏</span>
                                                 )}
@@ -576,7 +578,7 @@ export function Inventory({
                         <div className="item-popup-top">
                             <div className="item-popup-art-box">
                                 {selectedGameItem?.image ? (
-                                    <img src={selectedGameItem.image} alt={selectedGameItem.name} />
+                                    <img src={selectedGameItem.image} alt={selectedGameItem.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                 ) : (
                                     <span>{itemInitials(selectedGameItem?.name ?? selected.entry)}</span>
                                 )}

@@ -131,6 +131,7 @@ create or replace function public.kv_set_nx(
 )
 returns boolean
 language plpgsql
+set search_path = ''
 as $$
 begin
     -- Treat an expired row as non-existent so a new lock can be acquired.
@@ -149,6 +150,41 @@ exception
 end;
 $$;
 
+-- ── kv_incr — atomic fixed-window counter (rate limiter) ─────────────────────
+-- Atomically increment a numeric counter and return the new value. Replaces the
+-- rate limiter's previous non-atomic get-then-set, which let concurrent requests
+-- in the same window all read the same count and all pass the limit check. The
+-- key embeds the window index, so expires_at is set once (on the first hit of a
+-- window) and the row self-cleans; kv_delete_expired() / pg_cron purges it.
+
+create or replace function public.kv_incr(
+    p_key        text,
+    p_expires_at timestamptz default null
+)
+returns bigint
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_new bigint;
+begin
+    -- An expired row starts a fresh window.
+    delete from public.kv_store
+    where key = p_key
+      and expires_at is not null
+      and expires_at <= now();
+
+    insert into public.kv_store (key, value, expires_at, updated_at)
+    values (p_key, to_jsonb(1::bigint), p_expires_at, now())
+    on conflict (key) do update
+        set value      = to_jsonb(coalesce(nullif(kv_store.value, 'null'::jsonb)::text::bigint, 0) + 1),
+            updated_at = now()
+    returning value::text::bigint into v_new;
+
+    return v_new;
+end;
+$$;
+
 -- ── kv_hset — atomic hash-set (merge JSON fields) ────────────────────────────
 -- Equivalent to Redis HSET: inserts the hash or merges new fields into it.
 -- Uses Postgres || operator to merge JSONB objects in a single statement.
@@ -159,6 +195,7 @@ create or replace function public.kv_hset(
 )
 returns void
 language sql
+set search_path = ''
 as $$
     insert into public.kv_store (key, value, updated_at)
     values (p_key, p_fields, now())
@@ -176,6 +213,7 @@ create or replace function public.kv_hdel(
 )
 returns void
 language plpgsql
+set search_path = ''
 as $$
 declare
     v_current jsonb;
@@ -209,6 +247,7 @@ $$;
 create or replace function public.kv_delete_expired()
 returns integer
 language plpgsql
+set search_path = ''
 as $$
 declare
     deleted_count integer;
@@ -222,11 +261,17 @@ begin
 end;
 $$;
 
--- ── Optional: scheduled cleanup via pg_cron ───────────────────────────────────
--- Uncomment if pg_cron is enabled in your Supabase project (Database → Extensions).
---
--- select cron.schedule(
---     'kv-cleanup',
---     '*/5 * * * *',            -- every 5 minutes
---     $$ select public.kv_delete_expired(); $$
--- );
+-- ── Scheduled cleanup via pg_cron ─────────────────────────────────────────────
+-- ENABLED. Without this, expired rows are only evicted lazily on read, so the
+-- table accumulates dead rows indefinitely — the live DB hit 20k+ expired rows
+-- (≈99% `ratelimit:` churn) for ~2.5 MB of live data in a 56 MB table. Every 2
+-- minutes keeps the high-churn rate-limit windows bounded. Idempotent: re-running
+-- cron.schedule with the same job name updates the existing schedule.
+
+create extension if not exists pg_cron;
+
+select cron.schedule(
+    'kv-cleanup',
+    '*/2 * * * *',            -- every 2 minutes
+    $$ select public.kv_delete_expired(); $$
+);
