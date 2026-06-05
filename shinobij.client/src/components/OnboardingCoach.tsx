@@ -15,6 +15,7 @@
  */
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character, Screen } from "../App";
 
 const MENU_TOUR: { icon: string; name: string; blurb: string }[] = [
@@ -79,6 +80,9 @@ export function OnboardingCoach({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, character.jutsuMastery]);
+
+    // The "tour" beat is a full-screen modal; lock background scroll while it's up.
+    useBodyScrollLock(step === "tour");
 
     if (!step || step === "done") return null;
 
