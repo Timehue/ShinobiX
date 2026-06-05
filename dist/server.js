@@ -60,6 +60,7 @@ const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
 const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
+const lock_js_1 = __importDefault(require("./api/battle/lock.js"));
 const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.js"));
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
 const claim_daily_agenda_js_1 = __importDefault(require("./api/village/claim-daily-agenda.js"));
@@ -406,6 +407,10 @@ route('/admin/migrate-kv', migrate_kv_js_1.default);
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).
 route('/missions/raid-start', raid_start_js_1.default);
+// Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
+// refresh can't escape a battle; resume-only, pays/punishes nothing (see
+// api/battle/lock.ts).
+route('/battle/lock', lock_js_1.default);
 // Missions — pet expedition token mint (single-use, time-gated; redeemed by
 // report-pet-event so expedition rewards require a real, fully-elapsed run).
 route('/missions/expedition-start', expedition_start_js_1.default);
