@@ -33,6 +33,18 @@ function num(src: string, name: string): number {
     return Number(m[1]);
 }
 
+// Extract the single-quoted names from a `new Set([...])` literal that follows
+// the given const name. Used to compare the server/client stackable-status sets.
+function stackableSet(src: string, constName: string): string[] {
+    const i = src.indexOf(constName);
+    assert.ok(i >= 0, `${constName} not found`);
+    const open = src.indexOf('new Set([', i);
+    assert.ok(open >= 0, `${constName} is not a new Set([...])`);
+    const close = src.indexOf('])', open);
+    assert.ok(close >= 0, `${constName} set literal not closed`);
+    return [...src.slice(open, close).matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+}
+
 function woundCaps(src: string): Record<string, number> {
     const i = src.indexOf('WOUND_CAP_BY_RANK');
     assert.ok(i >= 0, 'WOUND_CAP_BY_RANK not found');
@@ -54,6 +66,9 @@ const PAIRS: Array<[string, string]> = [
     ['HEAL_FLAT', 'HEAL_FLAT_PVE'],
     ['SHIELD_FLAT', 'SHIELD_FLAT_PVE'],
     ['WOUND_HARD_CAP_PCT', 'WOUND_HARD_CAP_PCT_PVE'],
+    ['DRAIN_BASE_TICK', 'DRAIN_BASE_TICK_PVE'],
+    ['DRAIN_PER_LEVEL', 'DRAIN_PER_LEVEL_PVE'],
+    ['DRAIN_MAX_TICK', 'DRAIN_MAX_TICK_PVE'],
 ];
 
 describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
@@ -91,6 +106,30 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.ok(
             CLIENT_APP.includes('AMP_STATUS_ROUNDS_PVE'),
             'App.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals',
+        );
+    });
+    // #3 Drain: PvE consumes drainTickPVE (mastery-scaled, HP+chakra only). The
+    // DRAIN_* value parity is covered by the PAIRS loop above; this guards that the
+    // PvE path actually uses the helper (not the old flat-250 literal) and no longer
+    // drains stamina.
+    it('PvE consumes the mastery-scaled drain helper and drops stamina drain', () => {
+        assert.match(CLIENT, /export function drainTickPVE/, 'drainTickPVE helper missing from combat-math.ts');
+        assert.ok(CLIENT_APP.includes('drainTickPVE('), 'App.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
+        assert.ok(!CLIENT_APP.includes('drainStamina'), 'App.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
+    });
+    // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
+    // re-apply) must match the client's STACKABLE_STATUS_PVE, and App.tsx must
+    // route status application through mergeCombatStatus (else non-stackable
+    // statuses — Stun/Seals/Prevents/DoTs — pile up again).
+    it('STACKABLE_STATUS set matches and PvE routes through mergeCombatStatus', () => {
+        assert.deepEqual(
+            stackableSet(SERVER, 'STACKABLE_STATUS'),
+            stackableSet(CLIENT, 'STACKABLE_STATUS_PVE'),
+            'stackable-status set diverged between server and client',
+        );
+        assert.ok(
+            CLIENT_APP.includes('mergeCombatStatus('),
+            'App.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again',
         );
     });
 });
