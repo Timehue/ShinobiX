@@ -523,6 +523,13 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
         if (tag.name === 'Pull') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); if (bloodlineTagsResolveNextRound(jutsu)) { o = addJutsuStatus(o, jutsu, { name: 'Pull', rounds: 1, amount: dist, kind: 'negative' }, round); lines.push(`Pull: ${o.name} will be pulled ${dist} tile(s) next round.`); } else { let nextPos = o.pos; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o)); if (!toward.length) break; nextPos = toward[0]!; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`); } } continue; }
         if (tag.name === 'Bloodline Seal' || tag.name === 'Seal') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
         if (tag.name === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: tag.name, rounds: 1, kind: 'negative' }, round); lines.push(`${tag.name}: ${o.name}'s elemental jutsu are sealed.`); } continue; }
+        // Recoil is a flat-percent debuff that must apply regardless of THIS
+        // jutsu's damage — a zero-damage 40-AP utility jutsu carrying Recoil
+        // still seeds it (matches the client/PvE, which applies it
+        // unconditionally). The self-damage from HAVING Recoil is resolved in
+        // the damage block below (gated on finalDmg, which is correct). Uses the
+        // raw tag percent (un-scaled), exactly as the previous in-damage path did.
+        if (tag.name === 'Recoil') { if (!hasStatus(o, 'Debuff Prevent', round)) { const rPct = (tag.percent ?? 0) || 30; o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: rPct, kind: 'negative' }, round); lines.push(`Recoil: ${o.name} will suffer ${rPct}% recoil on their attacks for 2 turns.`); } continue; }
     }
 
     if (pierce) {
@@ -590,7 +597,9 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
                 o = addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round);
                 lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
-            if (tag.name === 'Recoil') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: pct || 30, kind: 'negative' }, round); lines.push(`Recoil: ${o.name} will suffer ${pct || 30}% recoil on their attacks for 2 turns.`); } continue; }
+            // Recoil debuff application moved to the main tag loop above so it
+            // applies even on zero-damage utility jutsu. (Self-recoil damage is
+            // still resolved below, gated on finalDmg.)
             if (normalizeTagName(tag.name) === 'Siphon') { const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); }
         }
 
