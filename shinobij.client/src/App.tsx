@@ -31,6 +31,8 @@ import {
     SHIELD_FLAT_PVE,
     woundCapForRankPVE,
     AMP_STATUS_ROUNDS_PVE,
+    drainTickPVE,
+    mergeCombatStatus,
 } from "./lib/combat-math";
 import {
     auraSphereDustNeeded,
@@ -29170,7 +29172,7 @@ function Arena({
             effectLines.push(`Wound: ${opponentName} takes ${effectVal} damage per round for 2 rounds.`);
         }
         if (item.weaponEffect === "Poison") {
-            setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }));
             effectLines.push(`Poison: ${opponentName} is poisoned — takes ${effectVal}% chakra as damage per round for 2 rounds.`);
         }
 
@@ -29199,13 +29201,13 @@ function Arena({
                     setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]);
                     effectLines.push(`Wound ${p}%`);
                 } else if (wt.name === "Poison") {
-                    setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }]);
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Poison ${p}%`);
                 } else if (tagMatchesName(wt.name, "Ignition")) {
                     setEnemyStatuses((s) => [...s, { name: "Ignition", rounds: 2, percent: p, kind: "negative" }]);
                     effectLines.push(`Ignition ${p}%`);
                 } else if (wt.name === "Drain") {
-                    setEnemyStatuses((s) => [...s, { name: "Drain", rounds: 2, percent: p, kind: "negative" }]);
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Drain", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Drain ${p}%`);
                 } else if (wt.name === "Increase Damage Given") {
                     setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
@@ -29218,7 +29220,7 @@ function Arena({
                 } else if (wt.name === "Damage") {
                     effectLines.push(`+${p}% Damage`);
                 } else if (wt.name === "Recoil") {
-                    setEnemyStatuses((s) => [...s, { name: "Recoil", rounds: 2, percent: p, kind: "negative" }]);
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Recoil", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Recoil ${p}%`);
                 }
             }
@@ -29617,8 +29619,8 @@ function Arena({
         const postDamageTags: JutsuTag[] = [];
         const currentPlayerStatuses = activeStatuses(playerStatuses);
         const currentEnemyStatuses = activeStatuses(enemyStatuses);
-        const queuePlayerStatus = (status: CombatStatus) => setPlayerStatuses((s) => [...s, statusForJutsu(jutsu, status)]);
-        const queueEnemyStatus = (status: CombatStatus) => setEnemyStatuses((s) => [...s, statusForJutsu(jutsu, status)]);
+        const queuePlayerStatus = (status: CombatStatus) => setPlayerStatuses((s) => mergeCombatStatus(s, statusForJutsu(jutsu, status)));
+        const queueEnemyStatus = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, statusForJutsu(jutsu, status)));
         const tagTimingText = bloodlineTagsResolveNextRound(jutsu) ? " starting next round" : "";
         const activeDamageTakenTags = currentEnemyStatuses.filter((s) => s.name === "Increase Damage Taken");
         const activeDamageGivenDebuffs = currentPlayerStatuses.filter((s) => s.name === "Decrease Damage Given");
@@ -29740,7 +29742,7 @@ function Arena({
                 const mirrored = currentPlayerStatuses.filter((s) => s.kind === "negative" && s.name !== "Wound" && !statusMatchesName(s, "Ignition"));
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists mirrored debuffs`);
                 else if (mirrored.length) {
-                    setEnemyStatuses((s) => [...s, ...mirrored.map((m) => statusForJutsu(jutsu, { ...m, rounds: Math.min(2, m.rounds) }))]);
+                    setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, statusForJutsu(jutsu, { ...m, rounds: Math.min(2, m.rounds) })), s));
                     effectLines.push(`mirrored ${mirrored.length} negative effect(s) to ${opponentName}`);
                 } else effectLines.push("no negative effects to mirror");
             }
@@ -29749,7 +29751,7 @@ function Arena({
                 const copied = currentEnemyStatuses.filter((s) => s.kind === "positive");
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s copy was prevented`);
                 else if (copied.length) {
-                    setPlayerStatuses((s) => [...s, ...copied.map((c) => statusForJutsu(jutsu, { ...c, rounds: Math.min(2, c.rounds) }))]);
+                    setPlayerStatuses((s) => copied.reduce((acc, c) => mergeCombatStatus(acc, statusForJutsu(jutsu, { ...c, rounds: Math.min(2, c.rounds) })), s));
                     effectLines.push(`copied ${copied.length} positive effect(s)`);
                 } else effectLines.push("no positive effects to copy");
             }
@@ -29779,9 +29781,9 @@ function Arena({
             if (tag.name === "Poison") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists poison`);
                 else {
-                    const poisonDmgRaw = Math.floor(enemyMaxChakra * (pct / 100));
-                    const poisonCap = Math.floor((scaled.chakraCost + scaled.staminaCost) * 0.5);
-                    const poisonDmg = Math.min(poisonDmgRaw, poisonCap);
+                    // Match PvP (api/pvp/move.ts): poison ticks floor(maxChakra × pct/100),
+                    // UNCAPPED. PvE previously clamped this to ½·(chakra+stamina cost).
+                    const poisonDmg = Math.floor(enemyMaxChakra * (pct / 100));
                     queueEnemyStatus({ name: "Poison", rounds: 2, percent: pct, kind: "negative", amount: poisonDmg });
                     effectLines.push(`${opponentName} is poisoned — takes ${poisonDmg} damage/round for 2 rounds${tagTimingText}`);
                 }
@@ -29790,8 +29792,11 @@ function Arena({
             if (tag.name === "Drain") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists drain`);
                 else {
-                    queueEnemyStatus({ name: "Drain", rounds: 2, amount: 250, kind: "negative" });
-                    effectLines.push(`${opponentName} is drained — loses 250 HP, chakra, and stamina/round for 2 rounds${tagTimingText}`);
+                    // Match PvP (api/pvp/move.ts): mastery-scaled 50–300 per tick,
+                    // draining HP + chakra only (was a flat 250 incl. stamina).
+                    const drainAmt = drainTickPVE(mastery.level);
+                    queueEnemyStatus({ name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" });
+                    effectLines.push(`${opponentName} is drained — loses ${drainAmt} HP and chakra/round for 2 rounds${tagTimingText}`);
                 }
             }
 
@@ -30016,7 +30021,7 @@ function Arena({
         let dot = 0;
         for (const s of playerStatuses) {
             if (s.name === "Wound")  dot += s.amount || 0;
-            if (s.name === "Drain")  dot += 250;
+            if (s.name === "Drain")  dot += s.amount ?? 250;
             if (s.name === "Poison") dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
         }
         return dot;
@@ -30286,8 +30291,8 @@ function Arena({
             !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
                 ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 }
                 : status;
-        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => [...s, deferEnemyStatus(status)]);
-        const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => [...s, deferEnemyStatus(status)]);
+        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
+        const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
 
         jutsu.tags.forEach((tag) => {
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, 50);
@@ -30362,7 +30367,7 @@ function Arena({
                 const copied = playerStatuses.filter((s) => s.kind === "positive");
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s copy was prevented`);
                 else if (copied.length) {
-                    setEnemyStatuses((s) => [...s, ...copied.map((status) => deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) }))]);
+                    setEnemyStatuses((s) => copied.reduce((acc, status) => mergeCombatStatus(acc, deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) })), s));
                     effectLines.push(`${opponentName} copies ${copied.length} positive effect(s)`);
                 } else effectLines.push("no positive effects to copy");
             }
@@ -30370,7 +30375,7 @@ function Arena({
                 const mirrored = enemyStatuses.filter((s) => s.kind === "negative" && s.name !== "Wound" && !statusMatchesName(s, "Ignition"));
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents mirrored debuffs`);
                 else if (mirrored.length) {
-                    setPlayerStatuses((s) => [...s, ...mirrored.map((status) => deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) }))]);
+                    setPlayerStatuses((s) => mirrored.reduce((acc, status) => mergeCombatStatus(acc, deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) })), s));
                     effectLines.push(`${opponentName} mirrors ${mirrored.length} negative effect(s)`);
                 } else effectLines.push("no negative effects to mirror");
             }
@@ -30505,13 +30510,15 @@ function Arena({
 
         let dotDamage = 0;
         let drainChakra = 0;
-        let drainStamina = 0;
         enemyStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
             if (s.name === "Wound") dotDamage += s.amount || 0;
             if (s.name === "Drain") {
-                dotDamage += 250;
-                drainChakra += 250;
-                drainStamina += 250;
+                // Match PvP: Drain hits HP + chakra only (never stamina). Jutsu drain
+                // carries a mastery-scaled `amount`; weapon-proc drain (no amount)
+                // keeps its prior 250 magnitude via the fallback.
+                const amt = s.amount ?? 250;
+                dotDamage += amt;
+                drainChakra += amt;
             }
             if (s.name === "Poison") dotDamage += s.amount ?? Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
         });
@@ -30519,8 +30526,7 @@ function Arena({
         if (dotDamage > 0) {
             setEnemyHp((hp) => Math.max(0, hp - dotDamage));
             if (drainChakra > 0) setEnemyChakra((c) => Math.max(0, c - drainChakra));
-            if (drainStamina > 0) setEnemyStamina((st) => Math.max(0, st - drainStamina));
-            const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra and ${drainStamina} stamina.` : "";
+            const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra.` : "";
             addCombatLog(`Damage over time: ${opponentName} takes ${dotDamage} damage from active effects.${drainNote}`, "effects", opponentName);
         }
 
