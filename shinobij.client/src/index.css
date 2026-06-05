@@ -10394,7 +10394,11 @@ textarea {
 .item-popup-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 99999;
+    /* Above the fixed side rails (right-menu 999999, left-profile 10000) —
+       required now that the popup is portaled to <body> (Shop/Inventory) and
+       competes with them in the root stacking context. Just below the GameAlert
+       (1000001) so an alert can still cover the popup. */
+    z-index: 1000000;
     display: grid;
     place-items: center;
     padding: 24px;
@@ -15860,10 +15864,10 @@ button.combat-jutsu-button,
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     /* Above every fixed side rail (right-menu 999999, left-profile 10000,
-       sector-banner 9999) so the alert captures the screen instead of rendering
-       beneath lit, clickable sidebars. GameAlertHost also portals to <body> so
-       it escapes the .app-shell stacking context. */
-    z-index: 1000000;
+       sector-banner 9999) AND above the portaled item popup (1000000) so an
+       alert fired over an open Shop/Inventory popup still covers it. GameAlertHost
+       also portals to <body> so it escapes the .app-shell stacking context. */
+    z-index: 1000001;
     overflow-y: auto;
     display: flex;
     align-items: center;

@@ -407,3 +407,8 @@ scripts/badge-sources/
 # Battle-VFX source frames (CodeManu "Free VFX Asset Pack") — re-extract on a dev
 # machine if re-slicing; sliced output in shinobij.client/src/assets/fx/ is committed
 scripts/vfx-sources/
+
+# Playwright QA artifacts (screenshots, snapshots) generated during live testing
+.playwright-mcp/
+qa-*.jpeg
+qa-*.png
