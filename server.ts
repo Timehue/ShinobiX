@@ -37,6 +37,7 @@ import rosterHandler     from './api/player/roster.js';
 import pvpSessionHandler from './api/pvp/session.js';
 import pvpMoveHandler    from './api/pvp/move.js';
 import imagesHandler     from './api/images.js';
+import imgHandler        from './api/img.js';
 import playerAuthHandler from './api/player-auth.js';
 import adminAuthHandler  from './api/admin-auth.js';
 import adminPlayersHandler from './api/admin/players.js';
@@ -401,6 +402,11 @@ route('/pvp/move',    pvpMoveHandler);
 
 // Images
 route('/images', imagesHandler);
+// Phase 2: per-image binary serving (one file per image). Cold load no longer
+// pulls the whole base64 bucket — the client fetches only the current screen's
+// images, each CDN/browser-cached. ADD '/api/img' to the Cloudflare cache rule
+// before the client switches to it (see api/img.ts).
+route('/img', imgHandler);
 
 // Auth
 route('/player-auth', playerAuthHandler);

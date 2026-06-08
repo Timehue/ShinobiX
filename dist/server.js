@@ -38,6 +38,7 @@ const roster_js_1 = __importDefault(require("./api/player/roster.js"));
 const session_js_1 = __importDefault(require("./api/pvp/session.js"));
 const move_js_1 = __importDefault(require("./api/pvp/move.js"));
 const images_js_1 = __importDefault(require("./api/images.js"));
+const img_js_1 = __importDefault(require("./api/img.js"));
 const player_auth_js_1 = __importDefault(require("./api/player-auth.js"));
 const admin_auth_js_1 = __importDefault(require("./api/admin-auth.js"));
 const players_js_1 = __importDefault(require("./api/admin/players.js"));
@@ -371,6 +372,11 @@ route('/pvp/session', session_js_1.default);
 route('/pvp/move', move_js_1.default);
 // Images
 route('/images', images_js_1.default);
+// Phase 2: per-image binary serving (one file per image). Cold load no longer
+// pulls the whole base64 bucket — the client fetches only the current screen's
+// images, each CDN/browser-cached. ADD '/api/img' to the Cloudflare cache rule
+// before the client switches to it (see api/img.ts).
+route('/img', img_js_1.default);
 // Auth
 route('/player-auth', player_auth_js_1.default);
 route('/admin-auth', admin_auth_js_1.default);
