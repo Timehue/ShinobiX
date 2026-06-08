@@ -19,7 +19,7 @@
 
 /* Preserve the original pet-yard background image, just darken it slightly */
 .pet-yard-screen {
-    background: url('/pet-yard.png') center/cover no-repeat !important;
+    background: url('/pet-yard.webp') center/cover no-repeat !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
