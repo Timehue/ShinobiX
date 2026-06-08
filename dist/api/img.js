@@ -24,6 +24,12 @@ const images_js_1 = require("./images.js");
 // e.g. shared:img:jutsu:fireball.
 const perImageKey = (id) => `shared:img:${id}`;
 exports.perImageKey = perImageKey;
+// Per-process guard: bulk-migrate each category's legacy blob into per-image
+// keys at most once per instance, so a burst of first-views can't re-fire the
+// whole write set. Convergence is still guaranteed because each served image
+// also populates its own key (see the fallback below), so even if the bulk pass
+// is skipped or partially fails, every served image self-heals individually.
+const _bulkMigratedCats = new Set();
 // Legacy stores (read-only fallback during migration).
 const legacyHashKey = (cat) => `shared:imgfields:${cat}`;
 const legacyBlobKey = (cat) => `shared:images:${cat}`;
@@ -61,16 +67,29 @@ async function handler(req, res) {
         // 1. Fast path: the per-image key (one small read).
         let raw = await withTimeout(_storage_js_1.kv.get((0, exports.perImageKey)(id)));
         // 2. Fallback: the legacy per-category hash/blob (pre-migration). On a
-        //    hit, lazily copy into a per-image key so subsequent reads are cheap.
-        //    Best-effort — never block the response on the migration write.
+        //    hit, lazily copy into per-image keys so subsequent reads are cheap.
+        //    Best-effort + async — never block the response on a migration write.
         if (!raw) {
             const [hash, blob] = await Promise.all([
                 withTimeout(_storage_js_1.kv.hgetall(legacyHashKey(cat))),
                 withTimeout(_storage_js_1.kv.get(legacyBlobKey(cat))),
             ]);
             raw = (hash && hash[id]) || (blob && blob[id]) || null;
-            if (raw)
+            if (raw) {
+                // Always migrate the served image (guarantees it converges).
                 void _storage_js_1.kv.set((0, exports.perImageKey)(id), raw).catch(() => undefined);
+                // Once per process per category, migrate the WHOLE blob so the
+                // next request for ANY other image in this category hits the cheap
+                // per-image path — turning ~one full-blob read per image into ~one
+                // per category. Fire-and-forget; failures self-heal per-image.
+                if (!_bulkMigratedCats.has(cat)) {
+                    _bulkMigratedCats.add(cat);
+                    const merged = { ...(blob ?? {}), ...(hash ?? {}) };
+                    void Promise.allSettled(Object.entries(merged)
+                        .filter(([k, v]) => k !== id && typeof v === 'string' && v.length > 0)
+                        .map(([k, v]) => _storage_js_1.kv.set((0, exports.perImageKey)(k), v)));
+                }
+            }
         }
         if (!raw) {
             // Not found. Non-cacheable so a transient miss isn't pinned at the edge.
