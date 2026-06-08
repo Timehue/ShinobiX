@@ -14,7 +14,7 @@
  */
 
 import { memo, useEffect, useState } from "react";
-import rightMenuBg from "../assets/rightmenu.png";
+import rightMenuBg from "../assets/rightmenu.webp";
 import { villageBiomes } from "../data/village-biomes";
 import type { Screen, Biome } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
