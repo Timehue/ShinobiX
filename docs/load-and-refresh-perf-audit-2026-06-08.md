@@ -24,7 +24,7 @@ restore *fast*, not *correct*).
 | 1.2 | Stop clearing image cache on snapshot | ❌ **dropped** — superseded by Phase 2 (which removes the re-download problem at the root) |
 | 1.4 | Cloudflare Brotli/zstd for static JS/CSS | ⏸ **dashboard toggle** (not code) |
 | 2 (server) | Image-as-files: per-image serving endpoint + dual-write + lazy migration | ✅ **SHIPPED** (additive, backward-compatible) |
-| 2 (client) | Flip client from base64 buckets → `/api/img?id=…` URLs | ⏳ **next — needs browser verification**, rolled out category-by-category |
+| 2 (client) | Flip client from base64 buckets → `/api/img?id=…` URLs | 🔄 **in progress** — `event` flipped (awaiting verify); `card`/`jutsu`/`item` next; avatars/pets last |
 | 3 | Sector PNG → WebP/AVIF; lazy-load AdminPanel/WorldMap/Arena out of the 1.8 MB chunk | 🔭 **future** |
 
 ### Phase 2 implementation notes (image-as-files)

@@ -5599,12 +5599,26 @@ export default function App() {
         } catch { /* private browsing — ignore */ }
     }
 
+    // Phase 2 (image-as-files): categories served via per-image `/api/img` URLs
+    // instead of one giant base64 bucket. For these, loadCategory fetches only the
+    // lightweight id MANIFEST (`?ids=1`) and hydrates sharedImages with `/api/img`
+    // URLs — the browser then fetches each image individually (CDN/browser-cached)
+    // only when a screen shows it, and the multi-MB base64 blob is NEVER pulled.
+    // Roll out one category at a time, verifying each in-browser. To REVERT a
+    // category, remove it from this set (it falls back to the base64 path below).
+    // Avatars/pets stay base64 for now — they need the combat render-guards that
+    // check startsWith("data:image") widened first (see the audit doc).
+    const URL_MODE_CATEGORIES = new Set<string>(['event']);
+
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
+        const urlMode = URL_MODE_CATEGORIES.has(cat);
         // Do NOT mark loaded yet — only mark after a successful fetch so that
         // transient failures (Supabase cold start, timeout) allow retry.
 
-        // 1. Try sessionStorage first — avoids a KV round-trip on page refresh
+        // 1. Try sessionStorage first — avoids a KV round-trip on page refresh.
+        //    (For url-mode this caches the tiny {id: url} map, not base64, so it
+        //    never hits the quota that the old base64 buckets did.)
         try {
             const raw = sessionStorage.getItem(imgCacheKey(cat));
             if (raw) {
@@ -5622,11 +5636,27 @@ export default function App() {
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
-                const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
-                if (!r.ok) continue;
-                const data = await r.json() as unknown;
-                if (!data || typeof data !== 'object') continue;
-                const entries = data as Record<string, string>;
+
+                let entries: Record<string, string>;
+                if (urlMode) {
+                    // Manifest mode: fetch just the id list and map each to a
+                    // per-image URL. The actual bytes load lazily via <img src>.
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1`);
+                    if (!r.ok) continue;
+                    const ids = await r.json() as unknown;
+                    if (!Array.isArray(ids)) continue;
+                    entries = {};
+                    for (const id of ids) {
+                        if (typeof id === 'string') entries[id] = `/api/img?id=${encodeURIComponent(id)}`;
+                    }
+                } else {
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
+                    if (!r.ok) continue;
+                    const data = await r.json() as unknown;
+                    if (!data || typeof data !== 'object') continue;
+                    entries = data as Record<string, string>;
+                }
+
                 // Only cache and mark done if we actually got images back.
                 // An empty {} from a Supabase timeout would poison the cache.
                 if (Object.keys(entries).length > 0) {
