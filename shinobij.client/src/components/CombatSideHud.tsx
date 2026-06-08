@@ -55,7 +55,7 @@ export function CombatSideHud({
             </div>
 
             <div className="combat-avatar">
-                {avatar.startsWith("data:image") || avatar.startsWith("blob:") ? (
+                {avatar.startsWith("data:image") || avatar.startsWith("blob:") || avatar.startsWith("/api/img") ? (
                     <img src={avatar} alt={name} />
                 ) : (
                     avatar
