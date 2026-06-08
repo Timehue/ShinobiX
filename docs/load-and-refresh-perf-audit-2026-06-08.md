@@ -26,7 +26,8 @@ restore *fast*, not *correct*).
 | 2 (server) | Image-as-files: per-image serving endpoint + dual-write + lazy migration | ✅ **SHIPPED** (additive, backward-compatible) |
 | 2 (client) | Flip client from base64 buckets → `/api/img?id=…` URLs | ✅ **COMPLETE — 10/10** flipped. Full ~33MB base64 cold-load tax eliminated. publishSharedImage skips re-publishing `/api/img` values. |
 | 2 (guards) | Widen combat avatar render-guards to accept `/api/img` | ✅ **SHIPPED** (no-op until avatar/ai flip; ai now live) |
-| 3 | Sector PNG → WebP/AVIF; lazy-load AdminPanel/WorldMap/Arena out of the 1.8 MB chunk | 🔭 **future** |
+| 3 (WebP) | All background art (public arenas/scenes + bundled sectors/maps/UI) → WebP | ✅ **COMPLETE** — ~63MB source PNG → ~5MB (~92%). Reusable `scripts/to-webp.mjs` for new art; optimizer skips `.webp`. Dungeon pixel-tilesets kept PNG. |
+| 3 (bundle) | Lazy-load AdminPanel/WorldMap/Arena out of the 1.8 MB JS chunk; trim 470 KB CSS | ⏸ **deferred** — blocked by the App.tsx monolith's closure coupling; belongs to the incremental App.tsx-drain refactor, not a blind split |
 
 ### Phase 2 implementation notes (image-as-files)
 The store kept **one JSON blob per category** (`shared:imgfields:<cat>`), so a single
