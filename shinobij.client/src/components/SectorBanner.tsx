@@ -4,7 +4,7 @@
  */
 
 import { memo } from "react";
-import sectorBanner from "../assets/sectorbanner.png";
+import sectorBanner from "../assets/sectorbanner.webp";
 
 // Static — never needs to re-render after first mount. memo'd so parent
 // state churn doesn't even diff the unchanged props.
