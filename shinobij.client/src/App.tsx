@@ -6,6 +6,7 @@ import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
+import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
 import { useBoardScale } from "./lib/use-board-scale";
 import {
@@ -3071,6 +3072,13 @@ export default function App() {
     });
     const [restoringSession, setRestoringSession] = useState<boolean>(() => Boolean(bootAccountName));
     const [restoreFailed, setRestoreFailed] = useState(false);
+    // Phase 1.3 (see docs/load-and-refresh-perf-audit-2026-06-08.md): true while
+    // a refresh has optimistically painted the cached HUB screen and is
+    // reconciling against the server in the background. A blocking overlay sits
+    // on top until reconcile completes, so the paint is visually instant but
+    // behaviourally identical to the old "Restoring…" gate. Only ever set for
+    // hub-screen refreshes — battle/encounter refreshes never trigger it.
+    const [optimisticRestore, setOptimisticRestore] = useState(false);
     useEffect(() => {
         const onExpired = () => {
             if (!characterRef.current) return; // not logged in → start screen already handles it
@@ -3119,6 +3127,16 @@ export default function App() {
             if (window.location.hash !== want) window.history.replaceState(null, "", want);
         } catch { /* sandboxed / SSR */ }
     }, [screen]);
+    // ── Phase 0 load/refresh telemetry ──────────────────────────────────
+    // Stamp boot milestones for the perf beacon (see
+    // docs/load-and-refresh-perf-audit-2026-06-08.md). All three calls are
+    // best-effort no-ops if the Performance API is unavailable, and never throw.
+    // bootKind is set first (before notifyScreen) so a refresh isn't misread as
+    // a cold-start. notifyRestoreComplete only fires for an actual restore
+    // (a previously-logged-in account was on disk).
+    useEffect(() => { perfSetBootKind(bootAccountName ? "refresh" : "cold-start"); }, []);
+    useEffect(() => { perfNotifyScreen(screen); }, [screen]);
+    useEffect(() => { if (bootAccountName && !restoringSession) perfNotifyRestoreComplete(); }, [restoringSession]);
     // ── PvP session persistence ─────────────────────────────────────────
     // PvP keys are declared / used here, but the useEffect that consumes
     // pvpBattleId is registered AFTER the pvp state hooks are declared
@@ -4906,11 +4924,65 @@ export default function App() {
             // server) the persisted password is restored as the credential.
             setActivePlayer(localAccountName, persistedPw ?? undefined);
 
+            // ── Phase 1.3: optimistic instant-paint for HUB refreshes ──────────
+            // If the URL hash says the player was on a deep-linkable HUB screen
+            // (village / shop / profile / …) and we have a valid local save
+            // preview, paint that screen immediately from cache while the
+            // authoritative server pull + battle-lock fetch run below. A blocking
+            // overlay (see optimisticRestore in the render) prevents interaction
+            // until applySnapshot reconciles, so this is visually instant but
+            // behaviourally identical to the old "Restoring…" gate.
+            //
+            // SAFETY: gated on the hash being a HUB screen. Battle/encounter
+            // screens (arena, petArena, dungeon, …) are NOT deep-linkable, so
+            // their hash never matches here — those refreshes fall through
+            // UNCHANGED to the gate + applySnapshot(snap, lock) battle
+            // re-entry/loss path. A hub refresh also can't coincide with a server
+            // battle lock (you can't be mid-fight on a hub), and the reconcile
+            // (applySnapshot) stays fully authoritative and overrides this paint,
+            // so a rare stale lock still routes correctly once it lands. The hub
+            // set is a subset of applySnapshot's DEEP_LINKABLE so the reconcile
+            // always agrees on the same target via the hash branch; if they ever
+            // diverge the worst case is a cosmetic re-route under the overlay,
+            // never a broken screen or a battle escape.
+            let didOptimisticPaint = false;
+            try {
+                const hubHash = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
+                const OPTIMISTIC_HUB_SCREENS = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                if (OPTIMISTIC_HUB_SCREENS.has(hubHash)) {
+                    const preview = readSavePreview(localAccountName);
+                    if (preview && preview.character) {
+                        applyServerSnapshot(preview as ReturnType<typeof buildPlayerSavePayload>);
+                        // applyServerSnapshot routes a "start" screen to village;
+                        // override to the exact hub the player was on so the
+                        // hash/lastScreen writers stay no-ops and the reconcile
+                        // lands on the same screen (no jump).
+                        setScreen(hubHash as Screen);
+                        setOptimisticRestore(true);
+                        didOptimisticPaint = true;
+                    }
+                }
+            } catch { /* stale/incompatible cache — fall through to the gate below */ }
+
+            // Revert a (possibly optimistic) paint back to the login form on a
+            // failed restore, so the failure path looks EXACTLY like pre-1.3
+            // (login form, no half-applied character left in state). For the
+            // non-optimistic case this is just setRestoreFailed(true), unchanged.
+            const revertRestoreToLogin = () => {
+                setRestoreFailed(true);
+                if (didOptimisticPaint) {
+                    setScreen("start");
+                    setCharacter(null);
+                    setCurrentAccountName("");
+                    setOptimisticRestore(false);
+                }
+            };
+
             // Safety backstop: pullSaveFromServer has no request timeout, so a
             // connection that hangs with no response would pin the "restoring"
             // gate forever. After 12s, drop to the login fallback.
             const restoreTimer = window.setTimeout(() => {
-                setRestoreFailed(true);
+                revertRestoreToLogin();
                 setRestoringSession(false);
             }, 12000);
             // Pull the save AND the server battle-lock together so the restore
@@ -4923,8 +4995,9 @@ export default function App() {
                 if (snap) applySnapshot(snap, lock);
                 // Stored account but the pull failed (expired token / 4xx /
                 // network after retries) — surface the pre-filled login instead
-                // of silently sitting on the start screen.
-                else setRestoreFailed(true);
+                // of silently sitting on the start screen (or on a stale
+                // optimistic paint).
+                else revertRestoreToLogin();
             }).finally(() => {
                 window.clearTimeout(restoreTimer);
                 setRestoringSession(false);
@@ -5570,10 +5643,24 @@ export default function App() {
         // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
     }
 
-    // Load ALL image categories at startup — ensures images from publishSharedImage
-    // are always available regardless of which screen the player visits first.
-
-    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark'); }, []);
+    // Preload ALL image categories so they're warm regardless of which screen
+    // the player visits first. GATED so the ~30MB of base64 buckets are NOT
+    // pulled on an anonymous cold landing: every pre-login surface
+    // (StartScreen, CharacterCreator, the public leaderboard, AdminLogin) renders
+    // NO sharedImages, so nothing visible depends on these before the player is
+    // entering the game. We preload as soon as EITHER a character exists (logged
+    // in / created / admin — admin login sets a character) OR a session restore
+    // is in flight (a logged-in refresh, in-game momentarily). Because
+    // restoringSession is already true at mount on a logged-in refresh, those
+    // players get the EXACT same eager-preload timing as before — only true cold
+    // landings (which never render these images) are spared the download. The
+    // per-screen loader below, plus the login / restore / admin reload paths,
+    // independently guarantee a screen never lacks an image it would otherwise
+    // show, so this gate can only DELAY the anonymous case, never drop a load.
+    useEffect(() => {
+        if (!character?.name && !restoringSession) return;
+        void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark');
+    }, [character?.name, restoringSession]);
 
     // ── Avatar cache-fill for live players ────────────────────────────────
     // The presence heartbeat no longer ships avatar data URLs (they were the
@@ -8488,6 +8575,30 @@ export default function App() {
                             </p>
                         </div>
                         <p className="start-hint">Reconnecting to your save — this only takes a moment.</p>
+                    </div>
+                )}
+                {/* Phase 1.3: while an optimistic hub paint reconciles with the
+                    server, the cached screen is rendered underneath but a
+                    transparent overlay blocks all interaction — preserving the
+                    old gate's "no actions until the save loads" invariant (so a
+                    rare stale battle lock can't be acted around). Lifts the
+                    instant restoringSession flips false (reconcile / timeout). */}
+                {optimisticRestore && restoringSession && (
+                    <div
+                        className="restore-reconcile-overlay"
+                        aria-busy="true"
+                        aria-label="Syncing your save"
+                        onPointerDownCapture={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        style={{
+                            position: "fixed", inset: 0, zIndex: 99999,
+                            background: "rgba(8,12,24,0.18)",
+                            display: "flex", alignItems: "flex-end", justifyContent: "center",
+                            pointerEvents: "auto", cursor: "progress",
+                        }}
+                    >
+                        <div style={{ marginBottom: "1.5rem", padding: "0.4rem 0.9rem", borderRadius: "999px", background: "rgba(15,23,42,0.85)", color: "#cbd5e1", fontSize: "0.8rem", border: "1px solid rgba(148,163,184,0.25)" }}>
+                            Syncing…
+                        </div>
                     </div>
                 )}
                 {screen === "start" && !restoringSession && (

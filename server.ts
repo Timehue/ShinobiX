@@ -51,6 +51,7 @@ import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import worldStateHandler   from './api/world-state.js';
 import messagesHandler     from './api/messages.js';
+import perfBeaconHandler   from './api/perf-beacon.js';
 import kageHandler         from './api/village/kage.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
@@ -428,6 +429,10 @@ route('/generate-image', generateImageHandler);
 route('/game-state',  gameStateHandler);
 route('/world-state', worldStateHandler);
 route('/messages',    messagesHandler);
+
+// Phase 0 load/refresh telemetry — anonymous, zero-storage beacon sink. Logs a
+// single `[perf]` line per page load to stdout (see api/perf-beacon.ts).
+route('/perf-beacon', perfBeaconHandler);
 
 // Village
 route('/village/kage', kageHandler);
