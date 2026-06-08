@@ -5606,10 +5606,11 @@ export default function App() {
     // only when a screen shows it, and the multi-MB base64 blob is NEVER pulled.
     // Roll out one category at a time, verifying each in-browser. To REVERT a
     // category, remove it from this set (it falls back to the base64 path below).
-    // event/card/item verified; jutsu next (combat-critical, verify focused).
-    // Avatars/pets stay base64 for now — they need the combat render-guards that
-    // check startsWith("data:image") widened first (see the audit doc).
-    const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item']);
+    // event/card/item/jutsu flipped. Still base64: avatar, ai, pet (they flow
+    // through the combat avatar render-guards that check startsWith("data:image")
+    // — those must be widened to accept "/api/img" URLs first); bloodline/shrine/
+    // landmark are small and can follow. See the audit doc.
+    const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu']);
 
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
