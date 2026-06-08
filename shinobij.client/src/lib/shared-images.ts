@@ -51,6 +51,13 @@ function categoryFromImageKey(id: string): string {
 
 export async function publishSharedImage(id: string, img: string): Promise<boolean> {
     if (!id) return false;
+    // Phase 2 (image-as-files): a "/api/img" value is the per-image REFERENCE URL
+    // the client now hydrates into image fields — not image content. Some flows
+    // (e.g. bloodline / event re-save) pass a field value straight back here; for
+    // a hydrated URL that's a no-op (the image is already stored), and POSTing the
+    // URL as content would just earn a 400. Treat it as an already-published
+    // success and skip the round-trip.
+    if (img && img.startsWith('/api/img')) return true;
     try {
         const res = await fetch('/api/images', {
             method: 'POST',
