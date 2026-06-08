@@ -320,6 +320,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // image in the same category. Eliminates the race condition.
             await kv.hset(catHashKey(cat), { [id]: image });
 
+            // Phase 2 (image-as-files): also write the per-image key so
+            // GET /api/img can serve it directly and the client can lazy-load it
+            // instead of the bulk base64 blob. Dual-write keeps the legacy bulk
+            // GET /api/images working throughout the migration. Best-effort — a
+            // failure here must not fail the upload (the hash write above is
+            // authoritative; /api/img falls back to it and self-heals on read).
+            await kv.set(`shared:img:${id}`, image).catch(() => undefined);
+
             return res.status(200).end();
         } catch (err) {
             console.error('[images]', err);
@@ -355,6 +363,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const cat = categoryFromId(id);
             await kv.hdel(catHashKey(cat), id);
+            // Phase 2: also drop the per-image key so /api/img stops serving it.
+            await kv.del(`shared:img:${id}`).catch(() => undefined);
             // Also clear the legacy per-cat blob field in case the image
             // lived there (pre-hash-migration uploads).
             const blob = await kv.get<Record<string, string>>(catKey(cat));

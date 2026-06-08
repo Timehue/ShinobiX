@@ -21,10 +21,37 @@ restore *fast*, not *correct*).
 | 0 | Measurement harness (`/api/perf-beacon` + `lib/perfTelemetry.ts`) | ✅ **SHIPPED** |
 | 1.1 | Gate pre-login image preload behind login | ✅ **SHIPPED** |
 | 1.3 | Instant hub refresh (hash-gated optimistic paint + overlay) | ✅ **SHIPPED — awaiting live smoke-test** |
-| 1.2 | Stop clearing image cache on snapshot | ⏸ **needs decision** (≤10-min staleness for admin-published image updates) |
+| 1.2 | Stop clearing image cache on snapshot | ❌ **dropped** — superseded by Phase 2 (which removes the re-download problem at the root) |
 | 1.4 | Cloudflare Brotli/zstd for static JS/CSS | ⏸ **dashboard toggle** (not code) |
-| 2 | Image-as-files architecture (manifest of URLs, not base64) | 🔭 **future project** (needs storage-target decision) |
+| 2 (server) | Image-as-files: per-image serving endpoint + dual-write + lazy migration | ✅ **SHIPPED** (additive, backward-compatible) |
+| 2 (client) | Flip client from base64 buckets → `/api/img?id=…` URLs | ⏳ **next — needs browser verification**, rolled out category-by-category |
 | 3 | Sector PNG → WebP/AVIF; lazy-load AdminPanel/WorldMap/Arena out of the 1.8 MB chunk | 🔭 **future** |
+
+### Phase 2 implementation notes (image-as-files)
+The store kept **one JSON blob per category** (`shared:imgfields:<cat>`), so a single
+image couldn't be read cheaply. Approved approach: **one KV key per image**
+(`shared:img:<cat>:<id>`) — the cPanel disk KV writes each `shared:*` key as its
+own file, so this is "files on cPanel disk" using the existing disk-routing /
+kv-proxy infra (no new filesystem path or serving stack).
+
+Shipped (server, all additive / backward-compatible — zero client impact):
+- **`GET /api/img?id=<cat>:<id>`** (`api/img.ts`) — reads the per-image key, decodes
+  the base64, serves a real cacheable binary image (`max-age=300, swr=86400`).
+  Falls back to the legacy per-category blob/hash and **lazily migrates** the value
+  into a per-image key on first read, so it works before/during/after migration.
+- **Dual-write** in `api/images.ts` POST/DELETE — new uploads write both the legacy
+  hash *and* the per-image key; deletes clear both. The bulk `GET /api/images`
+  keeps working throughout.
+
+Remaining (client flip — the verifiable part):
+1. **Prerequisite:** add `/api/img` to the Cloudflare cache rule (so each image
+   edge-caches; otherwise every image hits Railway origin). One dashboard line.
+2. Switch the client to render `<img src="/api/img?id=cat:id">` instead of hydrating
+   base64, **one category at a time**: `event` → `card` → `jutsu` → `item` (pure
+   `<img>` consumers, lowest risk), then `avatar`/`ai`/`bloodline`/`pet` last (the
+   ~7 combat avatar render-guards that check `startsWith("data:image")` must be
+   widened to accept the URL form first). Verify each category in-browser before
+   the next. Each flipped category stops downloading its base64 bucket on load.
 
 Verification at ship: client `tsc -b` 0 errors · ESLint 0 errors · tests **484/484**
 · `verify:dist` OK. No new npm deps (cPanel auto-deploy safe).
