@@ -6780,7 +6780,7 @@ body {
     position: relative;
     width: 100%;
     min-height: 820px;
-    background-image: linear-gradient(180deg, rgba(2, 6, 23, 0.05), rgba(2, 6, 23, 0.25)), url("./assets/sectors/stormveil-village.png");
+    background-image: linear-gradient(180deg, rgba(2, 6, 23, 0.05), rgba(2, 6, 23, 0.25)), url("./assets/sectors/stormveil-village.webp");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -7336,7 +7336,7 @@ body {
 .hero-banner {
     width: 100%;
     height: 200px;
-    background-image: url("./assets/shinobi-banner.png");
+    background-image: url("./assets/shinobi-banner.webp");
     background-size: contain; /* shows full image */
     background-repeat: no-repeat;
     background-position: center;
@@ -7680,7 +7680,7 @@ body {
         position: fixed;
         inset: 0;
         z-index: -2;
-        background: linear-gradient(rgba(3, 7, 18, 0.55), rgba(3, 7, 18, 0.75)), url("./assets/background-image.png") center center / cover no-repeat;
+        background: linear-gradient(rgba(3, 7, 18, 0.55), rgba(3, 7, 18, 0.75)), url("./assets/background-image.webp") center center / cover no-repeat;
     }
 
     /* Optional dark mist/glow layer so text stays readable */
@@ -7798,7 +7798,7 @@ textarea {
 
 /* Layer the fixed profile stats over the sector banner art instead of covering it. */
 .left-profile-card {
-    background: linear-gradient(180deg, rgba(3, 7, 18, 0.04), rgba(3, 7, 18, 0.16) 42%, rgba(3, 7, 18, 0.28)), url("./assets/sectorbanner.png") center / 100% 100% no-repeat !important;
+    background: linear-gradient(180deg, rgba(3, 7, 18, 0.04), rgba(3, 7, 18, 0.16) 42%, rgba(3, 7, 18, 0.28)), url("./assets/sectorbanner.webp") center / 100% 100% no-repeat !important;
     border-right: 0 !important;
     box-shadow: none !important;
     overflow: hidden !important;

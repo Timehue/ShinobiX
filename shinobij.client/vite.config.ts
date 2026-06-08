@@ -165,8 +165,11 @@ export default defineConfig({
     plugins: [
         plugin(),
         ViteImageOptimizer({
-            // Skip SVGs — favicon/icons are already tiny and svgo isn't installed
-            exclude: /\.svg$/i,
+            // Skip SVGs (already tiny, svgo isn't installed) and WebP. The
+            // background art is pre-converted to WebP q80 via scripts/to-webp.mjs;
+            // re-encoding it here (the webp setting below is q70) would be a
+            // needless second lossy pass. New WebP added by that script is final.
+            exclude: /\.(svg|webp)$/i,
             // Compress PNGs — background images drop from ~2.5–3.5 MB to
             // ~250–600 KB. Quality dropped from 78 → 70: at 70 the visual
             // difference on decorative game art is imperceptible, but
