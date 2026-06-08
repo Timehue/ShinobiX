@@ -24,7 +24,7 @@ restore *fast*, not *correct*).
 | 1.2 | Stop clearing image cache on snapshot | ❌ **dropped** — superseded by Phase 2 (which removes the re-download problem at the root) |
 | 1.4 | Cloudflare Brotli/zstd for static JS/CSS | ⏸ **dashboard toggle** (not code) |
 | 2 (server) | Image-as-files: per-image serving endpoint + dual-write + lazy migration | ✅ **SHIPPED** (additive, backward-compatible) |
-| 2 (client) | Flip client from base64 buckets → `/api/img?id=…` URLs | 🔄 **7/10 flipped** — event/card/item/jutsu/ai/shrine/landmark live (~30MB). Held: avatar/pet/bloodline (need save-stripper + publish-guard pass; avatar identity-critical → verify) |
+| 2 (client) | Flip client from base64 buckets → `/api/img?id=…` URLs | ✅ **COMPLETE — 10/10** flipped. Full ~33MB base64 cold-load tax eliminated. publishSharedImage skips re-publishing `/api/img` values. |
 | 2 (guards) | Widen combat avatar render-guards to accept `/api/img` | ✅ **SHIPPED** (no-op until avatar/ai flip; ai now live) |
 | 3 | Sector PNG → WebP/AVIF; lazy-load AdminPanel/WorldMap/Arena out of the 1.8 MB chunk | 🔭 **future** |
 
