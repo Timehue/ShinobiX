@@ -24389,7 +24389,7 @@ function playerNameTile(name: string): number {
 }
 
 function sectorBackgroundImage(sector: number) {
-    if (sector === 99) return "/deathgate-sector.png";
+    if (sector === 99) return "/deathgate-sector.webp";
 
     const village = villageForOutskirtsSector(sector);
     if (village) return villagePageImage(village);
