@@ -172,23 +172,23 @@ import {
 // every fetch('/api/...') call automatically picks up x-player-name and
 // x-player-password from the active session (managed via setActivePlayer).
 installAuthFetch();
-import worldMapBg from "./assets/Maps/world_map.png";
-import castleImg from "./assets/castle.png";
-import houseImg from "./assets/house1.png";
-import towerImg from "./assets/tower.png";
-import moonshadowImage from "./assets/moonshadow.png";
-import iceSectorImg from "./assets/sectors/ice.png";
-import darkSectorImg from "./assets/sectors/dark.png";
-import templeSectorImg from "./assets/sectors/temple.png";
-import waterSectorImg from "./assets/sectors/water.png";
-import forrestSectorImg from "./assets/sectors/forrest.png";
-import meadow2SectorImg from "./assets/sectors/meadow2.png";
-import meadowSectorImg from "./assets/sectors/meadow.png";
-import stormveilVillageImg from "./assets/sectors/stormveil-village.png";
-import shinobiBanner from './assets/shinobi-banner.png'
+import worldMapBg from "./assets/Maps/world_map.webp";
+import castleImg from "./assets/castle.webp";
+import houseImg from "./assets/house1.webp";
+import towerImg from "./assets/tower.webp";
+import moonshadowImage from "./assets/moonshadow.webp";
+import iceSectorImg from "./assets/sectors/ice.webp";
+import darkSectorImg from "./assets/sectors/dark.webp";
+import templeSectorImg from "./assets/sectors/temple.webp";
+import waterSectorImg from "./assets/sectors/water.webp";
+import forrestSectorImg from "./assets/sectors/forrest.webp";
+import meadow2SectorImg from "./assets/sectors/meadow2.webp";
+import meadowSectorImg from "./assets/sectors/meadow.webp";
+import stormveilVillageImg from "./assets/sectors/stormveil-village.webp";
+import shinobiBanner from './assets/shinobi-banner.webp'
 // rightMenuBg + sectorBanner asset imports moved into ./components/RightMenu
 // and ./components/SectorBanner alongside the components that use them.
-import backgroundImage from "./assets/background-image.png";
+import backgroundImage from "./assets/background-image.webp";
 import { CombatSideHud } from "./components/CombatSideHud";
 // Route-based code-splitting: heavy/rarely-used screens load on demand so
 // they stay out of the initial JS bundle. The eager imports below are kept
