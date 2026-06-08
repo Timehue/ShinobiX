@@ -31892,7 +31892,7 @@ function Arena({
                                     <>
                                         {character.avatarImage && orbForPos(playerPos, false, character.avatarImage, character.name)}
                                         {summonedPet && petOrbForPos(playerPos, summonedPet)}
-                                        {(opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:")) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
+                                        {(opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:") || opponentAvatar.startsWith("/api/img")) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
                                     </>
                                 );
                             })()}
@@ -31973,7 +31973,7 @@ function Arena({
                                         >
                                             {isBarrierTile ? "🛡"
                                                 : i === playerPos ? (character.avatarImage ? "" : "🥷")
-                                                : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:")) ? "" : opponentAvatar)
+                                                : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:") || opponentAvatar.startsWith("/api/img")) ? "" : opponentAvatar)
                                                     : ""}
                                         </button>
                                     );
@@ -33798,8 +33798,8 @@ function PvpBattleScreen({
                                     };
                                     return (
                                         <>
-                                            {(myAvatar.startsWith("data:image") || myAvatar.startsWith("blob:")) && orbForPos(myPos, false, myAvatar, me.name)}
-                                            {(oppAvatar.startsWith("data:image") || oppAvatar.startsWith("blob:")) && orbForPos(oppPos, true, oppAvatar, opp.name)}
+                                            {(myAvatar.startsWith("data:image") || myAvatar.startsWith("blob:") || myAvatar.startsWith("/api/img")) && orbForPos(myPos, false, myAvatar, me.name)}
+                                            {(oppAvatar.startsWith("data:image") || oppAvatar.startsWith("blob:") || oppAvatar.startsWith("/api/img")) && orbForPos(oppPos, true, oppAvatar, opp.name)}
                                         </>
                                     );
                                 })()}
@@ -33871,8 +33871,8 @@ function PvpBattleScreen({
                                                 onMouseLeave={() => setHoveredPvpTile(null)}
                                                 onClick={() => handleTileClick(i)}
                                             >
-                                                {isMyTile && !myAvatar.startsWith("data:") && !myAvatar.startsWith("blob:") ? "🥷"
-                                                    : isOppTile && !oppAvatar.startsWith("data:") && !oppAvatar.startsWith("blob:") ? "EN"
+                                                {isMyTile && !myAvatar.startsWith("data:") && !myAvatar.startsWith("blob:") && !myAvatar.startsWith("/api/img") ? "🥷"
+                                                    : isOppTile && !oppAvatar.startsWith("data:") && !oppAvatar.startsWith("blob:") && !oppAvatar.startsWith("/api/img") ? "EN"
                                                     : ""}
                                             </button>
                                         );
