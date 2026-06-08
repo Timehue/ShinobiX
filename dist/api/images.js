@@ -315,6 +315,13 @@ async function handler(req, res) {
             // Atomic HSET — sets exactly this one field without touching any other
             // image in the same category. Eliminates the race condition.
             await _storage_js_1.kv.hset(catHashKey(cat), { [id]: image });
+            // Phase 2 (image-as-files): also write the per-image key so
+            // GET /api/img can serve it directly and the client can lazy-load it
+            // instead of the bulk base64 blob. Dual-write keeps the legacy bulk
+            // GET /api/images working throughout the migration. Best-effort — a
+            // failure here must not fail the upload (the hash write above is
+            // authoritative; /api/img falls back to it and self-heals on read).
+            await _storage_js_1.kv.set(`shared:img:${id}`, image).catch(() => undefined);
             return res.status(200).end();
         }
         catch (err) {
@@ -354,6 +361,8 @@ async function handler(req, res) {
                 return res.status(reject.status).json({ error: reject.error });
             const cat = categoryFromId(id);
             await _storage_js_1.kv.hdel(catHashKey(cat), id);
+            // Phase 2: also drop the per-image key so /api/img stops serving it.
+            await _storage_js_1.kv.del(`shared:img:${id}`).catch(() => undefined);
             // Also clear the legacy per-cat blob field in case the image
             // lived there (pre-hash-migration uploads).
             const blob = await _storage_js_1.kv.get(catKey(cat));
