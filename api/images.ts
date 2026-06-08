@@ -242,11 +242,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ]);
 
                 // Merge: legacy misc < old blob < new hash (newest always wins)
-                return res.status(200).json({
+                const merged = {
                     ...(legacyLeader ?? {}),
                     ...(catImages ?? {}),
                     ...(hashImages ?? {}),
-                });
+                };
+
+                // Phase 2 (image-as-files): manifest mode. `?ids=1` returns ONLY
+                // the id list (keys), not the base64 payload — a few KB instead of
+                // multiple MB. The client maps each id to a per-image GET /api/img
+                // URL, so the browser fetches images individually (CDN/browser-
+                // cached) only when a screen shows them, instead of pulling the
+                // whole bucket on load.
+                if (req.query.ids) {
+                    return res.status(200).json(Object.keys(merged));
+                }
+
+                return res.status(200).json(merged);
             }
 
             // No category param — return everything (admin / bulk use).
