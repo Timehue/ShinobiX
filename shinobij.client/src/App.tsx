@@ -5606,11 +5606,18 @@ export default function App() {
     // only when a screen shows it, and the multi-MB base64 blob is NEVER pulled.
     // Roll out one category at a time, verifying each in-browser. To REVERT a
     // category, remove it from this set (it falls back to the base64 path below).
-    // event/card/item/jutsu flipped. Still base64: avatar, ai, pet (they flow
-    // through the combat avatar render-guards that check startsWith("data:image")
-    // — those must be widened to accept "/api/img" URLs first); bloodline/shrine/
-    // landmark are small and can follow. See the audit doc.
-    const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu']);
+    // Per-image /api/img URL buckets (image-as-files). The big four (event/card/
+    // item/jutsu) plus the SAFE remainder: ai (admin data; combat opponent
+    // portrait renders via the widened avatar guard) and shrine/landmark (pure
+    // sharedImages — no game-data patching). HELD for a clean pass: avatar, pet,
+    // bloodline — hydrateImages overwrites player-owned + saved fields
+    // (character.avatarImage / character.pets[].image / savedBloodlines[].image)
+    // with the value, so a URL there persists into saves and can trip a harmless
+    // 400 on bloodline re-publish; they need the save-strippers widened to drop
+    // "/api/img" first, and avatar is identity-critical (warrants verification).
+    // ('leader' village portraits ride the separate game-state?images=1 poll.)
+    // Revert any single category by removing it here.
+    const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu', 'ai', 'shrine', 'landmark']);
 
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
