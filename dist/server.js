@@ -52,6 +52,7 @@ const generate_image_js_1 = __importDefault(require("./api/generate-image.js"));
 const game_state_js_1 = __importDefault(require("./api/game-state.js"));
 const world_state_js_1 = __importDefault(require("./api/world-state.js"));
 const messages_js_1 = __importDefault(require("./api/messages.js"));
+const perf_beacon_js_1 = __importDefault(require("./api/perf-beacon.js"));
 const kage_js_1 = __importDefault(require("./api/village/kage.js"));
 const bloodline_review_js_1 = __importDefault(require("./api/admin/bloodline-review.js"));
 const item_review_js_1 = __importDefault(require("./api/admin/item-review.js"));
@@ -391,6 +392,9 @@ route('/generate-image', generate_image_js_1.default);
 route('/game-state', game_state_js_1.default);
 route('/world-state', world_state_js_1.default);
 route('/messages', messages_js_1.default);
+// Phase 0 load/refresh telemetry — anonymous, zero-storage beacon sink. Logs a
+// single `[perf]` line per page load to stdout (see api/perf-beacon.ts).
+route('/perf-beacon', perf_beacon_js_1.default);
 // Village
 route('/village/kage', kage_js_1.default);
 // Bloodlines
