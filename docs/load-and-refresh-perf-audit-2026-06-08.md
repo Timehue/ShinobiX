@@ -14,6 +14,36 @@ restore *fast*, not *correct*).
 
 ---
 
+## Status (updated 2026-06-08 — commit `b4a3e9b`, pushed to `main`)
+
+| Phase | Item | State |
+|-------|------|-------|
+| 0 | Measurement harness (`/api/perf-beacon` + `lib/perfTelemetry.ts`) | ✅ **SHIPPED** |
+| 1.1 | Gate pre-login image preload behind login | ✅ **SHIPPED** |
+| 1.3 | Instant hub refresh (hash-gated optimistic paint + overlay) | ✅ **SHIPPED — awaiting live smoke-test** |
+| 1.2 | Stop clearing image cache on snapshot | ⏸ **needs decision** (≤10-min staleness for admin-published image updates) |
+| 1.4 | Cloudflare Brotli/zstd for static JS/CSS | ⏸ **dashboard toggle** (not code) |
+| 2 | Image-as-files architecture (manifest of URLs, not base64) | 🔭 **future project** (needs storage-target decision) |
+| 3 | Sector PNG → WebP/AVIF; lazy-load AdminPanel/WorldMap/Arena out of the 1.8 MB chunk | 🔭 **future** |
+
+Verification at ship: client `tsc -b` 0 errors · ESLint 0 errors · tests **484/484**
+· `verify:dist` OK. No new npm deps (cPanel auto-deploy safe).
+
+**Phase 1.3 live smoke-test (do before trusting it):**
+1. Refresh on Village/shop/profile → game appears instantly (brief "Syncing…"),
+   no "Restoring…" wait.
+2. Refresh **mid-arena fight** → still forced back into the same fight.
+3. Refresh after **clearing localStorage mid-fight** → still takes the loss /
+   hospitalized.
+4. Refresh with an **expired token / slow server** → bounces to the login form
+   with the timeout notice, not stranded.
+
+**Read the telemetry:** grep Railway logs for `[perf]`. `kind:cold-start`
+entries should now show `apiImgCount:0` (the 1.1 win); `kind:refresh` `tRestore`
+should drop sharply for hub refreshes once 1.3 is exercised.
+
+---
+
 ## 1. What was measured (current state)
 
 ### Initial JS / CSS payload (`shinobij.client/dist/assets`)
