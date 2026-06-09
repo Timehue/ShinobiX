@@ -259,8 +259,9 @@ export type Character = {
     // one-time "seen/claimed" gates matching the hollowGateIntroSeen convention.
     // Order: "starter" (choose-your-companion overlay) → "spar" (guaranteed
     // first-win Academy spar) → "tour" (village menu) → "training" → "jutsu" →
-    // "done". Each beat advances on the real action.
-    onboardingStep?: "starter" | "spar" | "tour" | "training" | "jutsu" | "done";
+    // "logbook" (open the Logbook to see the Academy goals) → "done". Each beat
+    // advances on the real action.
+    onboardingStep?: "starter" | "spar" | "tour" | "training" | "jutsu" | "logbook" | "done";
     academyChecklistClaimed?: boolean;
     geninCeremonySeen?: boolean;
     endlessTowerRun?: EndlessTowerRun | null;
