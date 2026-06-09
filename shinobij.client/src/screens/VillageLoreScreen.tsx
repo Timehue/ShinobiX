@@ -18,9 +18,17 @@ export function VillageLoreScreen({
     };
 
     const [shownText, setShownText] = useState("");
+    // Tap-to-reveal: a ~30s forced typewriter is a top churn driver (text-wall).
+    // Tapping the lore (or it finishing) fills the full text immediately so the
+    // player is never trapped waiting to reach the "Begin Journey" button.
+    const [skipped, setSkipped] = useState(false);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional typewriter reset when village changes
+        if (skipped) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- show full text immediately when the player taps to skip
+            setShownText(loreData.lore);
+            return;
+        }
         setShownText("");
 
         let index = 0;
@@ -33,17 +41,26 @@ export function VillageLoreScreen({
             }
         }, 12);
         return () => clearInterval(timer);
-    }, [character.village, loreData.lore]);
+    }, [character.village, loreData.lore, skipped]);
+
+    const isComplete = shownText.length >= loreData.lore.length;
 
     return (
         <div className="card cinematic-card village-lore-screen">
             <h1>{loreData.icon} {character.village}</h1>
             <h3><em>{loreData.theme}</em></h3>
 
-            <div className="village-lore-text">
+            <div
+                className="village-lore-text"
+                onClick={() => { if (!isComplete) setSkipped(true); }}
+                style={{ cursor: isComplete ? "default" : "pointer" }}
+            >
                 {shownText.split("\n").map((line, index) => (
                     <p key={index}>{line}</p>
                 ))}
+                {!isComplete && (
+                    <p className="hint" style={{ opacity: 0.6, marginTop: 8 }}>(tap to reveal)</p>
+                )}
             </div>
 
             <div className="menu">
