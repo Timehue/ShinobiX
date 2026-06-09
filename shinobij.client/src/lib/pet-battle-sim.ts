@@ -811,7 +811,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             cooldowns:    Object.fromEntries(Object.entries(fighter.cooldowns).map(([name, value]) => [name, Math.max(0, value - 1)])),
             moveLocked:   Math.max(0, fighter.moveLocked   - 1),
             absorbRounds: Math.max(0, fighter.absorbRounds - 1),
-            burnRounds:   Math.max(0, fighter.burnRounds   - 1),
+            // burnRounds ticks in the round loop with the burn DoT (like wound), so
+            // a 3-round burn deals 3 ticks — it was decremented here pre-apply = 2.
             freezeRounds: Math.max(0, fighter.freezeRounds - 1),
             confuseRounds:Math.max(0, fighter.confuseRounds - 1),
             stunRounds:   Math.max(0, fighter.stunRounds   - 1),
@@ -1540,14 +1541,14 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         // Burn DoT — applied each round while burnRounds > 0, separate from
         // poison so a pet can suffer both at once.
         if (player.burnRounds > 0 && player.burnDamage > 0) {
-            player = { ...player, hp: Math.max(0, player.hp - player.burnDamage) };
+            player = { ...player, hp: Math.max(0, player.hp - player.burnDamage), burnRounds: player.burnRounds - 1 };
             const msg = `Round ${round}: 🔥 ${player.pet.name} burns for ${player.burnDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "player", "dot", player.burnDamage);
             if (player.hp <= 0) break;
         }
         if (enemy.burnRounds > 0 && enemy.burnDamage > 0) {
-            enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.burnDamage) };
+            enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.burnDamage), burnRounds: enemy.burnRounds - 1 };
             const msg = `Round ${round}: 🔥 ${enemy.pet.name} burns for ${enemy.burnDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "enemy", "dot", enemy.burnDamage);
@@ -2016,7 +2017,7 @@ export function runPetArenaParty(
             cooldowns:    Object.fromEntries(Object.entries(f.cooldowns).map(([n, v]) => [n, Math.max(0, v - 1)])),
             moveLocked:   Math.max(0, f.moveLocked   - 1),
             absorbRounds: Math.max(0, f.absorbRounds - 1),
-            burnRounds:   Math.max(0, f.burnRounds   - 1),
+            // burnRounds ticks in the round loop with the burn DoT (like wound).
             freezeRounds: Math.max(0, f.freezeRounds - 1),
             confuseRounds: Math.max(0, f.confuseRounds - 1),
             stunRounds:   Math.max(0, f.stunRounds   - 1),
@@ -2515,7 +2516,7 @@ export function runPetArenaParty(
             }
             const g = fighters[s]!;
             if (g.burnRounds > 0 && g.burnDamage > 0) {
-                fighters[s] = { ...g, hp: Math.max(0, g.hp - g.burnDamage) };
+                fighters[s] = { ...g, hp: Math.max(0, g.hp - g.burnDamage), burnRounds: g.burnRounds - 1 };
                 pushPartyFrame(round, `🔥 ${g.pet.name} burns for ${g.burnDamage} damage.`, s, "dot", g.burnDamage);
             }
             // Phase 12: wound bleed (ticks its own counter, like burn).
