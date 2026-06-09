@@ -71,16 +71,25 @@ export function OnboardingCoach({
     }, [step, activeTraining]);
 
     // Capture the jutsu-mastery count when the "jutsu" beat starts, then advance
-    // once it grows (the player free-unlocked a new jutsu).
+    // to the final "logbook" beat once it grows (the player free-unlocked a jutsu).
     useEffect(() => {
         if (step !== "jutsu") { jutsuBaselineRef.current = null; return; }
         const count = character.jutsuMastery?.length ?? 0;
         if (jutsuBaselineRef.current === null) { jutsuBaselineRef.current = count; return; }
         if (count > jutsuBaselineRef.current) {
-            updateCharacter({ ...character, onboardingStep: "done" });
+            updateCharacter({ ...character, onboardingStep: "logbook" });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, character.jutsuMastery]);
+
+    // Finish the tutorial once the player actually opens the Logbook (where the
+    // Academy Training checklist — their ongoing "what's next" goals — lives).
+    useEffect(() => {
+        if (step === "logbook" && screen === "logbook") {
+            updateCharacter({ ...character, onboardingStep: "done" });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [step, screen]);
 
     // The "spar" and "tour" beats are full-screen modals; lock background scroll.
     useBodyScrollLock(step === "tour" || step === "spar");
@@ -164,6 +173,19 @@ export function OnboardingCoach({
                 <span>📍 <strong>Tutorial:</strong> unlock your first jutsu — it's free. Pick one and press Unlock.</span>
                 {screen !== "jutsuTraining" && (
                     <button className="start-primary-btn" onClick={() => setScreen("jutsuTraining")}>Go to Jutsu Training</button>
+                )}
+                <button style={skipStyle} onClick={skip}>Skip</button>
+            </div>,
+            document.body,
+        );
+    }
+
+    if (step === "logbook") {
+        return createPortal(
+            <div className="onboarding-coach-banner" style={bannerStyle}>
+                <span>📍 <strong>Tutorial:</strong> open your <strong>Logbook</strong> — your Academy goals live there. Complete them to reach Genin.</span>
+                {screen !== "logbook" && (
+                    <button className="start-primary-btn" onClick={() => setScreen("logbook")}>Open Logbook</button>
                 )}
                 <button style={skipStyle} onClick={skip}>Skip</button>
             </div>,
