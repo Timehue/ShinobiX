@@ -522,6 +522,7 @@ import { starterItems } from "./data/starter-items";
 // scales them against the global stat caps stays in App.tsx and is
 // applied below where petPool is defined.
 import { rawPetPool } from "./data/pet-pool";
+import { STARTER_PETS } from "./data/starter-pets";
 // Per-village storyline arc + milestone constructors moved to ./data/storylines.
 import { storylines, storyAiId, villageBiomeMap } from "./data/storylines";
 // Built-in VN event templates moved to ./data/vn-events.
@@ -1200,7 +1201,16 @@ export function useSharedNow(): void {
 // formatPetTimer moved to ./lib/utils.
 // Raw pet templates moved to ./data/pet-pool; the balancer scales each
 // template against the global stat caps before it goes into petPool.
-const petPool: Pet[] = rawPetPool.map(balanceBuiltInPetTemplate);
+// The 5 starter companions (data/starter-pets) are appended UNBALANCED — they
+// keep their hand-authored standard-band stats/kits (NOT run through
+// balanceBuiltInPetTemplate). Adding them to petPool surfaces them in the admin
+// Pet Editor (for image upload via `pet:<id>`) and seeds editablePets; they're
+// excluded from wild encounters in rollPetEncounter so a chosen starter never
+// shows up as a random wild beast.
+const petPool: Pet[] = [
+    ...rawPetPool.map(balanceBuiltInPetTemplate),
+    ...STARTER_PETS.map((option) => option.pet),
+];
 
 function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
     const currentIds = new Set(currentPets.map((pet) => pet.id));
@@ -2875,7 +2885,10 @@ function rollPetEncounter(pets: Pet[]): Pet | null {
         const rarityIndex = petRarityOrder.indexOf(rarity);
         const fallbackRarities = petRarityOrder.slice(0, rarityIndex + 1).reverse();
         for (const fallbackRarity of fallbackRarities) {
-            const pool = pets.filter((pet) => pet.rarity === fallbackRarity);
+            // Exclude the choose-at-creation starter companions — they live in
+            // petPool only so the admin Pet Editor can image them; they should
+            // never appear as a random wild befriend (would spawn duplicates).
+            const pool = pets.filter((pet) => pet.rarity === fallbackRarity && !pet.id.startsWith("starter-"));
             const chosen = pool[Math.floor(Math.random() * pool.length)];
             if (chosen) return cloneEncounterPet(chosen);
         }
