@@ -107,13 +107,13 @@ export function woundCapForRankPVE(bloodlineRank?: string | null): number {
 }
 
 // Active-round duration for the four amp statuses (Increase/Decrease Damage
-// Given/Taken). Mirrors api/pvp/move.ts STATUS_DURATIONS_OVERRIDE, which forces
-// all four to 4 rounds ("amps run 4 rounds so stacking to 2 is reliable"). PvE
-// previously hardcoded `rounds: 2` at every amp site → amps lasted ~half as long
-// as in PvP. Centralized here so the value can't drift per-site and the parity
-// test can guard it. (Special-duration amps — e.g. the smoke-bomb DDG — keep
-// their own explicit rounds and intentionally do NOT use this.)
-export const AMP_STATUS_ROUNDS_PVE = 4;
+// Given/Taken). Mirrors api/pvp/move.ts STATUS_DURATIONS_OVERRIDE, which sets
+// all four to 2 rounds so the mechanic matches the in-game tag tooltips
+// (jutsu-effects.ts describes these as "2 rounds"). Centralized here so the
+// value can't drift per-site and the parity test can guard it. (Special-duration
+// amps — e.g. the smoke-bomb DDG — keep their own explicit rounds and
+// intentionally do NOT use this.)
+export const AMP_STATUS_ROUNDS_PVE = 2;
 
 // Drain per-tick = clamp(50 + attacker-mastery×5, 50, 300), draining HP + chakra
 // ONLY (never stamina). Mirrors api/pvp/move.ts DRAIN_BASE_TICK / DRAIN_PER_LEVEL
