@@ -50,13 +50,14 @@ const skipStyle: React.CSSProperties = {
 };
 
 export function OnboardingCoach({
-    character, screen, activeTraining, setScreen, updateCharacter,
+    character, screen, activeTraining, setScreen, updateCharacter, onStartSpar,
 }: {
     character: Character;
     screen: Screen;
     activeTraining: unknown;
     setScreen: (s: Screen) => void;
     updateCharacter: (c: Character) => void;
+    onStartSpar: () => void;
 }) {
     const step = character.onboardingStep;
     const jutsuBaselineRef = useRef<number | null>(null);
@@ -81,12 +82,38 @@ export function OnboardingCoach({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [step, character.jutsuMastery]);
 
-    // The "tour" beat is a full-screen modal; lock background scroll while it's up.
-    useBodyScrollLock(step === "tour");
+    // The "spar" and "tour" beats are full-screen modals; lock background scroll.
+    useBodyScrollLock(step === "tour" || step === "spar");
 
     if (!step || step === "done") return null;
 
     const skip = () => updateCharacter({ ...character, onboardingStep: "done" });
+
+    if (step === "spar") {
+        return createPortal(
+            <div style={overlayStyle}>
+                <div className="card" style={cardStyle}>
+                    <h2 style={{ marginTop: 0 }}>⚔️ Your First Spar</h2>
+                    <p style={{ lineHeight: 1.5 }}>
+                        Every shinobi starts with a sparring match. A training dummy is
+                        waiting at the Academy — step in and land a few hits to learn how
+                        combat works. You and your new companion have this.
+                    </p>
+                    <button
+                        className="start-primary-btn"
+                        style={{ width: "100%" }}
+                        onClick={onStartSpar}
+                    >
+                        Begin your first spar ⚔️
+                    </button>
+                    <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={skip}>
+                        Skip tutorial
+                    </button>
+                </div>
+            </div>,
+            document.body,
+        );
+    }
 
     if (step === "tour") {
         return createPortal(

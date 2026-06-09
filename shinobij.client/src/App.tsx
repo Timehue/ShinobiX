@@ -991,6 +991,14 @@ type PendingArenaStoryBattle =
         kind: "weeklyBoss";
         returnScreen: Screen;
         bossInitialHp: number;
+    }
+    | {
+        // Academy Sparring Match — the onboarding "guaranteed first win".
+        // A deliberately weak Lv-1 training dummy (low HP, Lv-1 offense) so a
+        // combat-ready new player wins in a few hits. On win the spar branch in
+        // completePendingArenaStoryBattle advances onboardingStep → "tour".
+        kind: "academySparring";
+        returnScreen: Screen;
     };
 
 // ── Hollow Gate Shrine — crawler dungeon ──────────────────────────────────────
@@ -6932,6 +6940,47 @@ export default function App() {
         setScreen("arena");
     }
 
+    // Onboarding "guaranteed first win" — launch a scripted spar against a
+    // deliberately weak Lv-1 training dummy via the existing story-battle infra
+    // (temporaryStoryAi + pendingArenaStoryBattle). The dummy has tiny HP and
+    // Lv-1 offense, so a new player (who spawns combat-ready with 3 bloodline
+    // jutsu) wins in a few hits. The win advances onboardingStep → "tour" in
+    // completePendingArenaStoryBattle; a loss just returns to the village and
+    // re-prompts. Fully client-side (AI fight) — no server/PvP path.
+    function startAcademySparringMatch() {
+        if (!character) return;
+        const sparLevel = 1;
+        // A couple of weak basic jutsu so the dummy pokes back (teaches that
+        // enemies act), but Lv-1 stats mean it can't threaten the player.
+        const sparJutsus = aiJutsuLoadout("balanced", starterJutsus).slice(0, 2);
+        const sparAiId = `temp-academy-spar-${Date.now()}`;
+        const sparBiome = villageBiomeMap[character.village] ?? "central";
+        setTemporaryStoryAi({
+            id: sparAiId,
+            name: "Academy Training Dummy",
+            icon: "🎯",
+            level: sparLevel,
+            village: character.village,
+            hp: 50, // deliberately tiny — falls in a few hits for a sub-60s first win
+            chakra: maxChakraForLevel(sparLevel),
+            stamina: maxStaminaForLevel(sparLevel),
+            stats: aiStatsForLevel(sparLevel, sparJutsus),
+            armorRawDR: 0,
+            armorFactor: aiArmorFactorFromRaw(0),
+            loadoutId: "balanced",
+            jutsuIds: sparJutsus.map((jutsu) => jutsu.id),
+            rules: buildBasicCombatAiRules(sparJutsus, "balanced"),
+        });
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setPendingArenaStoryBattle({ kind: "academySparring", returnScreen: "village" });
+        setPendingAiProfileId(sparAiId);
+        setCurrentBiome(sparBiome);
+        setCurrentWeather(weatherForBiome(sparBiome));
+        setArenaKey((key) => key + 1);
+        setScreen("arena");
+    }
+
     function leaveDungeon() {
         setActiveDungeonEvent(null);
         setDungeonStage("intro");
@@ -7151,6 +7200,24 @@ export default function App() {
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
             return "Dungeon Warden defeated. The second seal opens: win the shinobi tile game to continue.";
+        }
+
+        if (pendingArenaStoryBattle.kind === "academySparring") {
+            // First-win dopamine: a modest one-time XP/ryo reward (not farmable —
+            // the step advances) + full heal, then hand off to the menu tour.
+            const SPAR_XP = 60;
+            const leveled = gainXp({ ...character, hp: survivingHp }, SPAR_XP);
+            setCharacter({
+                ...leveled,
+                ryo: leveled.ryo + 30,
+                hp: leveled.maxHp,
+                stamina: leveled.maxStamina,
+                chakra: leveled.maxChakra,
+                onboardingStep: "tour",
+            });
+            setTemporaryStoryAi(null);
+            setPendingAiProfileId("");
+            return `Sparring match won! You bested the Academy training dummy. +${effectiveCharacterXpGain(character, SPAR_XP)} XP, +30 ryo. Time to tour your village.`;
         }
 
         if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
@@ -9562,7 +9629,9 @@ export default function App() {
                                 ...character,
                                 pets: [...character.pets, granted],
                                 activePetId: granted.id,
-                                onboardingStep: "tour",
+                                // Hand off to the guaranteed-first-win spar; the spar
+                                // win advances to the menu tour.
+                                onboardingStep: "spar",
                             };
                             setCharacter(updated);
                             // Push immediately so the starter isn't lost on a fast refresh
@@ -9602,6 +9671,10 @@ export default function App() {
                     && character.onboardingStep
                     && character.onboardingStep !== "done"
                     && screen !== "villageLore"
+                    // Never overlay a coach modal during the arena battle — this
+                    // covers the spar fight itself and the post-win victory screen
+                    // (the "tour" beat then fires once the player returns to the village).
+                    && screen !== "arena"
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
                     && (
@@ -9611,6 +9684,7 @@ export default function App() {
                         activeTraining={activeTraining}
                         setScreen={navigate}
                         updateCharacter={setCharacter}
+                        onStartSpar={startAcademySparringMatch}
                     />
                 )}
 
