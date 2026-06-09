@@ -204,6 +204,7 @@ const Cafeteria = lazy(() => import("./screens/Cafeteria").then(m => ({ default:
 const VillageLoreScreen = lazy(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
 const HallOfLegends = lazy(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
 const ProfessionPicker = lazy(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
+const StarterPetSelect = lazy(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
 const DailyProfessionMissions = lazy(() => import("./screens/DailyProfessionMissions").then(m => ({ default: m.DailyProfessionMissions })));
 const ClanSealPool = lazy(() => import("./screens/ClanSealPool").then(m => ({ default: m.ClanSealPool })));
 
@@ -2328,7 +2329,9 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         stamina: maxStaminaForLevel(1),
         maxStamina: maxStaminaForLevel(1),
         rankTitle: "Academy Student",
-        onboardingStep: "tour",
+        // Begin onboarding at the choose-your-companion overlay; it hands off
+        // to "tour" once the player picks a starter pet (StarterPetSelect).
+        onboardingStep: "starter",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
         equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
@@ -9531,6 +9534,41 @@ export default function App() {
                             setScreen("start");
                         }}
                         onContinue={() => setScreen("village")}
+                    />
+                )}
+
+                {/* Choose-your-companion overlay — the first onboarding beat after the
+                    Village Lore screen. Gated on onboardingStep === "starter" (set by
+                    createCharacter), so it shows exactly once for new players and never
+                    for veterans. Forced overlay (not a screen) so it survives a refresh
+                    mid-selection. Hidden during villageLore so the lore screen reads
+                    first; admins skip it (no real game role). */}
+                {character
+                    && character.onboardingStep === "starter"
+                    && screen !== "villageLore"
+                    && character.name !== "Admin 1"
+                    && character.name !== "Admin 2"
+                    && (
+                    <StarterPetSelect
+                        character={character}
+                        sharedImages={sharedImages}
+                        onChoose={(pet) => {
+                            // Apply the pet's trait spawn-bonus exactly like a befriended
+                            // encounter pet (applyPetTraitBonuses), then add it to the
+                            // roster, set it active, and advance onboarding to the tour.
+                            const trait = pet.trait ?? "Loyal";
+                            const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
+                            const updated: Character = {
+                                ...character,
+                                pets: [...character.pets, granted],
+                                activePetId: granted.id,
+                                onboardingStep: "tour",
+                            };
+                            setCharacter(updated);
+                            // Push immediately so the starter isn't lost on a fast refresh
+                            // before the 3s autosave fires (mirrors the befriend path).
+                            void pushSaveToServer(updated, updated.name);
+                        }}
                     />
                 )}
 
