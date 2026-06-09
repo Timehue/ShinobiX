@@ -29875,8 +29875,10 @@ function Arena({
             effectLines.push(`Absorb: ${character.name} converts ${effectVal}% incoming damage into healing for 2 rounds.`);
         }
         if (item.weaponEffect === "Lifesteal") {
-            const lsHeal = Math.floor(cappedPostDamage(finalDamage, effectVal));
-            if (lsHeal > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + lsHeal)); effectLines.push(`Lifesteal: restores ${lsHeal} HP.`); }
+            // Match PvP/jutsu Lifesteal: apply a 2-round status that heals a % of
+            // damage dealt on subsequent attacks (was a one-time instant heal).
+            setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: effectVal, kind: "positive" }));
+            effectLines.push(`Lifesteal: ${character.name} will heal ${effectVal}% of damage dealt for 2 rounds.`);
         }
         if (item.weaponEffect === "Reflect") {
             setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
@@ -29910,9 +29912,15 @@ function Arena({
                 if (wt.name === "Absorb") {
                     setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Absorb ${p}%`);
-                } else if (wt.name === "Siphon" || wt.name === "Lifesteal") {
+                } else if (wt.name === "Lifesteal") {
+                    // Match PvP/jutsu Lifesteal: 2-round status that heals a % of
+                    // damage dealt on subsequent attacks (was a one-time instant heal).
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: "Lifesteal", rounds: 2, percent: p, kind: "positive" }));
+                    effectLines.push(`Lifesteal: ${character.name} will heal ${p}% of damage dealt for 2 rounds.`);
+                } else if (wt.name === "Siphon") {
+                    // Siphon stays an instant one-time heal off this swing (per its tooltip).
                     const ls = Math.floor(cappedPostDamage(finalDamage, p));
-                    if (ls > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + ls)); effectLines.push(`Lifesteal +${ls} HP`); }
+                    if (ls > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + ls)); effectLines.push(`Siphon +${ls} HP`); }
                 } else if (wt.name === "Reflect") {
                     setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Reflect ${p}%`);

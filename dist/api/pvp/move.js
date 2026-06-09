@@ -91,12 +91,12 @@ const WOUND_HARD_CAP_PCT = 60;
 // Client mirrors via shinobij.client/src/constants/game.ts STUN_AP_PENALTY.
 // Pinned by the combat-formula-parity test so this can never drift again.
 const STUN_AP_PENALTY = 40;
-// Buff/debuff durations: amps run 4 rounds (was 2) so stacking to 2 is reliable
+// Buff/debuff durations: amps run 2 rounds to match the in-game tag tooltips.
 const STATUS_DURATIONS_OVERRIDE = {
-    'Increase Damage Given': 4,
-    'Increase Damage Taken': 4,
-    'Decrease Damage Given': 4,
-    'Decrease Damage Taken': 4,
+    'Increase Damage Given': 2,
+    'Increase Damage Taken': 2,
+    'Decrease Damage Given': 2,
+    'Decrease Damage Taken': 2,
 };
 function statusDurationFor(name, fallback = 2) {
     return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
@@ -264,7 +264,7 @@ function hasStatus(f, name, round = Number.POSITIVE_INFINITY) {
     return activeStatuses(f, round).some(s => nameMatches(s.name, name));
 }
 function addStatus(f, s) {
-    // v4.3: apply duration override (IDG/IDT/DDG/DDT → 4 rounds), then either stack or replace.
+    // v4.3: apply duration override (IDG/IDT/DDG/DDT → 2 rounds), then either stack or replace.
     const adjusted = { ...s, rounds: statusDurationFor(s.name, s.rounds) };
     if (STACKABLE_STATUS.has(adjusted.name)) {
         return { ...f, statuses: [...f.statuses, adjusted] };
