@@ -257,7 +257,9 @@ export type Character = {
     // Early-game onboarding flags (additive; undefined = not started / legacy).
     // onboardingStep drives the forced first-session coach; the others are
     // one-time "seen/claimed" gates matching the hollowGateIntroSeen convention.
-    onboardingStep?: "tour" | "training" | "jutsu" | "done";
+    // "starter" precedes "tour": the choose-your-companion overlay shows first,
+    // then hands off to the village menu tour.
+    onboardingStep?: "starter" | "tour" | "training" | "jutsu" | "done";
     academyChecklistClaimed?: boolean;
     geninCeremonySeen?: boolean;
     endlessTowerRun?: EndlessTowerRun | null;
