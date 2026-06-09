@@ -28737,6 +28737,21 @@ function Arena({
         return Math.max(0, adjusted);
     }
 
+    // Enemy defensive buffs (Absorb / Reflect) honored when the PLAYER damages the
+    // enemy — mirrors how enemyTurn honors the player's Absorb/Reflect. Pierce (true
+    // damage) bypasses them. Returns the damage the enemy actually takes (Absorb
+    // converts a capped % into avoided damage) plus any reflected damage the attacker
+    // receives. Reads activeStatuses so a just-applied (deferred) buff waits a round.
+    function enemyDefenseFor(rawDamage: number, bypass = false) {
+        if (bypass || rawDamage <= 0) return { net: rawDamage, reflected: 0 };
+        const active = activeStatuses(enemyStatuses);
+        const absorbStatus = active.find((s) => s.name === "Absorb");
+        const reflectStatus = active.find((s) => s.name === "Reflect");
+        const absorbed = absorbStatus ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbStatus.percent || 30))) : 0;
+        const reflected = reflectStatus ? Math.floor(cappedPostDamage(rawDamage, reflectStatus.percent || 30)) : 0;
+        return { net: Math.max(0, rawDamage - absorbed), reflected };
+    }
+
     useEffect(() => {
         if (!battleStarted || battleEnded) return;
         // Spectator board is player-vs-player only. opponentCharacter is set
@@ -29625,17 +29640,19 @@ function Arena({
         const recoilDmg = recoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, recoilStatus.percent ?? 30)) : 0;
         const basicHeal = basicLsHeal + statusLsHeal;
 
+        const { net: enemyNet, reflected: enemyReflected } = enemyDefenseFor(finalDamage);
+        const basicSelfDamage = recoilDmg + enemyReflected;
         setEnemyShield((s) => Math.max(0, s - blocked));
-        setEnemyHp((hp) => Math.max(0, hp - finalDamage));
-        if (basicHeal > 0 || recoilDmg > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - recoilDmg)));
+        setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - enemyNet)));
+        if (basicHeal > 0 || basicSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - basicSelfDamage)));
 
         addCombatLog(
-            `Basic Attack: ${character.name} hits ${opponentName} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${basicHeal > 0 ? ` Lifesteal restores ${basicHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
+            `Basic Attack: ${character.name} hits ${opponentName} for ${enemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${enemyReflected > 0 ? ` Reflect: ${opponentName} returns ${enemyReflected} damage.` : ""}${basicHeal > 0 ? ` Lifesteal restores ${basicHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
             "basicAttack",
             character.name
         );
 
-        if (enemyHp - finalDamage <= 0) return winBattle();
+        if (enemyHp - enemyNet <= 0) return winBattle();
 
         updateCharacter({ ...character, stamina: Math.max(0, character.stamina - 10) });
         setLog(`Basic Attack hit for ${finalDamage} damage.`);
@@ -29819,17 +29836,19 @@ function Arena({
         const wRecoilStatus = activeWp.find((s) => s.name === "Recoil");
         const wRecoilDmg = wRecoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wRecoilStatus.percent ?? 30)) : 0;
         const wHeal = weaponLsHeal + wStatusLsHeal;
+        const { net: wEnemyNet, reflected: wEnemyReflected } = enemyDefenseFor(finalDamage);
+        const wSelfDamage = wRecoilDmg + wEnemyReflected;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
-        setEnemyHp((hp) => Math.max(0, hp - finalDamage));
-        if (wHeal > 0 || wRecoilDmg > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wRecoilDmg)));
+        setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
+        if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
         updateCharacter({ ...character, stamina: Math.max(0, character.stamina - staminaCost) });
 
         if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
 
         const effectSuffix = effectLines.length ? ` ${effectLines.join(" ")}` : "";
-        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${weaponLsHeal > 0 ? ` Lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
+        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${weaponLsHeal > 0 ? ` Lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
 
-        if (enemyHp - finalDamage <= 0) return winBattle();
+        if (enemyHp - wEnemyNet <= 0) return winBattle();
 
         setLog(`${item.name} hit for ${finalDamage} damage.${effectLines.length ? " " + effectLines[0] : ""}`);
     }
@@ -30546,9 +30565,10 @@ function Arena({
             effectLines.push(`Recoil: ${character.name} takes ${recoilDamage} recoil damage.`);
         }
 
+        const { net: castEnemyNet, reflected: castEnemyReflected } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
-        setEnemyHp((hp) => Math.max(0, hp - finalDamage - extraEnemyDamage));
-        setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage)));
+        setEnemyHp((hp) => Math.max(0, hp - castEnemyNet));
+        setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected)));
         setPlayerShield((s) => s + shield);
 
         setJutsuCooldowns((c) => ({ ...c, [jutsu.id]: jutsu.cooldown }));
@@ -30595,10 +30615,10 @@ function Arena({
                 ? playerPos
                 : (groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE")) ? targetTile : enemyPos,
             heavy: totalDamage >= enemyMaxHp * 0.18,
-            isKO: enemyHp - finalDamage - extraEnemyDamage <= 0,
+            isKO: enemyHp - castEnemyNet <= 0,
         });
 
-        if (enemyHp - finalDamage - extraEnemyDamage <= 0) return winBattle();
+        if (enemyHp - castEnemyNet <= 0) return winBattle();
 
         setLog((groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"))
             ? `${jutsu.name}: moved to hex ${targetTile}. ${groundHitEnemy ? `${finalDamage + extraEnemyDamage} damage.` : `${opponentName} was outside the blast.`} ${healing ? `Healed ${healing}.` : ""}`
@@ -30987,6 +31007,27 @@ function Arena({
                     effectLines.push(`${opponentName} takes ${pct}% less damage for ${AMP_STATUS_ROUNDS_PVE} rounds`);
                 }
             }
+            if (tag.name === "Absorb") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Absorb was prevented`);
+                else {
+                    queueToEnemy({ name: "Absorb", rounds: 2, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName} converts ${pct}% incoming damage into healing for 2 rounds`);
+                }
+            }
+            if (tag.name === "Reflect") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Reflect was prevented`);
+                else {
+                    queueToEnemy({ name: "Reflect", rounds: 2, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName} reflects ${pct}% damage for 2 rounds`);
+                }
+            }
+            if (tag.name === "Lifesteal") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Lifesteal was prevented`);
+                else {
+                    queueToEnemy({ name: "Lifesteal", rounds: 2, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName} will heal ${pct}% of damage dealt for 2 rounds`);
+                }
+            }
             if (tagMatchesName(tag.name, "Ignition")) {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} resists Ignition`);
                 else {
@@ -31101,6 +31142,12 @@ function Arena({
             const restored = Math.floor(cappedPostDamage(finalDamage, effectiveTagPercent(siphonTag, jutsu.bloodlineRank, 50)));
             healing += restored;
             if (restored > 0) effectLines.push(`Siphon: ${opponentName} restores ${restored} HP`);
+        }
+        // Lifesteal: enemy heals a % of damage it deals while its Lifesteal buff is active.
+        const enemyLifesteal = activeStatuses(enemyStatuses).find((s) => s.name === "Lifesteal");
+        if (enemyLifesteal && finalDamage > 0) {
+            const lsHeal = Math.floor(cappedPostDamage(finalDamage, enemyLifesteal.percent || 30));
+            if (lsHeal > 0) { healing += lsHeal; effectLines.push(`Lifesteal: ${opponentName} restores ${lsHeal} HP`); }
         }
         setPlayerShield((s) => Math.max(0, s - blocked));
         setPlayerHp((hp) => Math.max(0, hp - finalDamage - extraDamage));
@@ -31355,6 +31402,13 @@ function Arena({
             if (itemReflected > 0) {
                 setEnemyHp((hp) => Math.max(0, hp - itemReflected));
                 addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
+            }
+            // Enemy Lifesteal: heal the enemy by a % of the damage it dealt this attack.
+            const enemyDealtToPlayer = Math.max(0, finalDamage - absorbed);
+            const basicEnemyLifesteal = activeStatuses(enemyStatuses).find((s) => s.name === "Lifesteal");
+            if (basicEnemyLifesteal && enemyDealtToPlayer > 0) {
+                const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLifesteal.percent || 30));
+                if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
             }
 
             updateCharacter({
