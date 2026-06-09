@@ -83,14 +83,23 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 </p>
             </div>
             <div className="menu">
-                {!isAuraSphereEvent && !isStoryChapterEvent && (
-                    <button className="admin-button" onClick={() => onBattle(event)}>
-                        Enter Battle — {biomeLabel(event.biome)}
+                {!isAuraSphereEvent && !isStoryChapterEvent ? (
+                    <>
+                        <button className="admin-button" onClick={() => onBattle(event)}>
+                            Enter Battle — {biomeLabel(event.biome)}
+                        </button>
+                        {/* No free "skip & claim": a combat event's reward is paid only on
+                            WINNING the fight (completePendingArenaStoryBattle). Leaving here
+                            dismisses the event with no reward. */}
+                        <button onClick={onCancel}>
+                            Leave — No Reward
+                        </button>
+                    </>
+                ) : (
+                    <button onClick={onComplete}>
+                        {isAuraSphereEvent ? "Claim Aura Sphere" : "Continue to Story Hall"}
                     </button>
                 )}
-                <button onClick={onComplete}>
-                    {isAuraSphereEvent ? "Claim Aura Sphere" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward & Skip Fight"}
-                </button>
             </div>
             <div className="vn-reward-strip">
                 <span>
