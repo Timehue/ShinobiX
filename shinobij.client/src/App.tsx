@@ -29736,7 +29736,10 @@ function Arena({
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
         }
 
-        const blocked = Math.min(enemyShield, damage);
+        // A weaponTags "Pierce" makes the strike true damage — bypass the enemy
+        // shield (and, below, enemy Absorb/Reflect). Previously Pierce only logged.
+        const weaponPierce = item.weaponTags?.some((t) => t.name === "Pierce") ?? false;
+        const blocked = weaponPierce ? 0 : Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
         const weaponLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
         const effectVal = item.weaponEffectValue ?? 0;
@@ -29789,13 +29792,13 @@ function Arena({
                     setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
                     effectLines.push(`Reflect ${p}%`);
                 } else if (wt.name === "Shield" || wt.name === "Barrier") {
-                    const sh = Math.floor(finalDamage * (p / 100));
-                    setPlayerShield((s) => s + sh);
-                    effectLines.push(`Shield +${sh}`);
+                    // Use the same flat shield/heal magnitudes as jutsu (was a tiny
+                    // finalDamage-scaled shield / a hardcoded 200-400 heal).
+                    setPlayerShield((s) => s + SHIELD_FLAT_PVE);
+                    effectLines.push(`Shield +${SHIELD_FLAT_PVE}`);
                 } else if (wt.name === "Heal") {
-                    const hl = p >= 35 ? 400 : 200;
-                    setPlayerHp((hp) => Math.min(character.maxHp, hp + hl));
-                    effectLines.push(`Heal +${hl} HP`);
+                    setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
+                    effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
                 } else if (wt.name === "Wound") {
                     setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]);
                     effectLines.push(`Wound ${p}%`);
@@ -29824,6 +29827,17 @@ function Arena({
                 } else if (wt.name === "Recoil") {
                     setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Recoil", rounds: 2, percent: p, kind: "negative" }));
                     effectLines.push(`Recoil ${p}%`);
+                } else if (wt.name === "Stun Prevent" || wt.name === "Debuff Prevent") {
+                    setPlayerStatuses((s) => mergeCombatStatus(s, { name: wt.name, rounds: 2, percent: p, kind: "positive" }));
+                    effectLines.push(`${wt.name}`);
+                } else if (wt.name === "Copy") {
+                    const copied = activeStatuses(enemyStatuses).filter((st) => st.kind === "positive");
+                    if (copied.length) setPlayerStatuses((s) => copied.reduce((acc, c) => mergeCombatStatus(acc, { ...c, rounds: Math.min(2, c.rounds) }), s));
+                    effectLines.push(`Copy ${copied.length} buff(s)`);
+                } else if (wt.name === "Mirror") {
+                    const mirrored = activeStatuses(playerStatuses).filter((st) => st.kind === "negative" && st.name !== "Wound" && !statusMatchesName(st, "Ignition"));
+                    if (mirrored.length) setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, { ...m, rounds: Math.min(2, m.rounds) }), s));
+                    effectLines.push(`Mirror ${mirrored.length} debuff(s)`);
                 }
             }
         }
@@ -29836,7 +29850,7 @@ function Arena({
         const wRecoilStatus = activeWp.find((s) => s.name === "Recoil");
         const wRecoilDmg = wRecoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wRecoilStatus.percent ?? 30)) : 0;
         const wHeal = weaponLsHeal + wStatusLsHeal;
-        const { net: wEnemyNet, reflected: wEnemyReflected } = enemyDefenseFor(finalDamage);
+        const { net: wEnemyNet, reflected: wEnemyReflected } = enemyDefenseFor(finalDamage, weaponPierce);
         const wSelfDamage = wRecoilDmg + wEnemyReflected;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
