@@ -2276,7 +2276,9 @@ export function runPetArenaParty(
         switch (chosen.kind) {
             case "heal": {
                 if (!targetIsAlly) return;
-                const healed = Math.min(target.pet.hp, target.hp + Math.floor(chosen.power * (target.woundRounds > 0 ? 0.5 : 1)));
+                // ×0.6 to match the 1v1 heal formula (was full power in 2v2, making
+                // 2v2 heals ~1.67× stronger than 1v1 for the same jutsu).
+                const healed = Math.min(target.pet.hp, target.hp + Math.floor(chosen.power * 0.6 * (target.woundRounds > 0 ? 0.5 : 1)));
                 fighters[targetSlot] = { ...target, hp: healed };
                 const msg = targetSlot === actorSlot
                     ? `Round ${round}: ${actor.pet.name} heals itself for ${healed - target.hp} HP.`
@@ -2286,8 +2288,12 @@ export function runPetArenaParty(
                 return;
             }
             case "buff": {
-                fighters[actorSlot] = { ...cdActor, attackBuff: cdActor.attackBuff + chosen.power, defenseBuff: cdActor.defenseBuff + Math.floor(chosen.power / 2) };
-                const msg = `Round ${round}: ${actor.pet.name} buffs itself (+${chosen.power} ATK, +${Math.floor(chosen.power / 2)} DEF).`;
+                // Match the 1v1 buff formula (+power/2 ATK, +power/3 DEF) — 2v2 was
+                // +power ATK / +power/2 DEF, ~2× the ATK gain for the same jutsu.
+                const atkGain = Math.max(1, Math.floor(chosen.power / 2));
+                const defGain = Math.max(1, Math.floor(chosen.power / 3));
+                fighters[actorSlot] = { ...cdActor, attackBuff: cdActor.attackBuff + atkGain, defenseBuff: cdActor.defenseBuff + defGain };
+                const msg = `Round ${round}: ${actor.pet.name} buffs itself (+${atkGain} ATK, +${defGain} DEF).`;
                 logs.push(msg);
                 pushPartyFrame(round, msg, actorSlot, "buff");
                 return;

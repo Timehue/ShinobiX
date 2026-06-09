@@ -3486,6 +3486,15 @@ export default function App() {
     }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
+    // True while the player is in a mission AI fight launched from the Missions
+    // screen. Mission completion (markMissionCompleted) is credited ONLY on a win
+    // in winBattle and the flag is cleared on any battle end — so losing/fleeing a
+    // mission no longer burns the daily slot or inflates clan contribution.
+    const [missionBattleActive, setMissionBattleActive] = useState(false);
+    // Sector of a deferred explore-mission credit while the player fights a tile
+    // ambush. recordMissionExplore is called only if the ambush is WON (winBattle)
+    // and cleared on any battle end — so losing the ambush no longer counts the tile.
+    const [pendingExploreSector, setPendingExploreSector] = useState<number | null>(null);
 
     // Active AI-raid token issued by /api/missions/raid-start. Held in a
     // ref (not state) because changes don't need to trigger re-renders —
@@ -6452,6 +6461,25 @@ export default function App() {
             });
             return next;
         });
+    }
+
+    function completeHuntForAi(defeatedAiId: string) {
+        if (!defeatedAiId) return;
+        // Find the accepted hunt contract whose beast matches the AI just killed.
+        const mission = builtinHuntMissions.find(
+            (m) => m.aiProfileId === defeatedAiId && acceptedMissionIds.includes(m.id)
+        );
+        if (!mission) return;
+        const required = mission.exploreCount ?? 1;
+        // Only complete if the player finished tracking (huntSector holds the
+        // counter at required-1 going into the fight). This marks the contract
+        // claimable; claimHunt() pays out. Prevents claiming a hunt reward after
+        // dying or fleeing the beast.
+        setMissionProgress((current) =>
+            (current[mission.id] ?? 0) >= required - 1
+                ? { ...current, [mission.id]: required }
+                : current
+        );
     }
 
     function recordMissionRaid(_sector: number, battleId?: string) {
@@ -9570,6 +9598,7 @@ export default function App() {
                             setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
                         recordMissionExplore={recordMissionExplore}
+                        setPendingExploreSector={setPendingExploreSector}
                         playableAis={playableAis}
                         setCurrentWeather={setCurrentWeather}
                         playerRoster={playerRoster}
@@ -9790,7 +9819,7 @@ export default function App() {
                     return <DungeonPetBattle character={character} updateCharacter={setCharacter} editablePets={editablePets} enemyOverride={enemyPet} enemyOwner={pendingEventEncounter.event.name} onWin={completeEventEncounter} onLeave={leaveEventEncounter} sharedImages={sharedImages} />;
                 })()}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
-                {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} onMissionBattleStart={() => setMissionBattleActive(true)} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} />}
@@ -9961,6 +9990,11 @@ export default function App() {
                         onDungeonFail={failDungeon}
                         onWeeklyBossLogDamage={logWeeklyBossFightDamage}
                         onMissionRaidComplete={recordMissionRaid}
+                        onHuntBeastDefeated={completeHuntForAi}
+                        missionBattleActive={missionBattleActive}
+                        onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
+                        exploreAmbushActive={pendingExploreSector !== null}
+                        onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
@@ -24430,6 +24464,7 @@ function WorldMap({
     setPendingPvpOpponent,
     setRaidBattleKind,
     recordMissionExplore,
+    setPendingExploreSector,
     playableAis,
     setCurrentWeather,
     playerRoster,
@@ -24469,6 +24504,7 @@ function WorldMap({
     setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     recordMissionExplore: (sector: number) => void;
+    setPendingExploreSector: (sector: number | null) => void;
     playableAis: CreatorAi[];
     setCurrentWeather: (weather: WeatherType) => void;
     playerRoster: PlayerRecord[];
@@ -24914,9 +24950,9 @@ function WorldMap({
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
         setCurrentSector(sector);
-        recordMissionExplore(sector);
         if (character.level >= hiddenDungeonVnEvent.levelReq && Math.random() < 0.02) {
             updateCharacter(exploredCharacter);
+            recordMissionExplore(sector);
             onDungeonFound();
             return;
         }
@@ -24924,6 +24960,7 @@ function WorldMap({
 
         if (petEncounter) {
             updateCharacter(exploredCharacter);
+            recordMissionExplore(sector);
 
             setActivePetEncounter(petEncounter);
             setPetVnDone(false);
@@ -24935,6 +24972,7 @@ function WorldMap({
         // 15% — Ancient Chest found
         if (Math.random() < 0.15) {
             updateCharacter(exploredCharacter);
+            recordMissionExplore(sector);
 
             const allCards = getAllTileCards([]);
             setActiveChest(rollAncientChest(sector, allCards));
@@ -24957,6 +24995,9 @@ function WorldMap({
             const randomAi = levelMatches[Math.floor(Math.random() * levelMatches.length)];
 
             updateCharacter(exploredCharacter);
+            // Defer explore-mission credit until the ambush is WON (winBattle).
+            // Losing/fleeing the ambush no longer counts the tile as explored.
+            setPendingExploreSector(sector);
             alert(`A hostile shinobi appears: ${randomAi.name}!`);
             setPendingAiProfileId(randomAi.id);
             setScreen("arena");
@@ -24967,6 +25008,7 @@ function WorldMap({
         const ryoReward = 10 + Math.floor(sector / 4);
         const leveled = gainXp(exploredCharacter, xpReward);
 
+        recordMissionExplore(sector);
         updateCharacter({
             ...leveled,
             ryo: leveled.ryo + ryoReward,
@@ -25003,15 +25045,25 @@ function WorldMap({
         const currentProgress = missionProgress[activeHuntMission.id] ?? 0;
         const nextProgress = Math.min(requiredTracks, currentProgress + 1);
 
-        setMissionProgress((current) => ({
-            ...current,
-            [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
-        }));
-
         if (nextProgress < requiredTracks) {
+            // Still gathering tracks — advance the tracking counter and stop.
+            setMissionProgress((current) => ({
+                ...current,
+                [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
+            }));
             alert(`${activeHuntMission.name}: tracks found in Sector ${sector}. ${nextProgress}/${requiredTracks}`);
             return;
         }
+
+        // Final track = the kill attempt. Do NOT complete progress here — that
+        // is what let a player claim the hunt reward after dying/fleeing. Hold
+        // the counter at requiredTracks-1; winBattle() completes it on an actual
+        // kill via onHuntBeastDefeated. Losing leaves it here so the beast can be
+        // re-engaged without re-tracking.
+        setMissionProgress((current) => ({
+            ...current,
+            [activeHuntMission.id]: Math.max(requiredTracks - 1, current[activeHuntMission.id] ?? 0),
+        }));
 
         const huntAi = playableAis.find((ai) => ai.id === activeHuntMission.aiProfileId);
         if (!huntAi) {
@@ -26284,6 +26336,7 @@ function Missions({
     setMissionProgress,
     setPendingAiProfileId,
     setScreen,
+    onMissionBattleStart,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -26295,10 +26348,11 @@ function Missions({
     setMissionProgress: (progress: Record<string, number>) => void;
     setPendingAiProfileId: (id: string) => void;
     setScreen: (screen: Screen) => void;
+    onMissionBattleStart?: () => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    function startMissionBattle(mission: { min: number; cost: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); if (character.stamina < mission.cost) return alert("Not enough stamina."); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); updateCharacter(markMissionCompleted({ ...character, stamina: character.stamina - mission.cost })); setPendingAiProfileId(ai.id); setScreen("arena"); }
-    function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); updateCharacter(markMissionCompleted(character)); setPendingAiProfileId(ai.id); setScreen("arena"); }
+    function startMissionBattle(mission: { min: number; cost: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
+    function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
     function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) })); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`); }
     const missions = [
@@ -28168,6 +28222,11 @@ function Arena({
     onDungeonFail,
     onWeeklyBossLogDamage,
     onMissionRaidComplete,
+    onHuntBeastDefeated,
+    missionBattleActive = false,
+    onMissionBattleResolved,
+    exploreAmbushActive = false,
+    onExploreAmbushWon,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -28205,6 +28264,11 @@ function Arena({
     onDungeonFail?: () => void;
     onWeeklyBossLogDamage?: (damageDealt: number) => void;
     onMissionRaidComplete?: (sector: number, battleId?: string) => void;
+    onHuntBeastDefeated?: (defeatedAiId: string) => void;
+    missionBattleActive?: boolean;
+    onMissionBattleResolved?: () => void;
+    exploreAmbushActive?: boolean;
+    onExploreAmbushWon?: () => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
     setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
@@ -28661,9 +28725,16 @@ function Arena({
     }
 
     function adjustedApCost(cost: number) {
-        const timeCompressionPenalty = playerStatuses.some((s) => statusMatchesName(s, "Lag")) ? 10 : 0;
-        const timeDilationBonus = playerStatuses.some((s) => statusMatchesName(s, "Overclock")) ? 10 : 0;
-        return Math.max(0, cost + timeCompressionPenalty - timeDilationBonus);
+        // Percent-per-action to match PvP (api/pvp/move.ts adjustedCost): Lag raises
+        // each action's AP cost and Overclock lowers it, scaled by the status's
+        // percent — was a flat ±10 regardless of magnitude. Lag/Overclock are binary
+        // tags (percent 0), so `|| 20` applies the standard 20% when unspecified.
+        const lag = playerStatuses.find((s) => statusMatchesName(s, "Lag"));
+        const overclock = playerStatuses.find((s) => statusMatchesName(s, "Overclock"));
+        let adjusted = cost;
+        if (lag) adjusted = Math.ceil(adjusted * (1 + (lag.percent || 20) / 100));
+        if (overclock) adjusted = Math.floor(adjusted * (1 - (overclock.percent || 20) / 100));
+        return Math.max(0, adjusted);
     }
 
     useEffect(() => {
@@ -28778,6 +28849,13 @@ function Arena({
             if (raidBattleKind !== "none") setRaidBattleKind("none");
         }
     }, [lobbyMode, battleStarted, pendingAiProfileId, pendingPvpOpponent?.name, raidBattleKind]);
+
+    // Clear the mission-battle flag whenever a battle ends. winBattle credits the
+    // mission on a win BEFORE this fires; any other ending (loss, flee) leaves the
+    // credit ungranted and prevents the flag lingering into a later fight.
+    useEffect(() => {
+        if (battleEnded) onMissionBattleResolved?.();
+    }, [battleEnded]);
 
     useEffect(() => {
         if (lobbyMode === "arenaDistrict") return;
@@ -29537,13 +29615,22 @@ function Arena({
         const blocked = Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
         const basicLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
+        // Honor the player's Lifesteal / Recoil STATUS (from a jutsu buff/debuff),
+        // not just item lifesteal — matches castJutsu. Recoil makes the attacker
+        // take a cut of their own damage.
+        const activeP = activeStatuses(playerStatuses);
+        const lsStatusPct = activeP.filter((s) => s.name === "Lifesteal").reduce((sum, s) => sum + (s.percent ?? 0), 0);
+        const statusLsHeal = lsStatusPct > 0 && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, lsStatusPct)) : 0;
+        const recoilStatus = activeP.find((s) => s.name === "Recoil");
+        const recoilDmg = recoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, recoilStatus.percent ?? 30)) : 0;
+        const basicHeal = basicLsHeal + statusLsHeal;
 
         setEnemyShield((s) => Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, hp - finalDamage));
-        if (basicLsHeal > 0) setPlayerHp((hp) => Math.min(character.maxHp, hp + basicLsHeal));
+        if (basicHeal > 0 || recoilDmg > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - recoilDmg)));
 
         addCombatLog(
-            `Basic Attack: ${character.name} hits ${opponentName} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${basicLsHeal > 0 ? ` Lifesteal restores ${basicLsHeal} HP.` : ""}`,
+            `Basic Attack: ${character.name} hits ${opponentName} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${basicHeal > 0 ? ` Lifesteal restores ${basicHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
             "basicAttack",
             character.name
         );
@@ -29702,8 +29789,11 @@ function Arena({
                     setEnemyStatuses((s) => [...s, { name: "Ignition", rounds: 2, percent: p, kind: "negative" }]);
                     effectLines.push(`Ignition ${p}%`);
                 } else if (wt.name === "Drain") {
-                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Drain", rounds: 2, percent: p, kind: "negative" }));
-                    effectLines.push(`Drain ${p}%`);
+                    // Drain ticks read `amount` (fallback 250); store a real amount so
+                    // the weapon's percent isn't silently flattened to 250.
+                    const drainAmt = drainTickPVE(character.level);
+                    setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" }));
+                    effectLines.push(`Drain ${drainAmt}/round`);
                 } else if (wt.name === "Increase Damage Given") {
                     setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% Damage Given`);
@@ -29721,9 +29811,17 @@ function Arena({
             }
         }
 
+        // Honor the player's Lifesteal / Recoil STATUS (jutsu buff/debuff) on weapon
+        // hits too — item lifesteal (weaponLsHeal / weaponTags) is handled above.
+        const activeWp = activeStatuses(playerStatuses);
+        const wLsStatusPct = activeWp.filter((s) => s.name === "Lifesteal").reduce((sum, s) => sum + (s.percent ?? 0), 0);
+        const wStatusLsHeal = wLsStatusPct > 0 && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wLsStatusPct)) : 0;
+        const wRecoilStatus = activeWp.find((s) => s.name === "Recoil");
+        const wRecoilDmg = wRecoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wRecoilStatus.percent ?? 30)) : 0;
+        const wHeal = weaponLsHeal + wStatusLsHeal;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, hp - finalDamage));
-        if (weaponLsHeal > 0) setPlayerHp((hp) => Math.min(character.maxHp, hp + weaponLsHeal));
+        if (wHeal > 0 || wRecoilDmg > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wRecoilDmg)));
         updateCharacter({ ...character, stamina: Math.max(0, character.stamina - staminaCost) });
 
         if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
@@ -29970,7 +30068,7 @@ function Arena({
         // PvP raids still drive both warGroundHp and the enemy village HP.
         const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
-        updateCharacter({
+        const winCharacter: Character = {
             ...rewarded,
             ...villageWarRaid.characterPatch,
             ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
@@ -29991,9 +30089,24 @@ function Arena({
             dailyAiKills: (rewarded.dailyAiKills ?? 0) + 1,
             totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
             defeatedAiIds,
-        });
+        };
+        // Mission battles credit completion (daily slot / clan contrib / lifetime)
+        // ONLY on an actual AI win — never at battle start — so losing or fleeing a
+        // mission no longer counts. raidBattleKind === "none" excludes raids.
+        updateCharacter(missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(winCharacter) : winCharacter);
+        if (exploreAmbushActive && raidBattleKind === "none") {
+            // Explore-mission credit deferred from exploreSector — granted only
+            // now that the ambush was won.
+            onExploreAmbushWon?.();
+        }
         if (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") {
             onMissionRaidComplete?.(currentSector);
+        }
+        if (raidBattleKind === "raidAi") {
+            // Hunt contracts complete ONLY on an actual kill. The beast is fought
+            // as a raidAi; huntSector holds tracking at requiredTracks-1, and this
+            // marks the matching accepted hunt mission complete (claimable).
+            onHuntBeastDefeated?.(pendingAiProfile?.id ?? "");
         }
 
         const bonusNote = activeTrait === "Swift" ? " (Swift +25% XP)" : activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
@@ -30321,14 +30434,20 @@ function Arena({
             }
 
             if (["Clear Prevent", "Stun Prevent", "Overclock", "Increase Heal"].includes(tagName)) {
-                const statusRounds = tagName === "Overclock" ? 1 : 2;
-                queuePlayerStatus({ name: tagName, rounds: statusRounds, percent: pct, kind: "positive" });
-                effectLines.push(`${character.name} gains ${tagName} for ${statusRounds} round${statusRounds === 1 ? "" : "s"}${tagTimingText}`);
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s ${tagName} was prevented`);
+                else {
+                    const statusRounds = tagName === "Overclock" ? 1 : 2;
+                    queuePlayerStatus({ name: tagName, rounds: statusRounds, percent: pct, kind: "positive" });
+                    effectLines.push(`${character.name} gains ${tagName} for ${statusRounds} round${statusRounds === 1 ? "" : "s"}${tagTimingText}`);
+                }
             }
 
             if (tag.name === "Debuff Prevent") {
-                queuePlayerStatus({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
-                effectLines.push(`Debuff Prevent: ${character.name} cannot be debuffed for 2 rounds${tagTimingText}.`);
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s Debuff Prevent was prevented`);
+                else {
+                    queuePlayerStatus({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
+                    effectLines.push(`Debuff Prevent: ${character.name} cannot be debuffed for 2 rounds${tagTimingText}.`);
+                }
             }
             if (tag.name === "Elemental Seal") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Elemental Seal`);
@@ -30786,7 +30905,10 @@ function Arena({
         const damage = damageBase;
         let healing = 0;
         let shield = 0;
-        let extraDamage = 0;
+        // Wound is now applied as a 2-round bleed DoT (queued to the player), not
+        // an instant hit, so nothing adds to this anymore — kept at 0 so the
+        // damage/KO expressions below read uniformly with the player path.
+        const extraDamage = 0;
         const effectLines: string[] = [];
         const playerDebuffPrevented = playerStatuses.some((s) => s.name === "Debuff Prevent");
         const enemyBuffPrevented = enemyStatuses.some((s) => s.name === "Buff Prevent");
@@ -30801,8 +30923,8 @@ function Arena({
         jutsu.tags.forEach((tag) => {
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, 50);
             if (tag.name === "Heal") {
-                healing += Math.max(1, Math.floor(jutsu.effectPower));
-                effectLines.push(`${opponentName} heals ${Math.floor(jutsu.effectPower)} HP`);
+                healing += HEAL_FLAT_PVE;
+                effectLines.push(`${opponentName} heals ${HEAL_FLAT_PVE} HP`);
             }
             if (tag.name === "Shield") {
                 shield += SHIELD_FLAT_PVE;
@@ -30818,10 +30940,52 @@ function Arena({
                 }
             }
             if (tag.name === "Wound") {
-                // Rank-cap the wound % to match PvP (api/pvp/move.ts woundCapForJutsu).
-                const dot = cappedPostDamage(damage, Math.min(pct, woundCapForRankPVE(jutsu.bloodlineRank)));
-                extraDamage += dot;
-                effectLines.push(`${character.name} takes ${dot} wound damage`);
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists Wound`);
+                else {
+                    // Rank-cap the wound % (matches PvP), then apply as a 2-round
+                    // bleed DoT on the player — was a one-shot extra hit before,
+                    // which ignored Debuff Prevent and couldn't be cleansed.
+                    const wound = cappedPostDamage(damage, Math.min(pct, woundCapForRankPVE(jutsu.bloodlineRank)));
+                    queueToPlayer({ name: "Wound", rounds: 2, amount: wound, kind: "negative" });
+                    effectLines.push(`${character.name} bleeds for ${wound} damage on their turns`);
+                }
+            }
+            if (tag.name === "Poison") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists poison`);
+                else {
+                    const poisonDmg = Math.floor(character.maxChakra * (pct / 100));
+                    queueToPlayer({ name: "Poison", rounds: 2, percent: pct, amount: poisonDmg, kind: "negative" });
+                    effectLines.push(`${character.name} is poisoned — takes ${poisonDmg} damage/round for 2 rounds`);
+                }
+            }
+            if (tag.name === "Drain") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists drain`);
+                else {
+                    const drainAmt = drainTickPVE(opponentLevel);
+                    queueToPlayer({ name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" });
+                    effectLines.push(`${character.name} is drained — loses ${drainAmt} HP and chakra/round for 2 rounds`);
+                }
+            }
+            if (tag.name === "Recoil") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists Recoil`);
+                else {
+                    queueToPlayer({ name: "Recoil", rounds: 2, percent: pct, kind: "negative" });
+                    effectLines.push(`${character.name} will take recoil when attacking`);
+                }
+            }
+            if (tag.name === "Increase Damage Given") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Increase Damage Given was prevented`);
+                else {
+                    queueToEnemy({ name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName} deals ${pct}% more damage for ${AMP_STATUS_ROUNDS_PVE} rounds`);
+                }
+            }
+            if (tag.name === "Decrease Damage Taken") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Decrease Damage Taken was prevented`);
+                else {
+                    queueToEnemy({ name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName} takes ${pct}% less damage for ${AMP_STATUS_ROUNDS_PVE} rounds`);
+                }
             }
             if (tagMatchesName(tag.name, "Ignition")) {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} resists Ignition`);
@@ -30924,19 +31088,20 @@ function Arena({
             }
         });
 
-        // Apply damage modifiers to enemy jutsu damage
-        const enemyDmgGivenDebuffs = enemyStatuses.filter((s) => s.name === "Decrease Damage Given");
-        const playerDmgTakenReductions = playerStatuses.filter((s) => s.name === "Decrease Damage Taken");
-        const playerDmgTakenBoosts = playerStatuses.filter((s) => s.name === "Increase Damage Taken" || statusMatchesName(s, "Ignition"));
-        const reducedDamage = Math.floor(
-            damage *
-            multiplicativeTagMultiplier(enemyDmgGivenDebuffs, "decrease") *
-            multiplicativeTagMultiplier(playerDmgTakenReductions, "decrease") *
-            multiplicativeTagMultiplier(playerDmgTakenBoosts, "increase")
-        );
-
-        const blocked = Math.min(playerShield, reducedDamage);
-        const finalDamage = Math.max(0, reducedDamage - blocked);
+        // IDG/IDT/Ignition/DDG/DDT are already folded into `damage` by the
+        // soft-cap pools inside calculateDamage (the player path does the same and
+        // voids the old multiplicativeTagMultiplier pass). Re-applying them here
+        // double-counted every amp/debuff — removed. Pierce bypasses shield.
+        const pierce = jutsu.tags?.some((t) => t.name === "Pierce") ?? false;
+        const blocked = pierce ? 0 : Math.min(playerShield, damage);
+        const finalDamage = Math.max(0, damage - blocked);
+        // Siphon: enemy heals a capped % of damage dealt (post-damage, self-contained).
+        const siphonTag = jutsu.tags.find((t) => t.name === "Siphon");
+        if (siphonTag) {
+            const restored = Math.floor(cappedPostDamage(finalDamage, effectiveTagPercent(siphonTag, jutsu.bloodlineRank, 50)));
+            healing += restored;
+            if (restored > 0) effectLines.push(`Siphon: ${opponentName} restores ${restored} HP`);
+        }
         setPlayerShield((s) => Math.max(0, s - blocked));
         setPlayerHp((hp) => Math.max(0, hp - finalDamage - extraDamage));
         setEnemyHp((hp) => Math.min(enemyMaxHp, hp + healing));
@@ -31041,8 +31206,13 @@ function Arena({
         setActiveActor("enemy");
         setActionsThisTurn(0);
         const enemyStunned = enemyStatuses.some((s) => s.name === "Stun");
-        const enemyCompressed = enemyStatuses.some((s) => statusMatchesName(s, "Lag"));
-        const enemyTurnAp = Math.max(0, 100 - (enemyStunned ? STUN_AP_PENALTY : 0) - (enemyCompressed ? 10 : 0));
+        const enemyLagStatus = enemyStatuses.find((s) => statusMatchesName(s, "Lag"));
+        const enemyCompressed = !!enemyLagStatus;
+        // Percent-scaled Lag to match PvP (was a flat -10 AP): reduce the turn's AP
+        // budget by the Lag percent (the enemy has no per-action cost model). Binary
+        // Lag (percent 0) uses the standard 20% via `|| 20`.
+        const enemyLagApLoss = enemyLagStatus ? Math.floor(100 * (enemyLagStatus.percent || 20) / 100) : 0;
+        const enemyTurnAp = Math.max(0, 100 - (enemyStunned ? STUN_AP_PENALTY : 0) - enemyLagApLoss);
         setEnemyAp(enemyTurnAp);
         if (enemyStunned) {
             setEnemyStatuses((s) => withoutStun(s));
@@ -31155,6 +31325,9 @@ function Arena({
 
         setEnemyAp(0);
 
+        // Tracks the player's HP after the basic attack so the end-of-turn DoT
+        // block below can stack on it and check KO correctly.
+        let playerHpAfterBasic = playerHp;
         if (distance(playerPos, enemyPos) > 1) {
             const next = nextStepToward(enemyPos, playerPos);
 
@@ -31164,11 +31337,12 @@ function Arena({
         } else {
             const blocked = Math.min(playerShield, enemyDamage);
             const finalDamage = enemyDamage - blocked;
-            const absorb = playerStatuses.find((s) => s.name === "Absorb");
+            const absorb = activeStatuses(playerStatuses).find((s) => s.name === "Absorb");
             const itemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
             const statusAbsorbed = absorb ? cappedPostDamage(finalDamage, absorb.percent || 30) : 0;
             const absorbed = Math.min(finalDamage, itemAbsorbed + statusAbsorbed);
-            const reflect = playerStatuses.find((s) => s.name === "Reflect");
+            playerHpAfterBasic = Math.max(0, Math.min(character.maxHp, playerHp - finalDamage + absorbed));
+            const reflect = activeStatuses(playerStatuses).find((s) => s.name === "Reflect");
             const statusReflected = reflect ? cappedPostDamage(finalDamage, reflect.percent || 30) : 0;
             const itemReflected = equippedReflectPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
 
@@ -31202,14 +31376,58 @@ function Arena({
             addCombatLog(`${opponentName} attacks ${character.name} for ${finalDamage} damage.${blocked ? ` Shield blocks ${blocked}.` : ""}${absorbed ? ` Absorb restores ${absorbed}.` : ""}`, "basicAttack", opponentName);
         }
 
+        // End-of-enemy-turn bookkeeping. Previously a basic-attack (or move) turn
+        // skipped the player's DoT ticks and Stun entirely — only the jutsu path
+        // applied them — so Poison/Wound/Drain and Stun did nothing here. Mirror
+        // finishEnemyAiAction. DoT uses a FUNCTIONAL setPlayerHp so it stacks on
+        // the basic-attack damage already applied; KO is checked against the known
+        // post-basic HP.
         setEnemyStatuses((s) => tickStatuses(s));
-        setPlayerStatuses((s) => tickStatuses(s));
+        const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
+        pendingPlayerStunApPenaltyRef.current = false;
+        const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses));
+        setPlayerStatuses(tickedPlayerStatuses);
+        const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), tickedPlayerStatuses);
+        let pDotDamage = 0;
+        let pDrainChakra = 0;
+        tickedPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
+            if (s.name === "Wound") pDotDamage += Math.floor((s.amount || 0) * playerDotMit);
+            if (s.name === "Drain") {
+                const amt = Math.floor((s.amount ?? 250) * playerDotMit);
+                pDotDamage += amt;
+                pDrainChakra += amt;
+            }
+            if (s.name === "Poison") {
+                const raw = s.amount ?? Math.floor(character.maxChakra * (s.percent ?? 6) / 100);
+                pDotDamage += Math.floor(raw * playerDotMit);
+            }
+        });
+        if (pDotDamage > 0) {
+            const finalPlayerHp = Math.max(0, playerHpAfterBasic - pDotDamage);
+            setPlayerHp((hp) => Math.max(0, hp - pDotDamage));
+            const nextChakra = pDrainChakra > 0 ? Math.max(0, character.chakra - pDrainChakra) : character.chakra;
+            updateCharacter({ ...character, hp: finalPlayerHp, chakra: nextChakra });
+            const drainNote = pDrainChakra > 0 ? ` Drain also removes ${pDrainChakra} chakra.` : "";
+            addCombatLog(`Damage over time: ${character.name} takes ${pDotDamage} damage from active effects.${drainNote}`, "effects", character.name);
+            if (finalPlayerHp <= 0) {
+                setBattleEnded(true);
+                setBattleResult("loss");
+                setRaidBattleKind("none");
+                setLog(`${character.name} bleeds out from active effects.`);
+                addCombatLog(`${character.name} is defeated by damage over time.`, "defeat", opponentName);
+                if (rankedBattleActive) applyRankedLoss();
+                return;
+            }
+        }
         reduceCooldowns();
-        setAp(100);
+        setAp(playerStunned ? Math.max(0, 100 - STUN_AP_PENALTY) : 100);
         setEnemyAp(100);
         setActiveActor("player");
         setActionsThisTurn(0);
         setTurn((t) => t + 1);
+        if (playerStunned) {
+            addCombatLog(`Stun: ${character.name} starts their turn with ${STUN_AP_PENALTY} less AP.`, "stun", character.name);
+        }
     }
 
     function resetBattle(nextEnemyHp = enemyMaxHp, firstActor?: "player" | "enemy") {
