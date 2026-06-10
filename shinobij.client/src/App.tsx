@@ -4716,8 +4716,18 @@ export default function App() {
         else if (screen === 'bloodlineMaker')                   { void loadCategory('bloodline'); void loadCategory('jutsu'); }
         else if (screen === 'storyHall')                        { void loadCategory('event'); }
         else if (screen === 'logbook')                          { void loadCategory('event'); void loadCategory('ai'); }
-     
+
     }, [screen]);
+
+    // The choose-your-companion overlay (onboardingStep === "starter") renders
+    // starter portraits from sharedImages['pet:<id>'], but it's not a
+    // 'pets'/'petArena' screen, so the screen→category effect above never
+    // hydrates the pet bucket for a brand-new player. Load it when the overlay
+    // is active so the uploaded art shows instead of the emoji fallback.
+    // Idempotent — loadCategory's loadedCatsRef guard skips a re-fetch.
+    useEffect(() => {
+        if (character?.onboardingStep === "starter") void loadCategory('pet');
+    }, [character?.onboardingStep]);
 
     // Keep a ref to the latest save payload so the interval always uses current data.
     const latestSaveRef = useRef<{ character: Character; name: string; payload: ReturnType<typeof buildPlayerSavePayload> } | null>(null);
