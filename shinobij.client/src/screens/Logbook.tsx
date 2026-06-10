@@ -5,7 +5,8 @@ import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
-import { DAILY_MISSION_LIMIT } from "../constants/game";
+import { DAILY_MISSION_LIMIT, EXAM_LEVEL_GATES } from "../constants/game";
+import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { baseStats, rankFromLevel } from "../lib/stats";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
@@ -16,7 +17,6 @@ import { hasDailyMissionSlot, markMissionCompleted } from "../lib/character-prog
 import { weatherForBiome } from "../data/sectors";
 import {
     gainXp,
-    EXAM_LEVEL_GATES,
     VILLAGE_WAR_DAILY_MISSIONS,
     VILLAGE_WAR_MISSION_DAMAGE,
     VILLAGE_WAR_RAIDS_PER_MISSION,
@@ -24,9 +24,6 @@ import {
     claimVillageWarDailyMission,
     grantTerritoryScrolls,
     loadVillageState,
-    mergeBuiltinMissions,
-    missionRaidProgressKey,
-    missionRaidRequirement,
     weatherForSector,
     type CreatorEvent,
 } from "../App";

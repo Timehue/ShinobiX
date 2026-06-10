@@ -8,8 +8,9 @@
  */
 
 import { normalizeJutsuTags, tagMatchesName, normalizeJutsuMethod } from "./tags";
+import { makeId } from "./utils";
 import type { Jutsu, JutsuTag } from "../types/combat";
-import type { JutsuType, JutsuElement, JutsuTarget } from "../types/core";
+import type { JutsuType, JutsuElement, JutsuTarget, Rank } from "../types/core";
 
 export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
     const tags = normalizeJutsuTags(jutsu.tags);
@@ -44,4 +45,13 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
 
 export function makeJutsu(id: string, name: string, type: JutsuType, ap: number, range: number, effectPower: number, cooldown: number, chakraCost: number, staminaCost: number, tags: JutsuTag[], element: JutsuElement = "Fire"): Jutsu {
     return normalizeJutsu({ id, name, type, element, ap, range, effectPower, cooldown, currentCooldown: 0, chakraCost, staminaCost, tags });
+}
+
+export function blankJutsu(index: number, rank: Rank): Jutsu {
+    // v4.3: Wound rank caps — S Rank tops at 35%, A/B at 30%.
+    const defaultPercent = rank === "S Rank" ? 35 : 30;
+    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 40, 7, 300, 300, [
+        { name: "", percent: defaultPercent },
+        { name: "", percent: defaultPercent },
+    ]);
 }

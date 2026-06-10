@@ -8,13 +8,12 @@ import { allTags, binaryTags, bloodlineUniqueTags, cappedDamageTags, percentageT
 import { bloodlinePoints, jutsuPoints, jutsuCountForRank, pointBudgetForRank, normalizeBloodlineTagPercent } from "../lib/jutsu-points";
 import { compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResourceCosts } from "../lib/jutsu-scaling";
-import { normalizeJutsu } from "../lib/jutsu";
+import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { makeId } from "../lib/utils";
 import { replaceCharacterBloodline } from "../lib/bloodline";
-import { specialties } from "../data/jutsu";
+import { specialties, bloodlineJutsuMethods, fortyApBlockedBloodlineTags, instantEffectGroundTags, jutsuTargets } from "../data/jutsu";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { TagPicker } from "../components/TagPicker";
-import { blankJutsu, bloodlineJutsuMethods, fortyApBlockedBloodlineTags, instantEffectGroundTags, jutsuTargets } from "../App";
 
 export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
