@@ -1968,6 +1968,10 @@ export function Arena({
         const defeatedAiIds = pendingAiProfile?.id && !(character.defeatedAiIds ?? []).includes(pendingAiProfile.id)
             ? [...(character.defeatedAiIds ?? []), pendingAiProfile.id]
             : character.defeatedAiIds ?? [];
+        // Per-AI kill count for the Bestiary (kill-count tiers).
+        const aiKills = pendingAiProfile?.id
+            ? { ...(character.aiKills ?? {}), [pendingAiProfile.id]: ((character.aiKills ?? {})[pendingAiProfile.id] ?? 0) + 1 }
+            : (character.aiKills ?? {});
         const territoryScrollReward = 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
@@ -1999,6 +2003,7 @@ export function Arena({
             dailyAiKills: (rewarded.dailyAiKills ?? 0) + 1,
             totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
             defeatedAiIds,
+            aiKills,
         };
         // Mission battles credit completion (daily slot / clan contrib / lifetime)
         // ONLY on an actual AI win — never at battle start — so losing or fleeing a

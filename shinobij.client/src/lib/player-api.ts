@@ -63,6 +63,31 @@ export async function postClanTreasuryDonation(playerName: string, clan: string,
     }
 }
 
+// Server-authoritative clan upgrade purchase (api/clan/upgrade/purchase.ts):
+// debits the clan treasury (ryo + warSupply) under a lock and increments the
+// building level. Returns the new { upgrades, treasury } on success, or null on
+// failure (alerts the player). Only clan leadership may purchase (enforced
+// server-side).
+export async function postClanUpgradePurchase(
+    playerName: string,
+    clan: string,
+    upgradeKey: string,
+): Promise<{ upgrades: Record<string, number>; treasury: Record<string, unknown> } | null> {
+    try {
+        const res = await fetch("/api/clan/upgrade/purchase", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, clan, upgradeKey }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; upgrades?: Record<string, number>; treasury?: Record<string, unknown> };
+        if (!res.ok || !data.ok || !data.upgrades || !data.treasury) { alert(data.error || "Upgrade failed. Please try again."); return null; }
+        return { upgrades: data.upgrades, treasury: data.treasury };
+    } catch {
+        alert("Upgrade failed. Please try again.");
+        return null;
+    }
+}
+
 type TreasuryDonationBody =
     | { currency: string; amount: number }
     | { itemId: string; count?: number };

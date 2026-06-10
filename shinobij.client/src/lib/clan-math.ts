@@ -10,6 +10,7 @@
  */
 
 import { clampNumber } from "./utils";
+import { clanUpgradeEffectPercent } from "./clan-upgrades";
 import { loadAllSectorTerritories } from "./world-state";
 import { cleanTreasuryItems } from "./items";
 import { normalizeNoticePosts } from "./clan-notices";
@@ -31,7 +32,10 @@ export function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): Enh
 export function clanXpNeeded(level: number) { return Math.floor(500 + level * 275 + Math.pow(level, 1.22) * 45); }
 export function addClanXp(data: EnhancedClanData, amount: number): EnhancedClanData { let next = { ...data, xp: data.xp + Math.max(0, Math.floor(amount)) }; while (next.level < 100 && next.xp >= clanXpNeeded(next.level)) next = { ...next, xp: next.xp - clanXpNeeded(next.level), level: next.level + 1 }; return next; }
 export function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.find(tier => memberCount >= tier.min && memberCount <= tier.max)?.percent ?? 0; }
-export function clanUpgradeBonus(data: EnhancedClanData, key: ClanUpgradeKey) { if (key === "trainingGrounds" || key === "scoutNetwork") return clanMemberBoostPercent(data.members.length); return 0; }
+// Percent-point effect of a clan building at its current level, from the
+// clan-upgrades table. Flat-HP / recon buildings (War Room, Scout Network)
+// return 0 here — they expose their effects via warRoomBonusHp() / scoutIntelTier().
+export function clanUpgradeBonus(data: EnhancedClanData, key: ClanUpgradeKey) { return clanUpgradeEffectPercent(key, data.upgrades?.[key] ?? 0); }
 export function canManageClan(role: ClanRole) { return role === "Founder" || role === "Leader" || role === "Officer"; }
 export function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "🏰", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "🏯", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🏠", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "⛺", desc: "A small camp waiting to grow into a feared clan home." }; }
 export function clanContribTotal(m: ClanMemberEntry): number {

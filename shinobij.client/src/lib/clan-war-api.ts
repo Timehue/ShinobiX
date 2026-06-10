@@ -31,6 +31,7 @@ export type CwWar = {
     clans: [string, string];
     villages: Record<string, string>;
     hp: Record<string, number>;
+    hpMax?: Record<string, number>; // per-clan starting pool (base + War Room bonus)
     startedAt: number;
     updatedAt: number;
     endedAt?: number;

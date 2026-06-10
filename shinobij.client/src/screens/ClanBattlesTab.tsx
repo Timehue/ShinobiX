@@ -232,15 +232,15 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                         <div className="council-vs-row">
                             <div className={`council-side ${character.clan === myClan ? "council-mine" : ""}`}>
                                 <span className="council-village-name">{myClan}</span>
-                                <span className="council-hp-label">{(myWar.hp[myClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
-                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[myClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#22c55e" }} /></div>
+                                <span className="council-hp-label">{(myWar.hp[myClan] ?? 0).toLocaleString()} / {(myWar.hpMax?.[myClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[myClan] ?? 0) / (myWar.hpMax?.[myClan] ?? CW_HP_MAX)) * 100))}%`, background: "#22c55e" }} /></div>
                                 {myWar.mvpByClan?.[myClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[myClan]}</span>}
                             </div>
                             <div className="council-vs">VS</div>
                             <div className="council-side council-side-right">
                                 <span className="council-village-name">{enemyClan}</span>
-                                <span className="council-hp-label">{(myWar.hp[enemyClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
-                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[enemyClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#ef4444" }} /></div>
+                                <span className="council-hp-label">{(myWar.hp[enemyClan] ?? 0).toLocaleString()} / {(myWar.hpMax?.[enemyClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[enemyClan] ?? 0) / (myWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "#ef4444" }} /></div>
                                 {myWar.mvpByClan?.[enemyClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[enemyClan]}</span>}
                             </div>
                         </div>
