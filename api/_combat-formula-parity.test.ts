@@ -25,7 +25,9 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const SERVER = readFileSync(join(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
 const CLIENT = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
-const CLIENT_APP = readFileSync(join(ROOT, 'shinobij.client', 'src', 'App.tsx'), 'utf8');
+// The PvE combat engine lives in screens/Arena.tsx (extracted verbatim from
+// the App.tsx monolith, 2026-06-10). These guards follow the engine.
+const CLIENT_APP = readFileSync(join(ROOT, 'shinobij.client', 'src', 'screens', 'Arena.tsx'), 'utf8');
 // STUN_AP_PENALTY lives in the client constants module, not combat-math —
 // pinned here so the server endTurn AP penalty can't drift from the client's.
 const CLIENT_GAME_CONSTS = readFileSync(join(ROOT, 'shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
@@ -107,7 +109,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.match(CLIENT, /export function woundCapForRankPVE/, 'woundCapForRankPVE helper missing from combat-math.ts');
         assert.ok(
             CLIENT_APP.includes('woundCapForRankPVE('),
-            'App.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again',
+            'Arena.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again',
         );
     });
     // #2 amp duration: PvP forces IDG/IDT/DDG/DDT to 4 rounds (STATUS_DURATIONS_OVERRIDE);
@@ -124,7 +126,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         }
         assert.ok(
             CLIENT_APP.includes('AMP_STATUS_ROUNDS_PVE'),
-            'App.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals',
+            'Arena.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals',
         );
     });
     // #3 Drain: PvE consumes drainTickPVE (mastery-scaled, HP+chakra only). The
@@ -133,8 +135,8 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // drains stamina.
     it('PvE consumes the mastery-scaled drain helper and drops stamina drain', () => {
         assert.match(CLIENT, /export function drainTickPVE/, 'drainTickPVE helper missing from combat-math.ts');
-        assert.ok(CLIENT_APP.includes('drainTickPVE('), 'App.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
-        assert.ok(!CLIENT_APP.includes('drainStamina'), 'App.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
+        assert.ok(CLIENT_APP.includes('drainTickPVE('), 'Arena.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
+        assert.ok(!CLIENT_APP.includes('drainStamina'), 'Arena.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
     });
     // DoT DR mitigation: the DR_DOT_SCALE value parity is covered in PAIRS
     // above; this guards that PvE actually CONSUMES the dotMitigationPVE
@@ -146,7 +148,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.match(CLIENT, /export function dotMitigationPVE/, 'dotMitigationPVE helper missing from combat-math.ts');
         assert.ok(
             CLIENT_APP.includes('dotMitigationPVE('),
-            'App.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity',
+            'Arena.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity',
         );
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
@@ -161,7 +163,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         );
         assert.ok(
             CLIENT_APP.includes('mergeCombatStatus('),
-            'App.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again',
+            'Arena.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again',
         );
     });
 });

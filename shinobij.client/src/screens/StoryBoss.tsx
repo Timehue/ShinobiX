@@ -13,8 +13,8 @@ import { getOffenseStat } from "../lib/combat-math";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { storylines, getCurrentStory } from "../data/storylines";
 import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
+import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import {
-    BattleLockKeeper,
     gainXp,
     unlockVillageKageSystem,
     type CreatorEvent,
