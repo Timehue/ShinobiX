@@ -19,10 +19,10 @@ import { biomeLabel } from "../data/world";
 import {
     HOLLOW_GATE_KEY_DUNGEON_KEY_COST,
     HOLLOW_GATE_KEY_FATE_SHARD_COST,
-    sharedWeeklyBossAiIdCache,
     type CreatorEvent,
-    type VillageWarRecord,
 } from "../App";
+import { sharedWeeklyBossAiIdCache } from "../lib/world-state";
+import { type VillageWarRecord } from "../lib/world-state";
 
 export function CentralHub({
     character,

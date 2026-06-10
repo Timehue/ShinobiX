@@ -8,6 +8,7 @@ import { ClanSealPool } from "../screens/ClanSealPool";
 import type { GameItem } from "../types/combat";
 import { TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import type { WeatherType, Screen } from "../types/core";
+import { clanMissionProgress } from "../lib/clan-math";
 import { addClanXp, canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRankOf, clanRoleOf, clanUpgradeBonus, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
 import { postClanTreasuryDonation } from "../lib/player-api";
@@ -21,25 +22,8 @@ import { villageForOutskirtsSector, villages } from "../data/sectors";
 import { weatherEffects } from "../data/world";
 import {
     ClanWarsPanel,
-    claimPendingWarCrates,
-    clanMissionProgress,
-    clanOwnedTerritories,
-    clanTerritoryStartingScore,
-    clanTerritoryWarMultiplier,
-    damageSectorTerritory,
-    grantTerritoryScrolls,
-    isVillageAnbu,
-    loadAllSectorTerritories,
-    loadSectorTerritory,
-    removeTerritoryScrolls,
-    saveSectorTerritory,
-    sectorRaidDamageAmount,
-    territoryScrollCount,
-    villageOwnedTerritories,
-    villageTerritoryWarSupply,
-    weatherForSector,
-    type TerritoryBuffStat,
 } from "../App";
+import { claimPendingWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, damageSectorTerritory, grantTerritoryScrolls, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, removeTerritoryScrolls, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 
 export function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; setScreen: (s: Screen) => void }) {
     const lore = clanLore[character.village];

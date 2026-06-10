@@ -7,7 +7,7 @@
  */
 import { currentDateKey } from "./utils";
 import { cleanTreasuryItems } from "./items";
-import type { KageChallenge, VillageAgendaTask, VillageDailyAgenda, VillageTreasury } from "../App";
+import { type KageChallenge, type VillageAgendaTask, type VillageDailyAgenda, type VillageTreasury } from "./world-state";
 
 export function normalizeAnbuAppointees(appointees?: string[]) {
     const seen = new Set<string>();

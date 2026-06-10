@@ -4,14 +4,12 @@ import {
     type Character,
     type EquipmentSlot,
     type GameItem,
-    type TileCard,
     DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
     WARFORGED_RELIC_ID,
     armorReductionForQuality,
     consolidateItemBonuses,
     getAllItems,
-    getAllTileCards,
     getItemById,
     nonVanguardCharmSubstitute,
     petFeedXpForItem,
@@ -19,6 +17,7 @@ import {
 } from "../App";
 import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { hasCharacterElement } from "../lib/elements";
+import { getAllTileCards, type TileCard } from "../data/tile-cards";
 
 export function Inventory({
     character,

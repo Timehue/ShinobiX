@@ -17,16 +17,9 @@ import { hasDailyMissionSlot, markMissionCompleted } from "../lib/character-prog
 import { weatherForBiome } from "../data/sectors";
 import {
     gainXp,
-    VILLAGE_WAR_DAILY_MISSIONS,
-    VILLAGE_WAR_MISSION_DAMAGE,
-    VILLAGE_WAR_RAIDS_PER_MISSION,
-    activeVillageWarsFor,
-    claimVillageWarDailyMission,
-    grantTerritoryScrolls,
-    loadVillageState,
-    weatherForSector,
     type CreatorEvent,
 } from "../App";
+import { activeVillageWarsFor, claimVillageWarDailyMission, grantTerritoryScrolls, loadVillageState, weatherForSector, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
 
 export function Logbook({
     character,

@@ -15,15 +15,12 @@ import { normalizeTagName, statusMatchesName, tagMatchesName } from "../lib/tags
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { useBoardScale } from "../lib/use-board-scale";
 import {
-    loadArenaActiveFights,
     normalizeCharacter,
     playerLensDiscipline,
-    saveArenaActiveFights,
-    unregisterLocalFight,
-    type ArenaSpectatorFight,
     type PvpGroundEffectState,
     type PvpSessionState,
 } from "../App";
+import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 
 export function PvpBattleScreen({
     character,
