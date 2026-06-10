@@ -801,6 +801,22 @@ export function Arena({
             alert(`${opponent.name} does not have a pet available for battle.`);
             return;
         }
+        // Pet ranked: mint ONE server-minted match token (seals BOTH pre-match
+        // pet ratings) so the rating swing is server-authoritative + exactly-once.
+        // The SAME token rides the challenge to the responder and back via the
+        // accepted notice, so both sides report it (the server NX-dedups per
+        // token, settling both accounts once). Mint failure → local Elo fallback.
+        let petRankedToken: string | undefined;
+        if (mode === "rankedPet") {
+            try {
+                const tokRes = await fetch("/api/pet/ranked-start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ opponentName: opponent.name }),
+                });
+                if (tokRes.ok) petRankedToken = ((await tokRes.json()) as { matchToken?: string }).matchToken;
+            } catch { /* fall back to local Elo estimate */ }
+        }
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -813,6 +829,7 @@ export function Arena({
             // Pet ranked: stamp my account-level pet Elo so the responder's
             // accepted-notice carries both ratings for symmetric deltas.
             challengerPetRating: mode === "rankedPet" ? (character.petRankedRating ?? 1000) : undefined,
+            petRankedToken,
             createdAt: Date.now(),
             mode,
             clanWarPoints,

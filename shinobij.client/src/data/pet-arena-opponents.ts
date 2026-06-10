@@ -33,6 +33,9 @@ export type PetArenaOpponent = {
     ranked?: boolean;
     opponentRating?: number;
     selfPet?: Pet;
+    // Shared server-minted pet-ranked match token, carried from the challenge
+    // handshake so both sides report battle-result with the SAME token.
+    petRankedToken?: string;
 };
 
 export const genericPetArenaOpponents: PetArenaOpponent[] = [
