@@ -26,7 +26,9 @@ const node_path_1 = require("node:path");
 const ROOT = process.cwd();
 const SERVER = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
 const CLIENT = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
-const CLIENT_APP = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'App.tsx'), 'utf8');
+// The PvE combat engine lives in screens/Arena.tsx (extracted verbatim from
+// the App.tsx monolith, 2026-06-10). These guards follow the engine.
+const CLIENT_APP = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'screens', 'Arena.tsx'), 'utf8');
 // STUN_AP_PENALTY lives in the client constants module, not combat-math —
 // pinned here so the server endTurn AP penalty can't drift from the client's.
 const CLIENT_GAME_CONSTS = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
@@ -97,7 +99,7 @@ const PAIRS = [
     // it can't silently go dead again (which would re-open the PvE↔PvP divergence).
     (0, node_test_1.it)('PvE actually consumes the wound rank cap (not a dead constant)', () => {
         node_assert_1.strict.match(CLIENT, /export function woundCapForRankPVE/, 'woundCapForRankPVE helper missing from combat-math.ts');
-        node_assert_1.strict.ok(CLIENT_APP.includes('woundCapForRankPVE('), 'App.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again');
+        node_assert_1.strict.ok(CLIENT_APP.includes('woundCapForRankPVE('), 'Arena.tsx no longer calls woundCapForRankPVE — the PvE wound rank cap is dead again');
     });
     // #2 amp duration: PvP forces IDG/IDT/DDG/DDT to 4 rounds (STATUS_DURATIONS_OVERRIDE);
     // PvE centralizes the same value in AMP_STATUS_ROUNDS_PVE. Assert all four server
@@ -111,7 +113,7 @@ const PAIRS = [
             node_assert_1.strict.ok(m, `server STATUS_DURATIONS_OVERRIDE missing "${name}"`);
             node_assert_1.strict.equal(Number(m[1]), clientAmp, `${name} duration (${m[1]}) != AMP_STATUS_ROUNDS_PVE (${clientAmp})`);
         }
-        node_assert_1.strict.ok(CLIENT_APP.includes('AMP_STATUS_ROUNDS_PVE'), 'App.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals');
+        node_assert_1.strict.ok(CLIENT_APP.includes('AMP_STATUS_ROUNDS_PVE'), 'Arena.tsx no longer uses AMP_STATUS_ROUNDS_PVE — PvE amp durations drifted back to per-site literals');
     });
     // #3 Drain: PvE consumes drainTickPVE (mastery-scaled, HP+chakra only). The
     // DRAIN_* value parity is covered by the PAIRS loop above; this guards that the
@@ -119,8 +121,8 @@ const PAIRS = [
     // drains stamina.
     (0, node_test_1.it)('PvE consumes the mastery-scaled drain helper and drops stamina drain', () => {
         node_assert_1.strict.match(CLIENT, /export function drainTickPVE/, 'drainTickPVE helper missing from combat-math.ts');
-        node_assert_1.strict.ok(CLIENT_APP.includes('drainTickPVE('), 'App.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
-        node_assert_1.strict.ok(!CLIENT_APP.includes('drainStamina'), 'App.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
+        node_assert_1.strict.ok(CLIENT_APP.includes('drainTickPVE('), 'Arena.tsx no longer calls drainTickPVE — PvE drain is not mastery-scaled');
+        node_assert_1.strict.ok(!CLIENT_APP.includes('drainStamina'), 'Arena.tsx still references drainStamina — Drain should not touch stamina (match PvP)');
     });
     // DoT DR mitigation: the DR_DOT_SCALE value parity is covered in PAIRS
     // above; this guards that PvE actually CONSUMES the dotMitigationPVE
@@ -130,7 +132,7 @@ const PAIRS = [
     // duration regression guards catch.
     (0, node_test_1.it)('PvE consumes the DoT DR-mitigation helper (not raw ticks)', () => {
         node_assert_1.strict.match(CLIENT, /export function dotMitigationPVE/, 'dotMitigationPVE helper missing from combat-math.ts');
-        node_assert_1.strict.ok(CLIENT_APP.includes('dotMitigationPVE('), 'App.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity');
+        node_assert_1.strict.ok(CLIENT_APP.includes('dotMitigationPVE('), 'Arena.tsx no longer calls dotMitigationPVE — PvE DoTs would tick unmitigated again, breaking PvE↔PvP parity');
     });
     // #5 stacking: PvP's STACKABLE_STATUS set (non-listed statuses replace on
     // re-apply) must match the client's STACKABLE_STATUS_PVE, and App.tsx must
@@ -138,6 +140,6 @@ const PAIRS = [
     // statuses — Stun/Seals/Prevents/DoTs — pile up again).
     (0, node_test_1.it)('STACKABLE_STATUS set matches and PvE routes through mergeCombatStatus', () => {
         node_assert_1.strict.deepEqual(stackableSet(SERVER, 'STACKABLE_STATUS'), stackableSet(CLIENT, 'STACKABLE_STATUS_PVE'), 'stackable-status set diverged between server and client');
-        node_assert_1.strict.ok(CLIENT_APP.includes('mergeCombatStatus('), 'App.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again');
+        node_assert_1.strict.ok(CLIENT_APP.includes('mergeCombatStatus('), 'Arena.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again');
     });
 });

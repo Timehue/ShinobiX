@@ -55,3 +55,15 @@ export function blankJutsu(index: number, rank: Rank): Jutsu {
         { name: "", percent: defaultPercent },
     ]);
 }
+
+export function isSelfSupportJutsu(jutsu: Jutsu) {
+    return jutsu.target === "SELF" || jutsu.tags.some((tag) => ["Heal", "Shield", "Barrier", "Reflect", "Absorb", "Decrease Damage Taken", "Debuff Prevent", "Stun Prevent"].includes(tag.name));
+}
+
+export function isControlJutsu(jutsu: Jutsu) {
+    return jutsu.target !== "SELF" && jutsu.tags.some((tag) => ["Stun", "Bloodline Seal", "Seal", "Elemental Seal", "Decrease Damage Given", "Increase Damage Taken", "Buff Prevent", "Cleanse Prevent", "Clear Prevent", "Lag"].some((name) => tagMatchesName(tag.name, name)));
+}
+
+export function isPressureJutsu(jutsu: Jutsu) {
+    return jutsu.target !== "SELF" && jutsu.tags.some((tag) => ["Ignition", "Wound", "Poison", "Drain", "Siphon"].some((name) => tagMatchesName(tag.name, name)));
+}
