@@ -909,9 +909,14 @@ export type PendingArenaStoryBattle =
 
 // HOLLOW_GATE_SHRINE_W / H moved to ./constants/game.
 // Runtime-tunable from the admin panel.
-let HOLLOW_GATE_THREAT_PER_STEP = 7;
-let HOLLOW_GATE_THREAT_AMBUSH = 100;
+export let HOLLOW_GATE_THREAT_PER_STEP = 7;
+export let HOLLOW_GATE_THREAT_AMBUSH = 100;
 export let HOLLOW_GATE_MAX_FLOOR = 5;
+// Admin-tuned at runtime from screens/AdminPanel (an imported binding cannot be
+// reassigned cross-module, so the setters live here beside the lets).
+export function setHollowGateThreatPerStep(v: number) { HOLLOW_GATE_THREAT_PER_STEP = v; }
+export function setHollowGateThreatAmbush(v: number) { HOLLOW_GATE_THREAT_AMBUSH = v; }
+export function setHollowGateMaxFloor(v: number) { HOLLOW_GATE_MAX_FLOOR = v; }
 
 // Hollow Gate intro pages + flavor + tile-icon helpers from
 // ./data/hollow-gate-flavor (imported for internal use). External callers
@@ -1271,11 +1276,15 @@ export { getAllItems, getItemById };
 // panel's runtime mutation.
 export let HOLLOW_GATE_KEY_DUNGEON_KEY_COST = 5;
 export let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
+export function setHollowGateKeyDungeonKeyCost(v: number) { HOLLOW_GATE_KEY_DUNGEON_KEY_COST = v; }
+export function setHollowGateKeyFateShardCost(v: number) { HOLLOW_GATE_KEY_FATE_SHARD_COST = v; }
 // Damage taken per trap tile (and "Cursed Bind" sealed-door outcome), as a
 // percent of the player's max HP. Lethal-capable.
-let HOLLOW_GATE_TRAP_DMG_PCT = 0.33;
+export let HOLLOW_GATE_TRAP_DMG_PCT = 0.33;
+export function setHollowGateTrapDmgPct(v: number) { HOLLOW_GATE_TRAP_DMG_PCT = v; }
 // Per-floor reward multiplier for boss kills: total mult = 1 + (floor - 1) * this.
-let HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = 0.2;
+export let HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = 0.2;
+export function setHollowGateBossFloorRewardMult(v: number) { HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = v; }
 
 /**
  * Check both clan war history and the village war cache for unclaimed war crates.
@@ -1791,6 +1800,7 @@ export function gainProfessionXp(character: Character, amount: number): Characte
 // Hollow Gate tunables — declared as `let` so the admin panel can override
 // them at runtime without rebuilding. Defaults are baked-in canonical values.
 export let HOLLOW_GATE_UNLOCK_COST = 10_000;
+export function setHollowGateUnlockCost(v: number) { HOLLOW_GATE_UNLOCK_COST = v; }
 
 type VillageLeadershipProfile = { kage: string; elders: string[]; atWar: boolean; pastWars: string[] };
 type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
@@ -15807,7 +15817,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={0} step={100}
                                         defaultValue={HOLLOW_GATE_UNLOCK_COST}
-                                        onChange={(e) => { HOLLOW_GATE_UNLOCK_COST = Math.max(0, Math.floor(Number(e.target.value) || 0)); }}
+                                        onChange={(e) => { setHollowGateUnlockCost(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15815,7 +15825,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={0} step={1}
                                         defaultValue={HOLLOW_GATE_KEY_DUNGEON_KEY_COST}
-                                        onChange={(e) => { HOLLOW_GATE_KEY_DUNGEON_KEY_COST = Math.max(0, Math.floor(Number(e.target.value) || 0)); }}
+                                        onChange={(e) => { setHollowGateKeyDungeonKeyCost(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15823,7 +15833,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={0} step={1}
                                         defaultValue={HOLLOW_GATE_KEY_FATE_SHARD_COST}
-                                        onChange={(e) => { HOLLOW_GATE_KEY_FATE_SHARD_COST = Math.max(0, Math.floor(Number(e.target.value) || 0)); }}
+                                        onChange={(e) => { setHollowGateKeyFateShardCost(Math.max(0, Math.floor(Number(e.target.value) || 0))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15831,7 +15841,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={1} max={20} step={1}
                                         defaultValue={HOLLOW_GATE_MAX_FLOOR}
-                                        onChange={(e) => { HOLLOW_GATE_MAX_FLOOR = Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1))); }}
+                                        onChange={(e) => { setHollowGateMaxFloor(Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1)))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15839,7 +15849,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={0} max={100} step={1}
                                         defaultValue={HOLLOW_GATE_THREAT_PER_STEP}
-                                        onChange={(e) => { HOLLOW_GATE_THREAT_PER_STEP = Math.max(0, Math.min(100, Math.floor(Number(e.target.value) || 0))); }}
+                                        onChange={(e) => { setHollowGateThreatPerStep(Math.max(0, Math.min(100, Math.floor(Number(e.target.value) || 0)))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15847,7 +15857,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={1} max={500} step={1}
                                         defaultValue={HOLLOW_GATE_THREAT_AMBUSH}
-                                        onChange={(e) => { HOLLOW_GATE_THREAT_AMBUSH = Math.max(1, Math.min(500, Math.floor(Number(e.target.value) || 100))); }}
+                                        onChange={(e) => { setHollowGateThreatAmbush(Math.max(1, Math.min(500, Math.floor(Number(e.target.value) || 100)))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15855,7 +15865,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={0} max={1} step={0.01}
                                         defaultValue={HOLLOW_GATE_TRAP_DMG_PCT}
-                                        onChange={(e) => { HOLLOW_GATE_TRAP_DMG_PCT = Math.max(0, Math.min(1, Number(e.target.value) || 0)); }}
+                                        onChange={(e) => { setHollowGateTrapDmgPct(Math.max(0, Math.min(1, Number(e.target.value) || 0))); }}
                                     />
                                 </label>
                                 <label style={{ display: "grid", gap: 4 }}>
@@ -15863,7 +15873,7 @@ function AdminPanel({
                                     <input
                                         type="number" min={0} max={2} step={0.05}
                                         defaultValue={HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT}
-                                        onChange={(e) => { HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = Math.max(0, Math.min(2, Number(e.target.value) || 0)); }}
+                                        onChange={(e) => { setHollowGateBossFloorRewardMult(Math.max(0, Math.min(2, Number(e.target.value) || 0))); }}
                                     />
                                 </label>
                             </div>
