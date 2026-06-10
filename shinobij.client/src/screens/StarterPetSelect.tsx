@@ -223,7 +223,19 @@ export function StarterPetSelect({
                 boxShadow: `0 0 60px ${option.accent}66`,
                 textAlign: "center",
             }}>
-                <div style={{ fontSize: 52, marginBottom: 6 }}>{option.icon}</div>
+                {(() => {
+                    const art = artFor(option);
+                    return art ? (
+                        <img
+                            src={art}
+                            alt={option.pet.name}
+                            style={{ width: 84, height: 84, borderRadius: "50%", objectFit: "cover", border: `2px solid ${option.accent}`, marginBottom: 6 }}
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                    ) : (
+                        <div style={{ fontSize: 52, marginBottom: 6 }}>{option.icon}</div>
+                    );
+                })()}
                 <p className="act-label" style={{ color: option.accent, letterSpacing: 2, margin: 0 }}>
                     YOUR FIRST COMPANION
                 </p>
