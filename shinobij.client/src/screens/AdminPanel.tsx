@@ -54,8 +54,6 @@ import {
     setHollowGateThreatPerStep,
     setHollowGateTrapDmgPct,
     setHollowGateUnlockCost,
-    setSharedWeeklyBossAiId,
-    sharedWeeklyBossAiIdCache,
     adminIconOptions,
     createCharacter,
     defaultAncientChestVn,
@@ -63,7 +61,6 @@ import {
     getAllJutsus,
     loadVillageLeadershipImages,
     normalizeVillageLeadershipImages,
-    persistSharedGameState,
     saveVillageLeadershipImages,
     storyToCreatorEvent,
     stringifyServerSavePayload,
@@ -71,6 +68,7 @@ import {
     type CreatorEvent,
     type VillageLeadershipImages,
 } from "../App";
+import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 
 export function AdminPanel({
     character,

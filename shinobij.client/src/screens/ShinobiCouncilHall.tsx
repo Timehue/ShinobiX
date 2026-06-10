@@ -9,13 +9,8 @@ import { fetchClanData } from "../lib/clan-api";
 import { villages } from "../data/sectors";
 import { type CwChallenge } from "../lib/clan-war-api";
 import {
-    VILLAGE_WAR_GROUND_HP_MAX,
-    VILLAGE_WAR_HP_MAX,
-    loadVillageState,
-    loadVillageWar,
-    type KageHistoryEntry,
-    type VillageWar,
 } from "../App";
+import { loadVillageState, loadVillageWar, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type KageHistoryEntry, type VillageWar } from "../lib/world-state";
 
 export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
