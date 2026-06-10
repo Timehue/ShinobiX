@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { Character, PlayerRecord } from "../types/character";
 import { TERRITORY_HP_MAX, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
 import { currentDateKey } from "../lib/utils";
-import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../App";
+import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../lib/world-state";
 
 // ─── Village War Screen ───────────────────────────────────────────────────────
 // Lets a village member view the active war (if any), raid enemy sectors, and

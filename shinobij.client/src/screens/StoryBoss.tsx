@@ -16,10 +16,10 @@ import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import {
     gainXp,
-    unlockVillageKageSystem,
     type CreatorEvent,
     type StoryStep,
 } from "../App";
+import { unlockVillageKageSystem } from "../lib/world-state";
 
 export function StoryHall({
     character,

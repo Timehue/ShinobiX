@@ -8,9 +8,9 @@ import {
     type Profession,
     type Screen,
     PROFESSION_MAX_RANK,
-    loadArenaTournament,
     professionThresholds,
 } from "../App";
+import { loadArenaTournament } from "../lib/world-state";
 
 type WeeklyBossLb = {
     weekKey: string;

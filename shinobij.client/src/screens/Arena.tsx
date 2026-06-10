@@ -43,35 +43,21 @@ import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
 import {
-    activeVillageWarsFor,
-    damageSectorTerritory,
     gainXp,
     getAllJutsus,
     getPvpJutsuLoadout,
-    grantTerritoryScrolls,
     isAdminAccountName,
-    loadArenaActiveFights,
-    loadArenaTournament,
-    loadSectorTerritory,
     normalizeCharacter,
     nonVanguardCharmSubstitute,
     nonVanguardShardSubstitute,
     playerLensDiscipline,
-    recordVillageWarRaid,
-    saveArenaActiveFights,
-    saveArenaTournament,
-    savePendingClanPetBattle,
-    sectorRaidDamageAmount,
-    unregisterLocalFight,
     vanguardOnlyHonorSeals,
-    type ArenaSpectatorFight,
-    type ArenaTournament,
     type DuelChallenge,
     type PendingArenaStoryBattle,
     type PvpSessionState,
     type SharedPvpBattleContext,
-    type TerritoryBuffStat,
 } from "../App";
+import { activeVillageWarsFor, damageSectorTerritory, grantTerritoryScrolls, loadArenaActiveFights, loadArenaTournament, loadSectorTerritory, recordVillageWarRaid, saveArenaActiveFights, saveArenaTournament, savePendingClanPetBattle, sectorRaidDamageAmount, unregisterLocalFight, type ArenaSpectatorFight, type ArenaTournament, type TerritoryBuffStat } from "../lib/world-state";
 
 export function Arena({
     lobbyMode = "battleArena",

@@ -38,21 +38,17 @@ import meadow2SectorImg from "../assets/sectors/meadow2.webp";
 import meadowSectorImg from "../assets/sectors/meadow.webp";
 import stormveilVillageImg from "../assets/sectors/stormveil-village.webp";
 import {
-    VILLAGE_WAR_GROUND_HP_MAX,
-    VILLAGE_WAR_HP_MAX,
-    activeVillageWarsFor,
     gainXp,
     getPvpJutsuLoadout,
-    loadSectorTerritory,
     normalizeCharacter,
     villagePageImage,
-    weatherForSector,
     type CreatorEvent,
     type DuelChallenge,
     type EventEncounterBattle,
     type PvpSessionState,
     type SharedPvpBattleContext,
 } from "../App";
+import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 
 function playerNameTile(name: string): number {
     let h = 5381;
