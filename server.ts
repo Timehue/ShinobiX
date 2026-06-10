@@ -89,6 +89,8 @@ import clanTreasuryDonateHandler     from './api/clan/treasury/donate.js';
 import clanTreasuryTransferHandler   from './api/clan/treasury/transfer.js';
 // Clan — territory war-supply collect (server-authoritative)
 import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.js';
+// Clan — upgrade tree purchase (server-authoritative spend from treasury)
+import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — pet escort
 import clanPetEscortListHandler   from './api/clan/pet-escort/list.js';
 import clanPetEscortOfferHandler  from './api/clan/pet-escort/offer.js';
@@ -517,6 +519,10 @@ route('/clan/treasury/transfer',    clanTreasuryTransferHandler);
 // ─── Clan: collect territory war supply (server-authoritative) ──────────────────
 // Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
 route('/clan/territory/collect-supply', clanCollectSupplyHandler);
+
+// ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
+// Locks the clan row, debits treasury ryo + warSupply, increments the building.
+route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 
 // ─── Clan: pet escort ──────────────────────────────────────────────────────────
 route('/clan/pet-escort/list',   clanPetEscortListHandler);

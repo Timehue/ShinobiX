@@ -115,3 +115,11 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-minmaxer",         name: "Min-Maxer",         desc: "Reach level 50+ with zero unspent stat points.",category: "Progression",icon: "🧮", hidden: true, check: c => c.level >= 50 && c.unspentStats === 0 },
     { id: "secret-war-crates-10",    name: "Salvager",          desc: "Claim 10 war crates.",                          category: "Village",    icon: "📦", hidden: true, check: c => (c.claimedWarCrateIds?.length ?? 0) >= 10 },
 ];
+
+// One-time reward paid the FIRST time an achievement unlocks. Granted in the
+// achievement-grant pass (App.tsx) only for newly-unlocked entries — never on
+// the silent first-load backfill, so existing players get no retroactive
+// windfall. Hidden/secret achievements pay a little more. All values tunable.
+export function achievementReward(a: Achievement): { ryo: number; fateShards: number } {
+    return a.hidden ? { ryo: 3000, fateShards: 1 } : { ryo: 2000, fateShards: 0 };
+}

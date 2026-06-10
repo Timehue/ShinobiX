@@ -212,6 +212,8 @@ export type Character = {
     totalEndlessTowerWins?: number;
     totalPetWins?: number;
     defeatedAiIds?: string[];
+    // Per-AI defeat counts (id → kills), powering the Bestiary kill-count tiers.
+    aiKills?: Record<string, number>;
     rankedRating?: number;
     rankedWins?: number;
     rankedLosses?: number;
@@ -224,6 +226,11 @@ export type Character = {
     guardQueued?: boolean;
     hospitalized?: boolean;
     villageUpgrades: VillageUpgrades;
+    // Snapshot of the player's clan's upgrade-building levels, refreshed when the
+    // Clan Hall loads clan data. Lets the per-character bonus helpers apply clan
+    // member-passive effects (training/pet XP, shop/hospital discounts) without a
+    // live clan fetch at every reward site. Eventual-consistency by design.
+    clanUpgradeLevels?: Record<string, number>;
     lastBankInterestAt?: number;
     dailyTilesExplored?: number;
     dailyMissionsCompleted?: number;
@@ -279,6 +286,7 @@ export type PlayerRecord = {
     currentSector?: number;
     lastSeenAt?: number;
     travelingUntil?: number;
+    clan?: string; // surfaced from presence for the Scout Network war overlay
 };
 
 export type ServerPlayerSummary = {

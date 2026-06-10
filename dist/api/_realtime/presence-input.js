@@ -82,6 +82,10 @@ function toPlayerRecord(p) {
         character: { avatarImage: '' },
         level: ch?.level ?? 1,
         village: ch?.village ?? '',
+        // clan is kept in the slim presence character (PRESENCE_CHAR_KEEP); surfaced
+        // here so the Scout Network clan-war world-map overlay can spot enemy-clan
+        // members. Clan membership is already public, so this exposes nothing new.
+        clan: ch?.clan ?? '',
         specialty: ch?.specialty ?? 'Ninjutsu',
         currentSector: p.sector,
         lastSeenAt: p.lastSeenAt,
