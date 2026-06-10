@@ -79,7 +79,7 @@ export const STARTER_PETS: StarterPetOption[] = [
         traitEffect: "Loyal — trains 50% faster, grows stronger with you",
         pet: {
             id: "starter-water",
-            name: "Ripple Otter",
+            name: "Ripple Seal",
             rarity: "standard",
             level: 1,
             xp: 0,
@@ -92,12 +92,12 @@ export const STARTER_PETS: StarterPetOption[] = [
             element: "Water",
             trait: "Loyal",
             unlockedForPve: false,
-            description: "A calm river otter that mends its companion's wounds between exchanges.",
+            description: "A calm river seal that mends its companion's wounds between exchanges.",
             jutsus: [
                 { name: "Ripple Strike", power: 46, cooldown: 2, currentCooldown: 0, kind: "damage" },
                 { name: "Soothing Current", power: 42, cooldown: 4, currentCooldown: 0, kind: "heal" },
                 { name: "Tidal Crash", power: 54, cooldown: 3, currentCooldown: 0, kind: "damage", signature: true },
-                { name: "Otter Glide", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
+                { name: "Seal Glide", power: 0, cooldown: 3, currentCooldown: 0, kind: "move" },
             ],
         },
     },
