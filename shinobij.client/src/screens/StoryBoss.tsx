@@ -11,13 +11,11 @@ import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getOffenseStat } from "../lib/combat-math";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
-import { storylines } from "../data/storylines";
+import { storylines, getCurrentStory } from "../data/storylines";
+import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import {
     BattleLockKeeper,
-    STORY_BOSS_SAVE_TTL_MS,
     gainXp,
-    getCurrentStory,
-    storyBossSaveKey,
     unlockVillageKageSystem,
     type CreatorEvent,
     type StoryStep,

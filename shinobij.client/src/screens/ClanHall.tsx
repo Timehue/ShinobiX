@@ -8,7 +8,9 @@ import { ClanSealPool } from "../screens/ClanSealPool";
 import type { GameItem } from "../types/combat";
 import { TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import type { WeatherType, Screen } from "../types/core";
-import { addClanXp, canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRankOf, clanUpgradeBonus, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
+import { addClanXp, canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRankOf, clanRoleOf, clanUpgradeBonus, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
+import { clanLore } from "../data/clan-lore";
+import { postClanTreasuryDonation } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
@@ -20,10 +22,8 @@ import { weatherEffects } from "../data/world";
 import {
     ClanWarsPanel,
     claimPendingWarCrates,
-    clanLore,
     clanMissionProgress,
     clanOwnedTerritories,
-    clanRoleOf,
     clanTerritoryStartingScore,
     clanTerritoryWarMultiplier,
     damageSectorTerritory,
@@ -31,7 +31,6 @@ import {
     isVillageAnbu,
     loadAllSectorTerritories,
     loadSectorTerritory,
-    postClanTreasuryDonation,
     removeTerritoryScrolls,
     saveSectorTerritory,
     sectorRaidDamageAmount,

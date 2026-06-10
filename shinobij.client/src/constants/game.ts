@@ -87,3 +87,10 @@ export function isProtectedAdminName(name: string | undefined | null): boolean {
 // distinct rooms of 3×3 to 4×5 connected by 1-tile corridors.
 export const HOLLOW_GATE_SHRINE_W = 15;
 export const HOLLOW_GATE_SHRINE_H = 11;
+
+// Exam gates: players cannot level past these thresholds without passing the corresponding exam.
+export const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
+    { exam: "genin", level: 20, label: "Genin Exam" },
+    { exam: "chunin", level: 39, label: "Chunin Exam" },
+    // Jonin and Special Jonin exams do not block XP — players can reach level 100 freely.
+];
