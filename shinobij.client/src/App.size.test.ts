@@ -12,8 +12,9 @@ import { readFileSync } from "node:fs";
 // Do NOT raise it to make a feature fit — put the new screen/helper in its own
 // module under src/screens|components|lib|data instead.
 //
-// History: 35,947 (2026-06-09 baseline) → 31,753 (Stage 1A complete + 1B partial).
-const MAX_LINES = 32_000;
+// History: 35,947 (2026-06-09 baseline) → 31,753 (Stage 1A complete + 1B
+// partial) → 29,733 (warning paydown + WorldMap).
+const MAX_LINES = 30_000;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
