@@ -20,6 +20,7 @@ import {
     petTraits,
     petTrainingDurations,
     petTrainingDurationMultipliers,
+    petRarityOrder,
 } from "../data/pet-config";
 import { petElementByName } from "../data/pet-elements";
 import { petHappiness, increasePetHappiness, petVariantIndex } from "./pet";
@@ -661,4 +662,46 @@ export function scaleEventPetOpponent(pet: Pet, battle?: EventPetBattleInput): P
         speed: Math.round(pet.speed * Math.min(1.5, mult)),
         jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: Math.round(jutsu.power * mult), currentCooldown: 0 })),
     });
+}
+
+export function rollPetEncounter(pets: Pet[]): Pet | null {
+    const roll = Math.random();
+
+    // Total pet chance: 1% — 1 in 100 explores
+    // Mythic: 0.02%
+    // Legendary: 0.18%
+    // Rare: 0.30%
+    // Standard: 0.50%
+
+    function choosePetFromRarity(rarity: PetRarity): Pet | null {
+        const rarityIndex = petRarityOrder.indexOf(rarity);
+        const fallbackRarities = petRarityOrder.slice(0, rarityIndex + 1).reverse();
+        for (const fallbackRarity of fallbackRarities) {
+            // Exclude the choose-at-creation starter companions — they live in
+            // petPool only so the admin Pet Editor can image them; they should
+            // never appear as a random wild befriend (would spawn duplicates).
+            const pool = pets.filter((pet) => pet.rarity === fallbackRarity && !pet.id.startsWith("starter-"));
+            const chosen = pool[Math.floor(Math.random() * pool.length)];
+            if (chosen) return cloneEncounterPet(chosen);
+        }
+        return null;
+    }
+
+    if (roll <= 0.002) {
+        return choosePetFromRarity("mythic");
+    }
+
+    if (roll <= 0.007) {
+        return choosePetFromRarity("legendary");
+    }
+
+    if (roll <= 0.01) {
+        return choosePetFromRarity("rare");
+    }
+
+    if (roll <= 0.05) {
+        return choosePetFromRarity("standard");
+    }
+
+    return null;
 }

@@ -53,3 +53,7 @@ export function makeId() {
 export function playerSlug(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9\-_]/g, "").slice(0, 32);
 }
+
+export function sameSector(a?: number, b?: number) {
+    return Math.floor(Number(a ?? 40)) === Math.floor(Number(b ?? 40));
+}
