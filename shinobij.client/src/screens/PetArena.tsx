@@ -369,7 +369,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         const r = await fetch("/api/pet/battle-result", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ playerName: character.name, outcome, ranked: true, opponentName: opponent.owner, opponentLevel: opponent.pet.level, reportKey: `${seed}:ranked` }),
+                            body: JSON.stringify({ playerName: character.name, outcome, ranked: true, matchToken: opponent.petRankedToken, opponentName: opponent.owner, opponentLevel: opponent.pet.level, reportKey: `${seed}:ranked` }),
                         });
                         if (r.ok) {
                             const data = await r.json() as { rating?: { field: string; value: number } };

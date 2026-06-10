@@ -476,6 +476,11 @@ export type DuelChallenge = {
     // without an extra round-trip. challengerPetRating = the challenge sender.
     challengerPetRating?: number;
     responderPetRating?: number;
+    // Server-minted pet-ranked match token (/api/pet/ranked-start). Minted by
+    // the challenger and carried to both sides (rides the accepted-notice
+    // spread) so the petRankedRating swing settles server-side exactly once
+    // (server NX-dedups per token). Absent → local Elo fallback.
+    petRankedToken?: string;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
     kageChallengeId?: string;
     kageVillage?: string;
@@ -3144,7 +3149,7 @@ export default function App() {
             // snapshot so my own Elo math has both sides. selfPet locks MY
             // combatant to the exact pet I just sent as responderPet so the
             // canonical sim matches the challenger's view of it.
-            ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet } : {}),
+            ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet, petRankedToken: challenge.petRankedToken } : {}),
             ...(doParty && challengerParty && myParty ? {
                 opponentParty: challengerParty,
                 challengerParty: myParty,
@@ -3299,7 +3304,7 @@ export default function App() {
                     // lock MY combatant to the pet I originally challenged with
                     // (challengerPetId) so the canonical sim stays in sync.
                     ...(accepted.mode === "rankedPet"
-                        ? { ranked: true, opponentRating: accepted.responderPetRating ?? 1000, selfPet: character.pets.find(p => p.id === accepted.challengerPetId) }
+                        ? { ranked: true, opponentRating: accepted.responderPetRating ?? 1000, selfPet: character.pets.find(p => p.id === accepted.challengerPetId), petRankedToken: accepted.petRankedToken }
                         : {}),
                     ...(accepted.petParty && accepted.responderParty && myParty ? {
                         opponentParty: accepted.responderParty,
@@ -6420,8 +6425,20 @@ export default function App() {
         // ── Default: Shinobi AI battle (50% slot, rolls 0-49 + all fallbacks) ──
         startHollowGateBattle({ isAmbush: true });
     }
-    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean }) {
+    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean }) {
         if (!character) return;
+        // Elite-tile affixes: a tougher, flavored variant rolled for elite
+        // encounters. Build-time HP/stat modifiers only (no battle-engine
+        // changes) applied to the cloned shrine AI below, plus a nameplate tag.
+        const HOLLOW_GATE_AFFIXES = [
+            { name: "Colossal", hpMult: 1.4, statMult: 1.0 },
+            { name: "Brutish", hpMult: 1.25, statMult: 1.05 },
+            { name: "Savage", hpMult: 1.1, statMult: 1.12 },
+            { name: "Frenzied", hpMult: 0.9, statMult: 1.2 },
+        ] as const;
+        const eliteAffix = opts.isElite ? HOLLOW_GATE_AFFIXES[Math.floor(Math.random() * HOLLOW_GATE_AFFIXES.length)] : null;
+        const scaleAffixStats = (stats: CreatorAi["stats"], mult: number): CreatorAi["stats"] =>
+            mult === 1 ? stats : (Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, Math.max(1, Math.round(Number(v) * mult))])) as CreatorAi["stats"]);
         const LEVEL_BAND = 15;
         const playerLevel = character.level;
         const inBand = (ai: CreatorAi) => Math.abs((ai.level ?? 1) - playerLevel) <= LEVEL_BAND;
@@ -6473,7 +6490,9 @@ export default function App() {
                 ? "Hollow Gate Ambush"
                 : opts.isBeast
                     ? `Hollow Beast: ${baseAi.name}`
-                    : `Corrupted ${baseAi.name}`;
+                    : eliteAffix
+                        ? `${eliteAffix.name} ${baseAi.name}`
+                        : `Corrupted ${baseAi.name}`;
         // Boss difficulty scales with the floor of the run:
         //   Floor 1 -> playerLevel - 5
         //   Floor 2 -> playerLevel
@@ -6515,13 +6534,14 @@ export default function App() {
                 stamina: character.maxStamina,
             });
         }
-        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier));
+        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * (eliteAffix?.hpMult ?? 1)));
         const shrineAi: CreatorAi = {
             ...baseAi,
             id: `hollow-gate-${baseAi.id}-${Date.now()}`,
             name: encounterName,
             level: rebasedLevel,
             isBossAi: Boolean(opts.isBoss),
+            stats: eliteAffix ? scaleAffixStats(baseAi.stats, eliteAffix.statMult) : baseAi.stats,
             hp: hpShavePct > 0 ? Math.max(1, Math.floor(scaledHp * (1 - hpShavePct))) : scaledHp,
         } as CreatorAi;
         if (petAssists && pet) {
@@ -6546,6 +6566,7 @@ export default function App() {
             ? ` ${character.pets.find(p => p.id === character.activePetId)?.name ?? "Your pet"} bristles beside you, ready to assist.`
             : "";
         pushHollowGateLog(`Encounter: ${encounterName}.${petLine}`);
+        if (eliteAffix) pushHollowGateLog(`Elite affix: ${eliteAffix.name} — this foe is tougher than a normal corrupted shinobi.`);
         setScreen("arena");
     }
     // Shared run-summary builder — counts resolved tiles by kind and
@@ -6625,7 +6646,7 @@ export default function App() {
             }
             case "elite": {
                 pushHollowGateLog(`[Elite] ${flavor}`);
-                startHollowGateBattle({ isBoss: false });
+                startHollowGateBattle({ isElite: true });
                 markResolved();
                 return;
             }
