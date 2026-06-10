@@ -11,7 +11,8 @@ import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
 import { displayCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { gainXp, grantTerritoryScrolls, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../App";
+import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
+import { gainXp, grantTerritoryScrolls } from "../App";
 
 export function Missions({
     character,

@@ -47,3 +47,5 @@ export function clanRankOf(member: ClanMemberEntry, members: ClanMemberEntry[], 
     if (idx < 10) return "Clan Shinobi";
     return "Clan Initiate";
 }
+
+export function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }

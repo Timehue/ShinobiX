@@ -14,25 +14,15 @@ import { makeNoticePost, normalizeNoticePosts, noticeTypeLabel } from "../lib/cl
 import { postGuardQueue } from "../lib/clan-api";
 import {
     HOLLOW_GATE_UNLOCK_COST,
-    KAGE_CHALLENGE_CONTRIBUTION_REQUIRED,
-    KAGE_CHALLENGE_SUPPORT_REQUIRED,
-    KAGE_READY_WINDOW_MS,
     VILLAGE_WAR_GROUND_HP_MAX,
     VILLAGE_WAR_HP_MAX,
     activeVillageWarsFor,
-    cleanVillageTreasury,
     getPvpJutsuLoadout,
-    isKageChallengeWindow,
     isVillageAnbu,
-    kageWindowLabel,
     loadVillageLeadershipImages,
     loadVillageState,
-    makeVillageDailyAgenda,
-    normalizeAnbuAppointees,
     normalizeCharacter,
     normalizeVillageState,
-    postPlayerChallengeNotice,
-    postVillageTreasuryDonation,
     saveVillageState,
     villageLeadership,
     villageOwnedTerritories,
@@ -44,6 +34,17 @@ import {
     type VillageTreasury,
     type VillageTreasuryCurrencyKey,
 } from "../App";
+import {
+    KAGE_CHALLENGE_CONTRIBUTION_REQUIRED,
+    KAGE_CHALLENGE_SUPPORT_REQUIRED,
+    KAGE_READY_WINDOW_MS,
+    cleanVillageTreasury,
+    isKageChallengeWindow,
+    kageWindowLabel,
+    makeVillageDailyAgenda,
+    normalizeAnbuAppointees,
+} from "../lib/village-state";
+import { postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/player-api";
 
 export function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };

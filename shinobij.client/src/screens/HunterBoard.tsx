@@ -10,7 +10,8 @@ import { dailyHuntsCompleted, hasDailyHuntSlot, markHuntCompleted } from "../lib
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
-import { builtinHuntMissions, gainXp, grantTerritoryScrolls } from "../App";
+import { builtinHuntMissions } from "../data/missions";
+import { gainXp, grantTerritoryScrolls } from "../App";
 
 export function HunterBoard({
     character,
