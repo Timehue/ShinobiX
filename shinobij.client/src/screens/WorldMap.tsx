@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -20,6 +20,9 @@ import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progres
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { getAllItems } from "../lib/items";
 import { getBloodlineMultiplier } from "../lib/combat-math";
+import { cwListWars } from "../lib/clan-war-api";
+import { fetchClanData } from "../lib/clan-api";
+import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { petTraitDescriptions, petTreatItems, stackableItemIds } from "../data/pet-config";
@@ -170,6 +173,57 @@ export function WorldMap({
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
+
+    // ── Scout Network (clan upgrade) ──────────────────────────────────────
+    // During the viewer clan's active clan war, surface enemy-clan members who
+    // are out in the world (hidden while they sit safe at their own village).
+    // The Scout Network building level gates how much detail each dot shows.
+    const [scoutInfo, setScoutInfo] = useState<{ tier: 0 | 1 | 2 | 3; enemyClans: string[] }>({ tier: 0, enemyClans: [] });
+    useEffect(() => {
+        let cancelled = false;
+        const clan = character.clan;
+        if (!clan) { setScoutInfo({ tier: 0, enemyClans: [] }); return; }
+        void (async () => {
+            const [clanRec, wars] = await Promise.all([
+                fetchClanData(clan) as Promise<{ upgrades?: Record<string, number> } | null>,
+                cwListWars(),
+            ]);
+            if (cancelled) return;
+            const tier = scoutIntelTier(clanRec?.upgrades?.scoutNetwork ?? 0);
+            const mine = clan.toLowerCase();
+            const enemyClans = wars
+                .filter((w) => !w.endedAt && w.clans.some((c) => c.toLowerCase() === mine))
+                .map((w) => w.clans.find((c) => c.toLowerCase() !== mine) ?? "")
+                .filter(Boolean);
+            setScoutInfo({ tier, enemyClans });
+        })();
+        return () => { cancelled = true; };
+    }, [character.clan]);
+    const scoutedSectors = useMemo(() => {
+        const map = new Map<number, PlayerRecord[]>();
+        if (scoutInfo.tier < 1 || scoutInfo.enemyClans.length === 0) return map;
+        const enemySet = new Set(scoutInfo.enemyClans.map((c) => c.toLowerCase()));
+        const now = Date.now();
+        for (const p of playerRoster) {
+            const pClan = (p.clan ?? "").toLowerCase();
+            if (!pClan || !enemySet.has(pClan)) continue;
+            const sector = p.currentSector;
+            if (typeof sector !== "number" || sector <= 0) continue;
+            // Hide enemies sitting safe at their own village (home outskirts sector).
+            if (sector === villageOutskirtsSectorNumber(p.village)) continue;
+            // Only show recently-seen players (drop stale presence).
+            if (p.lastSeenAt && now - p.lastSeenAt > 90_000) continue;
+            const arr = map.get(sector) ?? [];
+            arr.push(p);
+            map.set(sector, arr);
+        }
+        return map;
+    }, [playerRoster, scoutInfo]);
+    function scoutDotTitle(players: PlayerRecord[], tier: 1 | 2 | 3): string {
+        if (tier >= 3) return "Enemy clan: " + players.map((p) => `${p.name} (Lv ${p.level})`).join(", ");
+        if (tier === 2) return `Enemy clan here · ${players.length} · level${players.length > 1 ? "s" : ""} ${players.map((p) => p.level).join(", ")}`;
+        return `Enemy clan spotted · ${players.length} member${players.length > 1 ? "s" : ""}`;
+    }
 
     useEffect(() => {
         if (!selectedVillageTerritory) { setTerritoryGuards([]); return; }
@@ -1566,6 +1620,12 @@ export function WorldMap({
                         title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
                     >
                         {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
+                        {scoutedSectors.has(sector.id) && (
+                            <span
+                                style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}
+                                title={scoutDotTitle(scoutedSectors.get(sector.id)!, (scoutInfo.tier || 1) as 1 | 2 | 3)}
+                            >🔴{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
+                        )}
                     </button>
                 ))}
 

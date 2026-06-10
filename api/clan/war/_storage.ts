@@ -56,6 +56,10 @@ export type ClanWar = {
     clans: [string, string];    // canonical sorted alphabetically
     villages: Record<string, string>; // clan → village at war-declare time
     hp: Record<string, number>; // clan → current HP
+    // clan → starting HP pool (CLAN_WAR_HP_MAX + War Room clan-upgrade bonus).
+    // Set at war-declare; lets the client render the right denominator when a
+    // clan's War Room raised its pool above the base. Optional for old records.
+    hpMax?: Record<string, number>;
     startedAt: number;
     updatedAt: number;
     endedAt?: number;

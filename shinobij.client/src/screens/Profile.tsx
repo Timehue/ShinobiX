@@ -2,7 +2,7 @@ import { useState, useEffect, type ChangeEvent } from "react";
 import type { Character } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
-import { ACHIEVEMENTS, type Achievement } from "../constants/achievements";
+import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
 import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
@@ -584,6 +584,10 @@ export function Profile({
                         </p>
                         <h2 className="achievement-detail-name">{selectedAchievement.name}</h2>
                         <p className="achievement-detail-desc">{selectedAchievement.desc}</p>
+                        {(() => {
+                            const r = achievementReward(selectedAchievement);
+                            return <p className="achievement-detail-desc"><strong>Reward:</strong> {r.ryo.toLocaleString()} ryo{r.fateShards ? ` · ${r.fateShards} Fate Shard${r.fateShards > 1 ? "s" : ""}` : ""}</p>;
+                        })()}
                         {(() => {
                             const at = character.achievementUnlockedAt?.[selectedAchievement.id];
                             return at ? (

@@ -44,6 +44,14 @@ import {
 // weight. Admin bypasses (testing).
 const CLAN_WAR_DECLARATION_COST = 100;
 
+// War Room clan-upgrade bonus to the starting war-HP pool, +2 HP per level.
+// KEEP IN SYNC with shinobij.client/src/lib/clan-upgrades.ts (WAR_ROOM_HP_PER_LEVEL).
+const WAR_ROOM_HP_PER_LEVEL = 2;
+function warRoomBonusHp(rec: { upgrades?: Record<string, number> } | null | undefined): number {
+    const lvl = Number(rec?.upgrades?.warRoom ?? 0);
+    return Number.isFinite(lvl) && lvl > 0 ? Math.floor(lvl) * WAR_ROOM_HP_PER_LEVEL : 0;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -78,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the caller typed. This blocks `"Clan-A"` from accidentally
         // declaring war on `"ClanA"` because both share `clan-clana`.
         const toClanSlug = `clan-${requestedToClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        const toClanRecord = await kv.get<{ name?: string; village?: string; members?: unknown[] }>(`save:${toClanSlug}`);
+        const toClanRecord = await kv.get<{ name?: string; village?: string; members?: unknown[]; upgrades?: Record<string, number> }>(`save:${toClanSlug}`);
         if (!toClanRecord) return res.status(404).json({ error: 'Target clan not found.' });
         const canonicalToClan = String(toClanRecord.name ?? '').trim();
         if (!canonicalToClan) return res.status(409).json({ error: 'Target clan record is missing its canonical name.' });
@@ -133,6 +141,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (debitError) return res.status(debitError.status).json(debitError.body);
         }
 
+        // War Room clan-upgrade: each clan's starting HP pool is the base plus
+        // its own War Room bonus. toClanRecord is already loaded; load fromClan's
+        // record for its upgrades (cheap — declare is a rare action).
+        const fromClanSlug = `clan-${fromClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        const fromClanRecord = await kv.get<{ upgrades?: Record<string, number> }>(`save:${fromClanSlug}`);
+        const fromStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord);
+        const toStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord);
+
         const sortedClans: [string, string] = [fromClan, toClan].sort((a, b) => a.localeCompare(b)) as [string, string];
         const id = clanWarPairId(fromClan, toClan);
         const key = clanWarKey(fromClan, toClan);
@@ -153,8 +169,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     [toClan]: toVillage,
                 },
                 hp: {
-                    [fromClan]: CLAN_WAR_HP_MAX,
-                    [toClan]: CLAN_WAR_HP_MAX,
+                    [fromClan]: fromStartHp,
+                    [toClan]: toStartHp,
+                },
+                hpMax: {
+                    [fromClan]: fromStartHp,
+                    [toClan]: toStartHp,
                 },
                 startedAt: now,
                 updatedAt: now,

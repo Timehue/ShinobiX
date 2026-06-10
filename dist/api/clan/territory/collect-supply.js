@@ -63,6 +63,10 @@ async function handler(req, res) {
         const clanRec = await _storage_js_1.kv.get(clanSaveKey);
         if (!clanRec)
             return res.status(404).json({ error: 'Clan not found.' });
+        // Treasury Vault clan-upgrade: +0.2% War Supply collected per level
+        // (capped +10% at level 50). KEEP IN SYNC with lib/clan-upgrades.ts.
+        const treasuryLevel = Math.max(0, Math.min(50, Math.floor(Number(clanRec.upgrades?.treasury ?? 0))));
+        const collectionBonusPct = treasuryLevel * 0.2;
         // Membership: the caller's character must belong to this clan (admin exempt).
         if (!identity.admin) {
             const donorRec = await _storage_js_1.kv.get(`save:${playerName}`);
@@ -100,6 +104,8 @@ async function handler(req, res) {
                 await _storage_js_1.kv.set(key, { ...fresh, warSupply: 0, lastSupplyAt: nextLastSupplyAt, updatedAt: now });
             }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
         }
+        // Apply the Treasury Vault collection bonus to the raw collected total.
+        const credited = total > 0 ? Math.floor(total * (1 + collectionBonusPct / 100)) : 0;
         // ── Phase 2 (credit): add the collected total to the clan treasury under
         // the clan-save lock. Re-read so we don't clobber a concurrent clan write.
         let treasury;
@@ -108,7 +114,7 @@ async function handler(req, res) {
                 treasury = await (0, _lock_js_1.withKvLock)(clanSaveKey, async () => {
                     const fresh = (await _storage_js_1.kv.get(clanSaveKey)) ?? clanRec;
                     const prevTreasury = (fresh.treasury ?? {});
-                    const nextTreasury = { ...prevTreasury, warSupply: Math.max(0, Number(prevTreasury.warSupply ?? 0)) + total };
+                    const nextTreasury = { ...prevTreasury, warSupply: Math.max(0, Number(prevTreasury.warSupply ?? 0)) + credited };
                     await _storage_js_1.kv.set(clanSaveKey, { ...fresh, treasury: nextTreasury });
                     return nextTreasury;
                 }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
@@ -121,33 +127,35 @@ async function handler(req, res) {
                 // sectors — that could mint on a racing collect), but record the
                 // shortfall durably (90d) + loudly so an admin can reconcile, and
                 // tell the caller it failed instead of pretending it succeeded.
-                console.error(`[clan/territory/collect-supply] CREDIT FAILED after debit — ${total} War Supply unreconciled for clan "${clan}":`, creditErr);
+                console.error(`[clan/territory/collect-supply] CREDIT FAILED after debit — ${credited} War Supply unreconciled for clan "${clan}":`, creditErr);
                 await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}LOSS:${targetSlug}:${now}`, {
                     ts: now,
                     actor: identity.admin ? 'admin' : identity.name,
                     clan,
-                    unreconciled: total,
+                    unreconciled: credited,
                     sectors: owned.length,
                     error: creditErr instanceof Error ? creditErr.message : String(creditErr),
                 }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
                 return res.status(503).json({
                     ok: false,
                     error: 'Supply was collected from your sectors but the treasury credit could not be saved. An admin can reconcile it — please do not retry.',
-                    unreconciled: total,
+                    unreconciled: credited,
                 });
             }
             await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${now}`, {
                 ts: now,
                 actor: identity.admin ? 'admin' : identity.name,
                 clan,
-                collected: total,
+                collected: credited,
+                base: total,
+                bonusPct: collectionBonusPct,
                 sectors: owned.length,
             }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         }
         else {
             treasury = (clanRec.treasury ?? {});
         }
-        return res.status(200).json({ ok: true, treasury, collected: total });
+        return res.status(200).json({ ok: true, treasury, collected: credited });
     }
     catch (err) {
         console.error('[clan/territory/collect-supply]', err);

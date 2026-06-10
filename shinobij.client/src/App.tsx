@@ -295,6 +295,7 @@ import {
 import {
     type Achievement,
     ACHIEVEMENTS,
+    achievementReward,
 } from "./constants/achievements";
 
 // Pet Arena grid + obstacle layouts + type-effectiveness moved to
@@ -1528,6 +1529,11 @@ export function normalizeCharacter(parsed: Character): Character {
         guardQueued: parsed.guardQueued ?? false,
         hospitalized: parsed.hospitalized ?? false,
         villageUpgrades: normalizeVillageUpgrades(parsed.villageUpgrades),
+        // Clan member-passive snapshot + per-AI kill counts — explicitly carried
+        // through normalize (this function whitelists fields; unlisted ones are
+        // dropped on load) so they persist across save/load round-trips.
+        clanUpgradeLevels: (parsed.clanUpgradeLevels && typeof parsed.clanUpgradeLevels === "object" && !Array.isArray(parsed.clanUpgradeLevels)) ? parsed.clanUpgradeLevels : undefined,
+        aiKills: (parsed.aiKills && typeof parsed.aiKills === "object" && !Array.isArray(parsed.aiKills)) ? parsed.aiKills : {},
         lastBankInterestAt: parsed.lastBankInterestAt ?? 0,
         lastDailyReset: currentDateKey(),
         dailyTilesExplored: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTilesExplored ?? 0) : 0,
@@ -1730,6 +1736,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         dailyAiKills: 0,
         dailyPetWins: 0,
         defeatedAiIds: [],
+        aiKills: {},
         rankedRating: 1000,
         rankedWins: 0,
         rankedLosses: 0,
@@ -2050,10 +2057,22 @@ export default function App() {
         const now = Date.now();
         const stamps = { ...(character.achievementUnlockedAt ?? {}) };
         for (const id of newlyUnlocked) stamps[id] = now;
+        // One-time reward payout for each newly-unlocked achievement. Only fires
+        // here (the `prior`-exists branch), never on the first-load backfill
+        // above — so existing players don't get a retroactive windfall.
+        let rewardRyo = 0, rewardShards = 0;
+        for (const id of newlyUnlocked) {
+            const a = ACHIEVEMENTS.find(x => x.id === id);
+            if (!a) continue;
+            const r = achievementReward(a);
+            rewardRyo += r.ryo; rewardShards += r.fateShards;
+        }
         setCharacter(c => c ? {
             ...c,
             unlockedAchievements: [...prior, ...newlyUnlocked],
             achievementUnlockedAt: stamps,
+            ryo: c.ryo + rewardRyo,
+            fateShards: (c.fateShards ?? 0) + rewardShards,
         } : c);
 
         const unlocked = newlyUnlocked
@@ -10264,19 +10283,19 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                         <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                                 <span>{clanName}</span>
-                                <span>{(activeWar.hp[clanName] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                                <span>{(activeWar.hp[clanName] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[clanName] ?? CW_HP_MAX).toLocaleString()} HP</span>
                             </div>
                             <div className="bar" style={{ background: "#0b1220" }}>
-                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[clanName] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#22c55e" }} />
+                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[clanName] ?? 0) / (activeWar.hpMax?.[clanName] ?? CW_HP_MAX)) * 100))}%`, background: "#22c55e" }} />
                             </div>
                         </div>
                         <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                                 <span>{enemyClan}</span>
-                                <span>{(activeWar.hp[enemyClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                                <span>{(activeWar.hp[enemyClan] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
                             </div>
                             <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
-                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[enemyClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#ef4444" }} />
+                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[enemyClan] ?? 0) / (activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "#ef4444" }} />
                             </div>
                         </div>
                     </div>
