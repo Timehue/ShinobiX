@@ -13,6 +13,7 @@
 
 import type { CreatorEvent, StoryStep } from "../App";
 import type { Biome } from "../types/core";
+import type { Character } from "../types/character";
 
 
 const bossScaleByLevel: Record<number, { hp: number; damage: number; xp: number; ryo: number }> = {
@@ -697,3 +698,8 @@ export const storylines: Record<string, StoryStep[]> = {
         ]),
     ],
 };
+
+export function getCurrentStory(character: Character) {
+    const storyLine = storylines[character.storyVillage || character.village] || storylines["Stormveil Village"];
+    return storyLine[character.storyProgress] ?? null;
+}

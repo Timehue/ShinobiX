@@ -15,7 +15,7 @@
 import { makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { bloodlinePoints } from "../lib/jutsu-points";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
-import type { JutsuType, JutsuElement, Rank } from "../types/core";
+import type { JutsuType, JutsuElement, Rank, JutsuTarget, JutsuMethod } from "../types/core";
 
 // Jutsu taxonomy dropdown options (moved from App.tsx; re-exported there for the
 // "../App" import site in components/JutsuDropdownList).
@@ -277,3 +277,9 @@ export const starterSavedBloodlines: SavedBloodline[] = [
         totalPoints: 9,
     },
 ].map((bloodline) => ({ ...bloodline, totalPoints: bloodlinePoints(bloodline.jutsus) }));
+
+export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
+export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
+export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
+export const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
+export const fortyApBlockedBloodlineTags = ["Pierce", "Siphon", "Mirror", "Copy", "Wound"];

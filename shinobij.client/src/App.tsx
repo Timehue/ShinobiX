@@ -59,7 +59,6 @@ import {
     deletedItemMarker,
     getAllItems,
     getItemById,
-    cleanTreasuryItems,
     addInventoryItems,
     removeInventoryItems,
     type TreasuryItemStack,
@@ -67,8 +66,8 @@ import {
 import { compressDataUrl, publishSharedImage, readImageFile } from "./lib/shared-images";
 import { getAllTileCards, shinobiTileCards, ELEMENT_COUNTERS, type TileCard, type TileCardArrow } from "./data/tile-cards";
 import type {
-    ClanMemberEntry, NoticePost,
-    ClanRole, EnhancedClanData,
+    NoticePost,
+    EnhancedClanData,
 } from "./types/clan";
 import { clanContribTotal, enhanceClanData } from "./lib/clan-math";
 import { makeNoticePost, normalizeNoticePosts } from "./lib/clan-notices";
@@ -192,6 +191,12 @@ import { Missions } from "./screens/Missions";
 import { StoryHall, StoryBoss } from "./screens/StoryBoss";
 import { TownHall } from "./screens/TownHall";
 import { ClanHall } from "./screens/ClanHall";
+import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "./lib/battle-save";
+import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeKageChallenges, normalizeVillageDailyAgenda } from "./lib/village-state";
+import { allProgressMissions, builtinHuntMissions, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
+import { postPlayerChallengeNotice } from "./lib/player-api";
+import { EXAM_LEVEL_GATES } from "./constants/game";
+import { jutsuTargets, jutsuMethods } from "./data/jutsu";
 import { StartScreen } from "./screens/StartScreen";
 import { JutsuEffectCards } from "./components/JutsuEffectCards";
 import { AiImagePrompt } from "./components/AiImagePrompt";
@@ -490,7 +495,7 @@ import { starterItems } from "./data/starter-items";
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
 // Per-village storyline arc + milestone constructors moved to ./data/storylines.
-import { storylines, storyAiId, villageBiomeMap } from "./data/storylines";
+import { storylines, storyAiId, villageBiomeMap, getCurrentStory } from "./data/storylines";
 // Built-in VN event templates moved to ./data/vn-events.
 import {
     awakeningLv2VnEvent,
@@ -1073,11 +1078,6 @@ export function villagePageImage(villageName: string): string {
 // image-asset imports the data module shouldn't.
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
-export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
-const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
-export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
-export const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
-export const fortyApBlockedBloodlineTags = ["Pierce", "Siphon", "Mirror", "Copy", "Wound"];
 const adminIconOptions: { value: string; label: string }[] = [
     { value: "!", label: "! — Alert / Warning" },
     { value: "?", label: "? — Unknown / Mystery" },
@@ -1577,50 +1577,6 @@ export function claimPendingWarCrates(
 // 403'd for non-admins. Clan/village treasury gifts now go through the atomic
 // /api/{clan,village}/treasury/transfer endpoints. audit #18.)
 
-type TreasuryDonationBody =
-    | { currency: string; amount: number }
-    | { itemId: string; count?: number };
-
-// Atomic clan-treasury donation. Debits the donor AND credits the clan
-// treasury server-side under dual locks (api/clan/treasury/donate.ts), closing
-// the old "credit treasury without a matching debit" gap. Returns the
-// server-credited treasury (clan XP / clanEventContrib are still applied
-// client-side on top of it), or null on failure (alerts the player).
-export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
-    try {
-        const res = await fetch("/api/clan/treasury/donate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, clan, ...donation }),
-        });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
-        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
-        return data.treasury;
-    } catch {
-        alert("Donation failed. Please try again.");
-        return null;
-    }
-}
-
-// Atomic village-treasury donation — village twin of the clan helper above
-// (api/village/treasury/donate.ts). Returns the server-credited treasury
-// (contributionPoints / notice stay client-side), or null on failure.
-export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
-    try {
-        const res = await fetch("/api/village/treasury/donate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, village, ...donation }),
-        });
-        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
-        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
-        return data.treasury;
-    } catch {
-        alert("Donation failed. Please try again.");
-        return null;
-    }
-}
-
 // -- Shinobi Tiles card game (types, ELEMENT_COUNTERS, the 150-card catalog,
 // and getAllTileCards) moved to ./data/tile-cards (imported back near the top).
 // TileCard, TileCardArrow + getAllTileCards are re-exported here for the
@@ -1677,13 +1633,6 @@ function normalizeAdminCharacter(character: Character): Character {
         unspentStats: 0,
     };
 }
-
-// Exam gates: players cannot level past these thresholds without passing the corresponding exam.
-export const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
-    { exam: "genin", level: 20, label: "Genin Exam" },
-    { exam: "chunin", level: 39, label: "Chunin Exam" },
-    // Jonin and Special Jonin exams do not block XP — players can reach level 100 freely.
-];
 
 function examLevelCap(character: Character): number {
     const passed = character.examsPassed ?? [];
@@ -2258,25 +2207,12 @@ export { jutsuEffectInfo, jutsuDisplayAtLevel };
 // "../App" import site.
 export { scaleJutsuTagsForDisplay };
 
-export function blankJutsu(index: number, rank: Rank): Jutsu {
-    // v4.3: Wound rank caps — S Rank tops at 35%, A/B at 30%.
-    const defaultPercent = rank === "S Rank" ? 35 : 30;
-    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 40, 7, 300, 300, [
-        { name: "", percent: defaultPercent },
-        { name: "", percent: defaultPercent },
-    ]);
-}
 // Jutsu point-budget + rank rules (jutsuCountForRank, pointBudgetForRank,
 // bloodlineTagPercentChoices/normalize, tagPointValue, jutsuPoints,
 // bloodlinePoints) extracted to ./lib/jutsu-points. Referenced helpers are
 // imported back near the top of this file.
 
 // biomeLabel moved to ./data/world (imported back near the top).
-
-export function getCurrentStory(character: Character) {
-    const storyLine = storylines[character.storyVillage || character.village] || storylines["Stormveil Village"];
-    return storyLine[character.storyProgress] ?? null;
-}
 
 export function createCharacter(name: string, village: string, specialty: JutsuType, bloodline: string): Character {
     // New shinobi auto-learn their chosen bloodline's jutsu (mastery level 1) so
@@ -2486,23 +2422,6 @@ function pvpSessionEnvironment(
         weatherPositiveElement: positiveElement ?? "",
         weatherNegativeElement: negativeElement ?? "",
     };
-}
-
-export async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-            const res = await fetch('/api/player/challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetName, challenge }),
-            });
-            if (res.ok) return true;
-        } catch {
-            // retry below
-        }
-        await new Promise(resolve => setTimeout(resolve, 350 + attempt * 500));
-    }
-    return false;
 }
 
 export function getJutsuSelectOptions(jutsus: Jutsu[], typeFilter: "All" | JutsuType, elementFilter: "All" | JutsuElement, sortBy: JutsuSort) {
@@ -2910,55 +2829,6 @@ const builtinAis: CreatorAi[] = [
         return { ...base, isBossAi: true };
     })(),
 ];
-
-export const builtinHuntMissions: CreatorMission[] = [
-    { id: "hunt-wild-boar", name: "Hunt the Wild Boar", rank: "D Rank", description: "A large wild boar has been spotted trampling the forest undergrowth near Sector 25. Track it down and eliminate it.", type: "fetchExplore", targetSector: 25, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-wild-boar", itemRewards: ["hunt-beast-meat", "hunt-beast-meat", "hunt-torn-hide"] },
-    { id: "hunt-forest-hawk", name: "Hunt the Forest Hawk", rank: "D Rank", description: "A predatory hawk has been attacking travelers through Sector 28. Scout the area and bring it down.", type: "fetchExplore", targetSector: 28, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-forest-hawk", itemRewards: ["hunt-beast-meat", "hunt-wild-feather", "hunt-small-fang"] },
-    { id: "hunt-frost-wolf", name: "Hunt the Frost Wolf", rank: "C Rank", description: "A Frost Wolf pack has been raiding supply routes through Sector 50. The alpha must be hunted and driven off.", type: "fetchExplore", targetSector: 50, exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, aiProfileId: "hunt-ai-frost-wolf", itemRewards: ["hunt-wolf-fang", "hunt-wolf-fang", "hunt-frost-pelt"] },
-    { id: "hunt-ash-lizard", name: "Hunt the Ash Lizard", rank: "C Rank", description: "An Ash Lizard has made its nest near the volcanic vents in Sector 40, blocking access to the trade paths.", type: "fetchExplore", targetSector: 40, exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, aiProfileId: "hunt-ai-ash-lizard", itemRewards: ["hunt-ash-scale", "hunt-ash-scale", "hunt-cracked-horn"] },
-    { id: "hunt-shadow-panther", name: "Hunt the Shadow Panther", rank: "B Rank", description: "A Shadow Panther stalks the darkness of Sector 12. It ambushes shinobi under cover of night — approach carefully.", type: "fetchExplore", targetSector: 12, exploreCount: 4, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, aiProfileId: "hunt-ai-shadow-panther", itemRewards: ["hunt-shadow-pelt", "hunt-shadow-claw", "hunt-shadow-claw"] },
-    { id: "hunt-ironback-bear", name: "Hunt the Ironback Bear", rank: "B Rank", description: "An Ironback Bear with near-impenetrable hide has claimed the deep forest of Sector 30. It must be driven out.", type: "fetchExplore", targetSector: 30, exploreCount: 5, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, aiProfileId: "hunt-ai-ironback-bear", itemRewards: ["hunt-beast-meat", "hunt-beast-meat", "hunt-cracked-horn", "hunt-cracked-horn"] },
-    { id: "hunt-ember-drake", name: "Hunt the Ember Drake", rank: "A Rank", description: "An Ember Drake — a fire-breathing lesser dragon — has emerged from the volcano at Sector 42. Extremely dangerous.", type: "fetchExplore", targetSector: 42, exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, aiProfileId: "hunt-ai-ember-drake", itemRewards: ["hunt-ash-scale", "hunt-ash-scale", "hunt-ember-scale", "hunt-wolf-fang"] },
-    { id: "hunt-moon-serpent", name: "Hunt the Moon Serpent", rank: "A Rank", description: "The Moon Serpent is a colossal genjutsu-wielding serpent that hunts in the shadow sectors. It can trap minds in illusions.", type: "fetchExplore", targetSector: 8, exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, aiProfileId: "hunt-ai-moon-serpent", itemRewards: ["hunt-shadow-pelt", "hunt-shadow-pelt", "hunt-shadow-claw", "hunt-shadow-claw"] },
-    { id: "hunt-ancient-chakra-beast", name: "Hunt the Ancient Chakra Beast", rank: "S Rank", description: "An Ancient Chakra Beast stirs in the central wilderness of Sector 60. It has absorbed centuries of chakra and can use all five elements. Only the strongest hunters survive.", type: "fetchExplore", targetSector: 60, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-ancient-chakra-beast", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-ancient-beast-core"] },
-    { id: "hunt-worldstorm-dragon", name: "Hunt the Worldstorm Dragon", rank: "S Rank", description: "The Worldstorm Dragon — a living storm given form — has been sighted over Sector 59. Its scales shed lightning, and its roar shakes the ground. This is the apex of all hunts.", type: "fetchExplore", targetSector: 59, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-worldstorm-dragon", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-titan-bone"] },
-];
-
-const builtinFetchMissions: CreatorMission[] = [
-    { id: "fetch-d-supply-trail", name: "D Rank Supply Trail Sweep", rank: "D Rank", description: "Scout a random low-risk sector, mark safe tile routes, then raid the nearby village outpost once to recover missing supplies.", type: "fetchExplore", targetSector: 18, exploreCount: 3, raidCount: 1, levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8 },
-    { id: "fetch-c-border-scout", name: "C Rank Border Scout Run", rank: "C Rank", description: "Explore the assigned border sector several times to map patrol movement, then raid the village guard post twice for field reports.", type: "fetchExplore", targetSector: 32, exploreCount: 5, raidCount: 2, levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14 },
-    { id: "fetch-b-enemy-cache", name: "B Rank Enemy Cache Search", rank: "B Rank", description: "Search a contested sector for hidden supply caches, then raid the village defenses to break their courier route.", type: "fetchExplore", targetSector: 47, exploreCount: 7, raidCount: 3, levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
-    { id: "fetch-a-black-route", name: "A Rank Black Route Operation", rank: "A Rank", description: "Sweep a dangerous sector for black-route intel, then raid the enemy village enough times to expose their command chain.", type: "fetchExplore", targetSector: 58, exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: "fetch-s-shadow-front", name: "S Rank Shadow Front Incursion", rank: "S Rank", description: "Penetrate a high-threat sector, complete a deep tile sweep, and raid the village front repeatedly before returning with the sealed orders.", type: "fetchExplore", targetSector: 65, exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
-];
-
-export function missionRaidProgressKey(missionId: string) {
-    return `${missionId}:raids`;
-}
-
-export function missionRaidRequirement(mission: CreatorMission) {
-    return Math.max(0, Number(mission.raidCount ?? 0));
-}
-
-export function mergeBuiltinMissions(customMissions: CreatorMission[]) {
-    const customById = new Map(customMissions.map((mission) => [mission.id, mission]));
-    return [
-        ...builtinFetchMissions.map((mission) => customById.get(mission.id) ?? mission),
-        ...customMissions.filter((mission) => !builtinFetchMissions.some((builtin) => builtin.id === mission.id)),
-    ];
-}
-
-function allProgressMissions(customMissions: CreatorMission[]) {
-    const customById = new Map(customMissions.map((mission) => [mission.id, mission]));
-    return [
-        ...builtinFetchMissions.map((mission) => customById.get(mission.id) ?? mission),
-        ...builtinHuntMissions.map((mission) => customById.get(mission.id) ?? mission),
-        ...customMissions.filter((mission) =>
-            !builtinFetchMissions.some((builtin) => builtin.id === mission.id) &&
-            !builtinHuntMissions.some((builtin) => builtin.id === mission.id)
-        ),
-    ];
-}
 
 function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
     const fallback = starterAiProfile(allJutsus);
@@ -18729,29 +18599,6 @@ function AdminPanel({
 
 // JutsuDropdownList (filterable technique browser) moved to ./components/JutsuDropdownList.
 
-export const clanLore: Record<string, { name: string; motto: string; lore: string }> = {
-    "Frostfang Village": {
-        name: "Frostfang Clan Halls",
-        motto: "No fang breaks from the pack.",
-        lore: "Frostfang clans are built like wolf packs. Each clan swears loyalty to its members before glory, wealth, or personal fame. Their oldest houses were formed during the first endless winter, when surviving alone meant death."
-    },
-    "Stormveil Village": {
-        name: "Stormveil Warbands",
-        motto: "Power belongs to whoever takes it.",
-        lore: "Stormveil clans are unstable, loud, and dangerous. They are less like noble families and more like warbands formed beneath thunderclouds. Leaders rise fast, fall faster, and only the strongest names survive the storm."
-    },
-    "Ashen Leaf Village": {
-        name: "Ashen Leaf Houses",
-        motto: "Roots remember what flames forget.",
-        lore: "Ashen Leaf clans preserve ancient shinobi traditions. Many houses trace their bloodlines back to survivors of the great fire war, guarding old techniques, scrolls, and family oaths passed down through generations."
-    },
-    "Moonshadow Village": {
-        name: "Moonshadow Secret Circles",
-        motto: "Trust no shadow but your own.",
-        lore: "Moonshadow clans are secretive circles built on ambition, stealth, and hidden contracts. Some are assassin houses, some are spy networks, and some exist only as names whispered under moonless skies."
-    }
-};
-
 // -- Clan system types & helpers --------------------------------------------
 // Clan types (ClanMemberEntry, ClanData, ClanJoinRequest, NoticePostType,
 // NoticePost) moved to ./types/clan (type-imported back near the top).
@@ -18777,12 +18624,12 @@ export const clanLore: Record<string, { name: string; motto: string; lore: strin
 // cleanClanTreasury, cleanClanUpgrades, defaultClanWarHistory, clanXpNeeded,
 // addClanXp, clanMemberBoostPercent, clanUpgradeBonus, canManageClan,
 // clanHallTier) moved to ./lib/clan-math (imported back near the top).
-// clanRoleOf / clanMissionProgress stay below — they call App-local helpers
-// (clanContribTotal / territory cache). enhanceClanData moved to
-// ./lib/clan-math (imported back near the top) now that normalizeNoticePosts
-// moved to ./lib/clan-notices.
+// clanRoleOf moved to ./lib/clan-math (clanContribTotal lives there now);
+// clanLore moved to ./data/clan-lore. clanMissionProgress stays below — it
+// reads the territory cache via loadAllSectorTerritories. enhanceClanData
+// moved to ./lib/clan-math (imported back near the top) now that
+// normalizeNoticePosts moved to ./lib/clan-notices.
 // (clanXpNeeded, addClanXp, clanMemberBoostPercent, clanUpgradeBonus -> ./lib/clan-math)
-export function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
 // (canManageClan, clanHallTier -> ./lib/clan-math)
 export function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
 // addClanWarPoints removed — replaced by the server-managed Clan War
@@ -18925,7 +18772,7 @@ type DetailedVillageWarRecord = { opponent: string; winner: string; finalScore: 
 type KageHistoryEntry = { name: string; village: string; seatedAt: number; endedAt?: number };
 type VillageAgendaKind = "missions" | "explore" | "ai" | "pet" | "control";
 export type VillageAgendaTask = { id: string; kind: VillageAgendaKind; label: string; target: number };
-type VillageDailyAgenda = { date: string; tasks: VillageAgendaTask[] };
+export type VillageDailyAgenda = { date: string; tasks: VillageAgendaTask[] };
 export type KageChallengeStatus = "open" | "supported" | "accepted" | "ready" | "resolved" | "expired";
 export type KageChallenge = {
     id: string;
@@ -18947,66 +18794,7 @@ export type KageChallenge = {
     contributionRequired: number;
 };
 export type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; kageChallenges: KageChallenge[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlocked?: boolean; };
-const villageAgendaTaskPool: Omit<VillageAgendaTask, "id">[] = [
-    { kind: "missions", label: "Complete village missions", target: 3 },
-    { kind: "explore", label: "Explore map tiles", target: 20 },
-    { kind: "ai", label: "Defeat AI enemies", target: 3 },
-    { kind: "pet", label: "Win pet battles", target: 1 },
-    { kind: "control", label: "Hold controlled sectors", target: 1 },
-];
-function seededAgendaIndex(seed: string, index: number, size: number) {
-    let hash = 0;
-    for (const char of `${seed}:${index}`) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-    return hash % size;
-}
-export function makeVillageDailyAgenda(village: string, date = currentDateKey()): VillageDailyAgenda {
-    const pool = [...villageAgendaTaskPool];
-    const tasks: VillageAgendaTask[] = [];
-    for (let i = 0; i < 3 && pool.length; i += 1) {
-        const choice = pool.splice(seededAgendaIndex(`${village}:${date}`, i, pool.length), 1)[0];
-        tasks.push({ ...choice, id: `${date}-${choice.kind}` });
-    }
-    return { date, tasks };
-}
-function normalizeVillageDailyAgenda(village: string, agenda?: VillageDailyAgenda) {
-    return agenda?.date === currentDateKey() && agenda.tasks?.length === 3 ? agenda : makeVillageDailyAgenda(village);
-}
-export const KAGE_CHALLENGE_SUPPORT_REQUIRED = 1;
-export const KAGE_CHALLENGE_CONTRIBUTION_REQUIRED = 10;
-export const KAGE_READY_WINDOW_MS = 60 * 60 * 1000;
-export function isKageChallengeWindow(now = new Date()) {
-    const hour = now.getUTCHours();
-    return hour >= 23 || hour < 3;
-}
-export function kageWindowLabel() {
-    return "23:00-03:00 server time";
-}
-function normalizeKageChallenges(village: string, challenges?: KageChallenge[]) {
-    return (challenges ?? [])
-        .filter(challenge => challenge && challenge.id && challenge.challenger && challenge.seatedKage)
-        .map(challenge => ({
-            ...challenge,
-            village: challenge.village || village,
-            status: challenge.status ?? "open",
-            support: Array.from(new Set((challenge.support ?? []).filter(Boolean))),
-            opposition: Array.from(new Set((challenge.opposition ?? []).filter(Boolean))),
-            contributionRequired: Math.max(1, Math.floor(Number(challenge.contributionRequired ?? KAGE_CHALLENGE_CONTRIBUTION_REQUIRED))),
-        }))
-        .slice(0, 12);
-}
-function defaultVillageTreasury(): VillageTreasury { return { ryo: 0, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, items: [] }; }
-export function cleanVillageTreasury(t?: Partial<VillageTreasury>): VillageTreasury { return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? 0))), honorSeals: Math.max(0, Math.floor(Number(t?.honorSeals ?? 0))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? 0))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? 0))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? 0))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? 0))), items: cleanTreasuryItems(t?.items) }; }
 function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] { const leadership = villageLeadership[village]; return (leadership?.pastWars ?? ["No recorded wars yet."]).map((war, index) => ({ opponent: war.replace(/^Won |^Lost |^Draw at /, ""), winner: war.startsWith("Won") ? village : war.startsWith("Lost") ? "Enemy Village" : "Draw", finalScore: index === 0 ? "112 - 88" : index === 1 ? "76 - 91" : "64 - 64", topDefender: leadership?.elders?.[index % 3] ?? "Village Guard", topAttacker: leadership?.kage ?? "Kage Council", mvpClan: index === 0 ? "Fated Reunion" : "Unclaimed", rewards: index === 0 ? "Village XP / guard medals" : "Archive record", date: index === 0 ? "Recent Season" : "Previous Season" })); }
-export function normalizeAnbuAppointees(appointees?: string[]) {
-    const seen = new Set<string>();
-    return Array.from({ length: 3 }, (_, index) => {
-        const name = String(appointees?.[index] ?? "").trim();
-        const key = name.toLowerCase();
-        if (!name || seen.has(key)) return "";
-        seen.add(key);
-        return name;
-    });
-}
 function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined, notices), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], kageChallenges: [], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlocked: false }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
@@ -29940,10 +29728,6 @@ const BATTLE_LOCK_ID_KEY = "battleLock.activeId.v1";
 // localStorage that a wipe destroys, which is exactly what makes the distinction
 // work — a winner whose resolve failed keeps the marker and is not penalized.
 const BATTLE_LOCK_RESOLVED_KEY = "battleLock.resolvedId.v1";
-
-// Story-boss resume persistence (mirrors the arena persister; 1h TTL).
-export const STORY_BOSS_SAVE_TTL_MS = 60 * 60 * 1000;
-export function storyBossSaveKey(name: string): string { return `storyBoss.battle.v1.${name}`; }
 
 // Endless-tower context persistence. The COMBAT state (HP/turn) is saved by
 // ArenaBattlePersister like any arena fight; what's lost on refresh is the
