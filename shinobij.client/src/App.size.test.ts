@@ -14,8 +14,8 @@ import { readFileSync } from "node:fs";
 //
 // History: 35,947 (2026-06-09 baseline) → 31,753 (Stage 1A complete + 1B
 // partial) → 29,733 (warning paydown + WorldMap) → 25,728 (Stage 1B complete)
-// → 23,627 (Stage 1C complete).
-const MAX_LINES = 24_000;
+// → 23,627 (Stage 1C complete) → 11,892 (Stage 1D + AdminPanel complete).
+const MAX_LINES = 12_000;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
