@@ -205,6 +205,7 @@ import { VillageWarScreen } from "./screens/VillageWarScreen";
 import { WeeklyBossArena } from "./screens/WeeklyBossArena";
 import { BloodlineMaker } from "./screens/BloodlineMaker";
 import { Profile } from "./screens/Profile";
+import { Logbook } from "./screens/Logbook";
 import { StartScreen } from "./screens/StartScreen";
 import { JutsuEffectCards } from "./components/JutsuEffectCards";
 import { AiImagePrompt } from "./components/AiImagePrompt";
@@ -392,7 +393,7 @@ import {
 } from "./constants/pet-arena";
 
 // Tiny presentational mark / portrait components moved to ./components/Marks.
-import { CardVisual, ClanImageMark, LeaderPortrait } from "./components/Marks";
+import { ClanImageMark, LeaderPortrait } from "./components/Marks";
 import { FestivalPortrait, VillagePill } from "./components/Pills";
 import { ClanWarManual } from "./components/ClanWarManual";
 
@@ -586,7 +587,7 @@ import {
 // villages + weatherForBiome imported above for internal use; external callers
 // (screens/CharacterCreator) import villages directly from ./data/sectors.
 
-function weatherForSector(sector: number, biome: Biome) {
+export function weatherForSector(sector: number, biome: Biome) {
     const territory = loadSectorTerritory(sector);
     if (territory.ownerClan && territory.weather) return territory.weather;
     const table = biomeWeatherTables[biome];
@@ -743,7 +744,7 @@ function removeTerritoryScrolls(character: Character, count: number) {
     });
 }
 
-function grantTerritoryScrolls(character: Character, count: number) {
+export function grantTerritoryScrolls(character: Character, count: number) {
     return { ...character, inventory: [...character.inventory, ...Array.from({ length: Math.max(0, Math.floor(count)) }, () => TERRITORY_CONTROL_SCROLL_ID)] };
 }
 
@@ -1705,7 +1706,7 @@ function normalizeAdminCharacter(character: Character): Character {
 }
 
 // Exam gates: players cannot level past these thresholds without passing the corresponding exam.
-const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
+export const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
     { exam: "genin", level: 20, label: "Genin Exam" },
     { exam: "chunin", level: 39, label: "Chunin Exam" },
     // Jonin and Special Jonin exams do not block XP — players can reach level 100 freely.
@@ -2958,15 +2959,15 @@ const builtinFetchMissions: CreatorMission[] = [
     { id: "fetch-s-shadow-front", name: "S Rank Shadow Front Incursion", rank: "S Rank", description: "Penetrate a high-threat sector, complete a deep tile sweep, and raid the village front repeatedly before returning with the sealed orders.", type: "fetchExplore", targetSector: 65, exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
 ];
 
-function missionRaidProgressKey(missionId: string) {
+export function missionRaidProgressKey(missionId: string) {
     return `${missionId}:raids`;
 }
 
-function missionRaidRequirement(mission: CreatorMission) {
+export function missionRaidRequirement(mission: CreatorMission) {
     return Math.max(0, Number(mission.raidCount ?? 0));
 }
 
-function mergeBuiltinMissions(customMissions: CreatorMission[]) {
+export function mergeBuiltinMissions(customMissions: CreatorMission[]) {
     const customById = new Map(customMissions.map((mission) => [mission.id, mission]));
     return [
         ...builtinFetchMissions.map((mission) => customById.get(mission.id) ?? mission),
@@ -19557,7 +19558,7 @@ function defaultVillageState(village: string): VillageState { const notices = ["
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
 function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, noticePosts: normalizeNoticePosts(state?.noticePosts, state?.noticePosts?.length ? [] : notices), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], kageChallenges: normalizeKageChallenges(village, state?.kageChallenges), dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlocked: Boolean(state?.hollowGateUnlocked ?? base.hollowGateUnlocked) }; }
-function loadVillageState(village: string): VillageState { return sharedVillageStateCache[sharedVillageStateKey(village)] ?? defaultVillageState(village); }
+export function loadVillageState(village: string): VillageState { return sharedVillageStateCache[sharedVillageStateKey(village)] ?? defaultVillageState(village); }
 function saveVillageState(village: string, state: VillageState) {
     const normalized = normalizeVillageState(village, state);
     sharedVillageStateCache[sharedVillageStateKey(village)] = normalized;
@@ -19570,9 +19571,9 @@ function isVillageAnbu(character: Character) {
 
 export const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
-const VILLAGE_WAR_DAILY_MISSIONS = 2;
-const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
-const VILLAGE_WAR_MISSION_DAMAGE = 30;
+export const VILLAGE_WAR_DAILY_MISSIONS = 2;
+export const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
+export const VILLAGE_WAR_MISSION_DAMAGE = 30;
 // Capture damage per flip. Capped at the server's per-write HP delta
 // (VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST = 100) so the single applyVillageWarDamage
 // call doesn't bounce off the anti-cheat. With the tug-of-war model
@@ -19689,7 +19690,7 @@ function saveVillageWar(war: VillageWar) {
     return normalized;
 }
 
-function activeVillageWarsFor(village: string) {
+export function activeVillageWarsFor(village: string) {
     return villages
         .filter(otherVillage => otherVillage !== village)
         .map(otherVillage => loadVillageWar(village, otherVillage))
@@ -19992,7 +19993,7 @@ function recordVillageWarRaid(character: Character, sector: number, roster: Play
     };
 }
 
-function claimVillageWarDailyMission(character: Character, missionIndex: number) {
+export function claimVillageWarDailyMission(character: Character, missionIndex: number) {
     const today = currentDateKey();
     const progress = character.villageWarMissionDate === today ? character.villageWarRaidProgress ?? 0 : 0;
     const completed = character.villageWarMissionDate === today ? character.villageWarMissionsCompleted ?? 0 : 0;
@@ -26815,420 +26816,6 @@ function HunterBoard({
                     </section>
                 );
             })}
-        </div>
-    );
-}
-
-function Logbook({
-    character,
-    updateCharacter,
-    creatorAis,
-    creatorMissions,
-    creatorEvents,
-    creatorRaids,
-    acceptedMissionIds,
-    setAcceptedMissionIds,
-    missionProgress,
-    setMissionProgress,
-    setPendingAiProfileId,
-    setRaidBattleKind,
-    setCurrentSector,
-    setCurrentBiome,
-    setCurrentWeather,
-    setScreen,
-}: {
-    character: Character;
-    updateCharacter: (character: Character) => void;
-    creatorAis: CreatorAi[];
-    creatorMissions: CreatorMission[];
-    creatorEvents: CreatorEvent[];
-    creatorRaids: CreatorRaid[];
-    acceptedMissionIds: string[];
-    setAcceptedMissionIds: (ids: string[]) => void;
-    missionProgress: Record<string, number>;
-    setMissionProgress: (progress: Record<string, number>) => void;
-    savedBloodlines: SavedBloodline[];
-    setPendingAiProfileId: (id: string) => void;
-    setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
-    setCurrentSector: (sector: number) => void;
-    setCurrentBiome: (biome: Biome) => void;
-    setCurrentWeather: (weather: WeatherType) => void;
-    setScreen: (screen: Screen) => void;
-}) {
-    // Rank-up ceremony: set to the exam title when a promotion is claimed, so we
-    // celebrate with a modal instead of a bare alert().
-    const [ceremonyTitle, setCeremonyTitle] = useState<string | null>(null);
-    const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    const ownedElements = getCharacterElements(character);
-    const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
-    const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
-    const statsTrained = Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
-    const defeatedAiIds = character.defeatedAiIds ?? [];
-    const examProctor = creatorAis.find((ai) => ai.id === "builtin-ai-exam-proctor");
-    const rogueNinja = creatorAis.find((ai) => ai.id === "builtin-ai-rogue-ninja");
-    type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string };
-    type ExamLogbookMission = { title: string; examKey: string; unlockLevel: number; requirements: ExamRequirement[] };
-    const availableLogbookMissions = mergeBuiltinMissions(creatorMissions);
-    const assignedMissions = acceptedMissionIds
-        .map((id) => availableLogbookMissions.find((mission) => mission.id === id))
-        .filter((mission): mission is CreatorMission => Boolean(mission));
-    const dailyMissions = availableLogbookMissions.filter((mission) => mission.rank === "Daily");
-    const logbookEvents = creatorEvents.filter((event) => (event.eventKind ?? "reward") !== "visualNovel");
-    const logbookRaids = creatorRaids;
-    const activeVillageWar = activeVillageWarsFor(character.village)[0];
-    const activeVillageWarEnemy = activeVillageWar?.villages.find(village => village !== character.village);
-    const todayWarProgress = character.villageWarMissionDate === currentDateKey() ? character.villageWarRaidProgress ?? 0 : 0;
-    const todayWarCompleted = character.villageWarMissionDate === currentDateKey() ? character.villageWarMissionsCompleted ?? 0 : 0;
-    const villageWarDailyMissions = Array.from({ length: VILLAGE_WAR_DAILY_MISSIONS }, (_, index) => ({
-        index,
-        title: `Village War Raid Mission ${index + 1}`,
-        progress: clampNumber(todayWarProgress - index * VILLAGE_WAR_RAIDS_PER_MISSION, 0, VILLAGE_WAR_RAIDS_PER_MISSION),
-        complete: todayWarCompleted > index,
-    }));
-    const missingMissionIds = acceptedMissionIds.filter((id) => !availableLogbookMissions.some((mission) => mission.id === id));
-    const maybeExamMissions: Array<ExamLogbookMission | null> = [
-        character.level >= 11 ? {
-            title: "Genin Exam",
-            examKey: "genin",
-            unlockLevel: 11,
-            requirements: [
-                { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
-                { label: "Train 400 stats", progress: statsTrained, target: 400 },
-                { label: "Complete 20 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 20 },
-                { label: "Kill 20 AI", progress: character.totalAiKills ?? 0, target: 20 },
-                { label: "Explore 50 tiles", progress: character.totalTilesExplored ?? 0, target: 50 },
-                { label: "Sharpen a jutsu to Lv 3", progress: Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level))), target: 3, detail: "Use a jutsu in battle to level it" },
-            ],
-        } : null,
-        character.level >= 21 ? {
-            title: "Chunin Exam",
-            examKey: "chunin",
-            unlockLevel: 21,
-            requirements: [
-                { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
-                { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
-                { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },
-                { label: "Join a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "No clan joined" },
-                { label: "Defeat Exam Proctor", progress: defeatedAiIds.includes("builtin-ai-exam-proctor") ? 1 : 0, target: 1, detail: examProctor ? "Level 25 arena AI" : "Exam Proctor missing", aiId: "builtin-ai-exam-proctor" },
-            ],
-        } : null,
-        character.level >= 41 ? {
-            title: "Jonin Exam",
-            examKey: "jonin",
-            unlockLevel: 41,
-            requirements: [
-                { label: "Get 10 PvP kills", progress: character.totalPvpKills ?? 0, target: 10 },
-                { label: "Raid a village 20 times", progress: character.totalVillageRaids ?? 0, target: 20 },
-                { label: "Defeat Rogue Ninja", progress: defeatedAiIds.includes("builtin-ai-rogue-ninja") ? 1 : 0, target: 1, detail: rogueNinja ? "Level 47 arena AI" : "Rogue Ninja missing", aiId: "builtin-ai-rogue-ninja" },
-            ],
-        } : null,
-        character.level >= 80 ? (() => {
-            const villageState = loadVillageState(character.village);
-            const isKage = villageState.seatedKage?.toLowerCase() === character.name.toLowerCase();
-            const isElder = Boolean(character.elderFocus);
-            return {
-            title: "Special Jonin Exam",
-            examKey: "specialJonin",
-            unlockLevel: 80,
-            requirements: [
-                { label: "Kill 100 players in PvP", progress: character.totalPvpKills ?? 0, target: 100 },
-                { label: "Become Kage or Elder", progress: (isKage || isElder) ? 1 : 0, target: 1, detail: isKage ? `Seated Kage of ${character.village}` : isElder ? `${character.elderFocus} Elder` : "Not a Kage or Elder" },
-            ],
-        };})() : null,
-    ];
-    const examMissions = maybeExamMissions.filter((mission): mission is ExamLogbookMission => mission !== null);
-
-    // Academy Training checklist — the level 1-14 onboarding guidance that fills
-    // the gap before the first rank exam (Genin) appears. Soft, teach-by-doing
-    // goals that each read an existing counter; hidden once claimed or once the
-    // player outgrows Academy rank. Same row format as the exams.
-    const highestJutsuMastery = Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level)));
-    const academyChecklist: { title: string; requirements: ExamRequirement[] } | null =
-        (!character.academyChecklistClaimed && rankFromLevel(character.level) === "Academy Student")
-            ? {
-                title: "Academy Training",
-                requirements: [
-                    { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2" },
-                    { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu" },
-                    { label: "Win your first battle", progress: character.totalAiKills ?? 0, target: 1, detail: "Fight in the Arena or a hunt" },
-                    { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds" },
-                    { label: "Complete your first mission", progress: character.totalMissionsCompleted ?? 0, target: 1, detail: "Accept a D-rank mission below" },
-                    { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it" },
-                ],
-            }
-            : null;
-    const academyComplete = academyChecklist ? academyChecklist.requirements.every((r) => r.progress >= r.target) : false;
-
-    function claimMission(mission: CreatorMission) {
-        const progress = missionProgress[mission.id] ?? 0;
-        const raidReq = missionRaidRequirement(mission);
-        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
-        if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
-        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
-        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
-        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
-        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3);
-        updateCharacter(markMissionCompleted({
-            ...leveled,
-            ryo: leveled.ryo + boostedRyo,
-            stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina),
-        }));
-        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-        setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
-        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);
-    }
-
-    function acceptMission(mission: CreatorMission) {
-        if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
-        if (acceptedMissionIds.includes(mission.id)) return;
-        const raidKey = missionRaidProgressKey(mission.id);
-        setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
-        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 });
-        const raidReq = missionRaidRequirement(mission);
-        alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`);
-    }
-
-    function claimRewardEvent(event: CreatorEvent) {
-        if (character.level < event.levelReq) return alert(`Requires level ${event.levelReq}.`);
-        const leveled = gainXp(character, event.xpReward);
-        const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
-        updateCharacter({
-            ...rewarded,
-            ryo: rewarded.ryo + event.ryoReward,
-            stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward),
-            clanEventContrib: (rewarded.clanEventContrib ?? 0) + 1,
-            clanContribMonth: new Date().toISOString().slice(0, 7),
-        });
-        alert(`${event.name} complete. ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character)}.`);
-    }
-
-    function startRaid(raid: CreatorRaid) {
-        if (character.level < raid.levelReq) return alert(`Requires level ${raid.levelReq}.`);
-        if (raid.targetSector) setCurrentSector(raid.targetSector);
-        setPendingAiProfileId(raid.aiProfileId || "");
-        setRaidBattleKind("raidAi");
-        setCurrentBiome(raid.biome);
-        setCurrentWeather(weatherForBiome(raid.biome));
-        setScreen("arena");
-    }
-
-    function goToWarGround() {
-        if (!activeVillageWar) return alert("Your village is not in an active war.");
-        const biome = "central" as Biome;
-        setCurrentSector(activeVillageWar.warGroundSector);
-        setCurrentBiome(biome);
-        setCurrentWeather(weatherForSector(activeVillageWar.warGroundSector, biome));
-        setScreen("worldMap");
-    }
-
-    function claimWarMission(index: number) {
-        const result = claimVillageWarDailyMission(character, index);
-        updateCharacter(result.character);
-        alert(result.note);
-    }
-
-    function abandonMission(missionId: string) {
-        const nextProgress = { ...missionProgress };
-        delete nextProgress[missionId];
-        delete nextProgress[missionRaidProgressKey(missionId)];
-        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== missionId));
-        setMissionProgress(nextProgress);
-    }
-
-    function startExamFight(aiId: string) {
-        const ai = creatorAis.find((candidate) => candidate.id === aiId);
-        if (!ai) return alert("Exam AI is not available.");
-        setPendingAiProfileId(ai.id);
-        setScreen("arena");
-    }
-
-    function renderRequirement(requirement: ExamRequirement) {
-        const complete = requirement.progress >= requirement.target;
-        const progressText = requirement.target === 1
-            ? complete ? "Complete" : "Incomplete"
-            : `${Math.min(requirement.progress, requirement.target)}/${requirement.target}`;
-        return (
-            <div key={requirement.label} className="summary-box">
-                <h4>{complete ? "Done" : "Open"} - {requirement.label}</h4>
-                <p>{progressText}{requirement.detail ? ` | ${requirement.detail}` : ""}</p>
-                <div className="mission-progress"><span style={{ width: `${Math.min(100, (requirement.progress / requirement.target) * 100)}%` }}></span></div>
-                {requirement.aiId && !complete && <button onClick={() => startExamFight(requirement.aiId as string)}>Fight {requirement.label.replace("Defeat ", "")}</button>}
-            </div>
-        );
-    }
-
-    return (
-        <div className="card logbook-screen">
-            <h2>Logbook</h2>
-            {ceremonyTitle && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9000, padding: 16 }}>
-                    <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
-                        <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
-                        <h2 style={{ marginTop: 0 }}>{ceremonyTitle} Passed!</h2>
-                        <p>Congratulations, {character.name} — you've been promoted. Your level cap is lifted and new content awaits.</p>
-                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremonyTitle(null)}>Continue →</button>
-                    </div>
-                </div>
-            )}
-            <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
-            {academyChecklist && (
-                <>
-                    <h3>Academy Training</h3>
-                    <section className="summary-box mission-board-section">
-                        <p className="hint">New shinobi: complete these to prepare for the Genin Exam.</p>
-                        <div className="location-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
-                        {academyComplete && (
-                            <div className="menu">
-                                <button onClick={() => updateCharacter({ ...character, academyChecklistClaimed: true })}>Claim Academy Reward</button>
-                            </div>
-                        )}
-                    </section>
-                </>
-            )}
-            {examMissions.length > 0 && (
-                <>
-                    <h3>Rank Exams</h3>
-                    {examMissions.map((exam) => {
-                        const passed = (character.examsPassed ?? []).includes(exam.examKey);
-                        const complete = exam.requirements.every((requirement) => requirement.progress >= requirement.target);
-                        const gate = EXAM_LEVEL_GATES.find(g => g.exam === exam.examKey);
-                        const isBlocking = !passed && character.level >= (gate?.level ?? 999);
-                        return (
-                            <section className="summary-box mission-board-section" key={exam.title}>
-                                <h3>{exam.title} {passed ? "✓" : ""}</h3>
-                                <p className="hint">Unlocked at level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
-                                {isBlocking && !complete && <p style={{ color: "#f87171", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
-                                <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
-                                {!passed && <div className="menu">
-                                    <button disabled={!complete} onClick={() => {
-                                        updateCharacter({ ...character, examsPassed: [...(character.examsPassed ?? []), exam.examKey] });
-                                        setCeremonyTitle(exam.title);
-                                    }}>{complete ? `Pass ${exam.title}` : "Requirements Incomplete"}</button>
-                                </div>}
-                            </section>
-                        );
-                    })}
-                </>
-            )}
-            {activeVillageWar && (
-                <>
-                    <h3>Village War Missions</h3>
-                    <section className="summary-box mission-board-section">
-                        <h3>{character.village} vs {activeVillageWarEnemy}</h3>
-                        <p className="hint">War Ground: Sector {activeVillageWar.warGroundSector}. Each mission needs 3 successful enemy-village raids and claims for -30 enemy village HP.</p>
-                        <div className="location-grid">{villageWarDailyMissions.map((mission) => {
-                            const canClaim = !mission.complete && todayWarCompleted === mission.index && mission.progress >= VILLAGE_WAR_RAIDS_PER_MISSION;
-                            return <div key={mission.title} className="location-button mission-card"><span className="tile-icon">WAR</span><span>{mission.title}</span><small>Raid enemy village from Sector {activeVillageWar.warGroundSector}: {mission.progress}/{VILLAGE_WAR_RAIDS_PER_MISSION}</small><small>Reward: -{VILLAGE_WAR_MISSION_DAMAGE} enemy village HP</small><div className="mission-progress"><span style={{ width: `${(mission.progress / VILLAGE_WAR_RAIDS_PER_MISSION) * 100}%` }}></span></div><div className="menu">{mission.complete ? <button disabled>Complete Today</button> : canClaim ? <button onClick={() => claimWarMission(mission.index)}>Claim War Damage</button> : <button onClick={goToWarGround}>Go To War Ground</button>}</div></div>;
-                        })}</div>
-                    </section>
-                </>
-            )}
-            {dailyMissions.length > 0 && (
-                <>
-                    <h3>Daily Missions</h3>
-                    <div className="location-grid">{dailyMissions.map((mission) => {
-                        const accepted = acceptedMissionIds.includes(mission.id);
-                        const progress = missionProgress[mission.id] ?? 0;
-                        const raidReq = missionRaidRequirement(mission);
-                        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
-                        const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
-                        const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
-                        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
-                        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-                        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-                        return (
-                            <div key={mission.id} className="location-button mission-card">
-                                <CardVisual icon="📜" label={mission.name} />
-                                <span>{mission.name}</span>
-                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
-                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
-                                <p>{mission.description}</p>
-                                <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
-                                <div className="menu">
-                                    {!accepted ? <button onClick={() => acceptMission(mission)}>Accept</button> : complete ? <button onClick={() => claimMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
-                                </div>
-                            </div>
-                        );
-                    })}</div>
-                </>
-            )}
-            {logbookEvents.length > 0 && (
-                <>
-                    <h3>Events</h3>
-                    <div className="location-grid">{logbookEvents.map((event) => (
-                        <div key={event.id} className="location-button mission-card">
-                            <CardVisual image={(event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
-                            <span>{event.name}</span>
-                            <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards, character)}</small>
-                            <p>{event.dialogue.join(" ")}</p>
-                            <div className="menu"><button onClick={() => claimRewardEvent(event)}>Claim Event Reward</button></div>
-                        </div>
-                    ))}</div>
-                </>
-            )}
-            {logbookRaids.length > 0 && (
-                <>
-                    <h3>Raids</h3>
-                    <div className="location-grid">{logbookRaids.map((raid) => {
-                        const raidAi = raid.aiProfileId ? creatorAis.find((ai) => ai.id === raid.aiProfileId) : undefined;
-                        return (
-                            <div key={raid.id} className="location-button mission-card">
-                                <CardVisual image={raidAi?.image} icon={raid.icon} label={raid.name} />
-                                <span>{raid.name}</span>
-                                <small>{raid.waves} waves | Lvl {raid.levelReq} | {raid.biome}</small>
-                                <small>Boss: {raidAi?.name ?? raid.aiProfileId ?? "Default arena AI"} | Reward: {rewardSummary(raid.xpReward, raid.ryoReward, raid.staminaReward, raid.currencyRewards, character)}</small>
-                                <p>{raid.description}</p>
-                                <div className="menu"><button onClick={() => startRaid(raid)}>Start Raid</button></div>
-                            </div>
-                        );
-                    })}</div>
-                </>
-            )}
-            <h3>Assigned Missions</h3>
-            {assignedMissions.length === 0 && missingMissionIds.length === 0 ? (
-                <div className="summary-box">
-                    <h3>No Active Assignments</h3>
-                    <p className="hint">Accept a fetch mission from the Mission Hall to track it here.</p>
-                    <button onClick={() => setScreen("missions")}>Open Mission Hall</button>
-                </div>
-            ) : (
-                <div className="location-grid">
-                    {assignedMissions.map((mission) => {
-                        const progress = missionProgress[mission.id] ?? 0;
-                        const raidReq = missionRaidRequirement(mission);
-                        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
-                        const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
-                        const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
-                        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
-                        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-                        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-                        return (
-                            <div key={mission.id} className="location-button mission-card">
-                                <CardVisual image={creatorAis.find((ai) => ai.id === mission.aiProfileId)?.image} icon={mission.rank} label={mission.name} />
-                                <span>{mission.name}</span>
-                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
-                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
-                                <p>{mission.description}</p>
-                                <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
-                                <div className="menu">
-                                    {complete ? <button onClick={() => claimMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
-                                    <button className="danger-button" onClick={() => abandonMission(mission.id)}>Abandon</button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {missingMissionIds.map((missionId) => (
-                        <div key={missionId} className="location-button mission-card">
-                            <span className="tile-icon">OLD</span>
-                            <span>Archived Assignment</span>
-                            <small>This mission no longer exists on the mission board.</small>
-                            <div className="menu"><button className="danger-button" onClick={() => abandonMission(missionId)}>Remove</button></div>
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     );
 }
