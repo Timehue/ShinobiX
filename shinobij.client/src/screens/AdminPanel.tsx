@@ -36,6 +36,7 @@ import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeJutsuTags, percentageTags } from "../lib/tags";
 import { petDisplayName } from "../lib/pet";
 import { rankTitleForLevel } from "../lib/character-progress";
+import { aiJutsuLoadout, aiLoadoutFromJutsus, aiLoadoutLabels, blankAiRule, buildBasicCombatAiRules, builtinAis, normalizeAiProfile, starterAiProfile } from "../lib/combat-ai";
 import {
     HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT,
     HOLLOW_GATE_KEY_DUNGEON_KEY_COST,
@@ -56,22 +57,14 @@ import {
     setSharedWeeklyBossAiId,
     sharedWeeklyBossAiIdCache,
     adminIconOptions,
-    aiJutsuLoadout,
-    aiLoadoutFromJutsus,
-    aiLoadoutLabels,
-    blankAiRule,
-    buildBasicCombatAiRules,
-    builtinAis,
     createCharacter,
     defaultAncientChestVn,
     defaultPetEncounterVn,
     getAllJutsus,
     loadVillageLeadershipImages,
-    normalizeAiProfile,
     normalizeVillageLeadershipImages,
     persistSharedGameState,
     saveVillageLeadershipImages,
-    starterAiProfile,
     storyToCreatorEvent,
     stringifyServerSavePayload,
     villageLeadership,
