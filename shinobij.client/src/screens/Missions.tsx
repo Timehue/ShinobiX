@@ -12,7 +12,8 @@ import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } fro
 import { displayCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
-import { gainXp, grantTerritoryScrolls } from "../App";
+import { gainXp } from "../App";
+import { grantTerritoryScrolls } from "../lib/world-state";
 
 export function Missions({
     character,

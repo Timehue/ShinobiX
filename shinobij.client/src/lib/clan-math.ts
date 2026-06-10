@@ -10,6 +10,7 @@
  */
 
 import { clampNumber } from "./utils";
+import { loadAllSectorTerritories } from "./world-state";
 import { cleanTreasuryItems } from "./items";
 import { normalizeNoticePosts } from "./clan-notices";
 import { CLAN_UPGRADE_MAX_LEVEL } from "../constants/clan";
@@ -49,3 +50,14 @@ export function clanRankOf(member: ClanMemberEntry, members: ClanMemberEntry[], 
 }
 
 export function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
+
+export function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
+// addClanWarPoints removed — replaced by the server-managed Clan War
+// system (see api/clan/war/_storage.ts + autoReportClanWarBattleResult
+// on the client). The old point-based score tracking lived in
+// clanData.activeWar.ourScore and is no longer authoritative.
+// Shared tutorial popover — rendered inside both the Clan Hall →
+// Wars tab and the Shinobi Council Hall → Clan Battles tab via a "?"
+// button next to the title. Keeps the rules in one place so any
+// future balance change only has to update this manual.
+// ClanWarManual moved to ./components/ClanWarManual.

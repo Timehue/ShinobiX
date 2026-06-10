@@ -14,9 +14,9 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
-import { getAllTileCards, type TileCard } from "../App";
 import type { Character } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
+import { getAllTileCards, type TileCard } from "../data/tile-cards";
 
 function ShopBase({
     character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo",

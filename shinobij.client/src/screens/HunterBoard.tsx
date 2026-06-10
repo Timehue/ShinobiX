@@ -11,7 +11,8 @@ import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
 import { builtinHuntMissions } from "../data/missions";
-import { gainXp, grantTerritoryScrolls } from "../App";
+import { gainXp } from "../App";
+import { grantTerritoryScrolls } from "../lib/world-state";
 
 export function HunterBoard({
     character,
