@@ -431,6 +431,30 @@ export function Logbook({
                     ))}
                 </div>
             )}
+            {defeatedAiIds.length > 0 && (
+                <>
+                    <h3>Bestiary</h3>
+                    <p className="hint">Foes defeated: <strong>{defeatedAiIds.length}</strong> logged. Repeated kills raise each foe's rank (Novice → Veteran 10 → Expert 25 → Master 100).</p>
+                    <div className="location-grid">
+                        {defeatedAiIds.map((id) => {
+                            const ai = creatorAis.find((a) => a.id === id);
+                            const kills = character.aiKills?.[id] ?? 0;
+                            const shown = kills || 1; // legacy entries (logged before kill-counts) show ×1
+                            const tier = shown >= 100 ? "Master" : shown >= 25 ? "Expert" : shown >= 10 ? "Veteran" : "Novice";
+                            const nextThreshold = shown >= 25 ? 100 : shown >= 10 ? 25 : 10;
+                            return (
+                                <div key={id} className="location-button mission-card">
+                                    <CardVisual image={ai?.image} icon={ai?.icon ?? "🐉"} label={ai?.name ?? "Unknown"} />
+                                    <span>{ai?.name ?? "Unknown Foe"}</span>
+                                    <small>{ai ? `Lv ${ai.level} · ${ai.village}` : "No longer roams the world"}</small>
+                                    <small>Defeated ×{shown} · {tier}</small>
+                                    <div className="mission-progress"><span style={{ width: `${Math.min(100, (shown / nextThreshold) * 100)}%` }} /></div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
         </div>
     );
 }

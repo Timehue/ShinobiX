@@ -33,6 +33,13 @@ const _storage_js_2 = require("./_storage.js");
 // to make grief-locking a clan into the 7-day cooldown carry real economic
 // weight. Admin bypasses (testing).
 const CLAN_WAR_DECLARATION_COST = 100;
+// War Room clan-upgrade bonus to the starting war-HP pool, +2 HP per level.
+// KEEP IN SYNC with shinobij.client/src/lib/clan-upgrades.ts (WAR_ROOM_HP_PER_LEVEL).
+const WAR_ROOM_HP_PER_LEVEL = 2;
+function warRoomBonusHp(rec) {
+    const lvl = Number(rec?.upgrades?.warRoom ?? 0);
+    return Number.isFinite(lvl) && lvl > 0 ? Math.floor(lvl) * WAR_ROOM_HP_PER_LEVEL : 0;
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -127,6 +134,13 @@ async function handler(req, res) {
             if (debitError)
                 return res.status(debitError.status).json(debitError.body);
         }
+        // War Room clan-upgrade: each clan's starting HP pool is the base plus
+        // its own War Room bonus. toClanRecord is already loaded; load fromClan's
+        // record for its upgrades (cheap — declare is a rare action).
+        const fromClanSlug = `clan-${fromClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        const fromClanRecord = await _storage_js_1.kv.get(`save:${fromClanSlug}`);
+        const fromStartHp = _storage_js_2.CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord);
+        const toStartHp = _storage_js_2.CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord);
         const sortedClans = [fromClan, toClan].sort((a, b) => a.localeCompare(b));
         const id = (0, _storage_js_2.clanWarPairId)(fromClan, toClan);
         const key = (0, _storage_js_2.clanWarKey)(fromClan, toClan);
@@ -146,8 +160,12 @@ async function handler(req, res) {
                     [toClan]: toVillage,
                 },
                 hp: {
-                    [fromClan]: _storage_js_2.CLAN_WAR_HP_MAX,
-                    [toClan]: _storage_js_2.CLAN_WAR_HP_MAX,
+                    [fromClan]: fromStartHp,
+                    [toClan]: toStartHp,
+                },
+                hpMax: {
+                    [fromClan]: fromStartHp,
+                    [toClan]: toStartHp,
                 },
                 startedAt: now,
                 updatedAt: now,
