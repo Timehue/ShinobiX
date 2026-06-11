@@ -43,6 +43,9 @@ const CLIENT_KNOWN_PREFIXES: Record<string, string> = {
     avatar: 'avatar', pet: 'pet', jutsu: 'jutsu', item: 'item',
     card: 'card', event: 'event', bloodline: 'bloodline',
     vn: 'event', ai: 'ai', shrine: 'shrine', landmark: 'landmark',
+    // Pet battle-art slots (petbody/petsheet/petlayers) ride the 'pet'
+    // category — keep in sync with api/images.ts KNOWN_PREFIXES.
+    petbody: 'pet', petsheet: 'pet', petlayers: 'pet',
 };
 function categoryFromImageKey(id: string): string {
     const prefix = id.split(':')[0];

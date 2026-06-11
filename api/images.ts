@@ -154,6 +154,18 @@ const KNOWN_PREFIXES: Record<string, string> = {
     // (so the bulk GET, which only walks KNOWN_CATEGORIES, never returned them).
     // Admin-only — see ADMIN_ONLY_PREFIXES. (audit #16)
     leader:    'leader',
+    // Pet BATTLE-ART slots the renderer already reads from sharedImages:
+    // `petbody:<id>` (transparent full-body battle sprite — HD-2D coliseum +
+    // the DOM full-body standee), `petsheet:<id>` (baked animation strip) and
+    // `petlayers:<id>:<band>` (depth-sliced 2.5D parallax). Riding the 'pet'
+    // category means loadCategory('pet')'s id manifest returns them, so the
+    // client hydrates them with no client changes. Without these entries they
+    // fell into 'misc', which the client never loads. Deliberately NOT
+    // admin-only — exact parity with 'pet' portraits (same bounded cosmetic
+    // exposure; see the pet ownership note in ownershipReject).
+    petbody:   'pet',
+    petsheet:  'pet',
+    petlayers: 'pet',
 };
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 
