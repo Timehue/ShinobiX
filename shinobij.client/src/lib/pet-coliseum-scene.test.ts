@@ -119,6 +119,15 @@ test("spreadPositions: 4 clustered pets (2v2) all end pairwise separated", () =>
     }
 });
 
+test("spreadPositions: depth-stacked pair gets a HORIZONTAL gap (screen visibility)", () => {
+    // Same column, two rows apart — radially separated but aligned with the
+    // camera axis, so one sprite would hide behind the other on screen.
+    const mid = 2 * COLISEUM_COLS + 6;
+    const spread = spreadPositions([tileToWorld(mid), tileToWorld(mid + 2 * COLISEUM_COLS)]);
+    assert.ok(Math.abs(spread[1].x - spread[0].x) >= 1.35,
+        `horizontal gap enforced, got ${Math.abs(spread[1].x - spread[0].x).toFixed(2)}`);
+});
+
 test("spreadPositions: well-spaced points are untouched and output is finite", () => {
     const pts = [tileToWorld(3 * COLISEUM_COLS + 1), tileToWorld(3 * COLISEUM_COLS + 12)];
     const spread = spreadPositions(pts);
