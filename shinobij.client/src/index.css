@@ -6790,32 +6790,44 @@ body {
     position: absolute;
     transform: translate(-50%, -50%);
     z-index: 4;
-    min-width: 130px;
-    padding: 8px 10px;
+    padding: 0;
     display: grid;
-    gap: 4px;
+    gap: 3px;
     place-items: center;
-    border: 2px solid rgba(250, 204, 21, 0.75);
-    border-radius: 10px;
-    background: rgba(2, 6, 23, 0.78);
+    border: none;
+    background: transparent;
     color: white;
-    box-shadow: 0 0 16px rgba(0, 0, 0, 0.65);
-    transition: filter 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    cursor: pointer;
+    /* The pixel-art icons are transparent cutouts — a drop-shadow grounds them
+       on the scene instead of a heavy pill that competes with the art. */
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
+    transition: transform 0.12s ease, filter 0.12s ease;
 }
 
     .stormveil-map-button:hover {
-        transform: translate(-50%, -50%);
-        filter: brightness(1.08);
-        border-color: rgba(250, 204, 21, 0.95);
-        box-shadow: 0 0 20px rgba(250, 204, 21, 0.35), 0 0 16px rgba(0, 0, 0, 0.65);
+        transform: translate(-50%, -50%) scale(1.09);
+        filter: drop-shadow(0 0 9px rgba(125, 211, 252, 0.7)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
+        z-index: 6;
     }
 
-    .stormveil-map-button span {
-        font-size: 30px;
+    .stormveil-map-icon {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        display: block;
+        pointer-events: none;
     }
 
     .stormveil-map-button strong {
-        font-size: 13px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #f3f6ff;
+        background: rgba(2, 6, 23, 0.72);
+        border: 1px solid rgba(125, 211, 252, 0.4);
+        border-radius: 6px;
+        padding: 1px 7px;
+        white-space: nowrap;
+        text-shadow: 0 1px 2px #000;
     }
 /* ===============================
    STORMVEIL VILLAGE CSS
