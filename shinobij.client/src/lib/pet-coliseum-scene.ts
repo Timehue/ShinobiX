@@ -54,6 +54,12 @@ export function tileToWorld(
 const MIN_SEP = 1.9;
 const CONTACT_GAP = 0.95;
 const MAX_LUNGE = 2.2;
+// Screen-visibility floor: two pets separated mostly along DEPTH (z) satisfy
+// MIN_SEP yet still hide one behind the other at the camera angle. Nearby
+// pairs therefore also get a minimum HORIZONTAL (x) gap so both sprites stay
+// visibly side-by-side on screen.
+const MIN_X_SEP = 1.4;
+const X_SEP_RANGE = 3.2; // only enforce on pairs this close overall
 
 /** Enforce a minimum pairwise separation over N floor positions (2 for 1v1,
  *  4 for 2v2). Symmetric pairwise pushes over a few relaxation iterations —
@@ -71,11 +77,23 @@ export function spreadPositions(
                 let dx = out[j].x - out[i].x, dz = out[j].z - out[i].z;
                 let d = Math.hypot(dx, dz);
                 if (d < 1e-6) { dx = 1; dz = 0; d = 1e-6; }
-                if (d >= minSep) continue;
-                const push = (minSep - d) / 2;
-                const ux = dx / d, uz = dz / d;
-                out[i].x -= ux * push; out[i].z -= uz * push;
-                out[j].x += ux * push; out[j].z += uz * push;
+                if (d < minSep) {
+                    const push = (minSep - d) / 2;
+                    const ux = dx / d, uz = dz / d;
+                    out[i].x -= ux * push; out[i].z -= uz * push;
+                    out[j].x += ux * push; out[j].z += uz * push;
+                    dx = out[j].x - out[i].x; dz = out[j].z - out[i].z;
+                    d = Math.hypot(dx, dz);
+                }
+                // Screen-visibility: a nearby pair separated mostly along depth
+                // still stacks one-behind-the-other on screen — give it a
+                // minimum horizontal gap too (deterministic tie-break right).
+                if (d < X_SEP_RANGE && Math.abs(dx) < MIN_X_SEP) {
+                    const dir = dx >= 0 ? 1 : -1;
+                    const need = (MIN_X_SEP - Math.abs(dx)) / 2;
+                    out[i].x -= dir * need;
+                    out[j].x += dir * need;
+                }
             }
         }
     }
