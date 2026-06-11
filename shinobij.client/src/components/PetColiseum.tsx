@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, ContactShadows, Html, OrbitControls } from "@react-three/drei";
+import { Billboard, Html, OrbitControls } from "@react-three/drei";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
 import { petArchetypeFor, type ArenaTile } from "../lib/pet-tactics";
 import { PetBattleAvatar } from "./PetBattleAvatar";
@@ -36,7 +36,7 @@ import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { tileToWorld, poseMotion, lerp, shakeAmpForBeat, spreadPositions, lungeReach } from "../lib/pet-coliseum-scene";
+import { tileToWorld, poseMotion, lerp, shakeAmpForBeat, spreadPositions, lungeReach, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -108,32 +108,108 @@ function makePlaceholderTexture(pet: Pet): THREE.CanvasTexture {
     return tex;
 }
 
-/** Portrait texture if published (petBattleSprite → sharedImages/pet.image),
- *  else a procedural placeholder. Disposed on change. `mirror` flips the IMAGE
- *  horizontally (UV-level, so pose/rotation math is untouched) — battle-sprite
- *  art faces RIGHT by convention, and the enemy side flips to face inward
- *  (same convention as the DOM renderer's .pet-sprite-fullbody mirror). */
-function usePetTexture(pet: Pet, sharedImages: Record<string, string>, mirror = false): THREE.Texture {
+// ── Sprite alpha-bounds scan (grounding) ─────────────────────────────────────
+// gpt-image-1 centers each creature in a square frame with transparent margin,
+// so the "feet" sit at a per-sprite fraction up from the image bottom. We scan
+// the alpha bounding box once per src (cached) so the renderer can anchor the
+// VISIBLE feet to the floor instead of the plane's literal bottom edge.
+type SpriteScan = { bounds: SpriteBounds; aspect: number };
+const _scanCache = new Map<string, SpriteScan>();
+const _scanInflight = new Map<string, Promise<SpriteScan>>();
+function loadSpriteBounds(src: string): Promise<SpriteScan> {
+    const cached = _scanCache.get(src);
+    if (cached) return Promise.resolve(cached);
+    const inflight = _scanInflight.get(src);
+    if (inflight) return inflight;
+    const p = new Promise<SpriteScan>((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            try {
+                // Downscale for a cheap scan — bbox fractions are scale-invariant.
+                const S = 96;
+                const w = img.naturalWidth || S, h = img.naturalHeight || S;
+                const cw = Math.max(8, Math.round(S * Math.min(1, w / Math.max(w, h))));
+                const ch = Math.max(8, Math.round(S * Math.min(1, h / Math.max(w, h))));
+                const cv = document.createElement("canvas");
+                cv.width = cw; cv.height = ch;
+                const ctx = cv.getContext("2d", { willReadFrequently: true })!;
+                ctx.drawImage(img, 0, 0, cw, ch);
+                const data = ctx.getImageData(0, 0, cw, ch).data;
+                const scan: SpriteScan = { bounds: spriteBoundsFromAlpha(data, cw, ch), aspect: w / Math.max(1, h) };
+                _scanCache.set(src, scan);
+                resolve(scan);
+            } catch {
+                resolve({ bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 });
+            }
+            _scanInflight.delete(src);
+        };
+        img.onerror = () => { _scanInflight.delete(src); resolve({ bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }); };
+        img.src = src;
+    });
+    _scanInflight.set(src, p);
+    return p;
+}
+
+/** Sprite for a pet: the (optionally UV-mirrored) texture plus the alpha-scanned
+ *  bounds + image aspect needed to ground it. `mirror` flips the IMAGE
+ *  horizontally (UV-level, pose math untouched) — battle art faces RIGHT, so
+ *  the enemy side flips to face inward. Bounds load async; until then a
+ *  centered default keeps the sprite grounded-ish (no pop). The procedural
+ *  placeholder (no src) uses a fixed bounds (its body capsule) + 0.8 aspect. */
+function usePetSprite(pet: Pet, sharedImages: Record<string, string>, mirror = false): { texture: THREE.Texture; bounds: SpriteBounds; aspect: number } {
     const { src } = petBattleSprite(pet, sharedImages);
-    return useMemo(() => {
+    const texture = useMemo(() => {
         const t = src ? new THREE.TextureLoader().load(src) : makePlaceholderTexture(pet);
         t.colorSpace = THREE.SRGBColorSpace;
         t.anisotropy = 4;
-        // Mirror only real art — the procedural placeholder carries the pet's
-        // INITIALS, which would render backwards if flipped.
-        if (mirror && src) {
-            t.wrapS = THREE.RepeatWrapping;
-            t.repeat.x = -1;
-            t.offset.x = 1;
-        }
+        // Mirror only real art — the placeholder carries the pet's INITIALS,
+        // which would render backwards if flipped.
+        if (mirror && src) { t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1; }
         return t;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [src, pet.id, pet.element, mirror]);
+
+    const PLACEHOLDER_SCAN: SpriteScan = { bounds: { left: 0.18, right: 0.82, top: 0.12, bottom: 0.86 }, aspect: 512 / 640 };
+    const [scan, setScan] = useState<SpriteScan>(src ? (_scanCache.get(src) ?? { bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }) : PLACEHOLDER_SCAN);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- rare src→placeholder reset; async path below is the common case
+        if (!src) { setScan(PLACEHOLDER_SCAN); return; }
+        let live = true;
+        void loadSpriteBounds(src).then((s) => { if (live) setScan(s); });
+        return () => { live = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [src]);
+
+    return { texture, bounds: scan.bounds, aspect: scan.aspect };
 }
 
-// ── One billboarded pet standee — eases toward the active pose each frame ─────
+// ── Soft contact-shadow blob texture (one shared canvas) ──────────────────────
+let _shadowTexture: THREE.CanvasTexture | null = null;
+function shadowTexture(): THREE.CanvasTexture {
+    if (_shadowTexture) return _shadowTexture;
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    const rad = g.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S / 2);
+    rad.addColorStop(0, "rgba(0,0,0,0.55)");
+    rad.addColorStop(0.6, "rgba(0,0,0,0.28)");
+    rad.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = rad;
+    g.fillRect(0, 0, S, S);
+    _shadowTexture = new THREE.CanvasTexture(c);
+    _shadowTexture.colorSpace = THREE.SRGBColorSpace;
+    return _shadowTexture;
+}
+
+// Base visible-content height in world units — every creature is grounded to
+// this VISIBLE height (consistent silhouettes; padding no longer varies size).
+const TARGET_SPRITE_H = 2.35;
+
+// ── One grounded pet standee — Y-locked billboard, feet on the floor ─────────
 function Standee({
-    pet, side, pos, reach, toward, pose, fainted, hp, maxHp, texture,
+    pet, side, pos, reach, toward, pose, fainted, hp, maxHp, texture, bounds, aspect,
 }: {
     pet: Pet;
     side: "player" | "enemy";
@@ -151,73 +227,105 @@ function Standee({
     hp: number;
     maxHp: number;
     texture: THREE.Texture;
+    /** Alpha-scanned content box + image aspect → grounds the visible feet. */
+    bounds: SpriteBounds;
+    aspect: number;
 }) {
-    const group = useRef<THREE.Group>(null);
-    const mesh = useRef<THREE.Mesh>(null);
+    const group = useRef<THREE.Group>(null);    // lane position + pose offset
+    const poseG = useRef<THREE.Group>(null);    // squash + topple, pivots at feet
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const flashMat = useRef<THREE.MeshBasicMaterial>(null);
+    const shadow = useRef<THREE.Mesh>(null);
+    const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const sclX = useRef(1), sclY = useRef(1), rotZ = useRef(0);
     const prevHurt = useRef(0);
-    const planeH = 2.5;
-    const planeW = 2.3;
     const base = pos;
+    const mirrored = side === "enemy";
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
+    // Foot-anchored plane size + offset from the alpha bounds.
+    const L = useMemo(() => groundedSpriteLayout(bounds, aspect, TARGET_SPRITE_H, mirrored), [bounds, aspect, mirrored]);
+    const shadowW = Math.max(0.9, L.contentWorldW * 0.95);
+
     useFrame((state) => {
-        const g = group.current, m = mesh.current, material = mat.current;
-        if (!g || !m || !material) return;
+        const g = group.current, pg = poseG.current, material = mat.current;
+        if (!g || !pg || !material) return;
         const target = poseMotion(fainted ? "ko" : pose, toward, reach);
         const k = reduce ? 1 : pose === "lunge" || pose === "recoil" ? 0.32 : 0.2;
         const t = state.clock.elapsedTime;
-        const breathe = (pose === "idle" || pose === "victory") && !fainted ? Math.sin(t * 2 + (side === "enemy" ? Math.PI : 0)) * 0.05 : 0;
-        // Position eases toward base tile + pose offset.
+        // Lane position + pose offset (NO y-bob — grounding stays planted; idle
+        // life comes from the squash breathe below, which pivots at the feet).
         g.position.x = lerp(g.position.x, base.x + target.dx, k);
-        g.position.y = lerp(g.position.y, FLOOR_Y + target.dy, k) + breathe;
+        g.position.y = lerp(g.position.y, FLOOR_Y + target.dy, k);
         g.position.z = lerp(g.position.z, base.z + target.dz, k);
-        // Sprite squash/stretch + topple tilt.
-        m.scale.x = lerp(m.scale.x, target.sx, k);
-        m.scale.y = lerp(m.scale.y, target.sy, k);
-        m.rotation.z = lerp(m.rotation.z, target.rot, k);
-        // Hit feedback: a bright WHITE flash (additive overlay pops then decays
-        // fast) plus a soft red tint dip underneath.
+        // Squash/stretch + topple, eased on stored bases so the breathe can
+        // multiply on top without compounding. Pose group pivots at the feet.
+        sclX.current = lerp(sclX.current, target.sx, k);
+        sclY.current = lerp(sclY.current, target.sy, k);
+        rotZ.current = lerp(rotZ.current, target.rot, k);
+        const breathe = (pose === "idle" || pose === "victory") && !fainted ? 1 + Math.sin(t * 2 + (side === "enemy" ? Math.PI : 0)) * 0.022 : 1;
+        pg.scale.set(sclX.current, sclY.current * breathe, 1);
+        pg.rotation.z = rotZ.current;
+        // Hit feedback: white flash overlay (snap on the hit edge, fast decay)
+        // over a soft red tint dip.
         material.color.g = lerp(material.color.g, 1 - 0.3 * target.hurt, k);
         material.color.b = lerp(material.color.b, 1 - 0.3 * target.hurt, k);
         material.opacity = lerp(material.opacity, target.opacity, k);
         if (flashMat.current) {
             const f = flashMat.current;
-            // Snap bright the instant a hit lands, then decay fast — reads as a
-            // camera-flash impact instead of a sustained glow.
             if (target.hurt > 0 && prevHurt.current === 0) f.opacity = 0.9;
             else f.opacity = f.opacity < 0.01 ? 0 : f.opacity * 0.82;
             prevHurt.current = target.hurt;
+        }
+        // Blob shadow stays on the floor, tracks x/z, fades + shrinks as the pet
+        // leaves the ground (lunge arc / KO sink reads off it).
+        if (shadow.current && shadowMat.current) {
+            shadow.current.position.x = g.position.x;
+            shadow.current.position.z = g.position.z;
+            const lift = Math.max(0, g.position.y);
+            const f = Math.max(0, 1 - lift * 1.4);
+            shadowMat.current.opacity = 0.42 * f * target.opacity;
+            const s = 0.85 + 0.15 * f;
+            shadow.current.scale.set(shadowW * s, shadowW * 0.5 * s, 1);
         }
     });
 
     const safeMax = Math.max(1, maxHp);
     const hpPct = Math.max(0, Math.min(100, (hp / safeMax) * 100));
     return (
-        <group ref={group} position={[base.x, 0, base.z]}>
-            <Billboard>
-                {/* Mesh centred at half-height so the sprite's feet meet the floor. */}
-                <mesh ref={mesh} position={[0, planeH / 2, 0]}>
-                    <planeGeometry args={[planeW, planeH]} />
-                    <meshBasicMaterial ref={mat} map={texture} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
-                    {/* Additive copy of the sprite = the white hit-flash. Child of
-                        the main mesh so it inherits the squash/tilt transforms. */}
-                    <mesh position={[0, 0, 0.01]}>
-                        <planeGeometry args={[planeW, planeH]} />
-                        <meshBasicMaterial ref={flashMat} map={texture} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-                    </mesh>
-                </mesh>
-            </Billboard>
-            <Html position={[0, planeH + 0.15, 0]} center distanceFactor={9} pointerEvents="none" zIndexRange={[6, 0]}>
-                <div style={{ textAlign: "center", font: "700 13px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", opacity: fainted ? 0.5 : 1 }}>
-                    <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 3 }}>Lv.{pet.level} {pet.name}</div>
-                    <div style={{ width: 96, height: 8, margin: "0 auto", background: "#0b1020", borderRadius: 5, border: "1px solid #000", overflow: "hidden" }}>
-                        <div data-hp={side} style={{ width: `${hpPct}%`, height: "100%", background: side === "player" ? "#4ade80" : "#f87171", transition: "width .35s" }} />
+        <group>
+            <group ref={group} position={[base.x, 0, base.z]}>
+                {/* Y-axis-locked billboard: yaws to face the camera but stays
+                    vertical, so feet never lift off the floor at the angled cam. */}
+                <Billboard lockX lockZ>
+                    <group ref={poseG}>
+                        {/* Plane lifted so the VISIBLE feet (alpha bottom) sit at the
+                            feet pivot (poseG origin, y=0); width tracks art aspect. */}
+                        <mesh position={[L.meshX, L.meshY, 0]}>
+                            <planeGeometry args={[L.planeW, L.planeH]} />
+                            <meshBasicMaterial ref={mat} map={texture} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
+                            <mesh position={[0, 0, 0.01]}>
+                                <planeGeometry args={[L.planeW, L.planeH]} />
+                                <meshBasicMaterial ref={flashMat} map={texture} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                            </mesh>
+                        </mesh>
+                    </group>
+                </Billboard>
+                <Html position={[0, L.contentWorldH + 0.35, 0]} center distanceFactor={9} pointerEvents="none" zIndexRange={[6, 0]}>
+                    <div style={{ textAlign: "center", font: "700 13px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", opacity: fainted ? 0.5 : 1 }}>
+                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 3 }}>Lv.{pet.level} {pet.name}</div>
+                        <div style={{ width: 96, height: 8, margin: "0 auto", background: "#0b1020", borderRadius: 5, border: "1px solid #000", overflow: "hidden" }}>
+                            <div data-hp={side} style={{ width: `${hpPct}%`, height: "100%", background: side === "player" ? "#4ade80" : "#f87171", transition: "width .35s" }} />
+                        </div>
+                        <div style={{ color: "#cbd5e1", fontSize: 10, marginTop: 2 }} data-hpnum={side}>{Math.max(0, Math.round(hp))}/{safeMax}</div>
                     </div>
-                    <div style={{ color: "#cbd5e1", fontSize: 10, marginTop: 2 }} data-hpnum={side}>{Math.max(0, Math.round(hp))}/{safeMax}</div>
-                </div>
-            </Html>
+                </Html>
+            </group>
+            {/* Per-pet contact shadow — flat on the floor, follows the pet. */}
+            <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]} position={[base.x, 0.02, base.z]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.42} depthWrite={false} toneMapped={false} />
+            </mesh>
         </group>
     );
 }
@@ -379,12 +487,12 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
                 <cylinderGeometry args={[16, 16, 18, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
-            {/* Generated arena floor. */}
+            {/* Generated arena floor. (Per-pet blob shadows ground the sprites —
+                the old global ContactShadows read as ambient darkening.) */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
                 <circleGeometry args={[11, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
-            <ContactShadows position={[0, 0.01, 0]} scale={19} blur={2.4} opacity={0.5} far={6} resolution={512} />
         </group>
     );
 }
@@ -436,12 +544,12 @@ export function PetColiseum({
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
-    const playerTex = usePetTexture(playerPet, sharedImages);
-    const enemyTex = usePetTexture(enemyPet, sharedImages, true);
-    // Reserve textures (2v2). Hooks must run unconditionally, so absent
-    // reserves fall back to the lead pet's art — never rendered in that case.
-    const playerResTex = usePetTexture(playerReservePet ?? playerPet, sharedImages);
-    const enemyResTex = usePetTexture(enemyReservePet ?? enemyPet, sharedImages, true);
+    const playerSprite = usePetSprite(playerPet, sharedImages);
+    const enemySprite = usePetSprite(enemyPet, sharedImages, true);
+    // Reserve sprites (2v2). Hooks must run unconditionally, so absent reserves
+    // fall back to the lead pet's art — never rendered in that case.
+    const playerResSprite = usePetSprite(playerReservePet ?? playerPet, sharedImages);
+    const enemyResSprite = usePetSprite(enemyReservePet ?? enemyPet, sharedImages, true);
     const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
     // Battle SFX — reuses the shared per-frame picker so sound matches the DOM
     // renderer exactly (only one renderer is mounted at a time → no double-play).
@@ -647,20 +755,20 @@ export function PetColiseum({
                     // lunge reach derive from the nearest living opponent.
                     const combatants = party
                         ? ([
-                            { side: "player" as const, snap: party.playerLead, pet: playerPet as Pet | undefined, tex: playerTex },
-                            { side: "player" as const, snap: party.playerReserve, pet: playerReservePet, tex: playerResTex },
-                            { side: "enemy" as const, snap: party.enemyLead, pet: enemyPet as Pet | undefined, tex: enemyTex },
-                            { side: "enemy" as const, snap: party.enemyReserve, pet: enemyReservePet, tex: enemyResTex },
+                            { side: "player" as const, snap: party.playerLead, pet: playerPet as Pet | undefined, sprite: playerSprite },
+                            { side: "player" as const, snap: party.playerReserve, pet: playerReservePet, sprite: playerResSprite },
+                            { side: "enemy" as const, snap: party.enemyLead, pet: enemyPet as Pet | undefined, sprite: enemySprite },
+                            { side: "enemy" as const, snap: party.enemyReserve, pet: enemyReservePet, sprite: enemyResSprite },
                         ])
                             .filter((e) => e.pet && e.snap)
                             .map((e) => ({
-                                pet: e.pet!, side: e.side, tile: e.snap.pos, tex: e.tex,
+                                pet: e.pet!, side: e.side, tile: e.snap.pos, sprite: e.sprite,
                                 hp: e.snap.hp, maxHp: e.snap.maxHp,
                                 fainted: e.snap.ko || e.snap.hp <= 0,
                             }))
                         : [
-                            { pet: playerPet, side: "player" as const, tile: playerPos, tex: playerTex, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
-                            { pet: enemyPet, side: "enemy" as const, tile: enemyPos, tex: enemyTex, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
+                            { pet: playerPet, side: "player" as const, tile: playerPos, sprite: playerSprite, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
+                            { pet: enemyPet, side: "enemy" as const, tile: enemyPos, sprite: enemySprite, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
                         ];
                     const spread = spreadPositions(combatants.map((c) => tileToWorld(c.tile)));
                     return combatants.map((c, i) => {
@@ -683,7 +791,8 @@ export function PetColiseum({
                         const pose = petPoseForAvatar(activeAnimEvent, c.pet.id, !!winnerSide && winnerSide === c.side && !c.fainted, c.fainted);
                         return (
                             <Standee key={c.pet.id} pet={c.pet} side={c.side} pos={pos} reach={reach} toward={toward}
-                                pose={pose} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp} texture={c.tex} />
+                                pose={pose} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp}
+                                texture={c.sprite.texture} bounds={c.sprite.bounds} aspect={c.sprite.aspect} />
                         );
                     });
                 })()}
