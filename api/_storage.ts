@@ -231,6 +231,18 @@ const pgKv = {
         return pgKv.get<T>(key);
     },
 
+    async hkeys(key: string): Promise<string[]> {
+        // Extract field names IN SQL — never ships the (multi-MB) value itself.
+        // jsonb_object_keys errors on non-objects, so guard on jsonb_typeof.
+        const { rows } = await getPool().query<{ k: string }>(
+            `SELECT jsonb_object_keys(value) AS k FROM public.kv_store
+             WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
+               AND jsonb_typeof(value) = 'object'`,
+            [key],
+        );
+        return rows.map((r) => r.k);
+    },
+
     async hset(key: string, fields: Record<string, unknown>): Promise<number> {
         _cacheInvalidate(key);
         await getPool().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
@@ -393,6 +405,14 @@ const supabaseKv = {
         return supabaseKv.get<T>(key);
     },
 
+    async hkeys(key: string): Promise<string[]> {
+        // REST backend has no keys-only projection — fall back to a full read.
+        // Acceptable: the huge shared-image hashes route to the disk overlay,
+        // never to this backend; base-store hashes are small.
+        const all = await supabaseKv.hgetall<Record<string, unknown>>(key);
+        return all && typeof all === 'object' ? Object.keys(all) : [];
+    },
+
     async hset(key: string, fields: Record<string, unknown>): Promise<number> {
         const db = getSupabase();
         const { error } = await db.rpc('kv_hset', { p_key: key, p_fields: fields });
@@ -543,6 +563,15 @@ export interface KvLike {
     keys(pattern: string): Promise<string[]>;
     mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]>;
     hgetall<T = Record<string, unknown>>(key: string): Promise<T | null>;
+    /**
+     * KEYS-ONLY read of an object-valued key (hash field names, or the keys of
+     * a plain JSON-object value). Exists because hgetall on the multi-megabyte
+     * shared-image hashes transfers the whole blob just to list ids — hkeys
+     * extracts the names where the data lives (SQL/proxy-side) and ships only
+     * a few KB. Returns [] for a missing/empty/non-object value; THROWS on
+     * transport failure (callers distinguish "empty" from "unavailable").
+     */
+    hkeys(key: string): Promise<string[]>;
     hset(key: string, fields: Record<string, unknown>): Promise<number>;
     hdel(key: string, ...fields: string[]): Promise<number>;
 }
@@ -599,6 +628,11 @@ function _makeDiskKv(root: string): KvLike {
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
             return this.get<T>(key);
         },
+        async hkeys(key: string): Promise<string[]> {
+            // Local disk read — fast even for big blobs; only the names leave.
+            const all = await this.get<Record<string, unknown>>(key);
+            return all && typeof all === 'object' ? Object.keys(all) : [];
+        },
         async hset(key, fields) {
             const existing = (await this.get<Record<string, unknown>>(key)) ?? {};
             await this.set(key, { ...existing, ...fields });
@@ -653,6 +687,11 @@ function _makeRemoteKv(baseUrl: string, token: string): KvLike {
         },
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
             return (await call<{ value: T | null }>('get', { key })).value;
+        },
+        async hkeys(key: string): Promise<string[]> {
+            // Proxy-side key extraction — the whole point: the multi-MB image
+            // hash stays on the cPanel box; only the id list crosses the wire.
+            return (await call<{ fields: string[] }>('hkeys', { key })).fields;
         },
         async hset(key, fields) {
             return (await call<{ count: number }>('hset', { key, fields })).count;
@@ -723,6 +762,9 @@ export function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
         },
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
             return _routesToDisk(key) ? diskGet<T>(key) : base.hgetall<T>(key);
+        },
+        async hkeys(key: string): Promise<string[]> {
+            return _routesToDisk(key) ? disk.hkeys(key) : base.hkeys(key);
         },
         async hset(key, fields) {
             return _routesToDisk(key) ? disk.hset(key, fields) : base.hset(key, fields);

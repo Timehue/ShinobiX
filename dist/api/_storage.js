@@ -205,6 +205,14 @@ const pgKv = {
     async hgetall(key) {
         return pgKv.get(key);
     },
+    async hkeys(key) {
+        // Extract field names IN SQL — never ships the (multi-MB) value itself.
+        // jsonb_object_keys errors on non-objects, so guard on jsonb_typeof.
+        const { rows } = await getPool().query(`SELECT jsonb_object_keys(value) AS k FROM public.kv_store
+             WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
+               AND jsonb_typeof(value) = 'object'`, [key]);
+        return rows.map((r) => r.k);
+    },
     async hset(key, fields) {
         _cacheInvalidate(key);
         await getPool().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
@@ -357,6 +365,13 @@ const supabaseKv = {
     },
     async hgetall(key) {
         return supabaseKv.get(key);
+    },
+    async hkeys(key) {
+        // REST backend has no keys-only projection — fall back to a full read.
+        // Acceptable: the huge shared-image hashes route to the disk overlay,
+        // never to this backend; base-store hashes are small.
+        const all = await supabaseKv.hgetall(key);
+        return all && typeof all === 'object' ? Object.keys(all) : [];
     },
     async hset(key, fields) {
         const db = getSupabase();
@@ -550,6 +565,11 @@ function _makeDiskKv(root) {
         async hgetall(key) {
             return this.get(key);
         },
+        async hkeys(key) {
+            // Local disk read — fast even for big blobs; only the names leave.
+            const all = await this.get(key);
+            return all && typeof all === 'object' ? Object.keys(all) : [];
+        },
         async hset(key, fields) {
             const existing = (await this.get(key)) ?? {};
             await this.set(key, { ...existing, ...fields });
@@ -605,6 +625,11 @@ function _makeRemoteKv(baseUrl, token) {
         },
         async hgetall(key) {
             return (await call('get', { key })).value;
+        },
+        async hkeys(key) {
+            // Proxy-side key extraction — the whole point: the multi-MB image
+            // hash stays on the cPanel box; only the id list crosses the wire.
+            return (await call('hkeys', { key })).fields;
         },
         async hset(key, fields) {
             return (await call('hset', { key, fields })).count;
@@ -680,6 +705,9 @@ function _makeRoutedKv(base, disk) {
         },
         async hgetall(key) {
             return _routesToDisk(key) ? diskGet(key) : base.hgetall(key);
+        },
+        async hkeys(key) {
+            return _routesToDisk(key) ? disk.hkeys(key) : base.hkeys(key);
         },
         async hset(key, fields) {
             return _routesToDisk(key) ? disk.hset(key, fields) : base.hset(key, fields);
