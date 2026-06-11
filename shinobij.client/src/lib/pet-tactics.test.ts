@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Pet, PetJutsu } from "../types/pet";
-import { PET_OBSTACLE_LAYOUTS, PET_GRID_COLS, PET_GRID_ROWS, PET_GRID_SIZE } from "../constants/pet-arena";
+import { PET_OBSTACLE_LAYOUTS, PET_GRID_COLS, PET_GRID_ROWS, PET_GRID_SIZE, PET_SPAWN_1V1, PET_SPAWN_2V2, PET_SPAWN_TILES } from "../constants/pet-arena";
+const MID_ROW = Math.floor(PET_GRID_ROWS / 2);
+const CEN_COL = Math.floor(PET_GRID_COLS / 2);
 import {
     getDistance,
     isInRange,
@@ -183,22 +185,23 @@ test("petPairBond is symmetric", () => {
 
 // ── High ground (terrain depth) ──────────────────────────────────────────
 
-test("petHighGroundTiles: central spine (cols 6-7) minus obstacles, Set or array", () => {
-    const hg = petHighGroundTiles([48, 49]); // block two central tiles
-    assert.ok(hg.size > 0 && hg.size <= 8, "non-empty, bounded by the candidate spine");
-    assert.ok(!hg.has(48) && !hg.has(49), "an obstacle tile is never high ground");
+test("petHighGroundTiles: central spine minus obstacles, Set or array", () => {
+    const a = MID_ROW * PET_GRID_COLS + (CEN_COL - 1), b = MID_ROW * PET_GRID_COLS + CEN_COL;
+    const hg = petHighGroundTiles([a, b]); // block two central tiles
+    assert.ok(hg.size > 0, "non-empty spine");
+    assert.ok(!hg.has(a) && !hg.has(b), "an obstacle tile is never high ground");
     for (const t of hg) {
         const col = t % PET_GRID_COLS, row = Math.floor(t / PET_GRID_COLS);
-        assert.ok(col === 6 || col === 7, `tile ${t} sits on the central spine`);
-        assert.ok(row >= 2 && row <= 5, `tile ${t} is in the contested middle rows`);
+        assert.ok(col === CEN_COL - 1 || col === CEN_COL, `tile ${t} sits on the central spine`);
+        assert.ok(row >= MID_ROW - 2 && row <= MID_ROW + 2, `tile ${t} is in the contested middle rows`);
     }
-    // Set input must match array input.
-    assert.deepEqual([...petHighGroundTiles(new Set([48, 49]))].sort((a, b) => a - b), [...hg].sort((a, b) => a - b));
+    assert.deepEqual([...petHighGroundTiles(new Set([a, b]))].sort((x, y) => x - y), [...hg].sort((x, y) => x - y));
 });
 
 test("petHighGroundTiles: a fully-walled central spine yields no high ground (no crash)", () => {
-    const wallAll = petHighGroundTiles([34, 35, 48, 49, 62, 63, 76, 77]);
-    assert.equal(wallAll.size, 0);
+    const spine: number[] = [];
+    for (let row = MID_ROW - 2; row <= MID_ROW + 2; row++) for (const col of [CEN_COL - 1, CEN_COL]) spine.push(row * PET_GRID_COLS + col);
+    assert.equal(petHighGroundTiles(spine).size, 0);
 });
 
 test("petPickupTiles: a free mirror-symmetric pair, never an obstacle", () => {
@@ -210,9 +213,10 @@ test("petPickupTiles: a free mirror-symmetric pair, never an obstacle", () => {
     assert.equal(rowA, rowB, "same row (a lane)");
     assert.equal(colA + colB, PET_GRID_COLS - 1, "columns mirror about centre");
     // Blocking the first candidate pair falls through to the next free pair.
-    const p2 = petPickupTiles([3 * PET_GRID_COLS + 4]); // block (3,4)
+    const firstLeft = petPickupTiles([])[0];
+    const p2 = petPickupTiles([firstLeft]);
     assert.equal(p2.length, 2);
-    assert.ok(!p2.includes(3 * PET_GRID_COLS + 4), "an obstacle is never a shrine");
+    assert.ok(!p2.includes(firstLeft), "an obstacle is never a shrine");
 });
 
 test("petPickupTiles: every shipped layout leaves a free shrine pair", () => {
@@ -239,17 +243,18 @@ test("petShrineSeekGoal: detours to an on-the-way shrine, else heads for the foe
 test("petBushTiles: mirror-symmetric flank patches, free of obstacles, capped", () => {
     const b = petBushTiles([]);
     assert.ok(b.size >= 2 && b.size <= 4 && b.size % 2 === 0, "even count, capped at 4");
-    for (const t of b) assert.ok(t % PET_GRID_COLS <= 2 || t % PET_GRID_COLS >= 9, "bushes hug the flanks/lanes");
+    for (const t of b) assert.ok(t % PET_GRID_COLS <= 4 || t % PET_GRID_COLS >= PET_GRID_COLS - 5, "bushes hug the flanks");
     // Blocking a candidate pair drops it but others remain.
-    const blocked = petBushTiles([3 * PET_GRID_COLS + 2]); // block (3,2)
-    assert.ok(!blocked.has(3 * PET_GRID_COLS + 2), "an obstacle is never a bush");
+    const first = [...petBushTiles([])][0];
+    const blocked = petBushTiles([first]);
+    assert.ok(!blocked.has(first), "an obstacle is never a bush");
     assert.ok(blocked.size >= 2, "falls through to other free pairs");
 });
 
 // ── Obstacle layout validity ─────────────────────────────────────────────
-// Every hand-designed battlefield must be PLAYABLE: it can't bury a spawn, and
-// a pet must always be able to reach its foe. Guards future map redesigns.
-const SPAWN_TILES = [43, 54, 29, 57, 40, 68]; // 1v1 player/enemy + 2v2 four slots
+// Every maze layout must be NAVIGABLE: it can't bury a spawn, and a pet must
+// always be able to BFS-reach its foe through the gaps. Guards future redesigns.
+const SPAWN_TILES = PET_SPAWN_TILES;
 function bfsReachable(blocked: Set<number>, from: number, to: number): boolean {
     if (blocked.has(from) || blocked.has(to)) return false;
     const seen = new Set<number>([from]);
@@ -269,25 +274,25 @@ function bfsReachable(blocked: Set<number>, from: number, to: number): boolean {
     return false;
 }
 
-test("every obstacle layout is a playable battlefield (no buried spawns, sane density, foes can meet)", () => {
+test("every maze layout is navigable (no buried spawns, in-grid, foes can always meet)", () => {
     PET_OBSTACLE_LAYOUTS.forEach((layout, i) => {
         const blocked = new Set(layout);
-        // No spawn tile is ever an obstacle.
+        // No spawn tile is ever a wall.
         for (const s of SPAWN_TILES) {
             assert.ok(!blocked.has(s), `layout ${i} buries spawn tile ${s}`);
         }
-        // Sane density — designed, not empty, not a maze.
-        assert.ok(layout.length >= 4 && layout.length <= 12, `layout ${i} has off-spec obstacle count ${layout.length}`);
-        // Indices are in-grid and row 0 / row 6 stay clear (guaranteed lanes).
+        // Walls present (it's a maze) and in-grid.
+        assert.ok(layout.length >= 8 && layout.length <= 0.6 * PET_GRID_SIZE, `layout ${i} obstacle count ${layout.length} off-spec`);
         for (const idx of layout) {
             assert.ok(idx >= 0 && idx < PET_GRID_SIZE, `layout ${i} tile ${idx} off-grid`);
-            const row = Math.floor(idx / PET_GRID_COLS);
-            assert.ok(row >= 1 && row <= 5, `layout ${i} tile ${idx} should keep rows 0 and 6 clear`);
         }
-        // A path always exists between the 1v1 spawns AND every 2v2 cross-pair.
-        assert.ok(bfsReachable(blocked, 43, 54), `layout ${i}: 1v1 spawns unreachable`);
-        for (const p of [29, 57]) for (const e of [40, 68]) {
-            assert.ok(bfsReachable(blocked, p, e), `layout ${i}: 2v2 spawn ${p}→${e} unreachable`);
+        // A BFS path ALWAYS links the 1v1 spawns AND every 2v2 cross-pair —
+        // every wall's gap is reachable, so no pet is ever trapped.
+        assert.ok(bfsReachable(blocked, PET_SPAWN_1V1.player, PET_SPAWN_1V1.enemy), `layout ${i}: 1v1 spawns unreachable`);
+        for (const p of [PET_SPAWN_2V2.playerLead, PET_SPAWN_2V2.playerReserve]) {
+            for (const e of [PET_SPAWN_2V2.enemyLead, PET_SPAWN_2V2.enemyReserve]) {
+                assert.ok(bfsReachable(blocked, p, e), `layout ${i}: 2v2 spawn ${p}→${e} unreachable`);
+            }
         }
     });
 });
