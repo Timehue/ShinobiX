@@ -12,6 +12,7 @@ import {
     beatChoreoMs,
     LEAP_HEIGHT,
     arenaObstaclePlacements,
+    cameraForCombatants,
     spriteBoundsFromAlpha,
     groundedSpriteLayout,
     formationSlots,
@@ -316,6 +317,30 @@ test("arenaObstaclePlacements: falls back to raw obstacles (all blocked) when no
 test("arenaObstaclePlacements: empty inputs → no placements", () => {
     assert.deepEqual(arenaObstaclePlacements([], []), []);
     assert.deepEqual(arenaObstaclePlacements(undefined, undefined), []);
+});
+
+test("cameraForCombatants: pans to the midpoint and looks at it", () => {
+    const cam = cameraForCombatants([{ x: 2, z: 1 }, { x: 6, z: 1 }]);
+    assert.ok(Math.abs(cam.pos[0] - 4) < 1e-9, "camera x = midpoint x (pans)");
+    assert.ok(Math.abs(cam.look[0] - 4) < 1e-9, "look x = midpoint x");
+    assert.ok(cam.pos[2] > cam.look[2], "camera sits BEHIND its look point (+z)");
+    assert.ok(cam.pos[1] > cam.look[1], "camera sits ABOVE the look point");
+});
+
+test("cameraForCombatants: a wider spread pulls the camera farther back", () => {
+    const close = cameraForCombatants([{ x: -1, z: 0 }, { x: 1, z: 0 }]);
+    const wide = cameraForCombatants([{ x: -6, z: 0 }, { x: 6, z: 0 }]);
+    assert.ok(wide.pos[2] > close.pos[2], "wider spread → farther back");
+    assert.ok(wide.pos[1] > close.pos[1], "wider spread → higher (more of the field)");
+});
+
+test("cameraForCombatants: clamps span + handles empty/finite", () => {
+    const empty = cameraForCombatants([]);
+    for (const v of [...empty.pos, ...empty.look]) assert.ok(Number.isFinite(v));
+    // Beyond maxSpan is clamped (a huge spread doesn't fly the camera to infinity).
+    const huge = cameraForCombatants([{ x: -100, z: 0 }, { x: 100, z: 0 }]);
+    const max = cameraForCombatants([{ x: -9, z: 0 }, { x: 9, z: 0 }]); // span 18 = default max
+    assert.ok(Math.abs(huge.pos[2] - max.pos[2]) < 1e-9, "span clamped at maxSpan");
 });
 
 test("spreadPositions: 4 clustered pets (2v2) all end pairwise separated", () => {
