@@ -174,6 +174,45 @@ export function lerp(a: number, b: number, t: number): number {
     return a + (b - a) * t;
 }
 
+// ── Following camera (frame the living combatants) ───────────────────────────
+// A fixed wide shot can't follow a fight across a big arena (or a maze). This
+// computes a camera pose that frames the LIVING combatants: it pans to their
+// midpoint and pulls back to fit their spread — so when they're far apart it
+// shows the field, and when they close to fight it punches in. The renderer
+// eases toward this each frame (CameraRig). Pure — tuned so a full-width spread
+// reproduces the established wide framing, so it never regresses the look.
+const CAM_FOLLOW_BACK_BASE = 8;
+const CAM_FOLLOW_BACK_PER_SPAN = 0.52;
+const CAM_FOLLOW_HEIGHT_BASE = 3.6;
+const CAM_FOLLOW_HEIGHT_PER_BACK = 0.155;
+const CAM_FOLLOW_LOOK_Y = 1.65;
+const CAM_FOLLOW_LOOK_Z_OFFSET = -2.6; // look slightly past the pets (keeps the backdrop up-frame)
+
+export function cameraForCombatants(
+    positions: ReadonlyArray<{ x: number; z: number }>,
+    opts?: { minSpan?: number; maxSpan?: number },
+): { pos: [number, number, number]; look: [number, number, number] } {
+    const minSpan = opts?.minSpan ?? 2;
+    const maxSpan = opts?.maxSpan ?? 18;
+    if (positions.length === 0) {
+        const back = CAM_FOLLOW_BACK_BASE + CAM_FOLLOW_BACK_PER_SPAN * 13;
+        return { pos: [0, CAM_FOLLOW_HEIGHT_BASE + CAM_FOLLOW_HEIGHT_PER_BACK * back, back], look: [0, CAM_FOLLOW_LOOK_Y, CAM_FOLLOW_LOOK_Z_OFFSET] };
+    }
+    let minX = Infinity, maxX = -Infinity, sumX = 0, sumZ = 0;
+    for (const p of positions) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        sumX += p.x; sumZ += p.z;
+    }
+    const cx = sumX / positions.length, cz = sumZ / positions.length;
+    const span = Math.max(minSpan, Math.min(maxSpan, maxX - minX));
+    const back = CAM_FOLLOW_BACK_BASE + CAM_FOLLOW_BACK_PER_SPAN * span;
+    return {
+        pos: [cx, CAM_FOLLOW_HEIGHT_BASE + CAM_FOLLOW_HEIGHT_PER_BACK * back, cz + back],
+        look: [cx, CAM_FOLLOW_LOOK_Y, cz + CAM_FOLLOW_LOOK_Z_OFFSET],
+    };
+}
+
 // ── Combat choreography (Phase 3 — kill the "bonking") ───────────────────────
 // poseMotion gives ONE static target per pose; the renderer eased toward it, so
 // every attack read as two flat standees sliding into each other. beatTimeline

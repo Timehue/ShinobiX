@@ -36,7 +36,7 @@ import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -590,17 +590,25 @@ function FxAnim({
 }
 
 // ── Camera shake rig — decaying sinusoid offset on contact beats (no RNG) ─────
-function CameraRig({ amp, shakeKey }: { amp: number; shakeKey: number }) {
+function CameraRig({ amp, shakeKey, target }: { amp: number; shakeKey: number; target: { pos: Vec3; look: Vec3 } }) {
     const base = useRef<THREE.Vector3 | null>(null);
+    const look = useRef(new THREE.Vector3(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]));
     const cur = useRef(0);
     const { camera } = useThree();
     useEffect(() => {
-        if (!base.current) base.current = camera.position.clone();
         cur.current = Math.max(cur.current, amp);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [shakeKey, amp]);
     useFrame((state) => {
-        if (!base.current) { base.current = camera.position.clone(); return; }
+        if (!base.current) base.current = camera.position.clone();
+        // Glide the base pose toward the follow-cam target (frames the living
+        // combatants) — slow lerp so the camera tracks the action without jitter.
+        const k = 0.045;
+        base.current.x = lerp(base.current.x, target.pos[0], k);
+        base.current.y = lerp(base.current.y, target.pos[1], k);
+        base.current.z = lerp(base.current.z, target.pos[2], k);
+        look.current.x = lerp(look.current.x, target.look[0], k);
+        look.current.y = lerp(look.current.y, target.look[1], k);
+        look.current.z = lerp(look.current.z, target.look[2], k);
         cur.current *= 0.86;
         const a = cur.current;
         const t = state.clock.elapsedTime;
@@ -613,7 +621,7 @@ function CameraRig({ amp, shakeKey }: { amp: number; shakeKey: number }) {
             base.current.y + swayY + (a > 0.001 ? Math.sin(t * 61) * a * 0.6 : 0),
             base.current.z,
         );
-        camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]);
+        camera.lookAt(look.current.x, look.current.y, look.current.z);
     });
     return null;
 }
@@ -671,7 +679,7 @@ function ResponsiveCamera() {
             // eslint-disable-next-line react-hooks/immutability -- the r3f camera is a mutable three.js object; per-frame mutation inside useFrame is the library's idiomatic pattern (same as CameraRig's position writes)
             cam.fov = fov;
             cam.updateProjectionMatrix();
-            cam.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]);
+            // Look is owned by CameraRig (follow-cam); ResponsiveCamera only adapts FOV.
         }
     });
     return null;
@@ -852,6 +860,12 @@ export function PetColiseum({
         });
     })();
     const posById = (id: string): { x: number; z: number } => placed.find((c) => c.pet.id === id)?.pos ?? { x: 0, z: 0 };
+    // Follow-cam target — frame the living combatants (fall back to all if every
+    // pet is down). The CameraRig glides toward this so the shot tracks the fight.
+    const camFollow = (() => {
+        const living = placed.filter((c) => !c.fainted).map((c) => c.pos);
+        return cameraForCombatants(living.length ? living : placed.map((c) => c.pos));
+    })();
 
     // ── Camera shake amplitude for this beat. ──
     const victimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
@@ -978,7 +992,7 @@ export function PetColiseum({
                         <span className={l.className} style={{ font: "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
                     </Html>
                 ))}
-                {!orbit && <CameraRig amp={shakeAmp} shakeKey={animIdx} />}
+                {!orbit && <CameraRig amp={shakeAmp} shakeKey={animIdx} target={camFollow} />}
                 {orbit && <OrbitControls target={CAM_LOOK} />}
             </Canvas>
 
