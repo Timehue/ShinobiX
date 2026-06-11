@@ -16,6 +16,7 @@ import {
     petHighGroundTiles,
     petPickupTiles,
     petBushTiles,
+    petShrineSeekGoal,
     buildArenaTiles,
     makeArena,
     isAdjacentToAny,
@@ -218,6 +219,21 @@ test("petPickupTiles: every shipped layout leaves a free shrine pair", () => {
     for (let i = 0; i < PET_OBSTACLE_LAYOUTS.length; i++) {
         assert.equal(petPickupTiles(PET_OBSTACLE_LAYOUTS[i]).length, 2, `layout ${i} has shrines`);
     }
+});
+
+test("petShrineSeekGoal: detours to an on-the-way shrine, else heads for the foe", () => {
+    const tile = (r: number, c: number) => r * PET_GRID_COLS + c;
+    const self = tile(3, 1), foe = tile(3, 12);
+    const shrine = tile(3, 4); // between self and foe, closer than the foe
+    assert.equal(petShrineSeekGoal(self, foe, [shrine]), shrine, "grabs the shrine on the way");
+    // No shrines → head for the foe.
+    assert.equal(petShrineSeekGoal(self, foe, []), foe);
+    // Foe already in melee range → engage, don't wander off for a shrine.
+    assert.equal(petShrineSeekGoal(tile(3, 11), foe, [shrine]), foe, "engages when the foe is close");
+    // A shrine FARTHER than the foe (behind us) is not worth the detour.
+    assert.equal(petShrineSeekGoal(tile(3, 11), foe, [tile(3, 2)]), foe, "ignores a shrine behind us");
+    // Picks the nearest of several shrines.
+    assert.equal(petShrineSeekGoal(self, foe, [tile(3, 9), tile(3, 4)]), tile(3, 4), "nearest shrine wins");
 });
 
 test("petBushTiles: mirror-symmetric flank patches, free of obstacles, capped", () => {
