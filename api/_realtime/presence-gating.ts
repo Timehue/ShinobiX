@@ -22,6 +22,20 @@ export type Block = { status: 403 | 404 | 409; error: string };
 // legitimate fight).
 export const ACADEMY_MIN_LEVEL = 15;
 
+// Hard floor for NON-consensual / competitive PvP (sector raids + ranked).
+// Shinobi below this level simply can't be pulled into those fights at all —
+// enforced from the AUTHORITATIVE save level at the session-creation chokepoint
+// and at ranked-queue join, so it can't be bypassed by a pre-created session or
+// raced by an un-warmed online-store record (which can momentarily read level 0).
+// Consensual spars stay open to everyone. Kept separate from ACADEMY_MIN_LEVEL
+// so the two protections can be tuned independently.
+export const ATTACKABLE_MIN_LEVEL = 10;
+
+/** True when `level` is a real, known level below the attackable floor (1..9). */
+export function isBelowAttackableFloor(level: number): boolean {
+    return level > 0 && level < ATTACKABLE_MIN_LEVEL;
+}
+
 /**
  * True when `level` is a real, sub-Genin level (1..14). Level 0 / unknown is
  * deliberately NOT protected so a missing field can't break a legitimate fight

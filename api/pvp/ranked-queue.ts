@@ -4,6 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { mintRankedMatchToken } from '../_ranked-match-token.js';
+import { isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 
 type QueueEntry = {
     name: string;
@@ -78,6 +79,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 } catch {
                     // best-effort; defaults apply
+                }
+                // #4 newcomer protection: sub-floor shinobi can't enter ranked —
+                // it would match them against far stronger players for a free loss.
+                // Gated on the authoritative save level read just above.
+                if (isBelowAttackableFloor(serverLevel)) {
+                    return res.status(403).json({
+                        error: `You must reach level ${ATTACKABLE_MIN_LEVEL} before entering ranked battles.`,
+                    });
                 }
             }
 

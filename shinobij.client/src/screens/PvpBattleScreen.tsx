@@ -751,6 +751,14 @@ export function PvpBattleScreen({
         if (submitting || done) return;
         if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
         setSubmitting(true);
+        // Hard timeout on the move request. Without this a hung/stalled fetch
+        // (slow server, a non-JSON error page that never finishes, a dropped
+        // connection) leaves `submitting` stuck true forever — and because the
+        // round-timer auto-wait is gated on `!submitting`, the turn freezes until
+        // the 90s AFK claim. Aborting after 12s always clears `submitting` (via
+        // finally), which re-arms the queued auto-wait so the turn advances.
+        const moveAbort = new AbortController();
+        const moveTimeout = setTimeout(() => moveAbort.abort(), 12000);
         try {
             // Per-move idempotency token. If this request retries (network
             // blip, double-tap), the server's recentMoveTokens check
@@ -787,6 +795,7 @@ export function PvpBattleScreen({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
+                signal: moveAbort.signal,
             });
             if (res.ok) {
                 const data = await res.json() as PvpSessionState;
@@ -818,8 +827,15 @@ export function PvpBattleScreen({
                 setPendingBasicAttack(false);
                 setPendingWeaponId("");
             }
-        } catch { /* network error — leave selections so the player can retry */ }
-        finally { setSubmitting(false); }
+        } catch (err) {
+            // Network error or 12s timeout. Leave selections so the player can
+            // retry; surface a timeout so a stalled turn doesn't look silently
+            // frozen. The round-timer auto-wait re-fires once `submitting` clears.
+            if ((err as { name?: string } | null)?.name === "AbortError") {
+                setSession(prev => prev ? { ...prev, log: [...prev.log, "⚠️ Move timed out — try again or your turn will auto-pass."].slice(-60) } : prev);
+            }
+        }
+        finally { clearTimeout(moveTimeout); setSubmitting(false); }
     }
 
     function handleTileClick(tileIdx: number) {
