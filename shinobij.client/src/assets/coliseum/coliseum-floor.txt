@@ -1,0 +1,3 @@
+event:coliseum-floor
+
+Top-down overhead view of a circular gladiator coliseum arena floor. Packed golden-tan sand raked into faint concentric rings, scattered small pebbles, light cracks and footprints, a weathered pale-stone border ring around the edge, warm sunlight and soft shadows. Completely empty — no characters, no creatures, no people, no text.
