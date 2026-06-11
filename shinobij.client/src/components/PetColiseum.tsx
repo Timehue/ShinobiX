@@ -61,6 +61,20 @@ const CAM_FOV = 36;
 // no .webp module-type declaration needed.
 const COLISEUM_FLOOR_URL = new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href;
 const COLISEUM_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
+const MAZE_WALL_URL = new URL("../assets/coliseum/maze-wall.webp", import.meta.url).href;
+
+// Stone maze-wall texture (one shared, RepeatWrapping so it tiles up tall walls).
+let _mazeWallTex: THREE.Texture | null = null;
+function mazeWallTexture(): THREE.Texture {
+    if (_mazeWallTex) return _mazeWallTex;
+    const t = new THREE.TextureLoader().load(MAZE_WALL_URL);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1, 2);
+    t.anisotropy = 4;
+    _mazeWallTex = t;
+    return t;
+}
 
 /** Load a bundled scene texture (sRGB). */
 function loadSceneTexture(url: string): THREE.Texture {
@@ -450,20 +464,22 @@ function ObstacleMesh({ p }: { p: ObstaclePlacement }) {
         }
     });
     if (isWall) {
-        const h = p.kind === "cover" ? 0.62 : 1.35;
         const cover = p.kind === "cover";
+        const h = cover ? 1.15 : 2.3;
+        // Near-full-tile footprint so adjacent wall tiles CONNECT into solid maze
+        // walls/corridors instead of reading as separate blocks.
+        const ww = TILE_WORLD_W * 0.99, wd = TILE_WORLD_D * 0.99;
         return (
             <group>
                 <mesh position={[p.x, h / 2, p.z]}>
-                    <boxGeometry args={[w, h, d]} />
-                    <meshStandardMaterial
-                        color={OBSTACLE_COLOR[p.kind]}
-                        emissive={cover ? "#1d3a5c" : "#000000"} emissiveIntensity={cover ? 0.4 : 0}
-                        roughness={0.92} metalness={0.04} />
+                    <boxGeometry args={[ww, h, wd]} />
+                    {/* Generated stone-block texture so the maze reads as dungeon
+                        walls, not flat cubes. Cover walls take a faint cool tint. */}
+                    <meshStandardMaterial map={mazeWallTexture()} color={cover ? "#c3cdda" : "#ffffff"} roughness={0.9} metalness={0.04} />
                 </mesh>
                 {/* Contact shadow blob so the wall reads as planted, not floating. */}
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.02, p.z + d * 0.18]}>
-                    <planeGeometry args={[w * 1.5, d * 1.4]} />
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.02, p.z + wd * 0.18]}>
+                    <planeGeometry args={[ww * 1.4, wd * 1.4]} />
                     <meshBasicMaterial map={shadowTexture()} transparent opacity={0.5} depthWrite={false} toneMapped={false} />
                 </mesh>
             </group>
@@ -653,14 +669,14 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
             <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
             {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
                 Rings the big maze floor so panning/pull-back never exposes void. */}
-            <mesh position={[0, 7.0, 0]}>
-                <cylinderGeometry args={[27, 27, 26, 56, 1, true, Math.PI * 0.15, Math.PI * 1.7]} />
+            <mesh position={[0, 8.0, 0]}>
+                <cylinderGeometry args={[36, 36, 30, 64, 1, true, Math.PI * 0.12, Math.PI * 1.76]} />
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
-            {/* Generated arena floor (sized to the maze footprint). Per-pet blob
-                shadows ground the sprites. */}
+            {/* Generated arena floor (sized to the big maze footprint). Per-pet
+                blob shadows ground the sprites. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[21, 64]} />
+                <circleGeometry args={[29, 80]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
         </group>
@@ -865,7 +881,8 @@ export function PetColiseum({
     // pet is down). The CameraRig glides toward this so the shot tracks the fight.
     const camFollow = (() => {
         const living = placed.filter((c) => !c.fainted).map((c) => c.pos);
-        return cameraForCombatants(living.length ? living : placed.map((c) => c.pos));
+        // maxSpan covers the full maze width so far-apart pets aren't cropped mid-journey.
+        return cameraForCombatants(living.length ? living : placed.map((c) => c.pos), { maxSpan: 26 });
     })();
 
     // ── Camera shake amplitude for this beat. ──
