@@ -8,8 +8,14 @@ import {
     faceOffPositions,
     spreadPositions,
     lungeReach,
+    beatTimeline,
+    beatChoreoMs,
+    LEAP_HEIGHT,
     spriteBoundsFromAlpha,
     groundedSpriteLayout,
+    formationSlots,
+    formationAnchor,
+    engagementAdvance,
     COLISEUM_COLS,
     COLISEUM_ROWS,
 } from "./pet-coliseum-scene.ts";
@@ -125,6 +131,45 @@ test("groundedSpriteLayout: mirror flips the horizontal recenter", () => {
     assert.ok(Math.abs(a.meshX + m.meshX) < 1e-9, "mirror negates the x recenter");
 });
 
+test("formationSlots: 1v1 = centered face-off, sides split", () => {
+    const [p, e] = formationSlots(["player", "enemy"]);
+    assert.ok(p.x < 0 && e.x > 0, "player left, enemy right");
+    assert.ok(Math.abs(p.x) === Math.abs(e.x), "symmetric");
+    assert.ok(e.x - p.x >= 5, "wide central gap (no overlap)");
+});
+
+test("formationSlots: 2v2 — all four pairwise separated, lead≠reserve", () => {
+    const slots = formationSlots(["player", "player", "enemy", "enemy"]);
+    // Lead (idx 0) and reserve (idx 1) per side differ in x AND z (depth stagger).
+    assert.notEqual(slots[0].x, slots[1].x);
+    assert.notEqual(slots[0].z, slots[1].z);
+    // Every pair is separated enough that sprites (≤2.3 wide) can't overlap when
+    // they differ in x, or are depth-staggered when x is close.
+    for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+        const dx = Math.abs(slots[i].x - slots[j].x);
+        const dz = Math.abs(slots[i].z - slots[j].z);
+        assert.ok(dx >= 1.4 || dz >= 2.0, `pair ${i},${j} separated (dx=${dx.toFixed(1)} dz=${dz.toFixed(1)})`);
+    }
+});
+
+test("formationAnchor: lane 0 inner+front, lane 1 outer+back", () => {
+    const lead = formationAnchor("player", 0);
+    const res = formationAnchor("player", 1);
+    assert.ok(Math.abs(res.x) > Math.abs(lead.x), "reserve is further out");
+    assert.ok(res.z < lead.z, "reserve is further back");
+});
+
+test("engagementAdvance: close fights advance, far ones don't, always capped", () => {
+    assert.ok(engagementAdvance(1) > engagementAdvance(5), "closer → more advance");
+    assert.equal(engagementAdvance(8), 0, "far apart → no advance");
+    assert.ok(engagementAdvance(0) <= 0.75 + 1e-9, "advance is capped");
+    // Even at max advance from both sides, a 1v1 keeps a safe gap.
+    const [p, e] = formationSlots(["player", "enemy"]);
+    const adv = engagementAdvance(1);
+    const gap = (e.x - adv) - (p.x + adv);
+    assert.ok(gap >= 2.6, `melee gap stays > sprite width, got ${gap.toFixed(2)}`);
+});
+
 test("groundedSpriteLayout: plane width tracks image aspect", () => {
     const bounds = { left: 0.2, right: 0.8, top: 0.1, bottom: 0.9 };
     const sq = groundedSpriteLayout(bounds, 1, 2.4, false);
@@ -158,13 +203,87 @@ test("faceOffPositions: same tile still separates (no NaN)", () => {
 test("lungeReach: stops at contact, capped, never negative", () => {
     assert.ok(lungeReach(1.9) < 1.9, "melee lunge stops short of the target");
     assert.ok(lungeReach(1.9) > 0, "melee lunge still moves");
-    assert.equal(lungeReach(10), 2.2, "long lunge capped at MAX_LUNGE");
+    assert.equal(lungeReach(10), 3.4, "long lunge capped at MAX_LUNGE");
     assert.equal(lungeReach(0.5), 0.25, "tiny gap still gives a minimal hop");
 });
 
 test("poseMotion: lunge honors the reach parameter", () => {
     assert.equal(poseMotion("lunge", 1, 0.8).dx, 0.8);
     assert.equal(poseMotion("lunge", -1, 0.8).dx, -0.8);
+});
+
+test("beatTimeline: lunge advances forward and arcs up then lands by contact", () => {
+    // dx is monotonic forward across the leap; dy humps (off the ground mid-air,
+    // planted at the start and the contact landing).
+    const reach = 2.5;
+    const start = beatTimeline("lunge", 1, reach, 0.0);
+    const mid = beatTimeline("lunge", 1, reach, 0.35);
+    const contact = beatTimeline("lunge", 1, reach, 0.55);
+    assert.ok(start.dx < mid.dx && mid.dx < contact.dx, "dx ramps forward through the leap");
+    assert.ok(Math.abs(contact.dx - reach) < 1e-6, "fully extended to reach at contact");
+    assert.ok(mid.dy > 0.2, "airborne at mid-leap");
+    assert.ok(contact.dy < mid.dy, "descending onto the target by contact");
+    // Enemy side mirrors: forward is −x.
+    assert.ok(beatTimeline("lunge", -1, reach, 0.55).dx < 0, "enemy lunge goes −x");
+});
+
+test("beatTimeline: hit is an INSTANT knockback that recovers, scaled by power", () => {
+    // The reaction is at its peak on the FIRST frame (p≈0), not eased into.
+    const hit0 = beatTimeline("recoil", 1, 1, 0, { power: 0.5 });
+    const hitMid = beatTimeline("recoil", 1, 1, 0.5, { power: 0.5 });
+    const hitEnd = beatTimeline("recoil", 1, 1, 1, { power: 0.5 });
+    assert.ok(hit0.dx < 0, "knocked away from the foe (−x for player side)");
+    assert.ok(Math.abs(hit0.dx) > Math.abs(hitMid.dx), "peak displacement is on the contact frame");
+    assert.ok(Math.abs(hitEnd.dx) < 1e-6, "recovered to the lane by the end");
+    assert.equal(hit0.hurt, 1, "full hurt tint on the contact frame");
+    // Bigger hits knock back further.
+    const weak = beatTimeline("recoil", 1, 1, 0, { power: 0 });
+    const strong = beatTimeline("recoil", 1, 1, 0, { power: 1 });
+    assert.ok(Math.abs(strong.dx) > Math.abs(weak.dx), "harder hits knock back further");
+});
+
+test("beatTimeline: windup leans back (away from the foe) and crouches", () => {
+    const w = beatTimeline("windup", 1, 1, 1);
+    assert.ok(w.dx < 0, "player winds up backward (−x)");
+    assert.ok(w.sy < 1, "crouch squash (shorter)");
+    assert.ok(beatTimeline("windup", -1, 1, 1).dx > 0, "enemy winds up backward (+x)");
+});
+
+test("beatTimeline: ranged cast recoils away on release", () => {
+    const fire = beatTimeline("projectileFire", 1, 1, 0.75); // mid-release kick
+    assert.ok(fire.dx < 0, "player caster kicks back away from the foe");
+    assert.ok(beatTimeline("projectileFire", -1, 1, 0.75).dx > 0, "enemy caster kicks the other way");
+});
+
+test("beatTimeline: dodge fades and returns to its lane", () => {
+    const mid = beatTimeline("dodge", 1, 1, 0.4);
+    const end = beatTimeline("dodge", 1, 1, 1);
+    assert.ok(mid.opacity < 1, "afterimage fade mid-dodge");
+    assert.ok(Math.abs(mid.dz) > 0.1, "sidesteps toward the camera");
+    assert.ok(Math.abs(end.dz) < 0.1, "settles back into its lane by the end");
+});
+
+test("beatTimeline: static poses match poseMotion exactly (idle/guard/victory/ko)", () => {
+    for (const s of ["idle", "guard", "victory", "ko"] as const) {
+        assert.deepEqual(beatTimeline(s, 1, 1.25, 0.5), poseMotion(s, 1, 1.25), `${s} delegates to poseMotion`);
+    }
+});
+
+test("beatTimeline: progress clamps — out-of-range never NaNs or overshoots", () => {
+    for (const s of ["windup", "lunge", "recoil", "charge", "projectileFire", "dodge"] as const) {
+        for (const pr of [-1, 0, 0.5, 1, 2]) {
+            const tf = beatTimeline(s, 1, 2.5, pr);
+            for (const v of [tf.dx, tf.dy, tf.dz, tf.sx, tf.sy, tf.rot, tf.hurt, tf.opacity]) {
+                assert.ok(Number.isFinite(v), `${s}@${pr} stays finite`);
+            }
+        }
+    }
+});
+
+test("beatChoreoMs: action poses have a real span, static poses are instant", () => {
+    assert.ok(beatChoreoMs("lunge") > 100 && beatChoreoMs("recoil") > 100, "action poses run a timeline");
+    assert.equal(beatChoreoMs("idle"), 1, "idle is instant (progress irrelevant)");
+    assert.ok(LEAP_HEIGHT > 0, "leap has height");
 });
 
 test("spreadPositions: 4 clustered pets (2v2) all end pairwise separated", () => {

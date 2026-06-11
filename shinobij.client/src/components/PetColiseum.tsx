@@ -36,7 +36,7 @@ import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { tileToWorld, poseMotion, lerp, shakeAmpForBeat, spreadPositions, lungeReach, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, formationSlots, engagementAdvance, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -209,7 +209,7 @@ const TARGET_SPRITE_H = 2.35;
 
 // ── One grounded pet standee — Y-locked billboard, feet on the floor ─────────
 function Standee({
-    pet, side, pos, reach, toward, pose, fainted, hp, maxHp, texture, bounds, aspect,
+    pet, side, pos, reach, toward, pose, hitPower, fainted, hp, maxHp, texture, bounds, aspect,
 }: {
     pet: Pet;
     side: "player" | "enemy";
@@ -222,6 +222,9 @@ function Standee({
      *  stays correct even if the pets cross sides mid-fight. */
     toward: number;
     pose: PetVisualState;
+    /** This beat's damage as a fraction of THIS pet's maxHp (0 unless it's the
+     *  one being hit) — scales the recoil knockback so big hits hit harder. */
+    hitPower: number;
     fainted: boolean;
     /** Live HP for the overhead nameplate bar (per-slot in 2v2). */
     hp: number;
@@ -239,6 +242,8 @@ function Standee({
     const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
     const sclX = useRef(1), sclY = useRef(1), rotZ = useRef(0);
     const prevHurt = useRef(0);
+    const prevPose = useRef<PetVisualState | null>(null); // beat-clock: stamps on pose change
+    const poseStart = useRef(0);
     const base = pos;
     const mirrored = side === "enemy";
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -250,9 +255,23 @@ function Standee({
     useFrame((state) => {
         const g = group.current, pg = poseG.current, material = mat.current;
         if (!g || !pg || !material) return;
-        const target = poseMotion(fainted ? "ko" : pose, toward, reach);
-        const k = reduce ? 1 : pose === "lunge" || pose === "recoil" ? 0.32 : 0.2;
         const t = state.clock.elapsedTime;
+        // Beat clock: when the pose changes, stamp the start so the choreography
+        // (anticipation → leap → contact → recover) plays from progress 0. Two
+        // beats can share a pose (impact then recoil both = "recoil"); keying on
+        // the pose VALUE keeps it one continuous reaction, never a double-jolt.
+        const activePose: PetVisualState = fainted ? "ko" : pose;
+        if (prevPose.current !== activePose) { prevPose.current = activePose; poseStart.current = t; }
+        const choreoS = beatChoreoMs(activePose) / 1000;
+        const progress = reduce ? 1 : choreoS <= 0.002 ? 1 : Math.min(1, (t - poseStart.current) / choreoS);
+        const target = beatTimeline(activePose, toward, reach, progress, { power: hitPower });
+        // Snappier on the reactive beats (the hit must read on the contact frame,
+        // not slide in); gentle on the settle/idle so grounding stays calm.
+        const k = reduce ? 1
+            : activePose === "hit" || activePose === "recoil" ? 0.8
+            : activePose === "lunge" ? 0.5
+            : activePose === "windup" || activePose === "charge" || activePose === "rangedCast" || activePose === "projectileFire" || activePose === "dodge" ? 0.35
+            : 0.2;
         // Lane position + pose offset (NO y-bob — grounding stays planted; idle
         // life comes from the squash breathe below, which pivots at the feet).
         g.position.x = lerp(g.position.x, base.x + target.dx, k);
@@ -651,6 +670,49 @@ export function PetColiseum({
     const playerFainted = !winnerSide ? playerHp <= 0 : winnerSide === "enemy";
     const enemyFainted = !winnerSide ? enemyHp <= 0 : winnerSide === "player";
 
+    // ── Combatant placement (Phase 2 — formation staging) ────────────────────
+    // Bodies stand on FIXED lane anchors (overlap impossible by construction),
+    // not raw sim tiles; the sim's closeness only slides them toward center via
+    // engagementAdvance. The sim still decides who acts / melee range (the
+    // distance feeding buildPetAnimationEvents is unchanged) — only where bodies
+    // STAND is staged. Computed at the top level so VFX spawn from the pets'
+    // real positions, not the sim grid.
+    const placed = (() => {
+        const list = party
+            ? ([
+                { side: "player" as const, snap: party.playerLead, pet: playerPet as Pet | undefined, sprite: playerSprite },
+                { side: "player" as const, snap: party.playerReserve, pet: playerReservePet, sprite: playerResSprite },
+                { side: "enemy" as const, snap: party.enemyLead, pet: enemyPet as Pet | undefined, sprite: enemySprite },
+                { side: "enemy" as const, snap: party.enemyReserve, pet: enemyReservePet, sprite: enemyResSprite },
+            ])
+                .filter((e) => e.pet && e.snap)
+                .map((e) => ({ pet: e.pet!, side: e.side, sprite: e.sprite, hp: e.snap.hp, maxHp: e.snap.maxHp, fainted: e.snap.ko || e.snap.hp <= 0 }))
+            : [
+                { pet: playerPet, side: "player" as const, sprite: playerSprite, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
+                { pet: enemyPet, side: "enemy" as const, sprite: enemySprite, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
+            ];
+        const advance = engagementAdvance(battleDist);
+        const positions = formationSlots(list.map((c) => c.side))
+            .map((a) => ({ x: a.x + (a.x < 0 ? advance : -advance), z: a.z }));
+        return list.map((c, i) => {
+            const pos = positions[i];
+            // toward + gap-aware reach from the nearest LIVING foe.
+            const foes = positions.map((p, j) => ({ p, foe: list[j] })).filter((e) => e.foe.side !== c.side);
+            const live = foes.filter((e) => !e.foe.fainted);
+            const pool = live.length ? live : foes;
+            let toward = c.side === "player" ? 1 : -1;
+            let reach = lungeReach(2.5);
+            if (pool.length) {
+                let bd = Infinity, bp = pool[0].p;
+                for (const e of pool) { const d = Math.hypot(e.p.x - pos.x, e.p.z - pos.z); if (d < bd) { bd = d; bp = e.p; } }
+                toward = (bp.x - pos.x) >= 0 ? 1 : -1;
+                reach = lungeReach(bd);
+            }
+            return { ...c, pos, toward, reach };
+        });
+    })();
+    const posById = (id: string): { x: number; z: number } => placed.find((c) => c.pet.id === id)?.pos ?? { x: 0, z: 0 };
+
     // ── Camera shake amplitude for this beat. ──
     const victimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
     const heavyHit = !!frame?.damage && frame.damage >= victimMaxHp * 0.18;
@@ -671,7 +733,9 @@ export function PetColiseum({
         if (winnerSide || !activeAnimEvent) return;
         if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
         const beat = activeAnimEvent.type as PetBattleAnimationEventType;
-        const self3 = tileToWorld(selfTile); const tgt3 = tileToWorld(targetTile);
+        // Spawn from the acting/target pets' real FORMATION positions (Phase 2),
+        // not the sim grid — so VFX land on the bodies, not empty floor.
+        const self3 = posById(animActorId); const tgt3 = posById(animTargetId);
         const fromV: Vec3 = [self3.x, FX_Y, self3.z];
         const toV: Vec3 = [tgt3.x, FX_Y, tgt3.z];
         const sigSide = frame?.signatureMove?.side;
@@ -747,55 +811,19 @@ export function PetColiseum({
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} />
-                {(() => {
-                    // Combatant list: the two leads (1v1), or all four slots when
-                    // the frame carries party4v4 (2v2) — each with its OWN tile,
-                    // HP and KO state from the slot snapshot. Positions get the
-                    // pairwise minimum separation; motion direction + gap-aware
-                    // lunge reach derive from the nearest living opponent.
-                    const combatants = party
-                        ? ([
-                            { side: "player" as const, snap: party.playerLead, pet: playerPet as Pet | undefined, sprite: playerSprite },
-                            { side: "player" as const, snap: party.playerReserve, pet: playerReservePet, sprite: playerResSprite },
-                            { side: "enemy" as const, snap: party.enemyLead, pet: enemyPet as Pet | undefined, sprite: enemySprite },
-                            { side: "enemy" as const, snap: party.enemyReserve, pet: enemyReservePet, sprite: enemyResSprite },
-                        ])
-                            .filter((e) => e.pet && e.snap)
-                            .map((e) => ({
-                                pet: e.pet!, side: e.side, tile: e.snap.pos, sprite: e.sprite,
-                                hp: e.snap.hp, maxHp: e.snap.maxHp,
-                                fainted: e.snap.ko || e.snap.hp <= 0,
-                            }))
-                        : [
-                            { pet: playerPet, side: "player" as const, tile: playerPos, sprite: playerSprite, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
-                            { pet: enemyPet, side: "enemy" as const, tile: enemyPos, sprite: enemySprite, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
-                        ];
-                    const spread = spreadPositions(combatants.map((c) => tileToWorld(c.tile)));
-                    return combatants.map((c, i) => {
-                        const pos = spread[i];
-                        const foes = combatants
-                            .map((o, j) => ({ o, p: spread[j] }))
-                            .filter((e) => e.o.side !== c.side);
-                        const pool = foes.filter((e) => !e.o.fainted).length ? foes.filter((e) => !e.o.fainted) : foes;
-                        let toward = c.side === "player" ? 1 : -1;
-                        let reach = lungeReach(2.5);
-                        if (pool.length) {
-                            let bd = Infinity, bp = pool[0].p;
-                            for (const e of pool) {
-                                const d = Math.hypot(e.p.x - pos.x, e.p.z - pos.z);
-                                if (d < bd) { bd = d; bp = e.p; }
-                            }
-                            toward = (bp.x - pos.x) >= 0 ? 1 : -1;
-                            reach = lungeReach(bd);
-                        }
-                        const pose = petPoseForAvatar(activeAnimEvent, c.pet.id, !!winnerSide && winnerSide === c.side && !c.fainted, c.fainted);
-                        return (
-                            <Standee key={c.pet.id} pet={c.pet} side={c.side} pos={pos} reach={reach} toward={toward}
-                                pose={pose} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp}
-                                texture={c.sprite.texture} bounds={c.sprite.bounds} aspect={c.sprite.aspect} />
-                        );
-                    });
-                })()}
+                {placed.map((c) => {
+                    const pose = petPoseForAvatar(activeAnimEvent, c.pet.id, !!winnerSide && winnerSide === c.side && !c.fainted, c.fainted);
+                    // Knockback scales with the hit's damage vs THIS pet's maxHp,
+                    // only for the pet currently being struck.
+                    const hitPower = c.pet.id === animTargetId
+                        ? Math.max(0, Math.min(1, (frame?.damage ?? 0) / Math.max(1, c.maxHp)))
+                        : 0;
+                    return (
+                        <Standee key={c.pet.id} pet={c.pet} side={c.side} pos={c.pos} reach={c.reach} toward={c.toward}
+                            pose={pose} hitPower={hitPower} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp}
+                            texture={c.sprite.texture} bounds={c.sprite.bounds} aspect={c.sprite.aspect} />
+                    );
+                })}
                 {fx.map((f) => (
                     <FxAnim key={f.id} frames={f.frames} from={f.from} to={f.to} durationMs={f.durationMs} scale={f.scale}
                         onDone={() => setFx((p) => p.filter((x) => x.id !== f.id))} />
