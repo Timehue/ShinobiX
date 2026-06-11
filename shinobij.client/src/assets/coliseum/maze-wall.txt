@@ -1,0 +1,3 @@
+event:maze-wall
+
+Seamless tileable stone dungeon-maze wall texture (grey + warm-tan cut blocks, dark mortar, weathering + moss). Mapped onto the 3D wall boxes in PetColiseum (ObstacleMesh) so the maze reads as stone, not flat blue cubes. gen-asset gpt-image-1 medium 2026-06-11.
