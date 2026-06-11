@@ -467,6 +467,26 @@ export function petHighGroundTiles(obstacles: ReadonlySet<number> | ReadonlyArra
     return new Set(HIGH_GROUND_CANDIDATES.filter(t => !blocked.has(t)));
 }
 
+// ── Power pickups (terrain depth) ────────────────────────────────────────────
+// Two mirror-symmetric "shrine" tiles on the approach lanes, free of obstacles.
+// A pet that reaches one claims a one-time surge (attack + a small restore). The
+// pair is symmetric so ranked stays fair; the first all-free pair is chosen so a
+// layout never buries both shrines. Pure + deterministic (derived from the
+// obstacle list, so the 1v1 + 2v2 engines + the renderer agree).
+const PICKUP_PAIR_CANDIDATES: readonly (readonly [number, number])[] = [
+    [3 * PET_GRID_COLS + 4, 3 * PET_GRID_COLS + 9],   // (3,4)+(3,9) — main mid-lane
+    [2 * PET_GRID_COLS + 4, 2 * PET_GRID_COLS + 9],   // (2,4)+(2,9)
+    [4 * PET_GRID_COLS + 4, 4 * PET_GRID_COLS + 9],   // (4,4)+(4,9)
+    [3 * PET_GRID_COLS + 3, 3 * PET_GRID_COLS + 10],  // (3,3)+(3,10)
+];
+export function petPickupTiles(obstacles: ReadonlySet<number> | ReadonlyArray<number>): number[] {
+    const blocked = obstacles instanceof Set ? obstacles : new Set(obstacles);
+    for (const [a, b] of PICKUP_PAIR_CANDIDATES) {
+        if (!blocked.has(a) && !blocked.has(b)) return [a, b];
+    }
+    return [];
+}
+
 // ── Tactical zones (Phase 10-14) ────────────────────────────────────────────
 // The 14-wide grid is huge; zones focus the fight around the middle. Cover and
 // hazard tiles read as their own zones; otherwise columns band into backline

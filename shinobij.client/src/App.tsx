@@ -9392,6 +9392,9 @@ export type PetArenaFrame = {
     signatureMove?: { name: string; petName: string; side: "player" | "enemy"; flagship?: boolean };
     playerStatus?: PetFrameStatus;
     enemyStatus?: PetFrameStatus;
+    /** Remaining un-claimed power-pickup tiles (terrain depth) — the renderer
+     *  draws a glowing shrine orb on each; they vanish as pets claim them. */
+    pickups?: number[];
     // ── 4-pet simultaneous fields (Pokémon-doubles style 2v2) ────────
     // When present, the renderer shows 4 pet cards instead of 2, and
     // places all 4 pets on the grid. The 1v1 fields above stay populated

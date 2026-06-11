@@ -500,6 +500,33 @@ function ArenaObstacles({ obstacles, tiles }: { obstacles?: number[]; tiles?: Ar
     );
 }
 
+// ── Power-pickup shrine orbs — float above their tile, vanish when claimed ────
+function PickupOrb({ tile }: { tile: number }) {
+    const grp = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const { x, z } = tileToWorld(tile);
+    useFrame((state) => {
+        const t = state.clock.elapsedTime;
+        if (grp.current) grp.current.position.y = 0.85 + Math.sin(t * 2.2 + tile) * 0.13;
+        if (mat.current) mat.current.opacity = 0.7 + Math.sin(t * 3 + tile) * 0.2;
+    });
+    return (
+        <group ref={grp} position={[x, 0.85, z]}>
+            <Billboard>
+                <mesh>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial ref={mat} map={decalTexture()} color="#ffd66a" transparent opacity={0.85} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </Billboard>
+        </group>
+    );
+}
+
+function PickupOrbs({ pickups }: { pickups?: number[] }) {
+    if (!pickups?.length) return null;
+    return <group>{pickups.map((t) => <PickupOrb key={t} tile={t} />)}</group>;
+}
+
 // ── A frame-sequence VFX sprite (stationary, or travelling from→to) ───────────
 function FxAnim({
     frames, from, to, durationMs, scale = 1.5, onDone,
@@ -909,6 +936,7 @@ export function PetColiseum({
                 <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} />
                 <ArenaObstacles obstacles={obstacles} tiles={tiles} />
+                <PickupOrbs pickups={frame?.pickups} />
                 {placed.map((c) => {
                     const pose = petPoseForAvatar(activeAnimEvent, c.pet.id, !!winnerSide && winnerSide === c.side && !c.fainted, c.fainted);
                     // Knockback scales with the hit's damage vs THIS pet's maxHp,
