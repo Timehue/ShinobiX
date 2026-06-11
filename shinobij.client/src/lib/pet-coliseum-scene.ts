@@ -26,6 +26,11 @@ export const COLISEUM_ROWS = 7;
 const ARENA_HALF_W = 5.6; // x extent (left ↔ right)
 const ARENA_HALF_D = 3.2; // z extent (depth: back rows far, front rows near)
 
+/** One grid tile's world footprint — used to size obstacle blocks + floor decals
+ *  so they line up with the tiles pets path through. */
+export const TILE_WORLD_W = (2 * ARENA_HALF_W) / (COLISEUM_COLS - 1); // ≈ 0.86
+export const TILE_WORLD_D = (2 * ARENA_HALF_D) / (COLISEUM_ROWS - 1); // ≈ 1.07
+
 /** Map a tile index on the COLISEUM_COLS×COLISEUM_ROWS grid to floor (x,z).
  *  col → x (left→right), row → z (back→front). Out-of-range tiles clamp via
  *  modulo so a stray index can never NaN the scene. */
@@ -154,7 +159,7 @@ export function poseMotion(state: PetVisualState, toward: number, reach = 1.25):
         case "recoil":          return { ...IDLE, dx: -0.85 * t, rot: -0.13 * t, hurt: 1, sx: 1.03, sy: 0.98 };
         case "guard":           return { ...IDLE, dy: -0.04, sx: 1.08, sy: 0.9 };
         case "dodge":           return { ...IDLE, dz: 0.75, sx: 0.94, opacity: 0.72 };
-        case "ko":              return { ...IDLE, dx: -0.3 * t, dy: -0.28, rot: 1.3 * t, sx: 1.02, sy: 0.8, opacity: 0.4 };
+        case "ko":              return { ...IDLE, dx: -0.3 * t, dy: -0.36, rot: 1.4 * t, sx: 1.04, sy: 0.72, opacity: 0.26 };
         case "victory":         return { ...IDLE, dy: 0.14, sy: 1.05 };
         case "idle":
         default:                return { ...IDLE };
@@ -334,6 +339,43 @@ export function formationSlots(sides: ReadonlyArray<"player" | "enemy">): { x: n
 export function engagementAdvance(simDist: number): number {
     const t = Math.max(0, Math.min(1, (7 - simDist) / 5)); // ≤2 tiles → full, ≥7 → none
     return t * MAX_ADVANCE;
+}
+
+// ── Arena obstacles (make the sim's tactical grid VISIBLE) ────────────────────
+// The engine already routes pets around obstacles + blocks ranged line-of-sight
+// (8 layouts, cover/hazard/healing/slow tiles). The 3D renderer never drew any
+// of it, so the tactics were invisible. This maps the sim's obstacle/tile data
+// to world placements the renderer draws as blocks (blocked/cover) + floor
+// decals (hazard/healing/slow). Pure — mirrors the classic grid renderer's
+// tile-type lookup (App.tsx PetArenaBattlefield).
+
+export type ObstacleKind = "blocked" | "cover" | "hazard" | "healing" | "slow";
+export type ObstaclePlacement = { x: number; z: number; kind: ObstacleKind };
+
+/** World placements for the arena's obstacles + tactical tiles. Prefers the
+ *  typed `tiles` (1v1: blocked/cover/hazard/healing/slow); falls back to the
+ *  raw `obstacles` index list (all blocked — the 2v2 party engine still ships
+ *  the legacy obstacle-only grid). "normal" tiles are skipped. */
+export function arenaObstaclePlacements(
+    obstacles: ReadonlyArray<number> | undefined,
+    tiles: ReadonlyArray<{ row: number; col: number; type: ObstacleKind | "normal" }> | undefined,
+    cols = COLISEUM_COLS,
+    rows = COLISEUM_ROWS,
+): ObstaclePlacement[] {
+    const out: ObstaclePlacement[] = [];
+    if (tiles && tiles.length) {
+        for (const t of tiles) {
+            if (t.type === "normal") continue;
+            const { x, z } = tileToWorld(t.row * cols + t.col, cols, rows);
+            out.push({ x, z, kind: t.type });
+        }
+        return out;
+    }
+    for (const idx of obstacles ?? []) {
+        const { x, z } = tileToWorld(idx, cols, rows);
+        out.push({ x, z, kind: "blocked" });
+    }
+    return out;
 }
 
 // ── Grounding (Phase 1 — kill the "floating") ────────────────────────────────

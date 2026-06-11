@@ -36,7 +36,7 @@ import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, formationSlots, engagementAdvance, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -401,6 +401,85 @@ function DustPuff({ at, onDone }: { at: Vec3; onDone: () => void }) {
     );
 }
 
+// ── Arena obstacles — the sim's tactical grid made VISIBLE ────────────────────
+// The engine already routes pets around these (BFS) + blocks ranged line-of-
+// sight; the 3D renderer never drew them, so the tactics were invisible. blocked
+// = full stone wall, cover = half-height wall pets shoot over, hazard/healing/
+// slow = flat tinted floor decals (the passable effect tiles). Placements come
+// from the pure arenaObstaclePlacements (same tileToWorld the pets stand on).
+let _decalTexture: THREE.CanvasTexture | null = null;
+function decalTexture(): THREE.CanvasTexture {
+    if (_decalTexture) return _decalTexture;
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    const rad = g.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S / 2);
+    rad.addColorStop(0, "rgba(255,255,255,0.92)");
+    rad.addColorStop(0.55, "rgba(255,255,255,0.5)");
+    rad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = rad;
+    g.fillRect(0, 0, S, S);
+    _decalTexture = new THREE.CanvasTexture(c);
+    _decalTexture.colorSpace = THREE.SRGBColorSpace;
+    return _decalTexture;
+}
+
+// Hues mirror the classic grid renderer's tile palette (index.css).
+const OBSTACLE_COLOR: Record<ObstaclePlacement["kind"], string> = {
+    blocked: "#5b6b80",
+    cover: "#3b5168",
+    hazard: "#dc3c28",
+    healing: "#3cdc78",
+    slow: "#5a7090",
+};
+
+function ObstacleMesh({ p }: { p: ObstaclePlacement }) {
+    const w = TILE_WORLD_W * 0.82, d = TILE_WORLD_D * 0.66;
+    const decalMat = useRef<THREE.MeshBasicMaterial>(null);
+    const isWall = p.kind === "blocked" || p.kind === "cover";
+    const pulse = p.kind === "hazard" || p.kind === "healing";
+    useFrame((state) => {
+        if (pulse && decalMat.current) {
+            const t = state.clock.elapsedTime;
+            decalMat.current.opacity = 0.5 + Math.sin(t * (p.kind === "hazard" ? 3.6 : 2.4)) * 0.16;
+        }
+    });
+    if (isWall) {
+        const h = p.kind === "cover" ? 0.62 : 1.35;
+        const cover = p.kind === "cover";
+        return (
+            <group>
+                <mesh position={[p.x, h / 2, p.z]}>
+                    <boxGeometry args={[w, h, d]} />
+                    <meshStandardMaterial
+                        color={OBSTACLE_COLOR[p.kind]}
+                        emissive={cover ? "#1d3a5c" : "#000000"} emissiveIntensity={cover ? 0.4 : 0}
+                        roughness={0.92} metalness={0.04} />
+                </mesh>
+                {/* Contact shadow blob so the wall reads as planted, not floating. */}
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.02, p.z + d * 0.18]}>
+                    <planeGeometry args={[w * 1.5, d * 1.4]} />
+                    <meshBasicMaterial map={shadowTexture()} transparent opacity={0.5} depthWrite={false} toneMapped={false} />
+                </mesh>
+            </group>
+        );
+    }
+    // Flat floor decal (hazard / healing / slow) — passable effect tiles.
+    return (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.03, p.z]}>
+            <planeGeometry args={[w * 1.3, d * 1.05]} />
+            <meshBasicMaterial ref={decalMat} map={decalTexture()} color={OBSTACLE_COLOR[p.kind]} transparent opacity={0.55} depthWrite={false} toneMapped={false} />
+        </mesh>
+    );
+}
+
+function ArenaObstacles({ obstacles, tiles }: { obstacles?: number[]; tiles?: ArenaTile[] }) {
+    const placements = useMemo(() => arenaObstaclePlacements(obstacles, tiles), [obstacles, tiles]);
+    if (!placements.length) return null;
+    return <group>{placements.map((p, i) => <ObstacleMesh key={`${p.kind}-${i}`} p={p} />)}</group>;
+}
+
 // ── A frame-sequence VFX sprite (stationary, or travelling from→to) ───────────
 function FxAnim({
     frames, from, to, durationMs, scale = 1.5, onDone,
@@ -559,7 +638,7 @@ export type PetColiseumProps = {
 
 export function PetColiseum({
     playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, result,
-    onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord,
+    obstacles, tiles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord,
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
@@ -670,13 +749,13 @@ export function PetColiseum({
     const playerFainted = !winnerSide ? playerHp <= 0 : winnerSide === "enemy";
     const enemyFainted = !winnerSide ? enemyHp <= 0 : winnerSide === "player";
 
-    // ── Combatant placement (Phase 2 — formation staging) ────────────────────
-    // Bodies stand on FIXED lane anchors (overlap impossible by construction),
-    // not raw sim tiles; the sim's closeness only slides them toward center via
-    // engagementAdvance. The sim still decides who acts / melee range (the
-    // distance feeding buildPetAnimationEvents is unchanged) — only where bodies
-    // STAND is staged. Computed at the top level so VFX spawn from the pets'
-    // real positions, not the sim grid.
+    // ── Combatant placement (tactical grid) ──────────────────────────────────
+    // Bodies stand on their REAL sim-grid tiles (tileToWorld), so the engine's
+    // pathfinding around obstacles + advance/retreat is VISIBLE — pets walk the
+    // board and weave past walls instead of lining up on fixed lanes. A light
+    // separation pass keeps a depth-stacked pair from hiding one behind the
+    // other at the camera angle. Motion direction + gap-aware reach derive from
+    // the nearest LIVING foe. Computed top-level so VFX spawn from real bodies.
     const placed = (() => {
         const list = party
             ? ([
@@ -686,14 +765,12 @@ export function PetColiseum({
                 { side: "enemy" as const, snap: party.enemyReserve, pet: enemyReservePet, sprite: enemyResSprite },
             ])
                 .filter((e) => e.pet && e.snap)
-                .map((e) => ({ pet: e.pet!, side: e.side, sprite: e.sprite, hp: e.snap.hp, maxHp: e.snap.maxHp, fainted: e.snap.ko || e.snap.hp <= 0 }))
+                .map((e) => ({ pet: e.pet!, side: e.side, tile: e.snap.pos, sprite: e.sprite, hp: e.snap.hp, maxHp: e.snap.maxHp, fainted: e.snap.ko || e.snap.hp <= 0 }))
             : [
-                { pet: playerPet, side: "player" as const, sprite: playerSprite, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
-                { pet: enemyPet, side: "enemy" as const, sprite: enemySprite, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
+                { pet: playerPet, side: "player" as const, tile: playerPos, sprite: playerSprite, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
+                { pet: enemyPet, side: "enemy" as const, tile: enemyPos, sprite: enemySprite, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
             ];
-        const advance = engagementAdvance(battleDist);
-        const positions = formationSlots(list.map((c) => c.side))
-            .map((a) => ({ x: a.x + (a.x < 0 ? advance : -advance), z: a.z }));
+        const positions = spreadPositions(list.map((c) => tileToWorld(c.tile)));
         return list.map((c, i) => {
             const pos = positions[i];
             // toward + gap-aware reach from the nearest LIVING foe.
@@ -811,6 +888,7 @@ export function PetColiseum({
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} />
+                <ArenaObstacles obstacles={obstacles} tiles={tiles} />
                 {placed.map((c) => {
                     const pose = petPoseForAvatar(activeAnimEvent, c.pet.id, !!winnerSide && winnerSide === c.side && !c.fainted, c.fainted);
                     // Knockback scales with the hit's damage vs THIS pet's maxHp,
