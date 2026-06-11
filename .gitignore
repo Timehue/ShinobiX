@@ -401,6 +401,10 @@ package-lock.json
 # Phusion Passenger restart file (created by .cpanel.yml deploy script)
 tmp/
 
+# Headless asset-generator review output (scripts/gen-asset.mjs) — eyeball
+# locally, publish via /api/images, don't commit the raw generated WebPs.
+shinobij.client/asset-gen-out/
+
 # Composite badge sources — re-export from AI tool if needed; sliced output in shinobij.client/public/badges/ is committed
 scripts/badge-sources/
 

@@ -14,6 +14,7 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
+import { GameIcon } from "./icons/GameIcon";
 import type { Character } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
@@ -82,7 +83,9 @@ function ShopBase({
     };
 
     const currencyLabel = currency === "fateShards" ? "Fate Shards" : "ryo";
-    const currencyIcon = currency === "fateShards" ? "🔮" : "";
+    const currencyIcon = currency === "fateShards"
+        ? <GameIcon name="shard" size={12} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} />
+        : null;
     const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
@@ -125,7 +128,7 @@ function ShopBase({
 
             <p style={{ marginBottom: "1rem" }}>
                 {currency === "fateShards"
-                    ? <><span style={{ color: "#ce93d8" }}>🔮 Fate Shards:</span> <strong style={{ color: "#ce93d8" }}>{character.fateShards}</strong></>
+                    ? <><span style={{ color: "#ce93d8" }}>{currencyIcon} Fate Shards:</span> <strong style={{ color: "#ce93d8" }}>{character.fateShards}</strong></>
                     : <>Wallet: <strong>{character.ryo} ryo</strong> · Town Hall Shop Discount: <strong>{shopDiscountPercent.toFixed(2)}%</strong></>
                 }
             </p>
@@ -299,7 +302,7 @@ function ShopBase({
                                             ? "Owned"
                                             : wallet < getShopCost(selectedItem.cost)
                                                 ? `Need More ${currencyLabel}`
-                                                : `Buy for ${currencyIcon} ${getShopCost(selectedItem.cost)} ${currencyLabel}`}
+                                                : <>Buy for {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}</>}
                                     </button>
 
                                     <button
@@ -351,7 +354,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
             {currency === "fateShards" && (
                 <>
                     <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
-                        💎 Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
+                        <GameIcon name="crystal" size={13} style={{ display: "inline-block", verticalAlign: "-2px", color: "#ce93d8" }} /> Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
                     </button>
                     {/* Legendary pack — sits right next to the Epic pack, costs
                         3× as much for the corresponding tier jump. Same draw
@@ -394,7 +397,7 @@ export function GrandMarketplace({ character, updateCharacter, creatorItems, cre
                 updateCharacter={updateCharacter}
                 creatorItems={creatorItems}
                 title="Grand Marketplace"
-                subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards 🔮"
+                subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards"
                 filterRarities={["legendary", "mythic"]}
                 currency="fateShards"
             />
