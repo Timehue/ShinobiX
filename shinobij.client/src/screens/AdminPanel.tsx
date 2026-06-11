@@ -171,6 +171,13 @@ export function AdminPanel({
     const [jutsuIsGenerating, setJutsuIsGenerating] = useState(false);
     const [petGenStatus, setPetGenStatus] = useState("");
     const [petIsGenerating, setPetIsGenerating] = useState(false);
+    // Session-pinned pet avatars (key `pet:<id>` → inline data URL). The display
+    // prefers these over editablePets/sharedImages, so a just-changed avatar can
+    // never be reverted by a background image refetch (hydrateImages), a snapshot
+    // restore, or the game-state poll — all of which serve the 5-min-cached
+    // /api/img reference URL (the cause of avatars "reverting after a few
+    // seconds"). Set automatically on every change + by the Force-Save button.
+    const [pinnedAvatars, setPinnedAvatars] = useState<Record<string, string>>({});
     const [jutsuType, setJutsuType] = useState<JutsuType>("Ninjutsu");
     const [jutsuElement, setJutsuElement] = useState<JutsuElement>("Fire");
     const [jutsuAp, setJutsuAp] = useState(40);
@@ -3649,12 +3656,12 @@ export function AdminPanel({
                             battle-sprite pass. */}
                         <details open style={{ marginTop: 8 }}>
                             <summary style={{ cursor: "pointer", fontWeight: 600, marginBottom: 6 }}>
-                                Avatars — {editablePets.filter((p) => !(p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")])).length} missing of {editablePets.length}
+                                Avatars — {editablePets.filter((p) => !(pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")])).length} missing of {editablePets.length}
                             </summary>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 360, overflowY: "auto", padding: 4 }}>
                                 {editablePets.map((p) => {
                                     const baseId = p.id.replace(/-\d{10,}$/, "");
-                                    const img = p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + baseId] || "";
+                                    const img = pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + baseId] || "";
                                     const selected = p.id === selectedPetId;
                                     return (
                                         <div key={p.id} style={{ width: 92, textAlign: "center", border: selected ? "2px solid #8b5cf6" : img ? "1px solid #334155" : "1px solid #b45309", borderRadius: 8, padding: 6, background: "#0f172a" }}>
@@ -3709,9 +3716,9 @@ export function AdminPanel({
                                 <div className="summary-box pet-editor-card" id="admin-pet-editor-card">
                                     <h3>{pet.name}</h3>
 
-                                    {pet.image && (
+                                    {(pinnedAvatars["pet:" + pet.id] || pet.image) && (
                                         <div className="admin-jutsu-preview">
-                                            <img src={pet.image} alt={pet.name} />
+                                            <img src={pinnedAvatars["pet:" + pet.id] || pet.image} alt={pet.name} />
                                         </div>
                                     )}
 
@@ -3722,10 +3729,38 @@ export function AdminPanel({
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
-                                            readImageFile(file, async (raw) => { const c = await compressDataUrl(raw, 256, 0.85); updatePet({ image: c }); publishSharedImage('pet:' + pet.id, c); }, 100);
+                                            readImageFile(file, async (raw) => {
+                                                const c = await compressDataUrl(raw, 256, 0.85);
+                                                setPinnedAvatars((prev) => ({ ...prev, ["pet:" + pet.id]: c }));
+                                                updatePet({ image: c });
+                                                await publishSharedImage('pet:' + pet.id, c);
+                                            }, 100);
                                         }}
                                     />
-                                    <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={async (image) => { const c = await compressDataUrl(image, 256, 0.85); updatePet({ image: c }); publishSharedImage('pet:' + pet.id, c); }} />
+                                    <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={async (image) => {
+                                        const c = await compressDataUrl(image, 256, 0.85);
+                                        setPinnedAvatars((prev) => ({ ...prev, ["pet:" + pet.id]: c }));
+                                        updatePet({ image: c });
+                                        await publishSharedImage('pet:' + pet.id, c);
+                                    }} />
+                                    {/* Force-Save: re-publish + LOCK the current avatar for this session so a
+                                        background image refetch / snapshot restore / poll can't revert it (the
+                                        cause of avatars reverting after a few seconds). */}
+                                    <button
+                                        style={{ marginTop: 6, background: "#166534", borderColor: "#22c55e", fontWeight: 600 }}
+                                        onClick={async () => {
+                                            const current = pinnedAvatars["pet:" + pet.id] || pet.image || "";
+                                            if (!current.startsWith("data:")) { setPetGenStatus("⚠️ Upload or generate a new image first, then Force-Save."); return; }
+                                            setPetGenStatus(`Saving ${pet.name}'s avatar…`);
+                                            const c = await compressDataUrl(current, 256, 0.85);
+                                            setPinnedAvatars((prev) => ({ ...prev, ["pet:" + pet.id]: c }));
+                                            updatePet({ image: c });
+                                            const ok = await publishSharedImage('pet:' + pet.id, c);
+                                            try { await onSaveRef.current?.(); } catch { /* no account loaded — ignore */ }
+                                            setPetGenStatus(ok ? `✅ Saved & locked ${pet.name}'s avatar (won't revert this session).` : `⚠️ Locked locally, but the server publish failed — check you're logged in as admin.`);
+                                        }}
+                                    >💾 Force-Save Avatar (override)</button>
+                                    {petGenStatus && <p className="hint" style={{ marginTop: 4 }}>{petGenStatus}</p>}
 
                                     <label>Name</label>
                                     <input value={pet.name} onChange={(e) => updatePet({ name: e.target.value })} />
