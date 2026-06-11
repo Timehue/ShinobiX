@@ -9,6 +9,13 @@ import "./index.css";
 import "./styles/pet-skin.css";
 import { runPetArenaBattle, PetArenaBattlefield, petFramePace } from "./App";
 import { rawPetPool } from "./data/pet-pool";
+import { PetColiseum } from "./components/PetColiseum";
+
+// Demo creature billboards for the coliseum harness — transparent full-body
+// sprites keyed as petbody:<id> (the exact slot the live app fills from
+// sharedImages). Proves the real-portrait billboard path; not shipped.
+const DEMO_FOX = new URL("./assets/coliseum/demo-emberfox.webp", import.meta.url).href;
+const DEMO_CROW = new URL("./assets/coliseum/demo-stormcrow.webp", import.meta.url).href;
 
 // Two visually distinct pets, far apart on the grid so there is lots of
 // movement to watch. Bumped stats so the fight resolves in a sane frame count.
@@ -23,8 +30,17 @@ const START_FRAME = PARAMS.get("frame") !== null ? Math.max(0, Number(PARAMS.get
 
 function Harness() {
     const [seed, setSeed] = useState(START_SEED);
+    // Phase-0 HD-2D spike toggle (?coliseum=1 or the button below). Swaps the
+    // current DOM battlefield for the throwaway react-three-fiber scene so the
+    // coliseum look can be eyeballed. Dev-only; nothing here ships.
+    const [coliseum, setColiseum] = useState(PARAMS.get("coliseum") === "1");
     const playerPet = useMemo(() => harnessPet(0, { element: "Fire" }), []);
     const enemyPet = useMemo(() => harnessPet(7, { element: "Wind" }), []);
+    // Feed the demo creature sprites in as the pets' battle billboards.
+    const harnessShared = useMemo(() => ({
+        [`petbody:${playerPet.id}`]: DEMO_FOX,
+        [`petbody:${enemyPet.id}`]: DEMO_CROW,
+    }), [playerPet.id, enemyPet.id]);
     const battle = useMemo(
         () => runPetArenaBattle(playerPet, enemyPet, "Rival", seed, 1),
         [playerPet, enemyPet, seed],
@@ -58,10 +74,31 @@ function Harness() {
                 <button style={btn} onClick={() => { setPlaying(false); setI((x) => Math.max(0, x - 1)); }}>◀ Prev</button>
                 <button style={btn} onClick={() => { setPlaying(false); setI((x) => Math.min(frames.length - 1, x + 1)); }}>Next ▶</button>
                 <button style={btn} onClick={() => setSeed((s) => s + 1)}>🎲 New seed ({seed})</button>
+                <button style={{ ...btn, background: coliseum ? "#6d28d9" : "#1e3a8a" }} onClick={() => setColiseum((c) => !c)}>
+                    {coliseum ? "🎬 HD-2D coliseum ✓" : "🎬 HD-2D coliseum"}
+                </button>
                 <span style={{ color: "#cbd5e1", font: "600 12px Inter, sans-serif" }}>
                     frame {i + 1}/{frames.length} · {frame?.actionKind ?? "idle"} · actor {frame?.actor} · pos P{frame?.playerPos} E{frame?.enemyPos}{frame?.isPrefight ? " · PREFIGHT" : ""}{frame?.isKO ? " · KO" : ""}
                 </span>
             </div>
+            {coliseum ? (
+                <PetColiseum
+                    playerPet={playerPet}
+                    enemyPet={enemyPet}
+                    enemyOwner="Rival"
+                    sharedImages={harnessShared}
+                    frame={frame}
+                    recentFrames={frames.slice(Math.max(0, i - 4), i + 1)}
+                    result={i >= frames.length - 1 ? result : ""}
+                    obstacles={battle.obstacles}
+                    tiles={battle.tiles}
+                    onReplay={restart}
+                    onFightAgain={restart}
+                    onExit={() => {}}
+                    playerRecord={{ wins: 7, losses: 2, rating: 1240 }}
+                    enemyRecord={{ wins: 5, losses: 4, rating: 1190 }}
+                />
+            ) : (
             <div className="pet-arena-screen" style={{ minHeight: 620 }}>
                 <PetArenaBattlefield
                     playerPet={playerPet}
@@ -79,6 +116,7 @@ function Harness() {
                     enemyRecord={{ wins: 5, losses: 4, rating: 1190 }}
                 />
             </div>
+            )}
         </div>
     );
 }

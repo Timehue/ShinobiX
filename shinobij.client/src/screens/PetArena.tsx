@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
@@ -21,6 +21,11 @@ import {
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 
+// HD-2D coliseum renderer — lazy so three/react-three-fiber load ONLY when the
+// "Cinematic arena" flag is on, keeping the cold-landing bundle untouched.
+const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
+const PET_COLISEUM_FLAG = "petColiseum.v1";
+
 export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
@@ -36,6 +41,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
     // Last party result, shown as a summary block ("2–0 — You take the set!").
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
+    // Opt-in HD-2D "cinematic" coliseum renderer (beta). Persisted per-device;
+    // toggles the battle PRESENTATION only — the engine/frames are identical.
+    const [useColiseum, setUseColiseum] = useState(() => {
+        try { return localStorage.getItem(PET_COLISEUM_FLAG) === "1"; } catch { return false; }
+    });
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -764,6 +774,19 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     </button>
                 )}
                 {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
+                <button
+                    onClick={() => {
+                        setUseColiseum((on) => {
+                            const next = !on;
+                            try { localStorage.setItem(PET_COLISEUM_FLAG, next ? "1" : "0"); } catch { /* ignore */ }
+                            return next;
+                        });
+                    }}
+                    title="Toggle the experimental HD-2D 3D arena (cosmetic only — same battle outcome)"
+                    style={{ marginLeft: "auto", background: useColiseum ? "#6d28d9" : undefined }}
+                >
+                    {useColiseum ? "🎬 Cinematic arena: ON" : "🎬 Cinematic arena: OFF"}
+                </button>
             </div>
 
             {partyResult && battleReady && showResult && (
@@ -779,57 +802,69 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
-                <PetArenaBattlefield
-                    playerPet={selectedPet}
-                    enemyPet={(battleOpponent ?? selectedOpponent)!.pet}
-                    enemyOwner={(battleOpponent ?? selectedOpponent)!.owner}
-                    // 2v2 mode — pass reserves so the renderer can place all
-                    // 4 pets on the grid and show 4 HP bars. partyResult
-                    // tracks them via matches[1] (or via the opponent's
-                    // carried challengerParty/opponentParty for PvP).
-                    playerReservePet={
-                        partyResult?.matches[1]?.playerPet
-                        ?? (battleOpponent?.challengerParty ? battleOpponent.challengerParty[1] : undefined)
-                        ?? (partyMode && opponentMode === "ai"
-                            ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
-                                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0])
-                            : undefined)
-                    }
-                    enemyReservePet={
-                        partyResult?.matches[1]?.opponentPet
-                        ?? (battleOpponent?.opponentParty ? battleOpponent.opponentParty[1] : undefined)
-                        ?? undefined
-                    }
-                    frame={currentFrame}
-                    recentFrames={battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result")}
-                    result={showResult ? result : ""}
-                    obstacles={battleObstacles}
-                    tiles={battleTiles}
-                    onReplay={() => {
-                        if (!battleFrames.length) return;
-                        setFrameIndex(0);
-                        setIsPlaying(true);
-                    }}
-                    onFightAgain={startBattle}
-                    onExit={() => {
-                        // Honour the opponent's returnScreen override if provided —
-                        // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
-                        // so the duel sends you back to the dungeon, not the village hub.
-                        const back = battleOpponent?.returnScreen ?? "centralHub";
-                        setBattleOpponent(null);
-                        setBattleReady(false);
-                        setScreen(back);
-                    }}
-                    sharedImages={sharedImages}
-                    playerRecord={{ wins: character.petRankedWins ?? 0, losses: character.petRankedLosses ?? 0, rating: character.petRankedRating ?? 1000 }}
-                    enemyRecord={(() => {
-                        // Ranked PvP carries the opponent's Elo snapshot; we
-                        // don't track their W/L, so show rating only. AI/wild
-                        // opponents carry no rating → no record card for them.
-                        const opp = (battleOpponent ?? selectedOpponent);
-                        return opp?.opponentRating !== undefined ? { rating: opp.opponentRating } : undefined;
-                    })()}
-                />
+                {(() => {
+                    // Shared prop block — both renderers (DOM + HD-2D coliseum)
+                    // consume the SAME frames/props. The HD-2D scene is a pure
+                    // presentation swap; the engine and frame-stepping are identical.
+                    const battleProps = {
+                        playerPet: selectedPet,
+                        enemyPet: (battleOpponent ?? selectedOpponent)!.pet,
+                        enemyOwner: (battleOpponent ?? selectedOpponent)!.owner,
+                        // 2v2 mode — pass reserves so the renderer can place all
+                        // 4 pets on the grid and show 4 HP bars. partyResult tracks
+                        // them via matches[1] (or the opponent's carried
+                        // challengerParty/opponentParty for PvP).
+                        playerReservePet:
+                            partyResult?.matches[1]?.playerPet
+                            ?? (battleOpponent?.challengerParty ? battleOpponent.challengerParty[1] : undefined)
+                            ?? (partyMode && opponentMode === "ai"
+                                ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                                    ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0])
+                                : undefined),
+                        enemyReservePet:
+                            partyResult?.matches[1]?.opponentPet
+                            ?? (battleOpponent?.opponentParty ? battleOpponent.opponentParty[1] : undefined)
+                            ?? undefined,
+                        frame: currentFrame,
+                        recentFrames: battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result"),
+                        result: showResult ? result : "",
+                        obstacles: battleObstacles,
+                        tiles: battleTiles,
+                        onReplay: () => {
+                            if (!battleFrames.length) return;
+                            setFrameIndex(0);
+                            setIsPlaying(true);
+                        },
+                        onFightAgain: startBattle,
+                        onExit: () => {
+                            // Honour the opponent's returnScreen override if provided —
+                            // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
+                            // so the duel sends you back to the dungeon, not the village hub.
+                            const back = battleOpponent?.returnScreen ?? "centralHub";
+                            setBattleOpponent(null);
+                            setBattleReady(false);
+                            setScreen(back);
+                        },
+                        sharedImages,
+                        playerRecord: { wins: character.petRankedWins ?? 0, losses: character.petRankedLosses ?? 0, rating: character.petRankedRating ?? 1000 },
+                        enemyRecord: (() => {
+                            // Ranked PvP carries the opponent's Elo snapshot; we don't
+                            // track their W/L, so show rating only. AI/wild opponents
+                            // carry no rating → no record card for them.
+                            const opp = (battleOpponent ?? selectedOpponent);
+                            return opp?.opponentRating !== undefined ? { rating: opp.opponentRating } : undefined;
+                        })(),
+                    };
+                    // HD-2D coliseum is lazy-loaded (three/r3f only ship when the
+                    // flag is on → cold-landing bundle is untouched).
+                    return useColiseum ? (
+                        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading 3D arena…</div>}>
+                            <PetColiseum {...battleProps} />
+                        </Suspense>
+                    ) : (
+                        <PetArenaBattlefield {...battleProps} />
+                    );
+                })()}
                 </div>
             )}
 

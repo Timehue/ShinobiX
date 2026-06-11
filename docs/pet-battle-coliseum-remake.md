@@ -134,12 +134,15 @@ This proves the direction before any token or art spend.
   flags `--transparent` and `--gen-quality low|medium|high`; `OPENAI_API_KEY` is
   set in `shinobij.client/.env`. See the `project-asset-generation` memory.
 
-## Open decisions to confirm with the user at session start
+## Open decisions — RESOLVED 2026-06-10 (see "LOCKED PLAN" below)
 
-1. **Pixi (flat-2D, recommended) vs react-three-fiber** (true 3D camera / HD-2D).
-2. **Procedural-first prototype** (no cost) vs set up the AI-animation token path
-   immediately.
-3. **Scope:** all pets, or hero/legendary pets first.
+1. **Renderer → react-three-fiber (HD-2D)**, not flat Pixi. The user's reference
+   (Pokémon Legends: Z-A real-time battle) is a true-3D-camera-over-a-receding-
+   ground look; r3f gives a real 3D floor + angled camera with the pets as 2D
+   billboard sprites — which matches it far better than flat 2D.
+2. **Procedural-first** (no cost). AI-animation token path is a later, gated step.
+3. **Scope → one-matchup prototype first**, behind an opt-in flag; current battle
+   untouched until proven.
 
 ## Suggested orientation reads for the new session
 
@@ -151,3 +154,150 @@ This proves the direction before any token or art spend.
    and how the choreograph queue is currently consumed/animated.
 4. `src/constants/pet-arena.ts` — arena grid layouts.
 5. `ls src/assets/fx/` — the elemental VFX frame library to reuse.
+
+---
+
+# ✅ LOCKED PLAN — HD-2D Coliseum (decided 2026-06-10)
+
+## Visual target (locked, with reference)
+
+The user's reference is **Pokémon Legends: Z-A** real-time battle (screenshot
+provided): two elemental creatures on a 3D ground viewed at a ~3/4 angled,
+slightly-elevated camera; grounded with contact shadows; one mid-cast with the
+move's elemental VFX **swirling around the caster**; floating world-space
+nameplate + HP bar over each creature; a top-right **"X used Y!"** toast; a
+bottom-left active-pet card. **Remove from that reference:** the trainer avatar
+and the move-command UI — it is a **spectator AUTO-battle** (creatures pick their
+own moves), which our sim already is.
+
+Setting = a **coliseum / battleground arena** (sand/stone floor, curved wall +
+crowd backdrop), not Z-A's city street.
+
+**Honest ceiling:** Z-A uses fully-rigged 3D creature models. We have ONE flat
+front-facing portrait per pet, and the cost strategy rules out heavy 3D. So pets
+are **2D billboard sprites on a 3D stage (HD-2D / Paper-Mario)**, animated
+**procedurally**. That reproduces the staging/camera/VFX/UI/feel (~90%); the
+creatures themselves read as animated standees, not 3D models. Closing that last
+gap = per-pet animation assets later (the asset ladder above), gated on user spend.
+
+## Verified state of the code (2026-06-10 — corrects the older notes above)
+
+- The deterministic ENGINE is already extracted: **`runPetArenaBattle` lives in
+  `src/lib/pet-battle-sim.ts`** (~2.6k lines), produces `PetArenaFrame[]`. KEEP AS-IS.
+- The per-frame cosmetic DRIVER is **`buildPetAnimationEvents`** in
+  `src/lib/pet-battle-anim.ts` (the doc's old name "petBattleChoreograph" is
+  stale). Contract: `PetFrameLike` → ordered `PetBattleAnimationEvent[]`. REUSE AS-IS.
+- The current DOM/CSS renderer is **`PetArenaBattlefield` in `src/App.tsx`**
+  (~line 9403). The new scene REPLACES this one component.
+- The playback LOOP lives in **`src/screens/PetArena.tsx`**: it steps `frameIndex`
+  through `battleFrames` at `petFramePace(frame)` and passes the *current frame*
+  to `PetArenaBattlefield`. This loop is UNCHANGED.
+- VFX = **251 CC0 frames** in `src/assets/fx/<key>/NNN.png`, already loaded as
+  bundled URL strings via `import.meta.glob` in `src/lib/jutsu-fx-assets.ts`
+  (key→frame[] map). Reuse these as r3f billboard frame-swap sprites.
+- App.tsx is now ~10.4k lines with the `App.size.test.ts` ratchet (budget 10,500).
+
+## The integration seam (the whole reason this is low-risk)
+
+`PetColiseum` is a **drop-in replacement for `PetArenaBattlefield`** — the SAME
+props: `{ playerPet, enemyPet, enemyOwner, playerReservePet?, enemyReservePet?,
+frame?, recentFrames?, result, obstacles?, tiles?, onReplay, onFightAgain,
+onExit, sharedImages, playerRecord?, enemyRecord? }`. A flag in `PetArena.tsx`
+chooses which renderer mounts. Engine, frame-stepping, result handling, and the
+`buildPetAnimationEvents` queue are all reused untouched.
+
+## Non-negotiable guardrails (from CLAUDE.md + project memories)
+
+- **Engine untouched.** Never edit `runPetArenaBattle` / `buildPetAnimationEvents`
+  / damage math for visuals. The scene is cosmetic-only; it can't affect outcomes,
+  balance, odds, or ranked-replay determinism.
+- **New code in its OWN modules** (`components/PetColiseum.tsx`,
+  `lib/pet-coliseum-*.ts`) — NEVER App.tsx (the ratchet test).
+- **`three`/r3f are CLIENT deps** → bundled into client `dist` by Vite; the
+  Express server never `require`s them. So the cPanel "auto-deploy doesn't npm
+  install" crash risk (which bit the server-side `compression` dep) does **NOT**
+  apply here — only the committed client dist matters for cPanel.
+- **Lazy-load the 3D scene** (`React.lazy` + dynamic import) so the three/r3f
+  bundle loads only when a battle starts → cold-landing stays light
+  (bandwidth-cost strategy; never regress the landing payload).
+- **Coliseum art via `scripts/gen-asset.mjs`** (`npm run gen:asset`) → published
+  as `shared:img:*`, served via `/api/img`. NEVER base64 art into polled
+  game-state.
+- **Verify in the dev-only `/petvfx.html` harness FIRST** (`src/petvfx.tsx`),
+  before touching the live battle. Run `npm run lint` + `tsc -b` before done. For
+  cPanel: stop the dev server, rebuild client dist, `git add -Af
+  shinobij.client/dist`, commit src+dist together, push `HEAD:main`.
+
+## Build phases
+
+### Phase 0 — Spike / de-risk (½–1 day)
+- Add `three`, `@react-three/fiber`, `@react-three/drei` to **`shinobij.client`**.
+  Confirm it builds under Vite 8 + React 19 + TS 6 and measure the gzipped bundle
+  delta (note it — this is the one real cost). Set up the dynamic import so the
+  3D chunk is split out.
+- Throwaway scene in `/petvfx.html`: a `<Canvas>` with an angled fixed camera, a
+  ground plane, and TWO billboarded planes textured with real pet portraits,
+  grounded with blob shadows, always facing the camera. Confirm the HD-2D look
+  reads right. **Gate before continuing:** does it feel like the reference?
+
+### Phase 1 — Static coliseum stage (no motion)
+- Generate coliseum assets via `gen-asset.mjs`: a floor texture (sand/stone) and
+  a backdrop (curved wall + crowd). Publish as e.g. `coliseum:floor`,
+  `coliseum:bg` shared images.
+- New `src/components/PetColiseum.tsx` (own module). Same props as
+  `PetArenaBattlefield`. Renders: lazy `<Canvas>`, angled camera, floor + backdrop,
+  pets as billboards at fixed face-off positions (player front-left, enemy
+  back-right; 2v2 places all four), contact shadows. Floating nameplates (Lv /
+  name / HP) + the bottom-left pet card + top-right toast can stay **DOM overlays**
+  on top of the canvas (reuse existing markup) — they don't need to be in 3D.
+- Pure helper `lib/pet-coliseum-scene.ts`: `tileToWorld(tileIdx)` mapping the
+  sim's grid index → 3D world coords (analogous to the DOM tile centres), so pet
+  positions still come from the sim. Colocated `*.test.ts`.
+
+### Phase 2 — Procedural motion driven by the event queue (the core)
+- Consume `frame` → `buildPetAnimationEvents` (REUSE) → drive billboard transforms
+  over time. Map each `PetBattleAnimationEventType` → a 3D motion in
+  `lib/pet-coliseum-scene.ts` (pure: `(eventType, t)` → transform):
+  idle = bob/breathe; windup = lean-back + anticipation scale; lunge = dash toward
+  target in world space + return; rangedCast/beam = plant + lean; projectile = an
+  fx billboard flying caster→target on an arc; impact = target flash + knockback +
+  camera shake + fx impact sprite at target; recoil/hit = shove-back + tint;
+  charge = caster glow + camera push-in/dim (signature); guard = brace + shield fx;
+  dodge = sidestep/blur; ko = topple + fade; victory = winner bob.
+- Elemental VFX: small r3f `<FxSprite>` that frame-swaps an fx key's URL[] (from
+  `jutsu-fx-assets`) on a billboard plane. Swirl-around-caster (Water-Gun look) =
+  fx sprite parented to the caster; projectile = tweened caster→target; impact =
+  fx sprite at target. `vfxKey` already flows through every event.
+- Camera: reuse the deterministic `petBattleCamera` director (`lib/pet-battle-
+  camera.ts`) for hit-stop + shake; add a parallel numeric output (or a
+  class→camera-offset map) so r3f can apply it. Floating damage/heal/shield
+  numbers rise+fade as billboards. Honor `prefers-reduced-motion`.
+
+### Phase 3 — Wire behind an opt-in flag in `PetArena.tsx`
+- A "Cinematic (beta)" toggle / `localStorage` flag picks `<PetColiseum/>` vs the
+  current `<PetArenaBattlefield/>`. The playback loop + props are identical.
+- **Refactor note:** the per-frame SFX effect currently lives INSIDE
+  `PetArenaBattlefield`. Extract it to a shared `usePetBattleFrameSfx(frame, muted)`
+  hook (or lift into `PetArena.tsx`) so both renderers get sound without dupe.
+- Keep the old renderer as DEFAULT until the new one is proven; flip later.
+
+### Phase 4 — Coliseum polish
+- Crowd ambiance (static crowd texture w/ subtle parallax), torches/banners, dust
+  kick-up on lunges (fx/earth or a puff), announcer cut-in on signatures (reuse
+  the existing announcer), floor decals. Mobile: clamp dpr, responsive resize,
+  fill the viewport (verify at the user's REAL innerWidth×height×dpr), graceful
+  degrade (circle-portrait textures work as billboards).
+
+### Phase 5 — Asset ladder (LATER, gated on user spend)
+- Only if the user wants the creatures themselves to animate beyond procedural:
+  add a fal.ai/Replicate token, bake per-pet sprite-sheets (image-to-video →
+  frames) into the wired `petsheet:<id>` slot → the billboard plays the sheet as
+  an AnimatedSprite. Spine rigs reserved for hero/legendary pets.
+
+## Suggested module layout
+
+- `src/components/PetColiseum.tsx` — the r3f scene (drop-in for PetArenaBattlefield).
+- `src/lib/pet-coliseum-scene.ts` (+ `.test.ts`) — PURE helpers: `tileToWorld`,
+  event→motion mapping, camera→r3f transform. Node-testable, no r3f imports.
+- Reuse: `lib/pet-battle-anim.ts` (driver), `lib/pet-battle-camera.ts` (camera),
+  `lib/jutsu-fx-assets.ts` (fx frames), `lib/pet-battle-sim.ts` (engine).
