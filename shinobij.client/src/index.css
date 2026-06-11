@@ -6806,7 +6806,7 @@ body {
 
     .stormveil-map-button:hover {
         transform: translate(-50%, -50%) scale(1.09);
-        filter: drop-shadow(0 0 9px rgba(125, 211, 252, 0.7)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
+        filter: drop-shadow(0 0 9px var(--village-glow, rgba(125, 211, 252, 0.7))) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.7));
         z-index: 6;
     }
 
@@ -6823,7 +6823,7 @@ body {
         font-weight: 700;
         color: #f3f6ff;
         background: rgba(2, 6, 23, 0.72);
-        border: 1px solid rgba(125, 211, 252, 0.4);
+        border: 1px solid var(--village-accent, rgba(125, 211, 252, 0.4));
         border-radius: 6px;
         padding: 1px 7px;
         white-space: nowrap;
