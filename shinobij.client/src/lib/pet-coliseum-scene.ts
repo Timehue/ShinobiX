@@ -53,7 +53,10 @@ export function tileToWorld(
 // through the target.
 const MIN_SEP = 1.9;
 const CONTACT_GAP = 0.95;
-const MAX_LUNGE = 2.2;
+// Formation lanes sit the leads ~5 units apart, so a melee strike needs to
+// cross most of that to read as a pounce-into-contact (the leap arc + impact
+// VFX bridge the last CONTACT_GAP — flat billboards never actually touch).
+const MAX_LUNGE = 3.4;
 // Screen-visibility floor: two pets separated mostly along DEPTH (z) satisfy
 // MIN_SEP yet still hide one behind the other at the camera angle. Nearby
 // pairs therefore also get a minimum HORIZONTAL (x) gap so both sprites stay
@@ -163,6 +166,127 @@ export function lerp(a: number, b: number, t: number): number {
     return a + (b - a) * t;
 }
 
+// ── Combat choreography (Phase 3 — kill the "bonking") ───────────────────────
+// poseMotion gives ONE static target per pose; the renderer eased toward it, so
+// every attack read as two flat standees sliding into each other. beatTimeline
+// instead returns a *progress-aware* transform — a small keyframed timeline over
+// the beat — so a melee strike is anticipation-crouch → explosive leap arc →
+// contact, and a hit is an INSTANT knockback that recovers (the GameCube-era
+// "react on the contact frame", not the modern freeze-then-ease). Still pure:
+// progress in [0,1] comes from the renderer's beat clock, no RNG/wall-clock.
+
+const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
+/** Decelerating ease (fast → slow). */
+const easeOutQuad = (p: number): number => { const q = clamp01(p); return 1 - (1 - q) * (1 - q); };
+/** Accelerating ease (slow → fast). */
+const easeInQuad = (p: number): number => { const q = clamp01(p); return q * q; };
+/** A 0→1→0 hump (sin), for arcs and one-shot pops. */
+const hump = (p: number): number => Math.sin(Math.PI * clamp01(p));
+
+/** Peak height (world units) of a melee leap arc. */
+export const LEAP_HEIGHT = 0.95;
+
+/** How long each pose's keyframed choreography runs (ms). The beat itself may
+ *  last longer (the scheduler holds on camera beats) — progress then clamps at 1
+ *  and the pose holds its final keyframe, which IS the hit-stop dwell. Static
+ *  poses (idle/guard/victory/ko) return 1: progress is irrelevant, they delegate
+ *  to poseMotion. The leap/strike peaks well before its end so scheduler
+ *  compression can never cut the contact moment. */
+export function beatChoreoMs(state: PetVisualState): number {
+    switch (state) {
+        case "windup": return 200;
+        case "lunge": return 320;
+        case "hit":
+        case "recoil": return 360;
+        case "charge":
+        case "rangedCast":
+        case "projectileFire": return 300;
+        case "dodge": return 380;
+        default: return 1;
+    }
+}
+
+/**
+ * Progress-aware billboard transform for a pose. `progress` is 0..1 through the
+ * pose's choreography (beatChoreoMs). `toward` (+1/−1) is the direction to the
+ * foe; `reach` the gap-aware lunge distance (lungeReach); `opts.power` (0..1,
+ * damage/maxHp) scales a hit's knockback. Static poses fall through to
+ * poseMotion so idle/guard/victory/ko behave exactly as before.
+ */
+export function beatTimeline(
+    state: PetVisualState,
+    toward: number,
+    reach: number,
+    progress: number,
+    opts: { power?: number } = {},
+): PoseTransform {
+    const t = toward >= 0 ? 1 : -1;
+    const p = clamp01(progress);
+    const power = clamp01(opts.power ?? 0.5);
+    switch (state) {
+        case "windup": {
+            // Anticipation: lean back + crouch (squash), loaded by ~70%.
+            const e = easeOutQuad(p / 0.7);
+            return { ...IDLE, dx: -0.5 * t * e, dy: -0.06 * e, sx: 1 + 0.10 * e, sy: 1 - 0.13 * e };
+        }
+        case "lunge": {
+            // Load (0–0.16) → explosive leap arc to contact (lands by ~0.55) →
+            // brief landing squash held to the end (the hit-stop pose).
+            const load = clamp01(p / 0.16);
+            const fly = clamp01((p - 0.16) / 0.39); // reaches 1 at p=0.55
+            const land = clamp01((p - 0.55) / 0.25);
+            const dx = lerp(-0.3 * t, reach * t, easeInQuad(fly));
+            const dy = LEAP_HEIGHT * hump(fly); // up then planted at contact
+            const sx = 1 + 0.06 * load + 0.10 * fly - 0.10 * land;
+            const sy = 1 - 0.05 * load - 0.04 * fly + 0.08 * land;
+            return { ...IDLE, dx, dy, sx, sy };
+        }
+        case "hit":
+        case "recoil": {
+            // INSTANT knockback on the contact frame, then a fast ease back to
+            // the lane — the reaction fires at p=0 (peak), not an eased slide in.
+            const kb = 0.7 + 0.7 * power;       // 0.7..1.4, scales with damage
+            const out = 1 - easeOutQuad(p);     // 1 at p=0, 0 at p=1 (fast-out)
+            return {
+                ...IDLE,
+                dx: -kb * t * out,
+                dy: 0.16 * hump(clamp01(p / 0.55)),
+                rot: -0.18 * t * out,
+                sx: 1 + 0.08 * out,
+                sy: 1 - 0.08 * out,
+                hurt: out,
+            };
+        }
+        case "charge": {
+            // Gather/rise in place — the VFX glow carries it; sprite lifts + swells.
+            const e = easeOutQuad(clamp01(p / 0.6));
+            return { ...IDLE, dy: 0.07 + 0.05 * hump(p), sx: 1 - 0.03 * e, sy: 1 + 0.09 * e };
+        }
+        case "rangedCast":
+        case "projectileFire": {
+            // Plant + lean, then a sharp recoil kick away from the foe on release.
+            const plant = easeOutQuad(clamp01(p / 0.45));
+            const kick = hump(clamp01((p - 0.55) / 0.45));
+            return {
+                ...IDLE,
+                dx: -0.16 * t * plant - 0.24 * t * kick,
+                dy: 0.07 * plant,
+                sx: 1 - 0.03 * kick,
+                sy: 1 + 0.07 * plant - 0.03 * kick,
+            };
+        }
+        case "dodge": {
+            // Sidestep toward the camera with an afterimage fade, then settle back.
+            const slide = easeOutQuad(clamp01(p / 0.45));
+            const back = easeInQuad(clamp01((p - 0.55) / 0.45));
+            return { ...IDLE, dz: 0.95 * slide * (1 - back), opacity: 1 - 0.4 * hump(p), sx: 1 - 0.06 * slide };
+        }
+        default:
+            // idle / guard / victory / ko — static, identical to before.
+            return poseMotion(state, toward, reach);
+    }
+}
+
 /** Camera-shake amplitude for the current beat, by severity. 0 = no shake.
  *  Mirrors the camera director's shake-beat set (impact / ko / screenShake). */
 export function shakeAmpForBeat(
@@ -174,6 +298,42 @@ export function shakeAmpForBeat(
     if (opts.crit || opts.signature) return 0.22;
     if (opts.heavyHit) return 0.12;
     return 0;
+}
+
+// ── Formation staging (Phase 2 — kill overlap by construction) ───────────────
+// Pets no longer stand on raw sim tiles (which clump). Each side owns fixed
+// lane anchors chosen so sprites + nameplates can NEVER overlap; the sim still
+// drives who acts / who's in melee range (tileDistance, unchanged) — its
+// distance only slides a pet ALONG its lane via engagementAdvance().
+const LEAD_X = 3.0;      // lead pet: inner, toward center
+const RESERVE_X = 4.5;   // reserve: outer
+const LEAD_Z = 1.0;      // lead: front (nearer camera)
+const RESERVE_Z = -1.2;  // reserve: back — x+z stagger so neither hides the other
+const MAX_ADVANCE = 0.75; // most a pet slides toward center when the fight is close
+
+/** Fixed lane anchor for a side + lane index (0 = lead, 1 = reserve). Player
+ *  side sits on the left (−x), enemy on the right (+x). */
+export function formationAnchor(side: "player" | "enemy", lane: number): { x: number; z: number } {
+    const dir = side === "player" ? -1 : 1;
+    return lane <= 0
+        ? { x: dir * LEAD_X, z: LEAD_Z }
+        : { x: dir * RESERVE_X, z: RESERVE_Z };
+}
+
+/** Resolve world anchors for a list of combatants by side, assigning lane
+ *  indices in order within each side. Deterministic; overlap is impossible by
+ *  construction (the anchor gaps exceed sprite + nameplate width). */
+export function formationSlots(sides: ReadonlyArray<"player" | "enemy">): { x: number; z: number }[] {
+    let p = 0, e = 0;
+    return sides.map((side) => formationAnchor(side, side === "player" ? p++ : e++));
+}
+
+/** How far a pet slides toward center given the sim's actor↔target tile
+ *  distance: close fights tighten the staging, ranged ones spread it — capped
+ *  so the minimum separation always holds. Pure. */
+export function engagementAdvance(simDist: number): number {
+    const t = Math.max(0, Math.min(1, (7 - simDist) / 5)); // ≤2 tiles → full, ≥7 → none
+    return t * MAX_ADVANCE;
 }
 
 // ── Grounding (Phase 1 — kill the "floating") ────────────────────────────────
