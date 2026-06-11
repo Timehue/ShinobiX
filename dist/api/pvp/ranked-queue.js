@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
 const _ranked_match_token_js_1 = require("../_ranked-match-token.js");
+const presence_gating_js_1 = require("../_realtime/presence-gating.js");
 const QUEUE_KEY = 'pvp:ranked-queue';
 const KV_TTL_SECONDS = 2 * 60 * 60; // 2-hour TTL
 const STALE_MS = 60 * 1000; // Remove entries older than 60s (must re-queue)
@@ -69,6 +70,14 @@ async function handler(req, res) {
                 }
                 catch {
                     // best-effort; defaults apply
+                }
+                // #4 newcomer protection: sub-floor shinobi can't enter ranked —
+                // it would match them against far stronger players for a free loss.
+                // Gated on the authoritative save level read just above.
+                if ((0, presence_gating_js_1.isBelowAttackableFloor)(serverLevel)) {
+                    return res.status(403).json({
+                        error: `You must reach level ${presence_gating_js_1.ATTACKABLE_MIN_LEVEL} before entering ranked battles.`,
+                    });
                 }
             }
             // Serialize join/leave/poll against the shared QUEUE_KEY blob so

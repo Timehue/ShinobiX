@@ -421,7 +421,9 @@ function scaledTagPercent(rawPct: number, masteryLevel: number): number {
 }
 
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
-function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
+// Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts),
+// which pins the "lingering tags don't fire on the cast turn" behaviour.
+export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];

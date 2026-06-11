@@ -5,8 +5,9 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { sessionOpponentBlock } from '../_realtime/presence-gating.js';
+import { sessionOpponentBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { consumeRankedMatchToken } from '../_ranked-match-token.js';
+import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 
 export type PvpStatus = {
     name: string;
@@ -319,10 +320,69 @@ export function stripNonCombatFields(character: Record<string, unknown>): Record
     return out;
 }
 
+// ─── Server-authoritative loadout resolution ────────────────────────────────
+// Resolve a player's equipped loadout into real jutsu objects from the SERVER's
+// own catalog (built-in starters + the four built-in bloodlines) plus the jutsu
+// objects the save itself carries (the player's own bloodlines + creator jutsu).
+//
+// This is the fix for the "defender's jutsu don't load" bug. Previously the
+// server had no way to turn an `equippedJutsuIds` list into jutsu objects, so it
+// trusted whatever loadout the SESSION CREATOR's client sent — which, when you
+// attack someone, is only their PUBLIC projection (jutsu stripped) → an empty
+// loadout, leaving the defender unable to cast anything. Now the loadout is
+// rebuilt from the defender's OWN save and never depends on who created the
+// session.
+//
+// Built-in jutsu ALWAYS use the catalog values, so a tampered save can't inflate
+// a starter's effectPower/tags past the real numbers. Player-owned bloodline +
+// creator jutsu come from the save; the client body is only a last-resort
+// supplement for a jutsu the save somehow lacks (no worse than the old
+// fully-client path, and still run through sanitizeJutsuList below).
+function jutsuObjectsById(target: Map<string, Record<string, unknown>>, arr: unknown): void {
+    if (!Array.isArray(arr)) return;
+    for (const j of arr) {
+        if (j && typeof j === 'object' && typeof (j as Record<string, unknown>).id === 'string') {
+            target.set(String((j as Record<string, unknown>).id), j as Record<string, unknown>);
+        }
+    }
+}
+function resolveEquippedLoadout(
+    saveCharacter: Record<string, unknown>,
+    save: Record<string, unknown> | null,
+    clientCharacter: Record<string, unknown>,
+): unknown[] | null {
+    const rawIds = saveCharacter.equippedJutsuIds;
+    if (!Array.isArray(rawIds) || rawIds.length === 0) return null;
+    const equippedIds = rawIds.filter((id): id is string => typeof id === 'string');
+    if (equippedIds.length === 0) return null;
+    // Non-catalog sources, lowest priority first so later sources overwrite:
+    //   client body (weakest) → save's bloodlines + creator jutsu (authoritative).
+    const extra = new Map<string, Record<string, unknown>>();
+    jutsuObjectsById(extra, clientCharacter.jutsu);
+    if (save) {
+        const bloodlines = save.savedBloodlines;
+        if (Array.isArray(bloodlines)) {
+            for (const b of bloodlines) {
+                if (b && typeof b === 'object') jutsuObjectsById(extra, (b as Record<string, unknown>).jutsus);
+            }
+        }
+        jutsuObjectsById(extra, save.creatorJutsus);
+    }
+    const resolved: unknown[] = [];
+    for (const id of equippedIds) {
+        const fromCatalog = JUTSU_CATALOG[id];
+        if (fromCatalog) { resolved.push({ ...fromCatalog }); continue; }
+        const fromExtra = extra.get(id);
+        if (fromExtra) resolved.push(fromExtra);
+        // else: unknown id (not built-in, not in the save's content) → dropped.
+    }
+    return resolved;
+}
+
 // Hydrate a fighter character from the authoritative save. The client payload
 // is only used as a fallback for fields the save lacks (e.g. computed
 // bloodlineMult on NPCs without a save).
-function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>): Record<string, unknown> {
+function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
     // For derived fields the client computes, fall back to the client value
@@ -355,7 +415,11 @@ function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, client
     //   Ninjutsu  → ninOff/ninDef + willpower + speed
     merged.stats = clampStatsObject(saveCharacter.stats ?? clientCharacter.stats);
     // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
-    merged.jutsu = sanitizeJutsuList(saveCharacter.jutsu ?? clientCharacter.jutsu);
+    // Resolve the equipped loadout server-side from the catalog + the save's own
+    // content (see resolveEquippedLoadout). Falls back to the raw save/client
+    // jutsu only for old saves with no equippedJutsuIds and for NPCs.
+    const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter);
+    merged.jutsu = sanitizeJutsuList(resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu);
     merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
     // Strip everything that isn't combat-relevant. The session is read by
     // spectators (and by the unauth /api/pvp/stream endpoint) so anything
@@ -567,7 +631,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ]);
 
             if (p1Save?.character) {
-                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character);
+                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save);
             } else if (identity.admin) {
                 finalP1Character = hydrateNpcCharacter(p1Character);
             } else if (identity.name === p1Norm) {
@@ -578,13 +642,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (p2Save?.character) {
-                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character);
+                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character, p2Save);
             } else if (identity.admin) {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             } else if (identity.name === p2Norm) {
                 return res.status(400).json({ error: 'Your character save was not found on the server.' });
             } else {
                 finalP2Character = hydrateNpcCharacter(p2Character);
+            }
+
+            // #4 (newcomer protection / "below level 10 can't be attacked"):
+            // a sub-ATTACKABLE_MIN_LEVEL shinobi can't be pulled into a sector
+            // raid (useCurrentVitals) or a ranked battle as EITHER fighter.
+            // Read from the AUTHORITATIVE save level (not the online store, which
+            // can momentarily race to level 0), so a directly-POSTed / pre-created
+            // session can't bypass the attack.ts / ranked-queue gates. Consensual
+            // spars (useCurrentVitals=false & not ranked) stay open to everyone;
+            // admins keep their test override.
+            if (!identity.admin && (useCurrentVitals === true || ranked === true)) {
+                const p1Level = Number((finalP1Character.level as number) ?? 0);
+                const p2Level = Number((finalP2Character.level as number) ?? 0);
+                if (isBelowAttackableFloor(p1Level) || isBelowAttackableFloor(p2Level)) {
+                    return res.status(403).json({
+                        error: `Shinobi below level ${ATTACKABLE_MIN_LEVEL} are under newcomer protection — they can't take part in sector raids or ranked battles yet.`,
+                    });
+                }
             }
 
             // Sector / guard fights bring current vitals — refuse to start
