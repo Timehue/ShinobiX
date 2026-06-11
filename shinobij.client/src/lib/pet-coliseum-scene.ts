@@ -175,3 +175,81 @@ export function shakeAmpForBeat(
     if (opts.heavyHit) return 0.12;
     return 0;
 }
+
+// ── Grounding (Phase 1 — kill the "floating") ────────────────────────────────
+
+/** The opaque content's bounding box within a sprite image, normalized 0..1.
+ *  left/right are x fractions (0 = image left, 1 = image right); top/bottom are
+ *  y fractions (0 = image TOP, 1 = image BOTTOM). Generated pet sprites center
+ *  the creature in a square frame with transparent margin, so `bottom` is the
+ *  fraction at which the feet actually sit — the renderer anchors THAT to the
+ *  floor instead of the plane's literal bottom edge. */
+export type SpriteBounds = { left: number; right: number; top: number; bottom: number };
+
+/** Default bounds (used while the alpha scan is still loading or for the
+ *  procedural placeholder): a centered subject filling most of the frame. */
+export const DEFAULT_SPRITE_BOUNDS: SpriteBounds = { left: 0.14, right: 0.86, top: 0.08, bottom: 0.95 };
+
+/** Compute the opaque bounding box of an RGBA pixel buffer. Pure + testable.
+ *  `rgba` is a flat [r,g,b,a, r,g,b,a, …] buffer of width×height pixels; only
+ *  the alpha channel is read. Returns DEFAULT-style full frame if nothing
+ *  clears the alpha threshold. */
+export function spriteBoundsFromAlpha(
+    rgba: ArrayLike<number>,
+    width: number,
+    height: number,
+    threshold = 12,
+): SpriteBounds {
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (rgba[(y * width + x) * 4 + 3] > threshold) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    if (maxX < 0) return { left: 0, right: 1, top: 0, bottom: 1 };
+    return {
+        left: minX / width,
+        right: (maxX + 1) / width,
+        top: minY / height,
+        bottom: (maxY + 1) / height,
+    };
+}
+
+/** Where to place + how to size a billboard plane so the sprite's VISIBLE feet
+ *  sit on the floor (poseGroup origin y=0) and the visible content is centered
+ *  on the lane at a target height — regardless of the image's transparent
+ *  padding. Pure: the renderer feeds bounds (from the alpha scan), the image's
+ *  width/height aspect, a target content height, and whether the texture is
+ *  UV-mirrored (enemy side). */
+export type GroundedLayout = {
+    planeW: number;        // world width of the FULL-image plane
+    planeH: number;        // world height of the FULL-image plane
+    meshX: number;         // x offset to center the visible content on the lane
+    meshY: number;         // y offset so the content's bottom edge sits at y=0
+    contentWorldW: number; // visible content width in world units (for the shadow)
+    contentWorldH: number; // visible content height in world units (≈ targetH)
+};
+export function groundedSpriteLayout(
+    bounds: SpriteBounds,
+    imageAspect: number,   // image width / height
+    targetH: number,       // desired on-screen content height in world units
+    mirrored: boolean,
+): GroundedLayout {
+    const contentFracH = Math.max(0.05, bounds.bottom - bounds.top);
+    const contentFracW = Math.max(0.02, bounds.right - bounds.left);
+    const planeH = targetH / contentFracH;
+    const planeW = planeH * (imageAspect > 0 ? imageAspect : 1);
+    // Content bottom (image y = bounds.bottom) → plane-local y = planeH*(0.5 - bottom);
+    // lift the mesh by the negative of that so it lands at the feet pivot (y=0).
+    const meshY = planeH * (bounds.bottom - 0.5);
+    // Center the visible content horizontally; the UV mirror swaps left/right.
+    const cx = (bounds.left + bounds.right) / 2;
+    const displayedCx = mirrored ? 1 - cx : cx;
+    const meshX = -planeW * (displayedCx - 0.5);
+    return { planeW, planeH, meshX, meshY, contentWorldW: planeW * contentFracW, contentWorldH: planeH * contentFracH };
+}
