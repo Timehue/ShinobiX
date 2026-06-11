@@ -48,11 +48,11 @@ const FX_Y = 1.0; // mid-body height for impacts / casts
 // backdrop's stands/crowd/sky fill the upper frame while the floor + grounded
 // pets sit lower. Shared so the Canvas, onCreated, CameraRig + OrbitControls
 // all agree on the same look target.
-// Pulled back + raised a touch vs the original [0,4.1,10.8] so more of the
-// designed battle-map floor shows and the pets read as crossing a field (the
-// "camera back" map framing). Tunable — nudge y/z if it's too wide/tight.
-const CAM_POS: Vec3 = [0, 4.7, 11.7];
-const CAM_LOOK: Vec3 = [0, 1.7, -2.2];
+// Pulled back + raised to frame the ENLARGED arena (7.0×4.0 footprint) so the
+// whole tactical battlefield + four pets fit without cropping. Scales with the
+// footprint so pets stay readable. Tunable — nudge y/z if it's too wide/tight.
+const CAM_POS: Vec3 = [0, 5.9, 14.8];
+const CAM_LOOK: Vec3 = [0, 1.65, -2.6];
 const CAM_FOV = 36;
 
 // Generated coliseum scene art (OpenAI gpt-image-1 → WebP, bundled). Resolved
@@ -208,7 +208,7 @@ function shadowTexture(): THREE.CanvasTexture {
 
 // Base visible-content height in world units — every creature is grounded to
 // this VISIBLE height (consistent silhouettes; padding no longer varies size).
-const TARGET_SPRITE_H = 2.35;
+const TARGET_SPRITE_H = 2.6;
 
 // ── One grounded pet standee — Y-locked billboard, feet on the floor ─────────
 function Standee({
@@ -642,15 +642,16 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
         <group>
             <ambientLight ref={ambient} intensity={0.95} />
             <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
-            {/* Curved coliseum wall (inner face of a cylinder arc behind the pit). */}
-            <mesh position={[0, 5.4, 0]}>
-                <cylinderGeometry args={[16, 16, 18, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
+            {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
+                Sized to ring the ENLARGED floor so no aspect exposes void. */}
+            <mesh position={[0, 6.0, 0]}>
+                <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
-            {/* Generated arena floor. (Per-pet blob shadows ground the sprites —
-                the old global ContactShadows read as ambient darkening.) */}
+            {/* Generated arena floor (enlarged with the footprint). Per-pet blob
+                shadows ground the sprites. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[11, 64]} />
+                <circleGeometry args={[14, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
         </group>
