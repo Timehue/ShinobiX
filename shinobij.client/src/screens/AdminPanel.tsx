@@ -1442,6 +1442,30 @@ export function AdminPanel({
         // Auto-persist: wait for React to re-render with the new state, then save
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
+
+    function deleteAdminJutsu(jutsuId = editingJutsuId) {
+        if (!jutsuId) return alert("Load an existing admin jutsu first.");
+        const label = allGameJutsus.find((jutsu) => jutsu.id === jutsuId)?.name ?? jutsuId;
+        if (!confirm(`Permanently delete "${label}"? This cannot be undone.`)) return;
+        const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === jutsuId));
+        if (sourceBloodline) {
+            const remaining = sourceBloodline.jutsus.filter((jutsu) => jutsu.id !== jutsuId);
+            setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
+                ...bloodline,
+                jutsus: remaining,
+                totalPoints: remaining.reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
+            } : bloodline));
+        } else if (creatorJutsus.some((jutsu) => jutsu.id === jutsuId)) {
+            setCreatorJutsus(creatorJutsus.filter((jutsu) => jutsu.id !== jutsuId));
+        } else {
+            return alert("That's a built-in starter jutsu — it can't be deleted, only overridden via Save Loaded Jutsu.");
+        }
+        if (jutsuId === editingJutsuId) setEditingJutsuId("");
+        alert(`${label} deleted.`);
+        // Auto-persist: wait for React to re-render with the new state, then save
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+    }
+
     function eventFromForm(id = `event-${makeId()}`): CreatorEvent {
         const existingEvent = allEditableEvents.find((event) => event.id === id);
         const targetSector = Math.max(1, Math.min(99, Number(eventTargetSector)));
@@ -2107,9 +2131,12 @@ export function AdminPanel({
                             <TagPicker tag={tag4} setTag={setTag4} percent={tag4Percent} setPercent={setTag4Percent} />
                             <div className="menu">
                                 <button onClick={createAdminJutsu}>Create + Import Jutsu</button>
-                                <button onClick={saveAdminJutsuEdit}>Save Loaded Jutsu</button>
+                                {editingJutsuId && <button onClick={saveAdminJutsuEdit}>Save Loaded Jutsu</button>}
+                                {editingJutsuId && <button className="danger-button" onClick={() => deleteAdminJutsu()}>Delete Loaded Jutsu</button>}
                             </div>
-                            {editingJutsuId && <p className="hint">Editing jutsu: {editingJutsuId}</p>}
+                            {editingJutsuId
+                                ? <p className="hint">Editing jutsu: {editingJutsuId} — Save persists your edits (e.g. removing a tag); Delete removes it permanently.</p>
+                                : <p className="hint">Load a jutsu below to Save or Delete it.</p>}
                         </section>
 
                     </div>
@@ -2959,13 +2986,17 @@ export function AdminPanel({
                                 <p><strong>Effects:</strong> {describeJutsuEffects(jutsu)}</p>
                             </>
                         )}
-                        renderActions={(jutsu) => (
-                            <>
-                                <button onClick={() => loadAdminJutsu(jutsu)}>Load In Editor</button>
-                                <button onClick={() => updateCharacter({ ...character, equippedJutsuIds: [...new Set([...character.equippedJutsuIds, jutsu.id])].slice(0, 15) })}>Equip</button>
-                                {creatorJutsus.some((created) => created.id === jutsu.id) && <button className="danger-button" onClick={() => setCreatorJutsus(creatorJutsus.filter((created) => created.id !== jutsu.id))}>Delete Override</button>}
-                            </>
-                        )}
+                        renderActions={(jutsu) => {
+                            const deletable = creatorJutsus.some((created) => created.id === jutsu.id)
+                                || savedBloodlines.some((bloodline) => bloodline.jutsus.some((blJutsu) => blJutsu.id === jutsu.id));
+                            return (
+                                <>
+                                    <button onClick={() => loadAdminJutsu(jutsu)}>Load In Editor</button>
+                                    {deletable && <button className="danger-button" onClick={() => deleteAdminJutsu(jutsu.id)}>Delete</button>}
+                                    <button onClick={() => updateCharacter({ ...character, equippedJutsuIds: [...new Set([...character.equippedJutsuIds, jutsu.id])].slice(0, 15) })}>Equip</button>
+                                </>
+                            );
+                        }}
                     />
                     <section className="summary-box">
                         <h3>Equipment Item Builder</h3>
