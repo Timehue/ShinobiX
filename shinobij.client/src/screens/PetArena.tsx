@@ -20,11 +20,11 @@ import {
     type PetArenaFrame,
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
+import { petColiseumEnabled, setPetColiseumEnabled } from "../lib/pet-coliseum-flag";
 
 // HD-2D coliseum renderer — lazy so three/react-three-fiber load ONLY when the
 // "Cinematic arena" flag is on, keeping the cold-landing bundle untouched.
 const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
-const PET_COLISEUM_FLAG = "petColiseum.v1";
 
 export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
@@ -41,11 +41,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
     // Last party result, shown as a summary block ("2–0 — You take the set!").
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
-    // Opt-in HD-2D "cinematic" coliseum renderer (beta). Persisted per-device;
-    // toggles the battle PRESENTATION only — the engine/frames are identical.
-    const [useColiseum, setUseColiseum] = useState(() => {
-        try { return localStorage.getItem(PET_COLISEUM_FLAG) === "1"; } catch { return false; }
-    });
+    // HD-2D "cinematic" coliseum renderer — DEFAULT ON (the classic battlefield
+    // stays fully intact behind this toggle as the fallback). Persisted
+    // per-device; toggles the battle PRESENTATION only — engine/frames identical.
+    const [useColiseum, setUseColiseum] = useState(() => petColiseumEnabled());
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -778,11 +777,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     onClick={() => {
                         setUseColiseum((on) => {
                             const next = !on;
-                            try { localStorage.setItem(PET_COLISEUM_FLAG, next ? "1" : "0"); } catch { /* ignore */ }
+                            setPetColiseumEnabled(next);
                             return next;
                         });
                     }}
-                    title="Toggle the experimental HD-2D 3D arena (cosmetic only — same battle outcome)"
+                    title="Toggle between the cinematic HD-2D arena and the classic battlefield (cosmetic only — same battle outcome)"
                     style={{ marginLeft: "auto", background: useColiseum ? "#6d28d9" : undefined }}
                 >
                     {useColiseum ? "🎬 Cinematic arena: ON" : "🎬 Cinematic arena: OFF"}

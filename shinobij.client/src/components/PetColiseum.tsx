@@ -155,6 +155,8 @@ function Standee({
     const group = useRef<THREE.Group>(null);
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const flashMat = useRef<THREE.MeshBasicMaterial>(null);
+    const prevHurt = useRef(0);
     const planeH = 2.5;
     const planeW = 2.3;
     const base = pos;
@@ -175,10 +177,19 @@ function Standee({
         m.scale.x = lerp(m.scale.x, target.sx, k);
         m.scale.y = lerp(m.scale.y, target.sy, k);
         m.rotation.z = lerp(m.rotation.z, target.rot, k);
-        // Damage tint (red dip) + fade.
-        material.color.g = lerp(material.color.g, 1 - 0.5 * target.hurt, k);
-        material.color.b = lerp(material.color.b, 1 - 0.5 * target.hurt, k);
+        // Hit feedback: a bright WHITE flash (additive overlay pops then decays
+        // fast) plus a soft red tint dip underneath.
+        material.color.g = lerp(material.color.g, 1 - 0.3 * target.hurt, k);
+        material.color.b = lerp(material.color.b, 1 - 0.3 * target.hurt, k);
         material.opacity = lerp(material.opacity, target.opacity, k);
+        if (flashMat.current) {
+            const f = flashMat.current;
+            // Snap bright the instant a hit lands, then decay fast — reads as a
+            // camera-flash impact instead of a sustained glow.
+            if (target.hurt > 0 && prevHurt.current === 0) f.opacity = 0.9;
+            else f.opacity = f.opacity < 0.01 ? 0 : f.opacity * 0.82;
+            prevHurt.current = target.hurt;
+        }
     });
 
     const safeMax = Math.max(1, maxHp);
@@ -190,6 +201,12 @@ function Standee({
                 <mesh ref={mesh} position={[0, planeH / 2, 0]}>
                     <planeGeometry args={[planeW, planeH]} />
                     <meshBasicMaterial ref={mat} map={texture} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
+                    {/* Additive copy of the sprite = the white hit-flash. Child of
+                        the main mesh so it inherits the squash/tilt transforms. */}
+                    <mesh position={[0, 0, 0.01]}>
+                        <planeGeometry args={[planeW, planeH]} />
+                        <meshBasicMaterial ref={flashMat} map={texture} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
                 </mesh>
             </Billboard>
             <Html position={[0, planeH + 0.15, 0]} center distanceFactor={9} pointerEvents="none" zIndexRange={[6, 0]}>
@@ -201,6 +218,58 @@ function Standee({
                     <div style={{ color: "#cbd5e1", fontSize: 10, marginTop: 2 }} data-hpnum={side}>{Math.max(0, Math.round(hp))}/{safeMax}</div>
                 </div>
             </Html>
+        </group>
+    );
+}
+
+// ── Dust kick-up — a soft procedural puff at a pet's feet on lunges/dodges ────
+let _dustTexture: THREE.CanvasTexture | null = null;
+function dustTexture(): THREE.CanvasTexture {
+    if (_dustTexture) return _dustTexture;
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    // A few overlapping soft sand-coloured blobs (fixed layout — no RNG).
+    const blobs: Array<[number, number, number, number]> = [
+        [0.5, 0.62, 0.30, 0.5], [0.32, 0.55, 0.20, 0.4], [0.68, 0.56, 0.22, 0.4], [0.5, 0.42, 0.18, 0.3],
+    ];
+    for (const [bx, by, br, alpha] of blobs) {
+        const rad = g.createRadialGradient(bx * S, by * S, 2, bx * S, by * S, br * S);
+        rad.addColorStop(0, `rgba(214, 196, 158, ${alpha})`);
+        rad.addColorStop(1, "rgba(214, 196, 158, 0)");
+        g.fillStyle = rad;
+        g.fillRect(0, 0, S, S);
+    }
+    _dustTexture = new THREE.CanvasTexture(c);
+    _dustTexture.colorSpace = THREE.SRGBColorSpace;
+    return _dustTexture;
+}
+
+function DustPuff({ at, onDone }: { at: Vec3; onDone: () => void }) {
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const grp = useRef<THREE.Group>(null);
+    const start = useRef<number | null>(null);
+    const DUR = 0.45; // seconds
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / DUR);
+        if (grp.current) {
+            const s = 0.7 + p * 1.1;
+            grp.current.scale.set(s, s * 0.7, s);
+            grp.current.position.y = at[1] + p * 0.25;
+        }
+        if (mat.current) mat.current.opacity = 0.65 * (1 - p);
+        if (p >= 1) onDone();
+    });
+    return (
+        <group ref={grp} position={at}>
+            <Billboard>
+                <mesh>
+                    <planeGeometry args={[1.1, 0.8]} />
+                    <meshBasicMaterial ref={mat} map={dustTexture()} transparent opacity={0.65} depthWrite={false} toneMapped={false} />
+                </mesh>
+            </Billboard>
         </group>
     );
 }
@@ -267,9 +336,13 @@ function CameraRig({ amp, shakeKey }: { amp: number; shakeKey: number }) {
         cur.current *= 0.86;
         const a = cur.current;
         const t = state.clock.elapsedTime;
+        // Slow idle drift keeps the shot alive between beats; the decaying
+        // high-frequency sinusoid on top is the impact shake.
+        const swayX = Math.sin(t * 0.45) * 0.12;
+        const swayY = Math.sin(t * 0.3) * 0.05;
         camera.position.set(
-            base.current.x + (a > 0.001 ? Math.sin(t * 53) * a : 0),
-            base.current.y + (a > 0.001 ? Math.sin(t * 61) * a * 0.6 : 0),
+            base.current.x + swayX + (a > 0.001 ? Math.sin(t * 53) * a : 0),
+            base.current.y + swayY + (a > 0.001 ? Math.sin(t * 61) * a * 0.6 : 0),
             base.current.z,
         );
         camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]);
@@ -278,15 +351,33 @@ function CameraRig({ amp, shakeKey }: { amp: number; shakeKey: number }) {
 }
 
 function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Texture }) {
+    const ambient = useRef<THREE.AmbientLight>(null);
+    const sun = useRef<THREE.DirectionalLight>(null);
+    // Wrap the painted backdrop around a cylinder arc so the coliseum wall
+    // CURVES around the arena instead of sitting flat behind it. Mirrored
+    // 2× repeat keeps the stands from stretching across the long arc.
+    const wall = useMemo(() => {
+        const t = backdrop.clone();
+        t.wrapS = THREE.MirroredRepeatWrapping;
+        t.repeat.set(2, 1);
+        t.needsUpdate = true;
+        return t;
+    }, [backdrop]);
+    // Torch/firelight flicker — a subtle, deterministic-feel (pure sin mix)
+    // modulation of the scene lights so the whole arena breathes like firelight.
+    useFrame((state) => {
+        const t = state.clock.elapsedTime;
+        if (ambient.current) ambient.current.intensity = 0.95 + Math.sin(t * 7.3) * 0.025 + Math.sin(t * 12.7) * 0.018;
+        if (sun.current) sun.current.intensity = 0.9 + Math.sin(t * 9.1) * 0.03;
+    });
     return (
         <group>
-            <ambientLight intensity={0.95} />
-            <directionalLight position={[3, 8, 5]} intensity={0.9} />
-            {/* Painted coliseum backdrop — a wide wall of stands/crowd/sky behind
-                the arena (unlit + fog-exempt so the art reads as generated). */}
-            <mesh position={[0, 4.6, -12]}>
-                <planeGeometry args={[40, 17.5]} />
-                <meshBasicMaterial map={backdrop} toneMapped={false} depthWrite={false} fog={false} />
+            <ambientLight ref={ambient} intensity={0.95} />
+            <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
+            {/* Curved coliseum wall (inner face of a cylinder arc behind the pit). */}
+            <mesh position={[0, 5.4, 0]}>
+                <cylinderGeometry args={[16, 16, 18, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
+                <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
             {/* Generated arena floor. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
@@ -296,6 +387,25 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
             <ContactShadows position={[0, 0.01, 0]} scale={19} blur={2.4} opacity={0.5} far={6} resolution={512} />
         </group>
     );
+}
+
+/** Adapt the camera to the canvas aspect: portrait/narrow screens widen the
+ *  FOV so both sides of the arena stay in frame on mobile. Applied per-frame
+ *  (no-op unless it changed) — the idiomatic r3f mutation point. */
+function ResponsiveCamera() {
+    const { camera, size } = useThree();
+    useFrame(() => {
+        const aspect = size.width / Math.max(1, size.height);
+        const fov = aspect < 0.8 ? 56 : aspect < 1.2 ? 47 : CAM_FOV;
+        const cam = camera as THREE.PerspectiveCamera;
+        if (cam.fov !== fov) {
+            // eslint-disable-next-line react-hooks/immutability -- the r3f camera is a mutable three.js object; per-frame mutation inside useFrame is the library's idiomatic pattern (same as CameraRig's position writes)
+            cam.fov = fov;
+            cam.updateProjectionMatrix();
+            cam.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]);
+        }
+    });
+    return null;
 }
 
 type FxInstance = { id: number; frames: string[]; from: Vec3; to?: Vec3; durationMs: number; scale: number };
@@ -447,6 +557,7 @@ export function PetColiseum({
     //    renderer's fx effect; uses world coords from the sim tiles). ──
     const [fx, setFx] = useState<FxInstance[]>([]);
     const [labels, setLabels] = useState<LabelInstance[]>([]);
+    const [dusts, setDusts] = useState<{ id: number; at: Vec3 }[]>([]);
     const seq = useRef(0);
     useEffect(() => {
         if (winnerSide || !activeAnimEvent) return;
@@ -473,6 +584,12 @@ export function PetColiseum({
             if (f) { const id = seq.current++; setFx((p) => [...p, { id, frames: f, from: focal, durationMs: 360, scale: 1.7 }]); }
         }
 
+        // Dust kick-up at the mover's feet on lunges and dodges.
+        if (beat === "lunge" || beat === "dodge") {
+            const id = seq.current++;
+            setDusts((p) => [...p, { id, at: [self3.x, 0.06, self3.z] }]);
+        }
+
         // Floating number on the damage beat.
         if (beat === "damageNumber" && activeAnimEvent.text) {
             const id = seq.current++;
@@ -489,10 +606,38 @@ export function PetColiseum({
     const toast = frame && !frame.isPrefight && frame.actionKind && frame.actionKind !== "result" && moveName
         ? `${actorName} used ${moveName}!` : null;
 
+    // ── Announcer — the DOM renderer's reactive hype caller, ported verbatim.
+    //    Empty on routine frames so it only shouts when something earns it. ──
+    const commentary: string = (() => {
+        if (!frame || frame.isPrefight || frame.actionKind === "result" || winnerSide) return "";
+        if (frame.isKO) return "DOWN IT GOES!";
+        if (frame.signatureMove) return "SIGNATURE MOVE!";
+        if (/endures at 1 HP/.test(frame.message)) return "IT REFUSES TO FALL!";
+        if (/Lifeline heals/.test(frame.message)) return "CLUTCH RECOVERY!";
+        if (/dodges|evades/.test(frame.message)) return "NOTHING BUT AIR!";
+        if (frame.crit) return "CRITICAL HIT!";
+        if ((frame.combo ?? 0) >= 3) return `COMBO ×${frame.combo}!`;
+        const low = Math.min(playerPct, enemyPct);
+        if (low <= 12) return "ONE HIT FROM DEFEAT!";
+        if (low <= 30) return "ON THE ROPES!";
+        return "";
+    })();
+    // Signature cut-in banner — shown for the whole signature frame.
+    const sigCutin = frame && !winnerSide && frame.signatureMove
+        ? { pet: frame.signatureMove.petName, move: frame.signatureMove.name, enemy: frame.signatureMove.side === "enemy" }
+        : null;
+
     return (
-        <div style={{ position: "relative", width: "100%", height: 560, borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+        <div style={{ position: "relative", width: "100%", height: "clamp(380px, 62vh, 700px)", borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+            {/* Keyframes for the DOM overlays (cut-in sweep, announcer pop). */}
+            <style>{`
+                @keyframes colCutinSweep { 0% { transform: translateX(var(--from)) skewX(-8deg); opacity: 0; } 18% { transform: translateX(0) skewX(-8deg); opacity: 1; } 82% { transform: translateX(0) skewX(-8deg); opacity: 1; } 100% { transform: translateX(var(--to)) skewX(-8deg); opacity: 0; } }
+                @keyframes colAnnouncerPop { 0% { transform: translateX(-50%) scale(0.6); opacity: 0; } 25% { transform: translateX(-50%) scale(1.08); opacity: 1; } 75% { transform: translateX(-50%) scale(1); opacity: 1; } 100% { transform: translateX(-50%) scale(0.95); opacity: 0; } }
+                @media (prefers-reduced-motion: reduce) { .col-cutin, .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } }
+            `}</style>
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
+                <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} />
                 {(() => {
                     // Combatant list: the two leads (1v1), or all four slots when
@@ -545,6 +690,9 @@ export function PetColiseum({
                 {fx.map((f) => (
                     <FxAnim key={f.id} frames={f.frames} from={f.from} to={f.to} durationMs={f.durationMs} scale={f.scale}
                         onDone={() => setFx((p) => p.filter((x) => x.id !== f.id))} />
+                ))}
+                {dusts.map((d) => (
+                    <DustPuff key={d.id} at={d.at} onDone={() => setDusts((p) => p.filter((x) => x.id !== d.id))} />
                 ))}
                 {labels.map((l) => (
                     <Html key={l.id} position={l.pos} center distanceFactor={9} pointerEvents="none" zIndexRange={[20, 0]}>
@@ -605,6 +753,32 @@ export function PetColiseum({
                     </div>
                 );
             })()}
+
+            {/* Announcer hype line — top-centre pop, only on dramatic beats. */}
+            {commentary && (
+                <div key={`ann-${frame?.message}`} className="col-announcer" style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", padding: "7px 18px", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(250,204,21,0.55)", borderRadius: 999, color: "#fde68a", font: "900 15px Inter, system-ui, sans-serif", letterSpacing: "0.06em", textShadow: "0 0 12px rgba(250,204,21,0.45)", whiteSpace: "nowrap", animation: "colAnnouncerPop 1.6s ease-out both", pointerEvents: "none", zIndex: 5 }}>
+                    {commentary}
+                </div>
+            )}
+
+            {/* Signature cut-in — a skewed banner sweeping in from the caster's side. */}
+            {sigCutin && (
+                <div key={`sig-${frame?.message}`} className="col-cutin" style={{ position: "absolute", top: "34%", left: 0, right: 0, display: "flex", justifyContent: "center", pointerEvents: "none", zIndex: 6 }}>
+                    <div style={{
+                        ["--from" as string]: sigCutin.enemy ? "60vw" : "-60vw",
+                        ["--to" as string]: sigCutin.enemy ? "-60vw" : "60vw",
+                        animation: "colCutinSweep 1.9s cubic-bezier(.22,.9,.3,1) both",
+                        padding: "10px 34px",
+                        background: "linear-gradient(100deg, rgba(15,23,42,0.95) 0%, rgba(109,40,217,0.92) 50%, rgba(15,23,42,0.95) 100%)",
+                        border: "1px solid rgba(196,181,253,0.6)", borderRadius: 8,
+                        boxShadow: "0 6px 30px rgba(109,40,217,0.45)",
+                        textAlign: "center",
+                    }}>
+                        <div style={{ color: "#c4b5fd", font: "700 12px Inter, system-ui, sans-serif", letterSpacing: "0.2em", textTransform: "uppercase" }}>{sigCutin.pet}</div>
+                        <div style={{ color: "#fff", font: "900 22px Inter, system-ui, sans-serif", textShadow: "0 0 16px rgba(196,181,253,0.8)" }}>{sigCutin.move}!</div>
+                    </div>
+                </div>
+            )}
 
             {toast && (
                 <div key={frame?.message} style={{ position: "absolute", top: 56, right: 14, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(15,23,42,0.92)", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", boxShadow: "0 4px 16px #0008" }}>
