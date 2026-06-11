@@ -48,9 +48,9 @@ const FX_Y = 1.0; // mid-body height for impacts / casts
 // backdrop's stands/crowd/sky fill the upper frame while the floor + grounded
 // pets sit lower. Shared so the Canvas, onCreated, CameraRig + OrbitControls
 // all agree on the same look target.
-const CAM_POS: Vec3 = [0, 3.4, 8.9];
-const CAM_LOOK: Vec3 = [0, 1.9, -2.5];
-const CAM_FOV = 34;
+const CAM_POS: Vec3 = [0, 4.1, 10.8];
+const CAM_LOOK: Vec3 = [0, 1.8, -2.2];
+const CAM_FOV = 36;
 
 // Generated coliseum scene art (OpenAI gpt-image-1 → WebP, bundled). Resolved
 // via new URL(...) so Vite rewrites them to hashed asset URLs at build time —
@@ -284,16 +284,16 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
             <directionalLight position={[3, 8, 5]} intensity={0.9} />
             {/* Painted coliseum backdrop — a wide wall of stands/crowd/sky behind
                 the arena (unlit + fog-exempt so the art reads as generated). */}
-            <mesh position={[0, 4.2, -10.5]}>
-                <planeGeometry args={[34, 15]} />
+            <mesh position={[0, 4.6, -12]}>
+                <planeGeometry args={[40, 17.5]} />
                 <meshBasicMaterial map={backdrop} toneMapped={false} depthWrite={false} fog={false} />
             </mesh>
             {/* Generated arena floor. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[9, 64]} />
+                <circleGeometry args={[11, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
-            <ContactShadows position={[0, 0.01, 0]} scale={16} blur={2.4} opacity={0.5} far={6} resolution={512} />
+            <ContactShadows position={[0, 0.01, 0]} scale={19} blur={2.4} opacity={0.5} far={6} resolution={512} />
         </group>
     );
 }
@@ -492,7 +492,7 @@ export function PetColiseum({
     return (
         <div style={{ position: "relative", width: "100%", height: 560, borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
-                <fog attach="fog" args={["#2a1c10", 22, 48]} />
+                <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <Arena floor={floor} backdrop={backdrop} />
                 {(() => {
                     // Combatant list: the two leads (1v1), or all four slots when

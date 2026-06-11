@@ -95,9 +95,9 @@ test("faceOffPositions: same tile still separates (no NaN)", () => {
 });
 
 test("lungeReach: stops at contact, capped, never negative", () => {
-    assert.ok(lungeReach(1.7) < 1.7, "melee lunge stops short of the target");
-    assert.ok(lungeReach(1.7) > 0, "melee lunge still moves");
-    assert.equal(lungeReach(10), 1.6, "long lunge capped at MAX_LUNGE");
+    assert.ok(lungeReach(1.9) < 1.9, "melee lunge stops short of the target");
+    assert.ok(lungeReach(1.9) > 0, "melee lunge still moves");
+    assert.equal(lungeReach(10), 2.2, "long lunge capped at MAX_LUNGE");
     assert.equal(lungeReach(0.5), 0.25, "tiny gap still gives a minimal hop");
 });
 
