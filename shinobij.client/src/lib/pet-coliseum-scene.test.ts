@@ -11,6 +11,7 @@ import {
     beatTimeline,
     beatChoreoMs,
     LEAP_HEIGHT,
+    arenaObstaclePlacements,
     spriteBoundsFromAlpha,
     groundedSpriteLayout,
     formationSlots,
@@ -284,6 +285,37 @@ test("beatChoreoMs: action poses have a real span, static poses are instant", ()
     assert.ok(beatChoreoMs("lunge") > 100 && beatChoreoMs("recoil") > 100, "action poses run a timeline");
     assert.equal(beatChoreoMs("idle"), 1, "idle is instant (progress irrelevant)");
     assert.ok(LEAP_HEIGHT > 0, "leap has height");
+});
+
+test("arenaObstaclePlacements: typed tiles map to world positions by kind, normal skipped", () => {
+    const tiles = [
+        { row: 3, col: 6, type: "blocked" as const },
+        { row: 3, col: 7, type: "cover" as const },
+        { row: 2, col: 5, type: "hazard" as const },
+        { row: 4, col: 8, type: "healing" as const },
+        { row: 1, col: 9, type: "slow" as const },
+        { row: 0, col: 0, type: "normal" as const }, // skipped
+    ];
+    const out = arenaObstaclePlacements([], tiles);
+    assert.equal(out.length, 5, "normal tile is not drawn");
+    assert.deepEqual(out.map((p) => p.kind).sort(), ["blocked", "cover", "hazard", "healing", "slow"]);
+    // World position must match the same tileToWorld the pets stand on.
+    const blocked = out.find((p) => p.kind === "blocked")!;
+    const w = tileToWorld(3 * COLISEUM_COLS + 6);
+    assert.ok(Math.abs(blocked.x - w.x) < 1e-9 && Math.abs(blocked.z - w.z) < 1e-9, "blocked tile sits on its grid cell");
+});
+
+test("arenaObstaclePlacements: falls back to raw obstacles (all blocked) when no typed tiles", () => {
+    const idx = 3 * COLISEUM_COLS + 6;
+    const out = arenaObstaclePlacements([idx, idx + 1], []);
+    assert.equal(out.length, 2);
+    assert.ok(out.every((p) => p.kind === "blocked"), "raw obstacles render as blocked walls");
+    assert.deepEqual(out[0], { ...tileToWorld(idx), kind: "blocked" });
+});
+
+test("arenaObstaclePlacements: empty inputs → no placements", () => {
+    assert.deepEqual(arenaObstaclePlacements([], []), []);
+    assert.deepEqual(arenaObstaclePlacements(undefined, undefined), []);
 });
 
 test("spreadPositions: 4 clustered pets (2v2) all end pairwise separated", () => {
