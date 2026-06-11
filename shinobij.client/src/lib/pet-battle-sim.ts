@@ -10,7 +10,7 @@
  * load-bearing for ranked pet PvP (both clients run an identical canonical
  * simulation from the same seed), so the RNG call order here must not change.
  */
-import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import {
@@ -735,6 +735,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     const slowTiles = arenaTiles.slow;
     // Central high ground (terrain depth) — holding it grants a round-end ward.
     const highGroundTiles = petHighGroundTiles(obstacles);
+    // Power-pickup shrines (terrain depth) — claimed for a one-time surge. Mutable
+    // (claimed shrines are removed); each frame carries the remaining set so the
+    // renderer can draw + vanish them.
+    const pickups = new Set<number>(petPickupTiles(obstacles));
     // Compiled tile-type lookup for the scored AI (Phase 10).
     const arena = makeArena(arenaTiles.tiles);
 
@@ -798,7 +802,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         });
         const playerStatus = statusOf(player);
         const enemyStatus  = statusOf(enemy);
-        frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, signatureMove, playerStatus, enemyStatus });
+        frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, signatureMove, playerStatus, enemyStatus, pickups: Array.from(pickups) });
     }
 
     // Pre-fight face-off frame
@@ -1630,6 +1634,17 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             enemy = { ...enemy, shieldHp: hgWard(enemy) };
             logs.push(`Round ${round}: ${enemy.pet.name} holds the high ground — warded (${enemy.shieldHp}).`);
         }
+        // Power pickups — the nearest pet within reach (≤1 tile) of a shrine
+        // claims a one-time attack surge + a small restore, then it's consumed.
+        const claimSurge = (f: PetBattleFighter): PetBattleFighter => ({ ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor(f.pet.attack * 0.2)), hp: Math.min(f.pet.hp, f.hp + Math.floor(f.pet.hp * 0.1)) });
+        for (const tile of [...pickups]) {
+            const dp = player.hp > 0 ? tileDistance(player.pos, tile) : Infinity;
+            const de = enemy.hp > 0 ? tileDistance(enemy.pos, tile) : Infinity;
+            if (Math.min(dp, de) > 1) continue;
+            if (dp <= de) { player = claimSurge(player); logs.push(`Round ${round}: ${player.pet.name} claims a power shrine — empowered!`); }
+            else { enemy = claimSurge(enemy); logs.push(`Round ${round}: ${enemy.pet.name} claims a power shrine — empowered!`); }
+            pickups.delete(tile);
+        }
         if (player.hp <= 0 || enemy.hp <= 0) break;
 
         const roundMessage = `Round ${round}: ${player.pet.name} ${player.hp}/${player.pet.hp} HP | ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP`;
@@ -1869,6 +1884,9 @@ export function runPetArenaParty(
     const slowTiles = arenaTiles.slow;
     // Central high ground (terrain depth) — holding it grants a round-end ward.
     const highGroundTiles = petHighGroundTiles(obstacles);
+    // Power-pickup shrines (terrain depth) — claimed for a one-time surge; the
+    // mutable set rides out on each frame so the renderer draws + vanishes them.
+    const pickups = new Set<number>(petPickupTiles(obstacles));
 
     // Starting positions on the 14×7 grid:
     //   playerLead    = col 1, row 2 = 29
@@ -1953,6 +1971,7 @@ export function runPetArenaParty(
             isPrefight, isKO,
             playerStatus: statusObj(primPlayer),
             enemyStatus:  statusObj(primEnemy),
+            pickups: Array.from(pickups),
             party4v4: {
                 playerLead:    slotSnapshot("playerLead"),
                 playerReserve: slotSnapshot("playerReserve"),
@@ -2643,6 +2662,23 @@ export function runPetArenaParty(
                 fighters[s] = { ...f, shieldHp: ward };
                 logs.push(`Round ${round}: ${f.pet.name} holds the high ground — warded (${ward}).`);
             }
+        }
+
+        // Power pickups — the nearest pet within reach (≤1 tile) of a shrine
+        // claims a one-time attack surge + small restore, then it's consumed.
+        for (const tile of [...pickups]) {
+            let bestSlot: PartySlot | undefined, bestD = Infinity;
+            for (const s of ALL_SLOTS) {
+                const f = fighters[s];
+                if (!f || f.hp <= 0) continue;
+                const d = tileDistance(f.pos, tile);
+                if (d < bestD) { bestD = d; bestSlot = s; }
+            }
+            if (!bestSlot || bestD > 1) continue;
+            const f = fighters[bestSlot]!;
+            fighters[bestSlot] = { ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor(f.pet.attack * 0.2)), hp: Math.min(f.pet.hp, f.hp + Math.floor(f.pet.hp * 0.1)) };
+            logs.push(`Round ${round}: ${f.pet.name} claims a power shrine — empowered!`);
+            pickups.delete(tile);
         }
 
         // Round summary frame
