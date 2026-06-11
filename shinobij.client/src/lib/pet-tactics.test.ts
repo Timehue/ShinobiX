@@ -12,6 +12,7 @@ import {
     moveAway,
     getValidMoveTiles,
     petArchetypeFor,
+    petPairBond,
     buildArenaTiles,
     makeArena,
     isAdjacentToAny,
@@ -144,6 +145,36 @@ test("isAdjacentToAny detects an orthogonally adjacent tile", () => {
     assert.equal(isAdjacentToAny(tileToIndex(3, 6), cover), true);  // right of cover
     assert.equal(isAdjacentToAny(tileToIndex(3, 7), cover), false); // two away
     assert.equal(isAdjacentToAny(tileToIndex(3, 5), cover), false); // same tile, not adjacent
+});
+
+// ── 2v2 team bonds (type/trait teamwork) ─────────────────────────────────
+
+test("petPairBond: a frontline anchor + a different role is cohesive (stick together)", () => {
+    const tank = pet({ trait: "Guardian" });   // → tank (anchor)
+    const striker = pet({});                    // default stats → striker
+    assert.equal(petPairBond(tank, striker), "cohesive");
+});
+
+test("petPairBond: two pure aggressors split (divide and conquer)", () => {
+    assert.equal(petPairBond(pet({}), pet({})), "split"); // striker + striker
+});
+
+test("petPairBond: a plain duo with no synergy is neutral", () => {
+    const statTank = () => pet({ defense: 60 }); // def-heavy → tank, no Guardian trait
+    assert.equal(petPairBond(statTank(), statTank()), "neutral");
+});
+
+test("petPairBond: kindred element pulls an otherwise-neutral pair to cohesive", () => {
+    const fireTank = () => pet({ defense: 60, element: "Fire" });
+    assert.equal(petPairBond(fireTank(), fireTank()), "cohesive");          // same element
+    assert.equal(petPairBond(pet({ defense: 60, element: "Fire" }), pet({ defense: 60, element: "Water" })), "neutral"); // mixed
+});
+
+test("petPairBond is symmetric", () => {
+    const a = pet({ trait: "Guardian", element: "Earth" });
+    const b = pet({ trait: "Aggressive", attack: 80, defense: 20 });
+    assert.equal(petPairBond(a, b), petPairBond(b, a));
+    assert.equal(petPairBond(pet({}), a), petPairBond(a, pet({})));
 });
 
 // ── Obstacle layout validity ─────────────────────────────────────────────
