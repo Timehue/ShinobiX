@@ -108,19 +108,24 @@ function makePlaceholderTexture(pet: Pet): THREE.CanvasTexture {
 }
 
 /** Portrait texture if published (petBattleSprite → sharedImages/pet.image),
- *  else a procedural placeholder. Disposed on change. */
-function usePetTexture(pet: Pet, sharedImages: Record<string, string>): THREE.Texture {
+ *  else a procedural placeholder. Disposed on change. `mirror` flips the IMAGE
+ *  horizontally (UV-level, so pose/rotation math is untouched) — battle-sprite
+ *  art faces RIGHT by convention, and the enemy side flips to face inward
+ *  (same convention as the DOM renderer's .pet-sprite-fullbody mirror). */
+function usePetTexture(pet: Pet, sharedImages: Record<string, string>, mirror = false): THREE.Texture {
     const { src } = petBattleSprite(pet, sharedImages);
     return useMemo(() => {
-        if (src) {
-            const t = new THREE.TextureLoader().load(src);
-            t.colorSpace = THREE.SRGBColorSpace;
-            t.anisotropy = 4;
-            return t;
+        const t = src ? new THREE.TextureLoader().load(src) : makePlaceholderTexture(pet);
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = 4;
+        if (mirror) {
+            t.wrapS = THREE.RepeatWrapping;
+            t.repeat.x = -1;
+            t.offset.x = 1;
         }
-        return makePlaceholderTexture(pet);
+        return t;
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [src, pet.id, pet.element]);
+    }, [src, pet.id, pet.element, mirror]);
 }
 
 // ── One billboarded pet standee — eases toward the active pose each frame ─────
@@ -309,7 +314,7 @@ export function PetColiseum({
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     const playerTex = usePetTexture(playerPet, sharedImages);
-    const enemyTex = usePetTexture(enemyPet, sharedImages);
+    const enemyTex = usePetTexture(enemyPet, sharedImages, true);
     const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
     // Battle SFX — reuses the shared per-frame picker so sound matches the DOM
     // renderer exactly (only one renderer is mounted at a time → no double-play).
