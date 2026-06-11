@@ -10,7 +10,7 @@
  * load-bearing for ranked pet PvP (both clients run an identical canonical
  * simulation from the same seed), so the RNG call order here must not change.
  */
-import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, petBushTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import {
@@ -739,6 +739,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     // (claimed shrines are removed); each frame carries the remaining set so the
     // renderer can draw + vanish them.
     const pickups = new Set<number>(petPickupTiles(obstacles));
+    // Bushes / tall grass (terrain depth) — concealment grants a round-end evade.
+    const bushTiles = petBushTiles(obstacles);
     // Compiled tile-type lookup for the scored AI (Phase 10).
     const arena = makeArena(arenaTiles.tiles);
 
@@ -1645,6 +1647,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             else { enemy = claimSurge(enemy); logs.push(`Round ${round}: ${enemy.pet.name} claims a power shrine — empowered!`); }
             pickups.delete(tile);
         }
+        // Bush concealment — a pet ending the round in tall grass refreshes its
+        // evasion (2 so it survives next round's status tick into the hit phase).
+        if (player.hp > 0 && bushTiles.has(player.pos) && player.evadeRounds < 2) player = { ...player, evadeRounds: 2 };
+        if (enemy.hp > 0 && bushTiles.has(enemy.pos) && enemy.evadeRounds < 2) enemy = { ...enemy, evadeRounds: 2 };
         if (player.hp <= 0 || enemy.hp <= 0) break;
 
         const roundMessage = `Round ${round}: ${player.pet.name} ${player.hp}/${player.pet.hp} HP | ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP`;
@@ -1887,6 +1893,8 @@ export function runPetArenaParty(
     // Power-pickup shrines (terrain depth) — claimed for a one-time surge; the
     // mutable set rides out on each frame so the renderer draws + vanishes them.
     const pickups = new Set<number>(petPickupTiles(obstacles));
+    // Bushes / tall grass (terrain depth) — concealment grants a round-end evade.
+    const bushTiles = petBushTiles(obstacles);
 
     // Starting positions on the 14×7 grid:
     //   playerLead    = col 1, row 2 = 29
@@ -2220,7 +2228,8 @@ export function runPetArenaParty(
         if (chosen === "basic") {
             noteAttack(damageTargetSlot);
             // Innate speed evasion — a faster defender slips the blow entirely.
-            if (rng() < petEvadeChance(actor, damageTarget)) {
+            // Bush concealment (evadeRounds) adds +25%, matching the 1v1 engine.
+            if (rng() < petEvadeChance(actor, damageTarget) + (damageTarget.evadeRounds > 0 ? 0.25 : 0)) {
                 const emsg = `Round ${round}: ${damageTarget.pet.name} blurs out of reach — evades ${actor.pet.name}'s attack!`;
                 logs.push(emsg);
                 pushPartyFrame(round, emsg, damageTargetSlot, "basic", undefined, false, { actor: isPlayerSlot(damageTargetSlot) ? "player" : "enemy", trait: "petEvade" }, undefined, false, damageTargetSlot);
@@ -2302,7 +2311,8 @@ export function runPetArenaParty(
             }
             // Innate speed evasion — a faster defender slips the blow entirely.
             // Phase 12: Haste adds dodge, Slow removes it (mirrors the 1v1 engine).
-            const evadeMod = (target.hasteRounds > 0 ? 0.12 : 0) - (target.slowRounds > 0 ? 0.1 : 0);
+            // Bush concealment (evadeRounds) adds +25%, matching the 1v1 evadeBonus.
+            const evadeMod = (target.evadeRounds > 0 ? 0.25 : 0) + (target.hasteRounds > 0 ? 0.12 : 0) - (target.slowRounds > 0 ? 0.1 : 0);
             if (rng() < petEvadeChance(actor, target) + evadeMod) {
                 const msg = `Round ${round}: ${target.pet.name} blurs out of reach — evades ${actor.pet.name}'s ${jutsuName}!`;
                 logs.push(msg);
@@ -2679,6 +2689,13 @@ export function runPetArenaParty(
             fighters[bestSlot] = { ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor(f.pet.attack * 0.2)), hp: Math.min(f.pet.hp, f.hp + Math.floor(f.pet.hp * 0.1)) };
             logs.push(`Round ${round}: ${f.pet.name} claims a power shrine — empowered!`);
             pickups.delete(tile);
+        }
+
+        // Bush concealment — a pet ending the round in tall grass refreshes its
+        // evasion (2 so it survives next round's status tick into the hit phase).
+        for (const s of ALL_SLOTS) {
+            const f = fighters[s];
+            if (f && f.hp > 0 && bushTiles.has(f.pos) && f.evadeRounds < 2) fighters[s] = { ...f, evadeRounds: 2 };
         }
 
         // Round summary frame
