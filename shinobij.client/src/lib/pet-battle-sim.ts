@@ -10,7 +10,7 @@
  * load-bearing for ranked pet PvP (both clients run an identical canonical
  * simulation from the same seed), so the RNG call order here must not change.
  */
-import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, petBushTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, petBushTiles, petShrineSeekGoal, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import {
@@ -969,10 +969,12 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             const baseSteps = actor.pet.moveRange ?? 2;
             const stepMod = (slowTiles.has(actor.pos) ? -1 : 0) + (actor.slowRounds > 0 ? -1 : 0) + (actor.hasteRounds > 0 ? 1 : 0);
             const steps = Math.max(1, baseSteps + stepMod);
+            // Detour to grab an un-claimed power shrine if one is on the way.
+            const goal = petShrineSeekGoal(actor.pos, target.pos, pickups);
             let newPos = actor.pos;
             for (let s = 0; s < steps; s++) {
-                const next = bfsNextStep(newPos, target.pos, obstacles);
-                if (next === newPos || next === target.pos) break; // wall or would collide
+                const next = bfsNextStep(newPos, goal, obstacles);
+                if (next === newPos || next === goal || next === target.pos) break; // arrived / wall / would collide
                 newPos = next;
             }
             const moved  = { ...actor, pos: newPos };
@@ -1627,7 +1629,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         }
         // High-ground ward — a pet that ends the round holding the central high
         // ground tops up a protective shield (refreshed to a floor, not stacked).
-        const hgWard = (f: PetBattleFighter) => Math.max(2, Math.floor(f.pet.hp * 0.08));
+        const hgWard = (f: PetBattleFighter) => Math.max(2, Math.floor(Math.max(1, f.pet.hp || 0) * 0.08));
         if (player.hp > 0 && highGroundTiles.has(player.pos) && player.shieldHp < hgWard(player)) {
             player = { ...player, shieldHp: hgWard(player) };
             logs.push(`Round ${round}: ${player.pet.name} holds the high ground — warded (${player.shieldHp}).`);
@@ -1638,7 +1640,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         }
         // Power pickups — the nearest pet within reach (≤1 tile) of a shrine
         // claims a one-time attack surge + a small restore, then it's consumed.
-        const claimSurge = (f: PetBattleFighter): PetBattleFighter => ({ ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor(f.pet.attack * 0.2)), hp: Math.min(f.pet.hp, f.hp + Math.floor(f.pet.hp * 0.1)) });
+        const claimSurge = (f: PetBattleFighter): PetBattleFighter => { const mhp = Math.max(1, f.pet.hp || 0); return { ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor((f.pet.attack || 0) * 0.2)), hp: Math.min(mhp, f.hp + Math.floor(mhp * 0.1)) }; };
         for (const tile of [...pickups]) {
             const dp = player.hp > 0 ? tileDistance(player.pos, tile) : Infinity;
             const de = enemy.hp > 0 ? tileDistance(enemy.pos, tile) : Infinity;
@@ -2209,9 +2211,11 @@ export function runPetArenaParty(
                 let newPos = actor.pos;
                 // Slow tiles (mud) cut a step, like the 1v1 engine.
                 const moveSteps = Math.max(1, (actor.pet.moveRange ?? 2) - (slowTiles.has(actor.pos) ? 1 : 0));
+                // Detour to grab an un-claimed power shrine if one is on the way.
+                const goal = petShrineSeekGoal(actor.pos, damageTarget.pos, pickups);
                 for (let s = 0; s < moveSteps; s++) {
-                    const next = bfsNextStep(newPos, damageTarget.pos, blockers);
-                    if (next === newPos || next === damageTarget.pos) break;
+                    const next = bfsNextStep(newPos, goal, blockers);
+                    if (next === newPos || next === goal || next === damageTarget.pos) break;
                     // Extra guard: never step onto a tile another live pet
                     // already occupies, even if BFS somehow picked it
                     // (e.g. if the target's tile is the only path).
@@ -2657,8 +2661,9 @@ export function runPetArenaParty(
             if (!f || f.hp <= 0) continue;
             const onHazard = hazardTiles.has(f.pos), onHeal = healingTiles.has(f.pos);
             if (!onHazard && !onHeal) continue;
-            const amt = Math.max(2, Math.floor(f.pet.hp * 0.04));
-            fighters[s] = { ...f, hp: onHazard ? Math.max(0, f.hp - amt) : Math.min(f.pet.hp, f.hp + amt) };
+            const mhp = Math.max(1, f.pet.hp || 0);
+            const amt = Math.max(2, Math.floor(mhp * 0.04));
+            fighters[s] = { ...f, hp: onHazard ? Math.max(0, f.hp - amt) : Math.min(mhp, f.hp + amt) };
             logs.push(`Round ${round}: ${f.pet.name} ${onHazard ? `is scorched by the hazard for ${amt}` : `recovers ${amt} on the healing field`}.`);
         }
 
@@ -2667,7 +2672,7 @@ export function runPetArenaParty(
         for (const s of ALL_SLOTS) {
             const f = fighters[s];
             if (!f || f.hp <= 0 || !highGroundTiles.has(f.pos)) continue;
-            const ward = Math.max(2, Math.floor(f.pet.hp * 0.08));
+            const ward = Math.max(2, Math.floor(Math.max(1, f.pet.hp || 0) * 0.08));
             if (f.shieldHp < ward) {
                 fighters[s] = { ...f, shieldHp: ward };
                 logs.push(`Round ${round}: ${f.pet.name} holds the high ground — warded (${ward}).`);
@@ -2686,7 +2691,8 @@ export function runPetArenaParty(
             }
             if (!bestSlot || bestD > 1) continue;
             const f = fighters[bestSlot]!;
-            fighters[bestSlot] = { ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor(f.pet.attack * 0.2)), hp: Math.min(f.pet.hp, f.hp + Math.floor(f.pet.hp * 0.1)) };
+            const mhp = Math.max(1, f.pet.hp || 0);
+            fighters[bestSlot] = { ...f, attackBuff: f.attackBuff + Math.max(3, Math.floor((f.pet.attack || 0) * 0.2)), hp: Math.min(mhp, f.hp + Math.floor(mhp * 0.1)) };
             logs.push(`Round ${round}: ${f.pet.name} claims a power shrine — empowered!`);
             pickups.delete(tile);
         }
