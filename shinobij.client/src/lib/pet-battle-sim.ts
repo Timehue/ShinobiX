@@ -10,7 +10,7 @@
  * load-bearing for ranked pet PvP (both clients run an identical canonical
  * simulation from the same seed), so the RNG call order here must not change.
  */
-import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, makeArena, type PetBattleActor, type BattleStatus } from "./pet-tactics";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import {
@@ -1863,6 +1863,13 @@ export function runPetArenaParty(
     if (opponentParty[0]) fighters.enemyLead     = makeFighter(opponentParty[0], opponentOwner, 40);
     if (opponentParty[1]) fighters.enemyReserve  = makeFighter(opponentParty[1], opponentOwner, 68);
 
+    // ── 2v2 team bonds (type/trait teamwork) ──────────────────────
+    // How well each side's two pets work together — drives whether they stick
+    // and focus-fire one foe (cohesive) or spread to pressure both (split).
+    // Computed once from the rosters; pure + deterministic so ranked stays synced.
+    const playerBond: PetPairBond = playerParty[0] && playerParty[1] ? petPairBond(playerParty[0], playerParty[1]) : "neutral";
+    const enemyBond: PetPairBond = opponentParty[0] && opponentParty[1] ? petPairBond(opponentParty[0], opponentParty[1]) : "neutral";
+
     function isAlive(slot: PartySlot): boolean {
         const f = fighters[slot];
         return !!f && f.hp > 0;
@@ -2008,6 +2015,24 @@ export function runPetArenaParty(
         return id && (ALL_SLOTS as string[]).includes(id) ? (id as PartySlot) : undefined;
     }
 
+    // Team-bond focus (type/trait teamwork). COHESIVE partners pile onto the
+    // SAME foe their teammate just hit — so they converge and fight side-by-side;
+    // SPLIT partners deliberately take the OTHER living foe — so they fan out to
+    // pressure both. Returns undefined (→ normal archetype/HP pickers decide)
+    // for a neutral bond, before the partner has acted, or when it can't apply
+    // (foe already dead / only one foe left). Pure target PREFERENCE only — it
+    // never touches damage, odds, or rewards.
+    function synergyFocusSlot(actorSlot: PartySlot, partnerFocusSlot: PartySlot | undefined): PartySlot | undefined {
+        if (!partnerFocusSlot) return undefined;
+        const bond = isPlayerSlot(actorSlot) ? playerBond : enemyBond;
+        if (bond === "neutral") return undefined;
+        const opps = livingOpposing(actorSlot);
+        const partnerAlive = opps.includes(partnerFocusSlot);
+        if (!partnerAlive) return undefined;
+        if (bond === "cohesive") return partnerFocusSlot;       // stick: same foe
+        return opps.find(s => s !== partnerFocusSlot);          // split: the other foe (undefined if none)
+    }
+
     // ── tick + status helpers (cloned from 1v1 engine) ────────────
     function tick(f: PetBattleFighter): PetBattleFighter {
         return {
@@ -2097,7 +2122,12 @@ export function runPetArenaParty(
         const tauntSlot = actor.tauntedRounds > 0
             ? ALL_SLOTS.find(s => { const f = fighters[s]; return !!f && f.hp > 0 && isPlayerSlot(s) !== actorIsPlayer && f.pet.id === actor.tauntById; })
             : undefined;
-        const damageTargetSlot = tauntSlot ?? pickArchetypeTargetSlot(actorSlot) ?? pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
+        // Taunt forces the target; otherwise the team bond's stick/split focus
+        // wins when it applies; otherwise fall back to the archetype / HP pickers.
+        const damageTargetSlot = tauntSlot
+            ?? synergyFocusSlot(actorSlot, partnerFocusSlot)
+            ?? pickArchetypeTargetSlot(actorSlot)
+            ?? pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
         if (!damageTargetSlot) return; // no opposing pets left — shouldn't happen, loop checks first
         const damageTarget = fighters[damageTargetSlot]!;
         const dist = tileDistance(actor.pos, damageTarget.pos);

@@ -332,6 +332,44 @@ export function petArchetypeFor(pet: Pick<Pet, "jutsus" | "trait" | "attack" | "
     return atk >= def * 1.5 ? "bruiser" : "striker";
 }
 
+// ── 2v2 team bond (Phase: type/trait teamwork) ───────────────────────────────
+// Whether two ALLIED pets "work well together". Frontline/support anchors + a
+// kindred element + loyal/protective traits make a cohesive pair that sticks
+// together and focus-fires one foe; two pure aggressors (or twin flankers)
+// divide and conquer, spreading to pressure both foes. Pure, symmetric, and
+// deterministic (NO RNG) so ranked party replays stay in sync, and it drives
+// ONLY target PREFERENCE in the 2v2 engine — never damage/odds/rewards.
+const AGGRO_ARCHETYPES = new Set<PetArchetype>(["assassin", "striker", "bruiser"]);
+const ANCHOR_ARCHETYPES = new Set<PetArchetype>(["tank", "support"]);
+
+export type PetPairBond = "cohesive" | "neutral" | "split";
+
+export function petPairBond(
+    a: Pick<Pet, "jutsus" | "trait" | "attack" | "defense" | "speed" | "hp" | "element">,
+    b: Pick<Pet, "jutsus" | "trait" | "attack" | "defense" | "speed" | "hp" | "element">,
+): PetPairBond {
+    let score = 0;
+    // Kindred chakra nature fights as one.
+    if (a.element && a.element !== "None" && a.element === b.element) score += 1.5;
+    // Traits — protectors + loyal/team-player traits bind the pair; twin
+    // attackers and twin flankers each spread out.
+    const has = (t: string) => a.trait === t || b.trait === t;
+    const both = (t: string) => a.trait === t && b.trait === t;
+    if (both("Aggressive")) score -= 1.5;
+    else if (has("Guardian")) score += 1;
+    if (both("Swift")) score -= 1;
+    if (has("Battleborn")) score += 0.5;
+    if (has("Loyal")) score += 0.5;
+    // Roles — an anchor (frontline/support) beside a DIFFERENT role is the
+    // classic comp; two pure aggressors divide and conquer.
+    const ra = petArchetypeFor(a), rb = petArchetypeFor(b);
+    if (AGGRO_ARCHETYPES.has(ra) && AGGRO_ARCHETYPES.has(rb)) score -= 1.5;
+    else if ((ANCHOR_ARCHETYPES.has(ra) || ANCHOR_ARCHETYPES.has(rb)) && ra !== rb) score += 1.5;
+    if (score >= 1) return "cohesive";
+    if (score <= -1) return "split";
+    return "neutral";
+}
+
 // ── Deterministic tile-type builder ─────────────────────────────────────────
 
 // Lane candidate tiles (rows 2-4, central-ish columns) used to place
