@@ -13,6 +13,7 @@ import {
     getValidMoveTiles,
     petArchetypeFor,
     petPairBond,
+    petHighGroundTiles,
     buildArenaTiles,
     makeArena,
     isAdjacentToAny,
@@ -175,6 +176,26 @@ test("petPairBond is symmetric", () => {
     const b = pet({ trait: "Aggressive", attack: 80, defense: 20 });
     assert.equal(petPairBond(a, b), petPairBond(b, a));
     assert.equal(petPairBond(pet({}), a), petPairBond(a, pet({})));
+});
+
+// ── High ground (terrain depth) ──────────────────────────────────────────
+
+test("petHighGroundTiles: central spine (cols 6-7) minus obstacles, Set or array", () => {
+    const hg = petHighGroundTiles([48, 49]); // block two central tiles
+    assert.ok(hg.size > 0 && hg.size <= 8, "non-empty, bounded by the candidate spine");
+    assert.ok(!hg.has(48) && !hg.has(49), "an obstacle tile is never high ground");
+    for (const t of hg) {
+        const col = t % PET_GRID_COLS, row = Math.floor(t / PET_GRID_COLS);
+        assert.ok(col === 6 || col === 7, `tile ${t} sits on the central spine`);
+        assert.ok(row >= 2 && row <= 5, `tile ${t} is in the contested middle rows`);
+    }
+    // Set input must match array input.
+    assert.deepEqual([...petHighGroundTiles(new Set([48, 49]))].sort((a, b) => a - b), [...hg].sort((a, b) => a - b));
+});
+
+test("petHighGroundTiles: a fully-walled central spine yields no high ground (no crash)", () => {
+    const wallAll = petHighGroundTiles([34, 35, 48, 49, 62, 63, 76, 77]);
+    assert.equal(wallAll.size, 0);
 });
 
 // ── Obstacle layout validity ─────────────────────────────────────────────
