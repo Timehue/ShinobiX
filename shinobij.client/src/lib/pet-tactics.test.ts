@@ -14,6 +14,7 @@ import {
     petArchetypeFor,
     petPairBond,
     petHighGroundTiles,
+    petPickupTiles,
     buildArenaTiles,
     makeArena,
     isAdjacentToAny,
@@ -196,6 +197,26 @@ test("petHighGroundTiles: central spine (cols 6-7) minus obstacles, Set or array
 test("petHighGroundTiles: a fully-walled central spine yields no high ground (no crash)", () => {
     const wallAll = petHighGroundTiles([34, 35, 48, 49, 62, 63, 76, 77]);
     assert.equal(wallAll.size, 0);
+});
+
+test("petPickupTiles: a free mirror-symmetric pair, never an obstacle", () => {
+    const p = petPickupTiles([]); // open arena
+    assert.equal(p.length, 2, "two shrines");
+    const [a, b] = p;
+    const colA = a % PET_GRID_COLS, colB = b % PET_GRID_COLS;
+    const rowA = Math.floor(a / PET_GRID_COLS), rowB = Math.floor(b / PET_GRID_COLS);
+    assert.equal(rowA, rowB, "same row (a lane)");
+    assert.equal(colA + colB, PET_GRID_COLS - 1, "columns mirror about centre");
+    // Blocking the first candidate pair falls through to the next free pair.
+    const p2 = petPickupTiles([3 * PET_GRID_COLS + 4]); // block (3,4)
+    assert.equal(p2.length, 2);
+    assert.ok(!p2.includes(3 * PET_GRID_COLS + 4), "an obstacle is never a shrine");
+});
+
+test("petPickupTiles: every shipped layout leaves a free shrine pair", () => {
+    for (let i = 0; i < PET_OBSTACLE_LAYOUTS.length; i++) {
+        assert.equal(petPickupTiles(PET_OBSTACLE_LAYOUTS[i]).length, 2, `layout ${i} has shrines`);
+    }
 });
 
 // ── Obstacle layout validity ─────────────────────────────────────────────
