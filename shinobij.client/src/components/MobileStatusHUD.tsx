@@ -16,6 +16,7 @@
 
 import { memo } from "react";
 import type { Character } from "../types/character";
+import { GameIcon } from "./icons/GameIcon";
 
 export const MobileStatusHUD = memo(function MobileStatusHUD({
     character,
@@ -80,11 +81,11 @@ export const MobileStatusHUD = memo(function MobileStatusHUD({
 
             <div className="mthd-resources">
                 <span className="mthd-resource mthd-ryo" title={`Ryo ${character.ryo.toLocaleString()}`}>
-                    <span className="mthd-resource-icon">¥</span>
+                    <span className="mthd-resource-icon"><GameIcon name="ryo" size={12} style={{ display: "block" }} /></span>
                     {character.ryo.toLocaleString()}
                 </span>
                 <span className="mthd-resource mthd-shards" title={`Fate Shards ${character.fateShards.toLocaleString()}`}>
-                    <span className="mthd-resource-icon">💎</span>
+                    <span className="mthd-resource-icon"><GameIcon name="shard" size={12} style={{ display: "block" }} /></span>
                     {character.fateShards.toLocaleString()}
                 </span>
             </div>
