@@ -240,9 +240,49 @@ async function handler(req, res) {
             // function returns cleanly — never hard-killed mid-flight by Vercel.
             const withTimeout = (p, ms = 18_000) => Promise.race([p, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
             if (cat) {
-                // Fetch hash (primary) and old blob (backward-compat) in parallel.
-                // Skip the legacy single-blob key — it's empty after migration and
-                // is multi-MB; reading it on every request causes Vercel timeouts.
+                // Phase 2 (image-as-files): manifest mode. `?ids=1` returns ONLY
+                // the id list — and reads ONLY keys from storage (kv.hkeys), never
+                // the multi-MB image payloads. The old implementation hgetall'd
+                // the whole bucket (~18 MB once battle sprites doubled the pet
+                // category) just to call Object.keys; when that read timed out it
+                // SILENTLY degraded to the legacy-blob keys — clients then ran a
+                // whole session with new art (petbody:*) missing. Two fixes here:
+                // keys-only reads, and a hard 503 (no-store) when the primary
+                // read fails so a degraded list is never served or cached.
+                if (req.query.ids) {
+                    // hkeys with a one-deploy-skew fallback: if the remote proxy
+                    // doesn't know the op yet (rolling deploy), fall back to the
+                    // old full read. null = both attempts failed (NOT empty).
+                    const keysOf = async (key) => {
+                        try {
+                            return await _storage_js_1.kv.hkeys(key);
+                        }
+                        catch { /* old proxy / transient */ }
+                        try {
+                            const all = await _storage_js_1.kv.hgetall(key);
+                            return all && typeof all === 'object' ? Object.keys(all) : [];
+                        }
+                        catch {
+                            return null;
+                        }
+                    };
+                    const [hashKeys, blobKeys, leaderKeys] = await Promise.all([
+                        withTimeout(keysOf(catHashKey(cat))),
+                        withTimeout(keysOf(catKey(cat))),
+                        cat === 'leader'
+                            ? withTimeout(keysOf(catHashKey('misc'))).then((ks) => (ks === null ? null : ks.filter((k) => k.startsWith('leader:'))))
+                            : Promise.resolve([]),
+                    ]);
+                    if (hashKeys === null || blobKeys === null || leaderKeys === null) {
+                        // Storage unavailable — make the client retry rather than
+                        // caching/running with a silently incomplete manifest.
+                        res.setHeader('Cache-Control', 'no-store');
+                        return res.status(503).json({ error: 'image index temporarily unavailable' });
+                    }
+                    return res.status(200).json(Array.from(new Set([...leaderKeys, ...blobKeys, ...hashKeys])));
+                }
+                // Full-content mode (admin/bulk use) — fetch hash (primary) and
+                // old blob (backward-compat) in parallel.
                 const [hashImages, catImages, legacyLeader] = await Promise.all([
                     withTimeout(_storage_js_1.kv.hgetall(catHashKey(cat))),
                     withTimeout(_storage_js_1.kv.get(catKey(cat))),
@@ -257,15 +297,6 @@ async function handler(req, res) {
                     ...(catImages ?? {}),
                     ...(hashImages ?? {}),
                 };
-                // Phase 2 (image-as-files): manifest mode. `?ids=1` returns ONLY
-                // the id list (keys), not the base64 payload — a few KB instead of
-                // multiple MB. The client maps each id to a per-image GET /api/img
-                // URL, so the browser fetches images individually (CDN/browser-
-                // cached) only when a screen shows them, instead of pulling the
-                // whole bucket on load.
-                if (req.query.ids) {
-                    return res.status(200).json(Object.keys(merged));
-                }
                 return res.status(200).json(merged);
             }
             // No category param — return everything (admin / bulk use).

@@ -29,6 +29,7 @@ function makeStub(label, store, log) {
         incr: unused('incr'),
         keys: unused('keys'),
         hgetall: unused('hgetall'),
+        hkeys: unused('hkeys'),
         hset: unused('hset'),
         hdel: unused('hdel'),
     };
