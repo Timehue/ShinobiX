@@ -16,7 +16,7 @@
 
 import type { Pet } from "../types/pet";
 import type { PetBattleAnimationEvent } from "../types/pet-battle";
-import { PET_GRID_COLS, PET_GRID_ROWS, PET_GRID_SIZE } from "../constants/pet-arena";
+import { PET_GRID_COLS, PET_GRID_ROWS, PET_GRID_SIZE, PET_SPAWN_TILES } from "../constants/pet-arena";
 
 // ── Core tactical types ─────────────────────────────────────────────────────
 
@@ -372,16 +372,18 @@ export function petPairBond(
 
 // ── Deterministic tile-type builder ─────────────────────────────────────────
 
-// Lane candidate tiles (rows 2-4, central-ish columns) used to place
-// hazard / healing / slow accents. Kept off the start tiles (43 player,
-// 54 enemy) and only used when not already an obstacle.
-const ACCENT_CANDIDATES: ReadonlyArray<number> = [
-    // row 2 (cols 3,5,8,10), row 3 (cols 4,6,9), row 4 (cols 3,5,8,10)
-    31, 33, 36, 38,
-    46, 48, 51,
-    59, 61, 64, 66,
-];
-const START_TILES = new Set<number>([43, 54]);
+// Candidate lane tiles (mid rows, spread across the central columns) for
+// hazard / healing / slow accents — derived from the grid so they land in the
+// maze's corridors; only used when free (not a wall) and off a spawn tile.
+const ACCENT_CANDIDATES: ReadonlyArray<number> = (() => {
+    const mid = Math.floor(PET_GRID_ROWS / 2);
+    const out: number[] = [];
+    for (const row of [mid - 2, mid, mid + 2]) {
+        for (let col = 4; col <= PET_GRID_COLS - 5; col += 3) out.push(row * PET_GRID_COLS + col);
+    }
+    return out;
+})();
+const START_TILES = new Set<number>(PET_SPAWN_TILES);
 
 /**
  * Build the arena tile types for a battle from its chosen obstacle layout.
@@ -408,9 +410,10 @@ export function buildArenaTiles(obstacleLayout: ReadonlyArray<number>, layoutInd
     const blocked = new Set<number>();
     // Split obstacles into cover (central) vs blocked. Cap cover at 3 so a
     // layout never becomes all-cover.
+    const cen = Math.floor(PET_GRID_COLS / 2);
     const centralObstacles = obstacleLayout.filter(idx => {
         const col = idx % PET_GRID_COLS;
-        return col >= 5 && col <= 8;
+        return col >= cen - 2 && col <= cen + 1;
     });
     const coverPicks = (centralObstacles.length ? centralObstacles : [...obstacleLayout]).slice(0, 3);
     for (const idx of obstacleLayout) {
@@ -458,8 +461,9 @@ export function buildArenaTiles(obstacleLayout: ReadonlyArray<number>, layoutInd
 // renderer all agree WITHOUT needing the full typed-tile system in 2v2. Pure +
 // deterministic (no RNG) → ranked stays synced.
 const HIGH_GROUND_CANDIDATES: readonly number[] = (() => {
+    const mid = Math.floor(PET_GRID_ROWS / 2), cen = Math.floor(PET_GRID_COLS / 2);
     const out: number[] = [];
-    for (let row = 2; row <= 5; row++) for (let col = 6; col <= 7; col++) out.push(row * PET_GRID_COLS + col);
+    for (let row = mid - 2; row <= mid + 2; row++) for (let col = cen - 1; col <= cen; col++) out.push(row * PET_GRID_COLS + col);
     return out;
 })();
 export function petHighGroundTiles(obstacles: ReadonlySet<number> | ReadonlyArray<number>): Set<number> {
@@ -473,12 +477,12 @@ export function petHighGroundTiles(obstacles: ReadonlySet<number> | ReadonlyArra
 // pair is symmetric so ranked stays fair; the first all-free pair is chosen so a
 // layout never buries both shrines. Pure + deterministic (derived from the
 // obstacle list, so the 1v1 + 2v2 engines + the renderer agree).
-const PICKUP_PAIR_CANDIDATES: readonly (readonly [number, number])[] = [
-    [3 * PET_GRID_COLS + 4, 3 * PET_GRID_COLS + 9],   // (3,4)+(3,9) — main mid-lane
-    [2 * PET_GRID_COLS + 4, 2 * PET_GRID_COLS + 9],   // (2,4)+(2,9)
-    [4 * PET_GRID_COLS + 4, 4 * PET_GRID_COLS + 9],   // (4,4)+(4,9)
-    [3 * PET_GRID_COLS + 3, 3 * PET_GRID_COLS + 10],  // (3,3)+(3,10)
-];
+const PICKUP_PAIR_CANDIDATES: readonly (readonly [number, number])[] = (() => {
+    const mid = Math.floor(PET_GRID_ROWS / 2);
+    const lf = Math.floor(PET_GRID_COLS / 4), rt = PET_GRID_COLS - 1 - lf; // mirror about centre
+    const pair = (row: number, a: number, b: number): readonly [number, number] => [row * PET_GRID_COLS + a, row * PET_GRID_COLS + b];
+    return [pair(mid, lf, rt), pair(mid - 2, lf, rt), pair(mid + 2, lf, rt), pair(mid, lf - 1, rt + 1)];
+})();
 export function petPickupTiles(obstacles: ReadonlySet<number> | ReadonlyArray<number>): number[] {
     const blocked = obstacles instanceof Set ? obstacles : new Set(obstacles);
     for (const [a, b] of PICKUP_PAIR_CANDIDATES) {
@@ -492,12 +496,12 @@ export function petPickupTiles(obstacles: ReadonlySet<number> | ReadonlyArray<nu
 // pet that ENDS a round in a bush is concealed — it gains an evasion buff
 // (refreshed while it hides), so a kiter can melt into the grass. Pure +
 // deterministic (derived from the obstacle list → both engines + renderer agree).
-const BUSH_PAIR_CANDIDATES: readonly (readonly [number, number])[] = [
-    [3 * PET_GRID_COLS + 2, 3 * PET_GRID_COLS + 11], // (3,2)+(3,11) — mid flanks
-    [2 * PET_GRID_COLS + 2, 2 * PET_GRID_COLS + 11],
-    [4 * PET_GRID_COLS + 2, 4 * PET_GRID_COLS + 11],
-    [5 * PET_GRID_COLS + 4, 5 * PET_GRID_COLS + 9],
-];
+const BUSH_PAIR_CANDIDATES: readonly (readonly [number, number])[] = (() => {
+    const mid = Math.floor(PET_GRID_ROWS / 2);
+    const lf = 3, rt = PET_GRID_COLS - 1 - 3; // flank columns, mirror about centre
+    const pair = (row: number, a: number, b: number): readonly [number, number] => [row * PET_GRID_COLS + a, row * PET_GRID_COLS + b];
+    return [pair(mid, lf, rt), pair(mid - 2, lf, rt), pair(mid + 2, lf, rt), pair(mid + 3, lf + 1, rt - 1)];
+})();
 export function petBushTiles(obstacles: ReadonlySet<number> | ReadonlyArray<number>): Set<number> {
     const blocked = obstacles instanceof Set ? obstacles : new Set(obstacles);
     const out: number[] = [];

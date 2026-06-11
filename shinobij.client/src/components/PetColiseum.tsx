@@ -23,6 +23,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
 import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } from "../lib/pet-tactics";
+import { PET_SPAWN_1V1 } from "../constants/pet-arena";
 import { PetBattleAvatar } from "./PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../types/pet-battle";
 import {
@@ -651,15 +652,15 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
             <ambientLight ref={ambient} intensity={0.95} />
             <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
             {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
-                Sized to ring the ENLARGED floor so no aspect exposes void. */}
-            <mesh position={[0, 6.0, 0]}>
-                <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
+                Rings the big maze floor so panning/pull-back never exposes void. */}
+            <mesh position={[0, 7.0, 0]}>
+                <cylinderGeometry args={[27, 27, 26, 56, 1, true, Math.PI * 0.15, Math.PI * 1.7]} />
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
-            {/* Generated arena floor (enlarged with the footprint). Per-pet blob
+            {/* Generated arena floor (sized to the maze footprint). Per-pet blob
                 shadows ground the sprites. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[14, 64]} />
+                <circleGeometry args={[21, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
         </group>
@@ -749,8 +750,8 @@ export function PetColiseum({
         : slot === "enemyLead" ? enemyPet
         : slot === "enemyReserve" ? enemyReservePet
         : undefined;
-    const playerPos = frame?.playerPos ?? 29;
-    const enemyPos = frame?.enemyPos ?? 40;
+    const playerPos = frame?.playerPos ?? PET_SPAWN_1V1.player;
+    const enemyPos = frame?.enemyPos ?? PET_SPAWN_1V1.enemy;
     const selfTile = party?.actorSlot ? party[party.actorSlot].pos : frame?.actor === "enemy" ? enemyPos : playerPos;
     const targetTile = party?.targetSlot ? party[party.targetSlot].pos : frame?.actor === "enemy" ? playerPos : enemyPos;
     const actingPet = party?.actorSlot ? slotPet(party.actorSlot) : frame?.actor === "player" ? playerPet : frame?.actor === "enemy" ? enemyPet : undefined;
