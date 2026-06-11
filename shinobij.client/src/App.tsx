@@ -321,10 +321,11 @@ import {
     petHappiness,
     isPetOnExpedition,
 } from "./lib/pet";
-import { playPetSfx, isPetSfxMuted, setPetSfxMuted } from "./lib/pet-sfx";
+import { isPetSfxMuted, setPetSfxMuted } from "./lib/pet-sfx";
 import { stopBattleMusic } from "./lib/pet-music";
 import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey } from "./lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "./lib/pet-battle-camera";
+import { usePetBattleFrameSfx } from "./lib/use-pet-battle-sfx";
 import { PetParticleField, vfxBurstForEvent } from "./lib/pet-vfx-particles";
 import { petFxSpriteKey } from "./lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "./lib/jutsu-fx-assets";
@@ -9331,7 +9332,7 @@ export type PetBattleFighter = {
 // Win/loss record shown on the 5-second pre-fight card. Wins/losses are the
 // player's account-level pet-ranked tallies; rating is the current pet-ranked
 // Elo. All optional so an AI/wild opponent can show a rating only, or nothing.
-interface PetBattleRecord {
+export interface PetBattleRecord {
     wins?: number;
     losses?: number;
     rating?: number;
@@ -9499,29 +9500,12 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         else           { setEnemyShake(true);  const t = window.setTimeout(() => setEnemyShake(false),  420); return () => window.clearTimeout(t); }
     }, [frame?.message]);
 
-    // ── Battle sound — one synthesized SFX per frame. Lives here so it covers
-    // every caller of this component (Pet Arena, Hollow Gate beast duels, PvP).
+    // ── Battle sound — one synthesized SFX per frame. Extracted to a shared hook
+    // (lib/use-pet-battle-sfx) so the HD-2D PetColiseum renderer reuses the exact
+    // same picker. Covers every caller of this component (Pet Arena, Hollow Gate
+    // beast duels, PvP). Behaviour unchanged from the old inline effect.
     const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
-    useEffect(() => {
-        if (!frame || sfxMuted) return;
-        const m = frame.message;
-        if (/dodges|evades|blunts the blow/.test(m)) { playPetSfx("dodge"); return; }
-        if (frame.isKO) { playPetSfx("ko"); return; }
-        // Match-end win/lose stingers intentionally removed — result frames are silent.
-        if (frame.actionKind === "result") return;
-        switch (frame.actionKind) {
-            case "damage": case "basic": case "lifesteal": playPetSfx(frame.crit ? "crit" : "hit"); break;
-            case "heal":     playPetSfx("heal"); break;
-            case "buff":     playPetSfx("buff"); break;
-            case "dot":      playPetSfx("dot"); break;
-            case "debuff":   playPetSfx("debuff"); break;
-            case "movelock": playPetSfx("movelock"); break;
-            case "shield": case "barrier": case "absorb": playPetSfx("shield"); break;
-            default: break;
-        }
-        // Super-effective matchup → layer a bright rising sting on top of the hit.
-        if (/super effective/i.test(m) && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal")) playPetSfx("superEffective");
-    }, [frame?.message]);
+    usePetBattleFrameSfx(frame, sfxMuted);
 
     const playerPos = frame?.playerPos ?? 29;
     const enemyPos  = frame?.enemyPos  ?? 40;
