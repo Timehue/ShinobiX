@@ -5748,8 +5748,12 @@ export default function App() {
         if (!character) return;
         const event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
-        if (!character.inventory.includes(DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open the Hidden Dungeon.");
-        setCharacter({ ...character, inventory: removeInventoryItems(character.inventory, { [DUNGEON_KEY_ID]: 1 }) });
+        // The explore-tile Hidden Dungeon (no override) is free to enter; only the
+        // Central Hub relic dungeons (passed as an override) stay gated behind a key.
+        if (dungeonOverride) {
+            if (!character.inventory.includes(DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
+            setCharacter({ ...character, inventory: removeInventoryItems(character.inventory, { [DUNGEON_KEY_ID]: 1 }) });
+        }
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
         setDungeonPage(0);
