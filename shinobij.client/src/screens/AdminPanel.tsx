@@ -171,13 +171,31 @@ export function AdminPanel({
     const [jutsuIsGenerating, setJutsuIsGenerating] = useState(false);
     const [petGenStatus, setPetGenStatus] = useState("");
     const [petIsGenerating, setPetIsGenerating] = useState(false);
-    // Session-pinned pet avatars (key `pet:<id>` → inline data URL). The display
-    // prefers these over editablePets/sharedImages, so a just-changed avatar can
-    // never be reverted by a background image refetch (hydrateImages), a snapshot
-    // restore, or the game-state poll — all of which serve the 5-min-cached
-    // /api/img reference URL (the cause of avatars "reverting after a few
-    // seconds"). Set automatically on every change + by the Force-Save button.
-    const [pinnedAvatars, setPinnedAvatars] = useState<Record<string, string>>({});
+    // Pinned pet avatars (key `pet:<id>` → inline data URL). The display prefers
+    // these over editablePets/sharedImages, so a just-changed avatar can never be
+    // reverted by a background image refetch (hydrateImages), a snapshot restore,
+    // or the game-state poll — all of which serve the 5-min-cached /api/img
+    // reference URL (the cause of avatars "reverting"). PERSISTED to localStorage
+    // because the pet/jutsu Save remounts this panel, which would otherwise wipe
+    // the in-memory pin and let the cached image reappear; localStorage survives
+    // the remount AND a full page reload. Set on every change + by Force-Save.
+    const [pinnedAvatars, setPinnedAvatars] = useState<Record<string, string>>(() => {
+        try { return JSON.parse(localStorage.getItem("shinobix:pinnedPetAvatars") || "{}") as Record<string, string>; } catch { return {}; }
+    });
+    function pinAvatar(key: string, dataUrl: string) {
+        setPinnedAvatars((prev) => {
+            const next = { ...prev, [key]: dataUrl };
+            try { localStorage.setItem("shinobix:pinnedPetAvatars", JSON.stringify(next)); } catch { /* quota exceeded — ignore */ }
+            return next;
+        });
+    }
+    function unpinAvatar(key: string) {
+        setPinnedAvatars((prev) => {
+            const next = { ...prev }; delete next[key];
+            try { localStorage.setItem("shinobix:pinnedPetAvatars", JSON.stringify(next)); } catch { /* ignore */ }
+            return next;
+        });
+    }
     const [jutsuType, setJutsuType] = useState<JutsuType>("Ninjutsu");
     const [jutsuElement, setJutsuElement] = useState<JutsuElement>("Fire");
     const [jutsuAp, setJutsuAp] = useState(40);
@@ -3731,7 +3749,7 @@ export function AdminPanel({
                                             if (!file) return;
                                             readImageFile(file, async (raw) => {
                                                 const c = await compressDataUrl(raw, 256, 0.85);
-                                                setPinnedAvatars((prev) => ({ ...prev, ["pet:" + pet.id]: c }));
+                                                pinAvatar("pet:" + pet.id, c);
                                                 updatePet({ image: c });
                                                 await publishSharedImage('pet:' + pet.id, c);
                                             }, 100);
@@ -3739,7 +3757,7 @@ export function AdminPanel({
                                     />
                                     <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={async (image) => {
                                         const c = await compressDataUrl(image, 256, 0.85);
-                                        setPinnedAvatars((prev) => ({ ...prev, ["pet:" + pet.id]: c }));
+                                        pinAvatar("pet:" + pet.id, c);
                                         updatePet({ image: c });
                                         await publishSharedImage('pet:' + pet.id, c);
                                     }} />
@@ -3753,13 +3771,20 @@ export function AdminPanel({
                                             if (!current.startsWith("data:")) { setPetGenStatus("⚠️ Upload or generate a new image first, then Force-Save."); return; }
                                             setPetGenStatus(`Saving ${pet.name}'s avatar…`);
                                             const c = await compressDataUrl(current, 256, 0.85);
-                                            setPinnedAvatars((prev) => ({ ...prev, ["pet:" + pet.id]: c }));
+                                            pinAvatar("pet:" + pet.id, c);
                                             updatePet({ image: c });
                                             const ok = await publishSharedImage('pet:' + pet.id, c);
                                             try { await onSaveRef.current?.(); } catch { /* no account loaded — ignore */ }
                                             setPetGenStatus(ok ? `✅ Saved & locked ${pet.name}'s avatar (won't revert this session).` : `⚠️ Locked locally, but the server publish failed — check you're logged in as admin.`);
                                         }}
                                     >💾 Force-Save Avatar (override)</button>
+                                    {pinnedAvatars["pet:" + pet.id] && (
+                                        <button
+                                            style={{ marginTop: 6, marginLeft: 6, background: "#374151", borderColor: "#6b7280" }}
+                                            onClick={() => { unpinAvatar("pet:" + pet.id); setPetGenStatus(`Cleared local pin for ${pet.name} — now showing the server image.`); }}
+                                            title="Stop overriding with the local copy and show whatever the server currently has"
+                                        >↺ Clear pin</button>
+                                    )}
                                     {petGenStatus && <p className="hint" style={{ marginTop: 4 }}>{petGenStatus}</p>}
 
                                     <label>Name</label>
