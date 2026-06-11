@@ -66,7 +66,7 @@ function parseArgs(argv) {
         if (a.startsWith('--')) {
             const key = a.slice(2);
             // Boolean flags take no value.
-            if (key === 'publish' || key === 'dry-run' || key === 'no-style') {
+            if (key === 'publish' || key === 'dry-run' || key === 'no-style' || key === 'transparent') {
                 flags[key] = true;
             } else {
                 flags[key] = argv[++i];
@@ -149,6 +149,13 @@ async function main() {
     }
     const maxPx = Number(flags['max-px']) || DEFAULT_MAX_PX[category] || 512;
     const quality = Number(flags.quality) || 72;
+    // OpenAI generation quality (cost knob): low ≈ a cent, medium ≈ a few, high ≈ ~17¢.
+    const genQuality = flags['gen-quality'] || 'low';
+    if (!/^(low|medium|high)$/.test(genQuality)) {
+        console.error('error: --gen-quality must be low, medium, or high.');
+        process.exitCode = 1;
+        return;
+    }
 
     // ── Output path ──────────────────────────────────────────────────────
     const key = fullId.slice(fullId.indexOf(':') + 1);
@@ -161,7 +168,7 @@ async function main() {
     const finalPrompt = flags['no-style'] ? prompt : styleWrap(prompt, fullId);
 
     console.log(`asset:   ${fullId}`);
-    console.log(`gen:     gpt-image-1 ${genSize} quality=low`);
+    console.log(`gen:     gpt-image-1 ${genSize} quality=${genQuality}${flags.transparent ? ' transparent-bg' : ''}`);
     console.log(`encode:  WebP  max ${maxPx}px  q${quality}`);
     console.log(`out:     ${path.relative(CLIENT_ROOT, outFile)}`);
     if (flags['dry-run']) {
@@ -182,7 +189,12 @@ async function main() {
     const openaiRes = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gpt-image-1', prompt: finalPrompt, size: genSize, quality: 'low', n: 1 }),
+        body: JSON.stringify({
+            model: 'gpt-image-1', prompt: finalPrompt, size: genSize, quality: genQuality, n: 1,
+            // Transparent background = clean icon cutout. PNG carries the alpha;
+            // sharp keeps it through the WebP encode (WebP supports alpha).
+            ...(flags.transparent ? { background: 'transparent', output_format: 'png' } : {}),
+        }),
     });
     const data = await openaiRes.json();
     if (!openaiRes.ok) {
