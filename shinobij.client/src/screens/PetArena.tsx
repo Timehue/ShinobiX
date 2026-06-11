@@ -269,7 +269,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             setBattleLog(party.matches.flatMap(m => m.logs).concat(party.summaryLogs));
             setBattleFrames(party.matches.flatMap(m => m.frames));
             setBattleObstacles(party.matches[0]?.obstacles ?? []);
-            setBattleTiles([]); // 2v2 party engine keeps the legacy obstacle-only grid for now
+            setBattleTiles(party.matches[0]?.tiles ?? []); // typed terrain now flows from the 2v2 engine
             setFrameIndex(0);
             setIsPlaying(true);
             setResult(party.result === "win" ? "Victory" : party.result === "draw" ? "Draw" : "Defeat");
