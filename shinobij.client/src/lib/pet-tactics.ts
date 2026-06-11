@@ -450,6 +450,23 @@ export function buildArenaTiles(obstacleLayout: ReadonlyArray<number>, layoutInd
     return { tiles, blocked, cover, hazard, healing, slow };
 }
 
+// ── High ground (terrain depth) ──────────────────────────────────────────────
+// The contested central spine (cols 6-7, rows 2-5) minus any obstacle sitting on
+// it. A pet that ENDS a round holding high ground earns a protective ward in the
+// sim, and the renderer marks the tiles — so positioning for the centre matters.
+// Derived purely from the obstacle list, so the 1v1 + 2v2 engines AND the
+// renderer all agree WITHOUT needing the full typed-tile system in 2v2. Pure +
+// deterministic (no RNG) → ranked stays synced.
+const HIGH_GROUND_CANDIDATES: readonly number[] = (() => {
+    const out: number[] = [];
+    for (let row = 2; row <= 5; row++) for (let col = 6; col <= 7; col++) out.push(row * PET_GRID_COLS + col);
+    return out;
+})();
+export function petHighGroundTiles(obstacles: ReadonlySet<number> | ReadonlyArray<number>): Set<number> {
+    const blocked = obstacles instanceof Set ? obstacles : new Set(obstacles);
+    return new Set(HIGH_GROUND_CANDIDATES.filter(t => !blocked.has(t)));
+}
+
 // ── Tactical zones (Phase 10-14) ────────────────────────────────────────────
 // The 14-wide grid is huge; zones focus the fight around the middle. Cover and
 // hazard tiles read as their own zones; otherwise columns band into backline
