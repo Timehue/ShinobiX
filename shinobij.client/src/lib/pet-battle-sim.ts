@@ -968,7 +968,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
             // Movement step count: slow tiles (Phase 5-6) and the Slow status
             // (Phase 12) each cut a step; Haste (Phase 12) adds one. Min 1.
-            const baseSteps = actor.pet.moveRange ?? 2;
+            const baseSteps = actor.pet.moveRange ?? 3; // faster traversal on the big maze grid
             const stepMod = (slowTiles.has(actor.pos) ? -1 : 0) + (actor.slowRounds > 0 ? -1 : 0) + (actor.hasteRounds > 0 ? 1 : 0);
             const steps = Math.max(1, baseSteps + stepMod);
             // Detour to grab an un-claimed power shrine if one is on the way.
@@ -2214,7 +2214,7 @@ export function runPetArenaParty(
                 }
                 let newPos = actor.pos;
                 // Slow tiles (mud) cut a step, like the 1v1 engine.
-                const moveSteps = Math.max(1, (actor.pet.moveRange ?? 2) - (slowTiles.has(actor.pos) ? 1 : 0));
+                const moveSteps = Math.max(1, (actor.pet.moveRange ?? 3) - (slowTiles.has(actor.pos) ? 1 : 0));
                 // Detour to grab an un-claimed power shrine if one is on the way.
                 const goal = petShrineSeekGoal(actor.pos, damageTarget.pos, pickups);
                 for (let s = 0; s < moveSteps; s++) {

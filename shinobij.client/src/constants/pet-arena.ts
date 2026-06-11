@@ -14,9 +14,9 @@ import type { JutsuElement } from "../types/core";
 // Tile index = row * PET_GRID_COLS + col. A big arena so battles are a JOURNEY
 // through a maze, not a head-on clash. Everything (spawns, terrain helpers,
 // renderer) derives from these two numbers so the size is a single knob.
-export const PET_GRID_COLS = 20;
-export const PET_GRID_ROWS = 11;
-export const PET_GRID_SIZE = PET_GRID_COLS * PET_GRID_ROWS; // 220
+export const PET_GRID_COLS = 28;
+export const PET_GRID_ROWS = 15;
+export const PET_GRID_SIZE = PET_GRID_COLS * PET_GRID_ROWS; // 420
 
 // ── Spawn tiles (derived) ─────────────────────────────────────────────────
 // Player on the left edge (col 1), enemy on the right (col COLS-2), middle row;
@@ -56,17 +56,18 @@ function mazeWalls(walls: ReadonlyArray<readonly [number, number]>): number[] {
     }
     return out;
 }
-// [col, gapRow] — cols within 4..16 (clear of spawn cols 1 / COLS-2 = 18),
-// non-adjacent so there is always open space to reposition between gaps.
+// [col, gapRow] — many walls in cols 4..24 (clear of spawn cols 1 / COLS-2 = 26),
+// non-adjacent so there is always open space to reposition between gaps. Dense +
+// deep so the journey winds through a real maze.
 export const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
-    mazeWalls([[6, 2], [11, 7], [15, 3]]),
-    mazeWalls([[5, 6], [9, 1], [13, 7], [16, 3]]),
-    mazeWalls([[7, 4], [12, 7]]),
-    mazeWalls([[5, 1], [8, 7], [11, 2], [14, 8]]),
-    mazeWalls([[6, 7], [10, 2], [14, 6]]),
-    mazeWalls([[4, 3], [8, 8], [12, 1], [16, 6]]),
-    mazeWalls([[7, 8], [11, 3], [15, 7]]),
-    mazeWalls([[5, 4], [9, 8], [13, 2], [16, 7]]),
+    mazeWalls([[5, 2], [8, 10], [11, 4], [14, 12], [17, 3], [20, 9], [23, 5]]),
+    mazeWalls([[4, 8], [7, 1], [10, 11], [13, 4], [16, 12], [19, 6], [22, 2]]),
+    mazeWalls([[6, 4], [9, 11], [12, 5], [15, 1], [18, 10], [21, 4], [24, 11]]),
+    mazeWalls([[5, 12], [8, 5], [11, 11], [14, 2], [17, 8], [20, 3], [23, 10]]),
+    mazeWalls([[4, 3], [8, 10], [12, 1], [16, 12], [20, 5], [24, 8]]),
+    mazeWalls([[6, 9], [9, 2], [12, 11], [15, 4], [18, 12], [21, 7], [24, 3]]),
+    mazeWalls([[5, 5], [9, 12], [13, 2], [17, 9], [21, 4], [24, 11]]),
+    mazeWalls([[4, 11], [7, 4], [10, 12], [13, 1], [16, 9], [19, 3], [22, 10]]),
 ];
 
 // ── Type-effectiveness ───────────────────────────────────────────────────
