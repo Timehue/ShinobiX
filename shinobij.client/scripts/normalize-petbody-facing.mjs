@@ -34,6 +34,9 @@ function parseArgs(argv) {
     }
     return flags;
 }
+
+// --flip id1,id2 — UNCONDITIONAL mirror+republish for specific pets (no vision
+// call). The manual override for sprites the classifier judged wrong.
 function envFromDotenv(name) {
     if (process.env[name]) return process.env[name].trim();
     const p = path.join(CLIENT_ROOT, '.env');
@@ -63,7 +66,11 @@ async function classifyFacing(webpBytes) {
             messages: [{
                 role: 'user',
                 content: [
-                    { type: 'text', text: 'Which horizontal direction is this creature predominantly facing or looking? Answer with exactly one word: left, right, or front.' },
+                    // STRICT rubric: the first lenient pass called many angled-left
+                    // poses "front" and left them unflipped (they then face away
+                    // from the opponent in battle). Bias toward a side answer —
+                    // "front" is reserved for true dead-on symmetry.
+                    { type: 'text', text: 'Look at this game creature sprite. Which side of the image is its head/snout/beak/eyes oriented toward, even slightly? If the head or gaze points at all toward the left side of the image, answer "left". If at all toward the right side, answer "right". Only answer "front" if it is perfectly symmetrical and dead-on facing the camera. Answer with exactly one word: left, right, or front.' },
                     { type: 'image_url', image_url: { url: `data:image/webp;base64,${webpBytes.toString('base64')}`, detail: 'low' } },
                 ],
             }],
@@ -87,9 +94,24 @@ async function publish(id, dataUrl) {
 }
 
 async function main() {
-    if (!OPENAI_KEY) { console.error('OPENAI_API_KEY missing'); process.exit(1); }
     if (!flags['no-publish'] && !ADMIN_PW) { console.error('ADMIN_PASSWORD missing (or use --no-publish)'); process.exit(1); }
     const sharp = (await import('sharp')).default;
+
+    // Manual override: flip these ids unconditionally, no vision call.
+    if (flags.flip) {
+        const ids = String(flags.flip).split(',').map((s) => s.trim()).filter(Boolean);
+        for (const id of ids) {
+            const file = path.join(OUT_DIR, `${id}.webp`);
+            if (!fs.existsSync(file)) { console.error(`${id}: no local sprite at ${file}`); continue; }
+            const out = await sharp(fs.readFileSync(file)).flop().webp({ quality: 80, effort: 6 }).toBuffer();
+            fs.writeFileSync(file, out);
+            if (!flags['no-publish']) await publish(`petbody:${id}`, `data:image/webp;base64,${out.toString('base64')}`);
+            console.log(`${id}: force-flipped${flags['no-publish'] ? '' : ' + republished'}`);
+        }
+        return;
+    }
+
+    if (!OPENAI_KEY) { console.error('OPENAI_API_KEY missing'); process.exit(1); }
 
     const only = flags.only ? new Set(String(flags.only).split(',').map((s) => s.trim()).filter(Boolean)) : null;
     const files = fs.readdirSync(OUT_DIR)
