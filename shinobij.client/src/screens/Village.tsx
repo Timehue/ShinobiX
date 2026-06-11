@@ -18,6 +18,17 @@ import jutsuTrainingIcon from "../assets/village-icons/jutsu-training.webp";
 import worldMapIcon from "../assets/village-icons/world-map.webp";
 import petYardIcon from "../assets/village-icons/pet-yard.webp";
 import cardHallIcon from "../assets/village-icons/card-hall.webp";
+import type { CSSProperties } from "react";
+
+// Per-village accent for the marker chip (label border + hover glow). The
+// object icons are warm/neutral, so this tint is what gives each village its
+// biome flavour without needing a separate icon set per village.
+const VILLAGE_ACCENT: Record<string, { border: string; glow: string }> = {
+    "Frostfang Village": { border: "rgba(125, 211, 252, 0.55)", glow: "rgba(125, 211, 252, 0.7)" },
+    "Stormveil Village": { border: "rgba(134, 239, 172, 0.55)", glow: "rgba(74, 222, 128, 0.7)" },
+    "Ashen Leaf Village": { border: "rgba(251, 146, 60, 0.55)", glow: "rgba(251, 146, 60, 0.7)" },
+    "Moonshadow Village": { border: "rgba(192, 132, 252, 0.55)", glow: "rgba(168, 85, 247, 0.7)" },
+};
 
 export function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
     // `saveMsg` was destructured without a setter and stayed "" forever —
@@ -40,6 +51,8 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
         { name: "Card Hall", img: cardHallIcon, screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
     ];
 
+    const accent = VILLAGE_ACCENT[characterVillage] ?? VILLAGE_ACCENT["Frostfang Village"];
+
     return (
         <div className="stormveil-village-screen">
             <div className="village-save-bar">
@@ -50,7 +63,9 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
                 className="stormveil-map"
                 style={{
                     backgroundImage: `url(${villagePageImage(characterVillage)})`,
-                }}
+                    "--village-accent": accent.border,
+                    "--village-glow": accent.glow,
+                } as CSSProperties}
             >
                 {locations.map((location) => (
                     <button
