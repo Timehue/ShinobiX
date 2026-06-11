@@ -3642,6 +3642,36 @@ export function AdminPanel({
                             })}
                         </select>
 
+                        {/* Avatar overview — see every pet's avatar at a glance (amber =
+                            missing) and jump straight to one to change it. The "Change"
+                            button selects the pet so the editor below (upload + AI
+                            generate) targets it. Handy for fixing avatars before a
+                            battle-sprite pass. */}
+                        <details open style={{ marginTop: 8 }}>
+                            <summary style={{ cursor: "pointer", fontWeight: 600, marginBottom: 6 }}>
+                                Avatars — {editablePets.filter((p) => !(p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")])).length} missing of {editablePets.length}
+                            </summary>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 360, overflowY: "auto", padding: 4 }}>
+                                {editablePets.map((p) => {
+                                    const baseId = p.id.replace(/-\d{10,}$/, "");
+                                    const img = p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + baseId] || "";
+                                    const selected = p.id === selectedPetId;
+                                    return (
+                                        <div key={p.id} style={{ width: 92, textAlign: "center", border: selected ? "2px solid #8b5cf6" : img ? "1px solid #334155" : "1px solid #b45309", borderRadius: 8, padding: 6, background: "#0f172a" }}>
+                                            <div style={{ width: 72, height: 72, margin: "0 auto", borderRadius: 8, overflow: "hidden", display: "grid", placeItems: "center", background: "#1e293b" }}>
+                                                {img ? <img src={img} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 11, color: "#f59e0b" }}>no image</span>}
+                                            </div>
+                                            <div style={{ fontSize: "0.66rem", color: "#cbd5e1", margin: "4px 0", lineHeight: 1.1, height: 24, overflow: "hidden" }}>{p.name}</div>
+                                            <button
+                                                onClick={() => { setSelectedPetId(p.id); document.getElementById("admin-pet-editor-card")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+                                                style={{ fontSize: "0.66rem", padding: "2px 8px", width: "100%" }}
+                                            >✎ Change</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </details>
+
                         {(() => {
                             const pet = editablePets.find((p) => p.id === selectedPetId);
                             if (!pet) return <p>No pet selected.</p>;
@@ -3676,7 +3706,7 @@ export function AdminPanel({
                             }
 
                             return (
-                                <div className="summary-box pet-editor-card">
+                                <div className="summary-box pet-editor-card" id="admin-pet-editor-card">
                                     <h3>{pet.name}</h3>
 
                                     {pet.image && (
