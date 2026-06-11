@@ -43,6 +43,60 @@ export function tileToWorld(
     };
 }
 
+// ── Face-off spacing ─────────────────────────────────────────────────────────
+// Billboards are ~2.3 world units wide but adjacent grid columns are only
+// ~0.65 apart, so raw tile positions let melee combatants overlap ("go into
+// each other"). MIN_SEP pushes the two apart to a readable rest distance;
+// CONTACT_GAP is where a lunge STOPS — close enough to read as a hit, never
+// through the target.
+const MIN_SEP = 1.7;
+const CONTACT_GAP = 0.95;
+const MAX_LUNGE = 1.6;
+
+/** Enforce a minimum pairwise separation over N floor positions (2 for 1v1,
+ *  4 for 2v2). Symmetric pairwise pushes over a few relaxation iterations —
+ *  deterministic (fixed order, no RNG), preserves each crowded pair's midpoint,
+ *  leaves well-spaced pets untouched. Coincident points split along +x. */
+export function spreadPositions(
+    points: ReadonlyArray<{ x: number; z: number }>,
+    minSep = MIN_SEP,
+    iterations = 3,
+): { x: number; z: number }[] {
+    const out = points.map((p) => ({ x: p.x, z: p.z }));
+    for (let it = 0; it < iterations; it++) {
+        for (let i = 0; i < out.length; i++) {
+            for (let j = i + 1; j < out.length; j++) {
+                let dx = out[j].x - out[i].x, dz = out[j].z - out[i].z;
+                let d = Math.hypot(dx, dz);
+                if (d < 1e-6) { dx = 1; dz = 0; d = 1e-6; }
+                if (d >= minSep) continue;
+                const push = (minSep - d) / 2;
+                const ux = dx / d, uz = dz / d;
+                out[i].x -= ux * push; out[i].z -= uz * push;
+                out[j].x += ux * push; out[j].z += uz * push;
+            }
+        }
+    }
+    return out;
+}
+
+/** World positions for two combatants with the minimum separation enforced —
+ *  the 1v1 convenience wrapper over spreadPositions. */
+export function faceOffPositions(
+    aTile: number,
+    bTile: number,
+): { a: { x: number; z: number }; b: { x: number; z: number } } {
+    const [a, b] = spreadPositions([tileToWorld(aTile), tileToWorld(bTile)]);
+    return { a, b };
+}
+
+/** How far a lunge may advance given the current gap to the target: close the
+ *  distance down to CONTACT_GAP, never past it, never more than MAX_LUNGE, and
+ *  always at least a small hop so the attack beat reads. */
+export function lungeReach(gap: number): number {
+    return Math.max(0.25, Math.min(MAX_LUNGE, gap - CONTACT_GAP));
+}
+
 /** A billboard's target transform for a given pose, relative to its base tile
  *  position. The renderer lerps the live sprite toward this each frame. */
 export type PoseTransform = {
@@ -61,13 +115,15 @@ const IDLE: PoseTransform = { dx: 0, dy: 0, dz: 0, sx: 1, sy: 1, rot: 0, hurt: 0
 /**
  * Pose → target billboard transform. `toward` is +1 if the pet faces +x (the
  * player side, with its foe on the right) or -1 for the mirrored enemy side, so
- * "lunge" always drives toward the opponent and "recoil" always away.
+ * "lunge" always drives toward the opponent and "recoil" always away. `reach`
+ * is the gap-aware lunge distance (see lungeReach) so a melee lunge stops at
+ * contact instead of passing through an adjacent target.
  */
-export function poseMotion(state: PetVisualState, toward: number): PoseTransform {
+export function poseMotion(state: PetVisualState, toward: number, reach = 1.25): PoseTransform {
     const t = toward >= 0 ? 1 : -1;
     switch (state) {
         case "windup":          return { ...IDLE, dx: -0.4 * t, sx: 0.96, sy: 1.06 };
-        case "lunge":           return { ...IDLE, dx: 1.25 * t, sx: 1.07, sy: 0.94 };
+        case "lunge":           return { ...IDLE, dx: reach * t, sx: 1.07, sy: 0.94 };
         case "charge":
         case "rangedCast":
         case "projectileFire":  return { ...IDLE, dx: -0.18 * t, dy: 0.07, sx: 1.0, sy: 1.07 };

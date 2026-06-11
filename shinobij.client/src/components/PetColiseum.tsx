@@ -22,7 +22,8 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, ContactShadows, Html, OrbitControls } from "@react-three/drei";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
-import type { ArenaTile } from "../lib/pet-tactics";
+import { petArchetypeFor, type ArenaTile } from "../lib/pet-tactics";
+import { PetBattleAvatar } from "./PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../types/pet-battle";
 import {
     buildPetAnimationEvents,
@@ -35,7 +36,7 @@ import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { tileToWorld, poseMotion, lerp, shakeAmpForBeat } from "../lib/pet-coliseum-scene";
+import { tileToWorld, poseMotion, lerp, shakeAmpForBeat, spreadPositions, lungeReach } from "../lib/pet-coliseum-scene";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -118,7 +119,9 @@ function usePetTexture(pet: Pet, sharedImages: Record<string, string>, mirror = 
         const t = src ? new THREE.TextureLoader().load(src) : makePlaceholderTexture(pet);
         t.colorSpace = THREE.SRGBColorSpace;
         t.anisotropy = 4;
-        if (mirror) {
+        // Mirror only real art — the procedural placeholder carries the pet's
+        // INITIALS, which would render backwards if flipped.
+        if (mirror && src) {
             t.wrapS = THREE.RepeatWrapping;
             t.repeat.x = -1;
             t.offset.x = 1;
@@ -130,13 +133,23 @@ function usePetTexture(pet: Pet, sharedImages: Record<string, string>, mirror = 
 
 // ── One billboarded pet standee — eases toward the active pose each frame ─────
 function Standee({
-    pet, side, tile, pose, fainted, texture,
+    pet, side, pos, reach, toward, pose, fainted, hp, maxHp, texture,
 }: {
     pet: Pet;
     side: "player" | "enemy";
-    tile: number;
+    /** Separation-adjusted world position (faceOffPositions). */
+    pos: { x: number; z: number };
+    /** Gap-aware lunge distance (lungeReach) — stops at contact, never through. */
+    reach: number;
+    /** +1 if the opponent is to this pet's +x, -1 otherwise — drives motion
+     *  direction (lunge toward / recoil away) from ACTUAL positions, so it
+     *  stays correct even if the pets cross sides mid-fight. */
+    toward: number;
     pose: PetVisualState;
     fainted: boolean;
+    /** Live HP for the overhead nameplate bar (per-slot in 2v2). */
+    hp: number;
+    maxHp: number;
     texture: THREE.Texture;
 }) {
     const group = useRef<THREE.Group>(null);
@@ -144,14 +157,13 @@ function Standee({
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const planeH = 2.5;
     const planeW = 2.3;
-    const toward = side === "player" ? 1 : -1;
-    const base = tileToWorld(tile);
+    const base = pos;
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
     useFrame((state) => {
         const g = group.current, m = mesh.current, material = mat.current;
         if (!g || !m || !material) return;
-        const target = poseMotion(fainted ? "ko" : pose, toward);
+        const target = poseMotion(fainted ? "ko" : pose, toward, reach);
         const k = reduce ? 1 : pose === "lunge" || pose === "recoil" ? 0.32 : 0.2;
         const t = state.clock.elapsedTime;
         const breathe = (pose === "idle" || pose === "victory") && !fainted ? Math.sin(t * 2 + (side === "enemy" ? Math.PI : 0)) * 0.05 : 0;
@@ -169,7 +181,8 @@ function Standee({
         material.opacity = lerp(material.opacity, target.opacity, k);
     });
 
-    const maxHp = Math.max(1, pet.hp);
+    const safeMax = Math.max(1, maxHp);
+    const hpPct = Math.max(0, Math.min(100, (hp / safeMax) * 100));
     return (
         <group ref={group} position={[base.x, 0, base.z]}>
             <Billboard>
@@ -183,9 +196,9 @@ function Standee({
                 <div style={{ textAlign: "center", font: "700 13px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", opacity: fainted ? 0.5 : 1 }}>
                     <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 3 }}>Lv.{pet.level} {pet.name}</div>
                     <div style={{ width: 96, height: 8, margin: "0 auto", background: "#0b1020", borderRadius: 5, border: "1px solid #000", overflow: "hidden" }}>
-                        <div data-hp={side} style={{ width: "100%", height: "100%", background: side === "player" ? "#4ade80" : "#f87171", transition: "width .35s" }} />
+                        <div data-hp={side} style={{ width: `${hpPct}%`, height: "100%", background: side === "player" ? "#4ade80" : "#f87171", transition: "width .35s" }} />
                     </div>
-                    <div style={{ color: "#cbd5e1", fontSize: 10, marginTop: 2 }} data-hpnum={side}>{maxHp}/{maxHp}</div>
+                    <div style={{ color: "#cbd5e1", fontSize: 10, marginTop: 2 }} data-hpnum={side}>{Math.max(0, Math.round(hp))}/{safeMax}</div>
                 </div>
             </Html>
         </group>
@@ -308,26 +321,53 @@ export type PetColiseumProps = {
 };
 
 export function PetColiseum({
-    playerPet, enemyPet, enemyOwner, frame, result,
-    onReplay, onFightAgain, onExit, sharedImages = {},
+    playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, result,
+    onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord,
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     const playerTex = usePetTexture(playerPet, sharedImages);
     const enemyTex = usePetTexture(enemyPet, sharedImages, true);
+    // Reserve textures (2v2). Hooks must run unconditionally, so absent
+    // reserves fall back to the lead pet's art — never rendered in that case.
+    const playerResTex = usePetTexture(playerReservePet ?? playerPet, sharedImages);
+    const enemyResTex = usePetTexture(enemyReservePet ?? enemyPet, sharedImages, true);
     const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
     // Battle SFX — reuses the shared per-frame picker so sound matches the DOM
     // renderer exactly (only one renderer is mounted at a time → no double-play).
     const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
     usePetBattleFrameSfx(frame, sfxMuted);
 
+    // Pre-fight 5-second face-off countdown — same behaviour as the DOM
+    // renderer's overlay (5→4→3→2→1→"FIGHT!"). Cosmetic only.
+    const [prefightCount, setPrefightCount] = useState<number | null>(null);
+    useEffect(() => {
+        // Mirrors the accepted countdown effect in PetArenaBattlefield verbatim.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (!frame?.isPrefight) { setPrefightCount(null); return; }
+        setPrefightCount(5);
+        const id = window.setInterval(() => {
+            setPrefightCount((c) => (c === null || c <= 0 ? c : c - 1));
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [frame?.isPrefight, frame?.message]);
+
     // ── Frame derivations — mirror PetArenaBattlefield exactly so behaviour and
-    //    determinism match the DOM renderer. ──
+    //    determinism match the DOM renderer. In 2v2 (frame.party4v4 present) the
+    //    frame names the exact acting/target SLOTS; 1v1 derives from actor side. ──
+    const party = frame?.party4v4;
+    const slotPet = (slot?: string): Pet | undefined =>
+        slot === "playerLead" ? playerPet
+        : slot === "playerReserve" ? playerReservePet
+        : slot === "enemyLead" ? enemyPet
+        : slot === "enemyReserve" ? enemyReservePet
+        : undefined;
     const playerPos = frame?.playerPos ?? 29;
     const enemyPos = frame?.enemyPos ?? 40;
-    const selfTile = frame?.actor === "enemy" ? enemyPos : playerPos;
-    const targetTile = frame?.actor === "enemy" ? playerPos : enemyPos;
-    const actingElement = frame?.actor === "player" ? playerPet.element : frame?.actor === "enemy" ? enemyPet.element : undefined;
+    const selfTile = party?.actorSlot ? party[party.actorSlot].pos : frame?.actor === "enemy" ? enemyPos : playerPos;
+    const targetTile = party?.targetSlot ? party[party.targetSlot].pos : frame?.actor === "enemy" ? playerPos : enemyPos;
+    const actingPet = party?.actorSlot ? slotPet(party.actorSlot) : frame?.actor === "player" ? playerPet : frame?.actor === "enemy" ? enemyPet : undefined;
+    const actingElement = frame?.actor === "system" ? undefined : actingPet?.element;
 
     const playerHp = frame?.playerHp ?? playerPet.hp;
     const enemyHp = frame?.enemyHp ?? enemyPet.hp;
@@ -337,9 +377,9 @@ export function PetColiseum({
     const winnerSide: "player" | "enemy" | null = result === "Victory" ? "player" : result === "Defeat" ? "enemy" : null;
     const resolvedWinnerId = winnerSide === "player" ? playerPet.id : winnerSide === "enemy" ? enemyPet.id : null;
 
-    const battleDist = tileDistance(playerPos, enemyPos);
-    const animActorId = frame?.actor === "enemy" ? enemyPet.id : playerPet.id;
-    const animTargetId = frame?.actor === "enemy" ? playerPet.id : enemyPet.id;
+    const battleDist = tileDistance(selfTile, targetTile);
+    const animActorId = party?.actorSlot ? (slotPet(party.actorSlot)?.id ?? "") : frame?.actor === "enemy" ? enemyPet.id : playerPet.id;
+    const animTargetId = party?.targetSlot ? (slotPet(party.targetSlot)?.id ?? "") : frame?.actor === "enemy" ? playerPet.id : enemyPet.id;
     const animVfxKey = elementVfxKey(actingElement);
 
     const animEvents = useMemo(() => {
@@ -388,11 +428,10 @@ export function PetColiseum({
     }, [animEvents]);
     const activeAnimEvent = animEvents[animIdx];
 
-    // ── Per-pet poses from the active beat. ──
+    // ── Per-pet fainted flags (1v1; 2v2 uses per-slot ko in the render). Poses
+    //    resolve per-combatant in the render block via petPoseForAvatar. ──
     const playerFainted = !winnerSide ? playerHp <= 0 : winnerSide === "enemy";
     const enemyFainted = !winnerSide ? enemyHp <= 0 : winnerSide === "player";
-    const playerPose = petPoseForAvatar(activeAnimEvent, playerPet.id, winnerSide === "player", playerFainted);
-    const enemyPose = petPoseForAvatar(activeAnimEvent, enemyPet.id, winnerSide === "enemy", enemyFainted);
 
     // ── Camera shake amplitude for this beat. ──
     const victimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
@@ -455,8 +494,54 @@ export function PetColiseum({
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 22, 48]} />
                 <Arena floor={floor} backdrop={backdrop} />
-                <Standee pet={playerPet} side="player" tile={playerPos} pose={playerPose} fainted={playerFainted} texture={playerTex} />
-                <Standee pet={enemyPet} side="enemy" tile={enemyPos} pose={enemyPose} fainted={enemyFainted} texture={enemyTex} />
+                {(() => {
+                    // Combatant list: the two leads (1v1), or all four slots when
+                    // the frame carries party4v4 (2v2) — each with its OWN tile,
+                    // HP and KO state from the slot snapshot. Positions get the
+                    // pairwise minimum separation; motion direction + gap-aware
+                    // lunge reach derive from the nearest living opponent.
+                    const combatants = party
+                        ? ([
+                            { side: "player" as const, snap: party.playerLead, pet: playerPet as Pet | undefined, tex: playerTex },
+                            { side: "player" as const, snap: party.playerReserve, pet: playerReservePet, tex: playerResTex },
+                            { side: "enemy" as const, snap: party.enemyLead, pet: enemyPet as Pet | undefined, tex: enemyTex },
+                            { side: "enemy" as const, snap: party.enemyReserve, pet: enemyReservePet, tex: enemyResTex },
+                        ])
+                            .filter((e) => e.pet && e.snap)
+                            .map((e) => ({
+                                pet: e.pet!, side: e.side, tile: e.snap.pos, tex: e.tex,
+                                hp: e.snap.hp, maxHp: e.snap.maxHp,
+                                fainted: e.snap.ko || e.snap.hp <= 0,
+                            }))
+                        : [
+                            { pet: playerPet, side: "player" as const, tile: playerPos, tex: playerTex, hp: playerHp, maxHp: Math.max(1, playerPet.hp), fainted: playerFainted },
+                            { pet: enemyPet, side: "enemy" as const, tile: enemyPos, tex: enemyTex, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
+                        ];
+                    const spread = spreadPositions(combatants.map((c) => tileToWorld(c.tile)));
+                    return combatants.map((c, i) => {
+                        const pos = spread[i];
+                        const foes = combatants
+                            .map((o, j) => ({ o, p: spread[j] }))
+                            .filter((e) => e.o.side !== c.side);
+                        const pool = foes.filter((e) => !e.o.fainted).length ? foes.filter((e) => !e.o.fainted) : foes;
+                        let toward = c.side === "player" ? 1 : -1;
+                        let reach = lungeReach(2.5);
+                        if (pool.length) {
+                            let bd = Infinity, bp = pool[0].p;
+                            for (const e of pool) {
+                                const d = Math.hypot(e.p.x - pos.x, e.p.z - pos.z);
+                                if (d < bd) { bd = d; bp = e.p; }
+                            }
+                            toward = (bp.x - pos.x) >= 0 ? 1 : -1;
+                            reach = lungeReach(bd);
+                        }
+                        const pose = petPoseForAvatar(activeAnimEvent, c.pet.id, !!winnerSide && winnerSide === c.side && !c.fainted, c.fainted);
+                        return (
+                            <Standee key={c.pet.id} pet={c.pet} side={c.side} pos={pos} reach={reach} toward={toward}
+                                pose={pose} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp} texture={c.tex} />
+                        );
+                    });
+                })()}
                 {fx.map((f) => (
                     <FxAnim key={f.id} frames={f.frames} from={f.from} to={f.to} durationMs={f.durationMs} scale={f.scale}
                         onDone={() => setFx((p) => p.filter((x) => x.id !== f.id))} />
@@ -471,6 +556,56 @@ export function PetColiseum({
             </Canvas>
 
             {/* ── DOM overlays (not in 3D) ─────────────────────────────────── */}
+            {/* Pre-fight VS face-off — reuses the DOM renderer's prefight CSS
+                (overlay, slide-ins, countdown pop) over the dimmed 3D arena.
+                In 2v2 each side also introduces its reserve as a small chip. */}
+            {frame?.isPrefight && (() => {
+                const miniSrc = (p?: Pet) => p
+                    ? (sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")] || p.image || "")
+                    : "";
+                const reserveChip = (p?: Pet) => p && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "#cbd5e1", font: "600 12px Inter, system-ui, sans-serif" }}>
+                        <span style={{ color: "#94a3b8" }}>＋</span>
+                        {miniSrc(p) ? <img src={miniSrc(p)} alt={p.name} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "1px solid #334155" }} /> : null}
+                        <span>{p.name} · Lv {p.level}</span>
+                    </div>
+                );
+                const sideCard = (pet: Pet, side: "player" | "enemy", record?: PetBattleRecord, reserve?: Pet) => (
+                    <div className={`pet-prefight-side ${side}`}>
+                        <div className="pet-prefight-portrait">
+                            <PetBattleAvatar pet={pet} side={side} active sharedImages={sharedImages} />
+                        </div>
+                        <div className={`pet-prefight-name ${side}`}>{pet.name}</div>
+                        <div className="pet-prefight-sub">Lv {pet.level} · {pet.rarity}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</div>
+                        <div className="pet-prefight-archetype">{petArchetypeFor(pet)}</div>
+                        <div className="pet-prefight-stats">
+                            <span>❤ {pet.hp}</span><span>⚔ {pet.attack}</span><span>🛡 {pet.defense}</span><span>⚡ {pet.speed}</span>
+                        </div>
+                        {record && (
+                            <div className="pet-prefight-record">
+                                {record.wins !== undefined && <><span className="rec-w">{record.wins}W</span> <span className="rec-l">{record.losses ?? 0}L</span></>}
+                                {record.rating !== undefined && <span className="rec-elo">{record.wins !== undefined ? " · " : ""}{record.rating} Elo</span>}
+                            </div>
+                        )}
+                        {reserveChip(reserve)}
+                    </div>
+                );
+                return (
+                    <div className="pet-prefight-overlay">
+                        <div className="pet-prefight-vs">
+                            {sideCard(playerPet, "player", playerRecord, playerReservePet)}
+                            <span className="pet-prefight-vs-label">VS</span>
+                            {sideCard(enemyPet, "enemy", enemyRecord, enemyReservePet)}
+                        </div>
+                        <div className="pet-prefight-tagline">
+                            {prefightCount !== null && prefightCount > 0
+                                ? <span className="pet-prefight-count" key={prefightCount}>{prefightCount}</span>
+                                : <span className="pet-prefight-go">FIGHT!</span>}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {toast && (
                 <div key={frame?.message} style={{ position: "absolute", top: 56, right: 14, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(15,23,42,0.92)", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", boxShadow: "0 4px 16px #0008" }}>
                     <span style={{ width: 20, height: 20, borderRadius: 6, background: elementColor(actingElement).base }} />
