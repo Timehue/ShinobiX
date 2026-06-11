@@ -20,9 +20,11 @@ export const COLISEUM_COLS = 14;
 export const COLISEUM_ROWS = 7;
 
 // World footprint (in three.js units) the grid maps onto. Wide and shallow so
-// the two sides face off across the pit at the angled camera.
-const ARENA_HALF_W = 4.2; // x extent (left ↔ right)
-const ARENA_HALF_D = 2.0; // z extent (depth: back rows far, front rows near)
+// the two sides face off across the pit at the angled camera. Sized generously
+// (a tile step ≈ 0.86 units) so walks/lunges read as real movement and a 2v2's
+// four pets have room to spread instead of stacking behind each other.
+const ARENA_HALF_W = 5.6; // x extent (left ↔ right)
+const ARENA_HALF_D = 3.2; // z extent (depth: back rows far, front rows near)
 
 /** Map a tile index on the COLISEUM_COLS×COLISEUM_ROWS grid to floor (x,z).
  *  col → x (left→right), row → z (back→front). Out-of-range tiles clamp via
@@ -49,9 +51,9 @@ export function tileToWorld(
 // each other"). MIN_SEP pushes the two apart to a readable rest distance;
 // CONTACT_GAP is where a lunge STOPS — close enough to read as a hit, never
 // through the target.
-const MIN_SEP = 1.7;
+const MIN_SEP = 1.9;
 const CONTACT_GAP = 0.95;
-const MAX_LUNGE = 1.6;
+const MAX_LUNGE = 2.2;
 
 /** Enforce a minimum pairwise separation over N floor positions (2 for 1v1,
  *  4 for 2v2). Symmetric pairwise pushes over a few relaxation iterations —
