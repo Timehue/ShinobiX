@@ -48,8 +48,11 @@ const FX_Y = 1.0; // mid-body height for impacts / casts
 // backdrop's stands/crowd/sky fill the upper frame while the floor + grounded
 // pets sit lower. Shared so the Canvas, onCreated, CameraRig + OrbitControls
 // all agree on the same look target.
-const CAM_POS: Vec3 = [0, 4.1, 10.8];
-const CAM_LOOK: Vec3 = [0, 1.8, -2.2];
+// Pulled back + raised a touch vs the original [0,4.1,10.8] so more of the
+// designed battle-map floor shows and the pets read as crossing a field (the
+// "camera back" map framing). Tunable — nudge y/z if it's too wide/tight.
+const CAM_POS: Vec3 = [0, 4.7, 11.7];
+const CAM_LOOK: Vec3 = [0, 1.7, -2.2];
 const CAM_FOV = 36;
 
 // Generated coliseum scene art (OpenAI gpt-image-1 → WebP, bundled). Resolved
