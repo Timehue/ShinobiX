@@ -621,13 +621,15 @@ export function Arena({
     // converts a capped % into avoided damage) plus any reflected damage the attacker
     // receives. Reads activeStatuses so a just-applied (deferred) buff waits a round.
     function enemyDefenseFor(rawDamage: number, bypass = false) {
-        if (bypass || rawDamage <= 0) return { net: rawDamage, reflected: 0 };
+        if (bypass || rawDamage <= 0) return { net: rawDamage, reflected: 0, absorbed: 0 };
         const active = activeStatuses(enemyStatuses);
         const absorbStatus = active.find((s) => s.name === "Absorb");
         const reflectStatus = active.find((s) => s.name === "Reflect");
         const absorbed = absorbStatus ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbStatus.percent || 30))) : 0;
         const reflected = reflectStatus ? Math.floor(cappedPostDamage(rawDamage, reflectStatus.percent || 30)) : 0;
-        return { net: Math.max(0, rawDamage - absorbed), reflected };
+        // `absorbed` is returned so callers can LOG it — it used to silently
+        // shrink the damage number, which read as "the AI's Absorb did nothing".
+        return { net: Math.max(0, rawDamage - absorbed), reflected, absorbed };
     }
 
     useEffect(() => {
@@ -1516,8 +1518,10 @@ export function Arena({
             enemyArmorFactor,
             playerItemMult,
             weatherDamageMultiplier(basicAttackJutsu) * territoryDamageMultiplier(basicAttackJutsu),
-            playerStatuses,
-            enemyStatuses,
+            // ACTIVE statuses only — raw arrays let a just-cast (deferred,
+            // "starting next round") amp/debuff boost this same attack.
+            activeStatuses(playerStatuses),
+            activeStatuses(enemyStatuses),
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -1535,14 +1539,14 @@ export function Arena({
         const recoilDmg = recoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, recoilStatus.percent ?? 30)) : 0;
         const basicHeal = basicLsHeal + statusLsHeal;
 
-        const { net: enemyNet, reflected: enemyReflected } = enemyDefenseFor(finalDamage);
+        const { net: enemyNet, reflected: enemyReflected, absorbed: enemyAbsorbed } = enemyDefenseFor(finalDamage);
         const basicSelfDamage = recoilDmg + enemyReflected;
         setEnemyShield((s) => Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - enemyNet)));
         if (basicHeal > 0 || basicSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - basicSelfDamage)));
 
         addCombatLog(
-            `Basic Attack: ${character.name} hits ${opponentName} for ${enemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${enemyReflected > 0 ? ` Reflect: ${opponentName} returns ${enemyReflected} damage.` : ""}${statusLsHeal > 0 ? ` Lifesteal restores ${statusLsHeal} HP.` : ""}${basicLsHeal > 0 ? ` Gear lifesteal restores ${basicLsHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
+            `Basic Attack: ${character.name} hits ${opponentName} for ${enemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${enemyAbsorbed > 0 ? ` Absorb: ${opponentName} absorbs ${enemyAbsorbed} damage.` : ""}${enemyReflected > 0 ? ` Reflect: ${opponentName} returns ${enemyReflected} damage.` : ""}${statusLsHeal > 0 ? ` Lifesteal restores ${statusLsHeal} HP.` : ""}${basicLsHeal > 0 ? ` Gear lifesteal restores ${basicLsHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
             "basicAttack",
             character.name
         );
@@ -1624,8 +1628,10 @@ export function Arena({
             enemyArmorFactor,
             playerItemMult,
             weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu),
-            playerStatuses,
-            enemyStatuses,
+            // ACTIVE statuses only — see basic-attack note (deferred amps must
+            // not boost the attack they were cast alongside).
+            activeStatuses(playerStatuses),
+            activeStatuses(enemyStatuses),
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -1753,7 +1759,7 @@ export function Arena({
         const wRecoilStatus = activeWp.find((s) => s.name === "Recoil");
         const wRecoilDmg = wRecoilStatus && finalDamage > 0 ? Math.floor(cappedPostDamage(finalDamage, wRecoilStatus.percent ?? 30)) : 0;
         const wHeal = weaponLsHeal + wStatusLsHeal;
-        const { net: wEnemyNet, reflected: wEnemyReflected } = enemyDefenseFor(finalDamage, weaponPierce);
+        const { net: wEnemyNet, reflected: wEnemyReflected, absorbed: wEnemyAbsorbed } = enemyDefenseFor(finalDamage, weaponPierce);
         const wSelfDamage = wRecoilDmg + wEnemyReflected;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
@@ -1763,7 +1769,7 @@ export function Arena({
         if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
 
         const effectSuffix = effectLines.length ? ` ${effectLines.join(" ")}` : "";
-        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${wStatusLsHeal > 0 ? ` Lifesteal restores ${wStatusLsHeal} HP.` : ""}${weaponLsHeal > 0 ? ` Gear lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
+        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyAbsorbed > 0 ? ` Absorb: ${opponentName} absorbs ${wEnemyAbsorbed} damage.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${wStatusLsHeal > 0 ? ` Lifesteal restores ${wStatusLsHeal} HP.` : ""}${weaponLsHeal > 0 ? ` Gear lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
 
         if (enemyHp - wEnemyNet <= 0) return winBattle();
 
@@ -2161,8 +2167,12 @@ export function Arena({
             enemyArmorFactor,
             playerItemMult,
             weatherDamageMultiplier(jutsu) * territoryDamageMultiplier(jutsu),
-            playerStatuses,
-            enemyStatuses,
+            // ACTIVE statuses only. This was the "buffs are instant" bug: a
+            // 40AP IDG/IDT cast said "starting next round" but the raw arrays
+            // fed pvpAmpMultiplier, so the very next 60AP jutsu in the SAME
+            // turn was already amplified (946 → 1378 with two 21% amps).
+            activeStatuses(playerStatuses),
+            activeStatuses(enemyStatuses),
             mastery.level,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
@@ -2491,7 +2501,7 @@ export function Arena({
             effectLines.push(`Recoil: ${character.name} takes ${recoilDamage} recoil damage.`);
         }
 
-        const { net: castEnemyNet, reflected: castEnemyReflected } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
+        const { net: castEnemyNet, reflected: castEnemyReflected, absorbed: castEnemyAbsorbed } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, hp - castEnemyNet));
         setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected)));
@@ -2522,7 +2532,11 @@ export function Arena({
         const timelineParts = [
             `${jutsu.name}: ${flavorText}`,
             groundTargetNote,
-            totalDamage > 0 ? `Damage Dealt: ${opponentName} takes ${totalDamage} damage.` : "",
+            // Log the NET damage (what the enemy's HP actually lost). Logging the
+            // pre-Absorb total made a working Absorb look like it did nothing.
+            castEnemyNet > 0 ? `Damage Dealt: ${opponentName} takes ${castEnemyNet} damage.` : "",
+            castEnemyAbsorbed > 0 ? `Absorb: ${opponentName} absorbs ${castEnemyAbsorbed} damage.` : "",
+            castEnemyReflected > 0 ? `Reflect: ${character.name} takes ${castEnemyReflected} reflected damage.` : "",
             blocked > 0 ? `Shield: ${opponentName}'s shield blocks ${blocked} damage.` : "",
             healing > 0 ? `Heal: ${character.name} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${character.name} gains ${shield} shield.` : "",
@@ -2547,8 +2561,8 @@ export function Arena({
         if (enemyHp - castEnemyNet <= 0) return winBattle();
 
         setLog((groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"))
-            ? `${jutsu.name}: moved to hex ${targetTile}. ${groundHitEnemy ? `${finalDamage + extraEnemyDamage} damage.` : `${opponentName} was outside the blast.`} ${healing ? `Healed ${healing}.` : ""}`
-            : `${jutsu.name} used on ${opponentName}. ${finalDamage + extraEnemyDamage} damage. ${healing ? `Healed ${healing}.` : ""}`);
+            ? `${jutsu.name}: moved to hex ${targetTile}. ${groundHitEnemy ? `${castEnemyNet} damage.` : `${opponentName} was outside the blast.`} ${healing ? `Healed ${healing}.` : ""}`
+            : `${jutsu.name} used on ${opponentName}. ${castEnemyNet} damage. ${healing ? `Healed ${healing}.` : ""}`);
     }
 
     function aiRuleMatches(rule: AiRule) {
@@ -2573,8 +2587,10 @@ export function Arena({
                 activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
                 playerArmorFactor, 1.0,
                 weatherDamageMultiplier(jutsu),
-                enemyStatuses,
-                playerStatuses,
+                // ACTIVE statuses only, so the AI scores jutsu with the same
+                // deferred-amp rules its actual cast resolves with.
+                activeStatuses(enemyStatuses),
+                activeStatuses(playerStatuses),
             );
         } catch {
             return jutsu.effectPower;
@@ -2845,8 +2861,10 @@ export function Arena({
                 playerArmorFactor,
                 1.0,
                 weatherDamageMultiplier(jutsu),
-                enemyStatuses,
-                playerStatuses,
+                // ACTIVE statuses only — the AI's own just-cast (deferred)
+                // buffs must not amplify the attack it makes the same turn.
+                activeStatuses(enemyStatuses),
+                activeStatuses(playerStatuses),
             );
         const damage = damageBase;
         let healing = 0;
@@ -3237,7 +3255,9 @@ export function Arena({
                 const chosenJutsu = rule.action === "use_specific_jutsu" ? specificJutsu : rule.action === "use_highest_power_jutsu" ? highestPowerAiJutsu(enemyTurnAp) : undefined;
 
                 if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, enemyTurnAp)) {
-                    addCombatLog(`${opponentName} follows AI Rule ${pendingAiProfile.rules.indexOf(rule) + 1}.`, "aiRule", opponentName);
+                    // No "follows AI Rule N" log line — internal AI bookkeeping
+                    // isn't combat information (player request: keep it out of
+                    // the battle log). enemyUseAiJutsu already logs the cast.
                     finishEnemyAiAction();
                     return;
                 }
@@ -3245,8 +3265,8 @@ export function Arena({
                 if (rule.action === "move_towards_opponent" && distance(playerPos, enemyPos) > 1) {
                     const next = nextStepToward(enemyPos, playerPos);
                     if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
-                    setLog(`${opponentName} follows its AI rule and moves closer.`);
-                    addCombatLog(`${opponentName} follows AI Rule ${pendingAiProfile.rules.indexOf(rule) + 1} and moves toward ${character.name}.`, "move", opponentName);
+                    setLog(`${opponentName} moves closer.`);
+                    addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
                     finishEnemyAiAction();
                     return;
                 }
