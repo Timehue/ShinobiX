@@ -4304,8 +4304,19 @@ export default function App() {
                 return seeded.length ? [...patched, ...seeded] : patched;
             });
         else if (cat === 'pet') {
-            setEditablePets(prev => prev.map(pet =>
-                images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
+            setEditablePets(prev => prev.map(pet => {
+                const fetched = images['pet:' + pet.id];
+                if (!fetched) return pet;
+                // Don't clobber a freshly-set INLINE image with a cached /api/img
+                // reference URL. The per-image endpoint serves a 5-min stale copy
+                // (Cache-Control max-age=300), so when this hydrate ran after an
+                // admin avatar change it replaced the just-made base64 with the
+                // old cached URL — making the change appear to "revert". A data:
+                // URL is already displayable, so keep the local edit. Reference-
+                // URL images (the normal hydrated state) still refresh normally.
+                if (typeof pet.image === 'string' && pet.image.startsWith('data:')) return pet;
+                return { ...pet, image: fetched };
+            }));
             // Also patch images onto the pets stored on each player's character.
             // cloneEncounterPet appends -Date.now() to the pool ID (e.g. "standard-1"
             // becomes "standard-1-1747482312345"), so we strip the timestamp suffix
