@@ -4530,11 +4530,19 @@ export default function App() {
             try {
                 if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
 
+                // 5-minute time-bucket cache-buster. Cloudflare's Browser-Cache-TTL
+                // zone setting rewrites this endpoint's max-age from 60s to 4 HOURS,
+                // so without this a browser can hold a stale id-manifest (e.g. one
+                // predating newly published petbody: battle sprites) for hours and
+                // the renderers silently fall back to old art. Rotating the URL
+                // every 5 min bounds staleness at ~5 min while still letting the
+                // ~5 KB manifest cache within each bucket.
+                const cb = Math.floor(Date.now() / 300_000);
                 let entries: Record<string, string>;
                 if (urlMode) {
                     // Manifest mode: fetch just the id list and map each to a
                     // per-image URL. The actual bytes load lazily via <img src>.
-                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1`);
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&ids=1&cb=${cb}`);
                     if (!r.ok) continue;
                     const ids = await r.json() as unknown;
                     if (!Array.isArray(ids)) continue;
@@ -4543,7 +4551,7 @@ export default function App() {
                         if (typeof id === 'string') entries[id] = `/api/img?id=${encodeURIComponent(id)}`;
                     }
                 } else {
-                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
+                    const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}&cb=${cb}`);
                     if (!r.ok) continue;
                     const data = await r.json() as unknown;
                     if (!data || typeof data !== 'object') continue;
