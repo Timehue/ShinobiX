@@ -22,7 +22,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
-import { petArchetypeFor, petHighGroundTiles, type ArenaTile } from "../lib/pet-tactics";
+import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } from "../lib/pet-tactics";
 import { PetBattleAvatar } from "./PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../types/pet-battle";
 import {
@@ -482,7 +482,9 @@ function ArenaObstacles({ obstacles, tiles }: { obstacles?: number[]; tiles?: Ar
     // Central high ground — derived from the obstacles (both 1v1 + 2v2), drawn as
     // glowing amber pads so the contested centre reads as a prize worth holding.
     const highGround = useMemo(() => [...petHighGroundTiles(obstacles ?? [])], [obstacles]);
-    if (!placements.length && !highGround.length) return null;
+    // Bushes / tall grass — flank concealment, drawn as forest-green clumps.
+    const bushes = useMemo(() => [...petBushTiles(obstacles ?? [])], [obstacles]);
+    if (!placements.length && !highGround.length && !bushes.length) return null;
     const hgW = TILE_WORLD_W * 0.98, hgD = TILE_WORLD_D * 0.86;
     return (
         <group>
@@ -494,6 +496,19 @@ function ArenaObstacles({ obstacles, tiles }: { obstacles?: number[]; tiles?: Ar
                         <planeGeometry args={[hgW, hgD]} />
                         <meshBasicMaterial map={decalTexture()} color="#e8b94a" transparent opacity={0.5} depthWrite={false} toneMapped={false} />
                     </mesh>
+                );
+            })}
+            {bushes.map((t) => {
+                const { x, z } = tileToWorld(t);
+                return (
+                    <group key={`bush-${t}`} position={[x, 0.28, z]}>
+                        <Billboard>
+                            <mesh>
+                                <planeGeometry args={[TILE_WORLD_W * 1.15, 0.66]} />
+                                <meshBasicMaterial map={decalTexture()} color="#2f7d3a" transparent opacity={0.62} depthWrite={false} toneMapped={false} />
+                            </mesh>
+                        </Billboard>
+                    </group>
                 );
             })}
         </group>
