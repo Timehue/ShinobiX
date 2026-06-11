@@ -507,6 +507,30 @@ export function petBushTiles(obstacles: ReadonlySet<number> | ReadonlyArray<numb
     return new Set(out);
 }
 
+// ── Terrain-seeking AI (where to move this turn) ─────────────────────────────
+// Turns the emergent shrines into a SOUGHT objective: while still approaching
+// (the foe is more than melee range away), a pet detours to grab an un-claimed
+// power shrine IF one is genuinely on the way — i.e. closer than the foe, so the
+// detour barely costs tempo. Once the shrine is claimed (removed from the set)
+// or the foe is in melee range, it heads for the foe. Pure + deterministic →
+// ranked stays synced.
+export function petShrineSeekGoal(
+    selfPos: number,
+    foePos: number,
+    shrines: ReadonlySet<number> | ReadonlyArray<number>,
+    cols = PET_GRID_COLS,
+): number {
+    const set = shrines instanceof Set ? shrines : new Set(shrines);
+    if (set.size === 0) return foePos;
+    const dist = (a: number, b: number) =>
+        Math.abs(Math.floor(a / cols) - Math.floor(b / cols)) + Math.abs((a % cols) - (b % cols));
+    const foeD = dist(selfPos, foePos);
+    if (foeD <= 2) return foePos; // already engaging — don't wander off
+    let best = -1, bestD = Infinity;
+    for (const s of set) { const d = dist(selfPos, s); if (d < bestD) { bestD = d; best = s; } }
+    return best >= 0 && bestD < foeD ? best : foePos; // shrine only if it's on the way
+}
+
 // ── Tactical zones (Phase 10-14) ────────────────────────────────────────────
 // The 14-wide grid is huge; zones focus the fight around the middle. Cover and
 // hazard tiles read as their own zones; otherwise columns band into backline
