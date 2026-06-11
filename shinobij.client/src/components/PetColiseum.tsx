@@ -22,7 +22,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
-import { petArchetypeFor, type ArenaTile } from "../lib/pet-tactics";
+import { petArchetypeFor, petHighGroundTiles, type ArenaTile } from "../lib/pet-tactics";
 import { PetBattleAvatar } from "./PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../types/pet-battle";
 import {
@@ -479,8 +479,25 @@ function ObstacleMesh({ p }: { p: ObstaclePlacement }) {
 
 function ArenaObstacles({ obstacles, tiles }: { obstacles?: number[]; tiles?: ArenaTile[] }) {
     const placements = useMemo(() => arenaObstaclePlacements(obstacles, tiles), [obstacles, tiles]);
-    if (!placements.length) return null;
-    return <group>{placements.map((p, i) => <ObstacleMesh key={`${p.kind}-${i}`} p={p} />)}</group>;
+    // Central high ground — derived from the obstacles (both 1v1 + 2v2), drawn as
+    // glowing amber pads so the contested centre reads as a prize worth holding.
+    const highGround = useMemo(() => [...petHighGroundTiles(obstacles ?? [])], [obstacles]);
+    if (!placements.length && !highGround.length) return null;
+    const hgW = TILE_WORLD_W * 0.98, hgD = TILE_WORLD_D * 0.86;
+    return (
+        <group>
+            {placements.map((p, i) => <ObstacleMesh key={`${p.kind}-${i}`} p={p} />)}
+            {highGround.map((t) => {
+                const { x, z } = tileToWorld(t);
+                return (
+                    <mesh key={`hg-${t}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.035, z]}>
+                        <planeGeometry args={[hgW, hgD]} />
+                        <meshBasicMaterial map={decalTexture()} color="#e8b94a" transparent opacity={0.5} depthWrite={false} toneMapped={false} />
+                    </mesh>
+                );
+            })}
+        </group>
+    );
 }
 
 // ── A frame-sequence VFX sprite (stationary, or travelling from→to) ───────────

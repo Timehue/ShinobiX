@@ -10,7 +10,7 @@
  * load-bearing for ranked pet PvP (both clients run an identical canonical
  * simulation from the same seed), so the RNG call order here must not change.
  */
-import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond } from "./pet-tactics";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import {
@@ -733,6 +733,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     const hazardTiles = arenaTiles.hazard;
     const healingTiles = arenaTiles.healing;
     const slowTiles = arenaTiles.slow;
+    // Central high ground (terrain depth) — holding it grants a round-end ward.
+    const highGroundTiles = petHighGroundTiles(obstacles);
     // Compiled tile-type lookup for the scored AI (Phase 10).
     const arena = makeArena(arenaTiles.tiles);
 
@@ -1617,6 +1619,17 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             logs.push(msg);
             pushFrame(round, msg, "enemy", hz ? "dot" : "heal", hz ? amt : undefined);
         }
+        // High-ground ward — a pet that ends the round holding the central high
+        // ground tops up a protective shield (refreshed to a floor, not stacked).
+        const hgWard = (f: PetBattleFighter) => Math.max(2, Math.floor(f.pet.hp * 0.08));
+        if (player.hp > 0 && highGroundTiles.has(player.pos) && player.shieldHp < hgWard(player)) {
+            player = { ...player, shieldHp: hgWard(player) };
+            logs.push(`Round ${round}: ${player.pet.name} holds the high ground — warded (${player.shieldHp}).`);
+        }
+        if (enemy.hp > 0 && highGroundTiles.has(enemy.pos) && enemy.shieldHp < hgWard(enemy)) {
+            enemy = { ...enemy, shieldHp: hgWard(enemy) };
+            logs.push(`Round ${round}: ${enemy.pet.name} holds the high ground — warded (${enemy.shieldHp}).`);
+        }
         if (player.hp <= 0 || enemy.hp <= 0) break;
 
         const roundMessage = `Round ${round}: ${player.pet.name} ${player.hp}/${player.pet.hp} HP | ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP`;
@@ -1843,6 +1856,8 @@ export function runPetArenaParty(
     const rng = seededPetBattleRandom(seed);
     const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length)];
     const obstacles = new Set<number>(obstacleLayout);
+    // Central high ground (terrain depth) — holding it grants a round-end ward.
+    const highGroundTiles = petHighGroundTiles(obstacles);
 
     // Starting positions on the 14×7 grid:
     //   playerLead    = col 1, row 2 = 29
@@ -2590,6 +2605,18 @@ export function runPetArenaParty(
                     act(slot, round, lastTargetBySide[sideKey]);
                     if (lastOpposingAttacked) lastTargetBySide[sideKey] = lastOpposingAttacked;
                 }
+            }
+        }
+
+        // High-ground ward (terrain depth) — every pet holding the central high
+        // ground at round end tops up a protective shield (refreshed, not stacked).
+        for (const s of ALL_SLOTS) {
+            const f = fighters[s];
+            if (!f || f.hp <= 0 || !highGroundTiles.has(f.pos)) continue;
+            const ward = Math.max(2, Math.floor(f.pet.hp * 0.08));
+            if (f.shieldHp < ward) {
+                fighters[s] = { ...f, shieldHp: ward };
+                logs.push(`Round ${round}: ${f.pet.name} holds the high ground — warded (${ward}).`);
             }
         }
 
