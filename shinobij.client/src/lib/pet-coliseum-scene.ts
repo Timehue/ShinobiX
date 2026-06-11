@@ -23,8 +23,11 @@ export const COLISEUM_ROWS = 7;
 // the two sides face off across the pit at the angled camera. Sized generously
 // (a tile step ≈ 0.86 units) so walks/lunges read as real movement and a 2v2's
 // four pets have room to spread instead of stacking behind each other.
-const ARENA_HALF_W = 5.6; // x extent (left ↔ right)
-const ARENA_HALF_D = 3.2; // z extent (depth: back rows far, front rows near)
+// Enlarged (5.6×3.2 → 7.0×4.0) so the full tactical battlefield — central
+// obstacles + high ground, lane shrines, flank bushes, hazard/heal/slow tiles
+// AND four 2v2 pets — has room to breathe instead of piling into the centre.
+const ARENA_HALF_W = 7.0; // x extent (left ↔ right)
+const ARENA_HALF_D = 4.0; // z extent (depth: back rows far, front rows near)
 
 /** One grid tile's world footprint — used to size obstacle blocks + floor decals
  *  so they line up with the tiles pets path through. */
