@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.applyJutsu = applyJutsu;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -409,6 +410,8 @@ function scaledTagPercent(rawPct, masteryLevel) {
     return Math.max(0, raw - (50 - masteryLevel) * 0.2);
 }
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
+// Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts),
+// which pins the "lingering tags don't fire on the cast turn" behaviour.
 function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round = 1) {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).

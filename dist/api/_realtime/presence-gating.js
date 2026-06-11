@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ACADEMY_MIN_LEVEL = void 0;
+exports.ATTACKABLE_MIN_LEVEL = exports.ACADEMY_MIN_LEVEL = void 0;
+exports.isBelowAttackableFloor = isBelowAttackableFloor;
 exports.isAcademyProtectedLevel = isAcademyProtectedLevel;
 exports.attackBlock = attackBlock;
 exports.challengeBlock = challengeBlock;
@@ -12,6 +13,18 @@ const _utils_js_1 = require("../_utils.js");
 // game. Level 0/unknown is NOT protected (a missing field can't break a
 // legitimate fight).
 exports.ACADEMY_MIN_LEVEL = 15;
+// Hard floor for NON-consensual / competitive PvP (sector raids + ranked).
+// Shinobi below this level simply can't be pulled into those fights at all —
+// enforced from the AUTHORITATIVE save level at the session-creation chokepoint
+// and at ranked-queue join, so it can't be bypassed by a pre-created session or
+// raced by an un-warmed online-store record (which can momentarily read level 0).
+// Consensual spars stay open to everyone. Kept separate from ACADEMY_MIN_LEVEL
+// so the two protections can be tuned independently.
+exports.ATTACKABLE_MIN_LEVEL = 10;
+/** True when `level` is a real, known level below the attackable floor (1..9). */
+function isBelowAttackableFloor(level) {
+    return level > 0 && level < exports.ATTACKABLE_MIN_LEVEL;
+}
 /**
  * True when `level` is a real, sub-Genin level (1..14). Level 0 / unknown is
  * deliberately NOT protected so a missing field can't break a legitimate fight

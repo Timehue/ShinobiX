@@ -378,8 +378,17 @@ export function Arena({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: character.name, level: character.level, elo: character.rankedRating ?? 1000, action: "join" }),
         })
-            .then(r => r.json())
-            .then(data => setRankedQueueSize(data.queueSize ?? 0))
+            .then(async (r) => {
+                const data = await r.json().catch(() => ({} as Record<string, unknown>));
+                if (!r.ok) {
+                    // Server rejected the join (e.g. newcomer protection below
+                    // level 10). Without this the queue spinner runs forever.
+                    setRankedQueueActive(false);
+                    alert(typeof data?.error === "string" ? data.error : "Couldn't join the ranked queue.");
+                    return;
+                }
+                setRankedQueueSize((data as { queueSize?: number }).queueSize ?? 0);
+            })
             .catch(() => {});
     }
 
@@ -1533,7 +1542,7 @@ export function Arena({
         if (basicHeal > 0 || basicSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - basicSelfDamage)));
 
         addCombatLog(
-            `Basic Attack: ${character.name} hits ${opponentName} for ${enemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${enemyReflected > 0 ? ` Reflect: ${opponentName} returns ${enemyReflected} damage.` : ""}${basicHeal > 0 ? ` Lifesteal restores ${basicHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
+            `Basic Attack: ${character.name} hits ${opponentName} for ${enemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${enemyReflected > 0 ? ` Reflect: ${opponentName} returns ${enemyReflected} damage.` : ""}${statusLsHeal > 0 ? ` Lifesteal restores ${statusLsHeal} HP.` : ""}${basicLsHeal > 0 ? ` Gear lifesteal restores ${basicLsHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
             "basicAttack",
             character.name
         );
@@ -1754,7 +1763,7 @@ export function Arena({
         if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
 
         const effectSuffix = effectLines.length ? ` ${effectLines.join(" ")}` : "";
-        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${weaponLsHeal > 0 ? ` Lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
+        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${wStatusLsHeal > 0 ? ` Lifesteal restores ${wStatusLsHeal} HP.` : ""}${weaponLsHeal > 0 ? ` Gear lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
 
         if (enemyHp - wEnemyNet <= 0) return winBattle();
 
@@ -2463,7 +2472,11 @@ export function Arena({
         if (equippedLifeStealPercent > 0) {
             const itemLsHeal = Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent));
             healing += itemLsHeal;
-            if (itemLsHeal > 0) effectLines.push(`Lifesteal restores ${itemLsHeal} HP`);
+            // "Gear lifesteal" (not "Lifesteal") — this is the equipped-item
+            // passive, which heals instantly by design. The Lifesteal TAG is a
+            // deferred 2-round buff; sharing one label made the tag look like it
+            // healed the cast attack ("all tags are instant" reports).
+            if (itemLsHeal > 0) effectLines.push(`Gear lifesteal restores ${itemLsHeal} HP`);
         }
 
         if (activePlayerLifesteal.length > 0 && finalDamage > 0) {
