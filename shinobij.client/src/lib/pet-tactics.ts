@@ -487,6 +487,26 @@ export function petPickupTiles(obstacles: ReadonlySet<number> | ReadonlyArray<nu
     return [];
 }
 
+// ── Bushes / tall grass (terrain depth) ──────────────────────────────────────
+// Up to two mirror-symmetric flank patches of tall grass (free of obstacles). A
+// pet that ENDS a round in a bush is concealed — it gains an evasion buff
+// (refreshed while it hides), so a kiter can melt into the grass. Pure +
+// deterministic (derived from the obstacle list → both engines + renderer agree).
+const BUSH_PAIR_CANDIDATES: readonly (readonly [number, number])[] = [
+    [3 * PET_GRID_COLS + 2, 3 * PET_GRID_COLS + 11], // (3,2)+(3,11) — mid flanks
+    [2 * PET_GRID_COLS + 2, 2 * PET_GRID_COLS + 11],
+    [4 * PET_GRID_COLS + 2, 4 * PET_GRID_COLS + 11],
+    [5 * PET_GRID_COLS + 4, 5 * PET_GRID_COLS + 9],
+];
+export function petBushTiles(obstacles: ReadonlySet<number> | ReadonlyArray<number>): Set<number> {
+    const blocked = obstacles instanceof Set ? obstacles : new Set(obstacles);
+    const out: number[] = [];
+    for (const [a, b] of BUSH_PAIR_CANDIDATES) {
+        if (!blocked.has(a) && !blocked.has(b)) { out.push(a, b); if (out.length >= 4) break; }
+    }
+    return new Set(out);
+}
+
 // ── Tactical zones (Phase 10-14) ────────────────────────────────────────────
 // The 14-wide grid is huge; zones focus the fight around the middle. Cover and
 // hazard tiles read as their own zones; otherwise columns band into backline

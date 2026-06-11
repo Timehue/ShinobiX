@@ -15,6 +15,7 @@ import {
     petPairBond,
     petHighGroundTiles,
     petPickupTiles,
+    petBushTiles,
     buildArenaTiles,
     makeArena,
     isAdjacentToAny,
@@ -217,6 +218,16 @@ test("petPickupTiles: every shipped layout leaves a free shrine pair", () => {
     for (let i = 0; i < PET_OBSTACLE_LAYOUTS.length; i++) {
         assert.equal(petPickupTiles(PET_OBSTACLE_LAYOUTS[i]).length, 2, `layout ${i} has shrines`);
     }
+});
+
+test("petBushTiles: mirror-symmetric flank patches, free of obstacles, capped", () => {
+    const b = petBushTiles([]);
+    assert.ok(b.size >= 2 && b.size <= 4 && b.size % 2 === 0, "even count, capped at 4");
+    for (const t of b) assert.ok(t % PET_GRID_COLS <= 2 || t % PET_GRID_COLS >= 9, "bushes hug the flanks/lanes");
+    // Blocking a candidate pair drops it but others remain.
+    const blocked = petBushTiles([3 * PET_GRID_COLS + 2]); // block (3,2)
+    assert.ok(!blocked.has(3 * PET_GRID_COLS + 2), "an obstacle is never a bush");
+    assert.ok(blocked.size >= 2, "falls through to other free pairs");
 });
 
 // ── Obstacle layout validity ─────────────────────────────────────────────
