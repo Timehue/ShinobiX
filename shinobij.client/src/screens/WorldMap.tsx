@@ -421,7 +421,7 @@ export function WorldMap({
         { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 24, y: 18, icon: "AL" },
         { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 72, y: 27, icon: "FF" },
         { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 81, y: 67, icon: "MS" },
-        { name: "Central", type: "central", biome: "central" as Biome, x: 52, y: 42, icon: "C", staminaReward: 20, xpReward: 20 },
+        { name: "Central", type: "central", biome: "central" as Biome, x: 52, y: 35, icon: "C", staminaReward: 20, xpReward: 20 },
         // Hollow Gate sits between sectors 1 (67,46), 57 (57,49), and 52 (65,25) — a hidden shrine entrance.
         { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 62, y: 38, icon: "HG" },
     ];
