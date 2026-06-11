@@ -12,6 +12,7 @@
  *   /api/kv/mget   { keys: string[] }            → { values }
  *   /api/kv/hset   { key, fields }               → { count }
  *   /api/kv/hdel   { key, fields: string[] }     → { count }
+ *   /api/kv/hkeys  { key }                       → { fields: string[] }
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -142,6 +143,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...((body.fields ?? []) as string[]),
                 );
                 res.status(200).json({ count });
+                return;
+            }
+            case 'hkeys': {
+                // Keys-only projection: the multi-MB image hashes stay on this
+                // box; only the field-name list crosses the wire to the caller.
+                const fields = await _diskKvForProxy.hkeys(String(body.key));
+                res.status(200).json({ fields });
                 return;
             }
             default:
