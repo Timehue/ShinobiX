@@ -13,6 +13,7 @@
  *   /api/kv/mget   { keys: string[] }            → { values }
  *   /api/kv/hset   { key, fields }               → { count }
  *   /api/kv/hdel   { key, fields: string[] }     → { count }
+ *   /api/kv/hkeys  { key }                       → { fields: string[] }
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
@@ -124,6 +125,13 @@ async function handler(req, res) {
             case 'hdel': {
                 const count = await _storage_js_1._diskKvForProxy.hdel(String(body.key), ...(body.fields ?? []));
                 res.status(200).json({ count });
+                return;
+            }
+            case 'hkeys': {
+                // Keys-only projection: the multi-MB image hashes stay on this
+                // box; only the field-name list crosses the wire to the caller.
+                const fields = await _storage_js_1._diskKvForProxy.hkeys(String(body.key));
+                res.status(200).json({ fields });
                 return;
             }
             default:
