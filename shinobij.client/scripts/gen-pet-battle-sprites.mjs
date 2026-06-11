@@ -108,7 +108,10 @@ async function valueToBytes(value, id) {
 async function openaiEdit(imageBytes, prompt) {
     const fd = new FormData();
     fd.append('model', 'gpt-image-1');
-    fd.append('image[]', new Blob([imageBytes]), 'portrait.png');
+    // The Blob MUST carry an image/* MIME type — a typeless Blob uploads as
+    // application/octet-stream, which the API rejects. Caller pre-normalizes
+    // the bytes to PNG via sharp, so the type is always accurate here.
+    fd.append('image[]', new Blob([imageBytes], { type: 'image/png' }), 'portrait.png');
     fd.append('prompt', prompt);
     fd.append('size', '1024x1024');
     fd.append('quality', GEN_QUALITY);
@@ -207,20 +210,29 @@ async function main() {
     async function processPet([baseId, srcKey]) {
         const label = `[${++done}/${work.length}] ${baseId}`;
         try {
-            const bytes = await valueToBytes(registry[srcKey], srcKey);
-            if (!bytes) throw new Error('could not resolve portrait bytes');
+            const raw = await valueToBytes(registry[srcKey], srcKey);
+            if (!raw) throw new Error('could not resolve portrait bytes');
+            // Normalize to PNG regardless of stored format (webp/jpeg/gif/…) so
+            // the upload is always a supported, correctly-typed image.
+            const bytes = await sharp(raw).png().toBuffer();
 
+            // Up to 4 attempts: 429/5xx back off progressively (the org limit is
+            // 5 input-images/min, so a 20-40s wait clears the window); a safety
+            // rejection switches to the softer fallback prompt once.
             let png;
-            try {
-                png = await openaiEdit(bytes, PROMPT);
-            } catch (e) {
-                if (e.safety) {
-                    console.log(`${label}: safety-rejected, retrying with softer prompt…`);
-                    png = await openaiEdit(bytes, FALLBACK_PROMPT);
-                } else if (e.status === 429 || e.status >= 500) {
-                    await sleep(15_000);
-                    png = await openaiEdit(bytes, PROMPT);
-                } else throw e;
+            let prompt = PROMPT;
+            for (let attempt = 1; ; attempt++) {
+                try {
+                    png = await openaiEdit(bytes, prompt);
+                    break;
+                } catch (e) {
+                    if (e.safety && prompt === PROMPT) {
+                        console.log(`${label}: safety-rejected, retrying with softer prompt…`);
+                        prompt = FALLBACK_PROMPT;
+                    } else if ((e.status === 429 || e.status >= 500) && attempt < 4) {
+                        await sleep(20_000 * attempt);
+                    } else throw e;
+                }
             }
 
             const webp = await sharp(png)

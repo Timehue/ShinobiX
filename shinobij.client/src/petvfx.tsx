@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "./styles/pet-skin.css";
 import { runPetArenaBattle, PetArenaBattlefield, petFramePace } from "./App";
+import { runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum } from "./components/PetColiseum";
 
@@ -34,17 +35,29 @@ function Harness() {
     // current DOM battlefield for the throwaway react-three-fiber scene so the
     // coliseum look can be eyeballed. Dev-only; nothing here ships.
     const [coliseum, setColiseum] = useState(PARAMS.get("coliseum") === "1");
+    // ?party=1 — run the simultaneous 2v2 engine instead, to exercise the
+    // 4-standee party4v4 path in the coliseum renderer.
+    const partyMode = PARAMS.get("party") === "1";
     const playerPet = useMemo(() => harnessPet(0, { element: "Fire" }), []);
     const enemyPet = useMemo(() => harnessPet(7, { element: "Wind" }), []);
+    const playerReserve = useMemo(() => harnessPet(1, { element: "Water" }), []);
+    const enemyReserve = useMemo(() => harnessPet(8, { element: "Earth" }), []);
     // Feed the demo creature sprites in as the pets' battle billboards.
     const harnessShared = useMemo(() => ({
         [`petbody:${playerPet.id}`]: DEMO_FOX,
         [`petbody:${enemyPet.id}`]: DEMO_CROW,
     }), [playerPet.id, enemyPet.id]);
-    const battle = useMemo(
-        () => runPetArenaBattle(playerPet, enemyPet, "Rival", seed, 1),
-        [playerPet, enemyPet, seed],
-    );
+    const battle = useMemo(() => {
+        if (!partyMode) return runPetArenaBattle(playerPet, enemyPet, "Rival", seed, 1);
+        const party = runPetArenaParty([playerPet, playerReserve], [enemyPet, enemyReserve], "Rival", seed, 1);
+        // The simultaneous 2v2 keeps ALL frames/logs/obstacles in matches[0].
+        return {
+            result: party.result,
+            frames: party.matches[0]?.frames ?? [],
+            obstacles: party.matches[0]?.obstacles ?? [],
+            tiles: undefined,
+        };
+    }, [partyMode, playerPet, enemyPet, playerReserve, enemyReserve, seed]);
     const frames = battle.frames;
     const result = battle.result === "win" ? "Victory" : battle.result === "loss" ? "Defeat" : "Draw";
 
@@ -85,6 +98,8 @@ function Harness() {
                 <PetColiseum
                     playerPet={playerPet}
                     enemyPet={enemyPet}
+                    playerReservePet={partyMode ? playerReserve : undefined}
+                    enemyReservePet={partyMode ? enemyReserve : undefined}
                     enemyOwner="Rival"
                     sharedImages={harnessShared}
                     frame={frame}

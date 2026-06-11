@@ -5,6 +5,9 @@ import {
     poseMotion,
     shakeAmpForBeat,
     lerp,
+    faceOffPositions,
+    spreadPositions,
+    lungeReach,
     COLISEUM_COLS,
     COLISEUM_ROWS,
 } from "./pet-coliseum-scene.ts";
@@ -67,4 +70,59 @@ test("lerp basics", () => {
     assert.equal(lerp(0, 10, 0), 0);
     assert.equal(lerp(0, 10, 1), 10);
     assert.equal(lerp(0, 10, 0.5), 5);
+});
+
+test("faceOffPositions: adjacent tiles get pushed apart, far tiles untouched", () => {
+    // Adjacent columns on the same row (~0.65 world units apart) must separate.
+    const mid = 3 * COLISEUM_COLS + 6;
+    const near = faceOffPositions(mid, mid + 1);
+    const nearGap = Math.hypot(near.b.x - near.a.x, near.b.z - near.a.z);
+    assert.ok(nearGap >= 1.69, `adjacent gap pushed to >= MIN_SEP, got ${nearGap}`);
+    // Push is symmetric: midpoint preserved.
+    const rawA = tileToWorld(mid), rawB = tileToWorld(mid + 1);
+    assert.ok(Math.abs((near.a.x + near.b.x) / 2 - (rawA.x + rawB.x) / 2) < 1e-9, "midpoint preserved");
+    // Far apart (start columns 1 vs 12) — unchanged.
+    const far = faceOffPositions(3 * COLISEUM_COLS + 1, 3 * COLISEUM_COLS + 12);
+    assert.deepEqual(far.a, tileToWorld(3 * COLISEUM_COLS + 1));
+    assert.deepEqual(far.b, tileToWorld(3 * COLISEUM_COLS + 12));
+});
+
+test("faceOffPositions: same tile still separates (no NaN)", () => {
+    const t = 3 * COLISEUM_COLS + 6;
+    const { a, b } = faceOffPositions(t, t);
+    const gap = Math.hypot(b.x - a.x, b.z - a.z);
+    assert.ok(Number.isFinite(gap) && gap >= 1.69, `same-tile gap ${gap}`);
+});
+
+test("lungeReach: stops at contact, capped, never negative", () => {
+    assert.ok(lungeReach(1.7) < 1.7, "melee lunge stops short of the target");
+    assert.ok(lungeReach(1.7) > 0, "melee lunge still moves");
+    assert.equal(lungeReach(10), 1.6, "long lunge capped at MAX_LUNGE");
+    assert.equal(lungeReach(0.5), 0.25, "tiny gap still gives a minimal hop");
+});
+
+test("poseMotion: lunge honors the reach parameter", () => {
+    assert.equal(poseMotion("lunge", 1, 0.8).dx, 0.8);
+    assert.equal(poseMotion("lunge", -1, 0.8).dx, -0.8);
+});
+
+test("spreadPositions: 4 clustered pets (2v2) all end pairwise separated", () => {
+    // Four pets crammed into a 2×2 tile cluster — the worst 2v2 melee pile-up.
+    const mid = 3 * COLISEUM_COLS + 6;
+    const tiles = [mid, mid + 1, mid + COLISEUM_COLS, mid + COLISEUM_COLS + 1];
+    const spread = spreadPositions(tiles.map(tileToWorld));
+    for (let i = 0; i < spread.length; i++) {
+        for (let j = i + 1; j < spread.length; j++) {
+            const d = Math.hypot(spread[j].x - spread[i].x, spread[j].z - spread[i].z);
+            assert.ok(d >= 1.55, `pair ${i},${j} separated (got ${d.toFixed(2)})`);
+        }
+    }
+});
+
+test("spreadPositions: well-spaced points are untouched and output is finite", () => {
+    const pts = [tileToWorld(3 * COLISEUM_COLS + 1), tileToWorld(3 * COLISEUM_COLS + 12)];
+    const spread = spreadPositions(pts);
+    assert.deepEqual(spread, pts);
+    const dup = spreadPositions([{ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }]);
+    for (const p of dup) assert.ok(Number.isFinite(p.x) && Number.isFinite(p.z), "finite on coincident input");
 });
