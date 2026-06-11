@@ -303,6 +303,7 @@ import {
 import {
     PET_GRID_COLS,
     PET_GRID_SIZE,
+    PET_SPAWN_1V1,
 } from "./constants/pet-arena";
 
 // Tiny presentational mark / portrait components moved to ./components/Marks.
@@ -9529,8 +9530,8 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
     usePetBattleFrameSfx(frame, sfxMuted);
 
-    const playerPos = frame?.playerPos ?? 29;
-    const enemyPos  = frame?.enemyPos  ?? 40;
+    const playerPos = frame?.playerPos ?? PET_SPAWN_1V1.player;
+    const enemyPos  = frame?.enemyPos  ?? PET_SPAWN_1V1.enemy;
 
     const selfTile   = frame?.actor === "enemy" ? enemyPos : playerPos;
     const targetTile = frame?.actor === "enemy" ? playerPos : enemyPos;

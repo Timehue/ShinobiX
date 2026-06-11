@@ -29,6 +29,8 @@ import {
     PET_GRID_SIZE,
     PET_OBSTACLE_LAYOUTS,
     PET_ELEMENT_BEATS,
+    PET_SPAWN_1V1,
+    PET_SPAWN_2V2,
 } from "../constants/pet-arena";
 import type { Pet, PetJutsu } from "../types/pet";
 import type { PetArenaFrame, PetBattleFighter } from "../App";
@@ -756,8 +758,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     // pipeline and the KO check `fighter.hp <= 0` is never true,
     // looping the fight to the round cap with no resolution.
     const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: PET_SPAWN_1V1.player, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: PET_SPAWN_1V1.enemy, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
     // by raw speed comparison, which guaranteed the faster pet always
@@ -1613,16 +1615,18 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         // out a little, and a pet holding a healing tile sustains. Deterministic.
         if (player.hp > 0 && (hazardTiles.has(player.pos) || healingTiles.has(player.pos))) {
             const hz = hazardTiles.has(player.pos);
-            const amt = Math.max(2, Math.floor(player.pet.hp * 0.04));
-            player = { ...player, hp: hz ? Math.max(0, player.hp - amt) : Math.min(player.pet.hp, player.hp + amt) };
+            const pmhp = Math.max(1, player.pet.hp || 0);
+            const amt = Math.max(2, Math.floor(pmhp * 0.04));
+            player = { ...player, hp: hz ? Math.max(0, player.hp - amt) : Math.min(pmhp, player.hp + amt) };
             const msg = `Round ${round}: ${player.pet.name} ${hz ? `is scorched by the hazard for ${amt}` : `recovers ${amt} on the healing field`}.`;
             logs.push(msg);
             pushFrame(round, msg, "player", hz ? "dot" : "heal", hz ? amt : undefined);
         }
         if (enemy.hp > 0 && (hazardTiles.has(enemy.pos) || healingTiles.has(enemy.pos))) {
             const hz = hazardTiles.has(enemy.pos);
-            const amt = Math.max(2, Math.floor(enemy.pet.hp * 0.04));
-            enemy = { ...enemy, hp: hz ? Math.max(0, enemy.hp - amt) : Math.min(enemy.pet.hp, enemy.hp + amt) };
+            const emhp = Math.max(1, enemy.pet.hp || 0);
+            const amt = Math.max(2, Math.floor(emhp * 0.04));
+            enemy = { ...enemy, hp: hz ? Math.max(0, enemy.hp - amt) : Math.min(emhp, enemy.hp + amt) };
             const msg = `Round ${round}: ${enemy.pet.name} ${hz ? `is scorched by the hazard for ${amt}` : `recovers ${amt} on the healing field`}.`;
             logs.push(msg);
             pushFrame(round, msg, "enemy", hz ? "dot" : "heal", hz ? amt : undefined);
@@ -1912,10 +1916,10 @@ export function runPetArenaParty(
         return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     }
     const fighters: Partial<Record<PartySlot, PetBattleFighter>> = {};
-    if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        29);
-    if (playerParty[1])   fighters.playerReserve = makeFighter(playerParty[1],   "You",        57);
-    if (opponentParty[0]) fighters.enemyLead     = makeFighter(opponentParty[0], opponentOwner, 40);
-    if (opponentParty[1]) fighters.enemyReserve  = makeFighter(opponentParty[1], opponentOwner, 68);
+    if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        PET_SPAWN_2V2.playerLead);
+    if (playerParty[1])   fighters.playerReserve = makeFighter(playerParty[1],   "You",        PET_SPAWN_2V2.playerReserve);
+    if (opponentParty[0]) fighters.enemyLead     = makeFighter(opponentParty[0], opponentOwner, PET_SPAWN_2V2.enemyLead);
+    if (opponentParty[1]) fighters.enemyReserve  = makeFighter(opponentParty[1], opponentOwner, PET_SPAWN_2V2.enemyReserve);
 
     // ── 2v2 team bonds (type/trait teamwork) ──────────────────────
     // How well each side's two pets work together — drives whether they stick

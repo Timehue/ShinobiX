@@ -11,40 +11,62 @@
 import type { JutsuElement } from "../types/core";
 
 // ── Grid dimensions ──────────────────────────────────────────────────────
-// Tile index = row * PET_GRID_COLS + col.
-// Player always starts col 1 row 3 (=43), enemy col 12 row 3 (=54).
-export const PET_GRID_COLS = 14;
-export const PET_GRID_ROWS = 7;
-export const PET_GRID_SIZE = PET_GRID_COLS * PET_GRID_ROWS; // 98
+// Tile index = row * PET_GRID_COLS + col. A big arena so battles are a JOURNEY
+// through a maze, not a head-on clash. Everything (spawns, terrain helpers,
+// renderer) derives from these two numbers so the size is a single knob.
+export const PET_GRID_COLS = 20;
+export const PET_GRID_ROWS = 11;
+export const PET_GRID_SIZE = PET_GRID_COLS * PET_GRID_ROWS; // 220
 
-// ── Obstacle layouts ─────────────────────────────────────────────────────
-// 8 hand-designed tactical battlefields for the 14×7 arena (tile = row*14+col),
-// picked by one seeded roll each battle. Each is a DELIBERATE composition —
-// central keeps, paired chokepoints, flank cover, staggered stepping-stones —
-// so the fight reads as a designed map, not scattered blocks. Centre-column
-// obstacles (cols 5–8) become COVER, the rest BLOCKED (see buildArenaTiles).
-//
-// Invariants (enforced by pet-tactics.test.ts so a redesign can't ship a broken
-// map): never occupy a spawn tile (1v1 43/54, 2v2 29/57/40/68); rows 0 and 6
-// and the spawn columns (0–2 / 11–13) stay clear so a clean lane always links
-// the two sides; a BFS path always exists between every spawn pair.
+// ── Spawn tiles (derived) ─────────────────────────────────────────────────
+// Player on the left edge (col 1), enemy on the right (col COLS-2), middle row;
+// the 2v2 leads/reserves split above/below. Derived so a resize never strands
+// a spawn inside a wall.
+const _MID = Math.floor(PET_GRID_ROWS / 2);
+export const PET_SPAWN_1V1 = {
+    player: _MID * PET_GRID_COLS + 1,
+    enemy: _MID * PET_GRID_COLS + (PET_GRID_COLS - 2),
+};
+export const PET_SPAWN_2V2 = {
+    playerLead: (_MID - 2) * PET_GRID_COLS + 1,
+    playerReserve: (_MID + 2) * PET_GRID_COLS + 1,
+    enemyLead: (_MID - 2) * PET_GRID_COLS + (PET_GRID_COLS - 2),
+    enemyReserve: (_MID + 2) * PET_GRID_COLS + (PET_GRID_COLS - 2),
+};
+export const PET_SPAWN_TILES: ReadonlyArray<number> = [
+    PET_SPAWN_1V1.player, PET_SPAWN_1V1.enemy,
+    PET_SPAWN_2V2.playerLead, PET_SPAWN_2V2.playerReserve,
+    PET_SPAWN_2V2.enemyLead, PET_SPAWN_2V2.enemyReserve,
+];
+
+// ── Maze layouts ──────────────────────────────────────────────────────────
+// A maze the pets must navigate to reach each other. Each wall is FULL height
+// with a single 2-row GAP (the only passage); the gaps are offset between walls
+// so a pet has to weave. Navigable BY CONSTRUCTION: every wall has a gap, and
+// the open columns between walls let a pet reposition to the next gap, so a BFS
+// path always links the spawns (enforced by pet-tactics.test.ts). Walls sit in
+// the central columns, clear of the spawn columns. Deterministic.
+function mazeWalls(walls: ReadonlyArray<readonly [number, number]>): number[] {
+    const out: number[] = [];
+    for (const [col, gap] of walls) {
+        for (let row = 0; row < PET_GRID_ROWS; row++) {
+            if (row === gap || row === gap + 1) continue; // 2-row passage
+            out.push(row * PET_GRID_COLS + col);
+        }
+    }
+    return out;
+}
+// [col, gapRow] — cols within 4..16 (clear of spawn cols 1 / COLS-2 = 18),
+// non-adjacent so there is always open space to reposition between gaps.
 export const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
-    // 0 — "Fortress Core": a central 2×2 keep ringed by four flank pillars
-    [48, 49, 62, 63,  32, 37, 74, 79],
-    // 1 — "Twin Gates": two vertical wall segments → left/right chokepoints
-    [33, 47, 61,  36, 50, 64],
-    // 2 — "Central Spire": a solid centre wall; pets sweep around top or bottom
-    [34, 35, 48, 49, 62, 63, 76, 77],
-    // 3 — "Stepping Stones": an X of staggered cover that breaks straight charges
-    [33, 48, 63, 78,  36, 49, 62, 75],
-    // 4 — "Side Bastions": tall flank cover funnels into a guarded centre
-    [31, 45, 59,  38, 52, 66,  48, 63],
-    // 5 — "Pillared Hall": four spaced pillars + a centre pair (clean cover lanes)
-    [33, 36, 75, 78,  49, 62],
-    // 6 — "Chokepoint Bridge": top/bottom walls force a central corridor crossing
-    [32, 33, 36, 37,  74, 75, 78, 79],
-    // 7 — "Broken Lanes": offset half-walls carve asymmetric top/bottom routes
-    [33, 34, 35,  63, 64, 65],
+    mazeWalls([[6, 2], [11, 7], [15, 3]]),
+    mazeWalls([[5, 6], [9, 1], [13, 7], [16, 3]]),
+    mazeWalls([[7, 4], [12, 7]]),
+    mazeWalls([[5, 1], [8, 7], [11, 2], [14, 8]]),
+    mazeWalls([[6, 7], [10, 2], [14, 6]]),
+    mazeWalls([[4, 3], [8, 8], [12, 1], [16, 6]]),
+    mazeWalls([[7, 8], [11, 3], [15, 7]]),
+    mazeWalls([[5, 4], [9, 8], [13, 2], [16, 7]]),
 ];
 
 // ── Type-effectiveness ───────────────────────────────────────────────────
