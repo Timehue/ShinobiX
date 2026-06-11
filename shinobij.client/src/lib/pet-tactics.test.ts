@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Pet, PetJutsu } from "../types/pet";
+import { PET_OBSTACLE_LAYOUTS, PET_GRID_COLS, PET_GRID_ROWS, PET_GRID_SIZE } from "../constants/pet-arena";
 import {
     getDistance,
     isInRange,
@@ -143,4 +144,50 @@ test("isAdjacentToAny detects an orthogonally adjacent tile", () => {
     assert.equal(isAdjacentToAny(tileToIndex(3, 6), cover), true);  // right of cover
     assert.equal(isAdjacentToAny(tileToIndex(3, 7), cover), false); // two away
     assert.equal(isAdjacentToAny(tileToIndex(3, 5), cover), false); // same tile, not adjacent
+});
+
+// ── Obstacle layout validity ─────────────────────────────────────────────
+// Every hand-designed battlefield must be PLAYABLE: it can't bury a spawn, and
+// a pet must always be able to reach its foe. Guards future map redesigns.
+const SPAWN_TILES = [43, 54, 29, 57, 40, 68]; // 1v1 player/enemy + 2v2 four slots
+function bfsReachable(blocked: Set<number>, from: number, to: number): boolean {
+    if (blocked.has(from) || blocked.has(to)) return false;
+    const seen = new Set<number>([from]);
+    const q = [from];
+    while (q.length) {
+        const cur = q.shift()!;
+        if (cur === to) return true;
+        const r = Math.floor(cur / PET_GRID_COLS), c = cur % PET_GRID_COLS;
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+            const nr = r + dr, nc = c + dc;
+            if (nr < 0 || nr >= PET_GRID_ROWS || nc < 0 || nc >= PET_GRID_COLS) continue;
+            const ni = nr * PET_GRID_COLS + nc;
+            if (seen.has(ni) || blocked.has(ni)) continue;
+            seen.add(ni); q.push(ni);
+        }
+    }
+    return false;
+}
+
+test("every obstacle layout is a playable battlefield (no buried spawns, sane density, foes can meet)", () => {
+    PET_OBSTACLE_LAYOUTS.forEach((layout, i) => {
+        const blocked = new Set(layout);
+        // No spawn tile is ever an obstacle.
+        for (const s of SPAWN_TILES) {
+            assert.ok(!blocked.has(s), `layout ${i} buries spawn tile ${s}`);
+        }
+        // Sane density — designed, not empty, not a maze.
+        assert.ok(layout.length >= 4 && layout.length <= 12, `layout ${i} has off-spec obstacle count ${layout.length}`);
+        // Indices are in-grid and row 0 / row 6 stay clear (guaranteed lanes).
+        for (const idx of layout) {
+            assert.ok(idx >= 0 && idx < PET_GRID_SIZE, `layout ${i} tile ${idx} off-grid`);
+            const row = Math.floor(idx / PET_GRID_COLS);
+            assert.ok(row >= 1 && row <= 5, `layout ${i} tile ${idx} should keep rows 0 and 6 clear`);
+        }
+        // A path always exists between the 1v1 spawns AND every 2v2 cross-pair.
+        assert.ok(bfsReachable(blocked, 43, 54), `layout ${i}: 1v1 spawns unreachable`);
+        for (const p of [29, 57]) for (const e of [40, 68]) {
+            assert.ok(bfsReachable(blocked, p, e), `layout ${i}: 2v2 spawn ${p}→${e} unreachable`);
+        }
+    });
 });
