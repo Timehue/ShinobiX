@@ -1,10 +1,30 @@
 # Coliseum Visual Overhaul — Plan
 
-> Status: **PLANNED, not started.** Written 2026-06-11 after auditing the shipped
-> HD-2D coliseum (commits 902b3a8 → c283de0) against a real battle screenshot.
-> Scope: presentation only. The deterministic engine (`runPetArenaBattle`),
-> the event queue (`buildPetAnimationEvents`), and all balance math are
-> untouched — same guardrails as docs/pet-battle-coliseum-remake.md.
+> Status: **Phases 1–3 SHIPPED to main (2026-06-11).** Written 2026-06-11 after
+> auditing the shipped HD-2D coliseum (commits 902b3a8 → c283de0) against a real
+> battle screenshot. Scope: presentation only. The deterministic engine
+> (`runPetArenaBattle`), the event queue (`buildPetAnimationEvents`), and all
+> balance math are untouched — same guardrails as
+> docs/pet-battle-coliseum-remake.md.
+>
+> Progress:
+> - **Phase 1 — grounded + facing** ✅ shipped (Y-locked billboards, alpha-trim
+>   foot anchor, per-pet blob shadows; facing handled offline via
+>   normalize-petbody-facing). Runtime metadata-facing (4.4) NOT done — facing
+>   is still baked in pixels; revisit if classifier mistakes recur.
+> - **Phase 2 — formation staging** ✅ shipped (commit 1a02008): fixed lane
+>   anchors (`formationSlots`), `engagementAdvance` slide, VFX from real
+>   positions. Nameplate declutter (2.3) + size classes (2.4) NOT done.
+> - **Phase 3 — combat choreography** ✅ shipped (commit 1a02008): pure
+>   `beatTimeline` keyframes (anticipation → leap arc → instant knockback →
+>   ease-back), per-pose beat clock, damage-scaled knockback, MAX_LUNGE 2.2→3.4.
+>   Ranged beam-stop-on-body (3.3) approximated by existing fx; 2× speed toggle
+>   (3.6) NOT done.
+> - **Phase 3.5 — dynamic camera** ⏳ optional, pending the user's read of the
+>   static blend.
+> - **Phase 4 — framing/floor/depth** ⏳ not started (aspect-aware FOV void-wedge
+>   fix, top-down floor regen, DoF/rim-light/embers/crowd-roar).
+> - **Phase 5 — animated sprite sheets** ⏳ deferred, spend-gated, LAST.
 
 ## The complaint (user, with screenshot, 2v2 battle at ~1900px-wide viewport)
 
