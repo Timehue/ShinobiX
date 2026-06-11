@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { ShinobiTiles } from "../components/ShinobiTiles";
@@ -21,6 +21,11 @@ import {
     type CreatorEvent,
     type PetArenaFrame,
 } from "../App";
+import { petColiseumEnabled } from "../lib/pet-coliseum-flag";
+
+// Cinematic HD-2D coliseum — lazy so three/r3f only load when the flag is on.
+// The classic PetArenaBattlefield below stays intact as the fallback.
+const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
 
 export function DungeonEncounter({
     event,
@@ -223,24 +228,31 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
             </div>
         );
     }
-    return (
-        <PetArenaBattlefield
-            playerPet={selectedPet}
-            enemyPet={enemyPet}
-            enemyOwner={enemyOwner}
-            frame={currentFrame}
-            recentFrames={battleFrames.slice(Math.max(0, frameIndex - 4), frameIndex + 1)}
-            // Gate the victory card to the final frame so it doesn't cover the
-            // replay (movement, lunges, KO/faint) — mirrors the ranked arena's
-            // showResult gate. Without this the card showed from frame 0.
-            result={frameIndex >= battleFrames.length - 1 ? result : ""}
-            obstacles={battleObstacles}
-            tiles={battleTiles}
-            onReplay={() => { setBattleFrames([]); setResult(""); }}
-            onFightAgain={() => { setBattleFrames([]); setResult(""); }}
-            onExit={result === "Victory" ? onWin : onLeave}
-            sharedImages={sharedImages}
-        />
+    // Both renderers consume the SAME frames/props — cinematic vs classic is a
+    // pure presentation choice (shared flag with the Pet Arena toggle).
+    const duelProps = {
+        playerPet: selectedPet,
+        enemyPet,
+        enemyOwner,
+        frame: currentFrame,
+        recentFrames: battleFrames.slice(Math.max(0, frameIndex - 4), frameIndex + 1),
+        // Gate the victory card to the final frame so it doesn't cover the
+        // replay (movement, lunges, KO/faint) — mirrors the ranked arena's
+        // showResult gate. Without this the card showed from frame 0.
+        result: frameIndex >= battleFrames.length - 1 ? result : "",
+        obstacles: battleObstacles,
+        tiles: battleTiles,
+        onReplay: () => { setBattleFrames([]); setResult(""); },
+        onFightAgain: () => { setBattleFrames([]); setResult(""); },
+        onExit: result === "Victory" ? onWin : onLeave,
+        sharedImages,
+    };
+    return petColiseumEnabled() ? (
+        <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading 3D arena…</div>}>
+            <PetColiseum {...duelProps} />
+        </Suspense>
+    ) : (
+        <PetArenaBattlefield {...duelProps} />
     );
 }
 
