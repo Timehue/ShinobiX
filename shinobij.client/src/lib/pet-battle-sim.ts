@@ -10,7 +10,7 @@
  * load-bearing for ranked pet PvP (both clients run an identical canonical
  * simulation from the same seed), so the RNG call order here must not change.
  */
-import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond } from "./pet-tactics";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import {
@@ -1803,6 +1803,9 @@ export type PetPartyBattleMatch = {
     logs: string[];
     frames: PetArenaFrame[];
     obstacles: number[];
+    /** Typed effect-tiles (hazard/healing/slow/cover) for the renderer — parity
+     *  with the 1v1 engine. Lives on matches[0] alongside obstacles. */
+    tiles?: ArenaTile[];
 };
 
 export type PetPartyBattleResult = {
@@ -1854,8 +1857,16 @@ export function runPetArenaParty(
 
     // ── Init RNG, obstacles, fighters ─────────────────────────────
     const rng = seededPetBattleRandom(seed);
-    const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length)];
+    const layoutIndex = Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length);
+    const obstacleLayout = PET_OBSTACLE_LAYOUTS[layoutIndex];
     const obstacles = new Set<number>(obstacleLayout);
+    // Typed terrain (parity with the 1v1 engine) — derived deterministically from
+    // the layout (consumes no rng): hazard/healing chip at round end, slow tiles
+    // cut a mover's steps. Cover stays a wall here (no ranged-reduction port yet).
+    const arenaTiles = buildArenaTiles(obstacleLayout, layoutIndex);
+    const hazardTiles = arenaTiles.hazard;
+    const healingTiles = arenaTiles.healing;
+    const slowTiles = arenaTiles.slow;
     // Central high ground (terrain depth) — holding it grants a round-end ward.
     const highGroundTiles = petHighGroundTiles(obstacles);
 
@@ -2169,7 +2180,9 @@ export function runPetArenaParty(
                     blockers.add(f.pos);
                 }
                 let newPos = actor.pos;
-                for (let s = 0; s < (actor.pet.moveRange ?? 2); s++) {
+                // Slow tiles (mud) cut a step, like the 1v1 engine.
+                const moveSteps = Math.max(1, (actor.pet.moveRange ?? 2) - (slowTiles.has(actor.pos) ? 1 : 0));
+                for (let s = 0; s < moveSteps; s++) {
                     const next = bfsNextStep(newPos, damageTarget.pos, blockers);
                     if (next === newPos || next === damageTarget.pos) break;
                     // Extra guard: never step onto a tile another live pet
@@ -2608,6 +2621,18 @@ export function runPetArenaParty(
             }
         }
 
+        // End-of-round tile effects (parity with 1v1) — hazard chips, healing
+        // restores (≈4% maxHp) for every pet standing on bad/good ground.
+        for (const s of ALL_SLOTS) {
+            const f = fighters[s];
+            if (!f || f.hp <= 0) continue;
+            const onHazard = hazardTiles.has(f.pos), onHeal = healingTiles.has(f.pos);
+            if (!onHazard && !onHeal) continue;
+            const amt = Math.max(2, Math.floor(f.pet.hp * 0.04));
+            fighters[s] = { ...f, hp: onHazard ? Math.max(0, f.hp - amt) : Math.min(f.pet.hp, f.hp + amt) };
+            logs.push(`Round ${round}: ${f.pet.name} ${onHazard ? `is scorched by the hazard for ${amt}` : `recovers ${amt} on the healing field`}.`);
+        }
+
         // High-ground ward (terrain depth) — every pet holding the central high
         // ground at round end tops up a protective shield (refreshed, not stacked).
         for (const s of ALL_SLOTS) {
@@ -2684,6 +2709,7 @@ export function runPetArenaParty(
             logs:   slot === 0 ? logs   : [],
             frames: slot === 0 ? frames : [],
             obstacles: slot === 0 ? Array.from(obstacles) : [],
+            tiles: slot === 0 ? arenaTiles.tiles : [],
         });
     }
 
