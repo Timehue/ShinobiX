@@ -184,3 +184,207 @@ export async function patchBattleSettlement(
         // best-effort
     }
 }
+
+// ─── Per-action combat receipts (phase 1) ─────────────────────────────────────
+//
+// The battle receipt above is ONE snapshot per finished fight. A per-action
+// receipt is a compact, append-only record of a SINGLE committed action — a
+// jutsu cast, item use, movement, flee, turn end, or the terminal resolution —
+// written as the move commits. Together they form a durable, structured replay
+// of the fight that outlives the 15-min session TTL, for support, tag/status
+// disputes, and post-battle review — WITHOUT bloating the frequently-streamed
+// live session payload. These live under their own `receipt:action:` keys, which
+// are NOT in the kv_store anon-SELECT allowlist (pvp:/cw-tilecards:/challenges:),
+// so they are service-role-only by RLS — no anon direct reads.
+//
+// Storage (all RECEIPT_TTL_SEC, same 90-day window as the battle receipt):
+//   receipt:seq:<battleId>            — atomic per-battle sequence counter (kv.incr)
+//   receipt:action:<battleId>:<seq>   — one ActionReceipt JSON per committed move
+//   receipt:act-tok:<battleId>:<tok>  — NX idempotency marker per moveToken
+//
+// Phase 1 captures what the engine already produces cheaply: the move's id/name,
+// its flavor/cast narrative + effect lines (summaryLines, in order), compact
+// resource deltas, and a result classification. Richer structured status /
+// ground-effect events would require threading an event channel through the
+// balance-sensitive combat resolver in api/pvp/move.ts and are intentionally
+// DEFERRED. Best-effort + flag-gated (DISABLE_COMBAT_RECEIPTS) like the battle
+// receipt; a write failure never affects combat.
+
+export type ActionReceiptResult = 'applied' | 'blocked' | 'expired' | 'system' | 'battle_end';
+
+// Only the non-zero vitals that actually moved this action — keeps each receipt
+// tiny (an idle "wait" records nothing but a turn change).
+export interface ActionReceiptVitalsDelta {
+    hp?: number;
+    chakra?: number;
+    stamina?: number;
+    shield?: number;
+    pos?: number;
+}
+
+export interface ActionReceipt {
+    battleId: string;
+    seq: number;
+    moveToken?: string;
+    round: number;
+    actorRole: 'p1' | 'p2';
+    actorName: string;
+    targetRole: 'p1' | 'p2';
+    targetName: string;
+    actionId: string;
+    actionName: string;
+    // 'jutsu' | 'item' | 'move' | 'wait' | 'flee' | 'basic' | system actions.
+    actionType: string;
+    result: ActionReceiptResult;
+    // The move's narrative: flavor/cast line(s) followed by what it did, in the
+    // exact order the engine emitted them this action.
+    summaryLines: string[];
+    actorDelta: ActionReceiptVitalsDelta;
+    targetDelta: ActionReceiptVitalsDelta;
+    // AP spent this action (positive). Omitted when zero.
+    apSpent?: number;
+    // Present only on the terminal (battle_end) action.
+    winner?: 'p1' | 'p2' | 'draw' | null;
+    createdAt: number;
+}
+
+// Everything writeActionReceipt needs to derive a receipt from a committed move.
+// Passing the pre/post sessions lets the module compute deltas + the action's
+// own log lines, so the move handler's call site stays a single line.
+export interface ActionReceiptInput {
+    pre: PvpSession;
+    post: PvpSession;
+    role: 'p1' | 'p2';
+    actionId: string;
+    actionName: string;
+    actionType: string;
+    moveToken?: string;
+}
+
+// The action layer needs atomic incr (seq), NX set (idempotency), and keys+mget
+// (read-back). Defaulting to the shared `kv` keeps callers simple; tests inject
+// an in-memory store.
+type ActionReceiptKv = Pick<KvLike, 'set' | 'incr' | 'keys' | 'mget'>;
+
+export function actionSeqKey(battleId: string): string { return `receipt:seq:${battleId}`; }
+export function actionTokenKey(battleId: string, token: string): string {
+    return `receipt:act-tok:${battleId}:${token}`;
+}
+// Zero-padded seq so a lexical key sort == numeric order. A battle caps at
+// MAX_ROUNDS × MAX_ACTIONS × 2 fighters (~250 actions), far under 999999.
+export function actionReceiptKey(battleId: string, seq: number): string {
+    return `receipt:action:${battleId}:${String(seq).padStart(6, '0')}`;
+}
+export function actionReceiptPattern(battleId: string): string {
+    return `receipt:action:${battleId}:*`;
+}
+
+// Compact delta of the vitals that changed. Rounds to integers and drops zeros.
+function vitalsDelta(before: PvpFighter, after: PvpFighter): ActionReceiptVitalsDelta {
+    const d: ActionReceiptVitalsDelta = {};
+    const hp = Math.round((Number(after.hp) || 0) - (Number(before.hp) || 0));
+    const chakra = Math.round((Number(after.chakra) || 0) - (Number(before.chakra) || 0));
+    const stamina = Math.round((Number(after.stamina) || 0) - (Number(before.stamina) || 0));
+    const shield = Math.round((Number(after.shield) || 0) - (Number(before.shield) || 0));
+    const pos = (Number(after.pos) || 0) - (Number(before.pos) || 0);
+    if (hp) d.hp = hp;
+    if (chakra) d.chakra = chakra;
+    if (stamina) d.stamina = stamina;
+    if (shield) d.shield = shield;
+    if (pos) d.pos = pos;
+    return d;
+}
+
+// Pure: derive an ActionReceipt from the pre/post session + action metadata.
+// `summaryLines` is the suffix of post.log beyond pre.log — every commit path
+// builds post.log as [...pre.log, ...thisActionsLines], and the receipt is
+// written BEFORE the log is trimmed, so the suffix is exactly this action's
+// narrative (flavor/cast line first, then effect lines). No I/O, no clock.
+export function buildActionReceipt(input: ActionReceiptInput, seq: number, now: number): ActionReceipt {
+    const { pre, post, role } = input;
+    const targetRole: 'p1' | 'p2' = role === 'p1' ? 'p2' : 'p1';
+    const actorBefore = role === 'p1' ? pre.p1 : pre.p2;
+    const actorAfter = role === 'p1' ? post.p1 : post.p2;
+    const targetBefore = targetRole === 'p1' ? pre.p1 : pre.p2;
+    const targetAfter = targetRole === 'p1' ? post.p1 : post.p2;
+
+    const preLen = Array.isArray(pre.log) ? pre.log.length : 0;
+    const summaryLines = (Array.isArray(post.log) ? post.log.slice(preLen) : []).map(String);
+
+    const apSpent = (Number(pre.ap?.[role]) || 0) - (Number(post.ap?.[role]) || 0);
+    const result: ActionReceiptResult = post.status === 'done' ? 'battle_end' : 'applied';
+
+    return {
+        battleId: String(pre.battleId ?? ''),
+        seq,
+        moveToken: input.moveToken,
+        round: Number(pre.round) || 0,
+        actorRole: role,
+        actorName: String(actorBefore.name ?? ''),
+        targetRole,
+        targetName: String(targetBefore.name ?? ''),
+        actionId: input.actionId,
+        actionName: input.actionName,
+        actionType: input.actionType,
+        result,
+        summaryLines,
+        actorDelta: vitalsDelta(actorBefore, actorAfter),
+        targetDelta: vitalsDelta(targetBefore, targetAfter),
+        apSpent: apSpent > 0 ? apSpent : undefined,
+        winner: post.status === 'done' ? (post.winner ?? null) : undefined,
+        createdAt: now,
+    };
+}
+
+// Append one durable receipt for a committed action. Best-effort + idempotent:
+// a per-moveToken NX marker means a retried move (the move handler already
+// short-circuits known tokens, but guard here too) never double-appends, and any
+// storage hiccup is swallowed so the combat path is never affected. No-op when
+// receipts are disabled or the session has no battleId.
+export async function writeActionReceipt(
+    input: ActionReceiptInput,
+    opts: { now?: number; kv?: ActionReceiptKv } = {},
+): Promise<ActionReceipt | null> {
+    if (receiptsDisabled()) return null;
+    const battleId = String(input.pre?.battleId ?? '');
+    if (!battleId) return null;
+    const store = opts.kv ?? kv;
+    const now = opts.now ?? Date.now();
+    try {
+        if (input.moveToken) {
+            const placed = await store.set(
+                actionTokenKey(battleId, input.moveToken),
+                { ts: now },
+                { nx: true, ex: RECEIPT_TTL_SEC } as never,
+            );
+            if (!placed) return null; // already recorded this move
+        }
+        const seq = await store.incr(actionSeqKey(battleId), { ex: RECEIPT_TTL_SEC });
+        const receipt = buildActionReceipt(input, seq, now);
+        await store.set(actionReceiptKey(battleId, seq), receipt, { ex: RECEIPT_TTL_SEC });
+        return receipt;
+    } catch {
+        // best-effort — never break the caller
+        return null;
+    }
+}
+
+// Read every per-action receipt for a battle, ordered by seq. Used by the
+// combat-log endpoint. Best-effort: returns [] on any storage error.
+export async function readActionReceipts(
+    battleId: string,
+    opts: { kv?: ActionReceiptKv } = {},
+): Promise<ActionReceipt[]> {
+    const store = opts.kv ?? kv;
+    try {
+        const keys = await store.keys(actionReceiptPattern(battleId));
+        if (!keys.length) return [];
+        keys.sort();
+        const vals = await store.mget<ActionReceipt[]>(...keys);
+        return vals
+            .filter((v): v is ActionReceipt => !!v && typeof v === 'object')
+            .sort((a, b) => a.seq - b.seq);
+    } catch {
+        return [];
+    }
+}

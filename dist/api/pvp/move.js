@@ -1549,6 +1549,22 @@ async function handler(req, res) {
             // DISABLE_COMBAT_RECEIPTS=1.
             await (0, _receipts_js_1.writeBattleReceipt)(result).catch(() => undefined);
         }
+        // Durable per-action combat receipt (phase 1). Best-effort + flag-gated
+        // (DISABLE_COMBAT_RECEIPTS) + idempotent per moveToken. Derived from the
+        // pre/post session here — BEFORE saveSession trims the log — so it
+        // captures this action's untrimmed narrative (flavor/cast line + effect
+        // lines) plus compact resource deltas. Never feeds back into resolution
+        // and lives under its own `receipt:action:` keys, off the streamed
+        // session payload. Every committed action funnels through this chokepoint.
+        await (0, _receipts_js_1.writeActionReceipt)({
+            pre: session,
+            post: result,
+            role,
+            actionId: String(jutsuId ?? itemId ?? action),
+            actionName: String(itemName ?? jutsuId ?? action),
+            actionType: action, // the raw move action label (jutsu/weapon/item/move/dash/wait/flee/basicAttack/…)
+            moveToken,
+        }).catch(() => undefined);
         // Cap log size — UI only renders the last ~20 entries anyway, and an
         // Final commit also threads the moveToken into the recent-tokens
         // ring buffer so a retry of this same request (network blip,
