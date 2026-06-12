@@ -149,7 +149,10 @@ interface Fighter {
     basicCdLeft: number; basicCdT: number;
     windT: number; recovT: number; staggerT: number; dashT: number; dodgeT: number;
     dodgeChance: number; critChance: number;
-    kiter: boolean;                          // prefers to keep ranged distance
+    role: "melee" | "ranged" | "tank";       // drives spacing + behavior
+    neutralRange: number;                    // the distance it holds between attacks (engagement bubble)
+    strafeDir: number;                       // +1/-1 circling direction (deterministic)
+    basicRanged: boolean;                    // ranged role pokes with a projectile basic
     abilities: Ability[];
     pendingIdx: number;                      // -1 basic, >=0 ability index, -2 none
     pendingTargetId: string | null;
@@ -166,6 +169,9 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     const abilities = (pet.jutsus || []).slice(0, 4).map(buildAbility);
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasRanged = abilities.some((a) => a.cls === "ranged");
+    const tanky = trait === "Guardian" || abilities.some((a) => a.kind === "shield" || a.kind === "barrier" || a.kind === "absorb" || a.kind === "taunt");
+    const role: Fighter["role"] = hasRanged && !hasMelee ? "ranged" : tanky ? "tank" : "melee";
+    const neutralRange = role === "ranged" ? 4.2 : role === "tank" ? 1.95 : 2.6;
     return {
         id: `${team}-${slot}`, team, slot, pet, element: pet.element,
         x, y, faceX: team === "player" ? 1 : -1, faceY: 0,
@@ -183,7 +189,11 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         dashT: 7, dodgeT: 6,
         dodgeChance: clamp(0.12 + speed * 0.0008 + (trait === "Swift" ? 0.12 : 0), 0.12, 0.6),
         critChance: CRIT_CHANCE + (trait === "Lucky" ? 0.1 : 0),
-        kiter: hasRanged && !hasMelee,
+        role, neutralRange,
+        // Deterministic circling direction: lead/reserve orbit opposite ways,
+        // and the two sides counter-rotate, so they wheel around each other.
+        strafeDir: (slot % 2 === 0 ? 1 : -1) * (team === "player" ? 1 : -1),
+        basicRanged: role === "ranged",
         abilities,
         pendingIdx: -2, pendingTargetId: null,
         statuses: emptyStatuses(),
@@ -308,10 +318,11 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     // Lifesteal heal.
     if (ab && ab.kind === "lifesteal") att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
 
-    // Knockback + interrupt (melee only; projectiles just stagger lightly).
+    // Knockback + interrupt — big enough to visibly reset the spacing after a
+    // melee blow (projectiles shove lighter; push doubles it).
     const dx = tgt.x - att.x, dy = tgt.y - att.y;
     const d = Math.sqrt(dx * dx + dy * dy);
-    const kb = (crit ? 0.9 : 0.55) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1);
+    const kb = (crit ? 1.7 : 1.1) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1);
     if (d > 1e-6) { tgt.x += (dx / d) * kb; tgt.y += (dy / d) * kb; }
     if (ab && ab.kind === "pull" && d > 1e-6) { tgt.x -= (dx / d) * 1.2; tgt.y -= (dy / d) * 1.2; }
     if ((tgt.state === "idle" || tgt.state === "dash" || tgt.state === "windup") && tgt.statuses.stunLeft <= 0) {
@@ -380,7 +391,46 @@ function effMoveSpeed(f: Fighter): number {
     return s;
 }
 
-/** Choose + begin an action for an idle fighter. */
+/** Commit toward `target`, stopping `stopAt` short — with an explosive DASH when
+ *  there's a real gap to close (a clear lunge, not a slow walk-up). */
+function commitApproach(f: Fighter, target: Fighter, dist: number, inv: number, stopAt: number, canDash: boolean, t: number, events: DuelEvent[]) {
+    if (canDash && dist > stopAt + 0.7 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
+        f.moveDx = (target.x - f.x) * inv; f.moveDy = (target.y - f.y) * inv;
+        f.stamina -= COST_DASH;
+        f.state = "dash"; f.stateLeft = f.dashT;
+        events.push({ t, type: "dash", side: f.team, actorId: f.id });
+        return;
+    }
+    moveToward(f, target.x, target.y, effMoveSpeed(f), stopAt);
+}
+
+/** Hold the engagement bubble: correct toward the role's neutral distance and
+ *  circle the target (the "sizing each other up" read). NOT a pile-in. */
+function holdNeutral(f: Fighter, target: Fighter, dist: number, inv: number, dx: number, dy: number) {
+    if (f.statuses.rootLeft > 0) { f.faceX = dx * inv; f.faceY = dy * inv; return; }
+    const speed = effMoveSpeed(f);
+    const err = dist - f.neutralRange;
+    let mx = 0, my = 0;
+    if (Math.abs(err) > 0.12) {                       // radial: toward if too far, away if too close
+        const radial = err > 0 ? 1 : -1;
+        mx += dx * inv * radial * speed;
+        my += dy * inv * radial * speed;
+    }
+    const px = -dy * inv, py = dx * inv;              // tangential: circle the foe
+    mx += px * speed * 0.55 * f.strafeDir;
+    my += py * speed * 0.55 * f.strafeDir;
+    mx += -f.x * 0.003;                               // gentle pull to keep the fight centered
+    my += -f.y * 0.003;
+    f.x += mx; f.y += my;
+    f.x = clamp(f.x, -ARENA_X, ARENA_X);
+    f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
+    f.faceX = dx * inv; f.faceY = dy * inv;
+}
+
+/** Choose + begin an action for an idle fighter. The loop is: hold a neutral
+ *  spacing while attacks recharge → commit a clear lunge/cast when one is ready
+ *  → (after recover + cooldown) drop back to neutral. That cadence is what reads
+ *  as fighting instead of a center-pile. */
 function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
     // Support first: heal a hurt ally, or buff/shield if not already.
     for (let i = 0; i < f.abilities.length; i++) {
@@ -397,12 +447,12 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     f.targetId = target ? target.id : null;
     if (!target) return;
     const dx = target.x - f.x, dy = target.y - f.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+    const dist = Math.max(1e-6, Math.sqrt(dx * dx + dy * dy));
+    const inv = 1 / dist;
 
     // Reactive dodge vs a telegraphed strike or an incoming projectile.
-    const threatened = (target.state === "windup" && dist < f.reach + 0.7) || incomingProjectile(f, projectiles);
+    const threatened = (target.state === "windup" && dist < f.reach + 0.9) || incomingProjectile(f, projectiles);
     if (threatened && f.stamina >= COST_DODGE && f.statuses.rootLeft <= 0 && rng() < f.dodgeChance) {
-        const inv = dist > 1e-6 ? 1 / dist : 1;
         let px = -dy * inv, py = dx * inv;
         if (f.y + py * 1.5 > ARENA_Y || f.y + py * 1.5 < -ARENA_Y) { px = -px; py = -py; }
         f.moveDx = px; f.moveDy = py; f.stamina -= COST_DODGE;
@@ -411,43 +461,34 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         return;
     }
 
-    // Best ready OFFENSIVE ability whose range is satisfied now (signature first).
+    // The best READY offensive ability (regardless of range — we'll close to it).
     let chosen = -1, chosenScore = -1;
     for (let i = 0; i < f.abilities.length; i++) {
         const ab = f.abilities[i];
         if (ab.cls === "support" || ab.cdLeft > 0 || f.stamina < ab.cost) continue;
-        if (dist > ab.range) continue;
         const score = (ab.signature ? 1000 : 0) + ab.power + (ab.cls === "ranged" ? 5 : 0);
         if (score > chosenScore) { chosenScore = score; chosen = i; }
     }
-    if (chosen >= 0) { beginCast(f, chosen, target.id, t, events); return; }
-
-    // Kiter wants to keep distance while abilities recharge.
-    if (f.kiter && dist < RANGED_RANGE * 0.55 && f.statuses.rootLeft <= 0) {
-        const inv = dist > 1e-6 ? 1 / dist : 1;
-        f.x -= dx * inv * effMoveSpeed(f); f.y -= dy * inv * effMoveSpeed(f);
-        f.faceX = dx * inv; f.faceY = dy * inv;
+    if (chosen >= 0) {
+        const ab = f.abilities[chosen];
+        if (dist <= ab.range) { beginCast(f, chosen, target.id, t, events); return; }
+        commitApproach(f, target, dist, inv, ab.range * 0.92, ab.cls === "melee", t, events);
         return;
     }
 
-    // Basic melee if in reach.
-    if (dist <= f.reach + 0.05) {
-        if (f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) { beginCast(f, -1, target.id, t, events); }
-        else { f.faceX = dx / (dist || 1); f.faceY = dy / (dist || 1); }
+    // Basic attack ready → commit. Ranged role pokes from range; everyone else
+    // lunges into melee. (Ranged never melee-lunges → it keeps kiting.)
+    const basicRange = f.basicRanged ? RANGED_RANGE * 0.85 : f.reach + 0.05;
+    if (f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) {
+        if (dist <= basicRange) { beginCast(f, -1, target.id, t, events); return; }
+        if (!f.basicRanged) { commitApproach(f, target, dist, inv, f.reach * 0.9, true, t, events); return; }
+        // ranged basic but out of poke range → step in a little, no lunge
+        moveToward(f, target.x, target.y, effMoveSpeed(f), basicRange * 0.95);
         return;
     }
 
-    // Approach (rooted → can't move). Dash in if far + fueled.
-    if (f.statuses.rootLeft > 0) return;
-    const approachRange = f.kiter ? RANGED_RANGE * 0.5 : f.reach * 0.85;
-    if (dist > approachRange + 1.6 && f.basicCdLeft <= 0 && f.stamina >= COST_DASH) {
-        const inv = dist > 1e-6 ? 1 / dist : 1;
-        f.moveDx = dx * inv; f.moveDy = dy * inv; f.stamina -= COST_DASH;
-        f.state = "dash"; f.stateLeft = f.dashT;
-        events.push({ t, type: "dash", side: f.team, actorId: f.id });
-        return;
-    }
-    moveToward(f, target.x, target.y, effMoveSpeed(f), approachRange);
+    // NEUTRAL: nothing ready → hold spacing + circle.
+    holdNeutral(f, target, dist, inv, dx, dy);
 }
 
 function beginCast(f: Fighter, idx: number, targetId: string, t: number, events: DuelEvent[]) {
@@ -477,6 +518,16 @@ function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             });
         }
         events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind });
+        return;
+    }
+
+    // Ranged-role BASIC: a small poke projectile (abilityIdx -1 → plain damage).
+    if (!ab && f.basicRanged) {
+        const tgt = fighters.find((g) => g.id === f.pendingTargetId && g.hp > 0);
+        if (tgt) {
+            projectiles.push({ id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: -1, x: f.x, y: f.y, speed: 0.34, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: "damage" });
+            events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: "damage" });
+        }
         return;
     }
 
