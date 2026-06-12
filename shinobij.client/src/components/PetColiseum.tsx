@@ -1483,6 +1483,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
 function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResult; clock: { current: DuelClock } }) {
     const mesh = useRef<THREE.Mesh>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const haloMat = useRef<THREE.MeshBasicMaterial>(null);
     useFrame(() => {
         const m = mesh.current, mm = mat.current;
         if (!m || !mm) return;
@@ -1494,12 +1495,19 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
         const nxt = snaps[i1].projectiles.find((q) => q.id === pr.id);
         m.visible = true;
         m.position.set(nxt ? lerp(pr.x, nxt.x, f) : pr.x, FX_Y, nxt ? lerp(pr.y, nxt.y, f) : pr.y);
-        mm.color.set(elementColor(pr.element).glow);
+        const col = elementColor(pr.element).glow;
+        mm.color.set(col);
+        if (haloMat.current) haloMat.current.color.set(col);
     });
     return (
         <mesh ref={mesh} visible={false}>
-            <sphereGeometry args={[0.26, 12, 12]} />
-            <meshBasicMaterial ref={mat} transparent opacity={0.92} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            <sphereGeometry args={[0.42, 14, 14]} />
+            <meshBasicMaterial ref={mat} transparent opacity={0.95} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            {/* soft outer halo so the bolt reads across the big map + blooms */}
+            <mesh scale={[2.1, 2.1, 2.1]}>
+                <sphereGeometry args={[0.42, 12, 12]} />
+                <meshBasicMaterial ref={haloMat} transparent opacity={0.32} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
         </mesh>
     );
 }
@@ -1507,11 +1515,13 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), glides
  *  + SHAKES the camera, spawns damage numbers + impact bursts as the clock
  *  crosses events, and fires onEnd once. Owns the camera (useThree). */
-function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNumber, spawnImpact }: {
+function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNumber, spawnImpact, spawnFx, elementById }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; controlCamera: boolean;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
+    spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
+    elementById: Record<string, string | null | undefined>;
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
@@ -1540,12 +1550,19 @@ function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNu
                         const heavy = !!e.crit || frac > 0.12;
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: elementColor(e.element).glow, big: heavy });
+                        // The elemental BURST on contact — fire/water/lightning/etc.
+                        spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 1.9 : 1.4, dur: heavy ? 420 : 320 });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
                         shake.current = Math.max(shake.current, 0.07 + frac * 0.45 + (e.crit ? 0.12 : 0));
                     }
                 } else if (e.type === "heal" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
                     if (a) spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
+                } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
+                    // The elemental UNLEASH at the caster (ability tell).
+                    const c = findActor(snapAt, e.actorId);
+                    if (c) spawnFx({ x: c.x, z: c.y, element: elementById[e.actorId], scale: e.type === "ultimate" ? 2.4 : 1.3, dur: e.type === "ultimate" ? 520 : 300 });
+                    if (e.type === "ultimate") shake.current = Math.max(shake.current, 0.28);
                 } else if (e.type === "ko") {
                     shake.current = Math.max(shake.current, 0.5);
                     hitStop.current = Math.max(hitStop.current, 0.22);
@@ -1648,6 +1665,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
+    const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
+    const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
 
     const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
@@ -1659,10 +1678,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const id = seqRef.current++;
         setImpacts((p) => [...p, { id, pos: [n.x, FX_Y, n.z], color: n.color, big: n.big }]);
     };
+    // Element-distinct ability VFX (real fire/water/lightning/earth/wind frames).
+    const spawnFx = (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => {
+        const frames = bundledJutsuFxFrames(elementVfxKey(n.element));
+        if (!frames) return;
+        const id = seqRef.current++;
+        setFxList((p) => [...p, { id, frames, pos: [n.x, FX_Y, n.z], scale: n.scale, dur: n.dur }]);
+    };
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -1680,12 +1706,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {impacts.map((im) => (
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
+                {fxList.map((fx) => (
+                    <FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
+                ))}
                 {numbers.map((l) => (
                     <Html key={l.id} position={l.pos} center distanceFactor={9} pointerEvents="none" zIndexRange={[20, 0]}>
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 24px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} controlCamera={!orbit} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} controlCamera={!orbit} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} elementById={elementById} />
                 {orbit && <OrbitControls target={CAM_LOOK} />}
                 {/* Cinematic post: bloom makes the auras / impacts / VFX glow; a
                     soft vignette frames the action. */}
