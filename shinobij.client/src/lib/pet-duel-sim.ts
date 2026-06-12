@@ -1,56 +1,68 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// pet-duel-sim.ts — Phase A of the pet-combat redesign (docs/pet-combat-redesign-plan.md).
+// pet-duel-sim.ts — the pet-combat redesign engine (docs/pet-combat-redesign-plan.md).
 //
-// A CONTINUOUS-feel, fixed-timestep, DETERMINISTIC melee duel. Two pets fight in
-// real (sim) time: they approach, dash in, telegraph a wind-up, strike (hit or
-// whiff), recover, get staggered/interrupted, and reactively dodge — instead of
-// resolving discrete rounds. The renderer (Phase C) interpolates between tick
-// snapshots for fully fluid visuals; this core stays bit-reproducible.
+// A CONTINUOUS-feel, fixed-timestep, DETERMINISTIC duel. Pets fight in real (sim)
+// time on two teams (1v1 OR 2v2): they approach, dash in, telegraph a wind-up,
+// strike/cast (hit, whiff, or a homing elemental projectile), recover, get
+// staggered/interrupted, reactively dodge, suffer DoTs/stuns/slows, raise shields,
+// heal allies, and unleash signature ultimates — instead of resolving discrete
+// rounds. The renderer (Phase C) interpolates between tick snapshots for fully
+// fluid visuals; this core stays bit-reproducible.
 //
 // DETERMINISM CONTRACT (load-bearing for ranked — see the plan §0/§6):
-//   • The result is a pure function of (playerPet, enemyPet, seed). Same inputs
-//     anywhere → byte-identical snapshots + events. NO Math.random, NO Date /
-//     wall-clock, NO non-IEEE transcendentals (sin/cos/atan2/pow/exp/log are
-//     BANNED — they vary across JS engines). Only +,-,*,/,Math.sqrt/min/max/
-//     round/floor/abs are used (all IEEE-correctly-rounded → cross-machine
-//     identical), plus a seeded LCG for all randomness.
+//   • The result is a pure function of (pets…, seed). Same inputs anywhere →
+//     byte-identical snapshots + events. NO Math.random, NO Date / wall-clock,
+//     NO non-IEEE transcendentals (sin/cos/atan2/pow/exp/log are BANNED — they
+//     vary across JS engines). Only +,-,*,/,Math.sqrt/min/max/round/floor/abs
+//     (all IEEE-correctly-rounded → cross-machine identical), plus a seeded LCG.
 //   • State is QUANTIZED to 1/256 each tick so float error can never accumulate
 //     or diverge between machines.
-//   • Iteration order is fixed (player stepped before enemy). Do not reorder.
+//   • Iteration order is FIXED: fighters step in build order (player team first,
+//     by slot), projectiles in spawn order. Do not reorder.
 //
-// This engine is NOT wired to anything live. It runs PvE behind a flag once the
-// renderer consumes it (Phase C); ranked stays on the old engine until balance
-// (Phase D) and server validation (Phase E) are proven. Consumes only persisted
-// Pet fields (hp/attack/defense/speed) so saves are untouched.
+// One core (`simulate`) drives BOTH `runPetDuel` (1v1) and `runPetPartyDuel`
+// (2v2). NOT wired to anything live yet (PvE wiring is Phase C; ranked stays on
+// the old engine until balance Phase D + server-validation Phase E). Consumes
+// only persisted Pet fields (hp/attack/defense/speed/element/trait/jutsus) → zero
+// save impact. Balance numbers here are PLACEHOLDERS to be tuned in Phase D.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { Pet } from "../types/pet";
+import type { Pet, PetJutsu } from "../types/pet";
 
 export const DUEL_TPS = 30;                 // sim ticks per second
-const MAX_TICKS = DUEL_TPS * 25;            // 25s hard cap (mirrors the old 30-round cap)
+const MAX_TICKS = DUEL_TPS * 30;            // 30s hard cap
 const Q = 256;                              // state quantization (1/256 unit)
 const quant = (n: number) => Math.round(n * Q) / Q;
 const clamp = (n: number, lo: number, hi: number) => (n < lo ? lo : n > hi ? hi : n);
 
-// Arena footprint (world units), matching the coliseum (ARENA_HALF 7×4 → fights
-// fit the existing stage). Pets spawn at opposite ends and close the distance.
+// Arena footprint (world units), matching the coliseum (ARENA_HALF 7×4).
 const ARENA_X = 6.3;
 const ARENA_Y = 3.4;
-const SPAWN_X = 5.0;
 
-// Stamina economy — gates dashes / dodges / attacks so the fight has an
-// engage→spend→recover rhythm instead of constant mashing.
+// Stamina economy — gates dashes / dodges / attacks so the fight breathes.
 const STAM_MAX = 100;
-const STAM_REGEN = 22 / DUEL_TPS;           // per tick
-const COST_ATTACK = 14;
+const STAM_REGEN = 22 / DUEL_TPS;
+const COST_BASIC = 12;
 const COST_DASH = 24;
 const COST_DODGE = 20;
 
 const CRIT_CHANCE = 0.12;
-const REACH = 1.2;                          // melee contact distance (center-to-center)
-const MIN_SEP = REACH * 0.92;               // bodies never overlap closer than this
+const BASIC_REACH = 1.2;                    // melee contact distance (center-to-center)
+const MIN_SEP = BASIC_REACH * 0.9;          // bodies never overlap closer than this
+const MELEE_RANGE = 1.6;                    // melee-ability range
+const RANGED_RANGE = 4.8;                   // ranged-ability / projectile range
 
-/** Deterministic LCG — same constants the old engine uses. Seed is the match
- *  seed; never Date.now() inside the sim. */
+// Element type chart: Fire > Wind > Lightning > Earth > Water > Fire.
+const ELEMENT_BEATS: Record<string, string> = {
+    Fire: "Wind", Wind: "Lightning", Lightning: "Earth", Earth: "Water", Water: "Fire",
+};
+function elementMult(att?: string | null, def?: string | null): number {
+    if (!att || !def || att === "None" || def === "None") return 1;
+    if (ELEMENT_BEATS[att] === def) return 1.25;
+    if (ELEMENT_BEATS[def] === att) return 0.8;
+    return 1;
+}
+
+/** Deterministic LCG — same constants as the old engine. Seed is the match seed. */
 function makeRng(seed: number): () => number {
     let s = (Math.max(1, Math.floor(seed)) >>> 0) || 1;
     return () => {
@@ -59,87 +71,299 @@ function makeRng(seed: number): () => number {
     };
 }
 
-export type DuelState =
-    | "idle"      // neutral / approach (the only state that re-decides)
-    | "dash"      // committed burst toward the foe
-    | "windup"    // telegraphed anticipation before a strike
-    | "strike"    // the contact frame (1 tick)
-    | "recover"   // post-swing lag
-    | "stagger"   // hit-reaction / interrupted
-    | "dodge"     // reactive sidestep
-    | "dead";
-
-interface Fighter {
-    side: "player" | "enemy";
-    pet: Pet;
-    x: number; y: number;
-    faceX: number; faceY: number;           // unit facing (locked during a commit)
-    hp: number; maxHp: number;
-    stamina: number;
-    state: DuelState;
-    stateLeft: number;                       // ticks remaining in the current state
-    cdLeft: number;                          // attack cooldown
-    moveSpeed: number;                       // units/tick
-    dashSpeed: number;
-    dmg: number;
-    reach: number;
-    windT: number; recovT: number; cdT: number; staggerT: number; dashT: number; dodgeT: number;
-    dodgeChance: number;
-    moveDx: number; moveDy: number;          // stored dir for dash/dodge states
+// ── Abilities (PetJutsu → real-time ability) ─────────────────────────────────
+type AbilityClass = "melee" | "ranged" | "support";
+function abilityClass(kind: PetJutsu["kind"]): AbilityClass {
+    if (kind === "heal" || kind === "buff" || kind === "shield" || kind === "barrier" || kind === "absorb" || kind === "haste") return "support";
+    if (kind === "damage" || kind === "crush" || kind === "lifesteal") return "melee";
+    return "ranged"; // burn/freeze/confuse/stun/dot/wound/mark/slow/debuff/move/movelock/taunt/push/pull
 }
 
-function buildFighter(pet: Pet, side: "player" | "enemy", x: number): Fighter {
-    const speed = Math.max(0, pet.speed || 0);
-    const maxHp = Math.max(1, Math.round(pet.hp || 1));
-    const atk = Math.max(0, pet.attack || 0);
-    const moveSpeed = clamp(2.6 + speed * 0.02, 2.6, 6.5) / DUEL_TPS;
-    const faceX = side === "player" ? 1 : -1;
+interface Ability {
+    name: string;
+    kind: PetJutsu["kind"];
+    cls: AbilityClass;
+    power: number;
+    signature: boolean;
+    aoe: boolean;
+    range: number;
+    castTicks: number;
+    cdTicks: number;
+    cdLeft: number;
+    cost: number;
+}
+
+function buildAbility(j: PetJutsu): Ability {
+    const cls = abilityClass(j.kind);
+    const base = Math.max(Math.round(DUEL_TPS * 0.8), Math.round((j.cooldown || 0) * 1.2 * DUEL_TPS));
     return {
-        side, pet, x, y: 0, faceX, faceY: 0,
-        hp: maxHp, maxHp,
-        stamina: STAM_MAX,
-        state: "idle", stateLeft: 0, cdLeft: 0,
-        moveSpeed,
-        dashSpeed: moveSpeed * 3.2,
-        // Placeholder damage — real balance (element/def/jutsus) is Phase B/D.
-        dmg: Math.max(1, Math.round(atk * 0.5)),
-        reach: REACH,
-        windT: Math.round(DUEL_TPS * clamp(0.42 - speed * 0.0012, 0.16, 0.42)),
-        recovT: Math.round(DUEL_TPS * clamp(0.46 - speed * 0.0010, 0.20, 0.46)),
-        cdT: Math.round(DUEL_TPS * 0.12),
-        staggerT: Math.round(DUEL_TPS * 0.35),
-        dashT: 7,
-        dodgeT: 6,
-        dodgeChance: clamp(0.12 + speed * 0.0008, 0.12, 0.5),
-        moveDx: 0, moveDy: 0,
+        name: j.name,
+        kind: j.kind,
+        cls,
+        power: Math.max(1, j.power || 1),
+        signature: !!j.signature,
+        aoe: !!j.aoe,
+        range: cls === "support" ? 999 : cls === "ranged" ? RANGED_RANGE : MELEE_RANGE,
+        castTicks: Math.round(DUEL_TPS * (j.signature ? 0.5 : cls === "support" ? 0.25 : 0.3)),
+        cdTicks: base + (j.signature ? Math.round(DUEL_TPS * 1.5) : 0),
+        cdLeft: j.signature ? Math.round(DUEL_TPS * 2.5) : Math.round(DUEL_TPS * 0.5), // initial gate
+        cost: j.signature ? 40 : cls === "support" ? 16 : 22,
     };
 }
 
-export interface DuelActorSnap {
-    x: number; y: number; hp: number; stamina: number; state: DuelState; faceX: number; faceY: number;
+function statusTicks(ab: Ability, rounds?: number): number {
+    return Math.round(DUEL_TPS * (rounds && rounds > 0 ? rounds * 0.8 : ab.signature ? 1.4 : 1.0));
 }
-export interface DuelSnapshot { t: number; player: DuelActorSnap; enemy: DuelActorSnap; }
 
-export type DuelEventType = "dash" | "dodge" | "windup" | "hit" | "whiff" | "stagger" | "ko";
-export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; dmg?: number; crit?: boolean; }
+// ── Fighter ──────────────────────────────────────────────────────────────────
+type DuelState = "idle" | "dash" | "windup" | "strike" | "recover" | "stagger" | "dodge" | "dead";
+
+interface Statuses {
+    burnLeft: number; burnDmg: number; halfHeal: boolean;
+    stunLeft: number;
+    slowLeft: number; hasteLeft: number;
+    rootLeft: number;
+    shieldHp: number;
+    buffLeft: number; buffMag: number;       // ATK multiplier delta (can be negative)
+    marked: boolean;
+    tauntById: string | null;
+}
+function emptyStatuses(): Statuses {
+    return { burnLeft: 0, burnDmg: 0, halfHeal: false, stunLeft: 0, slowLeft: 0, hasteLeft: 0, rootLeft: 0, shieldHp: 0, buffLeft: 0, buffMag: 0, marked: false, tauntById: null };
+}
+
+interface Fighter {
+    id: string;
+    team: "player" | "enemy";
+    slot: number;
+    pet: Pet;
+    element?: string | null;
+    x: number; y: number;
+    faceX: number; faceY: number;
+    hp: number; maxHp: number;
+    atk: number; def: number;
+    stamina: number;
+    moveSpeed: number; dashSpeed: number;
+    reach: number;
+    state: DuelState; stateLeft: number;
+    basicCdLeft: number; basicCdT: number;
+    windT: number; recovT: number; staggerT: number; dashT: number; dodgeT: number;
+    dodgeChance: number; critChance: number;
+    kiter: boolean;                          // prefers to keep ranged distance
+    abilities: Ability[];
+    pendingIdx: number;                      // -1 basic, >=0 ability index, -2 none
+    pendingTargetId: string | null;
+    statuses: Statuses;
+    moveDx: number; moveDy: number;          // stored dir for dash/dodge
+    targetId: string | null;
+}
+
+function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number): Fighter {
+    const speed = Math.max(0, pet.speed || 0);
+    const maxHp = Math.max(1, Math.round(pet.hp || 1));
+    const trait = pet.trait;
+    const moveSpeed = clamp(2.6 + speed * 0.02, 2.6, 6.5) / DUEL_TPS;
+    const abilities = (pet.jutsus || []).slice(0, 4).map(buildAbility);
+    const hasMelee = abilities.some((a) => a.cls === "melee");
+    const hasRanged = abilities.some((a) => a.cls === "ranged");
+    return {
+        id: `${team}-${slot}`, team, slot, pet, element: pet.element,
+        x, y, faceX: team === "player" ? 1 : -1, faceY: 0,
+        hp: maxHp, maxHp,
+        atk: Math.max(0, pet.attack || 0),
+        def: Math.max(0, pet.defense || 0),
+        stamina: STAM_MAX,
+        moveSpeed, dashSpeed: moveSpeed * 3.2,
+        reach: BASIC_REACH,
+        state: "idle", stateLeft: 0,
+        basicCdLeft: 0, basicCdT: Math.round(DUEL_TPS * 0.5),
+        windT: Math.round(DUEL_TPS * clamp(0.42 - speed * 0.0012, 0.16, 0.42)),
+        recovT: Math.round(DUEL_TPS * clamp(0.46 - speed * 0.0010, 0.20, 0.46)),
+        staggerT: Math.round(DUEL_TPS * 0.35),
+        dashT: 7, dodgeT: 6,
+        dodgeChance: clamp(0.12 + speed * 0.0008 + (trait === "Swift" ? 0.12 : 0), 0.12, 0.6),
+        critChance: CRIT_CHANCE + (trait === "Lucky" ? 0.1 : 0),
+        kiter: hasRanged && !hasMelee,
+        abilities,
+        pendingIdx: -2, pendingTargetId: null,
+        statuses: emptyStatuses(),
+        moveDx: 0, moveDy: 0, targetId: null,
+    };
+}
+
+// ── Projectiles ──────────────────────────────────────────────────────────────
+interface Projectile {
+    id: number;
+    ownerId: string;
+    team: "player" | "enemy";
+    targetId: string;
+    abilityIdx: number;
+    x: number; y: number;
+    speed: number;
+    ttl: number;
+    element?: string | null;
+    kind: PetJutsu["kind"];
+}
+
+// ── Output ───────────────────────────────────────────────────────────────────
+export interface DuelActorSnap {
+    id: string; team: "player" | "enemy"; slot: number;
+    x: number; y: number; faceX: number; faceY: number;
+    hp: number; maxHp: number; stamina: number; state: DuelState; statuses: string[];
+}
+export interface DuelProjSnap { id: number; x: number; y: number; team: "player" | "enemy"; kind: PetJutsu["kind"]; element?: string | null; }
+export interface DuelSnapshot { t: number; actors: DuelActorSnap[]; projectiles: DuelProjSnap[]; }
+
+export type DuelEventType = "dash" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
+export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; }
 
 export interface DuelResult {
-    result: "win" | "loss" | "draw";   // from the PLAYER's perspective
+    result: "win" | "loss" | "draw";   // from the PLAYER team's perspective
     winner: "player" | "enemy" | null;
     ticks: number;
     snapshots: DuelSnapshot[];
     events: DuelEvent[];
 }
 
-function snap(t: number, p: Fighter, e: Fighter): DuelSnapshot {
-    const a = (f: Fighter): DuelActorSnap => ({
-        x: f.x, y: f.y, hp: Math.max(0, f.hp), stamina: f.stamina, state: f.state, faceX: f.faceX, faceY: f.faceY,
-    });
-    return { t, player: a(p), enemy: a(e) };
+function statusFlags(s: Statuses): string[] {
+    const out: string[] = [];
+    if (s.burnLeft > 0) out.push("burn");
+    if (s.stunLeft > 0) out.push("stun");
+    if (s.slowLeft > 0) out.push("slow");
+    if (s.hasteLeft > 0) out.push("haste");
+    if (s.rootLeft > 0) out.push("root");
+    if (s.shieldHp > 0) out.push("shield");
+    if (s.buffLeft > 0 && s.buffMag > 0) out.push("buff");
+    if (s.buffLeft > 0 && s.buffMag < 0) out.push("debuff");
+    if (s.marked) out.push("mark");
+    return out;
+}
+function snap(t: number, fighters: Fighter[], projectiles: Projectile[]): DuelSnapshot {
+    return {
+        t,
+        actors: fighters.map((f) => ({
+            id: f.id, team: f.team, slot: f.slot,
+            x: f.x, y: f.y, faceX: f.faceX, faceY: f.faceY,
+            hp: Math.max(0, f.hp), maxHp: f.maxHp, stamina: f.stamina, state: f.state, statuses: statusFlags(f.statuses),
+        })),
+        projectiles: projectiles.map((p) => ({ id: p.id, x: p.x, y: p.y, team: p.team, kind: p.kind, element: p.element })),
+    };
 }
 
-/** Move `f` toward (tx,ty) by up to `spd`, stopping `stopAt` short (so a melee
- *  attacker holds at reach instead of overlapping). Updates facing. */
+// ── Targeting ────────────────────────────────────────────────────────────────
+function dist2(a: Fighter, bx: number, by: number): number {
+    const dx = bx - a.x, dy = by - a.y; return dx * dx + dy * dy;
+}
+function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
+    // Taunt override (2v2): forced to the taunter while it lives.
+    if (f.statuses.tauntById) {
+        const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0);
+        if (t) return t;
+    }
+    let best: Fighter | null = null, bestKey = Infinity;
+    for (const g of fighters) {
+        if (g.team === f.team || g.hp <= 0) continue;
+        // Focus the lowest HP; tiebreak nearest; final tiebreak by id (stable).
+        const key = g.hp * 1e6 + dist2(f, g.x, g.y);
+        if (key < bestKey || (key === bestKey && best && g.id < best.id)) { bestKey = key; best = g; }
+    }
+    return best;
+}
+function pickAlly(f: Fighter, fighters: Fighter[]): Fighter {
+    let best = f, bestFrac = f.hp / f.maxHp;
+    for (const g of fighters) {
+        if (g.team !== f.team || g.hp <= 0) continue;
+        const frac = g.hp / g.maxHp;
+        if (frac < bestFrac || (frac === bestFrac && g.id < best.id)) { bestFrac = frac; best = g; }
+    }
+    return best;
+}
+function teamAlive(fighters: Fighter[], team: "player" | "enemy"): boolean {
+    return fighters.some((f) => f.team === team && f.hp > 0);
+}
+
+// ── Hit / cast resolution ────────────────────────────────────────────────────
+function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => number, t: number, events: DuelEvent[], viaProjectile: boolean) {
+    if (tgt.hp <= 0) return;
+    const crit = rng() < att.critChance;
+    const powerScale = ab ? ab.power / 100 : 1;
+    const buff = att.statuses.buffLeft > 0 ? 1 + att.statuses.buffMag : 1;
+    let mult = elementMult(att.element, tgt.element) * (crit ? 1.6 : 1) * Math.max(0.3, buff);
+    if (tgt.statuses.marked) { mult *= 1.4; tgt.statuses.marked = false; }
+    const mitigation = clamp(1 - tgt.def * 0.0012, 0.35, 1);
+    const base = att.atk * 0.5 * powerScale;
+    let dmg = Math.max(1, Math.round(base * mult * mitigation));
+    // Shield soak.
+    if (tgt.statuses.shieldHp > 0) {
+        const soak = Math.min(tgt.statuses.shieldHp, dmg);
+        tgt.statuses.shieldHp = quant(tgt.statuses.shieldHp - soak);
+        dmg -= soak;
+    }
+    tgt.hp -= dmg;
+    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage" });
+
+    // On-hit effects by ability kind.
+    if (ab) applyOnHit(att, tgt, ab);
+
+    // Lifesteal heal.
+    if (ab && ab.kind === "lifesteal") att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
+
+    // Knockback + interrupt (melee only; projectiles just stagger lightly).
+    const dx = tgt.x - att.x, dy = tgt.y - att.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const kb = (crit ? 0.9 : 0.55) * (viaProjectile ? 0.4 : 1) * (ab && ab.kind === "push" ? 2 : 1);
+    if (d > 1e-6) { tgt.x += (dx / d) * kb; tgt.y += (dy / d) * kb; }
+    if (ab && ab.kind === "pull" && d > 1e-6) { tgt.x -= (dx / d) * 1.2; tgt.y -= (dy / d) * 1.2; }
+    if ((tgt.state === "idle" || tgt.state === "dash" || tgt.state === "windup") && tgt.statuses.stunLeft <= 0) {
+        tgt.state = "stagger"; tgt.stateLeft = att.staggerT;
+        events.push({ t, type: "stagger", side: tgt.team, actorId: tgt.id });
+    }
+}
+
+function applyOnHit(att: Fighter, tgt: Fighter, ab: Ability) {
+    const s = tgt.statuses;
+    const dur = statusTicks(ab);
+    switch (ab.kind) {
+        case "burn": case "dot":
+            s.burnLeft = Math.max(s.burnLeft, dur); s.burnDmg = Math.max(s.burnDmg, Math.max(1, Math.round(att.atk * 0.12 * (ab.power / 100)))); break;
+        case "wound":
+            s.burnLeft = Math.max(s.burnLeft, dur); s.burnDmg = Math.max(s.burnDmg, Math.max(1, Math.round(att.atk * 0.1))); s.halfHeal = true; break;
+        case "freeze": case "stun": case "confuse":
+            s.stunLeft = Math.max(s.stunLeft, ab.kind === "stun" ? dur : Math.round(dur * 0.7)); break;
+        case "slow":
+            s.slowLeft = Math.max(s.slowLeft, dur); break;
+        case "mark":
+            s.marked = true; break;
+        case "crush": case "debuff":
+            s.buffLeft = Math.max(s.buffLeft, dur); s.buffMag = Math.min(s.buffMag, -0.25); break;
+        case "movelock":
+            s.rootLeft = Math.max(s.rootLeft, dur); break;
+        case "taunt":
+            s.tauntById = att.id; break;
+        default: break;
+    }
+}
+
+function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, events: DuelEvent[]) {
+    const ally = pickAlly(f, fighters);
+    if (ab.kind === "heal") {
+        const heal = Math.round(f.maxHp * 0.16 * (ab.power / 100)) * (ally.statuses.halfHeal ? 0.5 : 1);
+        ally.hp = Math.min(ally.maxHp, ally.hp + Math.max(1, Math.round(heal)));
+        events.push({ t, type: "heal", side: f.team, actorId: f.id, targetId: ally.id, dmg: Math.round(heal) });
+    } else if (ab.kind === "shield" || ab.kind === "barrier" || ab.kind === "absorb") {
+        ally.statuses.shieldHp = Math.max(ally.statuses.shieldHp, Math.round(ally.maxHp * 0.2 * (ab.power / 100)));
+        events.push({ t, type: "shield", side: f.team, actorId: f.id, targetId: ally.id });
+    } else if (ab.kind === "buff") {
+        const tgt = f; // self-buff
+        tgt.statuses.buffLeft = statusTicks(ab); tgt.statuses.buffMag = Math.max(tgt.statuses.buffMag, 0.25);
+        events.push({ t, type: "buff", side: f.team, actorId: f.id, targetId: tgt.id });
+    } else if (ab.kind === "haste") {
+        f.statuses.hasteLeft = statusTicks(ab);
+        events.push({ t, type: "buff", side: f.team, actorId: f.id, targetId: f.id });
+    }
+}
+
+// ── Decision + motion ────────────────────────────────────────────────────────
 function moveToward(f: Fighter, tx: number, ty: number, spd: number, stopAt: number) {
     const dx = tx - f.x, dy = ty - f.y;
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -147,178 +371,300 @@ function moveToward(f: Fighter, tx: number, ty: number, spd: number, stopAt: num
     f.faceX = dx / d; f.faceY = dy / d;
     const s = Math.min(spd, Math.max(0, d - stopAt));
     if (s <= 0) return;
-    f.x += (dx / d) * s;
-    f.y += (dy / d) * s;
+    f.x += (dx / d) * s; f.y += (dy / d) * s;
+}
+function effMoveSpeed(f: Fighter): number {
+    let s = f.moveSpeed;
+    if (f.statuses.slowLeft > 0) s *= 0.6;
+    if (f.statuses.hasteLeft > 0) s *= 1.4;
+    return s;
 }
 
-/** Resolve a strike from `f` against `foe` at the contact frame. */
-function resolveStrike(f: Fighter, foe: Fighter, rng: () => number, t: number, events: DuelEvent[]) {
-    const dx = foe.x - f.x, dy = foe.y - f.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    const facingOK = f.faceX * dx + f.faceY * dy > 0;     // foe is in front of the swing
-    if (d <= f.reach + 0.35 && facingOK) {
-        const crit = rng() < CRIT_CHANCE;
-        const dmg = Math.max(1, Math.round(f.dmg * (crit ? 1.6 : 1)));
-        foe.hp -= dmg;
-        events.push({ t, type: "hit", side: f.side, dmg, crit });
-        // Knockback + interrupt/stagger the victim (cancels their wind-up → swing).
-        const kb = crit ? 0.9 : 0.55;
-        if (d > 1e-6) { foe.x += (dx / d) * kb; foe.y += (dy / d) * kb; }
-        if (foe.state === "idle" || foe.state === "dash" || foe.state === "windup") {
-            foe.state = "stagger";
-            foe.stateLeft = f.staggerT;
-            events.push({ t, type: "stagger", side: foe.side });
-        }
-    } else {
-        events.push({ t, type: "whiff", side: f.side });
+/** Choose + begin an action for an idle fighter. */
+function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
+    // Support first: heal a hurt ally, or buff/shield if not already.
+    for (let i = 0; i < f.abilities.length; i++) {
+        const ab = f.abilities[i];
+        if (ab.cls !== "support" || ab.cdLeft > 0 || f.stamina < ab.cost) continue;
+        const ally = pickAlly(f, fighters);
+        const wantHeal = ab.kind === "heal" && ally.hp / ally.maxHp < 0.55;
+        const wantBuff = (ab.kind === "buff" || ab.kind === "haste") && f.statuses.buffLeft <= 0 && f.statuses.hasteLeft <= 0;
+        const wantShield = (ab.kind === "shield" || ab.kind === "barrier" || ab.kind === "absorb") && ally.statuses.shieldHp <= 0 && ally.hp / ally.maxHp < 0.7;
+        if (wantHeal || wantBuff || wantShield) { beginCast(f, i, f.id, t, events); return; }
     }
-    f.stamina -= COST_ATTACK;
-    f.cdLeft = f.cdT;
-}
 
-/** One tick of behavior + motion for `f` reacting to `foe`. */
-function step(f: Fighter, foe: Fighter, rng: () => number, t: number, events: DuelEvent[]) {
-    if (f.state === "dead") return;
-    if (f.cdLeft > 0) f.cdLeft--;
-    if (f.stamina < STAM_MAX) f.stamina = Math.min(STAM_MAX, f.stamina + STAM_REGEN);
-
-    const dx = foe.x - f.x, dy = foe.y - f.y;
+    const target = pickTarget(f, fighters);
+    f.targetId = target ? target.id : null;
+    if (!target) return;
+    const dx = target.x - f.x, dy = target.y - f.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    switch (f.state) {
-        case "idle": {
-            // Reactive dodge: foe is telegraphing a strike at us within range.
-            if (foe.state === "windup" && dist < f.reach + 0.7 && f.stamina >= COST_DODGE && rng() < f.dodgeChance) {
-                // Sidestep perpendicular to the foe (deterministic 90° rotate),
-                // sign chosen by which side has more room.
-                const inv = dist > 1e-6 ? 1 / dist : 0;
-                let px = -dy * inv, py = dx * inv;
-                if (f.y + py * 1.5 > ARENA_Y || f.y + py * 1.5 < -ARENA_Y) { px = -px; py = -py; }
-                f.moveDx = px; f.moveDy = py;
-                f.stamina -= COST_DODGE;
-                f.state = "dodge"; f.stateLeft = f.dodgeT;
-                events.push({ t, type: "dodge", side: f.side });
-                break;
-            }
-            if (dist <= f.reach + 0.05) {
-                // In range → swing if ready, else hold the spacing.
-                if (f.cdLeft === 0 && f.stamina >= COST_ATTACK) {
-                    const inv = dist > 1e-6 ? 1 / dist : 0;
-                    f.faceX = dx * inv || f.faceX; f.faceY = dy * inv;   // lock facing for the commit
-                    f.state = "windup"; f.stateLeft = f.windT;
-                    events.push({ t, type: "windup", side: f.side });
-                }
-                break;
-            }
-            // Out of range → dash in if far + fueled, else walk in.
-            if (dist > f.reach + 1.6 && f.cdLeft === 0 && f.stamina >= COST_DASH) {
-                const inv = dist > 1e-6 ? 1 / dist : 0;
-                f.moveDx = dx * inv; f.moveDy = dy * inv;
-                f.stamina -= COST_DASH;
-                f.state = "dash"; f.stateLeft = f.dashT;
-                events.push({ t, type: "dash", side: f.side });
-                break;
-            }
-            moveToward(f, foe.x, foe.y, f.moveSpeed, f.reach * 0.85);
-            break;
-        }
-        case "dash": {
-            f.x += f.moveDx * f.dashSpeed;
-            f.y += f.moveDy * f.dashSpeed;
-            f.faceX = f.moveDx; f.faceY = f.moveDy;
-            if (--f.stateLeft <= 0) f.state = "idle";
-            break;
-        }
-        case "dodge": {
-            f.x += f.moveDx * f.dashSpeed * 0.85;
-            f.y += f.moveDy * f.dashSpeed * 0.85;
-            if (--f.stateLeft <= 0) f.state = "idle";
-            break;
-        }
-        case "windup": {
-            if (--f.stateLeft <= 0) {
-                resolveStrike(f, foe, rng, t, events);
-                f.state = "strike"; f.stateLeft = 1;
-            }
-            break;
-        }
-        case "strike": {
-            if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = f.recovT; }
-            break;
-        }
-        case "recover":
-        case "stagger": {
-            if (--f.stateLeft <= 0) f.state = "idle";
-            break;
-        }
+    // Reactive dodge vs a telegraphed strike or an incoming projectile.
+    const threatened = (target.state === "windup" && dist < f.reach + 0.7) || incomingProjectile(f, projectiles);
+    if (threatened && f.stamina >= COST_DODGE && f.statuses.rootLeft <= 0 && rng() < f.dodgeChance) {
+        const inv = dist > 1e-6 ? 1 / dist : 1;
+        let px = -dy * inv, py = dx * inv;
+        if (f.y + py * 1.5 > ARENA_Y || f.y + py * 1.5 < -ARENA_Y) { px = -px; py = -py; }
+        f.moveDx = px; f.moveDy = py; f.stamina -= COST_DODGE;
+        f.state = "dodge"; f.stateLeft = f.dodgeT;
+        events.push({ t, type: "dodge", side: f.team, actorId: f.id });
+        return;
     }
 
+    // Best ready OFFENSIVE ability whose range is satisfied now (signature first).
+    let chosen = -1, chosenScore = -1;
+    for (let i = 0; i < f.abilities.length; i++) {
+        const ab = f.abilities[i];
+        if (ab.cls === "support" || ab.cdLeft > 0 || f.stamina < ab.cost) continue;
+        if (dist > ab.range) continue;
+        const score = (ab.signature ? 1000 : 0) + ab.power + (ab.cls === "ranged" ? 5 : 0);
+        if (score > chosenScore) { chosenScore = score; chosen = i; }
+    }
+    if (chosen >= 0) { beginCast(f, chosen, target.id, t, events); return; }
+
+    // Kiter wants to keep distance while abilities recharge.
+    if (f.kiter && dist < RANGED_RANGE * 0.55 && f.statuses.rootLeft <= 0) {
+        const inv = dist > 1e-6 ? 1 / dist : 1;
+        f.x -= dx * inv * effMoveSpeed(f); f.y -= dy * inv * effMoveSpeed(f);
+        f.faceX = dx * inv; f.faceY = dy * inv;
+        return;
+    }
+
+    // Basic melee if in reach.
+    if (dist <= f.reach + 0.05) {
+        if (f.basicCdLeft <= 0 && f.stamina >= COST_BASIC) { beginCast(f, -1, target.id, t, events); }
+        else { f.faceX = dx / (dist || 1); f.faceY = dy / (dist || 1); }
+        return;
+    }
+
+    // Approach (rooted → can't move). Dash in if far + fueled.
+    if (f.statuses.rootLeft > 0) return;
+    const approachRange = f.kiter ? RANGED_RANGE * 0.5 : f.reach * 0.85;
+    if (dist > approachRange + 1.6 && f.basicCdLeft <= 0 && f.stamina >= COST_DASH) {
+        const inv = dist > 1e-6 ? 1 / dist : 1;
+        f.moveDx = dx * inv; f.moveDy = dy * inv; f.stamina -= COST_DASH;
+        f.state = "dash"; f.stateLeft = f.dashT;
+        events.push({ t, type: "dash", side: f.team, actorId: f.id });
+        return;
+    }
+    moveToward(f, target.x, target.y, effMoveSpeed(f), approachRange);
+}
+
+function beginCast(f: Fighter, idx: number, targetId: string, t: number, events: DuelEvent[]) {
+    f.pendingIdx = idx; f.pendingTargetId = targetId;
+    f.state = "windup";
+    f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
+    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id });
+    else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind });
+    else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage" });
+}
+
+/** Resolve a wind-up that just finished. */
+function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[]) {
+    const idx = f.pendingIdx;
+    const ab = idx >= 0 ? f.abilities[idx] : null;
+    if (ab) { ab.cdLeft = ab.cdTicks; f.stamina -= ab.cost; } else { f.basicCdLeft = f.basicCdT; f.stamina -= COST_BASIC; }
+
+    if (ab && ab.cls === "support") { castSupport(f, ab, fighters, t, events); return; }
+
+    if (ab && ab.cls === "ranged") {
+        // Spawn a homing projectile at each target (aoe → all enemies, else one).
+        const targets = ab.aoe ? fighters.filter((g) => g.team !== f.team && g.hp > 0) : [fighters.find((g) => g.id === f.pendingTargetId && g.hp > 0)].filter(Boolean) as Fighter[];
+        for (const tgt of targets) {
+            projectiles.push({
+                id: nextProjId.n++, ownerId: f.id, team: f.team, targetId: tgt.id, abilityIdx: idx,
+                x: f.x, y: f.y, speed: 0.34, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: ab.kind,
+            });
+        }
+        events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind });
+        return;
+    }
+
+    // Melee ability or basic: resolve at contact vs the pending target (+ aoe).
+    const primary = fighters.find((g) => g.id === f.pendingTargetId);
+    const hitList = ab && ab.aoe ? fighters.filter((g) => g.team !== f.team && g.hp > 0) : primary ? [primary] : [];
+    let landed = false;
+    for (const tgt of hitList) {
+        const dx = tgt.x - f.x, dy = tgt.y - f.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const facingOK = f.faceX * dx + f.faceY * dy > 0;
+        const range = ab ? ab.range : f.reach + 0.35;
+        if (tgt.hp > 0 && d <= range + 0.35 && facingOK) { applyDamage(f, tgt, ab, rng, t, events, false); landed = true; }
+    }
+    if (!landed) events.push({ t, type: "whiff", side: f.team, actorId: f.id });
+}
+
+function incomingProjectile(f: Fighter, projectiles: Projectile[]): boolean {
+    for (const p of projectiles) {
+        if (p.team === f.team) continue;
+        if (p.targetId !== f.id) continue;
+        if (dist2(f, p.x, p.y) < 1.4 * 1.4) return true;
+    }
+    return false;
+}
+
+function stepProjectiles(fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        const owner = fighters.find((g) => g.id === p.ownerId)!;
+        const tgt = fighters.find((g) => g.id === p.targetId && g.hp > 0);
+        if (!tgt) { // target died → fizzle toward last heading; just expire
+            if (--p.ttl <= 0) { projectiles.splice(i, 1); continue; }
+        }
+        if (tgt) {
+            const dx = tgt.x - p.x, dy = tgt.y - p.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d <= 0.7) {
+                const ab = owner.abilities[p.abilityIdx] ?? null;
+                applyDamage(owner, tgt, ab, rng, t, events, true);
+                projectiles.splice(i, 1); continue;
+            }
+            if (d > 1e-6) { p.x += (dx / d) * p.speed; p.y += (dy / d) * p.speed; }
+        }
+        p.x = quant(p.x); p.y = quant(p.y);
+        if (--p.ttl <= 0) projectiles.splice(i, 1);
+    }
+}
+
+function tickStatuses(f: Fighter) {
+    const s = f.statuses;
+    // Burn DoT ticks every ~0.4s. (taunt is honored only while the taunter
+    // lives — see pickTarget — so it needs no explicit timer here.)
+    if (s.burnLeft > 0) {
+        if (s.burnLeft % Math.round(DUEL_TPS * 0.4) === 0) f.hp -= s.burnDmg;
+        if (--s.burnLeft <= 0) { s.burnDmg = 0; s.halfHeal = false; }
+    }
+    if (s.stunLeft > 0) s.stunLeft--;
+    if (s.slowLeft > 0) s.slowLeft--;
+    if (s.hasteLeft > 0) s.hasteLeft--;
+    if (s.rootLeft > 0) s.rootLeft--;
+    if (s.buffLeft > 0 && --s.buffLeft <= 0) s.buffMag = 0;
+}
+
+function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[]) {
+    if (f.state === "dead" || f.hp <= 0) return;
+    if (f.basicCdLeft > 0) f.basicCdLeft--;
+    for (const ab of f.abilities) if (ab.cdLeft > 0) ab.cdLeft--;
+    if (f.stamina < STAM_MAX) f.stamina = Math.min(STAM_MAX, f.stamina + STAM_REGEN);
+
+    // Stun freezes everything except status/cd ticks.
+    if (f.statuses.stunLeft > 0) { f.x = clamp(f.x, -ARENA_X, ARENA_X); f.y = clamp(f.y, -ARENA_Y, ARENA_Y); return; }
+
+    switch (f.state) {
+        case "idle":
+            decide(f, fighters, projectiles, rng, t, events);
+            break;
+        case "dash":
+            f.x += f.moveDx * f.dashSpeed; f.y += f.moveDy * f.dashSpeed; f.faceX = f.moveDx; f.faceY = f.moveDy;
+            if (--f.stateLeft <= 0) f.state = "idle";
+            break;
+        case "dodge":
+            f.x += f.moveDx * f.dashSpeed * 0.85; f.y += f.moveDy * f.dashSpeed * 0.85;
+            if (--f.stateLeft <= 0) f.state = "idle";
+            break;
+        case "windup":
+            if (--f.stateLeft <= 0) { resolveCast(f, fighters, projectiles, nextProjId, rng, t, events); f.state = "strike"; f.stateLeft = 1; }
+            break;
+        case "strike":
+            if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = f.recovT; }
+            break;
+        case "recover":
+        case "stagger":
+            if (--f.stateLeft <= 0) f.state = "idle";
+            break;
+    }
     f.x = clamp(f.x, -ARENA_X, ARENA_X);
     f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
 }
 
-/** Push two overlapping bodies apart equally so sprites never stack. */
-function separate(a: Fighter, b: Fighter) {
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d >= MIN_SEP) return;
-    const push = (MIN_SEP - d) / 2;
-    if (d > 1e-6) {
-        const ux = dx / d, uy = dy / d;
-        a.x -= ux * push; a.y -= uy * push;
-        b.x += ux * push; b.y += uy * push;
-    } else {
-        a.x -= push; b.x += push;     // exactly coincident → split on x deterministically
+function separateAll(fighters: Fighter[]) {
+    for (let i = 0; i < fighters.length; i++) {
+        for (let j = i + 1; j < fighters.length; j++) {
+            const a = fighters[i], b = fighters[j];
+            if (a.hp <= 0 || b.hp <= 0) continue;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d >= MIN_SEP) continue;
+            const push = (MIN_SEP - d) / 2;
+            if (d > 1e-6) { const ux = dx / d, uy = dy / d; a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push; }
+            else { a.x -= push; b.x += push; }
+            a.x = clamp(a.x, -ARENA_X, ARENA_X); a.y = clamp(a.y, -ARENA_Y, ARENA_Y);
+            b.x = clamp(b.x, -ARENA_X, ARENA_X); b.y = clamp(b.y, -ARENA_Y, ARENA_Y);
+        }
     }
-    a.x = clamp(a.x, -ARENA_X, ARENA_X); a.y = clamp(a.y, -ARENA_Y, ARENA_Y);
-    b.x = clamp(b.x, -ARENA_X, ARENA_X); b.y = clamp(b.y, -ARENA_Y, ARENA_Y);
 }
 
 function quantizeFighter(f: Fighter) {
-    f.x = quant(f.x); f.y = quant(f.y);
-    f.stamina = quant(f.stamina);
+    f.x = quant(f.x); f.y = quant(f.y); f.stamina = quant(f.stamina);
     f.faceX = quant(f.faceX); f.faceY = quant(f.faceY);
+    f.statuses.shieldHp = quant(f.statuses.shieldHp);
 }
 
-/**
- * Run a deterministic continuous melee duel. Pure function of
- * (playerPet, enemyPet, seed). Result is from the player's perspective.
- */
-export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
+/** The shared deterministic core. `fighters` must be in fixed build order. */
+function simulate(fighters: Fighter[], seed: number): DuelResult {
     const rng = makeRng(seed);
-    const player = buildFighter(playerPet, "player", -SPAWN_X);
-    const enemy = buildFighter(enemyPet, "enemy", SPAWN_X);
+    const projectiles: Projectile[] = [];
+    const nextProjId = { n: 0 };
     const snapshots: DuelSnapshot[] = [];
     const events: DuelEvent[] = [];
-
     let ticks = 0;
     let winner: "player" | "enemy" | null = null;
 
     for (let t = 0; t < MAX_TICKS; t++) {
         ticks = t + 1;
-        step(player, enemy, rng, t, events);     // fixed order — do not reorder
-        step(enemy, player, rng, t, events);
-        separate(player, enemy);
-        quantizeFighter(player);
-        quantizeFighter(enemy);
-        snapshots.push(snap(t, player, enemy));
+        for (const f of fighters) step(f, fighters, projectiles, nextProjId, rng, t, events);
+        stepProjectiles(fighters, projectiles, rng, t, events);
+        for (const f of fighters) tickStatuses(f);
+        separateAll(fighters);
+        for (const f of fighters) {
+            if (f.hp <= 0 && f.state !== "dead") f.state = "dead";
+            quantizeFighter(f);
+        }
+        snapshots.push(snap(t, fighters, projectiles));
 
-        const pDead = player.hp <= 0, eDead = enemy.hp <= 0;
-        if (pDead || eDead) {
-            if (pDead) player.state = "dead";
-            if (eDead) enemy.state = "dead";
-            winner = pDead && eDead ? null : pDead ? "enemy" : "player";
-            events.push({ t, type: "ko", side: winner === "player" ? "enemy" : "player" });
+        const pAlive = teamAlive(fighters, "player"), eAlive = teamAlive(fighters, "enemy");
+        if (!pAlive || !eAlive) {
+            winner = pAlive && !eAlive ? "player" : eAlive && !pAlive ? "enemy" : null;
+            events.push({ t, type: "ko", side: winner === "player" ? "enemy" : "player", actorId: "" });
             break;
         }
     }
 
-    // Timeout → decide by remaining HP fraction (mirrors the old round-cap rule).
-    if (winner === null && !(player.hp <= 0 || enemy.hp <= 0)) {
-        const pf = player.hp / player.maxHp, ef = enemy.hp / enemy.maxHp;
+    if (winner === null && teamAlive(fighters, "player") && teamAlive(fighters, "enemy")) {
+        const frac = (team: "player" | "enemy") => {
+            let hp = 0, max = 0;
+            for (const f of fighters) if (f.team === team) { hp += Math.max(0, f.hp); max += f.maxHp; }
+            return max > 0 ? hp / max : 0;
+        };
+        const pf = frac("player"), ef = frac("enemy");
         winner = Math.abs(pf - ef) < 1e-6 ? null : pf > ef ? "player" : "enemy";
     }
 
     const result: DuelResult["result"] = winner === "player" ? "win" : winner === "enemy" ? "loss" : "draw";
     return { result, winner, ticks, snapshots, events };
+}
+
+// ── Public entry points ──────────────────────────────────────────────────────
+
+/** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed). */
+export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
+    const fighters = [
+        buildFighter(playerPet, "player", 0, -5.0, 0),
+        buildFighter(enemyPet, "enemy", 0, 5.0, 0),
+    ];
+    return simulate(fighters, seed);
+}
+
+/** 2v2 — player lead+reserve vs enemy lead+reserve. Reserve may be null (→ 2v1).
+ *  Deterministic in (pets, seed); result from the player team's perspective. */
+export function runPetPartyDuel(
+    playerLead: Pet, playerReserve: Pet | null,
+    enemyLead: Pet, enemyReserve: Pet | null,
+    seed: number,
+): DuelResult {
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -5.0, -1.1)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -5.4, 1.1));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 5.0, -1.1));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 5.4, 1.1));
+    return simulate(fighters, seed);
 }
