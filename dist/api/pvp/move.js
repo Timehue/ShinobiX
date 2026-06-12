@@ -406,11 +406,33 @@ function ampMultiplierFor(attacker, defender, round) {
         return 1;
     return 1 + rawAmp / (rawAmp + K_AMP);
 }
+// Amp/DR tags whose percent is rank-capped — mirrors the client's
+// `cappedDamageTags` (shinobij.client/src/lib/tags.ts). Wound is NOT here (it
+// has its own rank cap via woundCapForJutsu).
+const CAPPED_AMP_TAGS = new Set([
+    'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
+    'Decrease Damage Taken', 'Absorb', 'Siphon', 'Ignition', 'Reflect', 'Recoil', 'Lifesteal',
+]);
+// Rank → max amp-tag percent. Mirrors client tagCapForRank (S 40 / A·B 35 / else 30).
+function ampTagCapForRank(rank) {
+    const r = (rank ?? '').trim();
+    if (/^S/i.test(r))
+        return 40;
+    if (/^[AB]/i.test(r))
+        return 35;
+    return 30;
+}
 // Scale a tag percent by mastery level — mirrors the client's effectiveTagPercent logic:
 //   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
-function scaledTagPercent(rawPct, masteryLevel) {
+// For amp/DR tags, then clamp to the bloodline rank cap (parity with PvE, which
+// caps these via effectiveTagPercent — previously PvP applied no cap).
+function scaledTagPercent(rawPct, masteryLevel, tagName, bloodlineRank) {
     const raw = rawPct > 0 ? rawPct : 30;
-    return Math.max(0, raw - (50 - masteryLevel) * 0.2);
+    const levelScaled = Math.max(0, raw - (50 - masteryLevel) * 0.2);
+    if (tagName && CAPPED_AMP_TAGS.has(tagName)) {
+        return Math.min(levelScaled, ampTagCapForRank(bloodlineRank));
+    }
+    return levelScaled;
 }
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
 // Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts),
@@ -465,7 +487,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         .reduce((mult, st) => mult * (1 + (st.percent ?? 0) / 100), 1);
     for (const tag of tags) {
         const tagName = normalizeTagName(tag.name);
-        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel));
+        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel, tagName, jutsu.bloodlineRank));
         if (tag.name === 'Heal') {
             healing += Math.floor(HEAL_FLAT * healBoost);
             damage = 0;
@@ -609,7 +631,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         }
         if (tag.name === 'Copy') {
             const copied = activeStatuses(o, round).filter(st => st.kind === 'positive');
-            copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st }, round); });
+            copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st, rounds: Math.min(2, st.rounds) }, round); });
             lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`);
             continue;
         }
@@ -622,7 +644,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
                 && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition')
                 && st.name !== 'Poison' && st.name !== 'Drain');
             if (!hasStatus(o, 'Debuff Prevent', round)) {
-                mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st }, round); });
+                mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st, rounds: Math.min(2, st.rounds) }, round); });
                 lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`);
             }
             continue;
@@ -648,45 +670,35 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
             }
             continue;
         }
+        // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
+        // for non-ground jutsus. Displacement happens on cast.
         if (tag.name === 'Push') {
             if (!hasStatus(o, 'Debuff Prevent', round)) {
                 const dist = Math.max(1, Number(jutsu.range) || 1);
-                if (bloodlineTagsResolveNextRound(jutsu)) {
-                    o = addJutsuStatus(o, jutsu, { name: 'Push', rounds: 1, amount: dist, kind: 'negative' }, round);
-                    lines.push(`Push: ${o.name} will be pushed ${dist} tile(s) next round.`);
+                let nextPos = o.pos;
+                for (let step = 0; step < dist; step++) {
+                    const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
+                    if (!away.length)
+                        break;
+                    nextPos = away[0];
                 }
-                else {
-                    let nextPos = o.pos;
-                    for (let step = 0; step < dist; step++) {
-                        const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
-                        if (!away.length)
-                            break;
-                        nextPos = away[0];
-                    }
-                    o = { ...o, pos: nextPos };
-                    lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`);
-                }
+                o = { ...o, pos: nextPos };
+                lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`);
             }
             continue;
         }
         if (tag.name === 'Pull') {
             if (!hasStatus(o, 'Debuff Prevent', round)) {
                 const dist = Math.max(1, Number(jutsu.range) || 1);
-                if (bloodlineTagsResolveNextRound(jutsu)) {
-                    o = addJutsuStatus(o, jutsu, { name: 'Pull', rounds: 1, amount: dist, kind: 'negative' }, round);
-                    lines.push(`Pull: ${o.name} will be pulled ${dist} tile(s) next round.`);
+                let nextPos = o.pos;
+                for (let step = 0; step < dist; step++) {
+                    const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
+                    if (!toward.length)
+                        break;
+                    nextPos = toward[0];
                 }
-                else {
-                    let nextPos = o.pos;
-                    for (let step = 0; step < dist; step++) {
-                        const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
-                        if (!toward.length)
-                            break;
-                        nextPos = toward[0];
-                    }
-                    o = { ...o, pos: nextPos };
-                    lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`);
-                }
+                o = { ...o, pos: nextPos };
+                lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`);
             }
             continue;
         }
@@ -811,9 +823,11 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
             s = { ...s, hp: Math.max(0, s.hp - rc) };
             lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`);
         }
-        const ls = activeStatuses(s, round).find(st => st.name === 'Lifesteal');
-        if (ls && finalDmg > 0) {
-            const h = Math.floor(cappedPostDamage(finalDmg, ls.percent ?? 30) * healBoost);
+        // Sum all active Lifesteal stacks' percents (capped at 60% by
+        // cappedPostDamage), matching PvE — was first-stack-only (.find).
+        const lsPct = activeStatuses(s, round).filter(st => st.name === 'Lifesteal').reduce((sum, st) => sum + (st.percent ?? 0), 0);
+        if (lsPct > 0 && finalDmg > 0) {
+            const h = Math.floor(cappedPostDamage(finalDmg, lsPct) * healBoost);
             s = { ...s, hp: Math.min(s.maxHp, s.hp + h) };
             lines.push(`Lifesteal: ${s.name} heals ${h} HP.`);
         }
