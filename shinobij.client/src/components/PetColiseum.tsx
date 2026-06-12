@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
 import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } from "../lib/pet-tactics";
 import { PET_SPAWN_1V1 } from "../constants/pet-arena";
@@ -63,6 +64,9 @@ const CAM_FOV = 36;
 // no .webp module-type declaration needed.
 const COLISEUM_FLOOR_URL = new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href;
 const COLISEUM_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
+// Designed top-down battle MAP (MOBA-style) used as the floor for the live-duel
+// renderer — the "change the arena to a map" direction.
+const BATTLEMAP_URL = new URL("../assets/coliseum/battlemap.webp", import.meta.url).href;
 const MAZE_WALL_URL = new URL("../assets/coliseum/maze-wall.webp", import.meta.url).href;
 
 // Stone maze-wall texture (one shared, RepeatWrapping so it tiles up tall walls).
@@ -282,6 +286,25 @@ function shadowTexture(): THREE.CanvasTexture {
     _shadowTexture = new THREE.CanvasTexture(c);
     _shadowTexture.colorSpace = THREE.SRGBColorSpace;
     return _shadowTexture;
+}
+
+// ── Soft bright radial glow (element auras / energy pools) — additive-tinted ──
+let _glowTexture: THREE.CanvasTexture | null = null;
+function glowTexture(): THREE.CanvasTexture {
+    if (_glowTexture) return _glowTexture;
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    const rad = g.createRadialGradient(S / 2, S / 2, 1, S / 2, S / 2, S / 2);
+    rad.addColorStop(0, "rgba(255,255,255,1)");
+    rad.addColorStop(0.35, "rgba(255,255,255,0.55)");
+    rad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = rad;
+    g.fillRect(0, 0, S, S);
+    _glowTexture = new THREE.CanvasTexture(c);
+    _glowTexture.colorSpace = THREE.SRGBColorSpace;
+    return _glowTexture;
 }
 
 // Base visible-content height in world units — every creature is grounded to
@@ -1343,6 +1366,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const flashMat = useRef<THREE.MeshBasicMaterial>(null);
     const shadow = useRef<THREE.Mesh>(null);
     const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const aura = useRef<THREE.Mesh>(null);
+    const auraMat = useRef<THREE.MeshBasicMaterial>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const nameWrap = useRef<HTMLDivElement>(null);
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
@@ -1352,6 +1377,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const trail = useRef<Array<[number, number, number]>>([]);
     const fastRef = useRef(0);
     const ghostColor = useMemo(() => elementColor(pet.element).glow, [pet.element]);
+    const auraColor = useMemo(() => elementColor(pet.element).base, [pet.element]);
 
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
@@ -1400,6 +1426,17 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             shadowMat.current.opacity = 0.42 * (a0.state === "dead" ? 0.4 : 1);
             shadow.current.scale.set(shadowW, shadowW * 0.5, 1);
         }
+        // Element aura — a glowing energy pool under the pet that intensifies
+        // when it acts (the "elemental pet" identity; blooms via post-processing).
+        if (aura.current && auraMat.current) {
+            aura.current.position.x = x; aura.current.position.z = z;
+            const active = a0.state === "windup" || a0.state === "strike" || a0.state === "dash";
+            const pulse = 0.34 + Math.abs(Math.sin(clock.current.t * 0.5)) * 0.18;
+            const target = a0.state === "dead" ? 0 : active ? 0.85 : pulse;
+            auraMat.current.opacity = lerp(auraMat.current.opacity, target, 0.18);
+            const s = (active ? 2.3 : 1.7) * shadowW;
+            aura.current.scale.set(s, s, 1);
+        }
     });
 
     return (
@@ -1427,6 +1464,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.42} depthWrite={false} toneMapped={false} />
+            </mesh>
+            <mesh ref={aura} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={auraMat} map={glowTexture()} color={auraColor} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </mesh>
             {Array.from({ length: GHOSTS }).map((_, i) => (
                 <Afterimage key={i} index={i} trail={trail} fastRef={fastRef} tex={useTex} color={ghostColor} L={L} fainted={false} />
@@ -1576,7 +1617,7 @@ export type PetColiseumDuelProps = {
 };
 
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, sharedImages = {}, onFightAgain, onExit }: PetColiseumDuelProps) {
-    const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
+    const floor = useMemo(() => loadSceneTexture(BATTLEMAP_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     const duel = useMemo(
         () => (playerReservePet || enemyReservePet)
@@ -1640,6 +1681,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 ))}
                 <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} controlCamera={!orbit} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} />
                 {orbit && <OrbitControls target={CAM_LOOK} />}
+                {/* Cinematic post: bloom makes the auras / impacts / VFX glow; a
+                    soft vignette frames the action. */}
+                <EffectComposer>
+                    <Bloom mipmapBlur luminanceThreshold={0.62} luminanceSmoothing={0.18} intensity={0.85} radius={0.7} />
+                    <Vignette eskil={false} offset={0.28} darkness={0.62} />
+                </EffectComposer>
             </Canvas>
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
