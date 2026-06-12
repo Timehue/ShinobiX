@@ -25,6 +25,9 @@ const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
 const ROOT = process.cwd();
 const SERVER = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
+// The canonical tag registries (STACKABLE_STATUS etc.) were centralized into
+// api/pvp/_tags.ts; move.ts imports them. Read the set literals from there.
+const SERVER_TAGS = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'api', 'pvp', '_tags.ts'), 'utf8');
 const CLIENT = (0, node_fs_1.readFileSync)((0, node_path_1.join)(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
 // The PvE combat engine lives in screens/Arena.tsx (extracted verbatim from
 // the App.tsx monolith, 2026-06-10). These guards follow the engine.
@@ -139,7 +142,7 @@ const PAIRS = [
     // route status application through mergeCombatStatus (else non-stackable
     // statuses — Stun/Seals/Prevents/DoTs — pile up again).
     (0, node_test_1.it)('STACKABLE_STATUS set matches and PvE routes through mergeCombatStatus', () => {
-        node_assert_1.strict.deepEqual(stackableSet(SERVER, 'STACKABLE_STATUS'), stackableSet(CLIENT, 'STACKABLE_STATUS_PVE'), 'stackable-status set diverged between server and client');
+        node_assert_1.strict.deepEqual(stackableSet(SERVER_TAGS, 'STACKABLE_STATUS'), stackableSet(CLIENT, 'STACKABLE_STATUS_PVE'), 'stackable-status set diverged between server and client');
         node_assert_1.strict.ok(CLIENT_APP.includes('mergeCombatStatus('), 'Arena.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again');
     });
 });

@@ -10438,4 +10438,15 @@ export type PvpSessionState = {
     createdAt?: number;
     lastMoveAt?: number;
     consecAutoWait?: { p1?: number; p2?: number };
+    // Environment sealed at session-create time (api/pvp/session.ts). The server
+    // resolves terrain/weather damage modifiers from THESE, so the battle UI
+    // reads them too — display + preview match server math (ranked seals
+    // 'central' / no weather regardless of where the fighters are standing).
+    biome?: Biome;
+    weatherPositiveElement?: string;
+    weatherNegativeElement?: string;
+    // Response-only on a /api/pvp/move reply when the submitted action was
+    // rejected (never persisted / never on GET/SSE). The battle screen surfaces
+    // `reason` and keeps the player's pending selection so they can adjust.
+    rejected?: { applied: false; reason: string; serverRound: number; activePlayer: "p1" | "p2" };
 };

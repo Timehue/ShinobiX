@@ -7,7 +7,7 @@
  * Extracted from App.tsx (jutsu cluster).
  */
 
-import { normalizeJutsuTags, tagMatchesName, normalizeJutsuMethod } from "./tags";
+import { normalizeJutsuTags, tagMatchesName, normalizeJutsuMethod, hasFixedEffectPower } from "./tags";
 import { makeId } from "./utils";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuTarget, Rank } from "../types/core";
@@ -15,6 +15,13 @@ import type { JutsuType, JutsuElement, JutsuTarget, Rank } from "../types/core";
 export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
     const tags = normalizeJutsuTags(jutsu.tags);
     const hasMoveTag = tags.some((tag) => tagMatchesName(tag.name, "Move"));
+    // Strip the legacy EP-100 "fixed effect" sentinel: a jutsu carrying a binary
+    // control / displacement tag deals STANDARD 60-AP damage (40), not
+    // effectPower-100 (~3200). Clamp here at the load boundary so the sentinel
+    // never reaches the damage formula / preview. Mirrors api/pvp/_tags.ts.
+    // (40-AP fixed-effect jutsu stay zero-damage via the utility rule regardless.)
+    const rawEffectPower = jutsu.effectPower ?? 50;
+    const effectPower = hasFixedEffectPower({ tags }) ? Math.min(rawEffectPower, 40) : rawEffectPower;
     return {
         id: jutsu.id,
         name: jutsu.name,
@@ -25,7 +32,7 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         // save/import/form paths can produce, and range:0 silently turns
         // off the on-board range highlight (jutsuRangeTiles bails on <=0).
         range: Math.max(1, Number(jutsu.range) || 3),
-        effectPower: jutsu.effectPower ?? 50,
+        effectPower,
         cooldown: jutsu.cooldown ?? 1,
         currentCooldown: jutsu.currentCooldown ?? 0,
         chakraCost: jutsu.chakraCost ?? 20,
