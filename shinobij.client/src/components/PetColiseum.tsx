@@ -835,9 +835,11 @@ function CameraRig({ amp, shakeKey, target }: { amp: number; shakeKey: number; t
     return null;
 }
 
-function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Texture }) {
+function Arena({ floor, backdrop, big = false }: { floor: THREE.Texture; backdrop: THREE.Texture; big?: boolean }) {
     const ambient = useRef<THREE.AmbientLight>(null);
     const sun = useRef<THREE.DirectionalLight>(null);
+    const floorR = big ? 22 : 14;
+    const wallR = big ? 30 : 19;
     // Wrap the painted backdrop around a cylinder arc so the coliseum wall
     // CURVES around the arena instead of sitting flat behind it. Mirrored
     // 2× repeat keeps the stands from stretching across the long arc.
@@ -860,15 +862,14 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
             <ambientLight ref={ambient} intensity={0.95} />
             <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
             {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
-                Rings the big maze floor so panning/pull-back never exposes void. */}
-            <mesh position={[0, 6.0, 0]}>
-                <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
+                Rings the floor so panning/pull-back never exposes void. */}
+            <mesh position={[0, big ? 9 : 6.0, 0]}>
+                <cylinderGeometry args={[wallR, wallR, big ? 30 : 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
-            {/* Generated arena floor (tight anime stage). Per-pet blob shadows
-                ground the sprites. */}
+            {/* Arena floor (the battle map). Per-pet blob shadows ground the sprites. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[14, 64]} />
+                <circleGeometry args={[floorR, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
         </group>
@@ -1353,6 +1354,8 @@ const DUEL_STATE_POSE: Record<DuelState, PetVisualState> = {
 };
 type DuelClock = { t: number; playing: boolean };
 const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors.find((a) => a.id === id);
+// Tactical mode: SMALL units on a BIG map (read as a battlefield, not a brawl).
+const DUEL_SPRITE_H = 1.7;
 
 /** One fighter, driven by the interpolated tick stream (not beat choreography).
  *  Reuses the pose flipbook + grounding + afterimage from the round renderer. */
@@ -1382,8 +1385,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
     const useAspect = poses ? poses.scan[poseCat].aspect : sprite.aspect;
-    const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, TARGET_SPRITE_H, mirror), [useBounds, useAspect, mirror]);
-    const shadowW = Math.max(0.9, L.contentWorldW * 0.95);
+    const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, DUEL_SPRITE_H, mirror), [useBounds, useAspect, mirror]);
+    const shadowW = Math.max(0.6, L.contentWorldW * 0.95);
     const side = mirror ? "enemy" : "player";
 
     useFrame(() => {
@@ -1551,22 +1554,26 @@ function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNu
             lastTick.current = cur;
         }
         if (controlCamera) {
+            // Tactical: a high, pulled-back WIDE shot of the whole battlefield so
+            // you watch the units traverse + clash on the map (gentle x-pan only).
             const snap = snaps[Math.min(maxT, cur)];
-            const living = snap.actors.filter((a) => a.hp > 0).map((a) => ({ x: a.x, z: a.y }));
-            const cam = cameraForCombatants(living.length ? living : snap.actors.map((a) => ({ x: a.x, z: a.y })), { maxSpan: 14 });
+            const living = snap.actors.filter((a) => a.hp > 0);
+            let mx = 0; for (const a of living) mx += a.x;
+            mx = living.length ? mx / living.length : 0;
+            const panX = Math.max(-4, Math.min(4, mx)) * 0.55;
             if (!camBase.current) camBase.current = camera.position.clone();
-            const k = 0.05;
-            camBase.current.x = lerp(camBase.current.x, cam.pos[0], k);
-            camBase.current.y = lerp(camBase.current.y, cam.pos[1], k);
-            camBase.current.z = lerp(camBase.current.z, cam.pos[2], k);
-            lookCur.current.x = lerp(lookCur.current.x, cam.look[0], k);
-            lookCur.current.y = lerp(lookCur.current.y, cam.look[1], k);
-            lookCur.current.z = lerp(lookCur.current.z, cam.look[2], k);
+            const k = 0.035;
+            camBase.current.x = lerp(camBase.current.x, panX, k);
+            camBase.current.y = lerp(camBase.current.y, 15.5, k);
+            camBase.current.z = lerp(camBase.current.z, 16.5, k);
+            lookCur.current.x = lerp(lookCur.current.x, panX, k);
+            lookCur.current.y = lerp(lookCur.current.y, 0, k);
+            lookCur.current.z = lerp(lookCur.current.z, -0.5, k);
             const t = state.clock.elapsedTime;
             const a = shake.current; shake.current *= 0.85;
             const sx = a > 0.002 ? Math.sin(t * 53) * a : 0;
             const sy = a > 0.002 ? Math.sin(t * 61) * a * 0.6 : 0;
-            camera.position.set(camBase.current.x + Math.sin(t * 0.45) * 0.12 + sx, camBase.current.y + Math.sin(t * 0.3) * 0.05 + sy, camBase.current.z);
+            camera.position.set(camBase.current.x + sx, camBase.current.y + sy, camBase.current.z);
             camera.lookAt(lookCur.current.x, lookCur.current.y, lookCur.current.z);
         }
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
@@ -1661,10 +1668,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
     return (
         <div style={{ position: "relative", width: "100%", height: "clamp(380px, 62vh, 700px)", borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
-            <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
-                <fog attach="fog" args={["#2a1c10", 26, 54]} />
-                <ResponsiveCamera />
-                <Arena floor={floor} backdrop={backdrop} />
+            <Canvas dpr={[1, 2]} camera={{ position: [0, 15.5, 16.5], fov: 46 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
+                <fog attach="fog" args={["#2a1c10", 42, 86]} />
+                <Arena floor={floor} backdrop={backdrop} big />
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}
@@ -1693,13 +1699,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⚡ Live combat (beta)</div>
+            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🗺️ Tactical battle (beta)</div>
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{resultLabel}</div>
-                        <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>continuous-duel preview</div>
+                        <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>tactical pet battle</div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
                             <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>
@@ -1708,7 +1714,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     </div>
                 </div>
             )}
-            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>continuous-duel preview · ?orbit=1 to rotate</div>
+            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>tactical pet battle · ?orbit=1 to rotate</div>
         </div>
     );
 }
