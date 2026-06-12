@@ -1304,10 +1304,11 @@ export function AdminPanel({
             setJutsuImage(image);
             if (!editingJutsuId) return;
             void publishSharedImage('jutsu:' + editingJutsuId, image);
-            setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
+            const stamp = Date.now();
+            setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image, updatedAt: stamp } : j));
             setSavedBloodlines(savedBloodlines.map((bl) => ({
                 ...bl,
-                jutsus: bl.jutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j),
+                jutsus: bl.jutsus.map((j) => j.id === editingJutsuId ? { ...j, image, updatedAt: stamp } : j),
             })));
         });
     }
@@ -1400,6 +1401,10 @@ export function AdminPanel({
 
         jutsu.description = jutsuDescription;
         jutsu.image = jutsuImage;
+        // Stamp recency so this edit wins the shared-admin-content merge over a
+        // stale same-id copy in the OTHER admin save (the cause of "I removed the
+        // tag, saved, and it came back after reload").
+        jutsu.updatedAt = Date.now();
 
         return jutsu;
     }

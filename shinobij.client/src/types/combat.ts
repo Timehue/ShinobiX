@@ -51,6 +51,12 @@ export type Jutsu = {
     tags: JutsuTag[];
     description?: string;
     image?: string;
+    // Epoch-ms recency stamp, set when an admin creates/edits a jutsu in the
+    // editor. Used by the shared-admin-content merge to keep the NEWER copy when
+    // the same jutsu id exists in more than one admin save — without it the
+    // last-pulled (often stale) copy clobbers a fresh edit. Absent on content
+    // never touched by the new editor path (treated as oldest).
+    updatedAt?: number;
     bloodlineRank?: Rank; // set on bloodline jutsus; absent = global/starter
     // Explicit "utility = deals no damage" flag. When absent, the legacy 40-AP
     // convention applies (see isZeroDamageFortyApJutsu). Decouples AP cost from
