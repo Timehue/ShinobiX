@@ -5,6 +5,7 @@ exports.isValidImageString = isValidImageString;
 exports.base64DecodedByteLength = base64DecodedByteLength;
 exports.avatarImageReject = avatarImageReject;
 exports.categoryFromId = categoryFromId;
+exports.ownershipReject = ownershipReject;
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
@@ -187,6 +188,11 @@ function categoryFromId(id) {
 // authed player can POST id="jutsu:fireball" with an arbitrary image and
 // overwrite the actual jutsu icon shown to everyone.
 const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline', 'leader']);
+// Player-forged named gear (`item:named-weapon-<rand>` / `item:named-armor-<rand>`).
+// These are UNIQUE, single-owner items the player creates in the Crafter — not
+// part of the shared catalog — so letting the owner attach an image can't
+// overwrite an icon shown to everyone (unlike a generic `item:<catalog-id>`).
+const PLAYER_NAMED_ITEM_RE = /^named-(weapon|armor)-/;
 // Returns null if the identity may write to this image id; otherwise an
 // HTTP { status, error } describing the rejection.
 function ownershipReject(id, identity) {
@@ -198,6 +204,16 @@ function ownershipReject(id, identity) {
     }
     const prefix = id.slice(0, colon).toLowerCase();
     const rest = id.slice(colon + 1);
+    // Carve-out: a player may image their OWN forged named item even though the
+    // 'item' prefix is otherwise admin-only. Ownership is intentionally fail-open
+    // (matching the 'pet' precedent below): the client publishes optimistically
+    // on forge, before the debounced autosave persists the item to save:<name>,
+    // so a strict owns-it check would 403 legitimate uploads. Abuse is bounded —
+    // random unguessable ids, the 3 MB per-image cap, and a purely cosmetic blast
+    // radius (overwriting one named item's picture whose id is already known).
+    if (prefix === 'item' && PLAYER_NAMED_ITEM_RE.test(rest)) {
+        return null;
+    }
     if (ADMIN_ONLY_PREFIXES.has(prefix)) {
         return { status: 403, error: `${prefix} images are admin-only.` };
     }

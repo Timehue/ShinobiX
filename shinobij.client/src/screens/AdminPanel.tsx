@@ -236,7 +236,7 @@ export function AdminPanel({
     const [itemWeaponEp, setItemWeaponEp] = useState<number | "">("");
     const [itemWeaponEffect, setItemWeaponEffect] = useState<GameItem["weaponEffect"] | "">("");
     const [itemWeaponEffectValue, setItemWeaponEffectValue] = useState<number | "">("");
-    const isArmorSlot = ["head", "body", "armor", "waist", "legs", "feet"].includes(itemSlot);
+    const isArmorSlot = ["head", "body", "armor", "waist", "legs", "feet", "gloves"].includes(itemSlot);
     const isWeaponSlot = ["hand", "weapon", "thrown"].includes(itemSlot);
 
     // Bulk item image generation

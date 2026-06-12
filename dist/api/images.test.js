@@ -97,6 +97,33 @@ const images_js_1 = require("./images.js");
         node_assert_1.strict.ok(r && /2 MB/i.test(r), r ?? 'expected size rejection');
     });
 });
+(0, node_test_1.describe)('ownershipReject — player-forged named-item image carve-out', () => {
+    const player = { admin: false, name: 'rill' };
+    const admin = { admin: true };
+    (0, node_test_1.it)('lets a non-admin player image their own forged named weapon/armor', () => {
+        node_assert_1.strict.equal((0, images_js_1.ownershipReject)('item:named-weapon-abc123', player), null);
+        node_assert_1.strict.equal((0, images_js_1.ownershipReject)('item:named-armor-xyz789', player), null);
+    });
+    (0, node_test_1.it)('still blocks non-admins from writing generic catalog item images', () => {
+        const r = (0, images_js_1.ownershipReject)('item:wooden-katana', player);
+        node_assert_1.strict.ok(r && r.status === 403, 'expected 403 for catalog item');
+    });
+    (0, node_test_1.it)('still blocks other admin-only prefixes for non-admins', () => {
+        for (const id of ['jutsu:fireball', 'card:tile-1', 'event:boss', 'bloodline:x']) {
+            const r = (0, images_js_1.ownershipReject)(id, player);
+            node_assert_1.strict.ok(r && r.status === 403, `expected 403 for ${id}`);
+        }
+    });
+    (0, node_test_1.it)('does not treat a lookalike named- prefix on another category as an item', () => {
+        // The carve-out is scoped to the 'item' prefix only.
+        const r = (0, images_js_1.ownershipReject)('jutsu:named-weapon-spoof', player);
+        node_assert_1.strict.ok(r && r.status === 403, 'expected 403 — carve-out is item-only');
+    });
+    (0, node_test_1.it)('admins may write anything', () => {
+        node_assert_1.strict.equal((0, images_js_1.ownershipReject)('item:wooden-katana', admin), null);
+        node_assert_1.strict.equal((0, images_js_1.ownershipReject)('jutsu:fireball', admin), null);
+    });
+});
 (0, node_test_1.describe)('categoryFromId — leader category (#16)', () => {
     (0, node_test_1.it)('routes leader:* to its own category instead of misc', () => {
         node_assert_1.strict.equal((0, images_js_1.categoryFromId)('leader:konoha:kage'), 'leader');

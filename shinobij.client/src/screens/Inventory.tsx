@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
     type Character,
@@ -15,7 +15,7 @@ import {
     petFeedXpForItem,
     vanguardOnlyHonorSeals,
 } from "../App";
-import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
+import { equipmentSlotLabel, equipSlotForItem, isGloveItem, normalizeEquipmentSlot } from "../lib/equipment";
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 
@@ -43,6 +43,20 @@ export function Inventory({
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
     const allItems = getAllItems(creatorItems);
     const allTileCards = getAllTileCards(creatorCards);
+
+    // One-time migration: gloves used to share the weapon's "hand" slot. If a
+    // glove is still equipped there (and the new "gloves" slot is free), move it
+    // so it stops occupying the weapon hand. Self-terminating — once relocated
+    // the condition no longer holds, so this writes at most once.
+    useEffect(() => {
+        const handId = character.equipment.hand;
+        if (!handId || character.equipment.gloves) return;
+        const handItem = getItemById(allItems, handId);
+        if (!handItem || !isGloveItem(handItem)) return;
+        const nextEquipment = { ...character.equipment, gloves: handId };
+        delete nextEquipment.hand;
+        updateCharacter({ ...character, equipment: nextEquipment });
+    }, [character, allItems, updateCharacter]);
 
     const tileCardStacks = Object.values(
         character.tileCards.reduce<Record<string, { id: string; card?: TileCard; count: number }>>((stacks, cardId) => {
@@ -81,9 +95,9 @@ export function Inventory({
         { label: "Thrown", equipmentSlot: "thrown", accepts: "thrown", className: "slot-thrown" },
         { label: "Item", equipmentSlot: "item", accepts: "item", className: "slot-left-item-1" },
         { label: "Body", equipmentSlot: "body", accepts: "body", className: "slot-chest" },
-        { label: "Hand", equipmentSlot: "hand", accepts: "hand", className: "slot-left-hand" },
+        { label: "Weapon", equipmentSlot: "hand", accepts: "hand", className: "slot-left-hand" },
         { label: "Waist", equipmentSlot: "waist", accepts: "waist", className: "slot-waist" },
-        { label: "Hand", className: "slot-right-hand" },
+        { label: "Gloves", equipmentSlot: "gloves", accepts: "gloves", className: "slot-right-hand" },
         { label: "Legs", equipmentSlot: "legs", accepts: "legs", className: "slot-legs" },
         { label: "Item", className: "slot-left-item-3" },
         { label: "Feet", equipmentSlot: "feet", accepts: "feet", className: "slot-feet" },
@@ -112,7 +126,9 @@ export function Inventory({
             alert(`You need the ${item.weaponElement} element to equip ${item.name}.`);
             return;
         }
-        const slot = normalizeEquipmentSlot(item.slot);
+        // Gloves route to the dedicated "gloves" slot so they no longer evict
+        // (or get evicted by) the weapon on the shared "hand" slot.
+        const slot = equipSlotForItem(item);
         const previousEquipped = equippedIdForSlot(slot);
         const nextInventory = removeInventoryIndex(index);
 
@@ -197,7 +213,7 @@ export function Inventory({
 
     function isSellableGear(item: GameItem) {
         const slot = normalizeEquipmentSlot(item.slot);
-        return item.armorQuality || ["head", "body", "waist", "legs", "feet", "hand", "thrown", "item"].includes(slot);
+        return item.armorQuality || ["head", "body", "waist", "legs", "feet", "hand", "gloves", "thrown", "item"].includes(slot);
     }
 
     function sellValueForItem(item: GameItem) {
@@ -394,7 +410,7 @@ export function Inventory({
                             )}
                             {(() => {
                                 const visible = slotFilter
-                                    ? backpackStacks.filter(({ item }) => item && normalizeEquipmentSlot(item.slot) === slotFilter)
+                                    ? backpackStacks.filter(({ item }) => item && equipSlotForItem(item) === slotFilter)
                                     : backpackStacks;
                                 if (visible.length === 0) {
                                     return <p className="inventory-empty">{slotFilter ? `No ${slotFilter} items in inventory.` : "No items in inventory."}</p>;
@@ -621,7 +637,7 @@ export function Inventory({
                                             <p><strong>Action Usage:</strong> {selectedGameItem.apCost ? `${selectedGameItem.apCost} AP` : selectedGameItem.weaponEp ? "40 AP" : "0%"}</p>
                                             <p><strong>Target:</strong> {selectedPetFoodXp ? "selected pet" : "self"}</p>
                                             <p><strong>Method:</strong> single</p>
-                                            <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedGameItem.slot) === "hand" ? "yes" : "none"}</p>
+                                            <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedGameItem.slot) === "hand" && !isGloveItem(selectedGameItem) ? "yes" : "none"}</p>
                                             <p><strong>Equip:</strong> {selectedPetFoodXp ? "no" : "yes"}</p>
                                             <p><strong>Required Level:</strong> {selectedGameItem.levelReq ?? 1}</p>
                                             <p><strong>Shop Price:</strong> {selectedGameItem.cost} ryo</p>
@@ -711,7 +727,7 @@ export function Inventory({
                                             type="button"
                                             onClick={() => equipItem(selectedGameItem, selected.index)}
                                         >
-                                            Equip to {equipmentSlotLabel(selectedGameItem.slot)}
+                                            Equip to {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}
                                         </button>
                                     )}
 
