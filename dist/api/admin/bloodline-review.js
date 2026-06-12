@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _audit_js_1 = require("../_audit.js");
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
 // Explicit allowlist of fields that can be merged into an existing bloodline
 // via the `update` action. Anything else in the body is ignored. Prevents
@@ -127,6 +128,13 @@ async function handler(req, res) {
         }
         const nextApproved = action === 'update' ? approved : Array.from(new Set([...approved, key]));
         await saveApprovedBloodlines(nextApproved);
+        // Content audit (Priority 8) — best-effort, never blocks the response.
+        await (0, _audit_js_1.recordAudit)({
+            domain: 'content', actor: 'admin', action: `bloodline.${action}`,
+            entityType: 'bloodline', entityId: bloodlineId,
+            after: action === 'update' ? filterBloodlineFields(bloodline) : undefined,
+            meta: { ownerKey: cleanOwnerKey || 'admin' },
+        });
         return res.status(200).json({ ok: true, approvedBloodlines: nextApproved });
     }
     catch (err) {

@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { recordAudit } from '../_audit.js';
 
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
 
@@ -130,6 +131,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const nextApproved = action === 'update' ? approved : Array.from(new Set([...approved, key]));
         await saveApprovedBloodlines(nextApproved);
+        // Content audit (Priority 8) — best-effort, never blocks the response.
+        await recordAudit({
+            domain: 'content', actor: 'admin', action: `bloodline.${action}`,
+            entityType: 'bloodline', entityId: bloodlineId,
+            after: action === 'update' ? filterBloodlineFields(bloodline) : undefined,
+            meta: { ownerKey: cleanOwnerKey || 'admin' },
+        });
         return res.status(200).json({ ok: true, approvedBloodlines: nextApproved });
     } catch (err) {
         console.error('[admin/bloodline-review]', err);
