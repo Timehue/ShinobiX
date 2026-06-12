@@ -34,9 +34,11 @@ const Q = 256;                              // state quantization (1/256 unit)
 const quant = (n: number) => Math.round(n * Q) / Q;
 const clamp = (n: number, lo: number, hi: number) => (n < lo ? lo : n > hi ? hi : n);
 
-// Arena footprint (world units), matching the coliseum (ARENA_HALF 7×4).
-const ARENA_X = 6.3;
-const ARENA_Y = 3.4;
+// Arena footprint (world units) — a BIG tactical battlefield: the pets spawn at
+// opposite ends and TRAVERSE across the map to meet (small units on a big map,
+// not two sprites bonking in a tight ring). The renderer frames the whole thing.
+const ARENA_X = 10.5;
+const ARENA_Y = 5.8;
 
 // Stamina economy — gates dashes / dodges / attacks so the fight breathes.
 const STAM_MAX = 100;
@@ -165,7 +167,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     const speed = Math.max(0, pet.speed || 0);
     const maxHp = Math.max(1, Math.round(pet.hp || 1));
     const trait = pet.trait;
-    const moveSpeed = clamp(2.6 + speed * 0.02, 2.6, 6.5) / DUEL_TPS;
+    const moveSpeed = clamp(3.6 + speed * 0.024, 3.6, 8.0) / DUEL_TPS;   // brisk traversal across the big map
     const abilities = (pet.jutsus || []).slice(0, 4).map(buildAbility);
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasRanged = abilities.some((a) => a.cls === "ranged");
@@ -697,25 +699,28 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
 
 // ── Public entry points ──────────────────────────────────────────────────────
 
-/** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed). */
+/** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
+ *  Spawned at opposite ends of the big map (near their team shrines) so the fight
+ *  opens with a real traversal toward each other. */
 export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
     const fighters = [
-        buildFighter(playerPet, "player", 0, -5.0, 0),
-        buildFighter(enemyPet, "enemy", 0, 5.0, 0),
+        buildFighter(playerPet, "player", 0, -9.2, 0),
+        buildFighter(enemyPet, "enemy", 0, 9.2, 0),
     ];
     return simulate(fighters, seed);
 }
 
 /** 2v2 — player lead+reserve vs enemy lead+reserve. Reserve may be null (→ 2v1).
- *  Deterministic in (pets, seed); result from the player team's perspective. */
+ *  Deterministic in (pets, seed); result from the player team's perspective.
+ *  Each side spawns spread across its end so the four converge from the corners. */
 export function runPetPartyDuel(
     playerLead: Pet, playerReserve: Pet | null,
     enemyLead: Pet, enemyReserve: Pet | null,
     seed: number,
 ): DuelResult {
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -5.0, -1.1)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -5.4, 1.1));
-    fighters.push(buildFighter(enemyLead, "enemy", 0, 5.0, -1.1));
-    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 5.4, 1.1));
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -9.2, -3.0)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -8.6, 3.0));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 9.2, -3.0));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 8.6, 3.0));
     return simulate(fighters, seed);
 }
