@@ -171,6 +171,48 @@ describe('validateClanSaveWrite — bootstrap (first clan write, #2)', () => {
     });
 });
 
+describe('validateClanSaveWrite — non-member join requests', () => {
+    // The save-handler membership gate lets a non-member's write through ONLY
+    // when it's a bona-fide self-join-request; the validator below is the
+    // second layer that enforces a non-member can add ONLY their own entry.
+    function clanWithReqs(reqs: Record<string, unknown>[], members: Record<string, unknown>[] = [{ name: 'Kaze' }]) {
+        return { name: 'Storm', founderName: 'Kaze', members, joinRequests: reqs };
+    }
+
+    it('lets a non-member add their OWN join request', () => {
+        const ctx = { callerName: 'newbie', isAdmin: false };
+        const prev = clanWithReqs([]);
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWithReqs([{ name: 'Newbie' }]), ctx);
+        assert.deepEqual(next.joinRequests, [{ name: 'Newbie' }]);
+        assert.equal(suppressed.some((s) => s.includes('joinRequest')), false);
+    });
+
+    it('recognizes a multi-word requester via safeName ("Aka Ito" → akaito)', () => {
+        const ctx = { callerName: 'akaito', isAdmin: false };
+        const prev = clanWithReqs([]);
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWithReqs([{ name: 'Aka Ito' }]), ctx);
+        assert.deepEqual(next.joinRequests, [{ name: 'Aka Ito' }]);
+        assert.equal(suppressed.some((s) => s.includes('joinRequest')), false);
+    });
+
+    it('blocks a non-member adding SOMEONE ELSE as a requester (reverts to prev)', () => {
+        const ctx = { callerName: 'mallory', isAdmin: false };
+        const prev = clanWithReqs([]);
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWithReqs([{ name: 'Victim' }]), ctx);
+        assert.deepEqual(next.joinRequests, []);
+        assert.equal(suppressed.some((s) => s.includes('joinRequest illegal add')), true);
+    });
+
+    it('does not let a non-member delete another pending request (admin-role only)', () => {
+        const ctx = { callerName: 'newbie', isAdmin: false };
+        const prev = clanWithReqs([{ name: 'Other' }]);
+        // Non-member tries to add self AND wipe the existing request.
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWithReqs([{ name: 'Newbie' }]), ctx);
+        assert.deepEqual(next.joinRequests, [{ name: 'Other' }]);
+        assert.equal(suppressed.some((s) => s.includes('joinRequest illegal remove')), true);
+    });
+});
+
 describe('validateClanSaveWrite — currency lockdown (#17, step 1a)', () => {
     it('blocks a non-admin clan ryo increase via the save blob (credit-without-debit)', () => {
         const prev = clanWith([], { ryo: 0 });
