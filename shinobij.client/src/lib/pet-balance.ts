@@ -191,7 +191,7 @@ const flagshipSignatureByName: Record<string, SignatureSpec> = {
     // Mythic expansion flagships (one per element).
     "Vermillion Suzaku":  { name: "Vermillion Rebirth: Phoenix Pyre",    power: 152, cooldown: 4 },
     "Azure Ryujin":       { name: "Dragon God's Maelstrom",              power: 152, cooldown: 4 },
-    "Celestial Tengu":    { name: "Heavenfall: Crow Tempest",            power: 152, cooldown: 4 },
+    "Turtle Duck":        { name: "Heavenfall: Crow Tempest",            power: 152, cooldown: 4 },
     "Stormgod Raijin":    { name: "Raijin's Wrath: Thunder Apocalypse",  power: 152, cooldown: 4 },
     "Worldroot Colossus": { name: "World Devourer: Gaia's Embrace",      power: 152, cooldown: 4 },
     // Apex legendaries (one iconic boss per element) — unique + stronger signature.
@@ -347,7 +347,7 @@ const mythicMechByName: Record<string, MythicMechSpec> = {
     "Abyssal Oni Hound":   { kind: "wound", name: "Abyssal Rend",        cooldown: 5, power: 120, rounds: 3 }, // glass-cannon brawler
     "Vermillion Suzaku":   { kind: "mark",  name: "Phoenix Brand",       cooldown: 4, power: 0,   rounds: 2 }, // reborn bruiser
     "Azure Ryujin":        { kind: "taunt", name: "Dragon's Challenge",  cooldown: 4, power: 0,   rounds: 2 }, // bulky control bruiser
-    "Celestial Tengu":     { kind: "mark",  name: "Tengu Mark",          cooldown: 4, power: 0,   rounds: 3 }, // trickster assassin
+    "Turtle Duck":         { kind: "mark",  name: "Tengu Mark",          cooldown: 4, power: 0,   rounds: 3 }, // trickster assassin
     "Stormgod Raijin":     { kind: "haste", name: "Raijin Tempo",        cooldown: 4, power: 0,   rounds: 2 }, // burst striker
     "Worldroot Colossus":  { kind: "taunt", name: "Worldroot Challenge", cooldown: 4, power: 0,   rounds: 2 }, // immovable tank
 };

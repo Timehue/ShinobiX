@@ -103,7 +103,7 @@ export const rawPetPool: Pet[] = ([
     ...[
         "Glacier Wolf", "Tempest Hawk", "Umbra Fox", "Spirit Deer", "Ironfang Tiger",
         "Azure Kirin", "Ember Phoenix", "Moon Serpent", "Storm Lion", "Crystal Bear",
-        "Void Raven", "Thunder Drake", "Frost Lynx", "Golden Scarab", "Ancient Crane",
+        "Void Raven", "Thunder Drake", "Frost Lynx", "Armored Polar Bear", "Ancient Crane",
         // ── Expansion (legendary-15…legendary-29) ──
         "Inferno Chimera", "Ash Garuda", "Magma Behemoth",
         "Tidelord Leviathan", "Frost Wyrm", "Abyss Kraken",
@@ -300,7 +300,7 @@ export const rawPetPool: Pet[] = ([
     },
     {
         id: "mythic-7",
-        name: "Celestial Tengu",
+        name: "Turtle Duck",
         rarity: "mythic",
         level: 1,
         xp: 0,

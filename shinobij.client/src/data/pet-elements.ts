@@ -54,7 +54,7 @@ export const petElementByName: Record<string, JutsuElement> = {
     "Granite Badger": "Earth", "Night Panther": "Earth",
 
     // Legendary — Fire
-    "Ember Phoenix": "Fire", "Ironfang Tiger": "Fire", "Golden Scarab": "Fire",
+    "Ember Phoenix": "Fire", "Ironfang Tiger": "Fire", "Armored Polar Bear": "Fire",
     // Legendary — Water
     "Glacier Wolf": "Water", "Azure Kirin": "Water", "Frost Lynx": "Water",
     // Legendary — Wind
