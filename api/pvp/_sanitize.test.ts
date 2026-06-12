@@ -170,3 +170,94 @@ describe('sanitizeJutsuList (smoke)', () => {
         assert.ok(!bTags.some(t => t.name === 'Pierce'));
     });
 });
+
+const jutsuTags = (out: unknown[], i = 0) =>
+    ((out[i] as Record<string, unknown>).tags as Array<Record<string, unknown>>).map(t => String(t.name));
+
+describe('sanitizeJutsuList — canonicalizes alias tag names before sealing', () => {
+    it('rewrites every alias to its canonical name', () => {
+        const out = sanitizeJutsuList([{
+            id: 'aliases', ap: 60, effectPower: 36,
+            tags: [
+                { name: 'Vamp' },             // → Siphon
+                { name: 'Seal' },             // → Bloodline Seal
+                { name: 'Afterburn' },        // → Ignition
+                { name: 'Time Compression' }, // → Lag
+                { name: 'Time Dilation' },    // → Overclock
+            ],
+        }]);
+        const names = jutsuTags(out);
+        assert.deepEqual(names, ['Siphon', 'Bloodline Seal', 'Ignition', 'Lag', 'Overclock']);
+    });
+});
+
+describe('sanitizeJutsuList — strips post-damage tags that can never resolve', () => {
+    it('drops Wound / Siphon from a zero-damage 40-AP utility jutsu', () => {
+        const out = sanitizeJutsuList([{
+            id: 'utility', ap: 40, effectPower: 0,
+            tags: [{ name: 'Wound' }, { name: 'Siphon' }, { name: 'Increase Damage Taken' }],
+        }]);
+        const names = jutsuTags(out);
+        assert.ok(!names.includes('Wound'), 'Wound cannot resolve with no damage → stripped');
+        assert.ok(!names.includes('Siphon'), 'Siphon cannot resolve with no damage → stripped');
+        assert.ok(names.includes('Increase Damage Taken'), 'status debuffs that do resolve are kept');
+    });
+
+    it('keeps Wound / Siphon on a damaging jutsu', () => {
+        const out = sanitizeJutsuList([{
+            id: 'dmg', ap: 60, effectPower: 36, tags: [{ name: 'Wound' }, { name: 'Siphon' }],
+        }]);
+        const names = jutsuTags(out);
+        assert.ok(names.includes('Wound') && names.includes('Siphon'));
+    });
+
+    it('keeps Wound on a Pierce jutsu even at zero effect power', () => {
+        const out = sanitizeJutsuList([{
+            id: 'pierce', effectPower: 0, tags: [{ name: 'Pierce' }, { name: 'Wound' }],
+        }]);
+        const names = jutsuTags(out);
+        assert.ok(names.includes('Wound'), 'pierce deals damage, so Wound can resolve');
+    });
+
+    it('canonicalizes Vamp before the can-resolve check (alias of Siphon)', () => {
+        const stripped = jutsuTags(sanitizeJutsuList([{ id: 'u', ap: 40, effectPower: 0, tags: [{ name: 'Vamp' }] }]));
+        assert.ok(!stripped.includes('Siphon'), 'Vamp→Siphon stripped from a zero-damage jutsu');
+    });
+});
+
+describe('sanitizeJutsuList — clamps the legacy EP-100 fixed-effect sentinel', () => {
+    const ep = (out: unknown[], i = 0) => Number((out[i] as Record<string, unknown>).effectPower);
+
+    it('clamps a 60-AP control jutsu (Stun) from EP 100 down to standard 40', () => {
+        const out = sanitizeJutsuList([{ id: 'stun', ap: 60, effectPower: 100, tags: [{ name: 'Stun' }] }]);
+        assert.equal(ep(out), 40, 'EP-100 sentinel becomes standard 60-AP damage');
+    });
+
+    it('clamps Copy / Mirror (forced 60-AP control) the same way', () => {
+        assert.equal(ep(sanitizeJutsuList([{ id: 'c', ap: 60, effectPower: 100, tags: [{ name: 'Copy' }] }])), 40);
+        assert.equal(ep(sanitizeJutsuList([{ id: 'm', ap: 60, effectPower: 100, tags: [{ name: 'Mirror' }] }])), 40);
+    });
+
+    it('leaves a normal damage jutsu untouched (no fixed-effect tag)', () => {
+        assert.equal(ep(sanitizeJutsuList([{ id: 'nuke', ap: 60, effectPower: 50, tags: [{ name: 'Wound' }] }])), 50);
+        assert.equal(ep(sanitizeJutsuList([{ id: 'std', ap: 60, effectPower: 36, tags: [] }])), 36);
+    });
+
+    it('does not raise a low EP — only clamps the sentinel down', () => {
+        // A control tag on an already-standard jutsu keeps its EP.
+        assert.equal(ep(sanitizeJutsuList([{ id: 'ok', ap: 60, effectPower: 40, tags: [{ name: 'Stun' }] }])), 40);
+    });
+});
+
+describe('sanitizePvpItems — canonicalizes weapon tags + effect', () => {
+    it('rewrites weaponTags aliases and the weaponEffect to canonical names', () => {
+        const out = pick(sanitizePvpItems([{
+            id: 'w', name: 'Cursed Blade', slot: 'hand',
+            weaponEffect: 'Afterburn',
+            weaponTags: [{ name: 'Vamp', percent: 30 }, { name: 'Seal' }],
+        }]));
+        assert.equal(out.weaponEffect, 'Ignition');
+        const tags = (out.weaponTags as Array<Record<string, unknown>>).map(t => String(t.name));
+        assert.deepEqual(tags, ['Siphon', 'Bloodline Seal']);
+    });
+});

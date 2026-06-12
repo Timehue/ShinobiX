@@ -8,6 +8,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { sessionOpponentBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { consumeRankedMatchToken } from '../_ranked-match-token.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
+import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 
 export type PvpStatus = {
     name: string;
@@ -16,6 +17,18 @@ export type PvpStatus = {
     percent?: number;
     amount?: number;
     kind: 'positive' | 'negative';
+};
+
+// Structured "your action did not apply" annotation. Attached ONLY to a direct
+// /api/pvp/move RESPONSE (never persisted to KV, never on GET/SSE) so an invalid
+// action explains itself instead of returning an unchanged session that looks
+// like the game froze. `applied:false` is the contract; the client surfaces
+// `reason` and keeps the player's pending selection so they can adjust.
+export type PvpRejection = {
+    applied: false;
+    reason: string;
+    serverRound: number;
+    activePlayer: 'p1' | 'p2';
 };
 
 export type PvpFighter = {
@@ -98,6 +111,10 @@ export type PvpSession = {
     // pre-Phase-3 / non-opted sessions, which keep the NX-only casual path.
     baseRewards?: boolean;
     rewardSector?: number;
+    // Response-only (see PvpRejection) — present on a /api/pvp/move reply when the
+    // submitted action was rejected. NEVER written to KV; stripped implicitly
+    // because rejects don't persist the session.
+    rejected?: PvpRejection;
 };
 export const PVP_MOVE_TOKEN_HISTORY = 20;
 
@@ -136,20 +153,25 @@ function clampNumber(n: unknown, min: number, max: number, fallback: number): nu
     return Math.min(max, Math.max(min, v));
 }
 
-// Acceptable jutsu-tag names. Anything else is filtered out at session
-// hydration time so a poisoned save (or NPC payload) cannot inject novel
-// tag names that the move handler doesn't recognize but might still apply.
-// Keep this in sync with the tag handler switch in api/pvp/move.ts.
-const KNOWN_TAG_NAMES: ReadonlySet<string> = new Set([
-    'Heal', 'Shield', 'Barrier', 'Pierce', 'Stun', 'Poison', 'Drain', 'Absorb', 'Reflect',
-    'Lifesteal', 'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
-    'Decrease Damage Taken', 'Increase Heal', 'Debuff Prevent', 'Buff Prevent',
-    'Cleanse Prevent', 'Clear Prevent', 'Stun Prevent', 'Copy', 'Mirror', 'Push', 'Pull',
-    'Bloodline Seal', 'Seal', 'Elemental Seal', 'Wound', 'Recoil', 'Move',
-    // tag aliases that the move handler normalizes:
-    'Afterburn', 'Ignition', 'Time Compression', 'Lag', 'Time Dilation', 'Overclock',
-    'Vamp', 'Siphon',
-]);
+// Acceptable jutsu-tag names (canonical + aliases) come from the shared tag
+// contract (api/pvp/_tags.ts), which the combat resolver in api/pvp/move.ts
+// also imports — so the whitelist and the handler can't drift. Tags surviving
+// the whitelist are canonicalized here, so the session is sealed with canonical
+// names and combat never has to re-normalize aliases.
+
+// A jutsu can only deal damage (and thus resolve post-damage tags like Wound /
+// Siphon) when it pierces, or when it has positive effect power and isn't a
+// zero-damage utility cast. Mirrors isZeroDamageFortyApJutsu in move.ts.
+function jutsuCanDealDamage(out: Record<string, unknown>, canonicalTagNames: string[]): boolean {
+    if (canonicalTagNames.includes('Pierce')) return true;
+    const ep = Number(out.effectPower) || 0;
+    if (ep <= 0) return false;
+    if (out.isUtility === true) return false;
+    if (out.isUtility === false) return true;
+    const id = String(out.id ?? '');
+    if (out.ap === 40 && id !== 'basic-attack' && !id.startsWith('item-')) return false;
+    return true;
+}
 
 export function sanitizeJutsuList(rawList: unknown): unknown[] {
     if (!Array.isArray(rawList)) return [];
@@ -166,11 +188,14 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
             if (out.chakraCost != null) out.chakraCost = clampNumber(out.chakraCost, 0, 1000, 0);
             if (out.staminaCost != null) out.staminaCost = clampNumber(out.staminaCost, 0, 1000, 0);
             if (out.range != null) out.range = clampNumber(out.range, 0, 30, 1);
-            // Filter and cap tag list — at most 10 known tags per jutsu.
+            // Filter, canonicalize, and cap the tag list — at most 10 known tags
+            // per jutsu. Names are canonicalized HERE so the session is sealed
+            // with canonical tags and the combat resolver never re-normalizes.
             const rawTags = Array.isArray(out.tags) ? out.tags : [];
             let cleanTags = (rawTags as unknown[])
                 .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
                 .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
+                .map((t) => ({ ...t, name: canonicalTagName(String(t.name)) }))
                 .slice(0, 10);
             // v4.3 Pierce: at most one Pierce per loadout; subsequent Pierces are stripped.
             // Pierce jutsu AP is forced to 60.
@@ -183,7 +208,23 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
                     out.ap = 60;
                 }
             }
+            // Semantic cleanup: post-damage-only tags (Wound, Siphon) can never
+            // resolve on a cast that deals no damage, so strip them instead of
+            // leaving a silent no-op on the loadout. A jutsu that can deal damage
+            // (pierce, or positive-EP non-utility) keeps them.
+            if (!jutsuCanDealDamage(out, cleanTags.map(t => String(t.name)))) {
+                cleanTags = cleanTags.filter(t => !REQUIRES_DAMAGE_TAGS.has(String(t.name)));
+            }
             out.tags = cleanTags;
+            // Normalize away the legacy EP-100 "fixed effect" sentinel: a jutsu
+            // carrying a binary control / displacement tag deals STANDARD 60-AP
+            // damage, not effectPower-100 (~3200). Clamp before the value can ever
+            // reach the combat formula (also fixes the AOE Move-strip path, since
+            // the EP is already honest before Move is stripped). 40-AP fixed-effect
+            // jutsu stay zero-damage via the utility rule regardless.
+            if (jutsuHasFixedEffectPower(cleanTags) && Number(out.effectPower) > FIXED_EFFECT_STANDARD_EP) {
+                out.effectPower = FIXED_EFFECT_STANDARD_EP;
+            }
             return out;
         });
 }
@@ -230,7 +271,9 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
                     .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
                     .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
                     .map((t) => {
-                        const tag: Record<string, unknown> = { name: String(t.name) };
+                        // Canonicalize so the weapon-built jutsu carries canonical
+                        // tags into applyJutsu, same as sanitizeJutsuList.
+                        const tag: Record<string, unknown> = { name: canonicalTagName(String(t.name)) };
                         if (t.percent != null) tag.percent = clampNumber(t.percent, 0, 100, 0);
                         if (t.amount  != null) tag.amount  = clampNumber(t.amount, 0, 10000, 0);
                         return tag;
@@ -239,9 +282,14 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             }
             // weaponEffect / weaponElement / weaponEffectTarget — drop if not
             // in their respective whitelists rather than blocking the whole
-            // item, so a single bad field doesn't disarm the player.
-            if (out.weaponEffect != null && !KNOWN_TAG_NAMES.has(String(out.weaponEffect))) {
-                delete out.weaponEffect;
+            // item, so a single bad field doesn't disarm the player. The effect
+            // is canonicalized (it becomes a jutsu tag in move.ts).
+            if (out.weaponEffect != null) {
+                if (KNOWN_TAG_NAMES.has(String(out.weaponEffect))) {
+                    out.weaponEffect = canonicalTagName(String(out.weaponEffect));
+                } else {
+                    delete out.weaponEffect;
+                }
             }
             if (out.weaponElement != null && !VALID_WEAPON_ELEMENTS.has(String(out.weaponElement))) {
                 delete out.weaponElement;
