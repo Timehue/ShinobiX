@@ -10,6 +10,7 @@ import type { MissionRank } from "../constants/hunter";
 import { DUNGEON_LEGENDARY_FRAGMENT_ID, HOLLOW_GATE_KEY_ID, MAX_LEVEL, PLAYER_ACCOUNTS_STORAGE, STORAGE, VEIL_OF_THE_HOLLOW_ID } from "../constants/game";
 import { AdminPasswordReset, AdminClearAuthLock } from "./AdminLogin";
 import { ModerationPanel } from "./ModerationPanel";
+import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { KenneyAtlasPicker } from "../components/KenneyAtlasPicker";
@@ -696,7 +697,7 @@ export function AdminPanel({
     // on isFullAdmin — so even if a content admin somehow landed on these
     // tabs, the underlying actions would 401.
     const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation']);
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation" | "diagnostics">("jutsuBloodlines");
     // Clamp the active tab whenever the role flips OR a refresh restored
     // a forbidden tab from React's initial state.
     useEffect(() => {
@@ -1979,6 +1980,9 @@ export function AdminPanel({
                         🛡 Moderation
                     </button>
                 )}
+                <button className={activeAdminPanel === "diagnostics" ? "active" : ""} onClick={() => setActiveAdminPanel("diagnostics")}>
+                    🛠️ Diagnostics
+                </button>
             </div>
 
             <div className="admin-grid">
@@ -5440,6 +5444,10 @@ export function AdminPanel({
 
             {activeAdminPanel === "moderation" && adminRole === 'full' && (
                 <ModerationPanel adminPw={adminPw} />
+            )}
+
+            {activeAdminPanel === "diagnostics" && (
+                <AdminDiagnosticsPanel adminPw={adminPw} />
             )}
 
             <div className="menu">
