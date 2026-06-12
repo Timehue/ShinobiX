@@ -11,7 +11,7 @@ import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { formatJutsuResourcePercent, getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { normalizeJutsu } from "../lib/jutsu";
-import { normalizeTagName, statusMatchesName, tagMatchesName } from "../lib/tags";
+import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { useBoardScale } from "../lib/use-board-scale";
 import {
@@ -625,6 +625,15 @@ export function PvpBattleScreen({
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
+    // Environment comes from the SEALED session (what the server actually used
+    // for terrain/weather math), not the live world props — so the displayed
+    // terrain/weather always matches server-resolved damage. Ranked seals
+    // 'central' / no weather; legacy sessions (pre-seal) fall back to props.
+    const arenaBiome: Biome = (session.biome && terrainEffects[session.biome]) ? session.biome : currentBiome;
+    const weatherSealed = session.weatherPositiveElement !== undefined || session.weatherNegativeElement !== undefined;
+    const weatherPosEl = weatherSealed ? (session.weatherPositiveElement ?? "") : weatherEffects[currentWeather].positiveElement;
+    const weatherNegEl = weatherSealed ? (session.weatherNegativeElement ?? "") : weatherEffects[currentWeather].negativeElement;
+    const weatherName = (weatherSealed && !weatherPosEl && !weatherNegEl) ? "Clear Skies" : weatherEffects[currentWeather].name;
     const sessionEquippedJutsu = Array.isArray(me.character?.jutsu)
         ? (me.character.jutsu as Jutsu[]).map(normalizeJutsu).map(jutsu => ({
             ...jutsu,
@@ -799,6 +808,18 @@ export function PvpBattleScreen({
             });
             if (res.ok) {
                 const data = await res.json() as PvpSessionState;
+                // Structured soft-reject: the action did NOT apply (still my turn,
+                // session unchanged on the server). Surface the reason once — the
+                // server may have also logged it (message paths), so de-dup on the
+                // last line — and KEEP the pending selection so the player can
+                // adjust without re-arming. Don't reset the round timer.
+                if (data.rejected) {
+                    const reason = data.rejected.reason;
+                    const last = data.log[data.log.length - 1] ?? "";
+                    const log = last.includes(reason) ? data.log : [...data.log, `⚠️ ${reason}`].slice(-60);
+                    setSession({ ...data, log });
+                    return;
+                }
                 setSession(data);
                 setPvpRoundTimerKey(k => k + 1);
                 if (data.activePlayer !== role) {
@@ -869,14 +890,13 @@ export function PvpBattleScreen({
         if (!isMyTurn || submitting || done) return;
         setInspectedJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
         setPendingBasicAttack(false); setPendingWeaponId("");
-        // A jutsu is truly self-target if explicitly marked SELF, OR if it is a
-        // pure buff/utility with no damage output (effectPower 0 and no offensive
-        // tags like Wound/Poison/Ignition/Drain). Damage jutsus that also carry a
-        // defensive tag (e.g. Absorb + 30 EP) must still arm-then-click the enemy.
-        const selfBuffTags = ["Heal","Shield","Absorb","Reflect","Lifesteal","Debuff Prevent","Increase Damage Given","Decrease Damage Taken"];
-        const hasSelfBuffTag = (jutsu.tags ?? []).some(t => selfBuffTags.includes(t.name));
-        const hasDamage = jutsu.effectPower > 0 || (jutsu.tags ?? []).some(t => ["Wound","Poison","Ignition","Drain","Siphon","Damage"].includes(t.name));
-        const selfTarget = jutsu.target === "SELF" || (hasSelfBuffTag && !hasDamage);
+        // Target decision mirrors the server (api/pvp/move.ts) exactly via the
+        // shared pvpAffectsOpponent contract: a jutsu is self-only (auto-cast on
+        // the caster) when it is explicitly SELF-target OR touches no opponent
+        // (no damage + no opponent-affecting tag). Anything that touches the
+        // opponent — damage, a debuff, or displacement — must arm-then-click the
+        // enemy so the click matches the server's in-range opponent gate.
+        const selfTarget = jutsu.target === "SELF" || !pvpAffectsOpponent(jutsu);
         if (pvpIsGroundTargetJutsu(jutsu)) armPendingPvpJutsu(jutsu);
         else if (selfTarget) submitAction("jutsu", undefined, jutsu.id);
         else armPendingPvpJutsu(jutsu);
@@ -905,7 +925,7 @@ export function PvpBattleScreen({
     };
 
     return (
-        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${arenaBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {connectionState === "reconnecting" && (
                 <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
                     <span className="pvp-reconnecting-dot" />
@@ -969,27 +989,27 @@ export function PvpBattleScreen({
                 <main className="combat-main-area">
                     <div className="arena-top-panel">
                         <div className="arena-title-panel">
-                            <h2>{biomeLabel(currentBiome)}</h2>
+                            <h2>{biomeLabel(arenaBiome)}</h2>
                             <p>Round {session.round} | PvP Duel</p>
                         </div>
                     </div>
 
                     <div className="twp-strip">
-                        <span className="twp-strip-biome">{biomeLabel(currentBiome)}</span>
+                        <span className="twp-strip-biome">{biomeLabel(arenaBiome)}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
-                        <span className="twp-strip-value">{terrainEffects[currentBiome].description}</span>
-                        {terrainEffects[currentBiome].playerBuff && (
-                            <span className="twp-buff twp-positive">{terrainEffects[currentBiome].playerBuff}</span>
+                        <span className="twp-strip-value">{terrainEffects[arenaBiome].description}</span>
+                        {terrainEffects[arenaBiome].playerBuff && (
+                            <span className="twp-buff twp-positive">{terrainEffects[arenaBiome].playerBuff}</span>
                         )}
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Weather</span>
-                        <span className="twp-strip-value">{weatherEffects[currentWeather].name}</span>
-                        {weatherEffects[currentWeather].positiveElement && (
-                            <span className="twp-buff twp-positive">🔺 {weatherEffects[currentWeather].positiveElement} +5%</span>
+                        <span className="twp-strip-value">{weatherName}</span>
+                        {weatherPosEl && (
+                            <span className="twp-buff twp-positive">🔺 {weatherPosEl} +5%</span>
                         )}
-                        {weatherEffects[currentWeather].negativeElement && (
-                            <span className="twp-buff twp-negative">🔻 {weatherEffects[currentWeather].negativeElement} -2%</span>
+                        {weatherNegEl && (
+                            <span className="twp-buff twp-negative">🔻 {weatherNegEl} -2%</span>
                         )}
                     </div>
 
@@ -1028,7 +1048,7 @@ export function PvpBattleScreen({
                         <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">↺</button>
                     </div>
 
-                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
+                    <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}>
                         <div style={(() => {
                             const scaledW = GRID_LAYER_W * effectiveScale;

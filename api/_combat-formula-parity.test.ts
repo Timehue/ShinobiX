@@ -24,6 +24,9 @@ import { join } from 'node:path';
 
 const ROOT = process.cwd();
 const SERVER = readFileSync(join(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
+// The canonical tag registries (STACKABLE_STATUS etc.) were centralized into
+// api/pvp/_tags.ts; move.ts imports them. Read the set literals from there.
+const SERVER_TAGS = readFileSync(join(ROOT, 'api', 'pvp', '_tags.ts'), 'utf8');
 const CLIENT = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
 // The PvE combat engine lives in screens/Arena.tsx (extracted verbatim from
 // the App.tsx monolith, 2026-06-10). These guards follow the engine.
@@ -157,7 +160,7 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     // statuses — Stun/Seals/Prevents/DoTs — pile up again).
     it('STACKABLE_STATUS set matches and PvE routes through mergeCombatStatus', () => {
         assert.deepEqual(
-            stackableSet(SERVER, 'STACKABLE_STATUS'),
+            stackableSet(SERVER_TAGS, 'STACKABLE_STATUS'),
             stackableSet(CLIENT, 'STACKABLE_STATUS_PVE'),
             'stackable-status set diverged between server and client',
         );

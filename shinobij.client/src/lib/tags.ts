@@ -148,6 +148,40 @@ export const bloodlineUniqueTags = [
     "Pierce",
 ];
 
+// Tags that mean a jutsu touches the OPPONENT (debuffs / displacement / DoTs).
+// Canonical names only. MUST mirror OPPONENT_AFFECTING_TAGS in api/pvp/_tags.ts
+// — scripts/pvp-tags-parity.test.mjs would fail if the two drift. Self-buffs
+// (Heal/Shield/Absorb/Reflect/Lifesteal/Increase*Given/Decrease*Taken/etc.) are
+// deliberately absent: a pure self-buff auto-casts on the caster.
+export const opponentAffectingTags = [
+    "Stun",
+    "Bloodline Seal",
+    "Elemental Seal",
+    "Buff Prevent",
+    "Cleanse Prevent",
+    "Decrease Damage Given",
+    "Increase Damage Taken",
+    "Ignition",
+    "Poison",
+    "Drain",
+    "Lag",
+    "Mirror",
+    "Push",
+    "Pull",
+    "Recoil",
+];
+
+// Mirrors the server's `affectsOpponent` (api/pvp/move.ts): a jutsu touches the
+// opponent when it deals damage OR carries an opponent-affecting tag. The PvP
+// battle screen uses this to decide auto-cast (self) vs arm-then-click-opponent,
+// so a clicked jutsu can't "do nothing" because the client guessed self-target
+// while the server gated it on an in-range opponent.
+export function pvpAffectsOpponent(jutsu: Pick<Jutsu, "effectPower" | "tags">): boolean {
+    if ((jutsu.effectPower ?? 0) > 0) return true;
+    const set = new Set(opponentAffectingTags);
+    return (jutsu.tags ?? []).some((tag) => set.has(normalizeTagName(tag.name)));
+}
+
 const fixedEffectPowerTags = [...binaryTags, "Push", "Pull"];
 
 export function hasFixedEffectPower(jutsu: Pick<Jutsu, "tags">) {
