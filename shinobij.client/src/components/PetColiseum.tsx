@@ -1460,30 +1460,51 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
     );
 }
 
-/** Playback driver: advances the shared clock, glides the camera to follow the
- *  living fighters, spawns damage/heal numbers as the clock crosses events, and
- *  fires onEnd once. Owns the camera directly (useThree) so no target ref is
- *  read during render. */
-function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNumber }: {
+/** Playback driver: advances the shared clock (with HIT-STOP on impact), glides
+ *  + SHAKES the camera, spawns damage numbers + impact bursts as the clock
+ *  crosses events, and fires onEnd once. Owns the camera (useThree). */
+function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNumber, spawnImpact }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; controlCamera: boolean;
-    onEnd: () => void; spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
+    onEnd: () => void;
+    spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
+    spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
     const ended = useRef(false);
     const camBase = useRef<THREE.Vector3 | null>(null);
     const lookCur = useRef(new THREE.Vector3(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]));
+    const shake = useRef(0);
+    const hitStop = useRef(0);
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
-        advanceClock(maxT, delta);   // the parent owns + mutates the clock ref
+        // Hit-stop: freeze playback for a beat on impact so the blow lands with
+        // weight, then resume. (delta→0 while frozen.)
+        let dt = delta;
+        if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
+        advanceClock(maxT, dt);
         const cur = Math.floor(clock.current.t);
         if (cur > lastTick.current) {
             for (const e of duel.events) {
                 if (e.t <= lastTick.current || e.t > cur) continue;
-                if ((e.type === "hit" || e.type === "heal") && e.dmg && e.targetId) {
-                    const a = findActor(snaps[Math.min(maxT, e.t)], e.targetId);
-                    if (a) spawnNumber({ x: a.x, z: a.y, text: e.type === "heal" ? `+${e.dmg}` : `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: e.type === "heal" });
+                const snapAt = snaps[Math.min(maxT, e.t)];
+                if (e.type === "hit" && e.dmg && e.targetId) {
+                    const a = findActor(snapAt, e.targetId);
+                    if (a) {
+                        const frac = Math.min(1, e.dmg / Math.max(1, a.maxHp));
+                        const heavy = !!e.crit || frac > 0.12;
+                        spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
+                        spawnImpact({ x: a.x, z: a.y, color: elementColor(e.element).glow, big: heavy });
+                        hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
+                        shake.current = Math.max(shake.current, 0.07 + frac * 0.45 + (e.crit ? 0.12 : 0));
+                    }
+                } else if (e.type === "heal" && e.dmg && e.targetId) {
+                    const a = findActor(snapAt, e.targetId);
+                    if (a) spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
+                } else if (e.type === "ko") {
+                    shake.current = Math.max(shake.current, 0.5);
+                    hitStop.current = Math.max(hitStop.current, 0.22);
                 }
             }
             lastTick.current = cur;
@@ -1501,12 +1522,46 @@ function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNu
             lookCur.current.y = lerp(lookCur.current.y, cam.look[1], k);
             lookCur.current.z = lerp(lookCur.current.z, cam.look[2], k);
             const t = state.clock.elapsedTime;
-            camera.position.set(camBase.current.x + Math.sin(t * 0.45) * 0.12, camBase.current.y + Math.sin(t * 0.3) * 0.05, camBase.current.z);
+            const a = shake.current; shake.current *= 0.85;
+            const sx = a > 0.002 ? Math.sin(t * 53) * a : 0;
+            const sy = a > 0.002 ? Math.sin(t * 61) * a * 0.6 : 0;
+            camera.position.set(camBase.current.x + Math.sin(t * 0.45) * 0.12 + sx, camBase.current.y + Math.sin(t * 0.3) * 0.05 + sy, camBase.current.z);
             camera.lookAt(lookCur.current.x, lookCur.current.y, lookCur.current.z);
         }
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
     });
     return null;
+}
+
+/** Element-colored impact burst — an expanding additive ring + flash core. */
+function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: boolean; onDone: () => void }) {
+    const grp = useRef<THREE.Group>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    const DUR = big ? 0.42 : 0.3;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / DUR);
+        if (grp.current) { const s = (big ? 1.7 : 1.1) * (0.35 + p * 1.5); grp.current.scale.set(s, s, s); }
+        if (ringMat.current) ringMat.current.opacity = (1 - p) * 0.9;
+        if (coreMat.current) coreMat.current.opacity = (1 - Math.min(1, p * 1.8)) * 0.85;
+        if (p >= 1) onDone();
+    });
+    return (
+        <group ref={grp} position={at}>
+            <Billboard>
+                <mesh>
+                    <ringGeometry args={[0.42, 0.6, 24]} />
+                    <meshBasicMaterial ref={ringMat} color={color} transparent opacity={0.9} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                </mesh>
+                <mesh position={[0, 0, -0.01]}>
+                    <circleGeometry args={[0.34, 16]} />
+                    <meshBasicMaterial ref={coreMat} color={color} transparent opacity={0.85} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </Billboard>
+        </group>
+    );
 }
 
 export type PetColiseumDuelProps = {
@@ -1544,6 +1599,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [ended, setEnded] = useState(false);
     const [paused, setPaused] = useState(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
+    const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
     const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
 
     const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
@@ -1551,10 +1607,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setNumbers((p) => [...p, { id, text: n.text, pos: [n.x, FX_Y + 0.6, n.z], crit: n.crit, heal: n.heal }]);
         window.setTimeout(() => setNumbers((p) => p.filter((x) => x.id !== id)), 850);
     };
+    const spawnImpact = (n: { x: number; z: number; color: string; big: boolean }) => {
+        const id = seqRef.current++;
+        setImpacts((p) => [...p, { id, pos: [n.x, FX_Y, n.z], color: n.color, big: n.big }]);
+    };
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -1570,12 +1630,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {Array.from({ length: 8 }).map((_, i) => (
                     <DuelProjectile key={i} index={i} duel={duel} clock={clock} />
                 ))}
+                {impacts.map((im) => (
+                    <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
+                ))}
                 {numbers.map((l) => (
                     <Html key={l.id} position={l.pos} center distanceFactor={9} pointerEvents="none" zIndexRange={[20, 0]}>
-                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
+                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 24px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} controlCamera={!orbit} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} controlCamera={!orbit} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} />
                 {orbit && <OrbitControls target={CAM_LOOK} />}
             </Canvas>
 
