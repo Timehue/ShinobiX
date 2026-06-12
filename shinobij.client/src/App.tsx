@@ -4066,10 +4066,27 @@ export default function App() {
         return Array.from(merged.values());
     }
 
+    // Recency-aware variant of mergeById for the shared-admin-content pull. When
+    // the SAME jutsu id lives in more than one admin save (both admins pull each
+    // other's catalog, so a created jutsu ends up persisted in both), a plain
+    // last-writer-wins merge lets whichever snapshot is applied last clobber a
+    // freshly-edited local copy — so removing a tag and saving "comes back" after
+    // reload. Keep the local copy only when it is STRICTLY newer; otherwise take
+    // the incoming one so genuine balance pushes / new content still propagate.
+    function mergeJutsusByRecency(current: Jutsu[], incoming: Jutsu[]) {
+        const merged = new Map(current.map((jutsu) => [jutsu.id, jutsu]));
+        incoming.forEach((jutsu) => {
+            const existing = merged.get(jutsu.id);
+            if (existing && (existing.updatedAt ?? 0) > (jutsu.updatedAt ?? 0)) return;
+            merged.set(jutsu.id, jutsu);
+        });
+        return Array.from(merged.values());
+    }
+
     function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
-        if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeById(prev, sharedCreatorJutsus));
+        if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeJutsusByRecency(prev, sharedCreatorJutsus));
         if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
         if (snap.creatorEvents) setCreatorEvents((prev) => mergeById(prev, snap.creatorEvents as CreatorEvent[]));
         if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
