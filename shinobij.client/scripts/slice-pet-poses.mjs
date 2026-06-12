@@ -19,6 +19,19 @@ const ALPHA_T = 24;     // a pixel counts as "occupied" above this alpha
 const GAP_MIN = 0.018;  // merge segments closer than this fraction of width
 const FRAME = 512;      // output square size
 
+// Key out the model's NEAR-WHITE NEUTRAL background → transparent. Only touches
+// bright low-saturation pixels (the creatures are dark/saturated, golden auras
+// are saturated → preserved). Feathers the anti-aliased edge to avoid a fringe.
+function deWhiteInPlace(data) {
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const mn = Math.min(r, g, b), mx = Math.max(r, g, b);
+        if (mx - mn > 26) continue;            // saturated → part of the creature
+        if (mn >= 222) data[i + 3] = 0;        // solid white bg → fully transparent
+        else if (mn >= 196) data[i + 3] = Math.round(data[i + 3] * ((222 - mn) / 26)); // edge feather
+    }
+}
+
 async function main() {
     const inRel = arg('in');
     if (!inRel) { console.error('need --in <sheet.png>'); process.exit(1); }
@@ -64,9 +77,13 @@ async function main() {
     for (let i = 0; i < 4; i++) {
         const [x0, x1] = cells[i];
         const w = Math.max(1, x1 - x0 + 1);
-        const frame = await sharp(inPath).ensureAlpha()
+        // Extract the cell → strip its white bg → trim to the creature → square.
+        const cell = await sharp(inPath).ensureAlpha()
             .extract({ left: x0, top: 0, width: w, height: H })
-            .trim({ threshold: 10 })                                   // crop to the creature
+            .raw().toBuffer({ resolveWithObject: true });
+        deWhiteInPlace(cell.data);
+        const frame = await sharp(cell.data, { raw: { width: cell.info.width, height: cell.info.height, channels: 4 } })
+            .trim({ threshold: 10 })                                   // crop to the creature (bg now transparent)
             .resize(FRAME, FRAME, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
             .webp({ quality: 88 })
             .toBuffer();
