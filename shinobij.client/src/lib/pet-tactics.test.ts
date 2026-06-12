@@ -274,15 +274,15 @@ function bfsReachable(blocked: Set<number>, from: number, to: number): boolean {
     return false;
 }
 
-test("every maze layout is navigable (no buried spawns, in-grid, foes can always meet)", () => {
+test("every cover layout is navigable (no buried spawns, in-grid, foes can always meet)", () => {
     PET_OBSTACLE_LAYOUTS.forEach((layout, i) => {
         const blocked = new Set(layout);
         // No spawn tile is ever a wall.
         for (const s of SPAWN_TILES) {
             assert.ok(!blocked.has(s), `layout ${i} buries spawn tile ${s}`);
         }
-        // Walls present (it's a maze) and in-grid.
-        assert.ok(layout.length >= 8 && layout.length <= 0.6 * PET_GRID_SIZE, `layout ${i} obstacle count ${layout.length} off-spec`);
+        // Light cover (a few pillars), in-grid.
+        assert.ok(layout.length >= 1 && layout.length <= 0.4 * PET_GRID_SIZE, `layout ${i} obstacle count ${layout.length} off-spec`);
         for (const idx of layout) {
             assert.ok(idx >= 0 && idx < PET_GRID_SIZE, `layout ${i} tile ${idx} off-grid`);
         }

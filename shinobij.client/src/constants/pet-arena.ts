@@ -11,12 +11,13 @@
 import type { JutsuElement } from "../types/core";
 
 // ── Grid dimensions ──────────────────────────────────────────────────────
-// Tile index = row * PET_GRID_COLS + col. A big arena so battles are a JOURNEY
-// through a maze, not a head-on clash. Everything (spawns, terrain helpers,
-// renderer) derives from these two numbers so the size is a single knob.
-export const PET_GRID_COLS = 28;
-export const PET_GRID_ROWS = 15;
-export const PET_GRID_SIZE = PET_GRID_COLS * PET_GRID_ROWS; // 420
+// Tile index = row * PET_GRID_COLS + col. A TIGHT arena (the maze pivot is dead)
+// so the two pets are always in each other's faces — the anime-fight stage. The
+// engine's melee/ranged bands are tuned to this 14×7. Everything (spawns, terrain
+// helpers, renderer) derives from these two numbers, so size stays one knob.
+export const PET_GRID_COLS = 14;
+export const PET_GRID_ROWS = 7;
+export const PET_GRID_SIZE = PET_GRID_COLS * PET_GRID_ROWS; // 98
 
 // ── Spawn tiles (derived) ─────────────────────────────────────────────────
 // Player on the left edge (col 1), enemy on the right (col COLS-2), middle row;
@@ -39,35 +40,20 @@ export const PET_SPAWN_TILES: ReadonlyArray<number> = [
     PET_SPAWN_2V2.enemyLead, PET_SPAWN_2V2.enemyReserve,
 ];
 
-// ── Maze layouts ──────────────────────────────────────────────────────────
-// A maze the pets must navigate to reach each other. Each wall is FULL height
-// with a single 2-row GAP (the only passage); the gaps are offset between walls
-// so a pet has to weave. Navigable BY CONSTRUCTION: every wall has a gap, and
-// the open columns between walls let a pet reposition to the next gap, so a BFS
-// path always links the spawns (enforced by pet-tactics.test.ts). Walls sit in
-// the central columns, clear of the spawn columns. Deterministic.
-function mazeWalls(walls: ReadonlyArray<readonly [number, number]>): number[] {
-    const out: number[] = [];
-    for (const [col, gap] of walls) {
-        for (let row = 0; row < PET_GRID_ROWS; row++) {
-            if (row === gap || row === gap + 1) continue; // 2-row passage
-            out.push(row * PET_GRID_COLS + col);
-        }
-    }
-    return out;
-}
-// [col, gapRow] — many walls in cols 4..24 (clear of spawn cols 1 / COLS-2 = 26),
-// non-adjacent so there is always open space to reposition between gaps. Dense +
-// deep so the journey winds through a real maze.
+// ── Cover layouts ─────────────────────────────────────────────────────────
+// A LIGHT scatter of stone cover pillars (not a maze) — a couple of obstacles
+// to fight around + slam each other into, never blocking the head-on clash.
+// Central columns, clear of the spawn columns. Navigable by construction
+// (sparse); pet-tactics.test.ts still proves a BFS path links every spawn pair.
 export const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
-    mazeWalls([[5, 2], [8, 10], [11, 4], [14, 12], [17, 3], [20, 9], [23, 5]]),
-    mazeWalls([[4, 8], [7, 1], [10, 11], [13, 4], [16, 12], [19, 6], [22, 2]]),
-    mazeWalls([[6, 4], [9, 11], [12, 5], [15, 1], [18, 10], [21, 4], [24, 11]]),
-    mazeWalls([[5, 12], [8, 5], [11, 11], [14, 2], [17, 8], [20, 3], [23, 10]]),
-    mazeWalls([[4, 3], [8, 10], [12, 1], [16, 12], [20, 5], [24, 8]]),
-    mazeWalls([[6, 9], [9, 2], [12, 11], [15, 4], [18, 12], [21, 7], [24, 3]]),
-    mazeWalls([[5, 5], [9, 12], [13, 2], [17, 9], [21, 4], [24, 11]]),
-    mazeWalls([[4, 11], [7, 4], [10, 12], [13, 1], [16, 9], [19, 3], [22, 10]]),
+    [48, 49],               // a central pillar pair
+    [34, 76],               // one high, one low (cols centred)
+    [47, 50, 61, 64],       // four pillars boxing the centre
+    [48, 62],               // a vertical centre pair
+    [33, 38, 75, 80],       // four corners of the contested middle
+    [49, 63],               // off-centre pair
+    [35, 49, 63, 77],       // a short central spine
+    [34, 35, 76, 77],       // a top pair + a bottom pair
 ];
 
 // ── Type-effectiveness ───────────────────────────────────────────────────
