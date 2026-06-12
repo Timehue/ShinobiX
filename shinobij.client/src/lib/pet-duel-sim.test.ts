@@ -116,8 +116,9 @@ test("a burn jutsu lands a DoT status on the enemy", () => {
 
 test("hit events carry the attacker's element", () => {
     const r = runPetDuel(makePet({ id: "a", element: "Lightning" }), makePet({ id: "b", element: "Earth" }), 7);
-    const hit = r.events.find((e) => e.type === "hit");
-    assert.ok(hit && hit.element === "Lightning", "hit should record the attacker's element");
+    // Each side's hits carry its own element — independent of who strikes first.
+    const playerHit = r.events.find((e) => e.type === "hit" && e.side === "player");
+    assert.ok(playerHit && playerHit.element === "Lightning", "a player hit should record Lightning");
 });
 
 test("a signature jutsu fires an ultimate event", () => {

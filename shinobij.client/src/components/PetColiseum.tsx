@@ -1358,8 +1358,9 @@ const DUEL_STATE_POSE: Record<DuelState, PetVisualState> = {
 };
 type DuelClock = { t: number; playing: boolean };
 const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors.find((a) => a.id === id);
-// Tactical mode: SMALL units on a BIG map (read as a battlefield, not a brawl).
-const DUEL_SPRITE_H = 1.7;
+// Tactical mode: units on a BIG map (read as a battlefield, not a brawl) — kept
+// readable so the pose art still shows even with the camera pulled back.
+const DUEL_SPRITE_H = 2.0;
 
 /** One fighter, driven by the interpolated tick stream (not beat choreography).
  *  Reuses the pose flipbook + grounding + afterimage from the round renderer. */
@@ -1588,12 +1589,12 @@ function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNu
             const living = snap.actors.filter((a) => a.hp > 0);
             let mx = 0; for (const a of living) mx += a.x;
             mx = living.length ? mx / living.length : 0;
-            const panX = Math.max(-4, Math.min(4, mx)) * 0.5;
+            const panX = Math.max(-5, Math.min(5, mx)) * 0.5;
             if (!camBase.current) camBase.current = camera.position.clone();
             const k = 0.035;
             camBase.current.x = lerp(camBase.current.x, panX, k);
-            camBase.current.y = lerp(camBase.current.y, 18, k);
-            camBase.current.z = lerp(camBase.current.z, 13, k);
+            camBase.current.y = lerp(camBase.current.y, 25, k);
+            camBase.current.z = lerp(camBase.current.z, 18, k);
             lookCur.current.x = lerp(lookCur.current.x, panX, k);
             lookCur.current.y = lerp(lookCur.current.y, 0, k);
             lookCur.current.z = lerp(lookCur.current.z, -0.5, k);
@@ -1661,13 +1662,14 @@ function DuelProp({ url, x, z, s }: { url: string; x: number; z: number; s: numb
 // Placement of the depth props — kept clear of the lanes (z≈±3.4) so they frame
 // the board + add depth without hiding the fight.
 const DUEL_PROPS: Array<{ kind: string; x: number; z: number; s: number }> = [
-    { kind: "tree", x: -8.6, z: -5.0, s: 3.6 }, { kind: "tree", x: 8.6, z: -5.0, s: 3.6 },
-    { kind: "tree", x: -8.6, z: 5.0, s: 3.6 }, { kind: "tree", x: 8.6, z: 5.0, s: 3.6 },
-    { kind: "tree", x: -0.3, z: -5.7, s: 4.0 }, { kind: "tree", x: 0.3, z: 5.7, s: 4.0 },
-    { kind: "rocks", x: -4.6, z: 0, s: 2.5 }, { kind: "rocks", x: 4.6, z: 0, s: 2.5 },
-    { kind: "rocks", x: -1.9, z: 0.1, s: 2.0 }, { kind: "rocks", x: 1.9, z: -0.1, s: 2.0 },
-    { kind: "lantern", x: -6.7, z: -4.7, s: 1.15 }, { kind: "lantern", x: 6.7, z: -4.7, s: 1.15 },
-    { kind: "lantern", x: -6.7, z: 4.7, s: 1.15 }, { kind: "lantern", x: 6.7, z: 4.7, s: 1.15 },
+    { kind: "tree", x: -12, z: -6.6, s: 4.0 }, { kind: "tree", x: 12, z: -6.6, s: 4.0 },
+    { kind: "tree", x: -12, z: 6.6, s: 4.0 }, { kind: "tree", x: 12, z: 6.6, s: 4.0 },
+    { kind: "tree", x: -0.3, z: -7.4, s: 4.5 }, { kind: "tree", x: 0.3, z: 7.4, s: 4.5 },
+    { kind: "tree", x: -6.5, z: -7.0, s: 3.6 }, { kind: "tree", x: 6.5, z: 7.0, s: 3.6 },
+    { kind: "rocks", x: -6.8, z: 0, s: 2.6 }, { kind: "rocks", x: 6.8, z: 0, s: 2.6 },
+    { kind: "rocks", x: -2.7, z: 0.1, s: 2.1 }, { kind: "rocks", x: 2.7, z: -0.1, s: 2.1 },
+    { kind: "lantern", x: -9.2, z: -6.2, s: 1.3 }, { kind: "lantern", x: 9.2, z: -6.2, s: 1.3 },
+    { kind: "lantern", x: -9.2, z: 6.2, s: 1.3 }, { kind: "lantern", x: 9.2, z: 6.2, s: 1.3 },
 ];
 
 /** Tactical BOARD arena — the flat top-down battle map floating on a dark void.
@@ -1679,12 +1681,12 @@ function DuelArena({ floor }: { floor: THREE.Texture }) {
             <ambientLight intensity={1.2} />
             <directionalLight position={[3, 12, 5]} intensity={0.4} />
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]}>
-                <circleGeometry args={[80, 48]} />
+                <circleGeometry args={[110, 48]} />
                 <meshBasicMaterial color="#060410" toneMapped={false} fog={false} />
             </mesh>
             {/* the battle map as a flat rectangular board (a MAP, not an arena floor) */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <planeGeometry args={[26, 15]} />
+                <planeGeometry args={[36, 21]} />
                 <meshStandardMaterial map={floor} roughness={1} />
             </mesh>
         </group>
@@ -1755,8 +1757,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
-            <Canvas dpr={[1, 2]} camera={{ position: [0, 18, 13], fov: 44 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
-                <fog attach="fog" args={["#070510", 52, 120]} />
+            <Canvas dpr={[1, 2]} camera={{ position: [0, 25, 18], fov: 46 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
+                <fog attach="fog" args={["#070510", 70, 150]} />
                 <DuelArena floor={floor} />
                 {DUEL_PROPS.map((p, i) => (
                     <DuelProp key={i} url={PROP_URLS[p.kind]} x={p.x} z={p.z} s={p.s} />

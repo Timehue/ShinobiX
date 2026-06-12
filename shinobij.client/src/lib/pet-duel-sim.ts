@@ -37,8 +37,8 @@ const clamp = (n: number, lo: number, hi: number) => (n < lo ? lo : n > hi ? hi 
 // Arena footprint (world units) — a BIG tactical battlefield: the pets spawn at
 // opposite ends and TRAVERSE across the map to meet (small units on a big map,
 // not two sprites bonking in a tight ring). The renderer frames the whole thing.
-const ARENA_X = 10.5;
-const ARENA_Y = 5.8;
+const ARENA_X = 14.0;
+const ARENA_Y = 7.5;
 
 // Battlefield TERRAIN — fixed obstacles the pets must path AROUND (so the fight
 // spreads across the map + the traversal reads as a journey, not a beeline to a
@@ -48,15 +48,15 @@ export type DuelObstacle = { x: number; z: number; r: number; kind: "rock" | "cr
 export const DUEL_OBSTACLES: ReadonlyArray<DuelObstacle> = [
     // Central divider (z≈0) between the TOP lane (z<0) and BOTTOM lane (z>0),
     // with a center gap so a 1v1 can meet in the middle.
-    { x: -5.5, z: 0, r: 1.0, kind: "rock" },
-    { x: -2.2, z: 0, r: 0.95, kind: "crystal" },
-    { x: 2.2, z: 0, r: 0.95, kind: "crystal" },
-    { x: 5.5, z: 0, r: 1.0, kind: "rock" },
+    { x: -7.6, z: 0, r: 1.1, kind: "rock" },
+    { x: -3.0, z: 0, r: 0.95, kind: "crystal" },
+    { x: 3.0, z: 0, r: 0.95, kind: "crystal" },
+    { x: 7.6, z: 0, r: 1.1, kind: "rock" },
     // Cover within each lane (pets path around it as they traverse + clash).
-    { x: -3.6, z: -3.4, r: 0.95, kind: "rock" },
-    { x: 3.6, z: -3.4, r: 0.95, kind: "rock" },
-    { x: -3.6, z: 3.4, r: 0.95, kind: "rock" },
-    { x: 3.6, z: 3.4, r: 0.95, kind: "rock" },
+    { x: -5.0, z: -4.6, r: 1.0, kind: "rock" },
+    { x: 5.0, z: -4.6, r: 1.0, kind: "rock" },
+    { x: -5.0, z: 4.6, r: 1.0, kind: "rock" },
+    { x: 5.0, z: 4.6, r: 1.0, kind: "rock" },
 ];
 
 // Stamina economy — gates dashes / dodges / attacks so the fight breathes.
@@ -844,8 +844,8 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
  *  opens with a real traversal toward each other. */
 export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
     const fighters = [
-        buildFighter(playerPet, "player", 0, -9.2, -3.4),
-        buildFighter(enemyPet, "enemy", 0, 9.2, -3.4),
+        buildFighter(playerPet, "player", 0, -12.5, -4.6),
+        buildFighter(enemyPet, "enemy", 0, 12.5, -4.6),
     ];
     return simulate(fighters, seed);
 }
@@ -860,9 +860,9 @@ export function runPetPartyDuel(
 ): DuelResult {
     // Lead spawns in the TOP lane (z<0), reserve in the BOTTOM lane (z>0) — each
     // side mirrored — so the two lane duels happen in separate halves of the map.
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -9.2, -3.4)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.2, 3.4));
-    fighters.push(buildFighter(enemyLead, "enemy", 0, 9.2, -3.4));
-    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.2, 3.4));
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -12.5, -4.6)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -12.5, 4.6));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 12.5, -4.6));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 12.5, 4.6));
     return simulate(fighters, seed);
 }
