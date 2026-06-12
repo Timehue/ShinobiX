@@ -30,6 +30,7 @@ import {
     buildPetAnimationEvents,
     petPoseForAvatar,
     petBattleSprite,
+    petStripVariant,
     elementVfxKey,
     extractPetMoveName,
 } from "../lib/pet-battle-anim";
@@ -202,6 +203,67 @@ function usePetSprite(pet: Pet, sharedImages: Record<string, string>, mirror = f
     return { texture, bounds: scan.bounds, aspect: scan.aspect };
 }
 
+// ── Animated pose frames (fal-generated) — flipbook ──────────────────────────
+// A pet's battle sprite redrawn into combat POSES (idle/attack/hurt/cast); the
+// renderer swaps the billboard to the pose matching the active beat and the
+// procedural choreography supplies the motion (attack POSE + lunge MOTION = a
+// real strike). Pilot: 2 pets; everyone else falls back to the single sprite.
+type PoseCat = "idle" | "attack" | "hurt" | "cast";
+const POSE_CATS: PoseCat[] = ["idle", "attack", "hurt", "cast"];
+const POSE_URLS: Record<string, Record<PoseCat, string>> = {
+    "mythic-0": {
+        idle: new URL("../assets/coliseum/pet-poses/kitsune-idle.webp", import.meta.url).href,
+        attack: new URL("../assets/coliseum/pet-poses/kitsune-attack.webp", import.meta.url).href,
+        hurt: new URL("../assets/coliseum/pet-poses/kitsune-hurt.webp", import.meta.url).href,
+        cast: new URL("../assets/coliseum/pet-poses/kitsune-cast.webp", import.meta.url).href,
+    },
+    "mythic-4": {
+        idle: new URL("../assets/coliseum/pet-poses/onihound-idle.webp", import.meta.url).href,
+        attack: new URL("../assets/coliseum/pet-poses/onihound-attack.webp", import.meta.url).href,
+        hurt: new URL("../assets/coliseum/pet-poses/onihound-hurt.webp", import.meta.url).href,
+        cast: new URL("../assets/coliseum/pet-poses/onihound-cast.webp", import.meta.url).href,
+    },
+};
+/** The pose-frame category for a visual state. */
+function poseCategory(s: PetVisualState): PoseCat {
+    switch (s) {
+        case "windup": case "lunge": return "attack";
+        case "hit": case "recoil": case "ko": return "hurt";
+        case "charge": case "rangedCast": case "projectileFire": return "cast";
+        default: return "idle"; // idle / guard / dodge / victory
+    }
+}
+type PoseSet = { tex: Record<PoseCat, THREE.Texture>; scan: Record<PoseCat, SpriteScan> };
+/** Load a pet's 4 pose textures + alpha bounds (mirror-aware), or null when the
+ *  pet has no generated pose set. Hooks run unconditionally (rules-of-hooks). */
+function usePetPoses(petId: string, mirror: boolean): PoseSet | null {
+    const urls = POSE_URLS[petId] ?? POSE_URLS[petStripVariant(petId)];
+    const tex = useMemo(() => {
+        if (!urls) return null;
+        const out = {} as Record<PoseCat, THREE.Texture>;
+        for (const c of POSE_CATS) {
+            const t = new THREE.TextureLoader().load(urls[c]);
+            t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+            if (mirror) { t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1; }
+            out[c] = t;
+        }
+        return out;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [petId, mirror]);
+    const [scan, setScan] = useState<Record<PoseCat, SpriteScan> | null>(null);
+    useEffect(() => {
+        if (!urls) return;
+        let live = true;
+        Promise.all(POSE_CATS.map((c) => loadSpriteBounds(urls[c]).then((s) => [c, s] as const)))
+            .then((entries) => { if (live) setScan(Object.fromEntries(entries) as Record<PoseCat, SpriteScan>); });
+        return () => { live = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [petId]);
+    if (!tex) return null;
+    const sc = scan ?? (Object.fromEntries(POSE_CATS.map((c) => [c, { bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }])) as Record<PoseCat, SpriteScan>);
+    return { tex, scan: sc };
+}
+
 // ── Soft contact-shadow blob texture (one shared canvas) ──────────────────────
 let _shadowTexture: THREE.CanvasTexture | null = null;
 function shadowTexture(): THREE.CanvasTexture {
@@ -270,8 +332,17 @@ function Standee({
     const mirrored = side === "enemy";
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-    // Foot-anchored plane size + offset from the alpha bounds.
-    const L = useMemo(() => groundedSpriteLayout(bounds, aspect, TARGET_SPRITE_H, mirrored), [bounds, aspect, mirrored]);
+    // Flipbook: swap to the pose frame matching the active beat (else the single
+    // sprite). The pose category derives from the SAME state the choreography
+    // uses, so the attack POSE lands together with the lunge MOTION.
+    const poses = usePetPoses(pet.id, mirrored);
+    const poseCat = poseCategory(fainted ? "ko" : pose);
+    const useTex = poses ? poses.tex[poseCat] : texture;
+    const useBounds = poses ? poses.scan[poseCat].bounds : bounds;
+    const useAspect = poses ? poses.scan[poseCat].aspect : aspect;
+
+    // Foot-anchored plane size + offset from the alpha bounds of the active pose.
+    const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, TARGET_SPRITE_H, mirrored), [useBounds, useAspect, mirrored]);
     const shadowW = Math.max(0.9, L.contentWorldW * 0.95);
 
     useFrame((state) => {
@@ -356,10 +427,10 @@ function Standee({
                             feet pivot (poseG origin, y=0); width tracks art aspect. */}
                         <mesh position={[L.meshX, L.meshY, 0]}>
                             <planeGeometry args={[L.planeW, L.planeH]} />
-                            <meshBasicMaterial ref={mat} map={texture} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
+                            <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
                             <mesh position={[0, 0, 0.01]}>
                                 <planeGeometry args={[L.planeW, L.planeH]} />
-                                <meshBasicMaterial ref={flashMat} map={texture} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                                <meshBasicMaterial ref={flashMat} map={useTex} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                             </mesh>
                         </mesh>
                     </group>
