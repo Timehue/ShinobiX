@@ -634,12 +634,23 @@ export function PvpBattleScreen({
     const weatherPosEl = weatherSealed ? (session.weatherPositiveElement ?? "") : weatherEffects[currentWeather].positiveElement;
     const weatherNegEl = weatherSealed ? (session.weatherNegativeElement ?? "") : weatherEffects[currentWeather].negativeElement;
     const weatherName = (weatherSealed && !weatherPosEl && !weatherNegEl) ? "Clear Skies" : weatherEffects[currentWeather].name;
-    const sessionEquippedJutsu = Array.isArray(me.character?.jutsu)
+    const sessionEquippedJutsuRaw = Array.isArray(me.character?.jutsu)
         ? (me.character.jutsu as Jutsu[]).map(normalizeJutsu).map(jutsu => ({
             ...jutsu,
             image: jutsu.image || sharedImages['jutsu:' + jutsu.id] || "",
         }))
         : equippedJutsu;
+    // Show my own action bar in my saved loadout order (the slot order set via
+    // the Profile loadout arrows). Display-only: jutsu are still acted on by id,
+    // so this never touches AP costs, targeting, or move resolution. Spectators
+    // keep the session's sealed order (it isn't their loadout).
+    const sessionEquippedJutsu = amSpectator
+        ? sessionEquippedJutsuRaw
+        : [...sessionEquippedJutsuRaw].sort((a, b) => {
+            const ia = character.equippedJutsuIds.indexOf(a.id);
+            const ib = character.equippedJutsuIds.indexOf(b.id);
+            return (ia < 0 ? Number.MAX_SAFE_INTEGER : ia) - (ib < 0 ? Number.MAX_SAFE_INTEGER : ib);
+        });
     const sessionEquippedItems = Array.isArray(me.character?.pvpItems)
         ? (me.character.pvpItems as GameItem[]).map(item => ({
             ...item,

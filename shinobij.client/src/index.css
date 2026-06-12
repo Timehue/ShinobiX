@@ -691,6 +691,55 @@ button {
         font-weight: 900;
     }
 
+.technique-reorder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: auto;
+}
+
+    .technique-reorder-hint {
+        color: #94a3b8 !important;
+        font-weight: 700 !important;
+        font-size: .72rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+.technique-reorder-btn {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border-radius: 8px;
+    background: #1e293b;
+    border: 2px solid rgba(148, 163, 184, .55);
+    color: #facc15;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .technique-reorder-btn:hover:not(:disabled) {
+        border-color: #facc15;
+        background: #0f172a;
+    }
+
+    .technique-reorder-btn:disabled {
+        opacity: .35;
+        cursor: not-allowed;
+        color: #94a3b8;
+    }
+
+.technique-reorder-note {
+    margin: 0;
+    color: #94a3b8;
+    font-size: .72rem;
+    line-height: 1.3;
+}
+
 .technique-shell {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
