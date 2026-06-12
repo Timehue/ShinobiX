@@ -36,8 +36,11 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             setJutsus(editingBloodline.jutsus.map((j) =>
                 j.ap === 40
                     ? { ...j, effectPower: 0 }
-                    :
-                j.ap === 60 && !hasFixedEffectPower(j) && ![40, 50].includes(j.effectPower)
+                    // Fixed-effect 60-AP jutsu deal standard damage (40) — clamp away
+                    // any legacy EP-100 sentinel so the editor shows the real value.
+                    : hasFixedEffectPower(j)
+                    ? { ...j, effectPower: 40 }
+                    : j.ap === 60 && ![40, 50].includes(j.effectPower)
                     ? { ...j, effectPower: 40 }
                     : j
             ));
@@ -77,7 +80,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             else if (![4, 5].includes(next.range)) next.range = 4;
             next.cooldown = 7;
             if (next.ap === 40) next.effectPower = 0;
-            if (hasFixedEffectPower(next)) next.effectPower = 100;
+            // Fixed-effect (control/movement) jutsu deal STANDARD 60-AP damage (40)
+            // plus their always-on effect — not the old EP-100 (~3200) sentinel.
+            if (next.ap === 60 && hasFixedEffectPower(next)) next.effectPower = 40;
             // Strip "Increase Damage Taken" tag if the move targets the ground
             if (next.target === "EMPTY_GROUND") {
                 next.tags = next.tags.filter((t) => t.name !== "Increase Damage Taken");
@@ -110,7 +115,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             chakraCostReducePerLvl: 0,
             staminaCostReducePerLvl: 0,
             tags: (currentJutsu?.tags ?? []).filter((tag) => ap === 60 || !fortyApBlockedBloodlineTags.includes(tag.name)).slice(0, ap === 60 ? 2 : 3),
-            effectPower: fixedEffectPower ? 100 : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
+            effectPower: fixedEffectPower ? (ap === 60 ? 40 : 0) : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
         });
     }
     function updateTag(jutsuIndex: number, tagIndex: number, updated: Partial<JutsuTag>) {
@@ -145,7 +150,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             if (next.ap === 40) {
                 next.tags = next.tags.filter((tag) => !fortyApBlockedBloodlineTags.includes(tag.name));
             }
-            return hasFixedEffectPower(next) ? { ...next, effectPower: 100 } : next;
+            return hasFixedEffectPower(next) ? { ...next, effectPower: next.ap === 60 ? 40 : 0 } : next;
         }));
     }
     const bloodlinePointLimit: Record<Rank, number> = { "B Rank": 8, "A Rank": 10, "S Rank": 11 };
@@ -181,7 +186,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             method: finalMethod,
             range: jutsu.target === "SELF" ? 0 : jutsu.range,
             cooldown: 7,
-            effectPower: jutsu.ap === 40 ? 0 : hasFixedEffectPower(jutsu) ? 100 : jutsu.ap === 60 ? (jutsu.effectPower === 50 ? 50 : 40) : jutsu.effectPower,
+            effectPower: jutsu.ap === 40 ? 0 : hasFixedEffectPower(jutsu) ? 40 : jutsu.ap === 60 ? (jutsu.effectPower === 50 ? 50 : 40) : jutsu.effectPower,
             tags,
         });
         });
@@ -286,7 +291,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                             </div>
                         );
                     })()}
-                    {hasFixedEffectPower(jutsu) && <div className="summary-box bloodline-damage-section">Effect Power fixed at 100% for prevent, stun, and movement effects.</div>}
+                    {hasFixedEffectPower(jutsu) && <div className="summary-box bloodline-damage-section">Prevent / stun / movement effect always applies. 60 AP jutsu also deal standard damage; 40 AP deal none.</div>}
                     <label>Range</label>
                     {jutsu.target !== "SELF" ? (
                         <select value={jutsu.range === 5 ? 5 : 4} onChange={(e) => updateJutsu(jutsuIndex, { range: Number(e.target.value) })}>

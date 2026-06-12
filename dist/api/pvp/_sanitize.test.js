@@ -152,3 +152,81 @@ const pick = (out) => out[0];
         node_assert_1.strict.ok(!bTags.some(t => t.name === 'Pierce'));
     });
 });
+const jutsuTags = (out, i = 0) => out[i].tags.map(t => String(t.name));
+(0, node_test_1.describe)('sanitizeJutsuList — canonicalizes alias tag names before sealing', () => {
+    (0, node_test_1.it)('rewrites every alias to its canonical name', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([{
+                id: 'aliases', ap: 60, effectPower: 36,
+                tags: [
+                    { name: 'Vamp' }, // → Siphon
+                    { name: 'Seal' }, // → Bloodline Seal
+                    { name: 'Afterburn' }, // → Ignition
+                    { name: 'Time Compression' }, // → Lag
+                    { name: 'Time Dilation' }, // → Overclock
+                ],
+            }]);
+        const names = jutsuTags(out);
+        node_assert_1.strict.deepEqual(names, ['Siphon', 'Bloodline Seal', 'Ignition', 'Lag', 'Overclock']);
+    });
+});
+(0, node_test_1.describe)('sanitizeJutsuList — strips post-damage tags that can never resolve', () => {
+    (0, node_test_1.it)('drops Wound / Siphon from a zero-damage 40-AP utility jutsu', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([{
+                id: 'utility', ap: 40, effectPower: 0,
+                tags: [{ name: 'Wound' }, { name: 'Siphon' }, { name: 'Increase Damage Taken' }],
+            }]);
+        const names = jutsuTags(out);
+        node_assert_1.strict.ok(!names.includes('Wound'), 'Wound cannot resolve with no damage → stripped');
+        node_assert_1.strict.ok(!names.includes('Siphon'), 'Siphon cannot resolve with no damage → stripped');
+        node_assert_1.strict.ok(names.includes('Increase Damage Taken'), 'status debuffs that do resolve are kept');
+    });
+    (0, node_test_1.it)('keeps Wound / Siphon on a damaging jutsu', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([{
+                id: 'dmg', ap: 60, effectPower: 36, tags: [{ name: 'Wound' }, { name: 'Siphon' }],
+            }]);
+        const names = jutsuTags(out);
+        node_assert_1.strict.ok(names.includes('Wound') && names.includes('Siphon'));
+    });
+    (0, node_test_1.it)('keeps Wound on a Pierce jutsu even at zero effect power', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([{
+                id: 'pierce', effectPower: 0, tags: [{ name: 'Pierce' }, { name: 'Wound' }],
+            }]);
+        const names = jutsuTags(out);
+        node_assert_1.strict.ok(names.includes('Wound'), 'pierce deals damage, so Wound can resolve');
+    });
+    (0, node_test_1.it)('canonicalizes Vamp before the can-resolve check (alias of Siphon)', () => {
+        const stripped = jutsuTags((0, session_js_1.sanitizeJutsuList)([{ id: 'u', ap: 40, effectPower: 0, tags: [{ name: 'Vamp' }] }]));
+        node_assert_1.strict.ok(!stripped.includes('Siphon'), 'Vamp→Siphon stripped from a zero-damage jutsu');
+    });
+});
+(0, node_test_1.describe)('sanitizeJutsuList — clamps the legacy EP-100 fixed-effect sentinel', () => {
+    const ep = (out, i = 0) => Number(out[i].effectPower);
+    (0, node_test_1.it)('clamps a 60-AP control jutsu (Stun) from EP 100 down to standard 40', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([{ id: 'stun', ap: 60, effectPower: 100, tags: [{ name: 'Stun' }] }]);
+        node_assert_1.strict.equal(ep(out), 40, 'EP-100 sentinel becomes standard 60-AP damage');
+    });
+    (0, node_test_1.it)('clamps Copy / Mirror (forced 60-AP control) the same way', () => {
+        node_assert_1.strict.equal(ep((0, session_js_1.sanitizeJutsuList)([{ id: 'c', ap: 60, effectPower: 100, tags: [{ name: 'Copy' }] }])), 40);
+        node_assert_1.strict.equal(ep((0, session_js_1.sanitizeJutsuList)([{ id: 'm', ap: 60, effectPower: 100, tags: [{ name: 'Mirror' }] }])), 40);
+    });
+    (0, node_test_1.it)('leaves a normal damage jutsu untouched (no fixed-effect tag)', () => {
+        node_assert_1.strict.equal(ep((0, session_js_1.sanitizeJutsuList)([{ id: 'nuke', ap: 60, effectPower: 50, tags: [{ name: 'Wound' }] }])), 50);
+        node_assert_1.strict.equal(ep((0, session_js_1.sanitizeJutsuList)([{ id: 'std', ap: 60, effectPower: 36, tags: [] }])), 36);
+    });
+    (0, node_test_1.it)('does not raise a low EP — only clamps the sentinel down', () => {
+        // A control tag on an already-standard jutsu keeps its EP.
+        node_assert_1.strict.equal(ep((0, session_js_1.sanitizeJutsuList)([{ id: 'ok', ap: 60, effectPower: 40, tags: [{ name: 'Stun' }] }])), 40);
+    });
+});
+(0, node_test_1.describe)('sanitizePvpItems — canonicalizes weapon tags + effect', () => {
+    (0, node_test_1.it)('rewrites weaponTags aliases and the weaponEffect to canonical names', () => {
+        const out = pick((0, session_js_1.sanitizePvpItems)([{
+                id: 'w', name: 'Cursed Blade', slot: 'hand',
+                weaponEffect: 'Afterburn',
+                weaponTags: [{ name: 'Vamp', percent: 30 }, { name: 'Seal' }],
+            }]));
+        node_assert_1.strict.equal(out.weaponEffect, 'Ignition');
+        const tags = out.weaponTags.map(t => String(t.name));
+        node_assert_1.strict.deepEqual(tags, ['Siphon', 'Bloodline Seal']);
+    });
+});
