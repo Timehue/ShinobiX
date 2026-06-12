@@ -10,6 +10,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const session_js_1 = require("./session.js");
 const _vanguard_rewards_js_1 = require("./_vanguard-rewards.js");
+const _receipts_js_1 = require("../_receipts.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const _tags_js_1 = require("./_tags.js");
 // All session writes flow through here so the combat log gets capped
@@ -1536,6 +1537,12 @@ async function handler(req, res) {
             online_store_js_1.onlineStore.clearPendingAttacker(result.p1.name);
             online_store_js_1.onlineStore.setInBattle(result.p2.name, false);
             online_store_js_1.onlineStore.clearPendingAttacker(result.p2.name);
+            // Durable battle receipt (Priority 3). Best-effort + idempotent (NX
+            // marker), derived from the already-finalized session — it never
+            // feeds back into resolution. Outlives the 15-min session TTL so a
+            // support / reward dispute can be reconstructed later. Disable with
+            // DISABLE_COMBAT_RECEIPTS=1.
+            await (0, _receipts_js_1.writeBattleReceipt)(result).catch(() => undefined);
         }
         // Cap log size — UI only renders the last ~20 entries anyway, and an
         // Final commit also threads the moveToken into the recent-tokens

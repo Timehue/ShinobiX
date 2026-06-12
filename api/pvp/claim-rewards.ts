@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
+import { patchBattleSettlement } from '../_receipts.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
@@ -219,6 +220,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : claimerSlug === loserSlug ? loserRatingOut
                         : undefined;
                     return { already, rating, base };
+                });
+                // Record the server-credited settlement on the durable battle
+                // receipt (Priority 4 visibility). Best-effort: never blocks or
+                // fails the claim. `rating.delta` is the authoritative Elo change;
+                // base ryo+XP is flagged via a note (the summary returns totals,
+                // not the per-battle gain, so we don't mislabel it as the reward).
+                await patchBattleSettlement(battleId, {
+                    ratingDelta: out.rating?.delta,
+                    note: creditBase ? 'base ryo+XP credited to winner' : undefined,
                 });
                 return res.status(200).json({
                     ok: true,

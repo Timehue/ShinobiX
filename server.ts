@@ -121,6 +121,11 @@ import injuredVillagersHandler from './api/player/injured-villagers.js';
 import weeklyBossHandler from './api/weekly-boss.js';
 // Admin moderation
 import moderationHandler from './api/admin/moderation.js';
+// Admin: durable battle-receipt lookup (support / reward-dispute debugging)
+import adminBattleReceiptsHandler from './api/admin/battle-receipts.js';
+// Admin: asset-registry report + per-domain audit-log reader (diagnostics)
+import adminAssetReportHandler from './api/admin/asset-report.js';
+import adminAuditLogHandler from './api/admin/audit-log.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual } from './api/_auth.js';
@@ -564,6 +569,13 @@ route('/weekly-boss', weeklyBossHandler);
 
 // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
 route('/admin/moderation', moderationHandler);
+
+// ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
+route('/admin/battle-receipts', adminBattleReceiptsHandler);
+
+// ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────
+route('/admin/asset-report', adminAssetReportHandler);
+route('/admin/audit-log', adminAuditLogHandler);
 
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
