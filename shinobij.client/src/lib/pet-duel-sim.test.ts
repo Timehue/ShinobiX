@@ -72,6 +72,14 @@ test("the pets actually fight — they close the gap and trade hits", () => {
     assert.ok(r.events.some((e) => e.type === "ko"), "fight should end in a KO");
 });
 
+test("the fighters keep spacing — they don't permanently pile up", () => {
+    // The engagement bubble: pets should spend real time apart at a neutral
+    // distance (circling / between exchanges), not glued together in a scrum.
+    const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), 7);
+    const apart = r.snapshots.filter((s) => Math.abs(actor(s, "enemy").x - actor(s, "player").x) + Math.abs(actor(s, "enemy").y - actor(s, "player").y) > 2.2).length;
+    assert.ok(apart > r.snapshots.length * 0.25, `pets stayed piled up (${apart}/${r.snapshots.length} frames apart)`);
+});
+
 test("a clearly stronger pet wins (1v1)", () => {
     assert.equal(runPetDuel(makePet({ id: "a", hp: 1400, attack: 220 }), makePet({ id: "b", hp: 500, attack: 60 }), 2024).result, "win");
     assert.equal(runPetDuel(makePet({ id: "a", hp: 500, attack: 60 }), makePet({ id: "b", hp: 1400, attack: 220 }), 2024).result, "loss");
