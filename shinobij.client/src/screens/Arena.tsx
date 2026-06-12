@@ -212,9 +212,11 @@ export function Arena({
         ninjutsuOffense: character.stats.ninjutsuOffense + getEquippedItemBonus(character, allItems, "ninjutsuOffense"),
         ninjutsuDefense: character.stats.ninjutsuDefense + getEquippedItemBonus(character, allItems, "ninjutsuDefense"),
     };
-    const equippedJutsus = allJutsus.filter((jutsu) =>
-        character.equippedJutsuIds.includes(jutsu.id) && canEquipElementJutsu(character, jutsu, savedBloodlines)
-    );
+    // Build the action-bar list in equippedJutsuIds (loadout) order so the slot
+    // arrangement players set in the Profile loadout carries into battle.
+    const equippedJutsus = character.equippedJutsuIds
+        .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
+        .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines));
     const combatItemSlots: EquipmentSlot[] = ["hand", "weapon", "thrown", "item"];
     const combatEquippedItems = Array.from(
         new Set(combatItemSlots.map((slot) => character.equipment[slot]).filter((id): id is string => Boolean(id)))
