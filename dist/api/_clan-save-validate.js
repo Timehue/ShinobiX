@@ -364,12 +364,16 @@ function validateClanSaveWrite(existing, incoming, ctx) {
     }
     // ── joinRequests ────────────────────────────────────────────────
     // Anyone can add a request for themselves. Removing requests is
-    // admin-role only (accept/deny flow).
+    // admin-role only (accept/deny flow). Names are canonicalized through
+    // safeName() — the same form as ctx.callerName — so a multi-word player
+    // (e.g. "Aka Ito" → "akaito") is recognized as adding their OWN request
+    // instead of being mistaken for someone else's (which would suppress the
+    // self-add and silently drop the join request).
     if (Array.isArray(incoming.joinRequests)) {
         const prevReqs = Array.isArray(prev.joinRequests) ? prev.joinRequests : [];
-        const prevNames = new Set(prevReqs.map((r) => lower(r.name)));
+        const prevNames = new Set(prevReqs.map((r) => (0, _utils_js_1.safeName)(String(r.name ?? ''))));
         const incomingReqs = incoming.joinRequests.slice(0, MAX_JOIN_REQUESTS);
-        const incomingNames = new Set(incomingReqs.map((r) => lower(r.name)));
+        const incomingNames = new Set(incomingReqs.map((r) => (0, _utils_js_1.safeName)(String(r.name ?? ''))));
         const added = [...incomingNames].filter((n) => n && !prevNames.has(n));
         const removed = [...prevNames].filter((n) => n && !incomingNames.has(n));
         const badAdds = ctx.isAdmin ? [] : added.filter((n) => n !== ctx.callerName);
