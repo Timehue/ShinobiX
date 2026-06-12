@@ -29,6 +29,7 @@ import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, get
 import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
+import { combatMissionByAiId } from "../data/combat-missions";
 import { getAllItems, getItemById } from "../lib/items";
 import { makeId } from "../lib/utils";
 import { useBoardScale } from "../lib/use-board-scale";
@@ -2019,6 +2020,32 @@ export function Arena({
             setLog(`${opponentName} defeated, but the battle never reached the server. No rewards granted — please retry the action through the PvP screen.`);
             addCombatLog(`Local-only PvP win against ${opponentName} — rewards withheld (no server session).`, "defeat", character.name);
             console.warn("[winBattle] PvP outcome decided client-side; rewards withheld. This path should be unreachable — investigate the route that landed here.");
+            return;
+        }
+
+        // Combat missions (Mission Hall → Combat) pay out on a CLAIM step, not
+        // here. Winning the fight only queues the claim on the character; the
+        // XP / ryo / territory scroll / kill-counters / daily-mission slot are
+        // all granted when the player returns to the Mission Hall and clicks
+        // "Claim Reward" (Missions.claimCombatMission). Stamina is intentionally
+        // never part of the reward. raidBattleKind === "none" excludes raids;
+        // combatMissionByAiId distinguishes a ranked combat mission from a
+        // field-mission "Battle AI" fight (which keeps its old immediate path).
+        const combatMission = missionBattleActive && raidBattleKind === "none"
+            ? combatMissionByAiId(pendingAiProfile?.id ?? "")
+            : undefined;
+        if (combatMission) {
+            const queued = (character.pendingCombatMissionClaims ?? []).includes(combatMission.key)
+                ? (character.pendingCombatMissionClaims ?? [])
+                : [...(character.pendingCombatMissionClaims ?? []), combatMission.key];
+            updateCharacter({ ...character, hp: playerHp, pendingCombatMissionClaims: queued });
+            setBattleEnded(true);
+            setBattleResult("win");
+            setRaidBattleKind("none");
+            setClanWarPointsActive(0);
+            const claimNote = `${opponentName} defeated. Return to the Mission Hall to claim your ${combatMission.name} reward.`;
+            setLog(claimNote);
+            addCombatLog(claimNote);
             return;
         }
 
