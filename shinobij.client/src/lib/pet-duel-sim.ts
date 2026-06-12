@@ -40,6 +40,22 @@ const clamp = (n: number, lo: number, hi: number) => (n < lo ? lo : n > hi ? hi 
 const ARENA_X = 10.5;
 const ARENA_Y = 5.8;
 
+// Battlefield TERRAIN — fixed obstacles the pets must path AROUND (so the fight
+// spreads across the map + the traversal reads as a journey, not a beeline to a
+// center pile). Kept clear of the spawn ends (|x|>7); the renderer draws matching
+// 3D rocks/crystals at these spots. (x,z = world; r = blocked radius.)
+export type DuelObstacle = { x: number; z: number; r: number; kind: "rock" | "crystal" };
+export const DUEL_OBSTACLES: ReadonlyArray<DuelObstacle> = [
+    { x: -3.2, z: -2.6, r: 1.35, kind: "rock" },
+    { x: -3.2, z: 2.6, r: 1.35, kind: "rock" },
+    { x: 3.2, z: -2.6, r: 1.35, kind: "rock" },
+    { x: 3.2, z: 2.6, r: 1.35, kind: "rock" },
+    { x: 0, z: -4.4, r: 1.0, kind: "crystal" },
+    { x: 0, z: 4.4, r: 1.0, kind: "crystal" },
+    { x: -6.6, z: 0, r: 1.15, kind: "rock" },
+    { x: 6.6, z: 0, r: 1.15, kind: "rock" },
+];
+
 // Stamina economy — gates dashes / dodges / attacks so the fight breathes.
 const STAM_MAX = 100;
 const STAM_REGEN = 22 / DUEL_TPS;
@@ -382,9 +398,38 @@ function moveToward(f: Fighter, tx: number, ty: number, spd: number, stopAt: num
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d <= 1e-6) return;
     f.faceX = dx / d; f.faceY = dy / d;
+    // Steer AROUND terrain: blend the goal direction with repulsion from any
+    // nearby obstacle so the pet curves past rocks/crystals instead of into them.
+    let ux = dx / d, uy = dy / d;
+    for (const o of DUEL_OBSTACLES) {
+        const ox = f.x - o.x, oy = f.y - o.z;     // fighter's depth axis is .y; obstacle's is .z
+        const od = Math.sqrt(ox * ox + oy * oy);
+        const safe = o.r + 1.2;
+        if (od < safe && od > 1e-6) {
+            const w = (safe - od) / safe;
+            // radial push-away + a TANGENTIAL nudge (steer AROUND), so a head-on
+            // approach veers past the obstacle instead of deadlocking on its face.
+            ux += (ox / od) * w * 1.3 + (-oy / od) * w * 1.1;
+            uy += (oy / od) * w * 1.3 + (ox / od) * w * 1.1;
+        }
+    }
+    const ul = Math.sqrt(ux * ux + uy * uy) || 1;
     const s = Math.min(spd, Math.max(0, d - stopAt));
     if (s <= 0) return;
-    f.x += (dx / d) * s; f.y += (dy / d) * s;
+    f.x += (ux / ul) * s; f.y += (uy / ul) * s;
+}
+
+/** Hard push a fighter out of any obstacle it has entered (terrain is solid). */
+function pushOutObstacles(f: Fighter) {
+    for (const o of DUEL_OBSTACLES) {
+        const dx = f.x - o.x, dy = f.y - o.z;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const min = o.r + 0.45;
+        if (d < min) {
+            if (d > 1e-6) { f.x = o.x + (dx / d) * min; f.y = o.z + (dy / d) * min; }
+            else { f.x = o.x + min; }
+        }
+    }
 }
 function effMoveSpeed(f: Fighter): number {
     let s = f.moveSpeed;
@@ -393,10 +438,13 @@ function effMoveSpeed(f: Fighter): number {
     return s;
 }
 
-/** Commit toward `target`, stopping `stopAt` short — with an explosive DASH when
- *  there's a real gap to close (a clear lunge, not a slow walk-up). */
+/** Commit toward `target`, stopping `stopAt` short. The long traversal across
+ *  the map is a free RUN (so the pet arrives with stamina for its abilities); a
+ *  DASH is spent only for the final ~lunge into range — an explosive close, not
+ *  a stamina-burning sprint the whole way. */
 function commitApproach(f: Fighter, target: Fighter, dist: number, inv: number, stopAt: number, canDash: boolean, t: number, events: DuelEvent[]) {
-    if (canDash && dist > stopAt + 0.7 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
+    const gap = dist - stopAt;
+    if (canDash && gap > 0.7 && gap < 4.5 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
         f.moveDx = (target.x - f.x) * inv; f.moveDy = (target.y - f.y) * inv;
         f.stamina -= COST_DASH;
         f.state = "dash"; f.stateLeft = f.dashT;
@@ -671,6 +719,7 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
         separateAll(fighters);
         for (const f of fighters) {
             if (f.hp <= 0 && f.state !== "dead") f.state = "dead";
+            pushOutObstacles(f);
             quantizeFighter(f);
         }
         snapshots.push(snap(t, fighters, projectiles));

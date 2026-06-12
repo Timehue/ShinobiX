@@ -40,7 +40,7 @@ import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
+import { runPetDuel, runPetPartyDuel, DUEL_TPS, DUEL_OBSTACLES, type DuelResult, type DuelState, type DuelActorSnap, type DuelObstacle } from "../lib/pet-duel-sim";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -1629,6 +1629,45 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
     );
 }
 
+/** A piece of 3D battlefield terrain the pets path around — a low-poly rock
+ *  cluster or a glowing crystal pillar (bloom). Positioned at a sim obstacle. */
+function DuelObstacleMesh({ o }: { o: DuelObstacle }) {
+    if (o.kind === "crystal") {
+        return (
+            <group position={[o.x, 0, o.z]}>
+                <mesh position={[0, 0.18, 0]}>
+                    <cylinderGeometry args={[o.r * 0.8, o.r * 1.05, 0.36, 6]} />
+                    <meshStandardMaterial color="#3b4252" roughness={0.9} flatShading />
+                </mesh>
+                <mesh position={[0, 1.15, 0]} rotation={[0, 0.5, 0]}>
+                    <octahedronGeometry args={[o.r * 0.78, 0]} />
+                    <meshBasicMaterial color="#7ee3ff" transparent opacity={0.95} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh position={[o.r * 0.5, 0.7, 0]} rotation={[0.3, 0, 0.4]}>
+                    <octahedronGeometry args={[o.r * 0.4, 0]} />
+                    <meshBasicMaterial color="#5ec8ff" transparent opacity={0.9} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+            </group>
+        );
+    }
+    return (
+        <group position={[o.x, 0, o.z]}>
+            <mesh position={[0, o.r * 0.32, 0]} rotation={[0.3, 0.6, 0.1]}>
+                <dodecahedronGeometry args={[o.r * 0.85, 0]} />
+                <meshStandardMaterial color="#6b7280" roughness={1} flatShading />
+            </mesh>
+            <mesh position={[o.r * 0.55, o.r * 0.2, o.r * 0.3]} rotation={[0.5, 1.2, 0.2]}>
+                <dodecahedronGeometry args={[o.r * 0.5, 0]} />
+                <meshStandardMaterial color="#565d68" roughness={1} flatShading />
+            </mesh>
+            <mesh position={[-o.r * 0.55, o.r * 0.16, -o.r * 0.25]} rotation={[0.2, 0.4, 0.6]}>
+                <dodecahedronGeometry args={[o.r * 0.45, 0]} />
+                <meshStandardMaterial color="#787f8c" roughness={1} flatShading />
+            </mesh>
+        </group>
+    );
+}
+
 export type PetColiseumDuelProps = {
     playerPet: Pet;
     enemyPet: Pet;
@@ -1693,10 +1732,13 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return (
-        <div style={{ position: "relative", width: "100%", height: "clamp(380px, 62vh, 700px)", borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
             <Canvas dpr={[1, 2]} camera={{ position: [0, 15.5, 16.5], fov: 46 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
                 <fog attach="fog" args={["#2a1c10", 42, 86]} />
                 <Arena floor={floor} backdrop={backdrop} big />
+                {DUEL_OBSTACLES.map((o, i) => (
+                    <DuelObstacleMesh key={i} o={o} />
+                ))}
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}
@@ -1725,6 +1767,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             </Canvas>
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
+                <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
