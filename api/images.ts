@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
+import { recordAudit } from './_audit.js';
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
 // rejected — keeps disk usage bounded and stops one player from filling the
@@ -393,6 +395,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // authoritative; /api/img falls back to it and self-heals on read).
             await kv.set(`shared:img:${id}`, image).catch(() => undefined);
 
+            // Asset registry (Priority 6) + content audit (Priority 8). Both are
+            // best-effort and feature-gated (DISABLE_ASSET_META) — they wrap
+            // metadata around the write above and can never fail or alter it.
+            const actor = identity.admin ? 'admin' : identity.name;
+            await writeAssetMeta({ id, category: cat, image, actor });
+            await recordAudit({
+                domain: 'content', actor, action: 'image.set',
+                entityType: 'image', entityId: id,
+                meta: { category: cat, format: imageFormat(image) },
+            });
+
             return res.status(200).end();
         } catch (err) {
             console.error('[images]', err);
@@ -430,6 +443,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.hdel(catHashKey(cat), id);
             // Phase 2: also drop the per-image key so /api/img stops serving it.
             await kv.del(`shared:img:${id}`).catch(() => undefined);
+            // Drop the registry metadata + audit the removal (best-effort).
+            const actor = identity.admin ? 'admin' : identity.name;
+            await deleteAssetMeta(id);
+            await recordAudit({
+                domain: 'content', actor, action: 'image.delete',
+                entityType: 'image', entityId: id, meta: { category: cat },
+            });
             // Also clear the legacy per-cat blob field in case the image
             // lived there (pre-hash-migration uploads).
             const blob = await kv.get<Record<string, string>>(catKey(cat));

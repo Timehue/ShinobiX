@@ -121,6 +121,11 @@ const injured_villagers_js_1 = __importDefault(require("./api/player/injured-vil
 const weekly_boss_js_1 = __importDefault(require("./api/weekly-boss.js"));
 // Admin moderation
 const moderation_js_1 = __importDefault(require("./api/admin/moderation.js"));
+// Admin: durable battle-receipt lookup (support / reward-dispute debugging)
+const battle_receipts_js_1 = __importDefault(require("./api/admin/battle-receipts.js"));
+// Admin: asset-registry report + per-domain audit-log reader (diagnostics)
+const asset_report_js_1 = __importDefault(require("./api/admin/asset-report.js"));
+const audit_log_js_1 = __importDefault(require("./api/admin/audit-log.js"));
 // Shared auth helper — constant-time compare for the restart endpoint.
 const _auth_js_1 = require("./api/_auth.js");
 // CORS origin predicate — single source of truth, shared with cors() and the
@@ -503,6 +508,11 @@ route('/player/injured-villagers', injured_villagers_js_1.default);
 route('/weekly-boss', weekly_boss_js_1.default);
 // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
 route('/admin/moderation', moderation_js_1.default);
+// ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
+route('/admin/battle-receipts', battle_receipts_js_1.default);
+// ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────
+route('/admin/asset-report', asset_report_js_1.default);
+route('/admin/audit-log', audit_log_js_1.default);
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
 // an api/** handler file is never wired in. There is no folder-convention

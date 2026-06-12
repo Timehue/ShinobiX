@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
 import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
+import { writeBattleReceipt } from '../_receipts.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import {
     TAG_ALIASES,
@@ -1377,6 +1378,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             onlineStore.clearPendingAttacker(result.p1.name);
             onlineStore.setInBattle(result.p2.name, false);
             onlineStore.clearPendingAttacker(result.p2.name);
+            // Durable battle receipt (Priority 3). Best-effort + idempotent (NX
+            // marker), derived from the already-finalized session — it never
+            // feeds back into resolution. Outlives the 15-min session TTL so a
+            // support / reward dispute can be reconstructed later. Disable with
+            // DISABLE_COMBAT_RECEIPTS=1.
+            await writeBattleReceipt(result).catch(() => undefined);
         }
         // Cap log size — UI only renders the last ~20 entries anyway, and an
         // Final commit also threads the moveToken into the recent-tokens

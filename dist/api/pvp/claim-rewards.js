@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
+const _receipts_js_1 = require("../_receipts.js");
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
 // the evidence by 23+ hours. 2 hours gives players with bad connections,
@@ -207,6 +208,15 @@ async function handler(req, res) {
                         : claimerSlug === loserSlug ? loserRatingOut
                             : undefined;
                     return { already, rating, base };
+                });
+                // Record the server-credited settlement on the durable battle
+                // receipt (Priority 4 visibility). Best-effort: never blocks or
+                // fails the claim. `rating.delta` is the authoritative Elo change;
+                // base ryo+XP is flagged via a note (the summary returns totals,
+                // not the per-battle gain, so we don't mislabel it as the reward).
+                await (0, _receipts_js_1.patchBattleSettlement)(battleId, {
+                    ratingDelta: out.rating?.delta,
+                    note: creditBase ? 'base ryo+XP credited to winner' : undefined,
                 });
                 return res.status(200).json({
                     ok: true,

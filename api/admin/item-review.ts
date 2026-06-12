@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { recordAudit } from '../_audit.js';
 
 const APPROVED_ITEMS_KEY = 'admin:approvedItems';
 
@@ -50,6 +51,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const next = Array.from(new Set([...approved, itemId]));
             await saveApprovedItems(next);
 
+            // Content audit (Priority 8) — best-effort, never blocks the response.
+            await recordAudit({
+                domain: 'content', actor: 'admin', action: `item.${action}`,
+                entityType: 'item', entityId: itemId,
+            });
             return res.status(200).json({ ok: true, approvedItems: next });
         } catch (err) {
             console.error('[admin/item-review POST]', err);

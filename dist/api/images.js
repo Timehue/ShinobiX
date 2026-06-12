@@ -10,6 +10,8 @@ exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
+const _asset_registry_js_1 = require("./_asset-registry.js");
+const _audit_js_1 = require("./_audit.js");
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
 // rejected — keeps disk usage bounded and stops one player from filling the
 // shared image bucket with megabyte uploads.
@@ -391,6 +393,16 @@ async function handler(req, res) {
             // failure here must not fail the upload (the hash write above is
             // authoritative; /api/img falls back to it and self-heals on read).
             await _storage_js_1.kv.set(`shared:img:${id}`, image).catch(() => undefined);
+            // Asset registry (Priority 6) + content audit (Priority 8). Both are
+            // best-effort and feature-gated (DISABLE_ASSET_META) — they wrap
+            // metadata around the write above and can never fail or alter it.
+            const actor = identity.admin ? 'admin' : identity.name;
+            await (0, _asset_registry_js_1.writeAssetMeta)({ id, category: cat, image, actor });
+            await (0, _audit_js_1.recordAudit)({
+                domain: 'content', actor, action: 'image.set',
+                entityType: 'image', entityId: id,
+                meta: { category: cat, format: (0, _asset_registry_js_1.imageFormat)(image) },
+            });
             return res.status(200).end();
         }
         catch (err) {
@@ -432,6 +444,13 @@ async function handler(req, res) {
             await _storage_js_1.kv.hdel(catHashKey(cat), id);
             // Phase 2: also drop the per-image key so /api/img stops serving it.
             await _storage_js_1.kv.del(`shared:img:${id}`).catch(() => undefined);
+            // Drop the registry metadata + audit the removal (best-effort).
+            const actor = identity.admin ? 'admin' : identity.name;
+            await (0, _asset_registry_js_1.deleteAssetMeta)(id);
+            await (0, _audit_js_1.recordAudit)({
+                domain: 'content', actor, action: 'image.delete',
+                entityType: 'image', entityId: id, meta: { category: cat },
+            });
             // Also clear the legacy per-cat blob field in case the image
             // lived there (pre-hash-migration uploads).
             const blob = await _storage_js_1.kv.get(catKey(cat));
