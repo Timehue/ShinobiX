@@ -19,7 +19,9 @@ import type { Character } from "../types/character";
 
 export function isArmorOrGloveItem(item: GameItem) {
     const armorSlots: EquipmentSlot[] = ["head", "body", "armor", "waist", "legs", "feet"];
-    const isGlove = item.slot === "hand" && /glove|gauntlet/i.test(item.name);
+    // Gloves ride the "hand" slot (named with glove/gauntlet) or the dedicated
+    // "gloves" slot — both are armour for sanitization purposes.
+    const isGlove = (item.slot === "hand" || item.slot === "gloves") && /glove|gauntlet/i.test(item.name);
     return Boolean(item.armorQuality) || armorSlots.includes(item.slot) || isGlove;
 }
 
