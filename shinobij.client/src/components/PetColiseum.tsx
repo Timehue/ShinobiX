@@ -1578,12 +1578,12 @@ function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNu
             const living = snap.actors.filter((a) => a.hp > 0);
             let mx = 0; for (const a of living) mx += a.x;
             mx = living.length ? mx / living.length : 0;
-            const panX = Math.max(-4, Math.min(4, mx)) * 0.55;
+            const panX = Math.max(-4, Math.min(4, mx)) * 0.5;
             if (!camBase.current) camBase.current = camera.position.clone();
             const k = 0.035;
             camBase.current.x = lerp(camBase.current.x, panX, k);
-            camBase.current.y = lerp(camBase.current.y, 15.5, k);
-            camBase.current.z = lerp(camBase.current.z, 16.5, k);
+            camBase.current.y = lerp(camBase.current.y, 18, k);
+            camBase.current.z = lerp(camBase.current.z, 13, k);
             lookCur.current.x = lerp(lookCur.current.x, panX, k);
             lookCur.current.y = lerp(lookCur.current.y, 0, k);
             lookCur.current.z = lerp(lookCur.current.z, -0.5, k);
@@ -1630,40 +1630,63 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
     );
 }
 
-/** A piece of 3D battlefield terrain the pets path around — a low-poly rock
- *  cluster or a glowing crystal pillar (bloom). Positioned at a sim obstacle. */
+/** A piece of battlefield terrain the pets path around — a grounded earthy
+ *  boulder cluster (warm rock + moss, sits ON the map) or a glowing crystal
+ *  outcrop. Positioned at a sim obstacle. */
 function DuelObstacleMesh({ o }: { o: DuelObstacle }) {
     if (o.kind === "crystal") {
         return (
             <group position={[o.x, 0, o.z]}>
-                <mesh position={[0, 0.18, 0]}>
-                    <cylinderGeometry args={[o.r * 0.8, o.r * 1.05, 0.36, 6]} />
-                    <meshStandardMaterial color="#3b4252" roughness={0.9} flatShading />
+                <mesh position={[0, 0.12, 0]} scale={[1.1, 0.7, 1.1]}>
+                    <icosahedronGeometry args={[o.r * 0.85, 0]} />
+                    <meshStandardMaterial color="#2c2640" roughness={0.85} flatShading />
                 </mesh>
-                <mesh position={[0, 1.15, 0]} rotation={[0, 0.5, 0]}>
-                    <octahedronGeometry args={[o.r * 0.78, 0]} />
-                    <meshBasicMaterial color="#7ee3ff" transparent opacity={0.95} toneMapped={false} blending={THREE.AdditiveBlending} />
+                <mesh position={[0, 0.82, 0]} rotation={[0, 0.5, 0.08]}>
+                    <octahedronGeometry args={[o.r * 0.6, 0]} />
+                    <meshBasicMaterial color="#8be0ff" transparent opacity={0.95} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
-                <mesh position={[o.r * 0.5, 0.7, 0]} rotation={[0.3, 0, 0.4]}>
-                    <octahedronGeometry args={[o.r * 0.4, 0]} />
-                    <meshBasicMaterial color="#5ec8ff" transparent opacity={0.9} toneMapped={false} blending={THREE.AdditiveBlending} />
+                <mesh position={[o.r * 0.42, 0.5, 0.1]} rotation={[0.3, 0, 0.4]}>
+                    <octahedronGeometry args={[o.r * 0.34, 0]} />
+                    <meshBasicMaterial color="#62caff" transparent opacity={0.9} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
             </group>
         );
     }
+    // Grounded boulder cluster — flattened so it SITS on the ground (not a
+    // floating sphere), warm grey-brown stone with a mossy-green cap.
     return (
         <group position={[o.x, 0, o.z]}>
-            <mesh position={[0, o.r * 0.32, 0]} rotation={[0.3, 0.6, 0.1]}>
-                <dodecahedronGeometry args={[o.r * 0.85, 0]} />
-                <meshStandardMaterial color="#6b7280" roughness={1} flatShading />
+            <mesh position={[0, o.r * 0.26, 0]} rotation={[0.1, 0.6, 0.05]} scale={[1.2, 0.66, 1.05]}>
+                <icosahedronGeometry args={[o.r * 0.9, 0]} />
+                <meshStandardMaterial color="#6f6356" roughness={1} flatShading />
             </mesh>
-            <mesh position={[o.r * 0.55, o.r * 0.2, o.r * 0.3]} rotation={[0.5, 1.2, 0.2]}>
-                <dodecahedronGeometry args={[o.r * 0.5, 0]} />
-                <meshStandardMaterial color="#565d68" roughness={1} flatShading />
+            <mesh position={[o.r * 0.62, o.r * 0.16, o.r * 0.38]} rotation={[0.4, 1.1, 0.2]} scale={[1.1, 0.6, 1]}>
+                <icosahedronGeometry args={[o.r * 0.5, 0]} />
+                <meshStandardMaterial color="#5b5147" roughness={1} flatShading />
             </mesh>
-            <mesh position={[-o.r * 0.55, o.r * 0.16, -o.r * 0.25]} rotation={[0.2, 0.4, 0.6]}>
-                <dodecahedronGeometry args={[o.r * 0.45, 0]} />
-                <meshStandardMaterial color="#787f8c" roughness={1} flatShading />
+            <mesh position={[-o.r * 0.18, o.r * 0.42, -o.r * 0.12]} rotation={[0.2, 0, 0]} scale={[1.15, 0.36, 1.05]}>
+                <icosahedronGeometry args={[o.r * 0.6, 0]} />
+                <meshStandardMaterial color="#46633c" roughness={1} flatShading />
+            </mesh>
+        </group>
+    );
+}
+
+/** Tactical BOARD arena — the flat top-down battle map floating on a dark void.
+ *  Deliberately NO coliseum wall + flat even lighting, so it reads as its own
+ *  thing and not a reskin of the cinematic coliseum. */
+function DuelArena({ floor }: { floor: THREE.Texture }) {
+    return (
+        <group>
+            <ambientLight intensity={1.15} />
+            <directionalLight position={[3, 12, 5]} intensity={0.45} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]}>
+                <circleGeometry args={[70, 48]} />
+                <meshBasicMaterial color="#070510" toneMapped={false} fog={false} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
+                <circleGeometry args={[13.5, 96]} />
+                <meshStandardMaterial map={floor} roughness={1} />
             </mesh>
         </group>
     );
@@ -1682,7 +1705,6 @@ export type PetColiseumDuelProps = {
 
 export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, sharedImages = {}, onFightAgain, onExit }: PetColiseumDuelProps) {
     const floor = useMemo(() => loadSceneTexture(BATTLEMAP_URL), []);
-    const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     const duel = useMemo(
         () => (playerReservePet || enemyReservePet)
             ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
@@ -1734,9 +1756,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
-            <Canvas dpr={[1, 2]} camera={{ position: [0, 15.5, 16.5], fov: 46 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
-                <fog attach="fog" args={["#2a1c10", 42, 86]} />
-                <Arena floor={floor} backdrop={backdrop} big />
+            <Canvas dpr={[1, 2]} camera={{ position: [0, 18, 13], fov: 44 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
+                <fog attach="fog" args={["#070510", 52, 120]} />
+                <DuelArena floor={floor} />
                 {DUEL_OBSTACLES.map((o, i) => (
                     <DuelObstacleMesh key={i} o={o} />
                 ))}
