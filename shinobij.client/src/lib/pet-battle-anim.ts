@@ -276,19 +276,33 @@ export function buildPetAnimationEvents(input: BuildPetAnimInput): PetBattleAnim
         // (the renderer dims + zooms the camera while this beat plays).
         if (signature) events.push(ev("charge", 620, { text: frame.signatureMove?.name }));
         if (ranged) {
-            events.push(ev("rangedCast", 220, { vfxKey: vk }));
-            events.push(ev("projectile", 320, { vfxKey: vk }));
+            events.push(ev("rangedCast", 200, { vfxKey: vk }));
+            events.push(ev("projectile", 280, { vfxKey: vk }));
         } else {
-            events.push(ev("windup", 170));
-            events.push(ev("lunge", 300));
+            events.push(ev("windup", 130)); // snappier anticipation
+            events.push(ev("lunge", 230));  // faster dash-in
         }
-        events.push(ev("impact", 200, { vfxKey: vk }));
-        if (typeof frame.damage === "number") {
-            events.push(ev("damageNumber", 1, {
-                amount: frame.damage,
-                text: frame.crit ? `CRIT -${frame.damage}` : `-${frame.damage}`,
-                vfxKey: vk,
-            }));
+        // ── Multi-hit FLURRY (anime exchange) ───────────────────────────────
+        // Split the engine's single damage into a rapid STRING of sub-hits
+        // (jab-jab-LAUNCHER) — presentation only, the displayed numbers sum to
+        // frame.damage exactly. Short impacts read as a flurry; the FINAL hit is
+        // the big launcher that carries the knockback + shake. Bigger attacks
+        // (crit / signature) get more hits.
+        const totalDmg = typeof frame.damage === "number" ? frame.damage : 0;
+        const baseHits = signature ? 5 : frame.crit ? 4 : ranged ? 2 : 3;
+        const hits = totalDmg > 0 ? Math.max(1, Math.min(baseHits, totalDmg)) : baseHits;
+        const per = Math.max(1, Math.floor(totalDmg / hits));
+        for (let h = 0; h < hits; h++) {
+            const last = h === hits - 1;
+            events.push(ev("impact", last ? 200 : 90, { vfxKey: vk })); // rapid jabs, big final
+            if (totalDmg > 0) {
+                const dmg = last ? totalDmg - per * (hits - 1) : per; // remainder on the launcher
+                events.push(ev("damageNumber", 1, {
+                    amount: dmg,
+                    text: frame.crit && last ? `CRIT -${dmg}` : `-${dmg}`,
+                    vfxKey: vk,
+                }));
+            }
         }
         if (frame.crit) events.push(ev("screenShake", 220, { vfxKey: vk }));
         events.push(ev("recoil", 340, { vfxKey: vk }));

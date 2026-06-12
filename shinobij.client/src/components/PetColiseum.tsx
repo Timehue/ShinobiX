@@ -669,14 +669,14 @@ function Arena({ floor, backdrop }: { floor: THREE.Texture; backdrop: THREE.Text
             <directionalLight ref={sun} position={[3, 8, 5]} intensity={0.9} />
             {/* Curved coliseum wall (inner face of a cylinder arc behind the pit).
                 Rings the big maze floor so panning/pull-back never exposes void. */}
-            <mesh position={[0, 8.0, 0]}>
-                <cylinderGeometry args={[36, 36, 30, 64, 1, true, Math.PI * 0.12, Math.PI * 1.76]} />
+            <mesh position={[0, 6.0, 0]}>
+                <cylinderGeometry args={[19, 19, 21, 48, 1, true, Math.PI * 0.2, Math.PI * 1.6]} />
                 <meshBasicMaterial map={wall} side={THREE.BackSide} toneMapped={false} fog={false} />
             </mesh>
-            {/* Generated arena floor (sized to the big maze footprint). Per-pet
-                blob shadows ground the sprites. */}
+            {/* Generated arena floor (tight anime stage). Per-pet blob shadows
+                ground the sprites. */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[29, 80]} />
+                <circleGeometry args={[14, 64]} />
                 <meshStandardMaterial map={floor} roughness={0.95} />
             </mesh>
         </group>
@@ -881,8 +881,8 @@ export function PetColiseum({
     // pet is down). The CameraRig glides toward this so the shot tracks the fight.
     const camFollow = (() => {
         const living = placed.filter((c) => !c.fainted).map((c) => c.pos);
-        // maxSpan covers the full maze width so far-apart pets aren't cropped mid-journey.
-        return cameraForCombatants(living.length ? living : placed.map((c) => c.pos), { maxSpan: 26 });
+        // Tight stage: cap the spread so the camera stays close on the clash.
+        return cameraForCombatants(living.length ? living : placed.map((c) => c.pos), { maxSpan: 14 });
     })();
 
     // ── Camera shake amplitude for this beat. ──
