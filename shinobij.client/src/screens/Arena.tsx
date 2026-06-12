@@ -607,8 +607,12 @@ export function Arena({
         // each action's AP cost and Overclock lowers it, scaled by the status's
         // percent — was a flat ±10 regardless of magnitude. Lag/Overclock are binary
         // tags (percent 0), so `|| 20` applies the standard 20% when unspecified.
-        const lag = playerStatuses.find((s) => statusMatchesName(s, "Lag"));
-        const overclock = playerStatuses.find((s) => statusMatchesName(s, "Overclock"));
+        // ACTIVE only: a just-cast (deferred) self-Overclock must not discount
+        // later actions THIS turn — it starts next round. Reading raw was an
+        // instant-effect exploit (cast Overclock, then spam cheaper actions).
+        const active = activeStatuses(playerStatuses);
+        const lag = active.find((s) => statusMatchesName(s, "Lag"));
+        const overclock = active.find((s) => statusMatchesName(s, "Overclock"));
         let adjusted = cost;
         if (lag) adjusted = Math.ceil(adjusted * (1 + (lag.percent || 20) / 100));
         if (overclock) adjusted = Math.floor(adjusted * (1 - (overclock.percent || 20) / 100));
@@ -1553,6 +1557,19 @@ export function Arena({
 
         if (enemyHp - enemyNet <= 0) return winBattle();
 
+        // Player can kill THEMSELVES via Recoil + the enemy's Reflect on their own
+        // swing — register the defeat instead of silently dropping to 0 HP.
+        if (playerHp + basicHeal - basicSelfDamage <= 0) {
+            setBattleEnded(true);
+            setBattleResult("loss");
+            setRaidBattleKind("none");
+            setLog(`${character.name} fell to recoil/reflected damage.`);
+            addCombatLog(`${character.name} is defeated by recoil/reflected damage.`, "defeat", opponentName);
+            if (rankedBattleActive) applyRankedLoss();
+            else updateCharacter({ ...character, hp: 0, hospitalized: true });
+            return;
+        }
+
         updateCharacter({ ...character, stamina: Math.max(0, character.stamina - 10) });
         setLog(`Basic Attack hit for ${finalDamage} damage.`);
     }
@@ -1772,6 +1789,18 @@ export function Arena({
         addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyAbsorbed > 0 ? ` Absorb: ${opponentName} absorbs ${wEnemyAbsorbed} damage.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${wStatusLsHeal > 0 ? ` Lifesteal restores ${wStatusLsHeal} HP.` : ""}${weaponLsHeal > 0 ? ` Gear lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
 
         if (enemyHp - wEnemyNet <= 0) return winBattle();
+
+        // Player self-KO via Recoil + enemy Reflect on their own swing.
+        if (playerHp + wHeal - wSelfDamage <= 0) {
+            setBattleEnded(true);
+            setBattleResult("loss");
+            setRaidBattleKind("none");
+            setLog(`${character.name} fell to recoil/reflected damage.`);
+            addCombatLog(`${character.name} is defeated by recoil/reflected damage.`, "defeat", opponentName);
+            if (rankedBattleActive) applyRankedLoss();
+            else updateCharacter({ ...character, hp: 0, hospitalized: true });
+            return;
+        }
 
         setLog(`${item.name} hit for ${finalDamage} damage.${effectLines.length ? " " + effectLines[0] : ""}`);
     }
@@ -2268,9 +2297,12 @@ export function Arena({
             }
 
             if (tag.name === "Heal") {
-                healing += HEAL_FLAT_PVE;
+                // Increase Heal boosts the flat Heal too (matches PvP
+                // api/pvp/move.ts:479 `HEAL_FLAT * healBoost`); was unboosted.
+                const healAmt = Math.floor(HEAL_FLAT_PVE * healMultiplier);
+                healing += healAmt;
                 damage = 0;
-                effectLines.push(`Heal: ${character.name} restores ${HEAL_FLAT_PVE} HP.`);
+                effectLines.push(`Heal: ${character.name} restores ${healAmt} HP.`);
             }
 
             if (tag.name === "Shield") {
@@ -2307,7 +2339,10 @@ export function Arena({
             }
 
             if (tag.name === "Mirror") {
-                const mirrored = currentPlayerStatuses.filter((s) => s.kind === "negative" && s.name !== "Wound" && !statusMatchesName(s, "Ignition"));
+                // Exclude DoTs (Wound/Poison/Drain) + Ignition — matches PvP Mirror
+                // (api/pvp/move.ts:514-516), which is "spread the pain" for plain
+                // debuffs, not a DoT-transfer.
+                const mirrored = currentPlayerStatuses.filter((s) => s.kind === "negative" && s.name !== "Wound" && s.name !== "Poison" && s.name !== "Drain" && !statusMatchesName(s, "Ignition"));
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists mirrored debuffs`);
                 else if (mirrored.length) {
                     setEnemyStatuses((s) => mirrored.reduce((acc, m) => mergeCombatStatus(acc, statusForJutsu(jutsu, { ...m, rounds: Math.min(2, m.rounds) })), s));
@@ -2559,6 +2594,18 @@ export function Arena({
         });
 
         if (enemyHp - castEnemyNet <= 0) return winBattle();
+
+        // Player self-KO via Recoil + enemy Reflect on their own jutsu.
+        if (playerHp + healing - recoilDamage - castEnemyReflected <= 0) {
+            setBattleEnded(true);
+            setBattleResult("loss");
+            setRaidBattleKind("none");
+            setLog(`${character.name} fell to recoil/reflected damage.`);
+            addCombatLog(`${character.name} is defeated by recoil/reflected damage.`, "defeat", opponentName);
+            if (rankedBattleActive) applyRankedLoss();
+            else updateCharacter({ ...character, hp: 0, hospitalized: true });
+            return;
+        }
 
         setLog((groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"))
             ? `${jutsu.name}: moved to hex ${targetTile}. ${groundHitEnemy ? `${castEnemyNet} damage.` : `${opponentName} was outside the blast.`} ${healing ? `Healed ${healing}.` : ""}`
@@ -2874,8 +2921,11 @@ export function Arena({
         // damage/KO expressions below read uniformly with the player path.
         const extraDamage = 0;
         const effectLines: string[] = [];
-        const playerDebuffPrevented = playerStatuses.some((s) => s.name === "Debuff Prevent");
-        const enemyBuffPrevented = enemyStatuses.some((s) => s.name === "Buff Prevent");
+        // ACTIVE only — a prevent the target gained THIS turn (deferred) must not
+        // gate effects until next round (mirrors the player-cast path's
+        // currentPlayerStatuses/currentEnemyStatuses).
+        const playerDebuffPrevented = activeStatuses(playerStatuses).some((s) => s.name === "Debuff Prevent");
+        const enemyBuffPrevented = activeStatuses(enemyStatuses).some((s) => s.name === "Buff Prevent");
         // Defer status effects to next round unless this is an INSTANT_EFFECT ground-zone jutsu.
         const deferEnemyStatus = (status: CombatStatus): CombatStatus =>
             !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
@@ -2887,8 +2937,10 @@ export function Arena({
         jutsu.tags.forEach((tag) => {
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, 50);
             if (tag.name === "Heal") {
-                healing += HEAL_FLAT_PVE;
-                effectLines.push(`${opponentName} heals ${HEAL_FLAT_PVE} HP`);
+                const enemyHealMult = multiplicativeTagMultiplier(activeStatuses(enemyStatuses).filter((s) => s.name === "Increase Heal"), "increase");
+                const healAmt = Math.floor(HEAL_FLAT_PVE * enemyHealMult);
+                healing += healAmt;
+                effectLines.push(`${opponentName} heals ${healAmt} HP`);
             }
             if (tag.name === "Shield") {
                 shield += SHIELD_FLAT_PVE;
@@ -2980,7 +3032,7 @@ export function Arena({
                 }
             }
             if (tag.name === "Stun") {
-                if (playerStatuses.some((s) => s.name === "Stun Prevent")) effectLines.push(`${character.name} resisted stun`);
+                if (activeStatuses(playerStatuses).some((s) => s.name === "Stun Prevent")) effectLines.push(`${character.name} resisted stun`);
                 else if (playerDebuffPrevented) effectLines.push(`${character.name} prevents stun`);
                 else {
                     pendingPlayerStunApPenaltyRef.current = true;
@@ -3017,7 +3069,7 @@ export function Arena({
                 }
             }
             if (tag.name === "Copy") {
-                const copied = playerStatuses.filter((s) => s.kind === "positive");
+                const copied = activeStatuses(playerStatuses).filter((s) => s.kind === "positive");
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s copy was prevented`);
                 else if (copied.length) {
                     setEnemyStatuses((s) => copied.reduce((acc, status) => mergeCombatStatus(acc, deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) })), s));
@@ -3025,7 +3077,7 @@ export function Arena({
                 } else effectLines.push("no positive effects to copy");
             }
             if (tag.name === "Mirror") {
-                const mirrored = enemyStatuses.filter((s) => s.kind === "negative" && s.name !== "Wound" && !statusMatchesName(s, "Ignition"));
+                const mirrored = activeStatuses(enemyStatuses).filter((s) => s.kind === "negative" && s.name !== "Wound" && s.name !== "Poison" && s.name !== "Drain" && !statusMatchesName(s, "Ignition"));
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents mirrored debuffs`);
                 else if (mirrored.length) {
                     setPlayerStatuses((s) => mirrored.reduce((acc, status) => mergeCombatStatus(acc, deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) })), s));
@@ -3093,12 +3145,33 @@ export function Arena({
             const lsHeal = Math.floor(cappedPostDamage(finalDamage, enemyLifesteal.percent || 30));
             if (lsHeal > 0) { healing += lsHeal; effectLines.push(`Lifesteal: ${opponentName} restores ${lsHeal} HP`); }
         }
+        // Player defensive buffs vs the enemy's JUTSU. Previously ONLY the enemy
+        // basic-attack path honored these, so a player's Absorb/Reflect did nothing
+        // against enemy jutsu (their main attack). Absorb converts a capped % of the
+        // hit into avoided damage; Reflect bounces a capped % back to the enemy.
+        // Pierce bypasses both. Mirrors the enemy basic-attack path (3357+).
+        const pAbsorbStatus = pierce ? undefined : activeStatuses(playerStatuses).find((s) => s.name === "Absorb");
+        const pStatusAbsorbed = pAbsorbStatus ? cappedPostDamage(finalDamage, pAbsorbStatus.percent || 30) : 0;
+        const pItemAbsorbed = (!pierce && equippedAbsorbPercent > 0) ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
+        const pAbsorbed = Math.min(finalDamage, pStatusAbsorbed + pItemAbsorbed);
+        const pReflectStatus = pierce ? undefined : activeStatuses(playerStatuses).find((s) => s.name === "Reflect");
+        const pStatusReflected = pReflectStatus ? Math.floor(cappedPostDamage(finalDamage, pReflectStatus.percent || 30)) : 0;
+        const pItemReflected = (!pierce && equippedReflectPercent > 0) ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
+        const pReflected = pStatusReflected + pItemReflected;
+        const playerNetTaken = Math.max(0, finalDamage - pAbsorbed + extraDamage);
+        // Enemy Recoil debuff (the player applied it): the enemy hurts itself when
+        // it attacks. Previously NEVER consumed — a player-cast Recoil on the enemy
+        // was a complete no-op. Mirrors the player's own Recoil self-damage.
+        const enemyRecoil = activeStatuses(enemyStatuses).find((s) => s.name === "Recoil");
+        const enemyRecoilDmg = (enemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, enemyRecoil.percent ?? 30)) : 0;
         setPlayerShield((s) => Math.max(0, s - blocked));
-        setPlayerHp((hp) => Math.max(0, hp - finalDamage - extraDamage));
+        setPlayerHp((hp) => Math.max(0, hp - playerNetTaken));
         setEnemyHp((hp) => Math.min(enemyMaxHp, hp + healing));
+        if (pReflected > 0) setEnemyHp((hp) => Math.max(0, hp - pReflected));
+        if (enemyRecoilDmg > 0) setEnemyHp((hp) => Math.max(0, hp - enemyRecoilDmg));
         setEnemyShield((s) => s + shield);
         setEnemyJutsuCooldowns((current) => ({ ...current, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
-        updateCharacter({ ...character, hp: Math.max(0, playerHp - finalDamage - extraDamage) });
+        updateCharacter({ ...character, hp: Math.max(0, playerHp - playerNetTaken) });
         const enemyFlavorText =
             jutsu.battleDescription?.trim() ||
             jutsu.description?.trim() ||
@@ -3106,7 +3179,10 @@ export function Arena({
 
         const enemyTimelineParts = [
             `${jutsu.name}: ${enemyFlavorText}`,
-            finalDamage + extraDamage > 0 ? `Damage Dealt: ${character.name} takes ${finalDamage + extraDamage} damage.` : "",
+            playerNetTaken > 0 ? `Damage Dealt: ${character.name} takes ${playerNetTaken} damage.` : "",
+            pAbsorbed > 0 ? `Absorb: ${character.name} absorbs ${pAbsorbed} damage.` : "",
+            pReflected > 0 ? `Reflect: ${opponentName} takes ${pReflected} reflected damage.` : "",
+            enemyRecoilDmg > 0 ? `Recoil: ${opponentName} takes ${enemyRecoilDmg} recoil damage.` : "",
             blocked > 0 ? `Shield: ${character.name}'s shield blocks ${blocked} damage.` : "",
             healing > 0 ? `Heal: ${opponentName} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${opponentName} gains ${shield} shield.` : "",
@@ -3117,12 +3193,20 @@ export function Arena({
         triggerCombatFx(jutsu, {
             selfCast: isSelfSupportJutsu(jutsu),
             focusPos: isSelfSupportJutsu(jutsu) ? enemyPos : playerPos,
-            heavy: (finalDamage + extraDamage) >= Math.max(1, character.maxHp) * 0.18,
-            isKO: playerHp - finalDamage - extraDamage <= 0,
+            heavy: playerNetTaken >= Math.max(1, character.maxHp) * 0.18,
+            isKO: playerHp - playerNetTaken <= 0,
         });
         setLog(`${opponentName} used ${jutsu.name}.`);
 
-        if (playerHp - finalDamage - extraDamage <= 0) {
+        // Player's Reflect can kill the enemy on the enemy's own turn — register
+        // the win immediately instead of waiting for the player's next action.
+        // winBattle() returns void, so set it then return true (the caller treats
+        // true as "acted"; battleEnded guards stop any further enemy action).
+        if (enemyHp + healing - pReflected - enemyRecoilDmg <= 0 && playerHp - playerNetTaken > 0) {
+            winBattle();
+            return true;
+        }
+        if (playerHp - playerNetTaken <= 0) {
             setBattleEnded(true);
             setBattleResult("loss");
             setRaidBattleKind("none");
@@ -3142,7 +3226,13 @@ export function Arena({
         // POST-tick list — same ordering as api/pvp/move.ts endTurn (ticks the
         // outgoing player, then DoTs the incoming player at turn start).
         const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses));
-        setPlayerStatuses(tickedPlayerStatuses);
+        // FUNCTIONAL set: a direct set from this stale snapshot would clobber any
+        // debuff the enemy JUST queued this turn via queueToPlayer (Poison/Drain/
+        // Ignition/Seal/Lag/Recoil) — those updates run first, then the direct set
+        // overwrote them, so they vanished. Ticking the live state preserves them.
+        // DoT damage still uses the pre-existing `tickedPlayerStatuses` above, so a
+        // just-applied (deferred) DoT correctly deals 0 damage this turn.
+        setPlayerStatuses((prev) => tickStatuses(withoutStun(prev)));
         // Player DoT tick at start of next turn (PvE↔PvP parity). The server
         // applies Wound/Poison/Drain to BOTH fighters; PvE used to apply DoTs
         // only to the enemy, so a stacked Wound on the player did nothing.
@@ -3305,14 +3395,16 @@ export function Arena({
             playerArmorFactor,
             1.0,
             weatherDamageMultiplier(enemyBasicJutsu),
-            enemyStatuses,
-            playerStatuses,
+            // ACTIVE only — every other calculateDamage call filters; this one
+            // was raw, letting a deferred amp boost the enemy's same-turn basic.
+            activeStatuses(enemyStatuses),
+            activeStatuses(playerStatuses),
         );
 
         // Bloodline Seal still nips an extra 15% off — calculateDamage already
         // folds DDG/DDT/IDT/Ignition via the soft-cap pools, so the old
         // multiplicativeTagMultiplier stack is no longer needed here.
-        if (enemyStatuses.some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal")) {
+        if (activeStatuses(enemyStatuses).some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal")) {
             enemyDamage = Math.floor(enemyDamage * 0.85);
         }
 
@@ -3356,6 +3448,18 @@ export function Arena({
                 const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLifesteal.percent || 30));
                 if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
             }
+            // Enemy Recoil debuff: enemy hurts itself when it attacks (player-applied).
+            const basicEnemyRecoil = activeStatuses(enemyStatuses).find((s) => s.name === "Recoil");
+            const basicEnemyRecoilDmg = (basicEnemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, basicEnemyRecoil.percent ?? 30)) : 0;
+            if (basicEnemyRecoilDmg > 0) {
+                setEnemyHp((hp) => Math.max(0, hp - basicEnemyRecoilDmg));
+                addCombatLog(`Recoil: ${opponentName} takes ${basicEnemyRecoilDmg} recoil damage.`, "reflect", character.name);
+            }
+            // Player Reflect/Recoil can kill the enemy on its own turn — register the
+            // win now (only if the player survives the hit).
+            if (enemyHp - statusReflected - itemReflected - basicEnemyRecoilDmg <= 0 && playerHp - finalDamage + absorbed > 0) {
+                return winBattle();
+            }
 
             updateCharacter({
                 ...character,
@@ -3386,7 +3490,13 @@ export function Arena({
         const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
         pendingPlayerStunApPenaltyRef.current = false;
         const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses));
-        setPlayerStatuses(tickedPlayerStatuses);
+        // FUNCTIONAL set: a direct set from this stale snapshot would clobber any
+        // debuff the enemy JUST queued this turn via queueToPlayer (Poison/Drain/
+        // Ignition/Seal/Lag/Recoil) — those updates run first, then the direct set
+        // overwrote them, so they vanished. Ticking the live state preserves them.
+        // DoT damage still uses the pre-existing `tickedPlayerStatuses` above, so a
+        // just-applied (deferred) DoT correctly deals 0 damage this turn.
+        setPlayerStatuses((prev) => tickStatuses(withoutStun(prev)));
         const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), tickedPlayerStatuses);
         let pDotDamage = 0;
         let pDrainChakra = 0;
