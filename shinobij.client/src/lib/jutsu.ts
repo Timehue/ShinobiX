@@ -47,6 +47,10 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         tags,
         description: jutsu.description ?? "",
         image: jutsu.image ?? "",
+        // Carry the recency stamp through normalization (this function rebuilds a
+        // fixed-shape object, so an un-listed field would be silently dropped and
+        // the shared-merge tie-break would lose its signal on every reload).
+        ...(jutsu.updatedAt != null ? { updatedAt: jutsu.updatedAt } : {}),
     };
 }
 
