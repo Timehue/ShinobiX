@@ -517,6 +517,15 @@ export function Arena({
     const [playerStatuses, setPlayerStatuses] = useState<CombatStatus[]>([]);
     const [enemyStatuses, setEnemyStatuses] = useState<CombatStatus[]>([]);
     const [barrierTiles, setBarrierTiles] = useState<{ tile: number; rounds: number }[]>([]);
+    // Persistent ground-effect zones the PLAYER drops with an INSTANT_EFFECT
+    // ground jutsu (mirrors PvP `groundEffects`). Each re-applies its debuffs to
+    // the enemy whenever the enemy stands in it, for `rounds` rounds. Only the
+    // player owns zones — the AI never casts ground jutsu. (PvP: api/pvp/move.ts
+    // groundEffects / applyGroundEffects / tickGroundEffects.)
+    type GroundZone = { id: string; tiles: number[]; rounds: number; tags: { name: string; percent?: number }[] };
+    const [groundZones, setGroundZones] = useState<GroundZone[]>([]);
+    // Tags a ground zone may carry — matches PvP groundEffectTags.
+    const GROUND_ZONE_TAGS = new Set(["Decrease Damage Given", "Recoil", "Poison"]);
 
     const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
     const [jutsuCooldowns, setJutsuCooldowns] = useState<Record<string, number>>({});
@@ -2480,6 +2489,21 @@ export function Arena({
             }
         });
 
+        // Drop a persistent ground zone for INSTANT_EFFECT ground jutsu carrying a
+        // zone tag (Decrease Damage Given / Recoil / Poison). The tags above already
+        // applied once on cast (the "instant" hit); the zone re-applies them to the
+        // enemy each turn it stands here, for 2 rounds (mirrors PvP groundEffects).
+        if (groundTargeted && jutsu.method === "INSTANT_EFFECT") {
+            const zoneTags = jutsu.tags
+                .map((t) => ({ name: normalizeTagName(t.name), percent: t.percent }))
+                .filter((t) => GROUND_ZONE_TAGS.has(t.name));
+            if (zoneTags.length) {
+                const tiles = [targetTile, ...hexNeighbors(targetTile)];
+                setGroundZones((z) => [...z, { id: `gz-${jutsu.id}-${turn}-${z.length}`, tiles, rounds: 2, tags: zoneTags }]);
+                effectLines.push(`${jutsu.name} leaves a lingering zone for 2 rounds.`);
+            }
+        }
+
         // IDG/IDT/Ignition/DDG/DDT are now folded into calculateDamage via
         // the soft-cap pools (mirrors server). Pierce is also handled inside
         // calculateDamage (returns true damage capped at 900). The `pierce`
@@ -2653,7 +2677,7 @@ export function Arena({
         let dot = 0;
         for (const s of playerStatuses) {
             if (s.name === "Wound")  dot += s.amount || 0;
-            if (s.name === "Drain")  dot += s.amount ?? 250;
+            if (s.name === "Drain")  dot += s.amount ?? 50;
             if (s.name === "Poison") dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
         }
         return dot;
@@ -3243,7 +3267,7 @@ export function Arena({
         tickedPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
             if (s.name === "Wound") pDotDamage += Math.floor((s.amount || 0) * playerDotMit);
             if (s.name === "Drain") {
-                const amt = Math.floor((s.amount ?? 250) * playerDotMit);
+                const amt = Math.floor((s.amount ?? 50) * playerDotMit);
                 pDotDamage += amt;
                 pDrainChakra += amt;
             }
@@ -3304,6 +3328,30 @@ export function Arena({
             addCombatLog(`Lag: ${opponentName}'s actions cost 10 more AP this turn.`, "lag", opponentName);
         }
 
+        // Ground zones: the player's lingering patches re-apply their debuffs to
+        // the enemy while it stands in one (mirrors PvP applyGroundEffects). The
+        // zone's own Poison status then ticks through the normal enemy DoT below.
+        // Functional setEnemyStatuses so we don't clobber other same-turn changes.
+        const enemyZoneHits = groundZones.filter((z) => z.tiles.includes(enemyPos));
+        if (enemyZoneHits.length && !activeStatuses(enemyStatuses).some((s) => s.name === "Debuff Prevent")) {
+            const zoneStatuses: CombatStatus[] = [];
+            const zoneNotes: string[] = [];
+            for (const z of enemyZoneHits) {
+                for (const tag of z.tags) {
+                    const pct = tag.percent ?? (tag.name === "Poison" ? 6 : 30);
+                    if (tag.name === "Decrease Damage Given") { zoneStatuses.push({ name: "Decrease Damage Given", rounds: 2, percent: pct, kind: "negative" }); zoneNotes.push(`−${pct}% damage`); }
+                    else if (tag.name === "Recoil") { zoneStatuses.push({ name: "Recoil", rounds: 2, percent: pct, kind: "negative" }); zoneNotes.push("recoil"); }
+                    else if (tag.name === "Poison") { zoneStatuses.push({ name: "Poison", rounds: 2, percent: pct, kind: "negative" }); zoneNotes.push("poison"); }
+                }
+            }
+            if (zoneStatuses.length) {
+                setEnemyStatuses((s) => zoneStatuses.reduce((acc, st) => mergeCombatStatus(acc, st), s));
+                addCombatLog(`${opponentName} is caught in a ground zone (${[...new Set(zoneNotes)].join(", ")}).`, "effects", character.name);
+            }
+        }
+        // Tick the player's zones down once per round (the enemy's turn marks a round).
+        if (groundZones.length) setGroundZones((zones) => zones.map((z) => ({ ...z, rounds: z.rounds - 1 })).filter((z) => z.rounds > 0));
+
         // DoT DR mitigation (PvE↔PvP parity, mirrors api/pvp/move.ts applyDoTs):
         // ticks scale by (1 - effDR × DR_DOT_SCALE) using the defender's own
         // armor + Decrease Damage Taken stacks. Without this PvE DoTs landed
@@ -3318,7 +3366,7 @@ export function Arena({
                 // Match PvP: Drain hits HP + chakra only (never stamina). Jutsu drain
                 // carries a mastery-scaled `amount`; weapon-proc drain (no amount)
                 // keeps its prior 250 magnitude via the fallback.
-                const amt = Math.floor((s.amount ?? 250) * enemyDotMit);
+                const amt = Math.floor((s.amount ?? 50) * enemyDotMit);
                 dotDamage += amt;
                 drainChakra += amt;
             }
@@ -3503,7 +3551,7 @@ export function Arena({
         tickedPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
             if (s.name === "Wound") pDotDamage += Math.floor((s.amount || 0) * playerDotMit);
             if (s.name === "Drain") {
-                const amt = Math.floor((s.amount ?? 250) * playerDotMit);
+                const amt = Math.floor((s.amount ?? 50) * playerDotMit);
                 pDotDamage += amt;
                 pDrainChakra += amt;
             }
@@ -3555,6 +3603,7 @@ export function Arena({
         setPlayerStatuses([]);
         setEnemyStatuses([]);
         setBarrierTiles([]);
+        setGroundZones([]);
         setCooldowns({});
         setJutsuCooldowns({});
         setBattleEnded(false);
@@ -3976,7 +4025,7 @@ export function Arena({
                 ap={ap} enemyAp={enemyAp}
                 turn={turn} activeActor={activeActor} actionsThisTurn={actionsThisTurn}
                 playerStatuses={playerStatuses} enemyStatuses={enemyStatuses}
-                barrierTiles={barrierTiles}
+                barrierTiles={barrierTiles} groundZones={groundZones}
                 cooldowns={cooldowns} jutsuCooldowns={jutsuCooldowns} enemyJutsuCooldowns={enemyJutsuCooldowns}
                 playerShield={playerShield} enemyShield={enemyShield}
                 playerPos={playerPos} enemyPos={enemyPos}
@@ -3996,6 +4045,7 @@ export function Arena({
                     setPlayerStatuses(saved.playerStatuses as CombatStatus[]);
                     setEnemyStatuses(saved.enemyStatuses as CombatStatus[]);
                     setBarrierTiles(saved.barrierTiles);
+                    setGroundZones((saved.groundZones ?? []) as GroundZone[]);
                     setCooldowns(saved.cooldowns);
                     setJutsuCooldowns(saved.jutsuCooldowns);
                     setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
@@ -4240,6 +4290,7 @@ export function Arena({
                                     const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
 
                                     const isBarrierTile = barrierTiles.some((b) => b.tile === i);
+                                    const isGroundZoneTile = groundZones.some((z) => z.tiles.includes(i));
                                     const canDashHere =
                                         dashMode &&
                                         distance(playerPos, i) <= 3 &&
@@ -4288,7 +4339,7 @@ export function Arena({
                                                 } ${canDashHere ? "dash-target-tile" : ""
                                                 } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
                                                 } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
-                                                } ${(isGroundAffectedTile || isMoveAoeAffectedTile) ? "ground-affected-tile" : ""
+                                                } ${(isGroundAffectedTile || isMoveAoeAffectedTile || isGroundZoneTile) ? "ground-affected-tile" : ""
                                                 } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
                                                 } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
                                                 } ${isGroundTargetTile ? "ground-target-tile" : ""
