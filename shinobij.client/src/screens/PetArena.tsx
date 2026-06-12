@@ -804,10 +804,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 return next;
                             });
                         }}
-                        title="EXPERIMENTAL preview of the new continuous real-time combat engine. Visual only — the battle outcome + rewards are unchanged. Not used for ranked."
+                        title="EXPERIMENTAL Tactical pet battle mode — small units traverse a big battle map and clash with abilities. Visual preview only: the battle outcome + rewards are unchanged, and it's not used for ranked."
                         style={{ background: useDuel ? "#a855f7" : undefined }}
                     >
-                        {useDuel ? "⚡ Live combat: ON (beta)" : "⚡ Live combat: OFF"}
+                        {useDuel ? "🗺️ Tactical battle: ON (beta)" : "🗺️ Tactical battle: OFF"}
                     </button>
                 )}
             </div>
