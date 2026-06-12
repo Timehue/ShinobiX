@@ -1662,14 +1662,14 @@ function DuelProp({ url, x, z, s }: { url: string; x: number; z: number; s: numb
 // Placement of the depth props — kept clear of the lanes (z≈±3.4) so they frame
 // the board + add depth without hiding the fight.
 const DUEL_PROPS: Array<{ kind: string; x: number; z: number; s: number }> = [
-    { kind: "tree", x: -12, z: -6.6, s: 4.0 }, { kind: "tree", x: 12, z: -6.6, s: 4.0 },
-    { kind: "tree", x: -12, z: 6.6, s: 4.0 }, { kind: "tree", x: 12, z: 6.6, s: 4.0 },
-    { kind: "tree", x: -0.3, z: -7.4, s: 4.5 }, { kind: "tree", x: 0.3, z: 7.4, s: 4.5 },
-    { kind: "tree", x: -6.5, z: -7.0, s: 3.6 }, { kind: "tree", x: 6.5, z: 7.0, s: 3.6 },
-    { kind: "rocks", x: -6.8, z: 0, s: 2.6 }, { kind: "rocks", x: 6.8, z: 0, s: 2.6 },
-    { kind: "rocks", x: -2.7, z: 0.1, s: 2.1 }, { kind: "rocks", x: 2.7, z: -0.1, s: 2.1 },
-    { kind: "lantern", x: -9.2, z: -6.2, s: 1.3 }, { kind: "lantern", x: 9.2, z: -6.2, s: 1.3 },
-    { kind: "lantern", x: -9.2, z: 6.2, s: 1.3 }, { kind: "lantern", x: 9.2, z: 6.2, s: 1.3 },
+    // standing rock props ON the four collision clusters → the obstacles visibly
+    // rise off the map (depth) and read as the rocks the pets path around.
+    { kind: "rocks", x: -6.5, z: -4.8, s: 3.4 }, { kind: "rocks", x: 6.3, z: -4.8, s: 3.4 },
+    { kind: "rocks", x: -6.8, z: 4.6, s: 3.4 }, { kind: "rocks", x: 6.0, z: 4.4, s: 3.4 },
+    // cherry trees framing the corners/edges (match the painted canopies, add depth)
+    { kind: "tree", x: -14, z: -7.5, s: 4.2 }, { kind: "tree", x: 14, z: -7.5, s: 4.2 },
+    { kind: "tree", x: -14, z: 7.5, s: 4.2 }, { kind: "tree", x: 14, z: 7.5, s: 4.2 },
+    { kind: "tree", x: -0.3, z: -8.4, s: 4.6 }, { kind: "tree", x: 0.3, z: 8.4, s: 4.6 },
 ];
 
 /** Tactical BOARD arena — the flat top-down battle map floating on a dark void.
