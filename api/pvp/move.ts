@@ -318,11 +318,14 @@ function groundEffectTags(tags: JutsuTag[]): JutsuTag[] {
         .map(tag => ({ ...tag, name: normalizeTagName(tag.name) }))
         .filter(tag => allowed.has(tag.name));
 }
-function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect): { fighter: PvpFighter; lines: string[] } {
+function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect, round: number): { fighter: PvpFighter; lines: string[] } {
     let next = { ...fighter };
     const lines: string[] = [];
     if (!effect.tiles.includes(fighter.pos)) return { fighter: next, lines };
-    if (hasStatus(next, 'Debuff Prevent')) {
+    // Round-aware: a Debuff Prevent the target cast THIS turn (deferred) must not
+    // block the ground effect a round early. (hasStatus defaults to +Infinity,
+    // which would treat a not-yet-active Prevent as live — pass the real round.)
+    if (hasStatus(next, 'Debuff Prevent', round)) {
         lines.push(`${next.name}'s Debuff Prevent blocks ${effect.name}.`);
         return { fighter: next, lines };
     }
@@ -344,18 +347,18 @@ function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect
     }
     return { fighter: next, lines };
 }
-function applyGroundEffects(session: PvpSession): { session: PvpSession; lines: string[] } {
+function applyGroundEffects(session: PvpSession, round: number): { session: PvpSession; lines: string[] } {
     let p1 = session.p1;
     let p2 = session.p2;
     const lines: string[] = [];
     for (const effect of session.groundEffects ?? []) {
         const targetRole = effect.owner === 'p1' ? 'p2' : 'p1';
         if (targetRole === 'p1') {
-            const applied = applyGroundEffectToFighter(p1, effect);
+            const applied = applyGroundEffectToFighter(p1, effect, round);
             p1 = applied.fighter;
             lines.push(...applied.lines);
         } else {
-            const applied = applyGroundEffectToFighter(p2, effect);
+            const applied = applyGroundEffectToFighter(p2, effect, round);
             p2 = applied.fighter;
             lines.push(...applied.lines);
         }
@@ -728,7 +731,7 @@ function endTurn(session: PvpSession): PvpSession {
 
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
-    const groundApplied = applyGroundEffects(s);
+    const groundApplied = applyGroundEffects(s, newRound);
     s = groundApplied.session;
     nextFighter = next === 'p1' ? s.p1 : s.p2;
     lines.push(...groundApplied.lines);
@@ -1140,7 +1143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         };
                         const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
-                        const instantGround = applyGroundEffectToFighter(opp, groundEffect);
+                        const instantGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
                         lines.push(...instantGround.lines);
                         result = commit(paidSelf, instantGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
                         break;
