@@ -17,14 +17,14 @@ import type { PetVisualState } from "../types/pet-battle";
 // The sim's arena grid (MUST mirror constants/pet-arena.ts; duplicated as plain
 // numbers so this stays a zero-dependency pure module). Big maze grid → the
 // following camera (cameraForCombatants) keeps the pets readable as they cross it.
-export const COLISEUM_COLS = 28;
-export const COLISEUM_ROWS = 15;
+export const COLISEUM_COLS = 14;
+export const COLISEUM_ROWS = 7;
 
-// World footprint (in three.js units) the grid maps onto. Scaled with the maze
-// grid so a tile stays ≈0.9×1.0 units (walks/obstacles read as real movement);
-// the follow-cam pulls back to frame whatever spread the pets have.
-const ARENA_HALF_W = 12.0; // x extent (left ↔ right)
-const ARENA_HALF_D = 7.0;  // z extent (depth: back rows far, front rows near)
+// World footprint (in three.js units) the grid maps onto. Tight anime stage —
+// wide+shallow so the two pets face off close across the pit at the angled cam;
+// the follow-cam stays IN the action (the maze pull-back is gone).
+const ARENA_HALF_W = 7.0; // x extent (left ↔ right)
+const ARENA_HALF_D = 4.0; // z extent (depth: back rows far, front rows near)
 
 /** One grid tile's world footprint — used to size obstacle blocks + floor decals
  *  so they line up with the tiles pets path through. */
@@ -178,11 +178,11 @@ export function lerp(a: number, b: number, t: number): number {
 // shows the field, and when they close to fight it punches in. The renderer
 // eases toward this each frame (CameraRig). Pure — tuned so a full-width spread
 // reproduces the established wide framing, so it never regresses the look.
-// Tuned for the maze footprint: a full-width spread (~16) pulls the camera well
-// back to fit both ends; as pets converge to fight it punches in.
-const CAM_FOLLOW_BACK_BASE = 8;
-const CAM_FOLLOW_BACK_PER_SPAN = 0.85;
-const CAM_FOLLOW_HEIGHT_BASE = 3.6;
+// Tuned for the tight anime stage: the camera sits CLOSE (pets big) and punches
+// in further as they clash. Smaller pull-back than the maze build.
+const CAM_FOLLOW_BACK_BASE = 7;
+const CAM_FOLLOW_BACK_PER_SPAN = 0.55;
+const CAM_FOLLOW_HEIGHT_BASE = 3.4;
 const CAM_FOLLOW_HEIGHT_PER_BACK = 0.16;
 const CAM_FOLLOW_LOOK_Y = 1.65;
 const CAM_FOLLOW_LOOK_Z_OFFSET = -2.6; // look slightly past the pets (keeps the backdrop up-frame)
