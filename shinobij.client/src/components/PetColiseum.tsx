@@ -227,7 +227,7 @@ const TARGET_SPRITE_H = 2.6;
 
 // ── One grounded pet standee — Y-locked billboard, feet on the floor ─────────
 function Standee({
-    pet, side, pos, reach, toward, pose, hitPower, fainted, hp, maxHp, texture, bounds, aspect,
+    pet, side, pos, reach, toward, pose, hitPower, beatKey, fainted, hp, maxHp, texture, bounds, aspect,
 }: {
     pet: Pet;
     side: "player" | "enemy";
@@ -243,6 +243,9 @@ function Standee({
     /** This beat's damage as a fraction of THIS pet's maxHp (0 unless it's the
      *  one being hit) — scales the recoil knockback so big hits hit harder. */
     hitPower: number;
+    /** The active beat index — changes every sub-hit so a reactive pose
+     *  (recoil/hit) re-jolts on each hit of a multi-hit flurry. */
+    beatKey: number;
     fainted: boolean;
     /** Live HP for the overhead nameplate bar (per-slot in 2v2). */
     hp: number;
@@ -261,6 +264,7 @@ function Standee({
     const sclX = useRef(1), sclY = useRef(1), rotZ = useRef(0);
     const prevHurt = useRef(0);
     const prevPose = useRef<PetVisualState | null>(null); // beat-clock: stamps on pose change
+    const prevBeat = useRef(-1);                           // …and per-beat for flurry re-jolts
     const poseStart = useRef(0);
     const base = pos;
     const mirrored = side === "enemy";
@@ -274,12 +278,15 @@ function Standee({
         const g = group.current, pg = poseG.current, material = mat.current;
         if (!g || !pg || !material) return;
         const t = state.clock.elapsedTime;
-        // Beat clock: when the pose changes, stamp the start so the choreography
-        // (anticipation → leap → contact → recover) plays from progress 0. Two
-        // beats can share a pose (impact then recoil both = "recoil"); keying on
-        // the pose VALUE keeps it one continuous reaction, never a double-jolt.
+        // Beat clock: stamp the start so the choreography plays from progress 0.
+        // Re-stamp on pose change AND — for reactive poses (recoil/hit) — on each
+        // new beat, so every sub-hit of a multi-hit flurry re-jolts the target
+        // (a fresh flinch per jab) instead of one held knockback.
         const activePose: PetVisualState = fainted ? "ko" : pose;
-        if (prevPose.current !== activePose) { prevPose.current = activePose; poseStart.current = t; }
+        const reactive = activePose === "recoil" || activePose === "hit";
+        if (prevPose.current !== activePose || (reactive && prevBeat.current !== beatKey)) {
+            prevPose.current = activePose; prevBeat.current = beatKey; poseStart.current = t;
+        }
         const choreoS = beatChoreoMs(activePose) / 1000;
         const progress = reduce ? 1 : choreoS <= 0.002 ? 1 : Math.min(1, (t - poseStart.current) / choreoS);
         const target = beatTimeline(activePose, toward, reach, progress, { power: hitPower });
@@ -290,9 +297,14 @@ function Standee({
             : activePose === "lunge" ? 0.5
             : activePose === "windup" || activePose === "charge" || activePose === "rangedCast" || activePose === "projectileFire" || activePose === "dodge" ? 0.35
             : 0.2;
+        // Idle aggression: a waiting pet holds a coiled fighting stance — leans
+        // toward the foe + a slow weight-shift sway — so it never just stands.
+        const idling = activePose === "idle" && !fainted;
+        const facing = toward >= 0 ? 1 : -1;
+        const stanceX = idling ? facing * 0.18 + Math.sin(t * 3.1 + (side === "enemy" ? Math.PI : 0)) * 0.06 : 0;
         // Lane position + pose offset (NO y-bob — grounding stays planted; idle
-        // life comes from the squash breathe below, which pivots at the feet).
-        g.position.x = lerp(g.position.x, base.x + target.dx, k);
+        // life comes from the stance sway + the energetic breathe-bob below).
+        g.position.x = lerp(g.position.x, base.x + target.dx + stanceX, k);
         g.position.y = lerp(g.position.y, FLOOR_Y + target.dy, k);
         g.position.z = lerp(g.position.z, base.z + target.dz, k);
         // Squash/stretch + topple, eased on stored bases so the breathe can
@@ -300,7 +312,11 @@ function Standee({
         sclX.current = lerp(sclX.current, target.sx, k);
         sclY.current = lerp(sclY.current, target.sy, k);
         rotZ.current = lerp(rotZ.current, target.rot, k);
-        const breathe = (pose === "idle" || pose === "victory") && !fainted ? 1 + Math.sin(t * 2 + (side === "enemy" ? Math.PI : 0)) * 0.022 : 1;
+        // Energetic stance-bob for an idling pet (a coiled bounce); a calm breathe
+        // for victory. Math.abs(sin) gives a punchy double-rate bounce.
+        const phase = side === "enemy" ? Math.PI : 0;
+        const breathe = idling ? 1 + Math.abs(Math.sin(t * 5.2 + phase)) * 0.05 - 0.02
+            : (pose === "victory" && !fainted ? 1 + Math.sin(t * 2 + phase) * 0.022 : 1);
         pg.scale.set(sclX.current, sclY.current * breathe, 1);
         pg.rotation.z = rotZ.current;
         // Hit feedback: white flash overlay (snap on the hit edge, fast decay)
@@ -994,7 +1010,7 @@ export function PetColiseum({
                         : 0;
                     return (
                         <Standee key={c.pet.id} pet={c.pet} side={c.side} pos={c.pos} reach={c.reach} toward={c.toward}
-                            pose={pose} hitPower={hitPower} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp}
+                            pose={pose} hitPower={hitPower} beatKey={animIdx} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp}
                             texture={c.sprite.texture} bounds={c.sprite.bounds} aspect={c.sprite.aspect} />
                     );
                 })}
