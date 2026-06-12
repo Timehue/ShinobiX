@@ -68,6 +68,13 @@ const COLISEUM_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.me
 // Designed top-down battle MAP (MOBA-style) used as the floor for the live-duel
 // renderer — the "change the arena to a map" direction.
 const BATTLEMAP_URL = new URL("../assets/coliseum/battlemap.webp", import.meta.url).href;
+// Standing terrain PROPS (billboards) that give the flat tactical board DEPTH —
+// cherry trees, rock walls + lanterns rise off the floor (HD-2D parallax).
+const PROP_URLS: Record<string, string> = {
+    tree: new URL("../assets/coliseum/prop-cherry-tree.webp", import.meta.url).href,
+    rocks: new URL("../assets/coliseum/prop-rocks.webp", import.meta.url).href,
+    lantern: new URL("../assets/coliseum/prop-lantern.webp", import.meta.url).href,
+};
 const MAZE_WALL_URL = new URL("../assets/coliseum/maze-wall.webp", import.meta.url).href;
 
 // Stone maze-wall texture (one shared, RepeatWrapping so it tiles up tall walls).
@@ -1437,15 +1444,15 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             shadowMat.current.opacity = 0.42 * (a0.state === "dead" ? 0.4 : 1);
             shadow.current.scale.set(shadowW, shadowW * 0.5, 1);
         }
-        // Element aura — a glowing energy pool under the pet that intensifies
-        // when it acts (the "elemental pet" identity; blooms via post-processing).
+        // Element aura — a SMALL glow at the feet that brightens when the pet
+        // acts (a subtle elemental tell, not a big bubble).
         if (aura.current && auraMat.current) {
             aura.current.position.x = x; aura.current.position.z = z;
             const active = a0.state === "windup" || a0.state === "strike" || a0.state === "dash";
-            const pulse = 0.34 + Math.abs(Math.sin(clock.current.t * 0.5)) * 0.18;
-            const target = a0.state === "dead" ? 0 : active ? 0.85 : pulse;
+            const pulse = 0.14 + Math.abs(Math.sin(clock.current.t * 0.5)) * 0.08;
+            const target = a0.state === "dead" ? 0 : active ? 0.42 : pulse;
             auraMat.current.opacity = lerp(auraMat.current.opacity, target, 0.18);
-            const s = (active ? 2.3 : 1.7) * shadowW;
+            const s = (active ? 1.15 : 0.95) * shadowW;
             aura.current.scale.set(s, s, 1);
         }
     });
@@ -1637,6 +1644,36 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
     );
 }
 
+/** A standing terrain prop (cherry tree / rock wall / lantern) — a billboard
+ *  that rises off the floor so the flat board reads with DEPTH. */
+function DuelProp({ url, x, z, s }: { url: string; x: number; z: number; s: number }) {
+    const tex = useMemo(() => {
+        const t = new THREE.TextureLoader().load(url);
+        t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+        return t;
+    }, [url]);
+    return (
+        <Billboard position={[x, s * 0.45, z]} lockX lockZ>
+            <mesh>
+                <planeGeometry args={[s, s]} />
+                <meshBasicMaterial map={tex} transparent alphaTest={0.06} depthWrite={false} toneMapped={false} />
+            </mesh>
+        </Billboard>
+    );
+}
+
+// Placement of the depth props — kept clear of the lanes (z≈±3.4) so they frame
+// the board + add depth without hiding the fight.
+const DUEL_PROPS: Array<{ kind: string; x: number; z: number; s: number }> = [
+    { kind: "tree", x: -8.6, z: -5.0, s: 3.6 }, { kind: "tree", x: 8.6, z: -5.0, s: 3.6 },
+    { kind: "tree", x: -8.6, z: 5.0, s: 3.6 }, { kind: "tree", x: 8.6, z: 5.0, s: 3.6 },
+    { kind: "tree", x: -0.3, z: -5.7, s: 4.0 }, { kind: "tree", x: 0.3, z: 5.7, s: 4.0 },
+    { kind: "rocks", x: -4.6, z: 0, s: 2.5 }, { kind: "rocks", x: 4.6, z: 0, s: 2.5 },
+    { kind: "rocks", x: -1.9, z: 0.1, s: 2.0 }, { kind: "rocks", x: 1.9, z: -0.1, s: 2.0 },
+    { kind: "lantern", x: -6.7, z: -4.7, s: 1.15 }, { kind: "lantern", x: 6.7, z: -4.7, s: 1.15 },
+    { kind: "lantern", x: -6.7, z: 4.7, s: 1.15 }, { kind: "lantern", x: 6.7, z: 4.7, s: 1.15 },
+];
+
 /** Tactical BOARD arena — the flat top-down battle map floating on a dark void.
  *  Deliberately NO coliseum wall + flat even lighting, so it reads as its own
  *  thing and not a reskin of the cinematic coliseum. */
@@ -1725,6 +1762,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             <Canvas dpr={[1, 2]} camera={{ position: [0, 18, 13], fov: 44 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
                 <fog attach="fog" args={["#070510", 52, 120]} />
                 <DuelArena floor={floor} />
+                {DUEL_PROPS.map((p, i) => (
+                    <DuelProp key={i} url={PROP_URLS[p.kind]} x={p.x} z={p.z} s={p.s} />
+                ))}
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}
