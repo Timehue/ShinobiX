@@ -228,6 +228,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             <label>Special Element</label><input value={specialElement} onChange={(e) => setBloodlineSpecialElement(e.target.value)} placeholder="Example: Crystal, Lava, Storm, Shadow Flame" />
             <label>Offense Choice</label>
             <select value={bloodlineOffense} onChange={(e) => setBloodlineOffenseChoice(e.target.value as JutsuType)}>{specialties.map((s) => <option key={s}>{s}</option>)}</select>
+            <small className="tag-effect-help">Applies to 60 AP damage jutsu. 40 AP utility jutsu are element-only (Any) — their buffs/debuffs affect all offenses.</small>
             <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 100); }} />
             <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={async (image) => setBloodlineImage(await compressDataUrl(image, 512, 0.82))} />
             {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
@@ -243,9 +244,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <label>Name</label><input value={jutsu.name} onChange={(e) => updateJutsu(jutsuIndex, { name: e.target.value })} />
                     <label>Battle Description</label><textarea rows={2} value={jutsu.battleDescription} onChange={(e) => updateJutsu(jutsuIndex, { battleDescription: e.target.value, description: e.target.value })} />
                     <label>Jutsu Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
-                    <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
+                    <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${jutsu.ap === 40 ? "Any" : bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
                     {jutsu.image && <div className="admin-jutsu-preview"><img src={jutsu.image} alt={jutsu.name} /></div>}
-                    <div className="summary-box bloodline-element-lock">Offense: {bloodlineOffense}</div>
+                    <div className="summary-box bloodline-element-lock">Offense: {jutsu.ap === 40 ? "Any — element-only utility" : bloodlineOffense}</div>
                     <div className="summary-box bloodline-element-lock">Element: {specialElement.trim() || "Type a special element above"}</div>
                     <label>Target / Method</label>
                     <div className="inline-grid">
