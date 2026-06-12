@@ -39,6 +39,7 @@ import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
+import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -1311,3 +1312,293 @@ export function PetColiseum({
 }
 
 const resultBtn: React.CSSProperties = { padding: "8px 14px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 8, cursor: "pointer", font: "700 13px Inter, system-ui, sans-serif" };
+const duelBtn: React.CSSProperties = { padding: "5px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", font: "700 12px Inter, system-ui, sans-serif" };
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PetColiseumDuel — Phase C of the combat redesign (docs/pet-combat-redesign-plan.md).
+// Renders the new CONTINUOUS duel engine (pet-duel-sim.ts) as a fluid fight: it
+// runs runPetDuel / runPetPartyDuel, then plays the per-tick snapshot stream,
+// INTERPOLATING between ticks for smooth motion at any framerate. PREVIEW ONLY
+// (behind the petDuel.v1 flag) — the real battle outcome + rewards still come
+// from the shipped round engine, so this has no gameplay/ranked impact.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// duel sim state → the visual pose the flipbook/choreography uses.
+const DUEL_STATE_POSE: Record<DuelState, PetVisualState> = {
+    idle: "idle", dash: "lunge", windup: "windup", strike: "lunge",
+    recover: "idle", stagger: "recoil", dodge: "dodge", dead: "ko",
+};
+type DuelClock = { t: number; playing: boolean };
+const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors.find((a) => a.id === id);
+
+/** One fighter, driven by the interpolated tick stream (not beat choreography).
+ *  Reuses the pose flipbook + grounding + afterimage from the round renderer. */
+function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
+    duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>;
+}) {
+    const sprite = usePetSprite(pet, sharedImages, mirror);
+    const poses = usePetPoses(pet.id, mirror);
+    const group = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const flashMat = useRef<THREE.MeshBasicMaterial>(null);
+    const shadow = useRef<THREE.Mesh>(null);
+    const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const hpFill = useRef<HTMLDivElement>(null);
+    const nameWrap = useRef<HTMLDivElement>(null);
+    const [poseCat, setPoseCat] = useState<PoseCat>("idle");
+    const prevHp = useRef(Infinity);
+    const flash = useRef(0);
+    const lastX = useRef(0);
+    const trail = useRef<Array<[number, number, number]>>([]);
+    const fastRef = useRef(0);
+    const ghostColor = useMemo(() => elementColor(pet.element).glow, [pet.element]);
+
+    const useTex = poses ? poses.tex[poseCat] : sprite.texture;
+    const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
+    const useAspect = poses ? poses.scan[poseCat].aspect : sprite.aspect;
+    const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, TARGET_SPRITE_H, mirror), [useBounds, useAspect, mirror]);
+    const shadowW = Math.max(0.9, L.contentWorldW * 0.95);
+    const side = mirror ? "enemy" : "player";
+
+    useFrame(() => {
+        const g = group.current, m = mat.current;
+        if (!g || !m) return;
+        const snaps = duel.snapshots;
+        const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
+        const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
+        const a0 = findActor(snaps[i0], id);
+        if (!a0) return;
+        const a1 = findActor(snaps[i1], id) ?? a0;
+        const x = lerp(a0.x, a1.x, f), z = lerp(a0.y, a1.y, f);
+        g.position.set(x, FLOOR_Y, z);
+
+        // Pose swap (a re-render — only fires when the category actually changes).
+        const cat = poseCategory(DUEL_STATE_POSE[a0.state]);
+        if (cat !== poseCat) setPoseCat(cat);
+
+        // Hit flash on HP drop; hurt tint while staggered; fade out when down.
+        if (a0.hp < prevHp.current - 0.5) flash.current = 1;
+        prevHp.current = a0.hp;
+        flash.current *= 0.86;
+        if (flashMat.current) flashMat.current.opacity = flash.current < 0.02 ? 0 : flash.current * 0.9;
+        const hurt = a0.state === "stagger" ? 0.5 : 0;
+        m.color.g = lerp(m.color.g, 1 - 0.3 * hurt, 0.4);
+        m.color.b = lerp(m.color.b, 1 - 0.3 * hurt, 0.4);
+        m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.3, 0.1) : 1;
+
+        // HP bar + dead dim via DOM refs (no React re-render).
+        if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100))}%`;
+        if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
+
+        // Afterimage trail (dash speed-streak).
+        const speed = Math.abs(x - lastX.current); lastX.current = x;
+        const buf = trail.current; buf.unshift([x, FLOOR_Y, z]); if (buf.length > GHOSTS * 2 + 1) buf.length = GHOSTS * 2 + 1;
+        fastRef.current = Math.max(0, Math.min(1, (speed - 0.02) / 0.12));
+
+        if (shadow.current && shadowMat.current) {
+            shadow.current.position.x = x; shadow.current.position.z = z;
+            shadowMat.current.opacity = 0.42 * (a0.state === "dead" ? 0.4 : 1);
+            shadow.current.scale.set(shadowW, shadowW * 0.5, 1);
+        }
+    });
+
+    return (
+        <group>
+            <group ref={group}>
+                <Billboard lockX lockZ>
+                    <mesh position={[L.meshX, L.meshY, 0]}>
+                        <planeGeometry args={[L.planeW, L.planeH]} />
+                        <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
+                        <mesh position={[0, 0, 0.01]}>
+                            <planeGeometry args={[L.planeW, L.planeH]} />
+                            <meshBasicMaterial ref={flashMat} map={useTex} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                        </mesh>
+                    </mesh>
+                </Billboard>
+                <Html position={[0, L.contentWorldH + 0.35, 0]} center distanceFactor={9} pointerEvents="none" zIndexRange={[6, 0]}>
+                    <div ref={nameWrap} style={{ textAlign: "center", font: "700 13px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
+                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 3 }}>Lv.{pet.level} {pet.name}</div>
+                        <div style={{ width: 96, height: 8, margin: "0 auto", background: "#0b1020", borderRadius: 5, border: "1px solid #000", overflow: "hidden" }}>
+                            <div ref={hpFill} style={{ width: "100%", height: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
+                        </div>
+                    </div>
+                </Html>
+            </group>
+            <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.42} depthWrite={false} toneMapped={false} />
+            </mesh>
+            {Array.from({ length: GHOSTS }).map((_, i) => (
+                <Afterimage key={i} index={i} trail={trail} fastRef={fastRef} tex={useTex} color={ghostColor} L={L} fainted={false} />
+            ))}
+        </group>
+    );
+}
+
+/** One in-flight projectile billboard (its own ref → no array ref-callbacks). */
+function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResult; clock: { current: DuelClock } }) {
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    useFrame(() => {
+        const m = mesh.current, mm = mat.current;
+        if (!m || !mm) return;
+        const snaps = duel.snapshots;
+        const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
+        const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
+        const pr = snaps[i0].projectiles[index];
+        if (!pr) { m.visible = false; return; }
+        const nxt = snaps[i1].projectiles.find((q) => q.id === pr.id);
+        m.visible = true;
+        m.position.set(nxt ? lerp(pr.x, nxt.x, f) : pr.x, FX_Y, nxt ? lerp(pr.y, nxt.y, f) : pr.y);
+        mm.color.set(elementColor(pr.element).glow);
+    });
+    return (
+        <mesh ref={mesh} visible={false}>
+            <sphereGeometry args={[0.26, 12, 12]} />
+            <meshBasicMaterial ref={mat} transparent opacity={0.92} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+        </mesh>
+    );
+}
+
+/** Playback driver: advances the shared clock, glides the camera to follow the
+ *  living fighters, spawns damage/heal numbers as the clock crosses events, and
+ *  fires onEnd once. Owns the camera directly (useThree) so no target ref is
+ *  read during render. */
+function DuelDirector({ duel, clock, advanceClock, controlCamera, onEnd, spawnNumber }: {
+    duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; controlCamera: boolean;
+    onEnd: () => void; spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
+}) {
+    const { camera } = useThree();
+    const lastTick = useRef(-1);
+    const ended = useRef(false);
+    const camBase = useRef<THREE.Vector3 | null>(null);
+    const lookCur = useRef(new THREE.Vector3(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]));
+    useFrame((state, delta) => {
+        const snaps = duel.snapshots;
+        const maxT = snaps.length - 1;
+        advanceClock(maxT, delta);   // the parent owns + mutates the clock ref
+        const cur = Math.floor(clock.current.t);
+        if (cur > lastTick.current) {
+            for (const e of duel.events) {
+                if (e.t <= lastTick.current || e.t > cur) continue;
+                if ((e.type === "hit" || e.type === "heal") && e.dmg && e.targetId) {
+                    const a = findActor(snaps[Math.min(maxT, e.t)], e.targetId);
+                    if (a) spawnNumber({ x: a.x, z: a.y, text: e.type === "heal" ? `+${e.dmg}` : `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: e.type === "heal" });
+                }
+            }
+            lastTick.current = cur;
+        }
+        if (controlCamera) {
+            const snap = snaps[Math.min(maxT, cur)];
+            const living = snap.actors.filter((a) => a.hp > 0).map((a) => ({ x: a.x, z: a.y }));
+            const cam = cameraForCombatants(living.length ? living : snap.actors.map((a) => ({ x: a.x, z: a.y })), { maxSpan: 14 });
+            if (!camBase.current) camBase.current = camera.position.clone();
+            const k = 0.05;
+            camBase.current.x = lerp(camBase.current.x, cam.pos[0], k);
+            camBase.current.y = lerp(camBase.current.y, cam.pos[1], k);
+            camBase.current.z = lerp(camBase.current.z, cam.pos[2], k);
+            lookCur.current.x = lerp(lookCur.current.x, cam.look[0], k);
+            lookCur.current.y = lerp(lookCur.current.y, cam.look[1], k);
+            lookCur.current.z = lerp(lookCur.current.z, cam.look[2], k);
+            const t = state.clock.elapsedTime;
+            camera.position.set(camBase.current.x + Math.sin(t * 0.45) * 0.12, camBase.current.y + Math.sin(t * 0.3) * 0.05, camBase.current.z);
+            camera.lookAt(lookCur.current.x, lookCur.current.y, lookCur.current.z);
+        }
+        if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
+    });
+    return null;
+}
+
+export type PetColiseumDuelProps = {
+    playerPet: Pet;
+    enemyPet: Pet;
+    playerReservePet?: Pet;
+    enemyReservePet?: Pet;
+    seed: number;
+    sharedImages?: Record<string, string>;
+    onFightAgain: () => void;
+    onExit: () => void;
+};
+
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, sharedImages = {}, onFightAgain, onExit }: PetColiseumDuelProps) {
+    const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
+    const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
+    const duel = useMemo(
+        () => (playerReservePet || enemyReservePet)
+            ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
+            : runPetDuel(playerPet, enemyPet, seed),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
+    );
+    const roster = useMemo(() => {
+        const r: Array<{ id: string; pet: Pet; mirror: boolean }> = [{ id: "player-0", pet: playerPet, mirror: false }];
+        if (playerReservePet) r.push({ id: "player-1", pet: playerReservePet, mirror: false });
+        r.push({ id: "enemy-0", pet: enemyPet, mirror: true });
+        if (enemyReservePet) r.push({ id: "enemy-1", pet: enemyReservePet, mirror: true });
+        return r;
+    }, [playerPet, enemyPet, playerReservePet, enemyReservePet]);
+
+    const clock = useRef<DuelClock>({ t: 0, playing: true });
+    const seqRef = useRef(0);
+    const [runId, setRunId] = useState(0);
+    const [ended, setEnded] = useState(false);
+    const [paused, setPaused] = useState(false);
+    const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
+    const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
+
+    const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
+        const id = seqRef.current++;
+        setNumbers((p) => [...p, { id, text: n.text, pos: [n.x, FX_Y + 0.6, n.z], crit: n.crit, heal: n.heal }]);
+        window.setTimeout(() => setNumbers((p) => p.filter((x) => x.id !== id)), 850);
+    };
+    const advanceClock = (maxT: number, delta: number) => {
+        if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
+    };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setRunId((r) => r + 1); };
+    const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
+    const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
+
+    return (
+        <div style={{ position: "relative", width: "100%", height: "clamp(380px, 62vh, 700px)", borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+            <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+                <fog attach="fog" args={["#2a1c10", 26, 54]} />
+                <ResponsiveCamera />
+                <Arena floor={floor} backdrop={backdrop} />
+                {roster.map((r) => (
+                    <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
+                ))}
+                {Array.from({ length: 8 }).map((_, i) => (
+                    <DuelProjectile key={i} index={i} duel={duel} clock={clock} />
+                ))}
+                {numbers.map((l) => (
+                    <Html key={l.id} position={l.pos} center distanceFactor={9} pointerEvents="none" zIndexRange={[20, 0]}>
+                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
+                    </Html>
+                ))}
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} controlCamera={!orbit} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} />
+                {orbit && <OrbitControls target={CAM_LOOK} />}
+            </Canvas>
+
+            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
+                <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
+                <button onClick={replay} style={duelBtn}>⟲ Replay</button>
+            </div>
+            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>⚡ Live combat (beta)</div>
+
+            {ended && (
+                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
+                    <div style={{ textAlign: "center" }}>
+                        <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{resultLabel}</div>
+                        <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>continuous-duel preview</div>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
+                            <button onClick={replay} style={resultBtn}>⟲ Replay</button>
+                            <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>
+                            <button onClick={onExit} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>continuous-duel preview · ?orbit=1 to rotate</div>
+        </div>
+    );
+}

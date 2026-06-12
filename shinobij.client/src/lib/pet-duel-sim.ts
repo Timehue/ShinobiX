@@ -116,7 +116,7 @@ function statusTicks(ab: Ability, rounds?: number): number {
 }
 
 // ── Fighter ──────────────────────────────────────────────────────────────────
-type DuelState = "idle" | "dash" | "windup" | "strike" | "recover" | "stagger" | "dodge" | "dead";
+export type DuelState = "idle" | "dash" | "windup" | "strike" | "recover" | "stagger" | "dodge" | "dead";
 
 interface Statuses {
     burnLeft: number; burnDmg: number; halfHeal: boolean;
