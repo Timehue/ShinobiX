@@ -1325,7 +1325,12 @@ async function handler(req, res) {
                         return finish(await rejectWithLog(`${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`));
                     }
                 }
-                lines.push(`${me.name} uses ${jutsu.name}:`);
+                // Append the jutsu's flavor line (from the catalog) after the cast
+                // header so PvP players see the same battle-log flavor as PvE.
+                // Purely cosmetic — no effect on damage/AP/targeting/cooldowns.
+                const castFlavor = (typeof jutsu.battleDescription === 'string' ? jutsu.battleDescription.trim() : '')
+                    .replace(/%user/g, me.name).replace(/%target/g, opp.name);
+                lines.push(`${me.name} uses ${jutsu.name}:${castFlavor ? ' ' + castFlavor : ''}`);
                 const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown } : undefined;
                 const jutsuMethod = normalizeJutsuMethod(jutsu.method);
