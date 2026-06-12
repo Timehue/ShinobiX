@@ -1362,7 +1362,7 @@ export function Arena({
             const mastery = getJutsuMastery(character, pendingTargetJutsu.id);
             const scaled = scaleJutsuCostsForCharacter(pendingTargetJutsu, mastery.level, character);
 
-            if (playerStatuses.some((s) => s.name === "Elemental Seal") && pendingTargetJutsu.element && pendingTargetJutsu.element !== "None") {
+            if (activeStatuses(playerStatuses).some((s) => s.name === "Elemental Seal") && pendingTargetJutsu.element && pendingTargetJutsu.element !== "None") {
                 setLog(`${pendingTargetJutsu.element} jutsu is sealed.`);
                 return;
             }
@@ -2160,7 +2160,7 @@ export function Arena({
         const mastery = getJutsuMastery(character, jutsu.id);
         const scaled = scaleJutsuCostsForCharacter(jutsu, mastery.level, character);
 
-        if (playerStatuses.some((s) => s.name === "Elemental Seal") && jutsu.element && jutsu.element !== "None") {
+        if (activeStatuses(playerStatuses).some((s) => s.name === "Elemental Seal") && jutsu.element && jutsu.element !== "None") {
             return setLog(`${jutsu.element} jutsu is sealed.`);
         }
 
