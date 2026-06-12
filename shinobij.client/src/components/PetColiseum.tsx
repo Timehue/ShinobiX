@@ -42,6 +42,7 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
+import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -223,20 +224,16 @@ function usePetSprite(pet: Pet, sharedImages: Record<string, string>, mirror = f
 // real strike). Pilot: 2 pets; everyone else falls back to the single sprite.
 type PoseCat = "idle" | "attack" | "hurt" | "cast";
 const POSE_CATS: PoseCat[] = ["idle", "attack", "hurt", "cast"];
-const POSE_URLS: Record<string, Record<PoseCat, string>> = {
-    "mythic-0": {
-        idle: new URL("../assets/coliseum/pet-poses/kitsune-idle.webp", import.meta.url).href,
-        attack: new URL("../assets/coliseum/pet-poses/kitsune-attack.webp", import.meta.url).href,
-        hurt: new URL("../assets/coliseum/pet-poses/kitsune-hurt.webp", import.meta.url).href,
-        cast: new URL("../assets/coliseum/pet-poses/kitsune-cast.webp", import.meta.url).href,
-    },
-    "mythic-4": {
-        idle: new URL("../assets/coliseum/pet-poses/onihound-idle.webp", import.meta.url).href,
-        attack: new URL("../assets/coliseum/pet-poses/onihound-attack.webp", import.meta.url).href,
-        hurt: new URL("../assets/coliseum/pet-poses/onihound-hurt.webp", import.meta.url).href,
-        cast: new URL("../assets/coliseum/pet-poses/onihound-cast.webp", import.meta.url).href,
-    },
-};
+// Poses are served as STATIC files (public/pet-poses/) and loaded on demand per
+// fighting pet — the manifest says which of the 148 pets have a generated set.
+const poseUrl = (id: string, cat: PoseCat) => `/pet-poses/${id}-${cat}.webp`;
+/** The posed-asset id for a pet (its own id, or the stripped base id), or null
+ *  if no pose set was generated for it. */
+function posedId(petId: string): string | null {
+    if (POSED_PET_IDS.has(petId)) return petId;
+    const base = petStripVariant(petId);
+    return POSED_PET_IDS.has(base) ? base : null;
+}
 /** The pose-frame category for a visual state. */
 function poseCategory(s: PetVisualState): PoseCat {
     switch (s) {
@@ -247,32 +244,31 @@ function poseCategory(s: PetVisualState): PoseCat {
     }
 }
 type PoseSet = { tex: Record<PoseCat, THREE.Texture>; scan: Record<PoseCat, SpriteScan> };
-/** Load a pet's 4 pose textures + alpha bounds (mirror-aware), or null when the
- *  pet has no generated pose set. Hooks run unconditionally (rules-of-hooks). */
+/** Load a pet's 4 pose textures + alpha bounds (mirror-aware) from the static
+ *  pose store, or null when the pet has no generated set (→ single-sprite
+ *  fallback). Hooks run unconditionally (rules-of-hooks). */
 function usePetPoses(petId: string, mirror: boolean): PoseSet | null {
-    const urls = POSE_URLS[petId] ?? POSE_URLS[petStripVariant(petId)];
+    const id = posedId(petId);
     const tex = useMemo(() => {
-        if (!urls) return null;
+        if (!id) return null;
         const out = {} as Record<PoseCat, THREE.Texture>;
         for (const c of POSE_CATS) {
-            const t = new THREE.TextureLoader().load(urls[c]);
+            const t = new THREE.TextureLoader().load(poseUrl(id, c));
             t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
             if (mirror) { t.wrapS = THREE.RepeatWrapping; t.repeat.x = -1; t.offset.x = 1; }
             out[c] = t;
         }
         return out;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [petId, mirror]);
+    }, [id, mirror]);
     const [scan, setScan] = useState<Record<PoseCat, SpriteScan> | null>(null);
     useEffect(() => {
-        if (!urls) return;
+        if (!id) return;
         let live = true;
-        Promise.all(POSE_CATS.map((c) => loadSpriteBounds(urls[c]).then((s) => [c, s] as const)))
+        Promise.all(POSE_CATS.map((c) => loadSpriteBounds(poseUrl(id, c)).then((s) => [c, s] as const)))
             .then((entries) => { if (live) setScan(Object.fromEntries(entries) as Record<PoseCat, SpriteScan>); });
         return () => { live = false; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [petId]);
-    if (!tex) return null;
+    }, [id]);
+    if (!id || !tex) return null;
     const sc = scan ?? (Object.fromEntries(POSE_CATS.map((c) => [c, { bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }])) as Record<PoseCat, SpriteScan>);
     return { tex, scan: sc };
 }
