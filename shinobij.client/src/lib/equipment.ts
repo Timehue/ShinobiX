@@ -12,14 +12,21 @@
  * Extracted from App.tsx.
  */
 
-import type { EquipmentSlot, ArmorQuality } from "../types/combat";
+import type { EquipmentSlot, ArmorQuality, GameItem } from "../types/combat";
 
 // Canonical equipment slots + their human-readable labels. Aliases like
 // "weapon" / "armor" / "accessory" are normalised by normalizeEquipmentSlot
 // below before any lookup against this list.
+//
+// "hand" holds the weapon; "gloves" is a SEPARATE hand so a weapon and
+// gloves/gauntlets can be worn together (the two slots used to collide on
+// "hand", with whichever was equipped last evicting the other). Gloves are
+// detected/routed by equipSlotForItem below — a glove ITEM keeps its existing
+// slot ("hand" + a glove/gauntlet name) so older saved gloves still register.
 export const itemSectionOptions: ReadonlyArray<{ value: EquipmentSlot; label: string }> = [
     { value: "aura", label: "Aura" },
     { value: "hand", label: "Hand" },
+    { value: "gloves", label: "Gloves" },
     { value: "body", label: "Body" },
     { value: "waist", label: "Waist" },
     { value: "legs", label: "Legs" },
@@ -28,6 +35,24 @@ export const itemSectionOptions: ReadonlyArray<{ value: EquipmentSlot; label: st
     { value: "item", label: "Item" },
     { value: "thrown", label: "Thrown" },
 ];
+
+// A hand-slot item whose name marks it as gloves/gauntlets (rather than a
+// weapon). Matches the same /glove|gauntlet/i test isArmorOrGloveItem uses, so
+// existing named gloves (forged onto the "hand" slot) are recognised with no
+// data migration. An item authored directly on the "gloves" slot also counts.
+export function isGloveItem(item: Pick<GameItem, "slot" | "name">): boolean {
+    const normalized = normalizeEquipmentSlot(item.slot);
+    if (normalized === "gloves") return true;
+    return normalized === "hand" && /glove|gauntlet/i.test(item.name);
+}
+
+// The equipment-map KEY an item occupies. Gloves split off the weapon hand
+// onto the dedicated "gloves" slot; everything else uses its normalised slot.
+// Use this (not normalizeEquipmentSlot) anywhere an item is being equipped,
+// matched against a slot, or labelled by its destination slot.
+export function equipSlotForItem(item: Pick<GameItem, "slot" | "name">): EquipmentSlot {
+    return isGloveItem(item) ? "gloves" : normalizeEquipmentSlot(item.slot);
+}
 
 // Map legacy slot aliases onto the canonical 9 slot values. The save format
 // has carried some "weapon"/"armor"/"accessory" entries from an older

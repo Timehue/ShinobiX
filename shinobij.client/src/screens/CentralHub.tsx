@@ -11,7 +11,7 @@ import { craftDungeonEvents } from "../data/vn-events";
 import { elementIcon, getCharacterElements, rollAwakeningElements, rollNewAwakeningElement, uniqueElements } from "../lib/elements";
 import { getAllItems } from "../lib/items";
 import { makeId } from "../lib/utils";
-import { readImageFile } from "../lib/shared-images";
+import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
 import { tagMatchesName } from "../lib/tags";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
@@ -216,6 +216,14 @@ export function CentralHub({
             auraStones: as_,
             mythicSeals: ms,
         });
+        // Persist the forged item's image to the shared store. Saves strip inline
+        // base64 images, so without this publish the picture would vanish on the
+        // next reload — it re-hydrates from shared:img:item:<id>.
+        if (item.image) {
+            void publishSharedImage('item:' + id, item.image).then((ok) => {
+                if (!ok) alert(`Heads up — ${item.name} was forged, but its image couldn't be saved to the server, so it may not stick after a reload.`);
+            });
+        }
         setNamedWeaponRoll(null);
         setNamedWeaponName("Unnamed Blade");
         setNamedWeaponImage("");
@@ -346,6 +354,13 @@ export function CentralHub({
             auraStones: as_,
             mythicSeals: ms,
         });
+        // Persist the forged image to the shared store (saves strip inline base64,
+        // so it re-hydrates from shared:img:item:<id> on reload).
+        if (item.image) {
+            void publishSharedImage('item:' + id, item.image).then((ok) => {
+                if (!ok) alert(`Heads up — ${finalName} was forged, but its image couldn't be saved to the server, so it may not stick after a reload.`);
+            });
+        }
         setNamedArmorRoll(null);
         setNamedArmorName("Unnamed Vestige");
         setNamedArmorImage("");

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId } from './images.js';
+import { isUnsafeImageUrlHost, isValidImageString, avatarImageReject, base64DecodedByteLength, categoryFromId, ownershipReject } from './images.js';
 
 // Pure validation logic for the shared-image upload endpoint (audit #23). No KV,
 // no network — covers the internal-host / SSRF guard and the data-URL allowlist.
@@ -108,6 +108,39 @@ describe('avatarImageReject (avatar hardening, #15)', () => {
         const big = 'data:image/png;base64,' + 'A'.repeat(3_000_000);
         const r = avatarImageReject(big);
         assert.ok(r && /2 MB/i.test(r), r ?? 'expected size rejection');
+    });
+});
+
+describe('ownershipReject — player-forged named-item image carve-out', () => {
+    const player = { admin: false as const, name: 'rill' };
+    const admin = { admin: true as const };
+
+    it('lets a non-admin player image their own forged named weapon/armor', () => {
+        assert.equal(ownershipReject('item:named-weapon-abc123', player), null);
+        assert.equal(ownershipReject('item:named-armor-xyz789', player), null);
+    });
+
+    it('still blocks non-admins from writing generic catalog item images', () => {
+        const r = ownershipReject('item:wooden-katana', player);
+        assert.ok(r && r.status === 403, 'expected 403 for catalog item');
+    });
+
+    it('still blocks other admin-only prefixes for non-admins', () => {
+        for (const id of ['jutsu:fireball', 'card:tile-1', 'event:boss', 'bloodline:x']) {
+            const r = ownershipReject(id, player);
+            assert.ok(r && r.status === 403, `expected 403 for ${id}`);
+        }
+    });
+
+    it('does not treat a lookalike named- prefix on another category as an item', () => {
+        // The carve-out is scoped to the 'item' prefix only.
+        const r = ownershipReject('jutsu:named-weapon-spoof', player);
+        assert.ok(r && r.status === 403, 'expected 403 — carve-out is item-only');
+    });
+
+    it('admins may write anything', () => {
+        assert.equal(ownershipReject('item:wooden-katana', admin), null);
+        assert.equal(ownershipReject('jutsu:fireball', admin), null);
     });
 });
 

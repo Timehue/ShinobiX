@@ -59,7 +59,7 @@ export type Jutsu = {
 };
 
 export type EquipmentSlot =
-    | "aura" | "hand" | "body" | "waist" | "legs" | "feet" | "head"
+    | "aura" | "hand" | "gloves" | "body" | "waist" | "legs" | "feet" | "head"
     | "item" | "thrown" | "weapon" | "armor" | "accessory";
 
 export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary" | "Mythic";
