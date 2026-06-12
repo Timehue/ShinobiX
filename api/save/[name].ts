@@ -923,14 +923,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const incomingBody = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
                             const bodyFounder = safeName(String(incomingBody?.founderName ?? ''));
                             const allowCreate = !existingClan && bodyFounder && bodyFounder === identity.name;
-                            if (!allowCreate) {
+
+                            // Non-member self-join-request carve-out. A player
+                            // who isn't in this clan must still be able to send a
+                            // join REQUEST — otherwise "Request Join" is
+                            // impossible, since the only way the client records a
+                            // request is by appending to the clan's shared
+                            // joinRequests array (this very POST). The per-field
+                            // validator (validateClanSaveWrite) already permits a
+                            // non-member to add ONLY their own joinRequests entry
+                            // and suppresses every other field, but it never ran
+                            // because this membership gate rejected the write
+                            // first. Allow the write through only when it's a
+                            // bona-fide self-join-request: the clan already
+                            // exists, the caller appears in the incoming
+                            // joinRequests, and the caller is NOT in the incoming
+                            // members — so this path can't be abused to self-add
+                            // to the roster (which the validator's "self add"
+                            // rule would otherwise let through, bypassing the
+                            // leader/elder approval flow).
+                            const matchesCaller = (entry: unknown) =>
+                                safeName(String((entry as Record<string, unknown> | null)?.name ?? '')) === identity.name;
+                            const callerInRequests = Array.isArray(incomingBody?.joinRequests)
+                                && (incomingBody.joinRequests as unknown[]).some(matchesCaller);
+                            const callerInMembers = Array.isArray(incomingBody?.members)
+                                && (incomingBody.members as unknown[]).some(matchesCaller);
+                            const allowJoinRequest = !!existingClan && callerInRequests && !callerInMembers;
+
+                            if (!allowCreate && !allowJoinRequest) {
                                 return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
                             }
-                            // Per-player rate limit on first-time clan creation
-                            // to stop name-squatting / spam after a server
-                            // reset. 3 new clans per hour is plenty for
-                            // legitimate "I created the wrong name" recovery.
-                            if (!(await enforceRateLimitKv(req, res, 'clan-create', 3, 60 * 60_000, identity.name))) return;
+                            if (allowCreate) {
+                                // Per-player rate limit on first-time clan creation
+                                // to stop name-squatting / spam after a server
+                                // reset. 3 new clans per hour is plenty for
+                                // legitimate "I created the wrong name" recovery.
+                                if (!(await enforceRateLimitKv(req, res, 'clan-create', 3, 60 * 60_000, identity.name))) return;
+                            } else {
+                                // Per-player rate limit on join requests so a
+                                // non-member can't spam every clan's shared
+                                // record. 20/hour is far above any legitimate
+                                // join-request cadence.
+                                if (!(await enforceRateLimitKv(req, res, 'clan-join-request', 20, 60 * 60_000, identity.name))) return;
+                            }
                         }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify clan membership.' });
