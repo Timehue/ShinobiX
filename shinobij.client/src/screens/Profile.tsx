@@ -186,6 +186,19 @@ export function Profile({
         });
     }
 
+    // Nudge an equipped jutsu one slot left (-1) or right (+1) in the loadout
+    // order. The order persists in equippedJutsuIds and drives the combat
+    // action-bar order, so this lets players arrange their slots.
+    function moveEquippedJutsu(id: string, dir: -1 | 1) {
+        const ids = [...character.equippedJutsuIds];
+        const from = ids.indexOf(id);
+        if (from < 0) return;
+        const to = from + dir;
+        if (to < 0 || to >= ids.length) return;
+        [ids[from], ids[to]] = [ids[to], ids[from]];
+        updateCharacter({ ...character, equippedJutsuIds: ids });
+    }
+
     const statGroups: Array<{ title: string; description: string; stats: Array<keyof Stats> }> = [
         {
             title: "General",
@@ -459,7 +472,12 @@ export function Profile({
                     if (learnedJutsus.length === 0) {
                         return <p className="hint">{learnedAnyJutsus.length ? "Your learned jutsu are locked behind elements you do not currently have." : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>;
                     }
-                    const equippedJutsus = learnedJutsus.filter((j) => character.equippedJutsuIds.includes(j.id));
+                    // Order by equippedJutsuIds (the saved loadout order) — not allJutsus
+                    // order — so the reorder arrows visibly move slots and the grid mirrors
+                    // the in-battle action-bar order.
+                    const equippedJutsus = character.equippedJutsuIds
+                        .map((id) => learnedJutsus.find((j) => j.id === id))
+                        .filter((j): j is Jutsu => Boolean(j));
                     const availableJutsus = learnedJutsus.filter((j) => !character.equippedJutsuIds.includes(j.id));
                     const jutsuDetails = (jutsu: Jutsu) => {
                         const mastery = getJutsuMastery(character, jutsu.id);
@@ -483,6 +501,7 @@ export function Profile({
                                         label="Equipped Jutsu"
                                         renderDetails={jutsuDetails}
                                         renderActions={(jutsu) => <button className="danger-button" onClick={() => toggleJutsu(jutsu.id)}>Unequip</button>}
+                                        onReorder={moveEquippedJutsu}
                                     />
                                 </>
                             )}

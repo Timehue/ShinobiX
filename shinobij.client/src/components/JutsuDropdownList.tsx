@@ -20,6 +20,7 @@ export function JutsuDropdownList({
     renderDetails,
     renderActions,
     onSelectJutsu,
+    onReorder,
 }: {
     jutsus: Jutsu[];
     label: string;
@@ -27,17 +28,31 @@ export function JutsuDropdownList({
     renderDetails: (jutsu: Jutsu) => ReactNode;
     renderActions?: (jutsu: Jutsu) => ReactNode;
     onSelectJutsu?: (jutsu: Jutsu) => void;
+    // When provided, the list is treated as a manually-ordered loadout: the
+    // incoming `jutsus` order is preserved (no auto-sort), the Sort control is
+    // hidden, and ◀/▶ buttons appear so the selected jutsu can be nudged a slot
+    // at a time. `dir` is -1 (left) or +1 (right); the parent owns the order.
+    onReorder?: (jutsuId: string, dir: -1 | 1) => void;
 }) {
     const [nameFilter, setNameFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState<"All" | JutsuType>("All");
     const [elementFilter, setElementFilter] = useState<"All" | JutsuElement>("All");
     const [effectFilter, setEffectFilter] = useState("All");
     const [sortBy, setSortBy] = useState<JutsuSort>("name");
-    const sortedJutsus = getJutsuSelectOptions(jutsus, typeFilter, elementFilter, sortBy)
+    const reorderable = typeof onReorder === "function";
+    // Reorderable lists keep the parent-supplied order (manual loadout order);
+    // everything else uses the filter/sort dropdowns as before.
+    const baseJutsus = reorderable
+        ? [...jutsus]
+            .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
+            .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter)
+        : getJutsuSelectOptions(jutsus, typeFilter, elementFilter, sortBy);
+    const sortedJutsus = baseJutsus
         .filter((jutsu) => jutsu.name.toLowerCase().includes(nameFilter.trim().toLowerCase()))
         .filter((jutsu) => effectFilter === "All" || jutsu.tags.some((tag) => tag.name === effectFilter));
     const [selectedId, setSelectedId] = useState(sortedJutsus[0]?.id ?? "");
     const selectedJutsu = sortedJutsus.find((jutsu) => jutsu.id === selectedId) ?? sortedJutsus[0];
+    const selectedIndex = selectedJutsu ? sortedJutsus.findIndex((jutsu) => jutsu.id === selectedJutsu.id) : -1;
 
     useEffect(() => {
         if (!selectedJutsu) {
@@ -53,6 +68,27 @@ export function JutsuDropdownList({
         <div className="jutsu-dropdown-list technique-browser">
             <div className="technique-header">
                 <label>{label}</label>
+                {reorderable && (
+                    <div className="technique-reorder" role="group" aria-label="Reorder selected jutsu">
+                        <button
+                            type="button"
+                            className="technique-reorder-btn"
+                            title="Move selected jutsu one slot left"
+                            aria-label="Move selected jutsu left"
+                            disabled={selectedIndex <= 0}
+                            onClick={() => selectedJutsu && onReorder?.(selectedJutsu.id, -1)}
+                        >◀</button>
+                        <span className="technique-reorder-hint">Move</span>
+                        <button
+                            type="button"
+                            className="technique-reorder-btn"
+                            title="Move selected jutsu one slot right"
+                            aria-label="Move selected jutsu right"
+                            disabled={selectedIndex < 0 || selectedIndex >= sortedJutsus.length - 1}
+                            onClick={() => selectedJutsu && onReorder?.(selectedJutsu.id, 1)}
+                        >▶</button>
+                    </div>
+                )}
                 <span>{sortedJutsus.length}/{jutsus.length}</span>
             </div>
             <div className="technique-shell">
@@ -100,16 +136,23 @@ export function JutsuDropdownList({
                         <option value="All">All Effects</option>
                         {allTags.map((tagName) => <option key={tagName} value={tagName}>{tagName}</option>)}
                     </select>
-                    <label>Sort</label>
-                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as JutsuSort)}>
-                        <option value="name">Name</option>
-                        <option value="type">Offense</option>
-                        <option value="element">Element</option>
-                        <option value="effect">Effects</option>
-                        <option value="ap">AP</option>
-                        <option value="range">Range</option>
-                        <option value="effectPower">Effect Power</option>
-                    </select>
+                    {!reorderable && (
+                        <>
+                            <label>Sort</label>
+                            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as JutsuSort)}>
+                                <option value="name">Name</option>
+                                <option value="type">Offense</option>
+                                <option value="element">Element</option>
+                                <option value="effect">Effects</option>
+                                <option value="ap">AP</option>
+                                <option value="range">Range</option>
+                                <option value="effectPower">Effect Power</option>
+                            </select>
+                        </>
+                    )}
+                    {reorderable && (
+                        <p className="technique-reorder-note">Click a jutsu, then use ◀ ▶ above to set its slot order.</p>
+                    )}
                     {selectedJutsu && (
                         <div className="technique-selected-panel">
                             {renderActions && <div className="menu">{renderActions(selectedJutsu)}</div>}
