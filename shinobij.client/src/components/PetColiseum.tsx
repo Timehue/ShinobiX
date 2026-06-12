@@ -287,6 +287,66 @@ function shadowTexture(): THREE.CanvasTexture {
 // this VISIBLE height (consistent silhouettes; padding no longer varies size).
 const TARGET_SPRITE_H = 2.6;
 
+// ── Afterimage trail — element-tinted ghost copies behind a fast-moving pet ───
+// A flat-color SILHOUETTE (the sprite's alpha masked to the element glow color),
+// not a tint of the sprite's RGB — so dark creatures (e.g. the black kitsune)
+// still leave a bright, readable speed-streak. Additive over the floor → glow.
+const GHOSTS = 3;            // ghost copies per standee
+const TRAIL_STRIDE = 2;     // frames between trail samples (longer streak)
+function makeGhostMaterial(color: string): THREE.ShaderMaterial {
+    return new THREE.ShaderMaterial({
+        uniforms: {
+            map: { value: null as THREE.Texture | null },
+            uColor: { value: new THREE.Color(color) },
+            uOpacity: { value: 0 },
+        },
+        vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+        fragmentShader: "uniform sampler2D map; uniform vec3 uColor; uniform float uOpacity; varying vec2 vUv; void main(){ float a = texture2D(map, vUv).a; if (a < 0.1) discard; gl_FragColor = vec4(uColor, a * uOpacity); }",
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+    });
+}
+
+// One afterimage ghost: positions itself at an older trail sample and fades in
+// with the pet's speed. Owns its material via a ref so the per-frame uniform
+// writes are idiomatic r3f ref-mutation (not a flagged memo mutation).
+function Afterimage({ index, trail, fastRef, tex, color, L, fainted }: {
+    index: number;
+    trail: { current: Array<[number, number, number]> };
+    fastRef: { current: number };
+    tex: THREE.Texture;
+    color: string;
+    L: ReturnType<typeof groundedSpriteLayout>;
+    fainted: boolean;
+}) {
+    const grp = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.ShaderMaterial>(null);
+    const material = useMemo(() => makeGhostMaterial(color), [color]);
+    useEffect(() => () => material.dispose(), [material]);
+    useFrame(() => {
+        const g = grp.current, m = mat.current;
+        if (!g || !m) return;
+        const buf = trail.current;
+        const sample = buf[Math.min(buf.length - 1, (index + 1) * TRAIL_STRIDE)];
+        if (sample) g.position.set(sample[0], sample[1], sample[2]);
+        m.uniforms.map.value = tex;
+        const targetOp = fainted ? 0 : fastRef.current * 0.5 * (1 - index / GHOSTS);
+        m.uniforms.uOpacity.value = lerp(m.uniforms.uOpacity.value as number, targetOp, 0.5);
+    });
+    return (
+        <group ref={grp}>
+            <Billboard lockX lockZ>
+                <mesh position={[L.meshX, L.meshY, -0.02 - index * 0.01]}>
+                    <planeGeometry args={[L.planeW, L.planeH]} />
+                    <primitive object={material} ref={mat} attach="material" />
+                </mesh>
+            </Billboard>
+        </group>
+    );
+}
+
 // ── One grounded pet standee — Y-locked billboard, feet on the floor ─────────
 function Standee({
     pet, side, pos, reach, toward, pose, hitPower, beatKey, fainted, hp, maxHp, texture, bounds, aspect,
@@ -328,6 +388,12 @@ function Standee({
     const prevPose = useRef<PetVisualState | null>(null); // beat-clock: stamps on pose change
     const prevBeat = useRef(-1);                           // …and per-beat for flurry re-jolts
     const poseStart = useRef(0);
+    // Afterimage trail: a ring buffer of recent WORLD positions + a speed gate,
+    // both refs. The <Afterimage> children read them to place + fade the ghosts.
+    const trail = useRef<Array<[number, number, number]>>([]);
+    const lastWX = useRef(0);
+    const fastRef = useRef(0);
+    const ghostColor = useMemo(() => elementColor(pet.element).glow, [pet.element]);
     const base = pos;
     const mirrored = side === "enemy";
     const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -412,6 +478,15 @@ function Standee({
             const s = 0.85 + 0.15 * f;
             shadow.current.scale.set(shadowW * s, shadowW * 0.5 * s, 1);
         }
+        // Afterimage trail: record the world position each frame + a speed gate
+        // (≈0 when holding a stance, strong during a lunge). The <Afterimage>
+        // children read trail+fastRef to place + fade the ghost copies.
+        const speed = Math.abs(g.position.x - lastWX.current);
+        lastWX.current = g.position.x;
+        const buf = trail.current;
+        buf.unshift([g.position.x, g.position.y, g.position.z]);
+        if (buf.length > GHOSTS * TRAIL_STRIDE + 1) buf.length = GHOSTS * TRAIL_STRIDE + 1;
+        fastRef.current = reduce ? 0 : Math.max(0, Math.min(1, (speed - 0.03) / 0.10));
     });
 
     const safeMax = Math.max(1, maxHp);
@@ -450,6 +525,12 @@ function Standee({
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.42} depthWrite={false} toneMapped={false} />
             </mesh>
+            {/* Afterimage ghosts — world-positioned at older trail samples, faded
+                in only during fast motion. Same grounded layout + active texture
+                as the sprite, so they align exactly. */}
+            {Array.from({ length: GHOSTS }).map((_, i) => (
+                <Afterimage key={i} index={i} trail={trail} fastRef={fastRef} tex={useTex} color={ghostColor} L={L} fainted={fainted} />
+            ))}
         </group>
     );
 }
