@@ -20,11 +20,15 @@ import {
     type PetArenaFrame,
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
-import { petColiseumEnabled, setPetColiseumEnabled } from "../lib/pet-coliseum-flag";
+import { petColiseumEnabled, setPetColiseumEnabled, petDuelEnabled, setPetDuelEnabled } from "../lib/pet-coliseum-flag";
 
 // HD-2D coliseum renderer — lazy so three/react-three-fiber load ONLY when the
 // "Cinematic arena" flag is on, keeping the cold-landing bundle untouched.
 const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
+// Continuous-duel PREVIEW renderer (combat redesign Phase C) — same lazy chunk.
+// Behind petDuel.v1; runs the new real-time engine for the VISUALS only, so the
+// shipped engine still owns the outcome + rewards (no gameplay/ranked impact).
+const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
 export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
@@ -45,6 +49,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // stays fully intact behind this toggle as the fallback). Persisted
     // per-device; toggles the battle PRESENTATION only — engine/frames identical.
     const [useColiseum, setUseColiseum] = useState(() => petColiseumEnabled());
+    // Experimental "Live combat" preview — renders the new continuous-duel
+    // engine for the look/feel. Default OFF; meaningful only when the cinematic
+    // arena is on, and suppressed for ranked (the shipped engine owns that
+    // outcome, so a preview must not contradict the player's real Elo result).
+    const [useDuel, setUseDuel] = useState(() => petDuelEnabled());
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -786,6 +795,21 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 >
                     {useColiseum ? "🎬 Cinematic arena: ON" : "🎬 Cinematic arena: OFF"}
                 </button>
+                {useColiseum && (
+                    <button
+                        onClick={() => {
+                            setUseDuel((on) => {
+                                const next = !on;
+                                setPetDuelEnabled(next);
+                                return next;
+                            });
+                        }}
+                        title="EXPERIMENTAL preview of the new continuous real-time combat engine. Visual only — the battle outcome + rewards are unchanged. Not used for ranked."
+                        style={{ background: useDuel ? "#a855f7" : undefined }}
+                    >
+                        {useDuel ? "⚡ Live combat: ON (beta)" : "⚡ Live combat: OFF"}
+                    </button>
+                )}
             </div>
 
             {partyResult && battleReady && showResult && (
@@ -856,9 +880,26 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     };
                     // HD-2D coliseum is lazy-loaded (three/r3f only ship when the
                     // flag is on → cold-landing bundle is untouched).
+                    // "Live combat" preview runs the new engine for the visuals
+                    // only — suppressed for ranked so it can never contradict the
+                    // server-settled Elo result. Outcome/rewards are unaffected.
+                    const showDuel = useColiseum && useDuel && !battleOpponent?.ranked;
                     return useColiseum ? (
                         <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading 3D arena…</div>}>
-                            <PetColiseum {...battleProps} />
+                            {showDuel ? (
+                                <PetColiseumDuel
+                                    playerPet={battleProps.playerPet}
+                                    enemyPet={battleProps.enemyPet}
+                                    playerReservePet={battleProps.playerReservePet}
+                                    enemyReservePet={battleProps.enemyReservePet}
+                                    seed={(battleOpponent ?? selectedOpponent)?.battleSeed ?? 1}
+                                    sharedImages={sharedImages}
+                                    onFightAgain={battleProps.onFightAgain}
+                                    onExit={battleProps.onExit}
+                                />
+                            ) : (
+                                <PetColiseum {...battleProps} />
+                            )}
                         </Suspense>
                     ) : (
                         <PetArenaBattlefield {...battleProps} />
