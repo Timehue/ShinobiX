@@ -289,17 +289,19 @@ export function beatTimeline(
         }
         case "hit":
         case "recoil": {
-            // INSTANT knockback on the contact frame, then a fast ease back to
-            // the lane — the reaction fires at p=0 (peak), not an eased slide in.
-            const kb = 0.7 + 0.7 * power;       // 0.7..1.4, scales with damage
-            const out = 1 - easeOutQuad(p);     // 1 at p=0, 0 at p=1 (fast-out)
+            // INSTANT knockback on the contact frame; HOLD it briefly (hit-stop
+            // stick) so the blow lands with weight, then a fast ease back. The
+            // reaction fires at p=0 (peak), never an eased slide-in.
+            const kb = 0.85 + 0.85 * power;     // bigger, scales with damage
+            const stick = 0.16;                 // hold the peak ~16% = hit-stop freeze
+            const out = p < stick ? 1 : 1 - easeOutQuad((p - stick) / (1 - stick));
             return {
                 ...IDLE,
                 dx: -kb * t * out,
-                dy: 0.16 * hump(clamp01(p / 0.55)),
-                rot: -0.18 * t * out,
-                sx: 1 + 0.08 * out,
-                sy: 1 - 0.08 * out,
+                dy: 0.18 * hump(clamp01(p / 0.55)),
+                rot: -0.2 * t * out,
+                sx: 1 + 0.1 * out,
+                sy: 1 - 0.1 * out,
                 hurt: out,
             };
         }
