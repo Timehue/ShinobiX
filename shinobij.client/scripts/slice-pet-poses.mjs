@@ -37,7 +37,10 @@ async function main() {
     if (!inRel) { console.error('need --in <sheet.png>'); process.exit(1); }
     const inPath = path.isAbsolute(inRel) ? inRel : path.join(CLIENT_ROOT, inRel);
     const outName = arg('out-name', path.basename(inPath).replace(/-poses\.png$/, ''));
-    const outDir = path.join(CLIENT_ROOT, 'src', 'assets', 'coliseum', 'pet-poses');
+    const outDirArg = arg('out-dir');
+    const outDir = outDirArg
+        ? (path.isAbsolute(outDirArg) ? outDirArg : path.join(CLIENT_ROOT, outDirArg))
+        : path.join(CLIENT_ROOT, 'src', 'assets', 'coliseum', 'pet-poses');
     fs.mkdirSync(outDir, { recursive: true });
 
     const img = sharp(inPath).ensureAlpha();
