@@ -5,6 +5,7 @@ import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
+import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
@@ -1489,19 +1490,11 @@ export function PvpBattleScreen({
                                             </p>
                                         );
                                     }
-                                    const isDamage = /^Damage|takes [\d.]+ damage|wound damage/i.test(trimmed);
-                                    const isHeal = /^Heal:|restores [\d.]+ HP|heals \d|absorbs [\d.]+/i.test(trimmed);
-                                    const isShield = /^Shield:|^Barrier:|shield blocks|gains \d+ shield/i.test(trimmed);
-                                    const cls = isDamage ? "timeline-fx-damage" : isHeal ? "timeline-fx-heal" : isShield ? "timeline-fx-shield" : "timeline-fx-effect";
-                                    return (
-                                        <p key={i} className={`timeline-fx ${cls}`}>· {trimmed}</p>
-                                    );
+                                    return <BattleLogLine line={trimmed} key={i} />;
                                 })}
                             </section>
                             );
-                        }) : session.log.map((line, i) => (
-                            <p key={i} className="timeline-fx timeline-fx-effect">· {line}</p>
-                        ))}
+                        }) : session.log.map((line, i) => <BattleLogLine line={line} key={i} />)}
                     </div>
                 </main>
 

@@ -31,8 +31,10 @@ const OUT = join(ROOT, "api", "pvp", "_jutsu-catalog.ts");
 
 // Combat-relevant fields only — the exact set api/pvp/move.ts reads off a jutsu
 // object (id, name, type, element, ap, range, effectPower, cooldown,
-// chakraCost, staminaCost, target, method, tags, bloodlineRank). The big text
-// + image fields are intentionally dropped (the server never renders them).
+// chakraCost, staminaCost, target, method, tags, bloodlineRank) plus
+// battleDescription (the short battle-log flavor line the PvP move handler
+// appends to the "X uses <Jutsu>:" cast entry). The big `description` text +
+// image fields stay dropped (the server never renders those).
 function pickCombatFields(jutsu, bloodlineRank) {
     const out = {
         id: jutsu.id,
@@ -47,6 +49,7 @@ function pickCombatFields(jutsu, bloodlineRank) {
         staminaCost: jutsu.staminaCost,
         target: jutsu.target,
         method: jutsu.method,
+        battleDescription: jutsu.battleDescription ?? "",
         tags: (jutsu.tags ?? []).map((t) => {
             const tag = { name: t.name };
             if (t.percent != null) tag.percent = t.percent;
@@ -110,6 +113,7 @@ export type CatalogJutsu = {
     staminaCost: number;
     target: string;
     method: string;
+    battleDescription: string;
     tags: Array<{ name: string; percent?: number; amount?: number }>;
     bloodlineRank?: string;
 };

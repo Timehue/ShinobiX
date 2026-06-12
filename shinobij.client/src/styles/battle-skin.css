@@ -388,6 +388,22 @@
 .arena-fullscreen .timeline-fx-shield { color: #93c5fd !important; font-weight: 600 !important; }
 .arena-fullscreen .timeline-fx-effect { color: #d8b4fe !important; font-weight: 600 !important; }
 
+/* Battle-log color categories — shared by the PvE arena and the PvP screen via
+   <BattleLogLine> (see lib/battle-log-format). Heal/damage/inc-dec-damage match
+   the user-mandated green/red/blue; the rest get distinct hues so players can
+   read each effect by color. Numeric tokens (.bl-num) are bolder + brighter so
+   the values pop in the line's category color. */
+.arena-fullscreen .battle-log-heal    { color: #86efac !important; font-weight: 600 !important; } /* green  — healing / HP gain */
+.arena-fullscreen .battle-log-damage  { color: #fca5a5 !important; font-weight: 600 !important; } /* red    — damage / DoT ticks */
+.arena-fullscreen .battle-log-dmgmod  { color: #93c5fd !important; font-weight: 600 !important; } /* blue   — increase/decrease damage */
+.arena-fullscreen .battle-log-shield  { color: #7dd3fc !important; font-weight: 600 !important; } /* cyan   — shield / barrier / reflect */
+.arena-fullscreen .battle-log-control { color: #fbbf24 !important; font-weight: 600 !important; } /* amber  — stun / push / pull / seal */
+.arena-fullscreen .battle-log-prevent { color: #5eead4 !important; font-weight: 600 !important; } /* teal   — prevents / protections */
+.arena-fullscreen .battle-log-tempo   { color: #c084fc !important; font-weight: 600 !important; } /* violet — copy / mirror / lag / overclock */
+.arena-fullscreen .battle-log-system  { color: #e8d496 !important; font-weight: 600 !important; } /* gold   — cast headers / rounds / outcomes */
+.arena-fullscreen .battle-log-effect  { color: #d8b4fe !important; font-weight: 600 !important; } /* lilac  — fallback */
+.arena-fullscreen .battle-log-line .bl-num { font-weight: 800 !important; filter: brightness(1.12); }
+
 /* =========================================================================
    Battle Skin v2 - Final cleanup pass
    ========================================================================= */
