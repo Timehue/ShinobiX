@@ -398,25 +398,82 @@ function moveToward(f: Fighter, tx: number, ty: number, spd: number, stopAt: num
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d <= 1e-6) return;
     f.faceX = dx / d; f.faceY = dy / d;
-    // Steer AROUND terrain: blend the goal direction with repulsion from any
-    // nearby obstacle so the pet curves past rocks/crystals instead of into them.
-    let ux = dx / d, uy = dy / d;
-    for (const o of DUEL_OBSTACLES) {
-        const ox = f.x - o.x, oy = f.y - o.z;     // fighter's depth axis is .y; obstacle's is .z
-        const od = Math.sqrt(ox * ox + oy * oy);
-        const safe = o.r + 1.2;
-        if (od < safe && od > 1e-6) {
-            const w = (safe - od) / safe;
-            // radial push-away + a TANGENTIAL nudge (steer AROUND), so a head-on
-            // approach veers past the obstacle instead of deadlocking on its face.
-            ux += (ox / od) * w * 1.3 + (-oy / od) * w * 1.1;
-            uy += (oy / od) * w * 1.3 + (ox / od) * w * 1.1;
-        }
-    }
-    const ul = Math.sqrt(ux * ux + uy * uy) || 1;
     const s = Math.min(spd, Math.max(0, d - stopAt));
     if (s <= 0) return;
-    f.x += (ux / ul) * s; f.y += (uy / ul) * s;
+    f.x += (dx / d) * s; f.y += (dy / d) * s;
+}
+
+// ── Invisible tactical grid — pets PATHFIND (BFS) around terrain to reach the
+// foe, instead of beelining/steering into it. The grid is sim-only (the renderer
+// just interpolates the smooth motion); deterministic (fixed cell + dir order).
+const CELL = 1.0;
+const GCOLS = Math.round((ARENA_X * 2) / CELL);
+const GROWS = Math.round((ARENA_Y * 2) / CELL);
+const cellOf = (x: number, y: number): [number, number] => [
+    clamp(Math.floor((x + ARENA_X) / CELL), 0, GCOLS - 1),
+    clamp(Math.floor((y + ARENA_Y) / CELL), 0, GROWS - 1),
+];
+const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * CELL - ARENA_X, (r + 0.5) * CELL - ARENA_Y];
+const BLOCKED_CELLS = (() => {
+    const set = new Set<number>();
+    for (let c = 0; c < GCOLS; c++) for (let r = 0; r < GROWS; r++) {
+        const [wx, wy] = cellCenter(c, r);
+        for (const o of DUEL_OBSTACLES) { const dx = wx - o.x, dy = wy - o.z; if (dx * dx + dy * dy < (o.r + 0.25) * (o.r + 0.25)) { set.add(r * GCOLS + c); break; } }
+    }
+    return set;
+})();
+const cellBlocked = (c: number, r: number) => c < 0 || r < 0 || c >= GCOLS || r >= GROWS || BLOCKED_CELLS.has(r * GCOLS + c);
+const BFS_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+/** Next grid cell to step toward to reach (tc,tr) from (fc,fr), avoiding blocked
+ *  cells. BFS outward from the TARGET so each visited cell records the neighbour
+ *  one step closer to the goal; returns the step out of the source cell. */
+function bfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, number] | null {
+    if (fc === tc && fr === tr) return null;
+    const came = new Map<number, number>();
+    const start = tr * GCOLS + tc;
+    came.set(start, -1);
+    const queue = [start];
+    let head = 0;
+    while (head < queue.length) {
+        const cur = queue[head++];
+        const cc = cur % GCOLS, cr = (cur - cc) / GCOLS;
+        if (cc === fc && cr === fr) { const nxt = came.get(cur); return nxt === undefined || nxt < 0 ? null : [nxt % GCOLS, (nxt - (nxt % GCOLS)) / GCOLS]; }
+        for (const [dc, dr] of BFS_DIRS) {
+            const nc = cc + dc, nr = cr + dr;
+            if (cellBlocked(nc, nr)) continue;
+            if (dc !== 0 && dr !== 0 && (cellBlocked(cc + dc, cr) || cellBlocked(cc, cr + dr))) continue; // no corner-cut
+            const ni = nr * GCOLS + nc;
+            if (!came.has(ni)) { came.set(ni, cur); queue.push(ni); }
+        }
+    }
+    return null;
+}
+
+/** Is the straight line a→b clear of terrain? (drives "traverse the grid" vs
+ *  "engage directly".) */
+function hasLineOfSight(ax: number, ay: number, bx: number, by: number): boolean {
+    const dx = bx - ax, dy = by - ay;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const steps = Math.ceil(d / 0.4);
+    for (let i = 1; i < steps; i++) {
+        const tt = i / steps, px = ax + dx * tt, py = ay + dy * tt;
+        for (const o of DUEL_OBSTACLES) { const ox = px - o.x, oy = py - o.z; if (ox * ox + oy * oy < (o.r + 0.2) * (o.r + 0.2)) return false; }
+    }
+    return true;
+}
+
+/** Run toward the foe along the grid (around terrain) until there's a clear shot. */
+function traverseGrid(f: Fighter, target: Fighter, spd: number) {
+    const [fc, fr] = cellOf(f.x, f.y);
+    const [tc, tr] = cellOf(target.x, target.y);
+    const nxt = bfsNextStep(fc, fr, tc, tr);
+    if (!nxt) { moveToward(f, target.x, target.y, spd, 0); return; }
+    const [wx, wy] = cellCenter(nxt[0], nxt[1]);
+    moveToward(f, wx, wy, spd, 0.05);
+    f.faceX = target.x - f.x; f.faceY = target.y - f.y;     // still face the foe while routing
+    const fl = Math.sqrt(f.faceX * f.faceX + f.faceY * f.faceY) || 1;
+    f.faceX /= fl; f.faceY /= fl;
 }
 
 /** Hard push a fighter out of any obstacle it has entered (terrain is solid). */
@@ -499,6 +556,14 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     const dx = target.x - f.x, dy = target.y - f.y;
     const dist = Math.max(1e-6, Math.sqrt(dx * dx + dy * dy));
     const inv = 1 / dist;
+
+    // No clear shot (terrain in the way)? → TRAVERSE the grid around it. The pet
+    // only enters the combat behaviour below once it has line of sight, so it
+    // routes through the battlefield instead of fighting through a rock.
+    if (!hasLineOfSight(f.x, f.y, target.x, target.y)) {
+        if (f.statuses.rootLeft <= 0) traverseGrid(f, target, effMoveSpeed(f));
+        return;
+    }
 
     // Reactive dodge vs a telegraphed strike or an incoming projectile.
     const threatened = (target.state === "windup" && dist < f.reach + 0.9) || incomingProjectile(f, projectiles);

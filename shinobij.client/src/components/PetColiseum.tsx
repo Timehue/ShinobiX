@@ -18,6 +18,7 @@
  * a generated coliseum backdrop are the next asset step; the renderer is ready.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
@@ -1731,8 +1732,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
-    return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+    return createPortal((
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
             <Canvas dpr={[1, 2]} camera={{ position: [0, 15.5, 16.5], fov: 46 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
                 <fog attach="fog" args={["#2a1c10", 42, 86]} />
                 <Arena floor={floor} backdrop={backdrop} big />
@@ -1788,5 +1789,5 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             )}
             <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>tactical pet battle · ?orbit=1 to rotate</div>
         </div>
-    );
+    ), document.body);
 }
