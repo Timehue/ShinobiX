@@ -110,15 +110,17 @@ test("elementVfxKey maps known elements and defaults to none", () => {
 
 const base = (over: Partial<PetFrameLike>): PetFrameLike => ({ actor: "player", message: "", ...over });
 
-test("melee strike: callout → windup → lunge → impact → damageNumber → recoil", () => {
+test("melee strike: callout → windup → lunge → 3-hit flurry → recoil; numbers sum to damage", () => {
     const evts = buildPetAnimationEvents({
         frame: base({ actionKind: "damage", damage: 24, message: "Round 1: Foo uses Slash for 24 damage." }),
         dist: 1, actorId: "p", targetId: "e", vfxKey: "fire",
     });
-    assert.deepEqual(types(evts), ["moveCallout", "windup", "lunge", "impact", "damageNumber", "recoil"]);
+    // A 3-hit flurry: each impact is paired with a damageNumber, then recoil.
+    assert.deepEqual(types(evts), ["moveCallout", "windup", "lunge", "impact", "damageNumber", "impact", "damageNumber", "impact", "damageNumber", "recoil"]);
     assert.equal(evts[0].text, "Slash");
-    const dmg = evts.find((e) => e.type === "damageNumber")!;
-    assert.equal(dmg.amount, 24);
+    // The split sub-hits sum EXACTLY to the engine's single damage value.
+    const total = evts.filter((e) => e.type === "damageNumber").reduce((s, e) => s + (e.amount ?? 0), 0);
+    assert.equal(total, 24);
     // Offense events are authored by the attacker against the target.
     assert.equal(evts[1].actorId, "p");
     assert.equal(evts[1].targetId, "e");
@@ -130,7 +132,8 @@ test("basic attack has no move callout (no 'uses' in the log line)", () => {
         dist: 1, actorId: "p", targetId: "e",
     });
     assert.ok(!types(evts).includes("moveCallout"));
-    assert.deepEqual(types(evts), ["windup", "lunge", "impact", "damageNumber", "recoil"]);
+    assert.deepEqual(types(evts), ["windup", "lunge", "impact", "damageNumber", "impact", "damageNumber", "impact", "damageNumber", "recoil"]);
+    assert.equal(evts.filter((e) => e.type === "damageNumber").reduce((s, e) => s + (e.amount ?? 0), 0), 9);
 });
 
 test("signature move prepends a long charge wind-up (no small callout)", () => {
