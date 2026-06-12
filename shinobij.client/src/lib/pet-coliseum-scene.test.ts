@@ -80,7 +80,9 @@ test("shakeAmpForBeat: KO > crit > heavy > none, and only on contact beats", () 
     assert.ok(shakeAmpForBeat("ko", { ...base, isKO: true }) > shakeAmpForBeat("impact", { ...base, crit: true }));
     assert.ok(shakeAmpForBeat("impact", { ...base, crit: true }) > shakeAmpForBeat("impact", { ...base, heavyHit: true }));
     assert.equal(shakeAmpForBeat("lunge", { ...base, crit: true }), 0, "non-contact beat = no shake");
-    assert.equal(shakeAmpForBeat("impact", base), 0, "routine impact = no shake");
+    // Every contact now shakes a little, but a routine hit < a heavy one.
+    assert.ok(shakeAmpForBeat("impact", base) > 0, "routine impact still gets a small punch");
+    assert.ok(shakeAmpForBeat("impact", base) < shakeAmpForBeat("impact", { ...base, heavyHit: true }), "routine < heavy");
 });
 
 test("lerp basics", () => {

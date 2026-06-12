@@ -341,11 +341,11 @@ export function shakeAmpForBeat(
     beat: string | undefined,
     opts: { isKO: boolean; crit: boolean; signature: boolean; heavyHit: boolean },
 ): number {
-    if (opts.isKO || beat === "ko") return 0.36;
+    if (opts.isKO || beat === "ko") return 0.4;
     if (beat !== "impact" && beat !== "screenShake") return 0;
-    if (opts.crit || opts.signature) return 0.22;
-    if (opts.heavyHit) return 0.12;
-    return 0;
+    if (opts.crit || opts.signature) return 0.26;
+    if (opts.heavyHit) return 0.15;
+    return 0.07; // every hit gets a little punch (anime weight)
 }
 
 // ── Formation staging (Phase 2 — kill overlap by construction) ───────────────
