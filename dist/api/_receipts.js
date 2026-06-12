@@ -8,6 +8,13 @@ exports.writeBattleReceipt = writeBattleReceipt;
 exports.readBattleReceipt = readBattleReceipt;
 exports.mergeSettlement = mergeSettlement;
 exports.patchBattleSettlement = patchBattleSettlement;
+exports.actionSeqKey = actionSeqKey;
+exports.actionTokenKey = actionTokenKey;
+exports.actionReceiptKey = actionReceiptKey;
+exports.actionReceiptPattern = actionReceiptPattern;
+exports.buildActionReceipt = buildActionReceipt;
+exports.writeActionReceipt = writeActionReceipt;
+exports.readActionReceipts = readActionReceipts;
 const _storage_js_1 = require("./_storage.js");
 // ─── Durable battle receipts ──────────────────────────────────────────────────
 //
@@ -126,5 +133,121 @@ async function patchBattleSettlement(battleId, patch, opts = {}) {
     }
     catch {
         // best-effort
+    }
+}
+function actionSeqKey(battleId) { return `receipt:seq:${battleId}`; }
+function actionTokenKey(battleId, token) {
+    return `receipt:act-tok:${battleId}:${token}`;
+}
+// Zero-padded seq so a lexical key sort == numeric order. A battle caps at
+// MAX_ROUNDS × MAX_ACTIONS × 2 fighters (~250 actions), far under 999999.
+function actionReceiptKey(battleId, seq) {
+    return `receipt:action:${battleId}:${String(seq).padStart(6, '0')}`;
+}
+function actionReceiptPattern(battleId) {
+    return `receipt:action:${battleId}:*`;
+}
+// Compact delta of the vitals that changed. Rounds to integers and drops zeros.
+function vitalsDelta(before, after) {
+    const d = {};
+    const hp = Math.round((Number(after.hp) || 0) - (Number(before.hp) || 0));
+    const chakra = Math.round((Number(after.chakra) || 0) - (Number(before.chakra) || 0));
+    const stamina = Math.round((Number(after.stamina) || 0) - (Number(before.stamina) || 0));
+    const shield = Math.round((Number(after.shield) || 0) - (Number(before.shield) || 0));
+    const pos = (Number(after.pos) || 0) - (Number(before.pos) || 0);
+    if (hp)
+        d.hp = hp;
+    if (chakra)
+        d.chakra = chakra;
+    if (stamina)
+        d.stamina = stamina;
+    if (shield)
+        d.shield = shield;
+    if (pos)
+        d.pos = pos;
+    return d;
+}
+// Pure: derive an ActionReceipt from the pre/post session + action metadata.
+// `summaryLines` is the suffix of post.log beyond pre.log — every commit path
+// builds post.log as [...pre.log, ...thisActionsLines], and the receipt is
+// written BEFORE the log is trimmed, so the suffix is exactly this action's
+// narrative (flavor/cast line first, then effect lines). No I/O, no clock.
+function buildActionReceipt(input, seq, now) {
+    const { pre, post, role } = input;
+    const targetRole = role === 'p1' ? 'p2' : 'p1';
+    const actorBefore = role === 'p1' ? pre.p1 : pre.p2;
+    const actorAfter = role === 'p1' ? post.p1 : post.p2;
+    const targetBefore = targetRole === 'p1' ? pre.p1 : pre.p2;
+    const targetAfter = targetRole === 'p1' ? post.p1 : post.p2;
+    const preLen = Array.isArray(pre.log) ? pre.log.length : 0;
+    const summaryLines = (Array.isArray(post.log) ? post.log.slice(preLen) : []).map(String);
+    const apSpent = (Number(pre.ap?.[role]) || 0) - (Number(post.ap?.[role]) || 0);
+    const result = post.status === 'done' ? 'battle_end' : 'applied';
+    return {
+        battleId: String(pre.battleId ?? ''),
+        seq,
+        moveToken: input.moveToken,
+        round: Number(pre.round) || 0,
+        actorRole: role,
+        actorName: String(actorBefore.name ?? ''),
+        targetRole,
+        targetName: String(targetBefore.name ?? ''),
+        actionId: input.actionId,
+        actionName: input.actionName,
+        actionType: input.actionType,
+        result,
+        summaryLines,
+        actorDelta: vitalsDelta(actorBefore, actorAfter),
+        targetDelta: vitalsDelta(targetBefore, targetAfter),
+        apSpent: apSpent > 0 ? apSpent : undefined,
+        winner: post.status === 'done' ? (post.winner ?? null) : undefined,
+        createdAt: now,
+    };
+}
+// Append one durable receipt for a committed action. Best-effort + idempotent:
+// a per-moveToken NX marker means a retried move (the move handler already
+// short-circuits known tokens, but guard here too) never double-appends, and any
+// storage hiccup is swallowed so the combat path is never affected. No-op when
+// receipts are disabled or the session has no battleId.
+async function writeActionReceipt(input, opts = {}) {
+    if (receiptsDisabled())
+        return null;
+    const battleId = String(input.pre?.battleId ?? '');
+    if (!battleId)
+        return null;
+    const store = opts.kv ?? _storage_js_1.kv;
+    const now = opts.now ?? Date.now();
+    try {
+        if (input.moveToken) {
+            const placed = await store.set(actionTokenKey(battleId, input.moveToken), { ts: now }, { nx: true, ex: exports.RECEIPT_TTL_SEC });
+            if (!placed)
+                return null; // already recorded this move
+        }
+        const seq = await store.incr(actionSeqKey(battleId), { ex: exports.RECEIPT_TTL_SEC });
+        const receipt = buildActionReceipt(input, seq, now);
+        await store.set(actionReceiptKey(battleId, seq), receipt, { ex: exports.RECEIPT_TTL_SEC });
+        return receipt;
+    }
+    catch {
+        // best-effort — never break the caller
+        return null;
+    }
+}
+// Read every per-action receipt for a battle, ordered by seq. Used by the
+// combat-log endpoint. Best-effort: returns [] on any storage error.
+async function readActionReceipts(battleId, opts = {}) {
+    const store = opts.kv ?? _storage_js_1.kv;
+    try {
+        const keys = await store.keys(actionReceiptPattern(battleId));
+        if (!keys.length)
+            return [];
+        keys.sort();
+        const vals = await store.mget(...keys);
+        return vals
+            .filter((v) => !!v && typeof v === 'object')
+            .sort((a, b) => a.seq - b.seq);
+    }
+    catch {
+        return [];
     }
 }

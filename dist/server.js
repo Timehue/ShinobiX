@@ -104,6 +104,7 @@ const report_pet_event_js_1 = __importDefault(require("./api/missions/report-pet
 const chat_js_2 = __importDefault(require("./api/pvp/chat.js"));
 const spectate_js_1 = __importDefault(require("./api/pvp/spectate.js"));
 const stream_js_1 = __importDefault(require("./api/pvp/stream.js"));
+const combat_log_js_1 = __importDefault(require("./api/pvp/combat-log.js"));
 const claim_rewards_js_1 = __importDefault(require("./api/pvp/claim-rewards.js"));
 const ranked_queue_js_1 = __importDefault(require("./api/pvp/ranked-queue.js"));
 const pet_ranked_queue_js_1 = __importDefault(require("./api/pvp/pet-ranked-queue.js"));
@@ -491,6 +492,7 @@ route('/missions/report-pet-event', report_pet_event_js_1.default);
 route('/pvp/chat', chat_js_2.default);
 route('/pvp/spectate', spectate_js_1.default);
 route('/pvp/stream', stream_js_1.default);
+route('/pvp/combat-log', combat_log_js_1.default);
 route('/pvp/claim-rewards', claim_rewards_js_1.default);
 route('/pvp/ranked-queue', ranked_queue_js_1.default);
 route('/pvp/pet-ranked-queue', pet_ranked_queue_js_1.default);
