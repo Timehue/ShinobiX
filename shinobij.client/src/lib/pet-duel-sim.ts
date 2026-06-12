@@ -45,18 +45,15 @@ const ARENA_Y = 7.5;
 // center pile). Kept clear of the spawn ends (|x|>7); the renderer draws matching
 // 3D rocks/crystals at these spots. (x,z = world; r = blocked radius.)
 export type DuelObstacle = { x: number; z: number; r: number; kind: "rock" | "crystal" };
+// Collision ALIGNED to the four painted rock clusters in the battle-map art (one
+// per quadrant) — so the rocks you SEE are the rocks the pets path around, and
+// the open cobblestone lanes between them are the traversable space. (x,z read
+// off the map → floor world coords.)
 export const DUEL_OBSTACLES: ReadonlyArray<DuelObstacle> = [
-    // Central divider (z≈0) between the TOP lane (z<0) and BOTTOM lane (z>0),
-    // with a center gap so a 1v1 can meet in the middle.
-    { x: -7.6, z: 0, r: 1.1, kind: "rock" },
-    { x: -3.0, z: 0, r: 0.95, kind: "crystal" },
-    { x: 3.0, z: 0, r: 0.95, kind: "crystal" },
-    { x: 7.6, z: 0, r: 1.1, kind: "rock" },
-    // Cover within each lane (pets path around it as they traverse + clash).
-    { x: -5.0, z: -4.6, r: 1.0, kind: "rock" },
-    { x: 5.0, z: -4.6, r: 1.0, kind: "rock" },
-    { x: -5.0, z: 4.6, r: 1.0, kind: "rock" },
-    { x: 5.0, z: 4.6, r: 1.0, kind: "rock" },
+    { x: -6.5, z: -4.8, r: 2.3, kind: "rock" },   // top-left cluster
+    { x: 6.3, z: -4.8, r: 2.3, kind: "rock" },    // top-right cluster
+    { x: -6.8, z: 4.6, r: 2.3, kind: "rock" },    // bottom-left cluster
+    { x: 6.0, z: 4.4, r: 2.3, kind: "rock" },     // bottom-right cluster
 ];
 
 // Stamina economy — gates dashes / dodges / attacks so the fight breathes.
