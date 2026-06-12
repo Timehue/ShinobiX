@@ -2134,7 +2134,7 @@ export function AdminPanel({
                                     readImageFile(file, applyJutsuImage, 200);
                                 }}
                             />
-                            <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsuElement} ${jutsuType} technique, ${jutsuName}`} onImage={applyJutsuImage} />
+                            <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsuElement} ${jutsuAp === 40 ? "Any" : jutsuType} technique, ${jutsuName}`} onImage={applyJutsuImage} />
 
                             {jutsuImage && (
                                 <div className="admin-jutsu-preview">
@@ -2144,16 +2144,17 @@ export function AdminPanel({
 
                             <label>Type / Element</label>
                             <div className="inline-grid">
-                                <select value={jutsuType} onChange={(e) => setJutsuType(e.target.value as JutsuType)}>{specialties.map((type) => <option key={type}>{type}</option>)}</select>
+                                <select value={jutsuAp === 40 ? "Any" : jutsuType} disabled={jutsuAp === 40} onChange={(e) => setJutsuType(e.target.value as JutsuType)}>{specialties.map((type) => <option key={type}>{type}</option>)}</select>
                                 <select value={jutsuElement} onChange={(e) => setJutsuElement(e.target.value as JutsuElement)}>{jutsuElements.map((element) => <option key={element}>{element}</option>)}</select>
                             </div>
+                            {jutsuAp === 40 && <p className="hint">40 AP jutsu are element-only utility — the offense discipline is locked to Any (their buffs/debuffs apply to all offenses).</p>}
                             <label>Target / Method</label>
                             <div className="inline-grid">
                                 <select value={jutsuTarget} onChange={(e) => setJutsuTarget(e.target.value as JutsuTarget)}>{jutsuTargets.map((target) => <option key={target}>{target}</option>)}</select>
                                 <select value={jutsuMethod} onChange={(e) => setJutsuMethod(e.target.value as JutsuMethod)}>{jutsuMethods.map((method) => <option key={method}>{method}</option>)}</select>
                             </div>
                             <label>AP / Range / Effect Power / Cooldown</label>
-                            <div className="inline-grid"><input type="number" min={1} value={jutsuAp} onChange={(e) => setJutsuAp(Math.max(1, Number(e.target.value)))} /><input type="number" min={1} value={jutsuRange} onChange={(e) => setJutsuRange(Math.max(1, Number(e.target.value)))} /><input type="number" min={1} value={jutsuEp} onChange={(e) => setJutsuEp(Math.max(1, Number(e.target.value)))} /><input type="number" min={0} value={jutsuCooldown} onChange={(e) => setJutsuCooldown(Math.max(0, Number(e.target.value)))} /></div>
+                            <div className="inline-grid"><input type="number" min={1} value={jutsuAp} onChange={(e) => { const ap = Math.max(1, Number(e.target.value)); setJutsuAp(ap); if (ap === 40) setJutsuType("Any"); }} /><input type="number" min={1} value={jutsuRange} onChange={(e) => setJutsuRange(Math.max(1, Number(e.target.value)))} /><input type="number" min={1} value={jutsuEp} onChange={(e) => setJutsuEp(Math.max(1, Number(e.target.value)))} /><input type="number" min={0} value={jutsuCooldown} onChange={(e) => setJutsuCooldown(Math.max(0, Number(e.target.value)))} /></div>
                             <label>Health / Chakra / Stamina Cost</label>
                             <div className="inline-grid"><input type="number" value={healthCost} onChange={(e) => setHealthCost(Number(e.target.value))} /><input type="number" value={chakraCost} onChange={(e) => setChakraCost(Number(e.target.value))} /><input type="number" value={staminaCost} onChange={(e) => setStaminaCost(Number(e.target.value))} /></div>
                             <label>Health / Chakra / Stamina Cost Reduction Per Level</label>

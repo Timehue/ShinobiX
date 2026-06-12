@@ -22,12 +22,22 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
     // (40-AP fixed-effect jutsu stay zero-damage via the utility rule regardless.)
     const rawEffectPower = jutsu.effectPower ?? 50;
     const effectPower = hasFixedEffectPower({ tags }) ? Math.min(rawEffectPower, 40) : rawEffectPower;
+    const ap = jutsu.ap ?? 40;
+    // 40-AP jutsu are pure utility (zero-damage) — their buffs/debuffs apply to
+    // ALL offenses, so they aren't tied to a single offense discipline. Force the
+    // type to "Any" (element-only). This mirrors the zero-damage utility set in
+    // combat-math.ts isZeroDamageFortyApJutsu (basic-attack + item jutsu are real
+    // attacks whose discipline matters, so they're exempt). The convention is
+    // inlined rather than imported to keep this low-level normalizer free of the
+    // combat-math → App import chain (avoids a module cycle).
+    const isUtilityFortyAp = ap === 40 && jutsu.id !== "basic-attack" && !jutsu.id.startsWith("item-");
+    const type = isUtilityFortyAp ? "Any" : jutsu.type;
     return {
         id: jutsu.id,
         name: jutsu.name,
-        type: jutsu.type,
+        type,
         element: (jutsu.element != null ? jutsu.element : "Fire") as JutsuElement,
-        ap: jutsu.ap ?? 40,
+        ap,
         // Floor range to 1 — `??` doesn't catch 0/NaN/"" which any of the
         // save/import/form paths can produce, and range:0 silently turns
         // off the on-board range highlight (jutsuRangeTiles bails on <=0).
