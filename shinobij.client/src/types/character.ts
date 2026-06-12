@@ -247,6 +247,12 @@ export type Character = {
     // refuses to open more than twice between dawns. Tied to lastDailyReset.
     dailyHollowGateRuns?: number;
     lastDailyReset?: string;
+    // Combat missions (Mission Hall → Combat tab) are fought in the Arena but
+    // their reward is *claimed* back in the Mission Hall. Each won-but-unclaimed
+    // mission's stable key (see data/combat-missions) sits here until the player
+    // returns and clicks "Claim Reward". Additive/optional — legacy saves treat
+    // a missing value as "no pending claims".
+    pendingCombatMissionClaims?: string[];
     claimedVillageAgendaDate?: string;
     claimedMapControlDate?: string;
     hunterRank?: number;

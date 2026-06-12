@@ -9,9 +9,10 @@ import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
-import { displayCharacterXpGain } from "../lib/progression";
+import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
+import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 import { gainXp } from "../App";
 import { grantTerritoryScrolls } from "../lib/world-state";
 
@@ -41,17 +42,33 @@ export function Missions({
     onMissionBattleStart?: () => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    function startMissionBattle(mission: { min: number; cost: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
+    function startMissionBattle(mission: CombatMission) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
+    // Combat missions are won in the Arena (which only queues the claim on the
+    // character) and paid out HERE. Mirrors the field-mission / hunt claim
+    // pattern: per-rank XP + ryo (matching the card), +1 Territory Scroll, and
+    // the kill-counter / daily-mission bookkeeping that used to run on the win.
+    // No stamina — stamina is not part of any mission reward.
+    function claimCombatMission(mission: CombatMission) {
+        if (!(character.pendingCombatMissionClaims ?? []).includes(mission.key)) return;
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
+        const boostedXp = boostAmount(mission.xp, missionRewardBonus);
+        const boostedRyo = boostAmount(mission.ryo, missionRewardBonus);
+        const aiId = mission.aiProfileId;
+        const leveled = grantTerritoryScrolls(gainXp(character, boostedXp), mission.territoryScrolls);
+        updateCharacter(markMissionCompleted({
+            ...leveled,
+            ryo: leveled.ryo + boostedRyo,
+            totalAiKills: (leveled.totalAiKills ?? 0) + 1,
+            dailyAiKills: (leveled.dailyAiKills ?? 0) + 1,
+            defeatedAiIds: (leveled.defeatedAiIds ?? []).includes(aiId) ? (leveled.defeatedAiIds ?? []) : [...(leveled.defeatedAiIds ?? []), aiId],
+            aiKills: { ...(leveled.aiKills ?? {}), [aiId]: ((leveled.aiKills ?? {})[aiId] ?? 0) + 1 },
+            pendingCombatMissionClaims: (leveled.pendingCombatMissionClaims ?? []).filter((key) => key !== mission.key),
+        }));
+        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo. +${mission.territoryScrolls} Territory Control Scroll${mission.territoryScrolls === 1 ? "" : "s"}.`);
+    }
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
     function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) })); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`); }
-    const missions = [
-        { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "D", aiProfileId: "builtin-ai-mist-sentinel" },
-        { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "C", aiProfileId: "builtin-ai-ember-duelist" },
-        { name: "B-Rank Escort", xp: 150, ryo: 125, cost: 20, recover: 10, min: 30, icon: "B", aiProfileId: "builtin-ai-frost-sealer" },
-        { name: "A-Rank Hunt", xp: 300, ryo: 250, cost: 35, recover: 18, min: 50, icon: "A", aiProfileId: "builtin-ai-shadow-weaver" },
-        { name: "S-Rank Crisis", xp: 700, ryo: 600, cost: 60, recover: 30, min: 70, icon: "S", aiProfileId: "builtin-ai-central-champion" },
-    ];
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
     const rankColor: Record<string, string> = { "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
@@ -106,15 +123,16 @@ export function Missions({
             {activeMissionTab === "combat" && (
             <section className="mh-section">
                 <h3 className="mh-section-title">⚔️ Combat Missions</h3>
-                <p className="hint">Defeat the assigned enemy to earn rewards. No shortcuts.</p>
+                <p className="hint">Defeat the assigned enemy, then return here to claim your reward. No shortcuts.</p>
                 <div className="mh-combat-grid">
-                    {missions.map((mission) => {
+                    {COMBAT_MISSIONS.map((mission) => {
                         const ai = creatorAis.find((c) => c.id === mission.aiProfileId);
                         const locked = character.level < mission.min;
+                        const claimable = (character.pendingCombatMissionClaims ?? []).includes(mission.key);
                         return (
-                            <div key={mission.name} className={`mh-combat-card${locked ? " mh-locked" : ""}`}>
-                                <div className="mh-combat-rank" style={{ background: rankColor[(mission.name.split("-")[0]?.trim() ?? "") + " Rank"] ?? "#475569" }}>
-                                    {(mission.name.split("-")[0]?.trim() ?? "") + "-Rank"}
+                            <div key={mission.key} className={`mh-combat-card${locked ? " mh-locked" : ""}${claimable ? " mh-fetch-complete" : ""}`}>
+                                <div className="mh-combat-rank" style={{ background: rankColor[mission.rank + " Rank"] ?? "#475569" }}>
+                                    {mission.rank}-Rank
                                 </div>
                                 <div className="mh-combat-avatar">
                                     {ai?.image
@@ -126,20 +144,21 @@ export function Missions({
                                     <span className="mh-combat-enemy">{ai?.name ?? "Unknown Enemy"}</span>
                                     <div className="mh-combat-tags">
                                         <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>
-                                        <span className="mh-tag mh-tag-sta">-{mission.cost} STA</span>
                                     </div>
                                     <div className="mh-combat-rewards">
                                         <span>⭐ {displayCharacterXpGain(boostAmount(mission.xp, missionRewardBonus))} XP</span>
                                         <span>💰 {boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>
-                                <button
-                                    className="mh-combat-btn"
-                                    disabled={locked || character.stamina < mission.cost || todayMissions >= DAILY_MISSION_LIMIT}
-                                    onClick={() => startMissionBattle(mission)}
-                                >
-                                    {locked ? `Lv ${mission.min} Required` : "⚔️ Begin Mission"}
-                                </button>
+                                {claimable
+                                    ? <button className="mh-combat-btn mh-claim-btn" onClick={() => claimCombatMission(mission)}>✅ Claim Reward</button>
+                                    : <button
+                                        className="mh-combat-btn"
+                                        disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
+                                        onClick={() => startMissionBattle(mission)}
+                                    >
+                                        {locked ? `Lv ${mission.min} Required` : "⚔️ Begin Mission"}
+                                    </button>}
                             </div>
                         );
                     })}
