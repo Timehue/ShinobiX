@@ -41,7 +41,7 @@ import { petFxSpriteKey } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, DUEL_OBSTACLES, type DuelResult, type DuelState, type DuelActorSnap, type DuelObstacle } from "../lib/pet-duel-sim";
+import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 
@@ -1378,10 +1378,12 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const prevHp = useRef(Infinity);
     const flash = useRef(0);
     const lastX = useRef(0);
+    const lastSpeed = useRef(0);
     const trail = useRef<Array<[number, number, number]>>([]);
     const fastRef = useRef(0);
     const ghostColor = useMemo(() => elementColor(pet.element).glow, [pet.element]);
     const auraColor = useMemo(() => elementColor(pet.element).base, [pet.element]);
+    const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
 
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
@@ -1390,7 +1392,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const shadowW = Math.max(0.6, L.contentWorldW * 0.95);
     const side = mirror ? "enemy" : "player";
 
-    useFrame(() => {
+    useFrame((state) => {
         const g = group.current, m = mat.current;
         if (!g || !m) return;
         const snaps = duel.snapshots;
@@ -1400,7 +1402,12 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (!a0) return;
         const a1 = findActor(snaps[i1], id) ?? a0;
         const x = lerp(a0.x, a1.x, f), z = lerp(a0.y, a1.y, f);
-        g.position.set(x, FLOOR_Y, z);
+        // Run-bob: a quick hop while moving (so they READ as running, not gliding)
+        // + a forward lean on the strike. Phase-offset per pet so they're not in
+        // lockstep. (Speed measured below; reuse last frame's value.)
+        const moving = lastSpeed.current > 0.05 && a0.state !== "dead";
+        const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 12 + bobPhase)) * 0.14 : 0;
+        g.position.set(x, FLOOR_Y + bob, z);
 
         // Pose swap (a re-render — only fires when the category actually changes).
         const cat = poseCategory(DUEL_STATE_POSE[a0.state]);
@@ -1421,7 +1428,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
         // Afterimage trail (dash speed-streak).
-        const speed = Math.abs(x - lastX.current); lastX.current = x;
+        const speed = Math.abs(x - lastX.current); lastX.current = x; lastSpeed.current = speed;
         const buf = trail.current; buf.unshift([x, FLOOR_Y, z]); if (buf.length > GHOSTS * 2 + 1) buf.length = GHOSTS * 2 + 1;
         fastRef.current = Math.max(0, Math.min(1, (speed - 0.02) / 0.12));
 
@@ -1630,62 +1637,21 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
     );
 }
 
-/** A piece of battlefield terrain the pets path around — a grounded earthy
- *  boulder cluster (warm rock + moss, sits ON the map) or a glowing crystal
- *  outcrop. Positioned at a sim obstacle. */
-function DuelObstacleMesh({ o }: { o: DuelObstacle }) {
-    if (o.kind === "crystal") {
-        return (
-            <group position={[o.x, 0, o.z]}>
-                <mesh position={[0, 0.12, 0]} scale={[1.1, 0.7, 1.1]}>
-                    <icosahedronGeometry args={[o.r * 0.85, 0]} />
-                    <meshStandardMaterial color="#2c2640" roughness={0.85} flatShading />
-                </mesh>
-                <mesh position={[0, 0.82, 0]} rotation={[0, 0.5, 0.08]}>
-                    <octahedronGeometry args={[o.r * 0.6, 0]} />
-                    <meshBasicMaterial color="#8be0ff" transparent opacity={0.95} toneMapped={false} blending={THREE.AdditiveBlending} />
-                </mesh>
-                <mesh position={[o.r * 0.42, 0.5, 0.1]} rotation={[0.3, 0, 0.4]}>
-                    <octahedronGeometry args={[o.r * 0.34, 0]} />
-                    <meshBasicMaterial color="#62caff" transparent opacity={0.9} toneMapped={false} blending={THREE.AdditiveBlending} />
-                </mesh>
-            </group>
-        );
-    }
-    // Grounded boulder cluster — flattened so it SITS on the ground (not a
-    // floating sphere), warm grey-brown stone with a mossy-green cap.
-    return (
-        <group position={[o.x, 0, o.z]}>
-            <mesh position={[0, o.r * 0.26, 0]} rotation={[0.1, 0.6, 0.05]} scale={[1.2, 0.66, 1.05]}>
-                <icosahedronGeometry args={[o.r * 0.9, 0]} />
-                <meshStandardMaterial color="#6f6356" roughness={1} flatShading />
-            </mesh>
-            <mesh position={[o.r * 0.62, o.r * 0.16, o.r * 0.38]} rotation={[0.4, 1.1, 0.2]} scale={[1.1, 0.6, 1]}>
-                <icosahedronGeometry args={[o.r * 0.5, 0]} />
-                <meshStandardMaterial color="#5b5147" roughness={1} flatShading />
-            </mesh>
-            <mesh position={[-o.r * 0.18, o.r * 0.42, -o.r * 0.12]} rotation={[0.2, 0, 0]} scale={[1.15, 0.36, 1.05]}>
-                <icosahedronGeometry args={[o.r * 0.6, 0]} />
-                <meshStandardMaterial color="#46633c" roughness={1} flatShading />
-            </mesh>
-        </group>
-    );
-}
-
 /** Tactical BOARD arena — the flat top-down battle map floating on a dark void.
  *  Deliberately NO coliseum wall + flat even lighting, so it reads as its own
  *  thing and not a reskin of the cinematic coliseum. */
 function DuelArena({ floor }: { floor: THREE.Texture }) {
     return (
         <group>
-            <ambientLight intensity={1.15} />
-            <directionalLight position={[3, 12, 5]} intensity={0.45} />
+            <ambientLight intensity={1.2} />
+            <directionalLight position={[3, 12, 5]} intensity={0.4} />
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, 0]}>
-                <circleGeometry args={[70, 48]} />
-                <meshBasicMaterial color="#070510" toneMapped={false} fog={false} />
+                <circleGeometry args={[80, 48]} />
+                <meshBasicMaterial color="#060410" toneMapped={false} fog={false} />
             </mesh>
+            {/* the battle map as a flat rectangular board (a MAP, not an arena floor) */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, FLOOR_Y, 0]}>
-                <circleGeometry args={[13.5, 96]} />
+                <planeGeometry args={[26, 15]} />
                 <meshStandardMaterial map={floor} roughness={1} />
             </mesh>
         </group>
@@ -1759,9 +1725,6 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             <Canvas dpr={[1, 2]} camera={{ position: [0, 18, 13], fov: 44 }} onCreated={({ camera }) => camera.lookAt(0, 0, -0.5)}>
                 <fog attach="fog" args={["#070510", 52, 120]} />
                 <DuelArena floor={floor} />
-                {DUEL_OBSTACLES.map((o, i) => (
-                    <DuelObstacleMesh key={i} o={o} />
-                ))}
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}

@@ -46,14 +46,17 @@ const ARENA_Y = 5.8;
 // 3D rocks/crystals at these spots. (x,z = world; r = blocked radius.)
 export type DuelObstacle = { x: number; z: number; r: number; kind: "rock" | "crystal" };
 export const DUEL_OBSTACLES: ReadonlyArray<DuelObstacle> = [
-    { x: -3.2, z: -2.6, r: 1.35, kind: "rock" },
-    { x: -3.2, z: 2.6, r: 1.35, kind: "rock" },
-    { x: 3.2, z: -2.6, r: 1.35, kind: "rock" },
-    { x: 3.2, z: 2.6, r: 1.35, kind: "rock" },
-    { x: 0, z: -4.4, r: 1.0, kind: "crystal" },
-    { x: 0, z: 4.4, r: 1.0, kind: "crystal" },
-    { x: -6.6, z: 0, r: 1.15, kind: "rock" },
-    { x: 6.6, z: 0, r: 1.15, kind: "rock" },
+    // Central divider (z≈0) between the TOP lane (z<0) and BOTTOM lane (z>0),
+    // with a center gap so a 1v1 can meet in the middle.
+    { x: -5.5, z: 0, r: 1.0, kind: "rock" },
+    { x: -2.2, z: 0, r: 0.95, kind: "crystal" },
+    { x: 2.2, z: 0, r: 0.95, kind: "crystal" },
+    { x: 5.5, z: 0, r: 1.0, kind: "rock" },
+    // Cover within each lane (pets path around it as they traverse + clash).
+    { x: -3.6, z: -3.4, r: 0.95, kind: "rock" },
+    { x: 3.6, z: -3.4, r: 0.95, kind: "rock" },
+    { x: -3.6, z: 3.4, r: 0.95, kind: "rock" },
+    { x: 3.6, z: 3.4, r: 0.95, kind: "rock" },
 ];
 
 // Stamina economy — gates dashes / dodges / attacks so the fight breathes.
@@ -288,6 +291,13 @@ function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
         const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0);
         if (t) return t;
     }
+    // LANE DISCIPLINE (2v2): fight your OWN lane opponent (same slot) while it
+    // lives, so the battle splits into two separate lane duels — top lane (lead
+    // vs lead) and bottom lane (reserve vs reserve) — instead of all four piling
+    // onto one target in a center scrum. Only when a lane opponent falls does the
+    // pet collapse to help the other lane (the lowest-HP pick below).
+    const laneFoe = fighters.find((g) => g.team !== f.team && g.slot === f.slot && g.hp > 0);
+    if (laneFoe) return laneFoe;
     let best: Fighter | null = null, bestKey = Infinity;
     for (const g of fighters) {
         if (g.team === f.team || g.hp <= 0) continue;
@@ -576,6 +586,22 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
         return;
     }
 
+    // SIGNATURE / ULTIMATE has priority: once it's off cooldown, commit to it —
+    // and if the pet can't afford it yet, HOLD and bank stamina rather than
+    // frittering it on basics (otherwise the cheap attack starves the ultimate
+    // and it never fires). Makes the ultimate a real charged-up moment.
+    const sigIdx = f.abilities.findIndex((a) => a.signature && a.cdLeft <= 0);
+    if (sigIdx >= 0) {
+        const ab = f.abilities[sigIdx];
+        if (f.stamina >= ab.cost) {
+            if (dist <= ab.range) { beginCast(f, sigIdx, target.id, t, events); return; }
+            commitApproach(f, target, dist, inv, ab.range * 0.92, ab.cls === "melee", t, events);
+            return;
+        }
+        holdNeutral(f, target, dist, inv, dx, dy);   // bank stamina for the unleash
+        return;
+    }
+
     // The best READY offensive ability (regardless of range — we'll close to it).
     let chosen = -1, chosenScore = -1;
     for (let i = 0; i < f.abilities.length; i++) {
@@ -818,8 +844,8 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
  *  opens with a real traversal toward each other. */
 export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
     const fighters = [
-        buildFighter(playerPet, "player", 0, -9.2, 0),
-        buildFighter(enemyPet, "enemy", 0, 9.2, 0),
+        buildFighter(playerPet, "player", 0, -9.2, -3.4),
+        buildFighter(enemyPet, "enemy", 0, 9.2, -3.4),
     ];
     return simulate(fighters, seed);
 }
@@ -832,9 +858,11 @@ export function runPetPartyDuel(
     enemyLead: Pet, enemyReserve: Pet | null,
     seed: number,
 ): DuelResult {
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -9.2, -3.0)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -8.6, 3.0));
-    fighters.push(buildFighter(enemyLead, "enemy", 0, 9.2, -3.0));
-    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 8.6, 3.0));
+    // Lead spawns in the TOP lane (z<0), reserve in the BOTTOM lane (z>0) — each
+    // side mirrored — so the two lane duels happen in separate halves of the map.
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -9.2, -3.4)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.2, 3.4));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 9.2, -3.4));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.2, 3.4));
     return simulate(fighters, seed);
 }
