@@ -100,6 +100,79 @@ const nonBloodlineTagTable: Record<string, string[]> = {
     "starter-buki-water-3": ["Recoil", "Drain"],
 };
 
+// ── Non-bloodline (starter) flavor text ──────────────────────────────────
+// Self-contained battle-log + card flavor for every built-in starter jutsu.
+// `battle` shows in the battle log (PvE head line + the PvP "uses X:" line);
+// `desc` shows on the jutsu inspect card. Token-free on purpose — the log/card
+// render these verbatim with no %user/%target substitution, so prose must read
+// naturally on its own. Bloodline jutsu are intentionally absent: players write
+// their own bloodline flavor in the Bloodline Maker.
+const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
+    "starter-nin-earth-1": { battle: "Jagged stone needles erupt from the earth in a punishing volley.", desc: "Hardened earth chakra is compressed into needle-thin spikes that punch through armor." },
+    "starter-nin-earth-2": { battle: "Heavy mud surges up and hardens around the target, locking them in place.", desc: "A coffin of wet earth seals around the enemy and crushes inward as it dries." },
+    "starter-nin-earth-3": { battle: "A cloud of iron-laced sand detonates outward in a grinding burst.", desc: "Magnetized iron sand scours flesh and leaves lingering, bleeding wounds." },
+    "starter-nin-wind-1": { battle: "A palm-thrust compresses the air into a concussive vacuum wave.", desc: "A blast of pressurized wind that knocks the enemy back off their footing." },
+    "starter-nin-wind-2": { battle: "Whirling blades of wind carve through the air toward the target.", desc: "Spinning wind chakra sharpens into cutting edges that build the user's momentum." },
+    "starter-nin-wind-3": { battle: "A net of howling wind wraps tight, smothering the enemy's strength.", desc: "Lashing gusts bind the target and sap the force from their attacks." },
+    "starter-nin-lightning-1": { battle: "A crackling fang of lightning snaps forward and bites deep.", desc: "Concentrated lightning chakra shaped into a fang that pierces in a single strike." },
+    "starter-nin-lightning-2": { battle: "A lance of pure lightning spears forward on a deafening thunderclap.", desc: "A focused bolt that strikes faster than the eye can track." },
+    "starter-nin-lightning-3": { battle: "Sparks dance across the enemy's nerves, sealing their bloodline away.", desc: "A precise jolt that scrambles chakra pathways and locks the enemy's kekkei genkai." },
+    "starter-nin-fire-1": { battle: "A spitting ember bursts on impact and sets the target alight.", desc: "A small fireball that clings and smolders, igniting the enemy for follow-up hits." },
+    "starter-nin-fire-2": { battle: "A roaring arc of dragonfire sweeps across the battlefield.", desc: "A torrent of flame shaped like a rising dragon that leaves the enemy scorched and exposed." },
+    "starter-nin-fire-3": { battle: "A choking cloud of burning ash bursts over the enemy.", desc: "Superheated ash sears the lungs and poisons the target with every breath." },
+    "starter-nin-water-1": { battle: "A spear of compressed water lances forward with crushing force.", desc: "Water chakra hardened to a piercing point that drives clean through a guard." },
+    "starter-nin-water-2": { battle: "A towering wave crashes down and traps the enemy in churning water.", desc: "A prison of crushing water that holds the target fast and staggers their next move." },
+    "starter-nin-water-3": { battle: "A cool mist coils around the user, blunting the blows to come.", desc: "A flowing veil of mist that shrouds the user and softens the damage they take." },
+
+    "starter-tai-earth-1": { battle: "A granite-hard elbow smashes into the target at close range.", desc: "The forearm is sheathed in stone chakra for a brutal, bone-jarring strike." },
+    "starter-tai-earth-2": { battle: "A crushing heel drops like a falling boulder onto the enemy.", desc: "A downward axe-kick weighted with earth chakra that builds the user's offense." },
+    "starter-tai-earth-3": { battle: "A grounded strike shatters the enemy's guard and drives through it.", desc: "Planted feet and earth chakra lend a blow that pierces straight past defenses." },
+    "starter-tai-wind-1": { battle: "The user blurs forward on a tempest step and repositions in an instant.", desc: "A wind-assisted dash that carries the user to open ground in the blink of an eye." },
+    "starter-tai-wind-2": { battle: "A rising flurry of wind-fast strikes batters the enemy upward.", desc: "A gale-quick combination that leaves the target reeling and easier to hit." },
+    "starter-tai-wind-3": { battle: "A spiraling backfist rides a gust and knocks the enemy away.", desc: "A spinning strike trailing wind chakra that shoves the target back." },
+    "starter-tai-lightning-1": { battle: "A chain of lightning-fast jabs crackles into the target.", desc: "Rapid electrified jabs that pile on before the enemy can react." },
+    "starter-tai-lightning-2": { battle: "A thunder-charged knee slams up with stunning force.", desc: "A lightning-fast knee that rattles the enemy and steals their next breath." },
+    "starter-tai-lightning-3": { battle: "The user vanishes in a flash and snaps back into a counter stance.", desc: "A lightning-quick repositioning that turns the enemy's own blows against them." },
+    "starter-tai-fire-1": { battle: "A fist wreathed in flame slams home and sets the target burning.", desc: "Fire chakra coats the knuckles, igniting the enemy on contact." },
+    "starter-tai-fire-2": { battle: "A blazing axe-kick falls like a meteor onto the enemy.", desc: "A flaming overhead kick that lands with reckless, recoiling force." },
+    "starter-tai-fire-3": { battle: "The user rushes in trailing cinders that sear the enemy raw.", desc: "A burning charge that leaves smoldering wounds in its wake." },
+    "starter-tai-water-1": { battle: "A flowing palm lands soft and draws the enemy's vitality into the user.", desc: "A water-smooth blow that heals the user for part of the harm it deals." },
+    "starter-tai-water-2": { battle: "The user rides a surge of water and hurls the enemy with a shoulder throw.", desc: "A tidal-powered throw that slams the target down and weakens their strikes." },
+    "starter-tai-water-3": { battle: "The user settles into a rippling guard, deflecting what comes.", desc: "A flowing defensive stance that raises a shield and wards off interference." },
+
+    "starter-gen-earth-1": { battle: "The ground seems to twist as a stone mirage clouds the enemy's sight.", desc: "An earth-bound illusion that throws off the target's aim and shields the user's mind." },
+    "starter-gen-earth-2": { battle: "Phantom earth swallows the enemy's senses and buries their memory.", desc: "An illusion that entombs the mind and seals away the enemy's bloodline." },
+    "starter-gen-earth-3": { battle: "Figures of dust rise and dance, poisoning the enemy's perception.", desc: "Illusory dust puppets that worm into the mind and sicken the target over time." },
+    "starter-gen-wind-1": { battle: "A whispering wind carries doubt that leaves the enemy exposed.", desc: "Voices on the breeze unsettle the target, so every blow against them lands harder." },
+    "starter-gen-wind-2": { battle: "A cyclone of hollow voices spins around the user, quickening them.", desc: "A disorienting whirl of sound that sharpens the user's own tempo." },
+    "starter-gen-wind-3": { battle: "The user drifts aside like a feather, fading from the enemy's reach.", desc: "A weightless illusion-step that repositions the user and blunts incoming harm." },
+    "starter-gen-lightning-1": { battle: "A blinding flash overloads the enemy's senses for an instant.", desc: "A burst of illusory light that sears straight into the mind." },
+    "starter-gen-lightning-2": { battle: "The world freezes into a phantom stage and locks the enemy still.", desc: "An elaborate illusion that traps the target and steals their next action." },
+    "starter-gen-lightning-3": { battle: "A mirrored dream turns the enemy's own malice back upon them.", desc: "An illusion that reflects the target's curses and debuffs onto themselves." },
+    "starter-gen-fire-1": { battle: "Ghostly lantern-light flares, igniting the enemy's deepest fear.", desc: "A fiery vision of dread that leaves the target burning and rattled." },
+    "starter-gen-fire-2": { battle: "Phantom flames roar up around the enemy, all too real to their mind.", desc: "An illusion of all-consuming fire that stokes the user's own offense." },
+    "starter-gen-fire-3": { battle: "Ash settles over the enemy's thoughts, smothering their will.", desc: "A grey haze that locks the mind and blocks the enemy from gaining new buffs." },
+    "starter-gen-water-1": { battle: "The enemy sees themselves drowning and feels their strength leave them.", desc: "A watery illusion that drains the target's chakra and resolve." },
+    "starter-gen-water-2": { battle: "A calm moonlit tide washes over the user, easing every blow.", desc: "A serene illusion that lowers the damage the user takes." },
+    "starter-gen-water-3": { battle: "A clinging mist tangles the enemy's memory and holds their binds fast.", desc: "An illusory fog that prevents the target from clearing what afflicts them." },
+
+    "starter-buki-earth-1": { battle: "A volley of stone kunai rains down to pin the enemy in place.", desc: "Thrown blades of packed earth that hem the target in and blunt their assault." },
+    "starter-buki-earth-2": { battle: "An adamant chain whips out and hauls the enemy off balance.", desc: "A weighted chain of hardened links that drags the target where the user wants them." },
+    "starter-buki-earth-3": { battle: "A razor edge of obsidian slashes clean through the enemy's defense.", desc: "A blade of volcanic glass honed to pierce armor and guard alike." },
+    "starter-buki-wind-1": { battle: "A line of windmill shuriken spins out and carves the target.", desc: "Spinning fūma shuriken that score deep, bleeding cuts." },
+    "starter-buki-wind-2": { battle: "A fan of airborne blades fans out and presses the enemy.", desc: "Thrown blades caught on the wind that build the user's advantage." },
+    "starter-buki-wind-3": { battle: "Needles ride a crosswind and slip past the enemy's guard.", desc: "Wind-guided senbon that harry the target while the user braces against harm." },
+    "starter-buki-lightning-1": { battle: "Electrified senbon streak into the target with a sharp crack.", desc: "Needles charged with lightning that strike fast and true." },
+    "starter-buki-lightning-2": { battle: "A web of charged wire snaps taut and jolts the enemy stiff.", desc: "A hidden lightning-wire snare that stuns whoever trips it." },
+    "starter-buki-lightning-3": { battle: "A thrown blade curves back on a magnetic pull, slashing twice.", desc: "A magnetized blade that returns to the user and throws reflected harm aside." },
+    "starter-buki-fire-1": { battle: "A flicker of motion plants an explosive tag that bursts into flame.", desc: "A tagged charge that detonates and leaves the target alight." },
+    "starter-buki-fire-2": { battle: "Flame races down a hidden wire and detonates against the enemy.", desc: "A burning trap-wire that goes off in a searing blast, leaving the target exposed." },
+    "starter-buki-fire-3": { battle: "A red-hot blade spins through the air and sears on contact.", desc: "A heated throwing blade that burns and poisons the wound it opens." },
+    "starter-buki-water-1": { battle: "A spray of needles scatters through the mist into the enemy.", desc: "Concealing mist hides a spread of senbon that drains the target." },
+    "starter-buki-water-2": { battle: "A water-wreathed chain slashes across the enemy in a torrent.", desc: "A surging chain-blade that cuts deep and siphons vitality back to the user." },
+    "starter-buki-water-3": { battle: "The user weaves a hidden current that lashes back at attackers.", desc: "A deceptive guarding current that punishes and drains those who strike it." },
+};
+
 // Flat-value or binary tags carry no percent; every other starter tag uses the
 // uniform 30% creator value (which displays as 20% at mastery 0).
 function nonBloodlineTagPercent(name: string): number {
@@ -114,6 +187,7 @@ export function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
     const ap = tagNames.length === 1 ? 60 : 40; // 1 tag = 60AP damage, 2 = 40AP utility
     const tags = tagNames.map((name) => ({ name, percent: nonBloodlineTagPercent(name) }));
     const isMove = tagNames.includes("Move");
+    const flavor = nonBloodlineFlavor[normalized.id];
 
     return normalizeJutsu({
         ...normalized,
@@ -124,6 +198,9 @@ export function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
         chakraCost: ap === 60 ? 250 : 125,
         staminaCost: ap === 60 ? 250 : 125,
         tags,
+        // Attach the built-in flavor (battle-log line + card description). Off-table
+        // jutsu keep normalizeJutsu's generic default.
+        ...(flavor ? { battleDescription: flavor.battle, description: flavor.desc } : {}),
     });
 }
 
@@ -207,7 +284,8 @@ export const starterJutsus: Jutsu[] = [
         target: "EMPTY_GROUND",
         method: "SINGLE",
         tags: [{ name: "Move", percent: 0 }],
-        battleDescription: "%user vanishes and reappears on a nearby open tile.",
+        battleDescription: "The user vanishes and reappears on a nearby open tile.",
+        description: "A short-range body flicker that repositions the user in an instant.",
     }),
 ].map(rebalanceNonBloodlineJutsu);
 

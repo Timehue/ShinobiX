@@ -10,6 +10,8 @@ import type { Pet } from "../types/pet";
 import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
+import { BattleLogLine } from "../components/BattleLogLine";
+import { interpolateFlavor } from "../lib/battle-log-format";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
@@ -1409,10 +1411,11 @@ export function Arena({
                 stamina: Math.max(0, character.stamina - scaled.staminaCost),
             });
 
-            const flavorText =
+            const flavorText = interpolateFlavor(
                 pendingTargetJutsu.battleDescription?.trim() ||
                 pendingTargetJutsu.description?.trim() ||
-                `${character.name} shifts across the battlefield.`;
+                `${character.name} shifts across the battlefield.`,
+                character.name, opponentName);
 
             setLog(`${pendingTargetJutsu.name}: moved ${dist} tile(s).`);
 
@@ -2604,10 +2607,11 @@ export function Arena({
             stamina: Math.max(0, character.stamina - scaled.staminaCost),
         });
 
-        const flavorText =
+        const flavorText = interpolateFlavor(
             jutsu.battleDescription?.trim() ||
             jutsu.description?.trim() ||
-            `${character.name} unleashes ${jutsu.name}.`;
+            `${character.name} unleashes ${jutsu.name}.`,
+            character.name, opponentName);
 
         const totalDamage = finalDamage + extraEnemyDamage;
 
@@ -3225,10 +3229,11 @@ export function Arena({
         setEnemyShield((s) => s + shield);
         setEnemyJutsuCooldowns((current) => ({ ...current, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
         updateCharacter({ ...character, hp: Math.max(0, playerHp - playerNetTaken) });
-        const enemyFlavorText =
+        const enemyFlavorText = interpolateFlavor(
             jutsu.battleDescription?.trim() ||
             jutsu.description?.trim() ||
-            `${opponentName} uses ${jutsu.name}.`;
+            `${opponentName} uses ${jutsu.name}.`,
+            opponentName, character.name);
 
         const enemyTimelineParts = [
             `${jutsu.name}: ${enemyFlavorText}`,
@@ -4671,17 +4676,7 @@ export function Arena({
                                                 <p className="timeline-entry-head">
                                                     <strong>#{entry.actionNumber}</strong> {entry.actor}: {headLine}
                                                 </p>
-                                                {effectLines.map((line, i) => {
-                                                    const trimmed = line.trim();
-                                                    if (!trimmed) return null;
-                                                    const isDamage = /Damage Dealt|takes [\d.]+ damage|wound damage/i.test(trimmed);
-                                                    const isHeal = /\bHeal:|restores [\d.]+ HP|heals \d|absorbs [\d.]+ damage/i.test(trimmed);
-                                                    const isShield = /\bShield:|shield blocks|gains \d+ shield/i.test(trimmed);
-                                                    const cls = isDamage ? "timeline-fx-damage" : isHeal ? "timeline-fx-heal" : isShield ? "timeline-fx-shield" : "timeline-fx-effect";
-                                                    return (
-                                                        <p className={`timeline-fx ${cls}`} key={i}>· {trimmed}</p>
-                                                    );
-                                                })}
+                                                {effectLines.map((line, i) => <BattleLogLine line={line} key={i} />)}
                                             </div>
                                         );
                                     })}
