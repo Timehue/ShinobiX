@@ -1399,11 +1399,15 @@ function arenaPlace(sx: number, sy: number): StagePos {
     return { wx: (mx / MAP_W - 0.5) * STAGE.worldW, wy: (0.5 - my / MAP_H) * STAGE.worldH, depth: getPerspectiveScale(my), zo: (my / MAP_H) * 8 };
 }
 
-/** Orthographic camera, cover-fit to the stage rect — matches the CSS `cover`
- *  background so the sprite layer is pixel-locked to the painting at any size. */
-function StageCamera() {
+/** Orthographic camera fit to the stage rect — matches the CSS background fit so
+ *  the sprite layer is pixel-locked to the painting at any size. `cover` fills +
+ *  crops (duel/coliseum); `contain` shows the WHOLE map centred (arena — so the
+ *  full board is always visible + the side panels don't crop the action). */
+function StageCamera({ fit = "cover" }: { fit?: "cover" | "contain" }) {
     const size = useThree((s) => s.size);
-    const zoom = Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
+    const zoom = fit === "contain"
+        ? Math.min(size.width / STAGE.worldW, size.height / STAGE.worldH)
+        : Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
     return <OrthographicCamera makeDefault position={[0, 0, 100]} zoom={zoom} near={0.1} far={1000} />;
 }
 
@@ -1984,14 +1988,14 @@ function ArenaCamera({ result, clock, stageRef }: { result: ArenaResult; clock: 
         const el = stageRef.current; if (!el || size.height < 1) return;
         const snaps = result.snapshots; const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
         const snap = snaps[i];
-        let tcx = 0, tcy = 0, tz = 1;   // default: centered, full map
+        let tcx = 0, tcy = 0, tz = 1;   // default: centered, WHOLE map (contain)
         if (snap.scroll.state === "carried" && snap.scroll.carrierId) {
             const c = snap.actors.find((a) => a.id === snap.scroll.carrierId);
-            if (c) { const p = arenaPlace(c.x, c.y); tcx = p.wx; tcy = p.wy; tz = 1.5; }   // ease in on the carrier
+            if (c) { const p = arenaPlace(c.x, c.y); tcx = p.wx; tcy = p.wy; tz = 1.35; }   // ease in on the carrier
         }
         const s = sm.current;
         s.cx += (tcx - s.cx) * 0.045; s.cy += (tcy - s.cy) * 0.045; s.z += (tz - s.z) * 0.045;   // glide
-        const zoomCam = Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
+        const zoomCam = Math.min(size.width / STAGE.worldW, size.height / STAGE.worldH);   // contain-fit (matches StageCamera + bg)
         const fx = size.width / 2 + s.cx * zoomCam, fy = size.height / 2 - s.cy * zoomCam;
         let tx = size.width / 2 - fx * s.z, ty = size.height / 2 - fy * s.z;
         tx = clamp(tx, size.width * (1 - s.z), 0); ty = clamp(ty, size.height * (1 - s.z), 0);   // keep the diorama covering the frame
@@ -2050,9 +2054,9 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
             <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}`}</style>
             {/* The STAGE — backdrop + canvas + Html overlays — is one layer the action camera scales/pans as a unit (everything stays pixel-locked). HUD lives outside it. */}
-            <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
+            <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
                 <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
-                    <StageCamera />
+                    <StageCamera fit="contain" />
                     {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
                     {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
                     <ArenaScroll result={result} clock={clock} />
