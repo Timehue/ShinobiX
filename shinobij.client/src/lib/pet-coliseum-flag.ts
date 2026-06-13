@@ -34,3 +34,23 @@ export function petDuelEnabled(): boolean {
 export function setPetDuelEnabled(on: boolean): void {
     try { localStorage.setItem(DUEL_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
+
+/*
+ * Experimental BLOOM (HDR glow) postprocessing flag for the HD-2D coliseum/arena
+ * Canvases. When ON, an EffectComposer + threshold Bloom pass makes the bright,
+ * additive signature / ultimate / KO effects GLOW so big moves read bigger; basic
+ * hits stay below the luminance threshold and don't bloom. DEFAULT OFF: bloom adds
+ * a fullscreen render pass (a real mobile/low-end cost) and needs a visual + perf
+ * review before it can be a default — and on a TRANSPARENT canvas (the arena
+ * composites over a DOM backdrop) it must be eyeballed for alpha correctness.
+ * Per-device persisted. Toggle in the console: localStorage.setItem("petBloom.v1","1").
+ */
+const BLOOM_KEY = "petBloom.v1";
+
+export function petBloomEnabled(): boolean {
+    try { return localStorage.getItem(BLOOM_KEY) === "1"; } catch { return false; }
+}
+
+export function setPetBloomEnabled(on: boolean): void {
+    try { localStorage.setItem(BLOOM_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}

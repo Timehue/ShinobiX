@@ -77,24 +77,30 @@ function kindForElement(vfx?: PetVfxKey): VfxBurstKind {
  */
 export function vfxBurstForEvent(
     event: Pick<PetBattleAnimationEvent, "type" | "vfxKey"> | undefined,
-    opts: { crit?: boolean; isKO?: boolean } = {},
+    opts: { crit?: boolean; isKO?: boolean; signature?: boolean; flagship?: boolean } = {},
 ): VfxBurstSpec {
     if (!event) return NONE;
     const colors = paletteFor(event.vfxKey);
     const critMul = opts.crit ? 1.6 : 1;
+    // Scale-of-importance: a signature dominates the frame, a mythic "flagship" apex more
+    // so — while a basic stays modest. Uniform sprays make every hit read weak (Riot VFX
+    // style guide). `sigMul`/`big` are 1× when not a signature, so basics are EXACT parity.
+    const sigMul = opts.flagship ? 1.7 : opts.signature ? 1.35 : 1;
+    const big = opts.signature || opts.flagship;
 
     switch (event.type) {
         case "ko":
-            return { kind: "spark", colors, count: 46, speed: 5.2, gravity: 0.16, life: 52, size: 3 };
+            return { kind: "spark", colors, count: Math.round(46 * sigMul), speed: 5.2 * (opts.flagship ? 1.2 : 1), gravity: 0.16, life: 52, size: 3 };
         case "impact": {
             const base = opts.isKO ? 40 : opts.crit ? 30 : 18;
-            return { kind: kindForElement(event.vfxKey), colors, count: Math.round(base * critMul), speed: opts.crit ? 4.4 : 3.2, gravity: 0.18, life: 40, size: opts.crit ? 3 : 2.4 };
+            return { kind: kindForElement(event.vfxKey), colors, count: Math.round(base * critMul * sigMul), speed: (opts.crit ? 4.4 : 3.2) * (opts.flagship ? 1.3 : opts.signature ? 1.15 : 1), gravity: 0.18, life: Math.round(40 * (big ? 1.3 : 1)), size: (opts.crit ? 3 : 2.4) * (big ? 1.25 : 1) };
         }
         case "statusApply":
             return { kind: kindForElement(event.vfxKey), colors, count: 14, speed: 1.7, gravity: 0.02, life: 46, size: 2.6 };
         case "charge":
-            // Gather UP into the actor — negative gravity, slow rise.
-            return { kind: "ember", colors, count: 22, speed: 1.4, gravity: -0.08, life: 50, size: 2.2 };
+            // Gather UP into the actor — negative gravity, slow rise. A signature wind-up
+            // gathers visibly MORE energy (a bigger tell before the big move lands).
+            return { kind: "ember", colors, count: Math.round(22 * (opts.flagship ? 1.8 : opts.signature ? 1.4 : 1)), speed: 1.4, gravity: -0.08, life: big ? 64 : 50, size: big ? 2.8 : 2.2 };
         default:
             return NONE;
     }
