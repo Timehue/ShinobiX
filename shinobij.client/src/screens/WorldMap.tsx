@@ -453,12 +453,12 @@ export function WorldMap({
         // Frostfang  -> sector 47 (62, 11)
         // Moonshadow -> sector 11 (81, 67)
         // Coords aligned to the new World Map.png baked-in banners (measured on a
-        // 0–100 grid): each village marker sits ON its painted banner icon medallion
-        // (the dark circle at the banner's left end).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 12, y: 40, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 79, y: 40, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 72, y: 84, icon: "MS" },
+        // 0–100 grid + crosshair triangulation): each village marker sits ON its
+        // painted banner icon medallion (the icon hexagon at the banner's far-left).
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 14, y: 82, icon: "SV" },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 12, y: 37, icon: "AL" },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, icon: "FF" },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 76, y: 82, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
         { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 46, y: 76, icon: "HG" },
