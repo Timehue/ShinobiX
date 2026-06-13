@@ -150,12 +150,17 @@ interface AF {
     shieldHp: number; slowLeft: number; dotLeft: number; dotDmg: number; markLeft: number; tauntBy: string | null; tauntLeft: number;
     carrying: boolean; seals: [number, number][];
     navStep: number; navGoal: number; navAge: number;   // BFS step cache (perf)
+    aiTargetId: string | null;                          // last committed target — decision hysteresis (anti-flip-flop)
+    plan: Plan | null;                                  // this tick's decision (computed in the decide phase, run in the execute phase)
 }
 // The two spawn seals per team (arena corners), snapped to a path tile. 2v2 puts
 // one pet on each seal; 4v4 puts two pets (a "player" pair) on each seal.
 // Field positions of the four painted spawn seals, measured off the diorama art
 // (scripts/find-seals.mjs); snapped to the nearest walkable path tile so pets
-// emerge ON the seal. [0] = upper seal, [1] = lower seal, per team.
+// emerge ON the seal. [0] = upper seal, [1] = lower seal, per team. Left on the
+// real (slightly asymmetric) art on purpose: symmetric-team balance is moot —
+// pets are trained differently, so quality decides and a stronger team wins from
+// either side (verified) — so seal-art alignment wins over a mirror-perfect spawn.
 const SEALS: Record<"blue" | "red", [number, number][]> = {
     blue: [snapPoint(-10.3, -5.6), snapPoint(-12.4, 2.5)],
     red: [snapPoint(9.5, -5.0), snapPoint(11.7, 2.5)],
@@ -175,7 +180,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         atkRange: cfg.atkRange, crit: cfg.crit, energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
         shieldHp: 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
-        navStep: -1, navGoal: -1, navAge: 0,
+        navStep: -1, navGoal: -1, navAge: 0, aiTargetId: null, plan: null,
     };
 }
 const alive = (f: AF) => f.lives > 0 && f.state !== "dead" && f.state !== "respawning";
@@ -232,83 +237,180 @@ function lowestHpAlly(f: AF, fs: AF[], includeSelf = true): AF | null {
     for (const g of fs) { if (g.team !== f.team || !alive(g) || (!includeSelf && g.id === f.id)) continue; const r = g.hp / g.maxHp; if (r < bf) { bf = r; best = g; } }
     return best;
 }
-/** Lane discipline: your same-slot counterpart (the four duels spread across the
- *  map, no 4-on-1 focus-fire snowball), or the nearest enemy if it's down. */
-function laneEnemy(f: AF, fs: AF[]): AF | null {
-    const lane = fs.find((g) => g.team !== f.team && g.slot === f.slot && alive(g));
-    return lane ?? nearestEnemy(f, fs);
-}
-function weakestEnemy(f: AF, fs: AF[]): AF | null {
-    // Assassin/Tracker bias: prefer the squishiest (sage > assassin > tracker > defender), then lowest HP.
-    const order: Record<ArenaRole, number> = { sage: 0, assassin: 1, tracker: 2, defender: 3 };
-    let best: AF | null = null, bk = Infinity;
-    for (const g of fs) { if (g.team === f.team || !alive(g)) continue; const k = order[g.role] * 1000 + g.hp; if (k < bk) { bk = k; best = g; } }
-    return best;
-}
 function nearestSeal(f: AF): [number, number] {
     let best = f.seals[0], bd = distPt(f, best[0], best[1]);
     for (const s of f.seals) { const d = distPt(f, s[0], s[1]); if (d < bd) { bd = d; best = s; } }
     return best;
 }
 
-interface Plan { gx: number; gy: number; stopAt: number; target: AF | null; channel: boolean; }
-function decide(f: AF, fs: AF[], scroll: Scroll): Plan {
-    const cfg = ROLE_CFG[f.role];
+// ── Score-based tactical AI ───────────────────────────────────────────────────
+// Each pet scores a small set of role-appropriate INTENTS (objective + threat +
+// role + survival + team-tactics) and commits to the highest, so a viewer reads
+// each pet's job without any UI: Defender protects, Tracker hunts, Assassin
+// eliminates priority targets, Sage supports. The role priority NUMBERS come
+// straight from the combat handoff. Fully deterministic — positions/hp/roles
+// only, no rng in here; ties resolve to the first (fixed-order) candidate.
+const THREAT: Record<ArenaRole, number> = { defender: 30, tracker: 60, assassin: 90, sage: 100 };
+const hpFrac = (f: AF) => f.hp / f.maxHp;
+const oppOf = (t: "blue" | "red") => (t === "blue" ? "red" : "blue");
+const teamLives = (fs: AF[], team: "blue" | "red") => fs.reduce((s, g) => (g.team === team ? s + Math.max(0, g.lives) : s), 0);
+const enemiesAlive = (f: AF, fs: AF[]): AF[] => fs.filter((g) => g.team !== f.team && alive(g));
+const alliesAlive = (f: AF, fs: AF[], includeSelf = true): AF[] => fs.filter((g) => g.team === f.team && alive(g) && (includeSelf || g.id !== f.id));
+function nearestPt(x: number, y: number, list: AF[]): AF | null { let b: AF | null = null, bd = Infinity; for (const g of list) { const dx = g.x - x, dy = g.y - y, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; b = g; } } return b; }
+function countWithin(x: number, y: number, list: AF[], r: number): number { let n = 0; const r2 = r * r; for (const g of list) { const dx = g.x - x, dy = g.y - y; if (dx * dx + dy * dy <= r2) n++; } return n; }
+/** The enemy assassin closest to me or any ally, when within striking range. */
+function assassinThreat(f: AF, fs: AF[]): AF | null {
+    const guard = alliesAlive(f, fs, true); let best: AF | null = null, bd = Infinity;
+    for (const e of enemiesAlive(f, fs)) { if (e.role !== "assassin") continue; for (const a of guard) { const d = dist(a, e); if (d < bd) { bd = d; best = e; } } }
+    return best && bd < 5.5 ? best : null;
+}
+/** Highest-THREAT enemy, lightly distance-discounted (Tracker's default pick). */
+function threatTarget(f: AF, enemies: AF[]): AF | null { let b: AF | null = null, bv = -Infinity; for (const e of enemies) { const v = THREAT[e.role] - dist(f, e) * 1.2; if (v > bv) { bv = v; b = e; } } return b; }
+
+interface Ctx { myCarrier: AF | null; enemyCarrier: AF | null; scrollOpen: boolean; leadLives: number; leadScore: number; }
+function makeCtx(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }): Ctx {
     const carrier = scroll.carrierId ? fs.find((g) => g.id === scroll.carrierId) ?? null : null;
-    const taunter = f.tauntLeft > 0 && f.tauntBy ? fs.find((g) => g.id === f.tauntBy && alive(g)) ?? null : null;
-
-    // I CARRY THE SCROLL → head home; only fight if something's in the way.
-    if (f.carrying) {
-        const [bx, by] = nearestSeal(f); const block = nearestEnemy(f, fs);
-        const target = block && dist(f, block) < f.atkRange + 0.3 ? block : null;
-        return { gx: bx, gy: by, stopAt: 0, target, channel: false };
-    }
-    // forced target (defender taunt) overrides offense
-    if (taunter) return { gx: taunter.x, gy: taunter.y, stopAt: cfg.neutral, target: taunter, channel: false };
-
-    // ALLY CARRIES → escort + peel.
-    if (carrier && carrier.team === f.team && carrier.id !== f.id) {
-        const threat = nearestEnemy(carrier, fs);
-        if (f.role === "sage") return { gx: carrier.x - f.faceX * 1.5, gy: carrier.y, stopAt: 0.5, target: null, channel: false };       // sit behind, heal handled in act()
-        if (f.role === "defender" && threat) { const mx = (carrier.x + threat.x) / 2, my = (carrier.y + threat.y) / 2; return { gx: mx, gy: my, stopAt: 0, target: threat, channel: false }; }
-        if (threat && dist(f, threat) < cfg.atkRange + 3) return { gx: threat.x, gy: threat.y, stopAt: cfg.neutral, target: threat, channel: false };
-        return { gx: carrier.x, gy: carrier.y, stopAt: 1.6, target: threat, channel: false };                                              // escort
-    }
-    // ENEMY CARRIES → intercept.
-    if (carrier && carrier.team !== f.team) {
-        const stop = f.role === "sage" ? cfg.neutral : f.role === "tracker" ? cfg.neutral : 0.2;   // assassin/defender dive, ranged poke
-        return { gx: carrier.x, gy: carrier.y, stopAt: stop, target: carrier, channel: false };
-    }
-    // SCROLL OPEN (center or dropped) → contest it (role-weighted approach).
-    if (scroll.state === "center" || scroll.state === "dropped") {
-        const dScroll = distPt(f, scroll.x, scroll.y);
-        const someoneChanneling = scroll.channelById && scroll.channelById !== f.id;
-        if (dScroll <= PICKUP_RANGE && !someoneChanneling) return { gx: f.x, gy: f.y, stopAt: 0, target: nearestEnemy(f, fs), channel: true };
-        // Assassin holds a flank (offset) unless it can grab; ranged/sage take a safe nearby spot; defender/tracker go straight.
-        const off = f.role === "assassin" ? 2.2 : f.role === "sage" ? 3.0 : 0;
-        const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
-        return { gx: someoneChanneling ? f.x : (off ? ex : scroll.x), gy: someoneChanneling ? f.y : (off ? ey : scroll.y), stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
-    }
-    // NO SCROLL → fight normally with role POSITIONING (spread out, don't clump)
-    // + role targeting. Sage hangs back behind a hurt ally; everyone else fans out
-    // laterally by slot, and assassins swing wide to flank.
-    if (f.role === "sage") { const hurt = lowestHpAlly(f, fs, false) ?? f; return { gx: hurt.x - (f.team === "blue" ? 2.4 : -2.4), gy: hurt.y, stopAt: 0.5, target: nearestEnemy(f, fs), channel: false }; }
-    // Bruisers fight their lane counterpart (spread, no snowball); assassins roam
-    // for the weakest pick. Either way, fan out laterally so we don't clump.
-    const target = f.role === "assassin" ? weakestEnemy(f, fs) : laneEnemy(f, fs);
-    if (!target) return { gx: f.x, gy: f.y, stopAt: 0, target: null, channel: false };
-    return { ...spreadGoal(f, target, cfg.neutral), target, channel: false };
+    return {
+        myCarrier: carrier && carrier.team === f.team ? carrier : null,
+        enemyCarrier: carrier && carrier.team !== f.team ? carrier : null,
+        scrollOpen: scroll.state === "center" || scroll.state === "dropped",
+        leadLives: teamLives(fs, f.team) - teamLives(fs, oppOf(f.team)),
+        leadScore: score[f.team] - score[oppOf(f.team)],
+    };
 }
 
-/** Approach `target` to `neutral` range but offset PERPENDICULAR by slot (allies
- *  fan out) — and assassins swing wide to flank — so the team spreads instead of
- *  piling onto one tile. */
+interface Plan { gx: number; gy: number; stopAt: number; target: AF | null; channel: boolean; }
+interface Cand { score: number; plan: Plan; }
+const huntP = (f: AF, e: AF, neutral: number): Plan => ({ ...spreadGoal(f, e, neutral), target: e, channel: false });
+const diveP = (e: AF, stop: number): Plan => ({ gx: e.x, gy: e.y, stopAt: stop, target: e, channel: false });
+const pokeP = (e: AF, neutral: number): Plan => ({ gx: e.x, gy: e.y, stopAt: neutral, target: e, channel: false });
+// Sit on the HOME side of an ally (sage never leads the engagement).
+const behindP = (f: AF, ally: AF, target: AF | null): Plan => ({ gx: ally.x + (f.team === "blue" ? -2.6 : 2.6), gy: ally.y, stopAt: 0.4, target, channel: false });
+function retreatP(f: AF, fs: AF[]): Plan {
+    const anchor = nearestPt(f.x, f.y, alliesAlive(f, fs, false));
+    const [bx, by] = nearestSeal(f);
+    const gx = anchor ? (anchor.x + bx) / 2 : bx, gy = anchor ? (anchor.y + by) / 2 : by;
+    const block = nearestEnemy(f, fs);
+    return { gx, gy, stopAt: 0, target: block && dist(f, block) < f.atkRange ? block : null, channel: false };   // only fight if cornered
+}
+function contestP(f: AF, fs: AF[], scroll: Scroll): Plan {
+    const dScroll = distPt(f, scroll.x, scroll.y);
+    const someoneElse = scroll.channelById !== null && scroll.channelById !== f.id;
+    if (dScroll <= PICKUP_RANGE && !someoneElse) return { gx: f.x, gy: f.y, stopAt: 0, target: nearestEnemy(f, fs), channel: true };
+    const off = f.role === "assassin" ? 2.2 : f.role === "sage" ? 3.0 : 0;     // assassin flanks the scroll, sage holds back
+    const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
+    return { gx: someoneElse ? f.x : (off ? ex : scroll.x), gy: someoneElse ? f.y : (off ? ey : scroll.y), stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
+}
+
+/** Build the role's scored candidate intents (handoff priority numbers). */
+function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx): Cand[] {
+    const cfg = ROLE_CFG[f.role];
+    const enemies = enemiesAlive(f, fs);
+    const cands: Cand[] = [];
+    const stick = (e: AF) => (e.id === f.aiTargetId ? 6 : 0);                          // hysteresis — resist flip-flopping
+    const distPen = (e: AF) => clamp(dist(f, e), 0, 16) * 1.1;                         // prefer reachable high-value targets
+
+    // Objective: every role weighs the open scroll (Tracker/Defender contest harder).
+    if (ctx.scrollOpen) {
+        const w = f.role === "tracker" ? 62 : f.role === "defender" ? 56 : f.role === "assassin" ? 40 : 34;
+        const close = distPt(f, scroll.x, scroll.y) <= PICKUP_RANGE ? 45 : -distPt(f, scroll.x, scroll.y) * 1.2;
+        cands.push({ score: w + close, plan: contestP(f, fs, scroll) });
+    }
+
+    if (f.role === "defender") {
+        if (ctx.myCarrier && ctx.myCarrier.id !== f.id) {
+            const th = nearestPt(ctx.myCarrier.x, ctx.myCarrier.y, enemies);
+            const mx = th ? (ctx.myCarrier.x + th.x) / 2 : ctx.myCarrier.x, my = th ? (ctx.myCarrier.y + th.y) / 2 : ctx.myCarrier.y;
+            cands.push({ score: ctx.leadLives >= 3 ? 115 : 100, plan: { gx: mx, gy: my, stopAt: 0, target: th, channel: false } });   // escort carrier (more so when ahead → close it out)
+            if (th && dist(th, ctx.myCarrier) < 3) cands.push({ score: 75, plan: diveP(th, 0.2) });                                   // protect carrier
+        }
+        const asn = assassinThreat(f, fs);
+        if (asn) cands.push({ score: 50, plan: pokeP(asn, cfg.neutral) });                                                            // intercept assassin
+        if (ctx.enemyCarrier) cands.push({ score: 55, plan: diveP(ctx.enemyCarrier, 0.2) });                                          // intercept enemy carrier
+        const sage = alliesAlive(f, fs, false).find((a) => a.role === "sage");
+        if (sage) { const st = nearestPt(sage.x, sage.y, enemies); if (st && dist(st, sage) < 4) cands.push({ score: 40, plan: { gx: (sage.x + st.x) / 2, gy: (sage.y + st.y) / 2, stopAt: 0, target: st, channel: false } }); }  // protect sage
+        const near = nearestEnemy(f, fs);
+        if (near) cands.push({ score: 25 + stick(near), plan: huntP(f, near, cfg.neutral) });                                         // frontline nearest threat
+    } else if (f.role === "tracker") {
+        if (ctx.enemyCarrier) cands.push({ score: 80 - distPen(ctx.enemyCarrier) + stick(ctx.enemyCarrier), plan: huntP(f, ctx.enemyCarrier, cfg.neutral) });   // hunt carrier
+        for (const e of enemies) {
+            const hf = hpFrac(e);
+            if (hf < 0.30) cands.push({ score: 70 - distPen(e) + stick(e), plan: huntP(f, e, cfg.neutral) });                          // execute
+            else if (hf < 0.50) cands.push({ score: 50 - distPen(e) + stick(e), plan: huntP(f, e, cfg.neutral) });                     // pressure
+        }
+        if (ctx.myCarrier && ctx.myCarrier.id !== f.id) cands.push({ score: 40, plan: pokeP(ctx.myCarrier, 1.6) });                    // escort
+        const tt = threatTarget(f, enemies);
+        if (tt) cands.push({ score: 30 + stick(tt), plan: huntP(f, tt, cfg.neutral) });                                               // highest-value enemy
+        if (hpFrac(f) < 0.25 && countWithin(f.x, f.y, enemies, 4.5) >= 2) cands.push({ score: 75, plan: retreatP(f, fs) });            // retreat if outnumbered
+    } else if (f.role === "assassin") {
+        for (const e of enemies) {
+            let s: number;
+            if (e.role === "sage") s = 100;                                                                                           // kill the sage
+            else if (ctx.enemyCarrier && e.id === ctx.enemyCarrier.id) s = 95;                                                        // kill the carrier
+            else if (hpFrac(e) < 0.40) s = 80;                                                                                        // execute
+            else if (e.role === "tracker") s = 50;                                                                                    // ambush tracker
+            else if (e.role === "defender") continue;                                                                                 // ignore defenders (-50 → never pick)
+            else s = 30;
+            cands.push({ score: s - distPen(e) + stick(e), plan: huntP(f, e, cfg.neutral) });
+        }
+        if (hpFrac(f) < 0.30) cands.push({ score: 120, plan: retreatP(f, fs) });                                                      // disengage immediately when hurt
+        else if (countWithin(f.x, f.y, enemies, 3.0) >= 2 && hpFrac(f) < 0.6) cands.push({ score: 70, plan: retreatP(f, fs) });       // disengage when focused by 2+
+    } else { // sage — survival-focused support; never leads
+        const allies = alliesAlive(f, fs, true);
+        const hurt = allies.reduce<AF | null>((b, a) => (b === null || hpFrac(a) < hpFrac(b) ? a : b), null);
+        const defender = allies.find((a) => a.role === "defender" && a.id !== f.id) ?? null;
+        const anchor = defender ?? nearestPt(f.x, f.y, alliesAlive(f, fs, false));
+        if (hurt && hpFrac(hurt) < 0.25) cands.push({ score: 100, plan: behindP(f, hurt, null) });                                    // emergency heal positioning
+        if (ctx.myCarrier) cands.push({ score: 90, plan: behindP(f, ctx.myCarrier, null) });                                          // protect carrier
+        if (hurt && hpFrac(hurt) < 0.50) cands.push({ score: 75, plan: behindP(f, hurt, null) });                                     // heal
+        if (anchor) cands.push({ score: 50, plan: behindP(f, anchor, nearestEnemy(f, fs)) });                                         // buff / stay behind defender (poke from range)
+        if (assassinThreat(f, fs)) cands.push({ score: 40, plan: retreatP(f, fs) });                                                  // escape an assassin
+        if (hpFrac(f) < 0.25) cands.push({ score: 95, plan: retreatP(f, fs) });                                                       // survival
+        if (anchor) cands.push({ score: 18, plan: behindP(f, anchor, nearestEnemy(f, fs)) });                                         // fallback
+    }
+
+    if (cands.length === 0) { const near = nearestEnemy(f, fs); cands.push(near ? { score: 1, plan: huntP(f, near, cfg.neutral) } : { score: 0, plan: { gx: f.x, gy: f.y, stopAt: 0, target: null, channel: false } }); }
+    return cands;
+}
+
+function decide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }): Plan {
+    const cfg = ROLE_CFG[f.role];
+    if (f.carrying) return carryHome(f, fs);                                            // carrier behavior tree
+    if (f.tauntLeft > 0 && f.tauntBy) {                                                 // forced taunt overrides
+        const tn = fs.find((g) => g.id === f.tauntBy && alive(g));
+        if (tn) { f.aiTargetId = tn.id; return { gx: tn.x, gy: tn.y, stopAt: cfg.neutral, target: tn, channel: false }; }
+    }
+    const ctx = makeCtx(f, fs, scroll, score);
+    const cands = candidates(f, fs, scroll, ctx);
+    let best = cands[0];
+    for (let i = 1; i < cands.length; i++) if (cands[i].score > best.score) best = cands[i];   // first wins ties → deterministic
+    f.aiTargetId = best.plan.target ? best.plan.target.id : null;
+    return best.plan;
+}
+
+/** Carrier behavior tree: head home via whichever seal keeps the most distance
+ *  from the nearest enemy; only fight if something's right in the way. (handoff:
+ *  return home > avoid threats > stay near allies > fight only if blocked.) */
+function carryHome(f: AF, fs: AF[]): Plan {
+    const enemies = enemiesAlive(f, fs);
+    let best = f.seals[0], bestScore = -Infinity;
+    for (const s of f.seals) {
+        const ne = nearestPt(s[0], s[1], enemies);
+        const dEnemy = ne ? Math.sqrt((ne.x - s[0]) * (ne.x - s[0]) + (ne.y - s[1]) * (ne.y - s[1])) : 99;
+        const sc = -distPt(f, s[0], s[1]) + dEnemy * 0.5;     // closer to home + farther from danger
+        if (sc > bestScore) { bestScore = sc; best = s; }
+    }
+    const block = nearestEnemy(f, fs);
+    return { gx: best[0], gy: best[1], stopAt: 0, target: block && dist(f, block) < f.atkRange + 0.3 ? block : null, channel: false };
+}
+
+/** Close to just inside striking range of the target. No team-dependent term, so
+ *  the engagement is fair (blue/red mirror across x=0); the team fans out naturally
+ *  via body-separation + role-distinct attack ranges (defender hugs, tracker/sage
+ *  hang back). Going to a STABLE goal (the target itself) avoids the orbit-the-
+ *  standing-spot stall that parks pets just out of reach. */
 function spreadGoal(f: AF, target: AF, neutral: number): { gx: number; gy: number; stopAt: number } {
-    const dx = target.x - f.x, dy = target.y - f.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
-    const px = -dy / d, py = dx / d;                       // unit perpendicular
-    const lane = (f.slot - 1.5) * 2.4;                     // lateral spread by slot
-    const flank = f.role === "assassin" ? (f.slot % 2 ? 4.0 : -4.0) : 0;
-    return { gx: target.x + px * (lane + flank), gy: target.y + py * (lane + flank), stopAt: neutral };
+    return { gx: target.x, gy: target.y, stopAt: Math.min(neutral, f.atkRange) * 0.92 };
 }
 
 /** Act on the plan: channel, attack, or fire the role ability. */
@@ -334,20 +436,27 @@ function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: 
     }
 }
 
-function step(f: AF, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
+// Two-phase tick (FAIRNESS): every pet first DECIDES on the frozen start-of-tick
+// board, then all pets EXECUTE. If decide+move+act ran per-pet in one pass, the
+// team processed second would react to the first team's same-tick moves — a
+// second-mover edge that, with reactive AI, snowballs into a lopsided win rate.
+function tickDecide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }) {
     if (f.attackCd > 0) f.attackCd--; if (f.abilityCd > 0) f.abilityCd--;
     if (f.slowLeft > 0) f.slowLeft--; if (f.markLeft > 0) f.markLeft--; if (f.tauntLeft > 0) f.tauntLeft--; else f.tauntBy = null;
     if (f.energy < 100) f.energy = Math.min(100, f.energy + 18 / ARENA_TPS);
     if (f.dotLeft > 0) { f.dotLeft--; if (f.dotLeft % Math.round(ARENA_TPS * 0.5) === 0) f.hp -= f.dotDmg; }
+    f.plan = (f.state === "dash" && f.dashLeft > 0) ? null : decide(f, fs, scroll, score);
+}
 
+function tickExecute(f: AF, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
     if (f.state === "dash" && f.dashLeft > 0) {                       // assassin lunge — fast, collision-aware
         f.dashLeft--; const nx = f.x + f.moveDx * f.moveSpeed * 3.4, ny = f.y + f.moveDy * f.moveSpeed * 3.4;
         if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; } else f.dashLeft = 0;
         if (f.dashLeft <= 0) f.state = "idle";
         return;
     }
-
-    const plan = decide(f, fs, scroll);
+    const plan = f.plan;
+    if (!plan) { f.state = "idle"; return; }
     if (plan.channel) { f.state = "channel"; act(f, plan, fs, scroll, rng, t, events); return; }
     const before = { x: f.x, y: f.y };
     moveToward(f, plan.gx, plan.gy, effSpeed(f), plan.stopAt);
@@ -428,8 +537,16 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         ticks = t + 1;
         // respawn timers
         for (const f of fs) if (f.state === "respawning") { if (--f.respawnLeft <= 0) { const [x, y] = snapPoint(f.baseX, f.baseY + (f.slot - 1.5) * 1.0); f.x = x; f.y = y; f.hp = f.maxHp; f.energy = 100; f.shieldHp = 0; f.slowLeft = f.dotLeft = f.markLeft = f.tauntLeft = 0; f.tauntBy = null; f.state = "idle"; events.push({ t, type: "respawn", actorId: f.id, team: f.team }); } }
-        // act (fixed order = determinism)
-        for (const f of fs) if (alive(f)) step(f, fs, scroll, rng, t, events);
+        // Decide on a frozen start-of-tick board (no second-mover advantage), then
+        // execute in an order that ALTERNATES each tick (forward = blue-first,
+        // reverse = red-first) so neither team gets a persistent same-tick first-
+        // strike. Deterministic (keyed on the tick). NOTE: with stat-IDENTICAL
+        // rosters a small side-lean remains (a symmetric-map artifact of attack
+        // timing), but a clearly stronger team wins from EITHER side (verified), so
+        // real matches — player pets vs AI pets, never identical — are decided by
+        // pet quality, not side.
+        for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, score);
+        for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, rng, t, events); }
         // separate overlapping bodies
         for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
             const a = fs[i], b = fs[j]; if (!alive(a) || !alive(b)) continue;
@@ -458,7 +575,16 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         const blueUp = fs.some((f) => f.team === "blue" && f.lives > 0), redUp = fs.some((f) => f.team === "red" && f.lives > 0);
         if (!blueUp || !redUp) { winner = blueUp ? "blue" : redUp ? "red" : "draw"; break; }
     }
-    if (winner === "draw" && score.blue !== score.red) winner = score.blue > score.red ? "blue" : "red";
+    // Time-cap (or simultaneous-wipe) tiebreaker: higher score, then more total
+    // remaining lives+HP — so a cap-reached match almost never ends a flat "draw".
+    if (winner === "draw") {
+        if (score.blue !== score.red) winner = score.blue > score.red ? "blue" : "red";
+        else {
+            const tally = (team: "blue" | "red") => fs.reduce((s, f) => (f.team === team ? s + Math.max(0, f.lives) * 5000 + Math.max(0, f.hp) : s), 0);
+            const tb = tally("blue"), tr = tally("red");
+            winner = tb > tr ? "blue" : tr > tb ? "red" : "draw";
+        }
+    }
     return { winner, scoreBlue: score.blue, scoreRed: score.red, ticks, snapshots, events, bases: { blue: SEALS.blue, red: SEALS.red }, center };
 }
 
