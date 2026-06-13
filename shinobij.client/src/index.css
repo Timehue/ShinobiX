@@ -2255,6 +2255,18 @@ button {
     z-index: 10;
 }
 
+/* On desktop the fixed full-bleed pet yard must sit between the left profile
+   card and the right menu (the same 265/255 gutters .center-game uses) instead
+   of sliding underneath them and hiding its left column. Below 981px there are
+   no sidebars, so the full-viewport overlay is correct as-is. */
+@media (min-width: 981px) {
+    .pet-yard-screen {
+        left: 265px !important;
+        right: 255px !important;
+        width: auto !important;
+    }
+}
+
 .pet-yard-overlay {
     min-height: 100%;
     padding: 20px;
