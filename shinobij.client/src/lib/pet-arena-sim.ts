@@ -89,7 +89,7 @@ function snapPoint(x: number, y: number): [number, number] {
 }
 function lineClear(ax: number, ay: number, bx: number, by: number): boolean {
     const dx = bx - ax, dy = by - ay, d = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.ceil(d / (CELL_X * 0.6));
+    const steps = Math.max(2, Math.ceil(d / (CELL_X * 0.4)));   // fine enough to catch a 1-cell-thin wall
     for (let i = 1; i < steps; i++) { const t = i / steps; if (!walkableAt(ax + dx * t, ay + dy * t)) return false; }
     return true;
 }
@@ -176,9 +176,11 @@ function stepStraight(f: AF, tx: number, ty: number, spd: number, stopAt: number
     const s = Math.min(spd, Math.max(0, d - stopAt));
     if (s <= 0 || d <= 1e-6) return false;
     const ux = dx / d, uy = dy / d, nx = f.x + ux * s, ny = f.y + uy * s;
-    if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; }
-    else if (walkableAt(nx, f.y)) f.x = nx;
-    else if (walkableAt(f.x, ny)) f.y = ny;
+    // Verify the STEP doesn't cross a wall (not just that the endpoint is walkable) —
+    // else a fast step / a corner-cut could hop over a thin wall. Slide along an axis.
+    if (walkableAt(nx, ny) && lineClear(f.x, f.y, nx, ny)) { f.x = nx; f.y = ny; }
+    else if (walkableAt(nx, f.y) && lineClear(f.x, f.y, nx, f.y)) f.x = nx;
+    else if (walkableAt(f.x, ny) && lineClear(f.x, f.y, f.x, ny)) f.y = ny;
     return true;
 }
 /** Last-resort un-wedge: hop one cell along the walkable compass dir that best closes on
@@ -448,11 +450,21 @@ function retreatP(f: AF, fs: AF[]): Plan {
 }
 function contestP(f: AF, fs: AF[], scroll: Scroll): Plan {
     const dScroll = distPt(f, scroll.x, scroll.y);
-    const someoneElse = scroll.channelById !== null && scroll.channelById !== f.id;
-    if (dScroll <= PICKUP_RANGE && !someoneElse) return { gx: f.x, gy: f.y, stopAt: 0, target: nearestEnemy(f, fs), channel: true };
-    const off = f.role === "assassin" ? 2.2 : f.role === "sage" ? 3.0 : 0;     // assassin flanks the scroll, sage holds back
+    const channeler = scroll.channelById ? fs.find((g) => g.id === scroll.channelById) ?? null : null;
+    // No one's on the pickup + I'm in range → I channel it.
+    if (dScroll <= PICKUP_RANGE && (channeler === null || channeler.id === f.id)) return { gx: f.x, gy: f.y, stopAt: 0, target: nearestEnemy(f, fs), channel: true };
+    // Someone ELSE is channelling — do NOT freeze: rush an ENEMY channeller to break
+    // it (killing/reaching it cancels the pickup), or guard an ALLY channeller (ring
+    // up around the spot and fight whoever comes).
+    if (channeler && channeler.id !== f.id) {
+        if (channeler.team !== f.team) return { gx: channeler.x, gy: channeler.y, stopAt: 0.2, target: channeler, channel: false };
+        const goff = f.role === "assassin" ? 2.2 : f.role === "sage" ? 3.0 : 1.3;
+        return { gx: scroll.x + (f.team === "blue" ? -goff : goff), gy: scroll.y + (f.slot % 2 ? goff : -goff), stopAt: 0.4, target: nearestEnemy(f, fs), channel: false };
+    }
+    // Free scroll — approach with the role offset (assassin flanks, sage holds back).
+    const off = f.role === "assassin" ? 2.2 : f.role === "sage" ? 3.0 : 0;
     const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
-    return { gx: someoneElse ? f.x : (off ? ex : scroll.x), gy: someoneElse ? f.y : (off ? ey : scroll.y), stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
+    return { gx: off ? ex : scroll.x, gy: off ? ey : scroll.y, stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
 }
 /** Pre-position for the IMMINENT scroll spawn (scroll.x/y holds the spawn point):
  *  defender claims the spot, tracker pressures it, assassin takes a flank, sage rings
@@ -695,7 +707,7 @@ function tickDecide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red:
 function tickExecute(f: AF, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
     if (f.state === "dash" && f.dashLeft > 0) {                       // assassin lunge — fast, collision-aware
         f.dashLeft--; const nx = f.x + f.moveDx * f.moveSpeed * 3.4, ny = f.y + f.moveDy * f.moveSpeed * 3.4;
-        if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; } else f.dashLeft = 0;
+        if (walkableAt(nx, ny) && lineClear(f.x, f.y, nx, ny)) { f.x = nx; f.y = ny; } else f.dashLeft = 0;   // dash stops at a wall, never jumps it
         if (f.dashLeft <= 0) f.state = "idle";
         return;
     }
