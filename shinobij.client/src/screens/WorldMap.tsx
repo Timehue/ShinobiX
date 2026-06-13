@@ -11,6 +11,10 @@ import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
+import { SectorAvatar } from "../components/SectorAvatar";
+import { SectorScene } from "../components/SectorScene";
+import { SectorScene3D } from "../components/SectorScene3D";
+import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
 import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
@@ -99,6 +103,18 @@ function sectorBackgroundImage(sector: number) {
         case "meadow2": return meadow2SectorImg;
         default: return meadowSectorImg;
     }
+}
+
+// Depth-map URL for a sector's painted scene, when one has been baked
+// (scripts/gen-sector-depth.mjs). Mirrors sectorBackgroundImage's image choice
+// so the depth lines up with what's shown: only theme images have maps for now —
+// village outskirts, Death's Gate, and custom territory art fall back to the
+// procedural depth in SectorScene3DScene.
+function sectorDepthImage(sector: number): string | undefined {
+    if (sector === 99) return undefined;
+    if (villageForOutskirtsSector(sector)) return undefined;
+    const theme = sectorImageTheme(sector);
+    return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
 }
 
 // Ambience biome (drives drifting particles + god-ray tint) chosen to match the
@@ -1159,17 +1175,24 @@ export function WorldMap({
                             <span>{biomeLabel(biome)} | {weatherEffects[sectorWeather].name}</span>
                         </div>
 
-                        <div
-                            className="pixel-map walkable-sector-map sector-image-map"
-                            style={{
-                                backgroundImage: `url(${territory.backgroundImage || sectorBackgroundImage(selectedSector)})`,
-                            }}
-                        >
-                            {/* Living sector: 3D depth-particles behind, 2D biome
-                                ambience (snow/embers/petals/leaves/weather) in front.
-                                Ambience biome matches the painted scene art; weather
-                                is the real sector weather. pointer-events:none, so
-                                tile movement still works. */}
+                        <div className="pixel-map walkable-sector-map sector-image-map">
+                            {/* Living sector: a panning biome backdrop + atmosphere
+                                behind, then 3D depth-particles, then 2D biome ambience
+                                (snow/embers/petals/leaves/weather) in front. Ambience
+                                biome matches the painted scene art; weather is the real
+                                sector weather. All pointer-events:none, so tile
+                                movement still works. */}
+                            <SectorScene
+                                image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
+                                biome={ambienceBiomeForSector(selectedSector)}
+                                focus={sectorPlayerPos}
+                            />
+                            <SectorScene3D
+                                image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
+                                biome={ambienceBiomeForSector(selectedSector)}
+                                focus={sectorPlayerPos}
+                                depth={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
+                            />
                             <SceneAmbience3D biome={ambienceBiomeForSector(selectedSector)} />
                             <SceneAmbience biome={ambienceBiomeForSector(selectedSector)} weather={sectorWeather} />
                             {Array.from({ length: 144 }).map((_, index) => {
@@ -1183,11 +1206,7 @@ export function WorldMap({
                                         className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
                                         onClick={() => setSectorPlayerPos(index)}
                                     >
-                                        {isPlayer ? (
-                                            character.avatarImage
-                                                ? <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                                : character.name.slice(0, 2).toUpperCase()
-                                        ) : otherHere.length > 0 ? (
+                                        {otherHere.length > 0 ? (
                                             <div className="other-players-map-stack">
                                                 {otherHere.map(p => (
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
@@ -1203,6 +1222,13 @@ export function WorldMap({
                                     </button>
                                 );
                             })}
+
+                            <SectorAvatar
+                                targetIndex={sectorPlayerPos}
+                                avatarImage={character.avatarImage}
+                                name={character.name}
+                                biome={ambienceBiomeForSector(selectedSector)}
+                            />
 
                             {creatorEvents
                                 .filter((event) => event.eventKind !== "visualNovel" && event.targetSector === selectedSector)
@@ -1417,10 +1443,9 @@ export function WorldMap({
                             <span>{biomeLabel(biome)} | {weatherEffects[weather].name}</span>
                         </div>
 
-                        <div
-                            className="pixel-map walkable-sector-map sector-image-map"
-                            style={{ backgroundImage: `url(${territoryBg})` }}
-                        >
+                        <div className="pixel-map walkable-sector-map sector-image-map">
+                            <SectorScene image={territoryBg} biome={biome} focus={sectorPlayerPos} />
+                            <SectorScene3D image={territoryBg} biome={biome} focus={sectorPlayerPos} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
                                 return (
@@ -1428,17 +1453,16 @@ export function WorldMap({
                                         key={index}
                                         className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""}`}
                                         onClick={() => setSectorPlayerPos(index)}
-                                    >
-                                        {isPlayer ? (
-                                            character.avatarImage ? (
-                                                <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                            ) : (
-                                                character.name.slice(0, 2).toUpperCase()
-                                            )
-                                        ) : ""}
-                                    </button>
+                                    />
                                 );
-                            })}                     
+                            })}
+
+                            <SectorAvatar
+                                targetIndex={sectorPlayerPos}
+                                avatarImage={character.avatarImage}
+                                name={character.name}
+                                biome={loc.biome}
+                            />
                         </div>
                     </main>
 
