@@ -1953,7 +1953,7 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloat
                     const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, element: null, scale: 2.9, dur: 540 });
                     pushFeed(`☠ ${nameOf(e.targetId)}`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(150);
                 } else if (e.type === "capture") {
-                    pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured +2`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(230);
+                    pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured the scroll!`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(230);
                 } else if (e.type === "pickup" && e.actorId) {
                     pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
                 }
