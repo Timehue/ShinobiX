@@ -114,3 +114,31 @@ test("a sage heals a hurt ally (role abilities fire)", () => {
             .events.some((e) => e.type === "heal"));
     assert.ok(got, "a sage never healed an ally");
 });
+
+// ── R1: team blackboard (call-target focus + assigned peels) ───────────────────
+test("R1 — deterministic across many seeds + comps (the blackboard is pure)", () => {
+    // The blackboard (pickCallTarget / assignPeels) runs every tick off the frozen
+    // board. It must stay a pure function of (roster, seed). The double-defender comp
+    // exercises assignPeels' no-double-assignment path (2 defenders, shared threats).
+    const seeds = Array.from({ length: 8 }, (_, i) => i * 911 + 5);
+    const comps: ArenaRole[][] = [COMP, ["defender", "defender", "assassin", "sage"], ["tracker", "assassin"]];
+    for (const comp of comps) for (const seed of seeds) {
+        const a = runPetArenaMatch(roster(comp), roster(comp, { attack: 120 }), seed);
+        const b = runPetArenaMatch(roster(comp), roster(comp, { attack: 120 }), seed);
+        assert.deepEqual(a, b, `comp ${comp.join("/")} seed ${seed} diverged`);
+    }
+});
+
+test("R1 — the blackboard never turtles a near-even match into a stalemate", () => {
+    // Captures are the ONLY score, so over-defending never closes a match. A prototype
+    // team-wide "fall back when out-powered" cascade was cut precisely because it dragged
+    // near-even matches to the 5-min cap (draws ~doubled). Guard: a modest-edge matchup
+    // must RESOLVE before the cap the large majority of the time.
+    const seeds = Array.from({ length: 24 }, (_, i) => i * 53 + 3);
+    let capped = 0;
+    for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 115 }), roster(COMP), seed);
+        if (r.ticks >= ARENA_TPS * MAX_SECONDS) capped++;
+    }
+    assert.ok(capped <= seeds.length * 0.35, `${capped}/${seeds.length} matches hit the time cap — the AI is over-defending`);
+});

@@ -410,11 +410,99 @@ function makeCtx(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: nu
 // Role "power" for outnumbered checks + the focus-fire tally (how many of a team's
 // pets are committed to each enemy) so allies naturally collapse on the same kill.
 const POWER: Record<ArenaRole, number> = { defender: 110, tracker: 100, assassin: 90, sage: 80 };
-interface Squad { focus: { blue: Record<string, number>; red: Record<string, number> }; }
+// ── Team blackboard (R1) ───────────────────────────────────────────────────────
+// Built ONCE per tick on the frozen start-of-tick board (deterministic: positions /
+// hp / roles only, ties broken by id; no rng) — turns four independent agents into a
+// SQUAD by publishing three shared decisions every pet reads when it scores intents:
+//   • focus      — last-tick target tally (the old emergent collapse; kept so a pet
+//                  still piles onto whoever its allies already chose)
+//   • callTarget — the ONE enemy this team should collapse on THIS tick (carrier >
+//                  nearly-dead > high-value role), so the offence converges in a single
+//                  decision cycle instead of dribbling a kill out over several
+//   • peel       — defenderId → the enemy diver/carrier it is assigned to body-block,
+//                  so two defenders never peel the same threat and none goes unpeeled
+// (A team-wide "fall back when out-powered" cascade was prototyped here too, but it
+//  turned near-even matches into turtle stalemates — draws nearly doubled — so it was
+//  cut; the local-outnumber regroup in candidates() already covers piecemeal feeding.)
+const CALL_TARGET_BONUS = 20;          // directed focus-fire weight (modest: nudges target choice, never overrides the objective)
+interface Squad {
+    focus: { blue: Record<string, number>; red: Record<string, number> };
+    callTarget: { blue: string | null; red: string | null };
+    peel: Record<string, string>;
+}
 function buildSquad(fs: AF[]): Squad {
     const focus = { blue: {} as Record<string, number>, red: {} as Record<string, number> };
     for (const g of fs) { if (!alive(g) || !g.aiTargetId) continue; const m = focus[g.team]; m[g.aiTargetId] = (m[g.aiTargetId] ?? 0) + 1; }
-    return { focus };
+    return {
+        focus,
+        callTarget: { blue: pickCallTarget(fs, "blue"), red: pickCallTarget(fs, "red") },
+        peel: assignPeels(fs),
+    };
+}
+/** The enemy `team` should collapse on this tick: the carrier, then whoever is closest
+ *  to death (execute), then the highest-value role — discounted by how far the team must
+ *  travel to reach it. Deterministic (id tiebreak). */
+function pickCallTarget(fs: AF[], team: "blue" | "red"): string | null {
+    const allies = fs.filter((g) => g.team === team && alive(g));
+    if (allies.length === 0) return null;
+    let best: AF | null = null, bv = -Infinity;
+    for (const e of fs) {
+        if (e.team === team || !alive(e)) continue;
+        let ds = 0; for (const a of allies) ds += dist(a, e);
+        const v = THREAT[e.role] + (e.carrying ? 80 : 0) + (1 - hpFrac(e)) * 140 + (e.markLeft > 0 ? 20 : 0) - (ds / allies.length) * 2;
+        if (v > bv || (v === bv && best !== null && e.id < best.id)) { bv = v; best = e; }
+    }
+    return best ? best.id : null;
+}
+/** Assign each defender the most dangerous enemy to body-block — carrier hardest, then a
+ *  diving assassin, then a close tracker. Greedy + nearest-defender-wins + no double-
+ *  assignment, so threats are covered once each. Then a cross-role fallback (R2): a carrier
+ *  no defender claimed is given the nearest available non-defender, so a defenderless team
+ *  still contests the carry. Deterministic (id-sorted throughout). */
+function assignPeels(fs: AF[]): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const team of ["blue", "red"] as const) {
+        const allies = fs.filter((g) => g.team === team && alive(g));
+        if (allies.length === 0) continue;
+        const defenders = allies.filter((g) => g.role === "defender").sort((a, b) => (a.id < b.id ? -1 : 1));
+        const threats: Array<{ e: AF; danger: number }> = [];
+        for (const e of fs) {
+            if (e.team === team || !alive(e)) continue;
+            let near = Infinity; for (const a of allies) { const d = dist(a, e); if (d < near) near = d; }
+            let danger = -Infinity;
+            if (e.carrying) danger = 1000 - near;
+            else if (e.role === "assassin" && near < 6) danger = 500 - near;
+            else if (e.role === "tracker" && near < 4) danger = 200 - near;
+            if (danger > -Infinity) threats.push({ e, danger });
+        }
+        threats.sort((a, b) => b.danger - a.danger || (a.e.id < b.e.id ? -1 : 1));
+        const taken = new Set<string>();
+        for (const def of defenders) {
+            let pick: AF | null = null, pv = -Infinity;
+            for (const th of threats) {
+                if (taken.has(th.e.id)) continue;
+                const v = th.danger - dist(def, th.e) * 3;
+                if (v > pv || (v === pv && pick !== null && th.e.id < pick.id)) { pv = v; pick = th.e; }
+            }
+            if (pick) { out[def.id] = pick.id; taken.add(pick.id); }
+        }
+        // Cross-role carry coverage: a carrier no defender claimed (a defenderless team, or
+        // every defender already on another threat) goes to the nearest available non-
+        // defender — assassin first, then tracker, then sage. Deterministic: role, dist, id.
+        const carrier = fs.find((e) => e.team !== team && alive(e) && e.carrying) ?? null;
+        if (carrier && !taken.has(carrier.id)) {
+            const pref: Record<ArenaRole, number> = { assassin: 0, tracker: 1, sage: 2, defender: 3 };
+            let pick: AF | null = null;
+            for (const a of allies) {
+                if (a.role === "defender" || a.carrying || out[a.id]) continue;
+                if (pick === null) { pick = a; continue; }
+                const da = dist(a, carrier), dp = dist(pick, carrier);
+                if (pref[a.role] < pref[pick.role] || (pref[a.role] === pref[pick.role] && (da < dp || (da === dp && a.id < pick.id)))) pick = a;
+            }
+            if (pick) out[pick.id] = carrier.id;
+        }
+    }
+    return out;
 }
 /** Role-weighted, HP-scaled fighting power of `list` within radius r of a point. */
 function localPower(x: number, y: number, list: AF[], r: number): number {
@@ -499,6 +587,18 @@ function protectPlan(f: AF, ally: AF, fs: AF[]): { plan: Plan; score: number } {
 const SAME_TARGET_BONUS = 13;        // per OTHER ally already committed to a target → collapse on it
 const OUTNUMBER_RATIO = 1.5, LOCAL_R = 6;
 const REGROUP_SCORE: Record<ArenaRole, number> = { sage: 88, assassin: 85, tracker: 58, defender: 35 };   // sage/assassin disengage first, defender last
+// Per-role peel commitment (R2): how hard each role answers a threat the blackboard
+// ASSIGNED it to body-block. Defender carrier/diver = the R1-validated 62/56. A
+// non-defender only ever gets a CARRIER assignment — the cross-role fallback when a
+// team has no free defender — and weighs it ABOVE its own hunt of that carrier, so the
+// one designated peeler dives to body-block while the rest keep poking (one denier, not
+// a stall-inducing pile-on). Sage is last resort: pokes from safety, never dives.
+const PEEL_SCORE: Record<ArenaRole, { carrier: number; diver: number }> = {
+    defender: { carrier: 62, diver: 56 },
+    assassin: { carrier: 98, diver: 36 },   // > assassin hunt(carrier)=95 → the assigned one dives the carry
+    tracker: { carrier: 84, diver: 44 },    // > tracker hunt(carrier)=80 → the assigned one chases in close
+    sage: { carrier: 34, diver: 20 },
+};
 
 /** Build the role's scored candidate intents (handoff priority numbers) layered with
  *  squad awareness: focus-fire, rescue, and regroup-when-outnumbered. */
@@ -510,7 +610,15 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
     const distPen = (e: AF) => clamp(dist(f, e), 0, 16) * 1.1;                         // prefer reachable high-value targets
     // Focus-fire: bonus for piling onto an enemy MY OTHER allies already target.
     const fire = (e: AF) => SAME_TARGET_BONUS * Math.max(0, (squad.focus[f.team][e.id] ?? 0) - (f.aiTargetId === e.id ? 1 : 0));
-    const huntC = (e: AF, base: number): Cand => ({ score: base - distPen(e) + stick(e) + fire(e), kind: "hunt", plan: huntP(f, e, cfg.neutral) });
+    // Directed focus-fire: the blackboard's called kill — collapse the OFFENCE on it
+    // this cycle (carrier / nearly-dead / high-value), instead of waiting for `fire`
+    // to accumulate over several ticks. Gated to open fighting: while the scroll is live
+    // or imminent the OBJECTIVE owns priority, else the pull drags a winnable scroll race
+    // off the point and matches stall to the time cap (captures are the only score).
+    const call = squad.callTarget[f.team];
+    const directing = call !== null && !ctx.scrollOpen && !ctx.scrollSoon;
+    const callBonus = (e: AF) => (directing && e.id === call ? CALL_TARGET_BONUS : 0);
+    const huntC = (e: AF, base: number): Cand => ({ score: base - distPen(e) + stick(e) + fire(e) + callBonus(e), kind: "hunt", plan: huntP(f, e, cfg.neutral) });
 
     // SQUAD LAYER (all roles): rescue a dying ally, regroup when locally outnumbered.
     const crit = criticalAlly(f, fs);
@@ -519,6 +627,25 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
         const myPow = localPower(f.x, f.y, alliesAlive(f, fs, true), LOCAL_R);
         const enPow = localPower(f.x, f.y, enemies, LOCAL_R);
         if (enPow > myPow * OUTNUMBER_RATIO) cands.push({ score: REGROUP_SCORE[f.role], kind: "regroup", plan: regroupPlan(f, fs) });
+    }
+
+    // PEEL (R2, cross-role): answer the threat the blackboard ASSIGNED to me. Defenders
+    // are assigned first; if a team has no free defender the nearest non-defender is given
+    // the enemy CARRIER, so a defenderless team still denies the carry instead of watching
+    // it walk home. Each role commits in character — a body-block dive (defender/assassin),
+    // a close chase (tracker), or a wary poke (sage). For defender-having teams this is
+    // exact R1 parity (the carrier is always claimed by a defender).
+    const peelId = squad.peel[f.id];
+    const peelTgt = peelId ? enemies.find((e) => e.id === peelId) ?? null : null;
+    if (peelTgt) {
+        const w = PEEL_SCORE[f.role];
+        if (peelTgt.carrying) {
+            const plan = f.role === "sage" ? pokeP(peelTgt, cfg.neutral) : diveP(peelTgt, f.role === "tracker" ? 0.5 : 0.2);
+            cands.push({ score: w.carrier, kind: "interceptCarrier", plan });
+        } else {
+            const plan = f.role === "defender" ? pokeP(peelTgt, cfg.neutral) : huntP(f, peelTgt, cfg.neutral);
+            cands.push({ score: w.diver, kind: "interceptAssassin", plan });
+        }
     }
 
     // Objective: contest the open scroll, OR pre-position for an imminent spawn
@@ -539,13 +666,17 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
             cands.push({ score: ctx.leadLives >= 3 ? 115 : 100, kind: "escort", plan: { gx: mx, gy: my, stopAt: 0, target: th, channel: false } });   // escort carrier
             if (th && dist(th, ctx.myCarrier) < 3) cands.push({ score: 75, kind: "protectCarrier", plan: diveP(th, 0.2) });           // protect carrier
         }
-        const asn = assassinThreat(f, fs);
-        if (asn) cands.push({ score: 50, kind: "interceptAssassin", plan: pokeP(asn, cfg.neutral) });                                  // intercept assassin
-        if (ctx.enemyCarrier) cands.push({ score: 55, kind: "interceptCarrier", plan: diveP(ctx.enemyCarrier, 0.2) });                 // intercept enemy carrier
+        // Generic intercept fallback — only when the blackboard didn't already assign me a
+        // peel (handled in the shared PEEL block above), so coverage never doubles up.
+        if (!peelTgt) {
+            const asn = assassinThreat(f, fs);
+            if (asn) cands.push({ score: 50, kind: "interceptAssassin", plan: pokeP(asn, cfg.neutral) });                              // intercept assassin
+            if (ctx.enemyCarrier) cands.push({ score: 55, kind: "interceptCarrier", plan: diveP(ctx.enemyCarrier, 0.2) });            // intercept enemy carrier
+        }
         const sage = alliesAlive(f, fs, false).find((a) => a.role === "sage");
         if (sage) { const st = nearestPt(sage.x, sage.y, enemies); if (st && dist(st, sage) < 4) cands.push({ score: 40, kind: "protectSage", plan: { gx: (sage.x + st.x) / 2, gy: (sage.y + st.y) / 2, stopAt: 0, target: st, channel: false } }); }
         const near = nearestEnemy(f, fs);
-        if (near) cands.push({ score: 25 + stick(near) + fire(near), kind: "frontline", plan: huntP(f, near, cfg.neutral) });          // frontline nearest threat
+        if (near) cands.push({ score: 25 + stick(near) + fire(near) + callBonus(near), kind: "frontline", plan: huntP(f, near, cfg.neutral) });   // frontline nearest threat
     } else if (f.role === "tracker") {
         if (ctx.enemyCarrier) cands.push(huntC(ctx.enemyCarrier, 80));                                                                 // hunt carrier
         for (const e of enemies) {
