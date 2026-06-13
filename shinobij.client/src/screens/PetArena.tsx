@@ -77,6 +77,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [arena4v4, setArena4v4] = useState(true);
     // Co-op (play the Tactical Arena 4v4 with friends) — opens the lobby overlay.
     const [showCoop, setShowCoop] = useState(false);
+    // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
+    // "tactical" is the full-screen team game mode (vs AI / co-op, 2v2 or 4v4).
+    // Defaults to the cinematic battle so Pet Arena opens straight into it.
+    const [arenaView, setArenaView] = useState<"battle" | "tactical">("battle");
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -218,6 +222,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     }
 
     function startBattle(opponentOverride?: PetArenaOpponent) {
+        setArenaView("battle"); // any duel (incl. challenge accepts) shows in the battle view
         primePetSfx(); // unlock the audio context inside the click gesture
         startBattleMusic(); // rotate to a fresh battle track
         if (!selectedPet) return alert("Choose one of your pets first.");
@@ -548,6 +553,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
 
     const pendingClanPetBattle = loadPendingClanPetBattle();
+    // Hollow Gate (and other forced duels) skip the view tabs — those land
+    // straight in a battle and shouldn't expose the Tactical Arena switch.
+    const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
 
     return (
         <div className="card pet-arena-screen">
@@ -574,11 +582,30 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     ) : (
                         <>
                             <h2>Pet Arena</h2>
-                            <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                            <p className="hint">{
+                                pendingClanPetBattle
+                                    ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.`
+                                    : arenaView === "tactical"
+                                        ? "Big-map team battles — deathmatch + capture the scroll. Fight AI, or team up with a friend against two opponents."
+                                        : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."
+                            }</p>
                         </>
                     )}
                 </div>
             </div>
+
+            {/* Top-level view tabs — the cinematic duel vs the Tactical Arena game
+                mode. Hidden for forced duels (Hollow Gate) which land in battle. */}
+            {!isHollowGate && (
+                <div className="pet-arena-mode-toggle" style={{ maxWidth: 460, marginBottom: 14 }}>
+                    <button type="button" className={arenaView === "battle" ? "active" : ""} onClick={() => setArenaView("battle")}>
+                        ⚔️ Pet Arena
+                    </button>
+                    <button type="button" className={arenaView === "tactical" ? "active" : ""} onClick={() => setArenaView("tactical")}>
+                        🏟️ Tactical Arena
+                    </button>
+                </div>
+            )}
 
             {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -663,6 +690,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             ))}
 
+            {arenaView === "battle" && (
+            <>
             <div className="pet-arena-grid">
                 <section className="summary-box pet-arena-selector">
                     <h3>Your Pet</h3>
@@ -827,47 +856,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 return next;
                             });
                         }}
-                        title="EXPERIMENTAL Tactical pet battle mode — small units traverse a big battle map and clash with abilities. Visual preview only: the battle outcome + rewards are unchanged, and it's not used for ranked."
+                        title="EXPERIMENTAL real-time combat preview — pets clash continuously instead of in turns. Visual only: the battle outcome + rewards are unchanged, and it's not used for ranked."
                         style={{ background: useDuel ? "#a855f7" : undefined }}
                     >
-                        {useDuel ? "🗺️ Tactical battle: ON (beta)" : "🗺️ Tactical battle: OFF"}
+                        {useDuel ? "⚡ Live combat: ON" : "⚡ Live combat: OFF"}
                     </button>
                 )}
-                {/* Tactical Arena — the new 2v2/4v4 deathmatch + capture-scroll game mode (roles auto-assigned). */}
-                <button onClick={() => setArena4v4((v) => !v)} title="Team size for the Tactical Arena game mode" style={{ background: "#1e293b" }}>
-                    {arena4v4 ? "👥 4v4" : "👥 2v2"}
-                </button>
-                <button
-                    onClick={() => {
-                        const n = arena4v4 ? 4 : 2;
-                        const mine = character.pets.filter((p) => !isPetOnExpedition(p));
-                        if (mine.length < 1) { alert("You need at least one pet to enter the arena."); return; }
-                        setArenaMatch({ blue: autoRoleTeam(mine, n), red: autoRoleTeam(genericPetArenaOpponents.map((o) => o.pet), n), seed: (Date.now() % 100000) || 1 });
-                    }}
-                    title="Tactical Arena — a deathmatch + capture-the-scroll match, roles auto-assigned from your pets' stats. Preview only (no rewards yet)."
-                    style={{ background: "#0e7490" }}
-                >
-                    🏟️ Tactical Arena (beta)
-                </button>
-                {/* Co-op — team up with friends for a 4v4 (each brings 2 pets). */}
-                <button
-                    onClick={() => setShowCoop(true)}
-                    title="Co-op Arena — team up with friends for a 4v4 capture match. Each player brings 2 pets; empty seats are AI. Preview only (no rewards yet)."
-                    style={{ background: "#6d28d9" }}
-                >
-                    🤝 Co-op (friends)
-                </button>
             </div>
-            {arenaMatch && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading arena…</div>}>
-                    <PetArenaMatch blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed} sharedImages={sharedImages} onExit={() => setArenaMatch(null)} />
-                </Suspense>
-            )}
-            {showCoop && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading co-op…</div>}>
-                    <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
-                </Suspense>
-            )}
 
             {partyResult && battleReady && showResult && (
                 <div className="summary-box" style={{ marginTop: "0.4rem", padding: "0.5rem 0.7rem" }}>
@@ -969,6 +964,72 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 <h3>Battle Log</h3>
                 {visibleLog.length === 0 ? <p className="hint">Start a match to watch the pets fight.</p> : visibleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
             </section>
+            </>
+            )}
+
+            {/* ── Tactical Arena view ────────────────────────────────────────
+                Everything the team game mode needs in one place: team size,
+                Fight AI, and Co-op with friends. The full-screen match itself
+                renders via the arenaMatch / showCoop overlays below. */}
+            {arenaView === "tactical" && (
+                <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
+                    <div>
+                        <h3 style={{ marginTop: 0 }}>🏟️ Tactical Arena</h3>
+                        <p className="hint" style={{ marginBottom: 0 }}>
+                            A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's stats. Preview mode — no rewards yet.
+                        </p>
+                    </div>
+
+                    {/* Team size — applies to the AI match (co-op is always 4v4). */}
+                    <div>
+                        <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Team size</label>
+                        <div className="pet-arena-mode-toggle" style={{ maxWidth: 320, marginTop: 6 }}>
+                            <button type="button" className={!arena4v4 ? "active" : ""} onClick={() => setArena4v4(false)}>👥 2v2</button>
+                            <button type="button" className={arena4v4 ? "active" : ""} onClick={() => setArena4v4(true)}>👥👥 4v4</button>
+                        </div>
+                    </div>
+
+                    {/* Game modes */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
+                        <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                            <strong>🤖 Fight AI</strong>
+                            <p className="hint" style={{ margin: 0 }}>Your team vs an AI team — your strongest available pets are picked for you.</p>
+                            <button
+                                onClick={() => {
+                                    const n = arena4v4 ? 4 : 2;
+                                    const mine = character.pets.filter((p) => !isPetOnExpedition(p));
+                                    if (mine.length < 1) { alert("You need at least one pet to enter the arena."); return; }
+                                    setArenaMatch({ blue: autoRoleTeam(mine, n), red: autoRoleTeam(genericPetArenaOpponents.map((o) => o.pet), n), seed: (Date.now() % 100000) || 1 });
+                                }}
+                                style={{ background: "#0e7490" }}
+                            >
+                                Enter Arena ({arena4v4 ? "4v4" : "2v2"})
+                            </button>
+                        </div>
+
+                        <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                            <strong>🤝 Co-op with Friends</strong>
+                            <p className="hint" style={{ margin: 0 }}>Team up with a friend (each brings 2 pets) for a 4v4 against two opponents. Empty seats are filled by AI.</p>
+                            <button onClick={() => setShowCoop(true)} style={{ background: "#6d28d9" }}>
+                                Open Co-op Lobby
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* Full-screen game-mode overlays — launched from the Tactical Arena
+                view; rendered here so they sit above whichever view is active. */}
+            {arenaMatch && (
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading arena…</div>}>
+                    <PetArenaMatch blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed} sharedImages={sharedImages} onExit={() => setArenaMatch(null)} />
+                </Suspense>
+            )}
+            {showCoop && (
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading co-op…</div>}>
+                    <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
+                </Suspense>
+            )}
         </div>
     );
 }
