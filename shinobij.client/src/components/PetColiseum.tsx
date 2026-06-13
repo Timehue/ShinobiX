@@ -1919,9 +1919,13 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
 }
 
 /** Advances the clock, spawns elemental FX on hits/abilities, updates the score HUD. */
-function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, setScore }: {
-    result: ArenaResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
-    onEnd: () => void; spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
+function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloater, pushFeed, triggerHitstop, nameOf, setScore }: {
+    result: ArenaResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; onEnd: () => void;
+    spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
+    spawnFloater: (x: number, z: number, text: string, color: string, big: boolean) => void;
+    pushFeed: (text: string, color: string) => void;
+    triggerHitstop: (ms: number) => void;
+    nameOf: (id: string) => string;
     setScore: (b: number, r: number) => void;
 }) {
     const lastTick = useRef(-1); const ended = useRef(false);
@@ -1929,17 +1933,80 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, setScore }
         const snaps = result.snapshots; const maxT = snaps.length - 1;
         advanceClock(maxT, delta);
         const cur = Math.floor(clock.current.t);
+        if (cur < lastTick.current) lastTick.current = -1;   // clock rewound (replay) → re-fire events
         if (cur > lastTick.current) {
             for (const e of result.events) {
                 if (e.t <= lastTick.current || e.t > cur) continue;
                 const snapAt = snaps[Math.min(maxT, e.t)];
-                if (e.type === "hit") { const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, element: e.element, scale: e.ability ? 1.6 : 1.05, dur: e.ability ? 360 : 260 }); }
-                else if (e.type === "ability") { const a = findArenaActor(snapAt, e.actorId); if (a) spawnFx({ x: a.x, z: a.y, element: null, scale: 1.4, dur: 340 }); }
+                if (e.type === "hit") {
+                    const a = findArenaActor(snapAt, e.targetId);
+                    if (a) { spawnFx({ x: a.x, z: a.y, element: e.element, scale: e.crit ? 2.1 : e.ability ? 1.85 : 1.3, dur: e.ability ? 430 : 300 }); spawnFloater(a.x, a.y, `${e.dmg}`, e.crit ? "#fde047" : "#fecaca", e.crit); }
+                } else if (e.type === "ability") {
+                    const a = findArenaActor(snapAt, e.actorId); if (a) spawnFx({ x: a.x, z: a.y, element: null, scale: 1.7, dur: 400 });
+                } else if (e.type === "heal") {
+                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFloater(a.x, a.y, `+${e.amount}`, "#86efac", false);
+                } else if (e.type === "kill") {
+                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, element: null, scale: 2.9, dur: 540 });
+                    pushFeed(`☠ ${nameOf(e.targetId)}`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(150);
+                } else if (e.type === "capture") {
+                    pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured +2`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(230);
+                } else if (e.type === "pickup" && e.actorId) {
+                    pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                }
             }
             const s = snaps[Math.min(maxT, cur)]; setScore(s.scoreBlue, s.scoreRed);
             lastTick.current = cur;
         }
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
+    });
+    return null;
+}
+
+/** A short-lived floating combat number (damage / heal) that rises + fades. */
+function ArenaFloater({ pos, text, color, big }: { pos: Vec3; text: string; color: string; big: boolean }) {
+    return (
+        <Html position={pos} center pointerEvents="none" zIndexRange={[45, 0]}>
+            <div style={{ font: `${big ? 900 : 800} ${big ? 22 : 13}px Inter, system-ui, sans-serif`, color, textShadow: "0 1px 2px #000, 0 0 5px rgba(0,0,0,0.7)", whiteSpace: "nowrap", animation: "arenaFloat 0.9s ease-out forwards" }}>{text}</div>
+        </Html>
+    );
+}
+
+/** Action camera. Each frame, frames the LIVE fight (centroid of alive pets +
+ *  the active scroll) and zooms to fit the cluster, then drives a CSS transform on
+ *  the whole stage (backdrop + canvas + Html overlays scale together → stay locked,
+ *  pets read big instead of being ants in a static full-arena view). Smoothed so it
+ *  glides. Clamped so the diorama always covers the frame. */
+function ArenaCamera({ result, clock, stageRef }: { result: ArenaResult; clock: { current: DuelClock }; stageRef: React.MutableRefObject<HTMLDivElement | null> }) {
+    const size = useThree((s) => s.size);
+    const sm = useRef({ cx: 0, cy: 0, z: 1.6, init: false });
+    const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+    useFrame(() => {
+        const el = stageRef.current; if (!el || size.height < 1) return;
+        const snaps = result.snapshots; const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
+        const snap = snaps[i];
+        let cwx = 0, cwy = 0, n = 0;
+        for (const a of snap.actors) {
+            if (a.lives <= 0 || a.state === "dead" || a.state === "respawning") continue;
+            const p = arenaPlace(a.x, a.y); cwx += p.wx; cwy += p.wy; n++;
+        }
+        if (snap.scroll.state !== "inactive") { const p = arenaPlace(snap.scroll.x, snap.scroll.y); cwx += p.wx; cwy += p.wy; n++; }
+        if (n === 0) return;
+        cwx /= n; cwy /= n;
+        // Frame the MAIN cluster: radius = ~65th percentile of pet distances, so a
+        // couple of wanderers/respawners off in a corner don't force a zoom-out.
+        const dists: number[] = [];
+        for (const a of snap.actors) { if (a.lives <= 0 || a.state === "dead" || a.state === "respawning") continue; const p = arenaPlace(a.x, a.y); dists.push(Math.hypot(p.wx - cwx, p.wy - cwy)); }
+        dists.sort((x, y) => x - y);
+        const R = dists.length ? Math.max(1, dists[Math.floor(dists.length * 0.65)]) : 1;
+        const zoomCam = Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
+        const targetZ = clamp((0.40 * size.height) / (R * zoomCam + 1), 1.5, 2.9);   // tighter cluster → zoom in; never fully wide
+        const s = sm.current;
+        if (!s.init) { s.cx = cwx; s.cy = cwy; s.z = targetZ; s.init = true; }
+        else { s.cx += (cwx - s.cx) * 0.05; s.cy += (cwy - s.cy) * 0.05; s.z += (targetZ - s.z) * 0.045; }   // glide
+        const fx = size.width / 2 + s.cx * zoomCam, fy = size.height / 2 - s.cy * zoomCam;   // world focus → canvas px
+        let tx = size.width / 2 - fx * s.z, ty = size.height / 2 - fy * s.z;
+        tx = clamp(tx, size.width * (1 - s.z), 0); ty = clamp(ty, size.height * (1 - s.z), 0);   // keep the diorama covering the frame
+        el.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.z.toFixed(3)})`;
     });
     return null;
 }
@@ -1956,30 +2023,61 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
     ], [blue, red]);
     const clock = useRef<DuelClock>({ t: 0, playing: true });
     const seqRef = useRef(0);
+    const hitstop = useRef(0);
+    const stageRef = useRef<HTMLDivElement | null>(null);   // the action-camera transforms this (backdrop + canvas together)
     const [ended, setEnded] = useState(false);
     const [score, setScoreState] = useState<[number, number]>([0, 0]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
+    const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
+    const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
+    const nameById = useMemo(() => { const m = new Map<string, string>(); roster.forEach((r) => m.set(r.id, r.pet.name)); return m; }, [roster]);
+    const nameOf = (id: string) => nameById.get(id) ?? id;
     const setScore = (b: number, r: number) => setScoreState((p) => (p[0] === b && p[1] === r ? p : [b, r]));
     const spawnFx = (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => {
         const frames = bundledJutsuFxFrames(elementVfxKey(n.element)) ?? bundledJutsuFxFrames("none");
         if (!frames) return;
         const id = seqRef.current++; const p = arenaPlace(n.x, n.z);
-        setFxList((arr) => [...arr, { id, frames, pos: [p.wx, p.wy + 1.0 * p.depth, 8], scale: n.scale * p.depth * 0.55, dur: n.dur }]);
+        setFxList((arr) => [...arr, { id, frames, pos: [p.wx, p.wy + 1.0 * p.depth, 8], scale: n.scale * p.depth * 0.78, dur: n.dur }]);   // beefier FX
     };
-    const advanceClock = (maxT: number, delta: number) => { if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS); };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; setEnded(false); setScoreState([0, 0]); setFxList([]); };
+    const spawnFloater = (x: number, z: number, text: string, color: string, big: boolean) => {
+        const p = arenaPlace(x, z); const id = seqRef.current++;
+        setFloaters((arr) => [...arr, { id, pos: [p.wx, p.wy + 1.3 * p.depth, 9], text, color, big }]);
+        window.setTimeout(() => setFloaters((arr) => arr.filter((f) => f.id !== id)), 950);
+    };
+    const pushFeed = (text: string, color: string) => {
+        const id = seqRef.current++;
+        setFeed((arr) => [{ id, text, color }, ...arr].slice(0, 6));
+        window.setTimeout(() => setFeed((arr) => arr.filter((f) => f.id !== id)), 4500);
+    };
+    const triggerHitstop = (ms: number) => { hitstop.current = Math.max(hitstop.current, ms); };
+    const advanceClock = (maxT: number, delta: number) => {
+        if (hitstop.current > 0) { hitstop.current -= delta * 1000; return; }   // brief freeze on kills/captures — impact
+        if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS);
+    };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; setEnded(false); setScoreState([0, 0]); setFxList([]); setFloaters([]); setFeed([]); };
     const winLabel = result.winner === "blue" ? "Blue Team Wins" : result.winner === "red" ? "Red Team Wins" : "Draw";
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a", backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
-            <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
-                <StageCamera />
-                {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
-                {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
-                <ArenaScroll result={result} clock={clock} />
-                {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
-                <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} setScore={setScore} />
-            </Canvas>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
+            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}`}</style>
+            {/* The STAGE — backdrop + canvas + Html overlays — is one layer the action camera scales/pans as a unit (everything stays pixel-locked). HUD lives outside it. */}
+            <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
+                <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
+                    <StageCamera />
+                    {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
+                    {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
+                    <ArenaScroll result={result} clock={clock} />
+                    {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
+                    {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
+                    <ArenaCamera result={result} clock={clock} stageRef={stageRef} />
+                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnFloater={spawnFloater} pushFeed={pushFeed} triggerHitstop={triggerHitstop} nameOf={nameOf} setScore={setScore} />
+                </Canvas>
+            </div>
+
+            {/* Kill feed — instant read of what just happened */}
+            <div style={{ position: "absolute", top: 52, right: 12, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end", pointerEvents: "none" }}>
+                {feed.map((f) => (<div key={f.id} style={{ padding: "3px 9px", background: "rgba(8,12,24,0.82)", border: `1px solid ${f.color}66`, borderRadius: 6, color: f.color, font: "700 12px Inter, system-ui, sans-serif", animation: "arenaFeedIn 0.2s ease-out" }}>{f.text}</div>))}
+            </div>
 
             {/* Scoreboard */}
             <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 14, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 999, font: "800 20px Inter, system-ui, sans-serif" }}>
