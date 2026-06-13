@@ -86,15 +86,60 @@ const BFS_DC = [1, -1, 0, 0, 1, 1, -1, -1], BFS_DR = [0, 0, 1, -1, 1, -1, 1, -1]
 const _N = GCOLS * GROWS;
 const _came = new Int32Array(_N), _vis = new Int32Array(_N), _queue = new Int32Array(_N);
 let _gen = 0;
-function bfsStep(fc: number, fr: number, tc: number, tr: number): [number, number] | null {
-    if (fc === tc && fr === tr) return null;
+
+// The fixed objective centre (the painted paw): the scroll spawn AND the seed for the
+// "main" walkable region below.
+const ARENA_CENTER: [number, number] = snapPoint(0, -1.1);
+
+// Flood the path tiles reachable from the centre (same 8-dir + corner-cut rule the
+// pathfinder uses) ONCE. The painted map leaves ~5% of its path tiles in little
+// disconnected pockets near the edges; a pet that spawns/respawns into one (the old
+// respawn offsets did exactly that) can never path to the fight and sits there frozen.
+// Snapping every spawn / respawn / nav-goal INTO this region is what keeps pets moving.
+const _mainComp: Uint8Array = (() => {
+    const set = new Uint8Array(_N);
+    const [sc, sr] = cellOf(ARENA_CENTER[0], ARENA_CENTER[1]);
+    if (!cellWalkable(sc, sr)) return set;
+    const q = new Int32Array(_N); let head = 0, tail = 0;
+    const s0 = sr * GCOLS + sc; q[tail++] = s0; set[s0] = 1;
+    while (head < tail) {
+        const cur = q[head++]; const cc = cur % GCOLS, cr = (cur - cc) / GCOLS;
+        for (let k = 0; k < 8; k++) {
+            const dc = BFS_DC[k], dr = BFS_DR[k], nc = cc + dc, nr = cr + dr;
+            if (!cellWalkable(nc, nr)) continue;
+            if (dc !== 0 && dr !== 0 && (!cellWalkable(cc + dc, cr) || !cellWalkable(cc, cr + dr))) continue;
+            const ni = nr * GCOLS + nc; if (set[ni]) continue; set[ni] = 1; q[tail++] = ni;
+        }
+    }
+    return set;
+})();
+const inMain = (c: number, r: number) => c >= 0 && r >= 0 && c < GCOLS && r < GROWS && _mainComp[r * GCOLS + c] === 1;
+/** Snap (x,y) to the nearest path tile that is part of the centre-connected region. */
+function snapMain(x: number, y: number): [number, number] {
+    const [c0, r0] = cellOf(x, y);
+    if (walkableAt(x, y) && inMain(c0, r0)) return [x, y];
+    for (let rad = 1; rad <= GCOLS + GROWS; rad++)
+        for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+            if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
+            if (inMain(c0 + dc, r0 + dr)) return cellCenter(c0 + dc, r0 + dr);
+        }
+    return snapPoint(x, y);
+}
+
+// Full-path BFS (reverse flood from the goal) reconstructed pet→goal as cell indices.
+// A full path + line-of-sight string-pulling (below) gives smooth, direct motion that
+// hugs corners — instead of the old jerky one-cell-every-4-ticks re-step that stalled
+// on every turn.
+function bfsPath(fc: number, fr: number, tc: number, tr: number, out: number[]): number[] {
+    out.length = 0;
+    if (fc === tc && fr === tr) return out;
     _gen++;
     const start = tr * GCOLS + tc;
     _vis[start] = _gen; _came[start] = -1;
-    let head = 0, tail = 0; _queue[tail++] = start;
+    let head = 0, tail = 0; _queue[tail++] = start; let hit = -1;
     while (head < tail) {
         const cur = _queue[head++]; const cc = cur % GCOLS, cr = (cur - cc) / GCOLS;
-        if (cc === fc && cr === fr) { const nxt = _came[cur]; return nxt < 0 ? null : [nxt % GCOLS, (nxt - (nxt % GCOLS)) / GCOLS]; }
+        if (cc === fc && cr === fr) { hit = cur; break; }
         for (let k = 0; k < 8; k++) {
             const dc = BFS_DC[k], dr = BFS_DR[k], nc = cc + dc, nr = cr + dr;
             if (!cellWalkable(nc, nr)) continue;
@@ -104,30 +149,91 @@ function bfsStep(fc: number, fr: number, tc: number, tr: number): [number, numbe
             _vis[ni] = _gen; _came[ni] = cur; _queue[tail++] = ni;
         }
     }
-    return null;
+    if (hit < 0) return out;                          // unreachable — caller falls back to a straight nudge
+    for (let cur = hit; cur >= 0; cur = _came[cur]) out.push(cur);   // pet → … → goal
+    return out;
 }
-/** Step `f` toward (gx,gy): straight if there's a clear path, else BFS around terrain. */
-function moveToward(f: AF, gx: number, gy: number, spd: number, stopAt = 0) {
-    let tx = gx, ty = gy;
-    if (!lineClear(f.x, f.y, gx, gy)) {
-        const [fc, fr] = cellOf(f.x, f.y), [gc, gr] = cellOf(gx, gy);
-        // Recompute the BFS step at most every 4 ticks (re-pathing to the goal's
-        // CURRENT cell each time) — not every tick. ~4× fewer BFS, pathing stays fresh.
-        if (f.navStep < 0 || f.navAge <= 0) {
-            const nxt = bfsStep(fc, fr, gc, gr);
-            f.navStep = nxt ? nxt[1] * GCOLS + nxt[0] : -1; f.navAge = 4;
-        }
-        f.navAge--;
-        if (f.navStep >= 0) { const [wx, wy] = cellCenter(f.navStep % GCOLS, (f.navStep - (f.navStep % GCOLS)) / GCOLS); tx = wx; ty = wy; stopAt = 0; }
-    }
+const cellPt = (idx: number): [number, number] => cellCenter(idx % GCOLS, (idx - (idx % GCOLS)) / GCOLS);
+
+/** Advance `f` one step toward (tx,ty), facing (faceGx,faceGy). Returns whether it
+ *  intended to move (so the caller's stuck-watchdog can tell "blocked" from "arrived"). */
+function stepStraight(f: AF, tx: number, ty: number, spd: number, stopAt: number, faceGx: number, faceGy: number): boolean {
+    const fdx = faceGx - f.x, fdy = faceGy - f.y, fl = Math.sqrt(fdx * fdx + fdy * fdy);
+    if (fl > 1e-6) { f.faceX = fdx / fl; f.faceY = fdy / fl; }
     const dx = tx - f.x, dy = ty - f.y, d = Math.sqrt(dx * dx + dy * dy);
-    if (d > 1e-6) { f.faceX = (gx - f.x); f.faceY = (gy - f.y); const fl = Math.sqrt(f.faceX * f.faceX + f.faceY * f.faceY) || 1; f.faceX /= fl; f.faceY /= fl; }
     const s = Math.min(spd, Math.max(0, d - stopAt));
-    if (s <= 0) return;
-    const nx = f.x + (dx / d) * s, ny = f.y + (dy / d) * s;
+    if (s <= 0 || d <= 1e-6) return false;
+    const ux = dx / d, uy = dy / d, nx = f.x + ux * s, ny = f.y + uy * s;
     if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; }
     else if (walkableAt(nx, f.y)) f.x = nx;
     else if (walkableAt(f.x, ny)) f.y = ny;
+    return true;
+}
+/** Last-resort un-wedge: hop one cell along the walkable compass dir that best closes on
+ *  the goal — but ALWAYS take a walkable step if any exists (least-bad when escape means
+ *  briefly stepping away from a concave nook), so a wedged pet can never stay frozen.
+ *  Deterministic; only fires after the watchdog sees a real jam. */
+function unstick(f: AF, gx: number, gy: number, spd: number) {
+    const cur = Math.sqrt((gx - f.x) * (gx - f.x) + (gy - f.y) * (gy - f.y));
+    const step = Math.max(spd, CELL_Y); let best = -1, bestGain = -Infinity;
+    for (let k = 0; k < 8; k++) {
+        const nx = f.x + BFS_DC[k] * step, ny = f.y + BFS_DR[k] * step;
+        if (!walkableAt(nx, ny)) continue;
+        const dx = gx - nx, dy = gy - ny, gain = cur - Math.sqrt(dx * dx + dy * dy);
+        if (gain > bestGain) { bestGain = gain; best = k; }
+    }
+    if (best >= 0) { f.x += BFS_DC[best] * step; f.y += BFS_DR[best] * step; }
+}
+
+/** Steer `f` toward (gx,gy): straight when the goal is visible, else follow a string-
+ *  pulled BFS path around terrain. Repaths from the CURRENT cell on a short cadence so a
+ *  moving goal stays tracked, and self-recovers if it ever wedges — so nothing freezes. */
+function moveToward(f: AF, gx: number, gy: number, spd: number, stopAt = 0) {
+    // Keep the pet ON the navigable mesh: if quantize/body-shove ever nudges it onto a
+    // non-path tile (or off the centre-connected region), pull it back — otherwise it
+    // can't be pathed and would sit wedged.
+    { const [fc0, fr0] = cellOf(f.x, f.y); if (!inMain(fc0, fr0)) { const [mx, my] = snapMain(f.x, f.y); f.x = mx; f.y = my; f.path = null; f.navAge = 0; } }
+    const sx = f.x, sy = f.y; let attempted: boolean;
+    if (lineClear(f.x, f.y, gx, gy)) {                 // clear shot — go straight, drop any path
+        f.path = null; f.navAge = 0;
+        attempted = stepStraight(f, gx, gy, spd, stopAt, gx, gy);
+    } else {
+        // Route to the goal's cell, snapped into the reachable region if it's blocked.
+        let [tc, tr] = cellOf(gx, gy);
+        if (!inMain(tc, tr)) { const [mx, my] = snapMain(gx, gy);[tc, tr] = cellOf(mx, my); }
+        const goalCell = tr * GCOLS + tc;
+        const [fc, fr] = cellOf(f.x, f.y);
+        if (!f.path || f.navAge <= 0 || f.navGoal !== goalCell) {
+            f.path = f.path ?? [];
+            bfsPath(fc, fr, tc, tr, f.path);
+            f.navGoal = goalCell; f.navAge = 8; f.pathIdx = 1;
+        }
+        f.navAge--;
+        const path = f.path;
+        if (!path || path.length <= 1) {               // no route — straight nudge (watchdog may kick in)
+            attempted = stepStraight(f, gx, gy, spd, stopAt, gx, gy);
+        } else {
+            let idx = f.pathIdx < 1 ? 1 : (f.pathIdx > path.length - 1 ? path.length - 1 : f.pathIdx);
+            while (idx < path.length - 1) {            // string-pull: skip to the farthest visible node
+                const [wx, wy] = cellPt(path[idx + 1]);
+                if (lineClear(f.x, f.y, wx, wy)) idx++; else break;
+            }
+            f.pathIdx = idx;
+            if (idx >= path.length - 1 && lineClear(f.x, f.y, gx, gy)) {   // last node + goal in view → finish straight
+                attempted = stepStraight(f, gx, gy, spd, stopAt, gx, gy);
+            } else {
+                const [wx, wy] = cellPt(path[idx]);
+                attempted = stepStraight(f, wx, wy, spd, idx >= path.length - 1 ? stopAt : 0, gx, gy);
+            }
+        }
+    }
+    // Stuck watchdog: meant to move but didn't → repath fast, then hop free. Keeps a pet
+    // from ever locking up in a concave nook or behind a body it can't slide past.
+    if (attempted && Math.abs(f.x - sx) + Math.abs(f.y - sy) < 0.004) {
+        f.stuckTicks++;
+        if (f.stuckTicks === 3) { f.path = null; f.navAge = 0; }        // first: force a fresh route
+        else if (f.stuckTicks >= 6) { unstick(f, gx, gy, spd); f.stuckTicks = 0; f.path = null; f.navAge = 0; }   // then: physically hop free
+    } else f.stuckTicks = 0;
 }
 const dist = (a: AF, b: AF) => { const dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); };
 const distPt = (a: AF, x: number, y: number) => { const dx = a.x - x, dy = a.y - y; return Math.sqrt(dx * dx + dy * dy); };
@@ -149,7 +255,7 @@ interface AF {
     // statuses
     shieldHp: number; slowLeft: number; dotLeft: number; dotDmg: number; markLeft: number; tauntBy: string | null; tauntLeft: number;
     carrying: boolean; seals: [number, number][];
-    navStep: number; navGoal: number; navAge: number;   // BFS step cache (perf)
+    path: number[] | null; pathIdx: number; navGoal: number; navAge: number; stuckTicks: number;   // BFS path cache + stuck watchdog
     aiTargetId: string | null;                          // last committed target — decision hysteresis (anti-flip-flop)
     plan: Plan | null;                                  // this tick's decision (computed in the decide phase, run in the execute phase)
 }
@@ -170,7 +276,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
     const seals = SEALS[team];
     const sealIdx = count <= 2 ? Math.min(slot, 1) : (slot < 2 ? 0 : 1);
     const [sx, sy] = seals[sealIdx];
-    const [x, y] = snapPoint(sx, sy + (count <= 2 ? 0 : slot % 2 ? 0.9 : -0.9));
+    const [x, y] = snapMain(sx, sy + (count <= 2 ? 0 : slot % 2 ? 0.9 : -0.9));
     const maxHp = Math.max(1, Math.round((pet.hp || 600) * cfg.hpMul));
     return {
         id: `${team}-${slot}`, team, slot, role, pet, element: pet.element,
@@ -180,7 +286,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         atkRange: cfg.atkRange, crit: cfg.crit, energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
         shieldHp: 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
-        navStep: -1, navGoal: -1, navAge: 0, aiTargetId: null, plan: null,
+        path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null,
     };
 }
 const alive = (f: AF) => f.lives > 0 && f.state !== "dead" && f.state !== "respawning";
@@ -527,7 +633,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         ...blue.map((s, i) => buildFighter(s.pet, "blue", s.role, i, nB)),
         ...red.map((s, i) => buildFighter(s.pet, "red", s.role, i, nR)),
     ];
-    const center = snapPoint(0, -1.1);   // on the painted center paw (measured off the art)
+    const center = ARENA_CENTER;   // on the painted center paw (measured off the art)
     const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: SCROLL_FIRST_SPAWN, dropTimer: 0 };
     const score = { blue: 0, red: 0 };
     const snapshots: ArenaSnapshot[] = []; const events: ArenaEvent[] = [];
@@ -536,7 +642,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
     for (let t = 0; t < MAX_TICKS; t++) {
         ticks = t + 1;
         // respawn timers
-        for (const f of fs) if (f.state === "respawning") { if (--f.respawnLeft <= 0) { const [x, y] = snapPoint(f.baseX, f.baseY + (f.slot - 1.5) * 1.0); f.x = x; f.y = y; f.hp = f.maxHp; f.energy = 100; f.shieldHp = 0; f.slowLeft = f.dotLeft = f.markLeft = f.tauntLeft = 0; f.tauntBy = null; f.state = "idle"; events.push({ t, type: "respawn", actorId: f.id, team: f.team }); } }
+        for (const f of fs) if (f.state === "respawning") { if (--f.respawnLeft <= 0) { const [x, y] = snapMain(f.baseX, f.baseY + (f.slot - 1.5) * 1.0); f.x = x; f.y = y; f.hp = f.maxHp; f.energy = 100; f.shieldHp = 0; f.slowLeft = f.dotLeft = f.markLeft = f.tauntLeft = 0; f.tauntBy = null; f.state = "idle"; f.path = null; f.navAge = 0; f.stuckTicks = 0; events.push({ t, type: "respawn", actorId: f.id, team: f.team }); } }
         // Decide on a frozen start-of-tick board (no second-mover advantage), then
         // execute in an order that ALTERNATES each tick (forward = blue-first,
         // reverse = red-first) so neither team gets a persistent same-tick first-
