@@ -322,6 +322,7 @@ import {
     petHappiness,
     isPetOnExpedition,
 } from "./lib/pet";
+import { buildResponderArenaMatch, buildAcceptedArenaMatch } from "./lib/arena-challenge";
 import { isPetSfxMuted, setPetSfxMuted } from "./lib/pet-sfx";
 import { stopBattleMusic } from "./lib/pet-music";
 import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey } from "./lib/pet-battle-anim";
@@ -470,6 +471,11 @@ export type DuelChallenge = {
     challengerPetIds?: [string, string];
     responderPetIds?: [string, string];
     responderParty?: [Pet, Pet];
+    // Tactical Arena PvP challenge — deterministic teams + seed; see lib/arena-challenge.
+    arenaMatch?: boolean;
+    arenaSize?: 2 | 4;
+    challengerTeamIds?: string[];
+    responderTeam?: Pet[];
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet" | "rankedPet";
     clanWarPoints?: number;
@@ -2518,6 +2524,7 @@ export default function App() {
     }, [character?.name]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
+    const [pendingArenaMatch, setPendingArenaMatch] = useState<{ blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null>(null); // Tactical Arena PvP match → PetArena
     // IDs of challenges the user already handled (accepted / declined /
     // consumed an accepted-or-declined notice). Both the realtime push and the
     // heartbeat poll re-merge from the server, which keeps each challenge for a
@@ -3083,6 +3090,20 @@ export default function App() {
     async function acceptPetChallengeGlobal(challenge: DuelChallenge) {
         if (!character) return;
         if (processingChallengeIds.includes(challenge.id)) return;
+
+        if (challenge.arenaMatch) { // Tactical Arena PvP — see lib/arena-challenge
+            const built = buildResponderArenaMatch(challenge, character.pets);
+            if (!built) { alert("Both players need at least one available pet for a Tactical Arena match."); return; }
+            setProcessingChallengeIds(prev => [...prev, challenge.id]);
+            dismissChallengeLocally(challenge.id);
+            await clearChallengeOnServer(challenge);
+            await postPlayerChallengeNotice(challenge.fromName, { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderTeam: built.echo });
+            setPendingArenaMatch(built.match);
+            setScreen("petArena");
+            setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
+            return;
+        }
+
         const myPet = character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet));
         const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
         if (!myPet || !challengerPet || isPetOnExpedition(challengerPet)) {
@@ -3285,6 +3306,13 @@ export default function App() {
         // re-fires, re-routing to battle / re-alerting forever.
         dismissChallengeLocally(accepted.id);
         void clearChallengeOnServer(accepted);
+        if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
+            const match = buildAcceptedArenaMatch(accepted);
+            if (match) setPendingArenaMatch(match);
+            else alert(`${accepted.fromName} accepted your Tactical Arena challenge. Open Pet Arena if it doesn't start.`);
+            setScreen("petArena");
+            return;
+        }
         if (accepted.mode === "clanWarPet" || accepted.mode === "rankedPet") {
             if (accepted.responderPet) {
                 // Reconstruct the challenger's own party from the IDs they
@@ -8844,7 +8872,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
                     const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);
