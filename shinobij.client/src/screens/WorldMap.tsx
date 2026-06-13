@@ -455,10 +455,10 @@ export function WorldMap({
         // Coords aligned to the new World Map.png baked-in banners (measured on a
         // 0–100 grid + crosshair triangulation): each village marker sits ON its
         // painted banner icon medallion (the icon hexagon at the banner's far-left).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 14, y: 82, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 12, y: 37, icon: "AL" },
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 11, y: 82, icon: "SV" },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, icon: "AL" },
         { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 76, y: 82, icon: "MS" },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 73, y: 83, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
         { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 46, y: 76, icon: "HG" },
@@ -479,7 +479,7 @@ export function WorldMap({
         { id: 41, x: 43, y: 27 }, { id: 42, x: 25, y: 32 }, { id: 43, x: 32, y: 30 }, { id: 44, x: 39, y: 35 }, { id: 45, x: 45, y: 38 },
         // ── Snow / Frostfang territory (46–55) — top-right quadrant ──
         { id: 46, x: 58, y: 18 }, { id: 47, x: 82, y: 44 }, { id: 48, x: 65, y: 15 }, { id: 49, x: 73, y: 15 }, { id: 50, x: 81, y: 19 },
-        { id: 51, x: 60, y: 28 }, { id: 52, x: 67, y: 27 }, { id: 53, x: 74, y: 29 }, { id: 54, x: 81, y: 31 }, { id: 55, x: 89, y: 37 },
+        { id: 51, x: 60, y: 28 }, { id: 52, x: 67, y: 27 }, { id: 53, x: 74, y: 29 }, { id: 54, x: 81, y: 31 }, { id: 55, x: 90, y: 30 },
         // ── Central ring (56–60) — heart of the map ──
         { id: 56, x: 44, y: 47 }, { id: 57, x: 54, y: 48 }, { id: 58, x: 48, y: 55 }, { id: 59, x: 55, y: 58 }, { id: 60, x: 49, y: 64 },
         { id: 99, x: 51, y: 10 }, // Death's Gate — cursed PvP zone (on the volcano)
