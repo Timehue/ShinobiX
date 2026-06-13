@@ -84,6 +84,30 @@ test("the center scroll spawns (fixed, after the timer) and is contestable", () 
     assert.ok(at && Math.abs(at.x - r.center[0]) < 0.01 && Math.abs(at.y - r.center[1]) < 0.01, "scroll not at center");
 });
 
+test("respawned pets are never frozen — they walk out of spawn (or get reached)", () => {
+    // Regression for the "stuck on spawn" bug: the old respawn offset could snapPoint a
+    // pet into a path tile that's DISCONNECTED from the centre region, leaving it frozen
+    // for the rest of the match (it can't path to the fight, and no enemy can path to it).
+    // After every respawn the pet must, within 3 s, either move meaningfully OR take damage
+    // OR cycle again — all of which prove it is reachable / mobile, never a dead pocket.
+    const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 320, attack: 30 }), 7);
+    const respawns = r.events.filter((e) => e.type === "respawn") as Array<{ t: number; actorId: string }>;
+    assert.ok(respawns.length >= 3, `expected several respawns, got ${respawns.length}`);
+    const last = r.snapshots.length - 1;
+    for (const ev of respawns) {
+        const a0 = r.snapshots[ev.t]?.actors.find((a) => a.id === ev.actorId);
+        if (!a0) continue;
+        let freed = false;
+        for (let t = ev.t + 1; t <= Math.min(ev.t + ARENA_TPS * 3, last); t++) {
+            const a = r.snapshots[t].actors.find((x) => x.id === ev.actorId);
+            if (!a) { freed = true; break; }
+            const moved = Math.abs(a.x - a0.x) + Math.abs(a.y - a0.y) > 1.2;
+            if (moved || a.hp < a.maxHp || a.state === "respawning" || a.state === "dead") { freed = true; break; }
+        }
+        assert.ok(freed, `${ev.actorId} respawned at t=${ev.t} and never moved/was-reached (frozen in a pocket)`);
+    }
+});
+
 test("a sage heals a hurt ally (role abilities fire)", () => {
     const got = SEEDS.some((seed) =>
         runPetArenaMatch(roster(["defender", "sage"], { hp: 600 }), roster(["tracker", "assassin"], { attack: 120 }), seed)
