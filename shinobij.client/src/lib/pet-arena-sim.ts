@@ -18,16 +18,27 @@ import type { Pet } from "../types/pet";
 import { FULL_MASK, FULL_COLS, FULL_ROWS } from "./pet-arena-fullmask";
 
 export const ARENA_TPS = 30;
-const MAX_SECONDS = 150;                 // safety cap — a match should resolve well before
+export const MAX_SECONDS = 300;          // 5-min safety cap (tactical fights run ~2–4 min)
 const MAX_TICKS = ARENA_TPS * MAX_SECONDS;
 export const WIN_SCORE = 10;
 export const ARENA_X = 14.0, ARENA_Y = 7.5;
 
-export const SCROLL_FIRST_SPAWN = ARENA_TPS * 18;   // first scroll (beta value for watchability; spec = 45 s)
+// ── Pacing ───────────────────────────────────────────────────────────────────
+// Fights should read as deliberate tactical exchanges (~2–5 min), not a 40-second
+// melee where pets blink and die. The main lever is TIME-TO-KILL: HP scaled up +
+// one slower swing/sec, so engagements last long enough to SEE a defender peel, a
+// sage sustain, an assassin dive. Plus a periodic (~0.5 s) decision cadence so pets
+// COMMIT instead of darting, meaningful deaths (longer respawn = fewer pets thrash
+// at once), and a late scroll as a recurring objective beat.
+const TTK_HP_MUL = 2.4;                    // ×effective HP → ~4× time-to-kill (relative role balance unchanged)
+const ATTACK_CD = Math.round(ARENA_TPS * 1.0);   // one basic swing/sec (was 0.55 s — too frantic to follow)
+const DECISION_TICKS = 16;                 // re-decide ~every 0.53 s; reuse the plan between → deliberate, smooth
+
+export const SCROLL_FIRST_SPAWN = ARENA_TPS * 45;   // first scroll at 45 s (spec) — a mid-match objective beat
 const SCROLL_RESPAWN = ARENA_TPS * 60;       // re-spawn 60 s after capture / reset
 const SCROLL_CHANNEL = ARENA_TPS * 2;        // 2 s channel to pick up
 const SCROLL_DROP_LIFE = ARENA_TPS * 10;     // a dropped scroll resets after 10 s
-const RESPAWN_TICKS = ARENA_TPS * 5;         // 5 s respawn
+const RESPAWN_TICKS = ARENA_TPS * 7;         // 7 s respawn — a kill earns a real window, fewer pets churning
 const PICKUP_RANGE = 1.4;                     // how close you must be to channel
 const BASE_SCORE_RANGE = 1.8;                 // carrier scores within this of its base
 const CARRIER_SLOW = 0.85;                    // −15% speed while carrying
@@ -257,7 +268,8 @@ interface AF {
     carrying: boolean; seals: [number, number][];
     path: number[] | null; pathIdx: number; navGoal: number; navAge: number; stuckTicks: number;   // BFS path cache + stuck watchdog
     aiTargetId: string | null;                          // last committed target — decision hysteresis (anti-flip-flop)
-    plan: Plan | null;                                  // this tick's decision (computed in the decide phase, run in the execute phase)
+    plan: Plan | null;                                  // current decision (recomputed every DECISION_TICKS, reused between → deliberate)
+    decisionCd: number;                                 // ticks until the next full re-decide
 }
 // The two spawn seals per team (arena corners), snapped to a path tile. 2v2 puts
 // one pet on each seal; 4v4 puts two pets (a "player" pair) on each seal.
@@ -277,7 +289,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
     const sealIdx = count <= 2 ? Math.min(slot, 1) : (slot < 2 ? 0 : 1);
     const [sx, sy] = seals[sealIdx];
     const [x, y] = snapMain(sx, sy + (count <= 2 ? 0 : slot % 2 ? 0.9 : -0.9));
-    const maxHp = Math.max(1, Math.round((pet.hp || 600) * cfg.hpMul));
+    const maxHp = Math.max(1, Math.round((pet.hp || 600) * cfg.hpMul * TTK_HP_MUL));
     return {
         id: `${team}-${slot}`, team, slot, role, pet, element: pet.element,
         x, y, faceX: team === "blue" ? 1 : -1, faceY: 0, baseX: sx, baseY: sy, seals,
@@ -286,7 +298,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         atkRange: cfg.atkRange, crit: cfg.crit, energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
         shieldHp: 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
-        path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null,
+        path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null, decisionCd: 0,
     };
 }
 const alive = (f: AF) => f.lives > 0 && f.state !== "dead" && f.state !== "respawning";
@@ -642,7 +654,7 @@ function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: 
     }
     // Basic attack when a target is in range + line of sight.
     if (tgt && d <= f.atkRange + 0.1 && f.attackCd <= 0 && lineClear(f.x, f.y, tgt.x, tgt.y)) {
-        dealDamage(f, tgt, f.atk, rng, t, events); f.attackCd = Math.round(ARENA_TPS * 0.55); f.state = "attack";
+        dealDamage(f, tgt, f.atk, rng, t, events); f.attackCd = ATTACK_CD; f.state = "attack";
     }
 }
 
@@ -655,7 +667,15 @@ function tickDecide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red:
     if (f.slowLeft > 0) f.slowLeft--; if (f.markLeft > 0) f.markLeft--; if (f.tauntLeft > 0) f.tauntLeft--; else f.tauntBy = null;
     if (f.energy < 100) f.energy = Math.min(100, f.energy + 18 / ARENA_TPS);
     if (f.dotLeft > 0) { f.dotLeft--; if (f.dotLeft % Math.round(ARENA_TPS * 0.5) === 0) f.hp -= f.dotDmg; }
-    f.plan = (f.state === "dash" && f.dashLeft > 0) ? null : decide(f, fs, scroll, score, squad);
+    if (f.state === "dash" && f.dashLeft > 0) { f.plan = null; return; }
+    // Periodic decisions: re-decide ~every 0.5 s (or immediately if the committed
+    // target died / I picked up the scroll), and REUSE the plan in between. Movement
+    // tracks the cached goal and act() keeps attacking the committed target every
+    // tick, so combat stays fluid while the pet reads as deliberate, not twitchy.
+    f.decisionCd--;
+    const tgt = f.plan?.target ?? null;
+    const stale = f.plan === null || f.decisionCd <= 0 || f.carrying || (tgt !== null && !alive(tgt));   // carrier re-routes every tick; target died → re-pick now
+    if (stale) { f.plan = decide(f, fs, scroll, score, squad); f.decisionCd = DECISION_TICKS + (f.slot & 3); }
 }
 
 function tickExecute(f: AF, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
