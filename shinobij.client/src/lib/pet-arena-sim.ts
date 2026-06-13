@@ -34,7 +34,8 @@ const TTK_HP_MUL = 2.4;                    // ×effective HP → ~4× time-to-ki
 const ATTACK_CD = Math.round(ARENA_TPS * 1.0);   // one basic swing/sec (was 0.55 s — too frantic to follow)
 const DECISION_TICKS = 16;                 // re-decide ~every 0.53 s; reuse the plan between → deliberate, smooth
 
-export const SCROLL_FIRST_SPAWN = ARENA_TPS * 45;   // first scroll at 45 s (spec) — a mid-match objective beat
+export const SCROLL_FIRST_SPAWN = ARENA_TPS * 20;   // first scroll at 20 s — an early objective beat the squads converge on
+const SCROLL_ANTICIPATE = 7;                 // seconds before a spawn that pets start pre-positioning toward the centre
 const SCROLL_RESPAWN = ARENA_TPS * 60;       // re-spawn 60 s after capture / reset
 const SCROLL_CHANNEL = ARENA_TPS * 2;        // 2 s channel to pick up
 const SCROLL_DROP_LIFE = ARENA_TPS * 10;     // a dropped scroll resets after 10 s
@@ -388,7 +389,7 @@ function threatTarget(f: AF, enemies: AF[]): AF | null { let b: AF | null = null
 // Match-state rubber-band: ahead → close it out safely; behind → force fights;
 // at match point → emergency (the objective is everything).
 type MatchPhase = "normal" | "closeit" | "comeback" | "emergency";
-interface Ctx { myCarrier: AF | null; enemyCarrier: AF | null; scrollOpen: boolean; leadLives: number; leadScore: number; phase: MatchPhase; }
+interface Ctx { myCarrier: AF | null; enemyCarrier: AF | null; scrollOpen: boolean; scrollSoon: boolean; leadLives: number; leadScore: number; phase: MatchPhase; }
 function makeCtx(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }): Ctx {
     const carrier = scroll.carrierId ? fs.find((g) => g.id === scroll.carrierId) ?? null : null;
     const mine = score[f.team], opp = score[oppOf(f.team)], lead = mine - opp;
@@ -397,6 +398,7 @@ function makeCtx(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: nu
         myCarrier: carrier && carrier.team === f.team ? carrier : null,
         enemyCarrier: carrier && carrier.team !== f.team ? carrier : null,
         scrollOpen: scroll.state === "center" || scroll.state === "dropped",
+        scrollSoon: scroll.state === "inactive" && scroll.spawnTimer <= ARENA_TPS * SCROLL_ANTICIPATE,   // about to spawn → pre-position
         leadLives: teamLives(fs, f.team) - teamLives(fs, oppOf(f.team)),
         leadScore: lead, phase,
     };
@@ -452,6 +454,14 @@ function contestP(f: AF, fs: AF[], scroll: Scroll): Plan {
     const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
     return { gx: someoneElse ? f.x : (off ? ex : scroll.x), gy: someoneElse ? f.y : (off ? ey : scroll.y), stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
 }
+/** Pre-position for the IMMINENT scroll spawn (scroll.x/y holds the spawn point):
+ *  defender claims the spot, tracker pressures it, assassin takes a flank, sage rings
+ *  up behind — so the spawn is a beat the squad has gathered for, not a surprise. */
+function anticipateP(f: AF, fs: AF[], scroll: Scroll): Plan {
+    const off = f.role === "assassin" ? 2.8 : f.role === "sage" ? 3.4 : f.role === "tracker" ? 1.6 : 0.7;
+    const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
+    return { gx: ex, gy: ey, stopAt: 0.4, target: nearestEnemy(f, fs), channel: false };
+}
 /** Rally to the team — toward the nearest defender (the wall), but biased to the
  *  centre/fight so a regrouping pet never just parks in its spawn corner (which
  *  reads as — and tests as — frozen). moveToward snaps the goal into the connected
@@ -499,11 +509,15 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
         if (enPow > myPow * OUTNUMBER_RATIO) cands.push({ score: REGROUP_SCORE[f.role], kind: "regroup", plan: regroupPlan(f, fs) });
     }
 
-    // Objective: every role weighs the open scroll (Tracker/Defender contest harder).
-    if (ctx.scrollOpen) {
-        const w = f.role === "tracker" ? 62 : f.role === "defender" ? 56 : f.role === "assassin" ? 40 : 34;
-        const close = distPt(f, scroll.x, scroll.y) <= PICKUP_RANGE ? 45 : -distPt(f, scroll.x, scroll.y) * 1.2;
-        cands.push({ score: w + close, kind: "objective", plan: contestP(f, fs, scroll) });
+    // Objective: contest the open scroll, OR pre-position for an imminent spawn
+    // (scroll.x/y = the spawn point). Tracker/Defender weigh it hardest. Weights are
+    // high + the distance falloff is MILD, so the squad actually travels to the
+    // centre and converges on the scroll instead of ignoring it from across the map.
+    if (ctx.scrollOpen || ctx.scrollSoon) {
+        const w = f.role === "tracker" ? 78 : f.role === "defender" ? 72 : f.role === "assassin" ? 48 : 38;
+        const dS = distPt(f, scroll.x, scroll.y);
+        const score = ctx.scrollOpen ? w + (dS <= PICKUP_RANGE ? 45 : -dS * 0.6) : w * 0.85 - dS * 0.5;   // anticipation softer
+        cands.push({ score, kind: "objective", plan: ctx.scrollOpen ? contestP(f, fs, scroll) : anticipateP(f, fs, scroll) });
     }
 
     if (f.role === "defender") {
@@ -713,12 +727,13 @@ function stepScroll(scroll: Scroll, fs: AF[], center: [number, number], t: numbe
         if (distPt(carrier, bx, by) <= BASE_SCORE_RANGE) {   // SCORE the capture
             score[carrier.team] += 2; carrier.carrying = false;
             scroll.state = "inactive"; scroll.spawnTimer = SCROLL_RESPAWN; scroll.carrierId = null;
+            scroll.x = center[0]; scroll.y = center[1];   // park at the spawn point so the next anticipation aims true
             events.push({ t, type: "capture", team: carrier.team, actorId: carrier.id });
         }
         return;
     }
     // center or dropped → channelling to pick up
-    if (scroll.state === "dropped") { if (scroll.dropTimer > 0) scroll.dropTimer--; if (scroll.dropTimer <= 0) { scroll.state = "inactive"; scroll.spawnTimer = SCROLL_RESPAWN; scroll.channelById = null; return; } }
+    if (scroll.state === "dropped") { if (scroll.dropTimer > 0) scroll.dropTimer--; if (scroll.dropTimer <= 0) { scroll.state = "inactive"; scroll.spawnTimer = SCROLL_RESPAWN; scroll.channelById = null; scroll.x = center[0]; scroll.y = center[1]; return; } }
     const chan = scroll.channelById ? fs.find((g) => g.id === scroll.channelById) : null;
     if (chan && (!alive(chan) || distPt(chan, scroll.x, scroll.y) > PICKUP_RANGE + 0.2)) { scroll.channelById = null; scroll.channelLeft = 0; }
     if (!scroll.channelById) {                                        // claim by the closest channeller (deterministic: lowest id)
