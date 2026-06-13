@@ -21,6 +21,7 @@ import {
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { petColiseumEnabled, setPetColiseumEnabled, petDuelEnabled, setPetDuelEnabled } from "../lib/pet-coliseum-flag";
+import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 
 // HD-2D coliseum renderer — lazy so three/react-three-fiber load ONLY when the
@@ -47,7 +48,7 @@ function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
     return team.map((pet, i) => ({ pet, role: (i === def ? "defender" : i === asn ? "assassin" : i === sge ? "sage" : "tracker") as ArenaRole }));
 }
 
-export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
+export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -74,17 +75,25 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Tactical Arena game mode — a full-screen 2v2/4v4 deathmatch + capture-scroll
     // match (separate from the 1v1/2v2 battle). Teams are built + frozen on launch.
     const [arenaMatch, setArenaMatch] = useState<{ blue: ArenaSlot[]; red: ArenaSlot[]; seed: number } | null>(null);
-    const [arena4v4, setArena4v4] = useState(true);
     // Co-op (play the Tactical Arena 4v4 with friends) — opens the lobby overlay.
     const [showCoop, setShowCoop] = useState(false);
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
-    // "tactical" is the full-screen team game mode (vs AI / co-op, 2v2 or 4v4).
+    // "tactical" is the full-screen team game mode (vs AI / challenge / co-op).
     // Defaults to the cinematic battle so Pet Arena opens straight into it.
     const [arenaView, setArenaView] = useState<"battle" | "tactical">("battle");
-    // Tactical Arena PvP challenge — search box + status message for sending a
-    // 2v2/4v4 challenge to another player (team size = the arena4v4 toggle).
+    // Tactical Arena setup (single screen): a size toggle + a team grid shared by
+    // Fight AI and Challenge-a-Player. Picks seed to the top pets and re-seed on
+    // a size change.
+    const [tacticalSize, setTacticalSize] = useState<2 | 4>(4);
+    const [tacticalPicks, setTacticalPicks] = useState<string[]>(() => pickArenaTeam(character.pets, 4).map((p) => p.id));
     const [arenaChallengeName, setArenaChallengeName] = useState("");
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
+    // 5→1 pre-roll shown to both players before the match plays. Holds the built
+    // slots; when it hits 0 we mount PetArenaMatch (same seed → identical fight).
+    const [arenaCountdown, setArenaCountdown] = useState<{ secs: number; match: { blue: ArenaSlot[]; red: ArenaSlot[]; seed: number } } | null>(null);
+    // Responder team picks (for an incoming arena challenge, separate from the
+    // wizard's tacticalPicks so an in-progress send isn't clobbered).
+    const [respondPicks, setRespondPicks] = useState<string[]>([]);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -157,19 +166,25 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         }
     }
 
-    // Send a Tactical Arena PvP challenge. Rides the same /api/player/challenge
-    // delivery as cinematic pet challenges (mode "clanWarPet" so the global
-    // accept banner surfaces it) but flagged arenaMatch — the accept handler
-    // launches the full-screen game mode instead of the duel. Team size comes
-    // from the arena4v4 toggle; my roster is referenced by id (resolved
-    // server-side against challenger.pets) for a deterministic match.
-    async function sendArenaChallenge(toName: string) {
+    // Build the role-assigned slots + start the 5s pre-roll, evening both teams
+    // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
+    // run this from identical embedded teams, so the match stays in sync.
+    function startArenaMatch(blue: Pet[], red: Pet[], seed: number) {
+        const n = Math.max(1, Math.min(blue.length, red.length));
+        setArenaView("tactical");
+        setArenaCountdown({ secs: 5, match: { blue: autoRoleTeam(blue, n), red: autoRoleTeam(red, n), seed } });
+    }
+
+    // Send a Tactical Arena PvP challenge with my hand-picked roster. Rides the
+    // same /api/player/challenge delivery as cinematic pet challenges (mode
+    // "clanWarPet" so the global accept banner surfaces it) but flagged
+    // arenaMatch; my roster is referenced by id (resolved against the server-kept
+    // challenger.pets snapshot) for a deterministic match.
+    async function sendArenaChallenge(toName: string, size: 2 | 4, teamIds: string[]) {
         const name = toName.trim();
         if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
         if (name.toLowerCase() === character.name.toLowerCase()) { setArenaChallengeMsg("You can't challenge yourself."); return; }
-        const size: 2 | 4 = arena4v4 ? 4 : 2;
-        const myTeam = pickArenaTeam(character.pets, size);
-        if (myTeam.length < 1) { setArenaChallengeMsg("You need at least one available pet to send a challenge."); return; }
+        if (teamIds.length < 1) { setArenaChallengeMsg("Pick at least one pet for your team."); return; }
         const targetRecord = allServerPlayers.find((p) => p.name.toLowerCase() === name.toLowerCase());
         if (targetRecord?.character && targetRecord.character.pets.length === 0) {
             setArenaChallengeMsg(`${name} has no pets available for an arena match.`);
@@ -185,7 +200,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             mode: "clanWarPet",
             arenaMatch: true,
             arenaSize: size,
-            challengerTeamIds: myTeam.map((p) => p.id),
+            challengerTeamIds: teamIds,
         };
         try {
             const res = await fetch('/api/player/challenge', {
@@ -202,10 +217,31 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
                 challenge,
             ]);
-            setArenaChallengeMsg(`✅ Tactical Arena (${size === 4 ? "4v4" : "2v2"}) challenge sent to ${name}! They'll see it shortly.`);
+            setArenaChallengeMsg(`✅ ${size === 4 ? "4v4" : "2v2"} challenge sent to ${name}! Waiting for them to accept and pick their team…`);
         } catch {
             setArenaChallengeMsg("❌ Network error sending challenge.");
         }
+    }
+
+    // Responder side: I picked my team for an incoming arena challenge. Echo it
+    // back (image-stripped) on the accepted notice and launch the same match the
+    // challenger will — blue resolved from their snapshot, red = my picks.
+    async function respondToArenaChallenge(challenge: DuelChallenge, teamIds: string[]) {
+        const myTeam = character.pets.filter((p) => teamIds.includes(p.id));
+        const blue = resolveChallengerTeam(challenge);
+        if (!myTeam.length || !blue.length) { onArenaResponseHandled?.(); return; }
+        try {
+            await fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: challenge.fromName, challenge: {
+                    ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName,
+                    responderTeam: stripInlinePetImages(myTeam),
+                } }),
+            });
+        } catch { /* the challenger just won't auto-launch; my side still plays */ }
+        onArenaResponseHandled?.();
+        startArenaMatch(blue, myTeam, challenge.petBattleSeed ?? 1);
     }
 
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
@@ -608,21 +644,33 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         onPendingPetBattleStarted?.();
     }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
 
-    // A Tactical Arena PvP challenge resolved (both sides hold identical
-    // embedded teams + seed) → launch the full-screen match. Even the teams
-    // to the smaller roster so a lopsided pick can't auto-stomp; both clients
-    // run this from the same arrays, so the deterministic match stays in sync.
+    // Challenger side: the responder accepted + picked → launch the same match
+    // (both sides hold identical embedded teams + seed) behind the countdown.
     useEffect(() => {
         if (!pendingArenaMatch) return;
-        const n = Math.min(pendingArenaMatch.blue.length, pendingArenaMatch.red.length, pendingArenaMatch.size);
-        setArenaView("tactical");
-        setArenaMatch({
-            blue: autoRoleTeam(pendingArenaMatch.blue, n),
-            red: autoRoleTeam(pendingArenaMatch.red, n),
-            seed: pendingArenaMatch.seed,
-        });
+        startArenaMatch(pendingArenaMatch.blue, pendingArenaMatch.red, pendingArenaMatch.seed);
         onPendingArenaMatchStarted?.();
     }, [pendingArenaMatch?.seed]);
+
+    // Responder side: an incoming arena challenge arrived → open the tactical
+    // view's responder picker, pre-selecting my top pets at the challenge's size.
+    useEffect(() => {
+        if (!pendingArenaResponse) return;
+        setArenaView("tactical");
+        setRespondPicks(pickArenaTeam(character.pets, arenaSizeOf(pendingArenaResponse)).map((p) => p.id));
+    }, [pendingArenaResponse?.id]);
+
+    // Countdown pre-roll: tick 5→0, then mount the match (same seed → same fight).
+    useEffect(() => {
+        if (!arenaCountdown) return;
+        if (arenaCountdown.secs <= 0) {
+            setArenaMatch(arenaCountdown.match);
+            setArenaCountdown(null);
+            return;
+        }
+        const t = window.setTimeout(() => setArenaCountdown((c) => (c ? { ...c, secs: c.secs - 1 } : null)), 1000);
+        return () => window.clearTimeout(t);
+    }, [arenaCountdown]);
 
     const pendingClanPetBattle = loadPendingClanPetBattle();
     // Hollow Gate (and other forced duels) skip the view tabs — those land
@@ -1040,9 +1088,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             )}
 
             {/* ── Tactical Arena view ────────────────────────────────────────
-                Everything the team game mode needs in one place: team size,
-                Fight AI, and Co-op with friends. The full-screen match itself
-                renders via the arenaMatch / showCoop overlays below. */}
+                One screen: a team-size toggle + a team grid, then Fight AI /
+                Challenge a Player / Co-op. An INCOMING challenge swaps in a
+                responder picker. The match plays via the arenaMatch overlay
+                below (after the countdown). */}
             {arenaView === "tactical" && (
                 <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
                     <div>
@@ -1052,56 +1101,119 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         </p>
                     </div>
 
-                    {/* Team size — applies to the AI match (co-op is always 4v4). */}
-                    <div>
-                        <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Team size</label>
-                        <div className="pet-arena-mode-toggle" style={{ maxWidth: 320, marginTop: 6 }}>
-                            <button type="button" className={!arena4v4 ? "active" : ""} onClick={() => setArena4v4(false)}>👥 2v2</button>
-                            <button type="button" className={arena4v4 ? "active" : ""} onClick={() => setArena4v4(true)}>👥👥 4v4</button>
-                        </div>
-                    </div>
+                    {(() => {
+                        const available = character.pets.filter((p) => !isPetOnExpedition(p));
+                        // Reusable pet-pick grid — tap to add/remove (capped at `max`);
+                        // the badge shows battle order.
+                        const pickGrid = (picks: string[], setPicks: (ids: string[]) => void, max: number) => (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: "0.4rem" }}>
+                                {available.map((pet) => {
+                                    const sel = picks.includes(pet.id);
+                                    const order = picks.indexOf(pet.id);
+                                    const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
+                                    return (
+                                        <button key={pet.id} type="button"
+                                            onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : picks.length >= max ? picks : [...picks, pet.id])}
+                                            style={{ position: "relative", padding: "0.3rem", background: sel ? "#0e7490" : "#1e293b", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 3 }}>
+                                            {sel && <span style={{ position: "absolute", top: 2, right: 5, fontSize: "0.7rem", color: "#22d3ee", fontWeight: 700 }}>{order + 1}</span>}
+                                            {img
+                                                ? <img src={img} alt="" style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
+                                                : <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#334155" }} />}
+                                            <span style={{ fontSize: "0.65rem", maxWidth: 76, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{petDisplayName(pet)}</span>
+                                            <span style={{ fontSize: "0.6rem", color: "#94a3b8" }}>Lv {pet.level}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        );
 
-                    {/* Game modes */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
-                        <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
-                            <strong>🤖 Fight AI</strong>
-                            <p className="hint" style={{ margin: 0 }}>Your team vs an AI team — your strongest available pets are picked for you.</p>
-                            <button
-                                onClick={() => {
-                                    const n = arena4v4 ? 4 : 2;
-                                    const mine = character.pets.filter((p) => !isPetOnExpedition(p));
-                                    if (mine.length < 1) { alert("You need at least one pet to enter the arena."); return; }
-                                    setArenaMatch({ blue: autoRoleTeam(mine, n), red: autoRoleTeam(genericPetArenaOpponents.map((o) => o.pet), n), seed: (Date.now() % 100000) || 1 });
-                                }}
-                                style={{ background: "#0e7490" }}
-                            >
-                                Enter Arena ({arena4v4 ? "4v4" : "2v2"})
-                            </button>
-                        </div>
+                        // ── Incoming challenge → pick my team, then accept ──────
+                        if (pendingArenaResponse) {
+                            const size = arenaSizeOf(pendingArenaResponse);
+                            return (
+                                <div style={{ display: "grid", gap: "0.6rem" }}>
+                                    <strong>⚔️ {pendingArenaResponse.fromName} challenged you to a {size === 4 ? "4v4" : "2v2"}!</strong>
+                                    <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets, then accept — the match begins after a short countdown.</p>
+                                    {available.length < 1
+                                        ? <p className="hint" style={{ color: "#f59e0b" }}>You have no pets available (all on expeditions?).</p>
+                                        : pickGrid(respondPicks, setRespondPicks, size)}
+                                    <div className="menu">
+                                        <button disabled={respondPicks.length < 1} style={{ background: "#16a34a" }}
+                                            onClick={() => void respondToArenaChallenge(pendingArenaResponse, respondPicks)}>
+                                            Accept &amp; Start ({respondPicks.length}/{size})
+                                        </button>
+                                        <button className="danger-button" onClick={() => { setRespondPicks([]); onArenaResponseHandled?.(); }}>Decline</button>
+                                    </div>
+                                </div>
+                            );
+                        }
 
-                        <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
-                            <strong>⚔️ Challenge a Player</strong>
-                            <p className="hint" style={{ margin: 0 }}>Send another player a {arena4v4 ? "4v4" : "2v2"} Tactical Arena challenge — your teams fight each other. (Uses the team size above.)</p>
-                            <input
-                                value={arenaChallengeName}
-                                onChange={(e) => { setArenaChallengeName(e.target.value); setArenaChallengeMsg(""); }}
-                                placeholder="Search by player name"
-                                onKeyDown={(e) => { if (e.key === "Enter") void sendArenaChallenge(arenaChallengeName); }}
-                            />
-                            <button onClick={() => void sendArenaChallenge(arenaChallengeName)} disabled={!arenaChallengeName.trim()} style={{ background: "#b45309" }}>
-                                Send {arena4v4 ? "4v4" : "2v2"} Challenge
+                        // ── Single screen: size toggle + team grid + actions ───
+                        const canStart = tacticalPicks.length >= 1;
+                        const sizeBtn = (n: 2 | 4, label: string) => (
+                            <button type="button" className={tacticalSize === n ? "active" : ""}
+                                onClick={() => { setTacticalSize(n); setTacticalPicks(pickArenaTeam(character.pets, n).map((p) => p.id)); }}>
+                                {label}
                             </button>
-                            {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{arenaChallengeMsg}</p>}
-                        </div>
+                        );
+                        return (
+                            <div style={{ display: "grid", gap: "0.7rem" }}>
+                                <div>
+                                    <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Team size</label>
+                                    <div className="pet-arena-mode-toggle" style={{ maxWidth: 320, marginTop: 6 }}>
+                                        {sizeBtn(2, "👥 2v2")}{sizeBtn(4, "👥👥 4v4")}
+                                    </div>
+                                </div>
 
-                        <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
-                            <strong>🤝 Co-op with Friends</strong>
-                            <p className="hint" style={{ margin: 0 }}>Team up with a friend (each brings 2 pets) for a 4v4 against two opponents. Empty seats are filled by AI.</p>
-                            <button onClick={() => setShowCoop(true)} style={{ background: "#6d28d9" }}>
-                                Open Co-op Lobby
-                            </button>
-                        </div>
-                    </div>
+                                <div>
+                                    <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — tap to add / remove</label>
+                                    <div style={{ marginTop: 6 }}>
+                                        {available.length < 1
+                                            ? <p className="hint" style={{ color: "#f59e0b", margin: 0 }}>You have no pets available (all on expeditions?).</p>
+                                            : pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
+                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                                        <strong>🤖 Fight AI</strong>
+                                        <button disabled={!canStart} style={{ background: "#0e7490" }}
+                                            onClick={() => {
+                                                const mine = character.pets.filter((p) => tacticalPicks.includes(p.id));
+                                                if (!mine.length) return;
+                                                // Match the AI team to my count by cycling the 3-pet pool
+                                                // (cloned so the sim never shares a pet reference).
+                                                const pool = genericPetArenaOpponents.map((o) => o.pet);
+                                                const ai = Array.from({ length: mine.length }, (_, i) => ({ ...pool[i % pool.length] }));
+                                                startArenaMatch(mine, ai, (Date.now() % 100000) || 1);
+                                            }}>
+                                            Start vs AI
+                                        </button>
+                                    </div>
+
+                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                                        <strong>⚔️ Challenge a Player</strong>
+                                        <input
+                                            value={arenaChallengeName}
+                                            onChange={(e) => { setArenaChallengeName(e.target.value); setArenaChallengeMsg(""); }}
+                                            placeholder="Player name"
+                                            onKeyDown={(e) => { if (e.key === "Enter" && canStart && arenaChallengeName.trim()) void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks); }}
+                                        />
+                                        <button disabled={!canStart || !arenaChallengeName.trim()} style={{ background: "#b45309" }}
+                                            onClick={() => void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks)}>
+                                            Send Challenge
+                                        </button>
+                                        {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{arenaChallengeMsg}</p>}
+                                    </div>
+
+                                    <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                                        <strong>🤝 Co-op with Friends</strong>
+                                        <button style={{ background: "#6d28d9" }} onClick={() => setShowCoop(true)}>Open Co-op Lobby</button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </section>
             )}
 
@@ -1116,6 +1228,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading co-op…</div>}>
                     <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
                 </Suspense>
+            )}
+            {arenaCountdown && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 215, background: "rgba(5,6,10,0.94)", display: "grid", placeItems: "center" }}>
+                    <div style={{ textAlign: "center" }}>
+                        <div style={{ color: "#94a3b8", letterSpacing: "0.25em", fontSize: "0.85rem", marginBottom: 10 }}>BATTLE STARTS IN</div>
+                        <div style={{ fontSize: "6rem", fontWeight: 800, color: "#fde68a", textShadow: "0 0 30px rgba(250,204,21,0.45)", lineHeight: 1 }}>{arenaCountdown.secs}</div>
+                    </div>
+                </div>
             )}
         </div>
     );
