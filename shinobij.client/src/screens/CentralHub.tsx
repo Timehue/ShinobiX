@@ -23,6 +23,7 @@ import {
 } from "../App";
 import { sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import { type VillageWarRecord } from "../lib/world-state";
+import { SceneAmbience } from "../components/SceneAmbience";
 
 export function CentralHub({
     character,
@@ -634,6 +635,9 @@ export function CentralHub({
 
     return (
         <div className="central-hub">
+            {/* Drifting golden motes + god-ray sweep over the citadel backdrop
+                (sits behind the cards via z-index in central-skin.css). */}
+            <SceneAmbience biome="central" />
             <div className="central-hero">
                 <h1>⛩️ Central — The Thousand Gates</h1>
                 <p>
