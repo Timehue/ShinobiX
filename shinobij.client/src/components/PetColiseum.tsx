@@ -1971,39 +1971,28 @@ function ArenaFloater({ pos, text, color, big }: { pos: Vec3; text: string; colo
     );
 }
 
-/** Action camera. Each frame, frames the LIVE fight (centroid of alive pets +
- *  the active scroll) and zooms to fit the cluster, then drives a CSS transform on
- *  the whole stage (backdrop + canvas + Html overlays scale together → stay locked,
- *  pets read big instead of being ants in a static full-arena view). Smoothed so it
- *  glides. Clamped so the diorama always covers the frame. */
+/** Camera. DEFAULT = the whole map (z=1, identity) so you read the full board.
+ *  Only when the scroll is being CARRIED does it ease in a touch and follow the
+ *  carrier (the dramatic "will they make it home?" moment), then ease back out
+ *  when the carry ends. Drives a CSS transform on the whole stage (backdrop +
+ *  canvas + Html scale as one → pets stay locked to the painted paths). */
 function ArenaCamera({ result, clock, stageRef }: { result: ArenaResult; clock: { current: DuelClock }; stageRef: React.MutableRefObject<HTMLDivElement | null> }) {
     const size = useThree((s) => s.size);
-    const sm = useRef({ cx: 0, cy: 0, z: 1.6, init: false });
+    const sm = useRef({ cx: 0, cy: 0, z: 1, init: true });
     const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
     useFrame(() => {
         const el = stageRef.current; if (!el || size.height < 1) return;
         const snaps = result.snapshots; const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
         const snap = snaps[i];
-        let cwx = 0, cwy = 0, n = 0;
-        for (const a of snap.actors) {
-            if (a.lives <= 0 || a.state === "dead" || a.state === "respawning") continue;
-            const p = arenaPlace(a.x, a.y); cwx += p.wx; cwy += p.wy; n++;
+        let tcx = 0, tcy = 0, tz = 1;   // default: centered, full map
+        if (snap.scroll.state === "carried" && snap.scroll.carrierId) {
+            const c = snap.actors.find((a) => a.id === snap.scroll.carrierId);
+            if (c) { const p = arenaPlace(c.x, c.y); tcx = p.wx; tcy = p.wy; tz = 1.5; }   // ease in on the carrier
         }
-        if (snap.scroll.state !== "inactive") { const p = arenaPlace(snap.scroll.x, snap.scroll.y); cwx += p.wx; cwy += p.wy; n++; }
-        if (n === 0) return;
-        cwx /= n; cwy /= n;
-        // Frame the MAIN cluster: radius = ~65th percentile of pet distances, so a
-        // couple of wanderers/respawners off in a corner don't force a zoom-out.
-        const dists: number[] = [];
-        for (const a of snap.actors) { if (a.lives <= 0 || a.state === "dead" || a.state === "respawning") continue; const p = arenaPlace(a.x, a.y); dists.push(Math.hypot(p.wx - cwx, p.wy - cwy)); }
-        dists.sort((x, y) => x - y);
-        const R = dists.length ? Math.max(1, dists[Math.floor(dists.length * 0.65)]) : 1;
-        const zoomCam = Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
-        const targetZ = clamp((0.40 * size.height) / (R * zoomCam + 1), 1.5, 2.9);   // tighter cluster → zoom in; never fully wide
         const s = sm.current;
-        if (!s.init) { s.cx = cwx; s.cy = cwy; s.z = targetZ; s.init = true; }
-        else { s.cx += (cwx - s.cx) * 0.05; s.cy += (cwy - s.cy) * 0.05; s.z += (targetZ - s.z) * 0.045; }   // glide
-        const fx = size.width / 2 + s.cx * zoomCam, fy = size.height / 2 - s.cy * zoomCam;   // world focus → canvas px
+        s.cx += (tcx - s.cx) * 0.045; s.cy += (tcy - s.cy) * 0.045; s.z += (tz - s.z) * 0.045;   // glide
+        const zoomCam = Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
+        const fx = size.width / 2 + s.cx * zoomCam, fy = size.height / 2 - s.cy * zoomCam;
         let tx = size.width / 2 - fx * s.z, ty = size.height / 2 - fy * s.z;
         tx = clamp(tx, size.width * (1 - s.z), 0); ty = clamp(ty, size.height * (1 - s.z), 0);   // keep the diorama covering the frame
         el.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.z.toFixed(3)})`;
