@@ -1812,6 +1812,9 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const shadow = useRef<THREE.Mesh>(null);
     const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
     const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const aura = useRef<THREE.Mesh>(null);
+    const auraMat = useRef<THREE.MeshBasicMaterial>(null);
+    const carryMark = useRef<HTMLSpanElement>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const nameWrap = useRef<HTMLDivElement>(null);
     const facing = useRef(id.startsWith("blue") ? 1 : -1);
@@ -1821,6 +1824,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
     const [lives, setLives] = useState(3);
     const team = id.startsWith("blue") ? "blue" : "red";
+    const auraColor = team === "blue" ? "#3b82f6" : "#ef4444";   // team-colored ground glow → parse teams at a glance
     const role = (result.snapshots[0] && findArenaActor(result.snapshots[0], id)?.role) || "tracker";
 
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
@@ -1857,16 +1861,23 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         if (a0.lives !== lives) setLives(a0.lives);
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100))}%`;
         if (nameWrap.current) nameWrap.current.style.opacity = down ? "0.4" : "1";
-        if (glowMat.current) glowMat.current.opacity = a0.carrying ? 0.45 + Math.abs(Math.sin(state.clock.elapsedTime * 5)) * 0.3 : 0;
+        if (glowMat.current) glowMat.current.opacity = a0.carrying ? 0.55 + Math.abs(Math.sin(state.clock.elapsedTime * 5)) * 0.35 : 0;
+        if (carryMark.current) carryMark.current.style.display = a0.carrying ? "inline" : "none";
         if (shadow.current && shadowMat.current) {
             shadow.current.position.set(p.wx, p.wy - 0.08 * p.depth, p.zo - 0.1);
             shadow.current.scale.set(shadowW * p.depth, shadowW * 0.32 * p.depth, 1);
             shadowMat.current.opacity = down ? 0.12 : 0.4;
         }
+        if (aura.current && auraMat.current) {   // team-colored ground glow (brighter while carrying)
+            aura.current.position.set(p.wx, p.wy - 0.05 * p.depth, p.zo - 0.12);
+            const aw = shadowW * 1.6 * p.depth; aura.current.scale.set(aw, aw * 0.46, 1);
+            auraMat.current.opacity = down ? 0.1 : (a0.carrying ? 0.85 : 0.5);
+        }
     });
 
     return (
         <group>
+            <mesh ref={aura} renderOrder={-2}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={auraMat} map={shadowTexture()} color={auraColor} transparent opacity={0.5} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
             <mesh ref={shadow} renderOrder={-1}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.4} depthWrite={false} depthTest={false} toneMapped={false} /></mesh>
             <group ref={group}>
                 <mesh position={[0, shadowW * 0.5, -0.05]}><planeGeometry args={[shadowW * 2.6, shadowW * 2.6]} /><meshBasicMaterial ref={glowMat} map={shadowTexture()} color="#fde047" transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
@@ -1879,6 +1890,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
                 <Html position={[0, L.contentWorldH + 0.4, 0]} center pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", transform: "scale(0.78)" }}>
                         <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center", marginBottom: 2 }}>
+                            <span ref={carryMark} style={{ display: "none", filter: "drop-shadow(0 0 3px #fde047)" }}>📜</span>
                             <span style={{ color: ROLE_COLOR[role], border: `1px solid ${ROLE_COLOR[role]}`, borderRadius: 3, padding: "0 2px", fontSize: 8 }}>{ROLE_TAG[role]}</span>
                             <span style={{ color: "#fff", textShadow: "0 1px 2px #000" }}>{pet.name}</span>
                         </div>
@@ -1898,6 +1910,8 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
 /** The center scroll — a floating relic, with a channel ring while being picked up. */
 function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
     const grp = useRef<THREE.Group>(null);
+    const beacon = useRef<THREE.Mesh>(null);
+    const beaconMat = useRef<THREE.MeshBasicMaterial>(null);
     const ringRef = useRef<HTMLDivElement>(null);
     const [visible, setVisible] = useState(false);
     useFrame((state) => {
@@ -1906,18 +1920,31 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
         const sc = snaps[i].scroll;
         const vis = sc.state !== "inactive";
         if (vis !== visible) setVisible(vis);
-        if (grp.current && vis) { const p = arenaPlace(sc.x, sc.y); grp.current.position.set(p.wx, p.wy + 0.9 * p.depth + Math.abs(Math.sin(state.clock.elapsedTime * 2)) * 0.18, 8.5); grp.current.scale.setScalar(p.depth); }
+        if (!vis) return;
+        const p = arenaPlace(sc.x, sc.y);
+        if (grp.current) { grp.current.position.set(p.wx, p.wy + 0.9 * p.depth + Math.abs(Math.sin(state.clock.elapsedTime * 2)) * 0.18, 8.5); grp.current.scale.setScalar(p.depth); }
+        // Pulsing ground beacon — marks WHERE the scroll is even when pets cover it
+        // (the whole game is fought here). Off while it's being carried (the carrier glows instead).
+        if (beacon.current && beaconMat.current) {
+            const pulse = 0.5 + Math.abs(Math.sin(state.clock.elapsedTime * 3)) * 0.5;
+            beacon.current.position.set(p.wx, p.wy - 0.04 * p.depth, p.zo - 0.1);
+            const bw = (2.6 + pulse * 0.7) * p.depth; beacon.current.scale.set(bw, bw * 0.5, 1);
+            beaconMat.current.opacity = sc.state === "carried" ? 0 : 0.4 + pulse * 0.4;
+        }
         if (ringRef.current) { ringRef.current.style.opacity = sc.channelFrac > 0 ? "1" : "0"; ringRef.current.style.background = `conic-gradient(#fde047 ${sc.channelFrac * 360}deg, rgba(0,0,0,0.35) 0deg)`; }
     });
     if (!visible) return null;
     return (
-        <group ref={grp}>
-            <Html center pointerEvents="none" zIndexRange={[30, 0]}>
-                <div style={{ position: "relative", width: 30, height: 30, display: "grid", placeItems: "center" }}>
-                    <div ref={ringRef} style={{ position: "absolute", inset: -5, borderRadius: "50%", opacity: 0 }} />
-                    <div style={{ fontSize: 24, filter: "drop-shadow(0 0 6px #fde047)" }}>📜</div>
-                </div>
-            </Html>
+        <group>
+            <mesh ref={beacon} renderOrder={-1}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={beaconMat} map={shadowTexture()} color="#fde047" transparent opacity={0.5} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
+            <group ref={grp}>
+                <Html center pointerEvents="none" zIndexRange={[30, 0]}>
+                    <div style={{ position: "relative", width: 42, height: 42, display: "grid", placeItems: "center" }}>
+                        <div ref={ringRef} style={{ position: "absolute", inset: -7, borderRadius: "50%", opacity: 0 }} />
+                        <div style={{ fontSize: 34, filter: "drop-shadow(0 0 12px #fde047) drop-shadow(0 0 5px #fff)" }}>📜</div>
+                    </div>
+                </Html>
+            </group>
         </group>
     );
 }
