@@ -6717,10 +6717,85 @@ body {
 }
 
 .sector-image-map {
+    position: relative; /* containing block for the ambience layers + walking <SectorAvatar> overlay */
+    overflow: hidden;   /* clip the over-scaled, panning <SectorScene> backdrop */
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     image-rendering: auto !important;
+}
+
+/* ── Sector scene backdrop + atmosphere (SectorScene.tsx) ─────────────────────
+   The painted biome on its own over-scaled layer so it can pan (a position-
+   driven "camera") without moving the tile grid or the walking avatar. Backdrop
+   + haze sit behind the tiles (z-index:-1, above the grid's fill); the vignette
+   frames the distant scene (z-index:2) without dimming the foreground avatar,
+   particles, or markers. All pointer-events:none. */
+.sector-scene-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transform-origin: center;
+    transition: transform 1.5s ease-out;
+    will-change: transform;
+}
+
+.sector-scene-haze {
+    position: absolute;
+    inset: -10%; /* bleed so the slow drift never reveals an edge (grid clips it) */
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(120% 80% at 50% 18%, var(--haze, rgba(255,255,255,.12)) 0%, transparent 62%);
+    animation: sectorHazeDrift 26s ease-in-out infinite;
+}
+
+.sector-scene-haze-snow    { --haze: rgba(207,232,255,.20); }
+.sector-scene-haze-volcano { --haze: rgba(255,120,48,.16); }
+.sector-scene-haze-shadow  { --haze: rgba(150,110,200,.20); }
+.sector-scene-haze-forest  { --haze: rgba(150,210,140,.14); }
+.sector-scene-haze-central { --haze: rgba(255,228,150,.14); }
+
+.sector-scene-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(ellipse 80% 80% at 50% 46%, transparent 56%, rgba(8,10,20,.42) 100%);
+}
+
+/* r3f depth backdrop (SectorScene3D / SectorScene3DScene). Sits behind the tiles
+   on top of the flat CSS backdrop, fully click-through (r3f sets the canvas to
+   pointer-events:auto for raycasting, so force every descendant off — same fix
+   the ambience layers use). */
+.sector-scene-3d {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.sector-scene-3d *,
+.sector-scene-3d canvas { pointer-events: none !important; }
+
+.sector-scene-3d canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+@keyframes sectorHazeDrift {
+    0%, 100% { transform: translate3d(-2%, 0, 0);  opacity: .7; }
+    50%      { transform: translate3d(2%, 1%, 0);  opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sector-scene-backdrop { transition: none; }
+    .sector-scene-haze { animation: none; }
 }
 
 .transparent-sector-tile {
@@ -6786,6 +6861,142 @@ body {
     white-space: nowrap;
     line-height: 1;
     text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+}
+
+/* ── Walking sector avatar (SectorAvatar.tsx) ─────────────────────────────────
+   The player's portrait, grounded on the sector floor and walking toward the
+   tile they clicked. Pure presentation over any flat avatar image — no per-
+   avatar art. z-index:3 sits above the tiles + 3D depth motes but BELOW the 2D
+   weather particles (z-4, so snow/rain falls in front) and the z-5 encounter
+   markers. Fully click-through so click-to-move underneath still works. */
+.sector-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+    overflow: visible;
+}
+
+.sector-avatar-figure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* width/height + transform are set imperatively to the clicked tile's centre */
+    will-change: transform;
+}
+
+.sector-avatar-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: 4%;
+    width: 56%;
+    height: 13%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,0) 70%);
+}
+
+.sector-avatar-aura {
+    position: absolute;
+    left: 50%;
+    top: 44%;
+    width: 92%;
+    height: 92%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--aura, #ffe9a6) 0%, transparent 62%);
+    opacity: .4;
+    filter: blur(2px);
+}
+
+.sector-avatar-sprite {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;                /* portrait centred on the tile */
+    transform: scaleX(var(--face, 1));  /* directional facing */
+}
+
+.sector-avatar-body {
+    width: 86%;
+    height: 86%;
+    transform-origin: 50% 100%;         /* squash/stretch pivots at the feet */
+    animation: sectorAvatarIdle 3.4s ease-in-out infinite;
+}
+
+.sector-avatar-body img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 22%;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.6);
+    box-shadow: 0 3px 7px rgba(0,0,0,.6);
+    display: block;
+}
+
+.sector-avatar-initials {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(15,23,42,.78);
+    border: 2px solid rgba(255,255,255,.6);
+    box-shadow: 0 3px 7px rgba(0,0,0,.6);
+    color: #fef3c7;
+    font-weight: 900;
+    font-size: clamp(10px, 2vw, 20px);
+    text-shadow: 0 1px 2px #111827;
+}
+
+.sector-avatar-figure.is-walking .sector-avatar-body {
+    animation: sectorAvatarWalk .42s ease-in-out infinite;
+}
+
+.sector-avatar-figure.is-walking .sector-avatar-shadow {
+    animation: sectorAvatarShadow .42s ease-in-out infinite;
+}
+
+.sector-avatar-dust {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,0) 70%);
+    animation: sectorAvatarDust .5s ease-out forwards;
+}
+
+@keyframes sectorAvatarIdle {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    50%      { transform: translateY(-2%) scale(1.01, .99); }
+}
+
+@keyframes sectorAvatarWalk {
+    0%   { transform: translateY(0)    scale(1, 1); }
+    25%  { transform: translateY(-13%) scale(.97, 1.05); }
+    50%  { transform: translateY(0)    scale(1.04, .96); }
+    75%  { transform: translateY(-13%) scale(.97, 1.05); }
+    100% { transform: translateY(0)    scale(1, 1); }
+}
+
+@keyframes sectorAvatarShadow {
+    0%, 100% { transform: translateX(-50%) scaleX(1);  opacity: .85; }
+    50%      { transform: translateX(-50%) scaleX(.8); opacity: .6; }
+}
+
+@keyframes sectorAvatarDust {
+    from { transform: translate(-50%, -50%) scale(.4); opacity: .55; }
+    to   { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sector-avatar-body,
+    .sector-avatar-figure.is-walking .sector-avatar-body,
+    .sector-avatar-figure.is-walking .sector-avatar-shadow {
+        animation: none !important;
+    }
+    .sector-avatar-dust { display: none !important; }
 }
 
 .stormveil-village-screen {
