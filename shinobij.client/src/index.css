@@ -21597,7 +21597,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
 .scene-ambience {
     position: absolute;
     inset: 0;
-    pointer-events: none;
+    pointer-events: none !important;
     overflow: hidden;
     z-index: 4;
     border-radius: inherit;
@@ -21608,11 +21608,17 @@ html[data-vp="xxl"] .banner-mobile-timers {
 .scene-ambience-3d {
     position: absolute;
     inset: 0;
-    pointer-events: none;
+    pointer-events: none !important;
     overflow: hidden;
     z-index: 3;
     border-radius: inherit;
 }
+/* CRITICAL: react-three-fiber sets pointer-events:auto inline on its <canvas>
+   for raycasting — that would sit over the sector tile grid and swallow every
+   click (movement breaks; only WASD works). Force every ambience descendant
+   click-through so gameplay underneath stays interactive. */
+.scene-ambience *,
+.scene-ambience-3d * { pointer-events: none !important; }
 .scene-ambience-3d canvas { width: 100% !important; height: 100% !important; display: block; }
 .scene-ambience-canvas {
     position: absolute;
