@@ -27,6 +27,7 @@
 // save impact. Balance numbers here are PLACEHOLDERS to be tuned in Phase D.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Pet, PetJutsu } from "../types/pet";
+import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask";
 
 export const DUEL_TPS = 30;                 // sim ticks per second
 const MAX_TICKS = DUEL_TPS * 30;            // 30s hard cap
@@ -37,24 +38,15 @@ const clamp = (n: number, lo: number, hi: number) => (n < lo ? lo : n > hi ? hi 
 // Arena footprint (world units) — a BIG tactical battlefield: the pets spawn at
 // opposite ends and TRAVERSE across the map to meet (small units on a big map,
 // not two sprites bonking in a tight ring). The renderer frames the whole thing.
-const ARENA_X = 14.0;
-const ARENA_Y = 7.5;
+// Exported so the renderer can map sim field coords → the painted battle-map's
+// battle-area rectangle (the diorama backdrop). Field is [-ARENA_X,ARENA_X] ×
+// [-ARENA_Y,ARENA_Y]; the renderer projects it into the SpriteFlow spec rect.
+export const ARENA_X = 14.0;
+export const ARENA_Y = 7.5;
 
-// Battlefield TERRAIN — fixed obstacles the pets must path AROUND (so the fight
-// spreads across the map + the traversal reads as a journey, not a beeline to a
-// center pile). Kept clear of the spawn ends (|x|>7); the renderer draws matching
-// 3D rocks/crystals at these spots. (x,z = world; r = blocked radius.)
-export type DuelObstacle = { x: number; z: number; r: number; kind: "rock" | "crystal" };
-// Collision ALIGNED to the four painted rock clusters in the battle-map art (one
-// per quadrant) — so the rocks you SEE are the rocks the pets path around, and
-// the open cobblestone lanes between them are the traversable space. (x,z read
-// off the map → floor world coords.)
-export const DUEL_OBSTACLES: ReadonlyArray<DuelObstacle> = [
-    { x: -6.5, z: -4.8, r: 2.3, kind: "rock" },   // top-left cluster
-    { x: 6.3, z: -4.8, r: 2.3, kind: "rock" },    // top-right cluster
-    { x: -6.8, z: 4.6, r: 2.3, kind: "rock" },    // bottom-left cluster
-    { x: 6.0, z: 4.4, r: 2.3, kind: "rock" },     // bottom-right cluster
-];
+// Battlefield TERRAIN is now a baked WALKABILITY MASK (pet-arena-walkmask.ts,
+// classified from the diorama art): pets path along stone/bridge tiles and treat
+// everything else as solid. See the walkability grid section further down.
 
 // Stamina economy — gates dashes / dodges / attacks so the fight breathes.
 const STAM_MAX = 100;
@@ -177,19 +169,24 @@ interface Fighter {
     statuses: Statuses;
     moveDx: number; moveDy: number;          // stored dir for dash/dodge
     targetId: string | null;
+    repositionLeft: number;                  // hit-and-reposition: hold neutral for a beat after attacking
 }
 
 function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number): Fighter {
     const speed = Math.max(0, pet.speed || 0);
     const maxHp = Math.max(1, Math.round(pet.hp || 1));
     const trait = pet.trait;
-    const moveSpeed = clamp(3.6 + speed * 0.024, 3.6, 8.0) / DUEL_TPS;   // brisk traversal across the big map
+    const moveSpeed = clamp(2.8 + speed * 0.018, 2.8, 6.2) / DUEL_TPS;   // deliberate traversal — they MOVE across the map, not teleport
     const abilities = (pet.jutsus || []).slice(0, 4).map(buildAbility);
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasRanged = abilities.some((a) => a.cls === "ranged");
     const tanky = trait === "Guardian" || abilities.some((a) => a.kind === "shield" || a.kind === "barrier" || a.kind === "absorb" || a.kind === "taunt");
     const role: Fighter["role"] = hasRanged && !hasMelee ? "ranged" : tanky ? "tank" : "melee";
-    const neutralRange = role === "ranged" ? 4.2 : role === "tank" ? 1.95 : 2.6;
+    // Anyone with a ranged ability SKIRMISHES — pokes from distance (basic =
+    // projectile) and holds a wider neutral — so hybrids fight at range and only
+    // dash in for melee abilities, instead of gluing themselves to the foe.
+    const skirmisher = hasRanged;
+    const neutralRange = role === "ranged" ? 5.2 : role === "tank" ? 2.5 : skirmisher ? 4.0 : 3.0;
     return {
         id: `${team}-${slot}`, team, slot, pet, element: pet.element,
         x, y, faceX: team === "player" ? 1 : -1, faceY: 0,
@@ -211,11 +208,11 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         // Deterministic circling direction: lead/reserve orbit opposite ways,
         // and the two sides counter-rotate, so they wheel around each other.
         strafeDir: (slot % 2 === 0 ? 1 : -1) * (team === "player" ? 1 : -1),
-        basicRanged: role === "ranged",
+        basicRanged: skirmisher,
         abilities,
         pendingIdx: -2, pendingTargetId: null,
         statuses: emptyStatuses(),
-        moveDx: 0, moveDy: 0, targetId: null,
+        moveDx: 0, moveDy: 0, targetId: null, repositionLeft: 0,
     };
 }
 
@@ -407,29 +404,48 @@ function moveToward(f: Fighter, tx: number, ty: number, spd: number, stopAt: num
     f.faceX = dx / d; f.faceY = dy / d;
     const s = Math.min(spd, Math.max(0, d - stopAt));
     if (s <= 0) return;
-    f.x += (dx / d) * s; f.y += (dy / d) * s;
+    tryMove(f, f.x + (dx / d) * s, f.y + (dy / d) * s);
 }
 
-// ── Invisible tactical grid — pets PATHFIND (BFS) around terrain to reach the
-// foe, instead of beelining/steering into it. The grid is sim-only (the renderer
-// just interpolates the smooth motion); deterministic (fixed cell + dir order).
-const CELL = 1.0;
-const GCOLS = Math.round((ARENA_X * 2) / CELL);
-const GROWS = Math.round((ARENA_Y * 2) / CELL);
+// ── Walkability grid — pets may only stand on STONE PATHS + WOODEN BRIDGES (the
+// baked mask classified from the diorama art); grass/clumps, water, seals, walls,
+// structures and shadow are SOLID. Pets BFS along the paths to reach the foe and
+// SLIDE along edges, so they route the terrain instead of cutting through it.
+// Sim-only + deterministic (static mask, fixed scan order).
+const GCOLS = WALK_COLS, GROWS = WALK_ROWS;
+const CELL_X = (ARENA_X * 2) / GCOLS;
+const CELL_Y = (ARENA_Y * 2) / GROWS;
 const cellOf = (x: number, y: number): [number, number] => [
-    clamp(Math.floor((x + ARENA_X) / CELL), 0, GCOLS - 1),
-    clamp(Math.floor((y + ARENA_Y) / CELL), 0, GROWS - 1),
+    clamp(Math.floor((x + ARENA_X) / CELL_X), 0, GCOLS - 1),
+    clamp(Math.floor((y + ARENA_Y) / CELL_Y), 0, GROWS - 1),
 ];
-const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * CELL - ARENA_X, (r + 0.5) * CELL - ARENA_Y];
-const BLOCKED_CELLS = (() => {
-    const set = new Set<number>();
-    for (let c = 0; c < GCOLS; c++) for (let r = 0; r < GROWS; r++) {
-        const [wx, wy] = cellCenter(c, r);
-        for (const o of DUEL_OBSTACLES) { const dx = wx - o.x, dy = wy - o.z; if (dx * dx + dy * dy < (o.r + 0.25) * (o.r + 0.25)) { set.add(r * GCOLS + c); break; } }
+const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * CELL_X - ARENA_X, (r + 0.5) * CELL_Y - ARENA_Y];
+const cellWalkable = (c: number, r: number) => c >= 0 && r >= 0 && c < GCOLS && r < GROWS && WALK_MASK.charCodeAt(r * GCOLS + c) === 49; // '1'
+const cellBlocked = (c: number, r: number) => !cellWalkable(c, r);
+/** Is (x,y) on a walkable path tile (and inside the arena)? */
+function walkableAt(x: number, y: number): boolean {
+    if (x < -ARENA_X || x > ARENA_X || y < -ARENA_Y || y > ARENA_Y) return false;
+    return cellWalkable(Math.floor((x + ARENA_X) / CELL_X), Math.floor((y + ARENA_Y) / CELL_Y));
+}
+/** Step toward (nx,ny) but only onto walkable tiles — SLIDE along an edge if the
+ *  diagonal is blocked, stay put if both axes are. Keeps pets ON the paths. */
+function tryMove(f: Fighter, nx: number, ny: number) {
+    if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; }
+    else if (walkableAt(nx, f.y)) { f.x = nx; }
+    else if (walkableAt(f.x, ny)) { f.y = ny; }
+}
+/** Snap a fighter onto the nearest walkable tile (spawn placement + a backstop
+ *  for dash / separation overshoot). Deterministic ring scan. */
+function snapToWalkable(f: Fighter) {
+    if (walkableAt(f.x, f.y)) return;
+    const [c0, r0] = cellOf(f.x, f.y);
+    for (let rad = 1; rad <= GCOLS + GROWS; rad++) {
+        for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+            if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
+            if (cellWalkable(c0 + dc, r0 + dr)) { const [wx, wy] = cellCenter(c0 + dc, r0 + dr); f.x = wx; f.y = wy; return; }
+        }
     }
-    return set;
-})();
-const cellBlocked = (c: number, r: number) => c < 0 || r < 0 || c >= GCOLS || r >= GROWS || BLOCKED_CELLS.has(r * GCOLS + c);
+}
 const BFS_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 /** Next grid cell to step toward to reach (tc,tr) from (fc,fr), avoiding blocked
@@ -462,10 +478,10 @@ function bfsNextStep(fc: number, fr: number, tc: number, tr: number): [number, n
 function hasLineOfSight(ax: number, ay: number, bx: number, by: number): boolean {
     const dx = bx - ax, dy = by - ay;
     const d = Math.sqrt(dx * dx + dy * dy);
-    const steps = Math.ceil(d / 0.4);
+    const steps = Math.ceil(d / (CELL_X * 0.6));
     for (let i = 1; i < steps; i++) {
-        const tt = i / steps, px = ax + dx * tt, py = ay + dy * tt;
-        for (const o of DUEL_OBSTACLES) { const ox = px - o.x, oy = py - o.z; if (ox * ox + oy * oy < (o.r + 0.2) * (o.r + 0.2)) return false; }
+        const tt = i / steps;
+        if (!walkableAt(ax + dx * tt, ay + dy * tt)) return false;   // a non-path tile blocks the shot
     }
     return true;
 }
@@ -483,18 +499,6 @@ function traverseGrid(f: Fighter, target: Fighter, spd: number) {
     f.faceX /= fl; f.faceY /= fl;
 }
 
-/** Hard push a fighter out of any obstacle it has entered (terrain is solid). */
-function pushOutObstacles(f: Fighter) {
-    for (const o of DUEL_OBSTACLES) {
-        const dx = f.x - o.x, dy = f.y - o.z;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        const min = o.r + 0.45;
-        if (d < min) {
-            if (d > 1e-6) { f.x = o.x + (dx / d) * min; f.y = o.z + (dy / d) * min; }
-            else { f.x = o.x + min; }
-        }
-    }
-}
 function effMoveSpeed(f: Fighter): number {
     let s = f.moveSpeed;
     if (f.statuses.slowLeft > 0) s *= 0.6;
@@ -535,9 +539,7 @@ function holdNeutral(f: Fighter, target: Fighter, dist: number, inv: number, dx:
     my += py * speed * 0.55 * f.strafeDir;
     mx += -f.x * 0.003;                               // gentle pull to keep the fight centered
     my += -f.y * 0.003;
-    f.x += mx; f.y += my;
-    f.x = clamp(f.x, -ARENA_X, ARENA_X);
-    f.y = clamp(f.y, -ARENA_Y, ARENA_Y);
+    tryMove(f, f.x + mx, f.y + my);
     f.faceX = dx * inv; f.faceY = dy * inv;
 }
 
@@ -596,6 +598,20 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
             return;
         }
         holdNeutral(f, target, dist, inv, dx, dy);   // bank stamina for the unleash
+        return;
+    }
+
+    // Hit-and-reposition: after attacking, don't re-LUNGE for a beat — but keep
+    // poking with a ready ranged ability from the current spacing (kite + harass).
+    // That's what makes the fight read as tactical (circle + strike) rather than a
+    // glued face-smash, while still letting skirmishers harass at range.
+    if (f.repositionLeft > 0) {
+        f.repositionLeft--;
+        for (let i = 0; i < f.abilities.length; i++) {
+            const ab = f.abilities[i];
+            if (ab.cls === "ranged" && ab.cdLeft <= 0 && f.stamina >= ab.cost && dist <= ab.range) { beginCast(f, i, target.id, t, events); return; }
+        }
+        holdNeutral(f, target, dist, inv, dx, dy);
         return;
     }
 
@@ -744,11 +760,11 @@ function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextPr
             decide(f, fighters, projectiles, rng, t, events);
             break;
         case "dash":
-            f.x += f.moveDx * f.dashSpeed; f.y += f.moveDy * f.dashSpeed; f.faceX = f.moveDx; f.faceY = f.moveDy;
+            tryMove(f, f.x + f.moveDx * f.dashSpeed, f.y + f.moveDy * f.dashSpeed); f.faceX = f.moveDx; f.faceY = f.moveDy;
             if (--f.stateLeft <= 0) f.state = "idle";
             break;
         case "dodge":
-            f.x += f.moveDx * f.dashSpeed * 0.85; f.y += f.moveDy * f.dashSpeed * 0.85;
+            tryMove(f, f.x + f.moveDx * f.dashSpeed * 0.85, f.y + f.moveDy * f.dashSpeed * 0.85);
             if (--f.stateLeft <= 0) f.state = "idle";
             break;
         case "windup":
@@ -758,6 +774,8 @@ function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextPr
             if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = f.recovT; }
             break;
         case "recover":
+            if (--f.stateLeft <= 0) { f.state = "idle"; f.repositionLeft = Math.round(DUEL_TPS * 0.3); }
+            break;
         case "stagger":
             if (--f.stateLeft <= 0) f.state = "idle";
             break;
@@ -798,6 +816,7 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
     const events: DuelEvent[] = [];
     let ticks = 0;
     let winner: "player" | "enemy" | null = null;
+    for (const f of fighters) snapToWalkable(f);   // every fighter starts on a walkable path tile
 
     for (let t = 0; t < MAX_TICKS; t++) {
         ticks = t + 1;
@@ -807,7 +826,7 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
         separateAll(fighters);
         for (const f of fighters) {
             if (f.hp <= 0 && f.state !== "dead") f.state = "dead";
-            pushOutObstacles(f);
+            snapToWalkable(f);
             quantizeFighter(f);
         }
         snapshots.push(snap(t, fighters, projectiles));
@@ -840,9 +859,12 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
 export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
+    // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
+    // path, red on the right front path; they traverse inward — weaving the clump
+    // band — to clash in the front-center of the arena.
     const fighters = [
-        buildFighter(playerPet, "player", 0, -12.5, -4.6),
-        buildFighter(enemyPet, "enemy", 0, 12.5, -4.6),
+        buildFighter(playerPet, "player", 0, -10.2, 2.8),
+        buildFighter(enemyPet, "enemy", 0, 10.2, 2.8),
     ];
     return simulate(fighters, seed);
 }
@@ -855,11 +877,12 @@ export function runPetPartyDuel(
     enemyLead: Pet, enemyReserve: Pet | null,
     seed: number,
 ): DuelResult {
-    // Lead spawns in the TOP lane (z<0), reserve in the BOTTOM lane (z>0) — each
-    // side mirrored — so the two lane duels happen in separate halves of the map.
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -12.5, -4.6)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -12.5, 4.6));
-    fighters.push(buildFighter(enemyLead, "enemy", 0, 12.5, -4.6));
-    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 12.5, 4.6));
+    // Two lane duels: the LEAD pair on the FRONT lane (map-space Blue[1]/Red[1]),
+    // the RESERVE pair on the BACK lane (Blue[3]/Red[3]) — spread apart so the 2v2
+    // reads as two duels, not a clump. Slot targeting pairs lead-v-lead, reserve-v-reserve.
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0));
     return simulate(fighters, seed);
 }
