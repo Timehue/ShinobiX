@@ -14,7 +14,7 @@
  * Auth: x-admin-password header must match process.env.ADMIN_PASSWORD.
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { migrateDiskRoutedKeysToOverlay } from '../_storage.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';

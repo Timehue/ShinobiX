@@ -15,7 +15,7 @@
  *   /api/kv/hkeys  { key }                       → { fields: string[] }
  */
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { _diskKvForProxy } from './_storage.js';
 import { safeEqual } from './_auth.js';
 import { allow } from './_ratelimit.js';
