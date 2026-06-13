@@ -9808,7 +9808,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         // Particle burst (Phase A).
         const field = vfxFieldRef.current;
         if (field) {
-            const spec = vfxBurstForEvent(activeAnimEvent, { crit: !!frame?.crit, isKO: !!frame?.isKO });
+            const spec = vfxBurstForEvent(activeAnimEvent, { crit: !!frame?.crit, isKO: !!frame?.isKO, signature: !!frame?.signatureMove, flagship: !!frame?.signatureMove?.flagship });
             if (spec.kind !== "none") field.burst(cx, cy, spec);
         }
         // Sprite overlay (CC0 frames), chosen by beat × ability-kind × element via

@@ -53,3 +53,27 @@ test("unknown element falls back to the default palette, never empty", () => {
     const spec = vfxBurstForEvent({ type: "impact", vfxKey: "none" });
     assert.ok(spec.colors.length > 0);
 });
+
+// ── Scale-of-importance: signatures/ultimates spray bigger than basics ──────────
+test("a basic impact is unchanged with no flags (exact parity)", () => {
+    const plain = vfxBurstForEvent({ type: "impact", vfxKey: "none" });
+    assert.equal(plain.count, 18);
+    assert.equal(plain.speed, 3.2);
+    assert.equal(plain.size, 2.4);
+    assert.equal(plain.life, 40);
+});
+
+test("a signature impact out-sprays a basic, and flagship out-sprays signature", () => {
+    const plain = vfxBurstForEvent({ type: "impact", vfxKey: "fire" });
+    const sig = vfxBurstForEvent({ type: "impact", vfxKey: "fire" }, { signature: true });
+    const flag = vfxBurstForEvent({ type: "impact", vfxKey: "fire" }, { signature: true, flagship: true });
+    assert.ok(sig.count > plain.count, "signature should spray more than basic");
+    assert.ok(flag.count > sig.count, "flagship should spray more than signature");
+    assert.ok(sig.size > plain.size && flag.speed > sig.speed, "bigger moves also fly bigger/faster");
+});
+
+test("a signature charge gathers more energy than a basic charge", () => {
+    const basic = vfxBurstForEvent({ type: "charge", vfxKey: "chakra" });
+    const sig = vfxBurstForEvent({ type: "charge", vfxKey: "chakra" }, { signature: true });
+    assert.ok(sig.count > basic.count && sig.life > basic.life);
+});

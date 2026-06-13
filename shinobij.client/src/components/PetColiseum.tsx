@@ -22,6 +22,7 @@ import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls, OrthographicCamera } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
 import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } from "../lib/pet-tactics";
 import { PET_SPAWN_1V1 } from "../constants/pet-arena";
@@ -45,10 +46,26 @@ import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, type ArenaResult, type ArenaSna
 import { POSED_PET_IDS, POSED_RUN_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
+import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 
 type Vec3 = [number, number, number];
 const FLOOR_Y = 0;
 const FX_Y = 1.0; // mid-body height for impacts / casts
+
+/** Optional HDR-glow pass (default OFF, behind petBloom.v1). Threshold bloom makes the
+ *  bright, additive signature / ultimate / KO effects GLOW so big moves read bigger, while
+ *  basic hits stay below the luminance threshold and don't bloom. Costs one fullscreen pass
+ *  (a real mobile/low-end hit) so it's opt-in pending a perf + visual review — and on the
+ *  transparent arena Canvas the alpha compositing needs eyeballing. Read once per mount,
+ *  same as the other coliseum flags. */
+function BloomFx() {
+    if (!petBloomEnabled()) return null;
+    return (
+        <EffectComposer>
+            <Bloom luminanceThreshold={0.55} luminanceSmoothing={0.22} intensity={0.9} mipmapBlur />
+        </EffectComposer>
+    );
+}
 
 // Camera framing — fairly LEVEL (Z-A-style over-the-arena view) so the coliseum
 // backdrop's stands/crowd/sky fill the upper frame while the floor + grounded
@@ -1195,6 +1212,7 @@ export function PetColiseum({
                 ))}
                 {!orbit && <CameraRig amp={shakeAmp} shakeKey={animIdx} target={camFollow} />}
                 {orbit && <OrbitControls target={CAM_LOOK} />}
+                <BloomFx />
             </Canvas>
 
             {/* ── DOM overlays (not in 3D) ─────────────────────────────────── */}
@@ -1755,6 +1773,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     </Html>
                 ))}
                 <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} elementById={elementById} />
+                <BloomFx />
             </Canvas>
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
@@ -2091,6 +2110,7 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
                     {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
                     <ArenaCamera result={result} clock={clock} stageRef={stageRef} />
                     <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnFloater={spawnFloater} pushFeed={pushFeed} triggerHitstop={triggerHitstop} nameOf={nameOf} setScore={setScore} />
+                    <BloomFx />
                 </Canvas>
             </div>
 
