@@ -20,7 +20,7 @@ import { FULL_MASK, FULL_COLS, FULL_ROWS } from "./pet-arena-fullmask";
 export const ARENA_TPS = 30;
 export const MAX_SECONDS = 300;          // 5-min safety cap (tactical fights run ~2–4 min)
 const MAX_TICKS = ARENA_TPS * MAX_SECONDS;
-export const WIN_SCORE = 10;
+export const WIN_SCORE = 5;          // first team to 5 SCROLL CAPTURES wins — kills don't score (purely tactical)
 export const ARENA_X = 14.0, ARENA_Y = 7.5;
 
 // ── Pacing ───────────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ const DECISION_TICKS = 16;                 // re-decide ~every 0.53 s; reuse the
 
 export const SCROLL_FIRST_SPAWN = ARENA_TPS * 20;   // first scroll at 20 s — an early objective beat the squads converge on
 const SCROLL_ANTICIPATE = 7;                 // seconds before a spawn that pets start pre-positioning toward the centre
-const SCROLL_RESPAWN = ARENA_TPS * 60;       // re-spawn 60 s after capture / reset
+const SCROLL_RESPAWN = ARENA_TPS * 22;       // re-spawn 22 s after capture/reset — a brisk cycle so a race to 5 captures resolves
 const SCROLL_CHANNEL = ARENA_TPS * 2;        // 2 s channel to pick up
 const SCROLL_DROP_LIFE = ARENA_TPS * 10;     // a dropped scroll resets after 10 s
 const RESPAWN_TICKS = ARENA_TPS * 7;         // 7 s respawn — a kill earns a real window, fewer pets churning
@@ -725,7 +725,7 @@ function stepScroll(scroll: Scroll, fs: AF[], center: [number, number], t: numbe
         scroll.x = carrier.x; scroll.y = carrier.y;
         const [bx, by] = nearestSeal(carrier);
         if (distPt(carrier, bx, by) <= BASE_SCORE_RANGE) {   // SCORE the capture
-            score[carrier.team] += 2; carrier.carrying = false;
+            score[carrier.team] += 1; carrier.carrying = false;   // each capture = 1 point (race to 5)
             scroll.state = "inactive"; scroll.spawnTimer = SCROLL_RESPAWN; scroll.carrierId = null;
             scroll.x = center[0]; scroll.y = center[1];   // park at the spawn point so the next anticipation aims true
             events.push({ t, type: "capture", team: carrier.team, actorId: carrier.id });
@@ -806,8 +806,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
             if (f.hp > 0 || f.state === "respawning" || f.state === "dead") continue;
             const killer = lastAttacker(events, f.id) ?? f.team;
             const killTeam: "blue" | "red" = killer === "blue" || killer === "red" ? killer : (f.team === "blue" ? "red" : "blue");
-            score[killTeam] += 1;
-            events.push({ t, type: "kill", targetId: f.id, actorId: "", team: killTeam });
+            events.push({ t, type: "kill", targetId: f.id, actorId: "", team: killTeam });   // kills DON'T score — purely tactical (clear the path / defend the carry)
             if (f.carrying) { f.carrying = false; scroll.state = "dropped"; scroll.dropTimer = SCROLL_DROP_LIFE; scroll.carrierId = null; scroll.x = f.x; scroll.y = f.y; events.push({ t, type: "drop", actorId: f.id }); }
             f.lives -= 1;
             if (f.lives <= 0) { f.state = "dead"; } else { f.state = "respawning"; f.respawnLeft = RESPAWN_TICKS; }
