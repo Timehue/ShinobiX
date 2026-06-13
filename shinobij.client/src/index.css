@@ -7912,14 +7912,15 @@ textarea {
 }
 
 .left-profile-avatar {
-    width: 84px !important;
-    height: 84px !important;
+    width: 140px !important;
+    height: 140px !important;
     display: grid !important;
     place-items: center !important;
     margin-bottom: 0 !important;
     border: 0 !important;
     background: transparent !important;
     color: #bae6fd !important;
+    font-size: 2.6rem !important;
     font-weight: 900 !important;
     text-shadow: 0 2px 5px #000, 0 0 12px rgba(56, 189, 248, 0.8) !important;
 }
@@ -11980,8 +11981,8 @@ button.combat-jutsu-button,
     }
 
     .left-profile-avatar {
-        width: clamp(72px, 8vw, 104px) !important;
-        height: clamp(72px, 8vw, 104px) !important;
+        width: clamp(110px, 14vw, 140px) !important;
+        height: clamp(110px, 14vw, 140px) !important;
     }
 
     .right-menu-buttons button {
@@ -19352,8 +19353,8 @@ html[data-vp="xl"] .left-profile-card {
 }
 
 html[data-vp="xl"] .left-profile-avatar {
-    width: 70px !important;
-    height: 70px !important;
+    width: 140px !important;
+    height: 140px !important;
 }
 
 html[data-vp="xl"] .left-profile-name {
@@ -20155,8 +20156,8 @@ html[data-vp="md"] .left-profile-card {
 }
 
 html[data-vp="md"] .left-profile-avatar {
-    width: clamp(64px, 8vw, 90px) !important;
-    height: clamp(64px, 8vw, 90px) !important;
+    width: clamp(110px, 13vw, 140px) !important;
+    height: clamp(110px, 13vw, 140px) !important;
 }
 
 html[data-vp="md"] .left-nav-button {
