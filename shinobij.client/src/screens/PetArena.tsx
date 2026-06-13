@@ -21,6 +21,7 @@ import {
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { petColiseumEnabled, setPetColiseumEnabled, petDuelEnabled, setPetDuelEnabled } from "../lib/pet-coliseum-flag";
+import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 
 // HD-2D coliseum renderer — lazy so three/react-three-fiber load ONLY when the
 // "Cinematic arena" flag is on, keeping the cold-landing bundle untouched.
@@ -29,6 +30,22 @@ const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => (
 // Behind petDuel.v1; runs the new real-time engine for the VISUALS only, so the
 // shipped engine still owns the outcome + rewards (no gameplay/ranked impact).
 const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
+// Tactical Arena game mode (deathmatch + capture-scroll, 2v2 / 4v4) — same lazy chunk.
+const PetArenaMatch = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
+// Co-op lobby (play the Tactical Arena 4v4 with friends) — lazy; pulls the arena chunk.
+const ArenaCoopLobby = lazy(() => import("../components/ArenaCoopLobby").then((m) => ({ default: m.ArenaCoopLobby })));
+
+// Auto-assign the four arena ROLES by stat profile (no manual role UI): highest
+// DEF → Defender, lowest ATK → Sage, highest ATK+SPD → Assassin, the rest → Tracker.
+function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
+    const team = pets.slice(0, Math.max(1, count));
+    if (team.length <= 2) return team.map((pet, i) => ({ pet, role: (i === 0 ? "defender" : "assassin") as ArenaRole }));
+    const idx = team.map((_, i) => i);
+    const def = idx.slice().sort((a, b) => (team[b].defense ?? 0) - (team[a].defense ?? 0))[0];
+    const asn = idx.filter((i) => i !== def).sort((a, b) => ((team[b].attack ?? 0) + (team[b].speed ?? 0)) - ((team[a].attack ?? 0) + (team[a].speed ?? 0)))[0];
+    const sge = idx.filter((i) => i !== def && i !== asn).sort((a, b) => (team[a].attack ?? 0) - (team[b].attack ?? 0))[0];
+    return team.map((pet, i) => ({ pet, role: (i === def ? "defender" : i === asn ? "assassin" : i === sge ? "sage" : "tracker") as ArenaRole }));
+}
 
 export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
@@ -54,6 +71,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // arena is on, and suppressed for ranked (the shipped engine owns that
     // outcome, so a preview must not contradict the player's real Elo result).
     const [useDuel, setUseDuel] = useState(() => petDuelEnabled());
+    // Tactical Arena game mode — a full-screen 2v2/4v4 deathmatch + capture-scroll
+    // match (separate from the 1v1/2v2 battle). Teams are built + frozen on launch.
+    const [arenaMatch, setArenaMatch] = useState<{ blue: ArenaSlot[]; red: ArenaSlot[]; seed: number } | null>(null);
+    const [arena4v4, setArena4v4] = useState(true);
+    // Co-op (play the Tactical Arena 4v4 with friends) — opens the lobby overlay.
+    const [showCoop, setShowCoop] = useState(false);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -793,7 +816,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     title="Toggle between the cinematic HD-2D arena and the classic battlefield (cosmetic only — same battle outcome)"
                     style={{ marginLeft: "auto", background: useColiseum ? "#6d28d9" : undefined }}
                 >
-                    {useColiseum ? "🎬 Cinematic arena: ON" : "🎬 Cinematic arena: OFF"}
+                    {useColiseum ? "🎬 Coliseum: ON" : "🎬 Coliseum: OFF"}
                 </button>
                 {useColiseum && (
                     <button
@@ -810,7 +833,41 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         {useDuel ? "🗺️ Tactical battle: ON (beta)" : "🗺️ Tactical battle: OFF"}
                     </button>
                 )}
+                {/* Tactical Arena — the new 2v2/4v4 deathmatch + capture-scroll game mode (roles auto-assigned). */}
+                <button onClick={() => setArena4v4((v) => !v)} title="Team size for the Tactical Arena game mode" style={{ background: "#1e293b" }}>
+                    {arena4v4 ? "👥 4v4" : "👥 2v2"}
+                </button>
+                <button
+                    onClick={() => {
+                        const n = arena4v4 ? 4 : 2;
+                        const mine = character.pets.filter((p) => !isPetOnExpedition(p));
+                        if (mine.length < 1) { alert("You need at least one pet to enter the arena."); return; }
+                        setArenaMatch({ blue: autoRoleTeam(mine, n), red: autoRoleTeam(genericPetArenaOpponents.map((o) => o.pet), n), seed: (Date.now() % 100000) || 1 });
+                    }}
+                    title="Tactical Arena — a deathmatch + capture-the-scroll match, roles auto-assigned from your pets' stats. Preview only (no rewards yet)."
+                    style={{ background: "#0e7490" }}
+                >
+                    🏟️ Tactical Arena (beta)
+                </button>
+                {/* Co-op — team up with friends for a 4v4 (each brings 2 pets). */}
+                <button
+                    onClick={() => setShowCoop(true)}
+                    title="Co-op Arena — team up with friends for a 4v4 capture match. Each player brings 2 pets; empty seats are AI. Preview only (no rewards yet)."
+                    style={{ background: "#6d28d9" }}
+                >
+                    🤝 Co-op (friends)
+                </button>
             </div>
+            {arenaMatch && (
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading arena…</div>}>
+                    <PetArenaMatch blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed} sharedImages={sharedImages} onExit={() => setArenaMatch(null)} />
+                </Suspense>
+            )}
+            {showCoop && (
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading co-op…</div>}>
+                    <ArenaCoopLobby character={character} sharedImages={sharedImages} onExit={() => setShowCoop(false)} />
+                </Suspense>
+            )}
 
             {partyResult && battleReady && showResult && (
                 <div className="summary-box" style={{ marginTop: "0.4rem", padding: "0.5rem 0.7rem" }}>

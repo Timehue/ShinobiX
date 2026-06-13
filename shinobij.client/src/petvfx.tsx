@@ -10,7 +10,10 @@ import "./styles/pet-skin.css";
 import { runPetArenaBattle, PetArenaBattlefield, petFramePace } from "./App";
 import { runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
-import { PetColiseum } from "./components/PetColiseum";
+import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
+import type { PetJutsu, Pet } from "./types/pet";
+import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
+const jts = (...js: PetJutsu[]) => js;   // typed inline jutsu list for the duel harness
 
 // Demo creature billboards for the coliseum harness — transparent full-body
 // sprites keyed as petbody:<id> (the exact slot the live app fills from
@@ -38,6 +41,38 @@ function Harness() {
     // ?party=1 — run the simultaneous 2v2 engine instead, to exercise the
     // 4-standee party4v4 path in the coliseum renderer.
     const partyMode = PARAMS.get("party") === "1";
+    // ?duel=1 — render the new TACTICAL diorama-stage duel (PetColiseumDuel),
+    // using pets that have generated run-cycle frames so the gliding fix shows.
+    const duelMode = PARAMS.get("duel") === "1";
+    // A pure-RANGED kiter vs a MELEE chaser — the clearest tactical contrast.
+    const duelPlayer = useMemo(() => ({ ...harnessPet(0, { element: "Fire" }), id: "generic-ai-pet-emberlynx", name: "Emberlynx", hp: 1100, attack: 110, speed: 95,
+        jutsus: jts({ name: "Ember Bolt", kind: "burn", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Cinder Veil", kind: "slow", power: 55, cooldown: 3, currentCooldown: 0 }) }), []);
+    const duelEnemy = useMemo(() => ({ ...harnessPet(7, { element: "Lightning" }), id: "generic-ai-pet-guardhound", name: "Guardhound", hp: 1200, attack: 115, speed: 80,
+        jutsus: jts({ name: "Iron Bite", kind: "damage", power: 95, cooldown: 2, currentCooldown: 0 }, { name: "Warding Howl", kind: "stun", power: 45, cooldown: 4, currentCooldown: 0 }) }), []);
+    const duelPlayerRes = useMemo(() => ({ ...harnessPet(1, { element: "Water" }), id: "legendary-0", name: "Ally", hp: 1000, attack: 100,
+        jutsus: jts({ name: "Frost Lance", kind: "freeze", power: 90, cooldown: 3, currentCooldown: 0 }, { name: "Tide Mend", kind: "heal", power: 120, cooldown: 4, currentCooldown: 0 }) }), []);
+    const duelEnemyRes = useMemo(() => ({ ...harnessPet(8, { element: "Earth" }), id: "legendary-1", name: "Foe", hp: 1000, attack: 100,
+        jutsus: jts({ name: "Boulder Smash", kind: "damage", power: 100, cooldown: 1, currentCooldown: 0 }, { name: "Quag Snare", kind: "slow", power: 50, cooldown: 3, currentCooldown: 0 }) }), []);
+
+    // ?arena=1 (2v2) / ?arena4=1 (4v4) — the Tactical Arena game mode.
+    const arenaMode = PARAMS.get("arena") === "1" || PARAMS.get("arena4") === "1";
+    const arena4 = PARAMS.get("arena4") === "1";
+    const aPet = (id: string, name: string, element: string, over: Record<string, number>) => ({ ...harnessPet(0, { element: element as Pet["element"] }), id, name, ...over });
+    const [arenaBlue, arenaRed] = useMemo(() => {
+        const blueAll: ArenaSlot[] = [
+            { pet: aPet("generic-ai-pet-guardhound", "Aegis", "Lightning", { hp: 1100, attack: 80, defense: 70, speed: 60 }), role: "defender" as ArenaRole },
+            { pet: aPet("legendary-0", "Stalker", "Water", { hp: 760, attack: 95, defense: 45, speed: 82 }), role: "tracker" as ArenaRole },
+            { pet: aPet("generic-ai-pet-emberlynx", "Blitz", "Fire", { hp: 620, attack: 125, defense: 32, speed: 100 }), role: "assassin" as ArenaRole },
+            { pet: aPet("legendary-1", "Mender", "Wind", { hp: 640, attack: 55, defense: 42, speed: 78 }), role: "sage" as ArenaRole },
+        ];
+        const redAll: ArenaSlot[] = [
+            { pet: aPet("legendary-2", "Bulwark", "Earth", { hp: 1100, attack: 80, defense: 70, speed: 60 }), role: "defender" as ArenaRole },
+            { pet: aPet("legendary-3", "Hunter", "Fire", { hp: 760, attack: 95, defense: 45, speed: 82 }), role: "tracker" as ArenaRole },
+            { pet: aPet("legendary-4", "Shade", "Lightning", { hp: 620, attack: 125, defense: 32, speed: 100 }), role: "assassin" as ArenaRole },
+            { pet: aPet("legendary-5", "Oracle", "Water", { hp: 640, attack: 55, defense: 42, speed: 78 }), role: "sage" as ArenaRole },
+        ];
+        return arena4 ? [blueAll, redAll] : [[blueAll[0], blueAll[2]], [redAll[1], redAll[3]]];
+    }, [arena4]);
     const playerPet = useMemo(() => harnessPet(0, { element: "Fire" }), []);
     const enemyPet = useMemo(() => harnessPet(7, { element: "Wind" }), []);
     const playerReserve = useMemo(() => harnessPet(1, { element: "Water" }), []);
@@ -81,6 +116,21 @@ function Harness() {
     const btn: React.CSSProperties = { padding: "6px 12px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 6, cursor: "pointer", font: "600 12px Inter, sans-serif" };
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
+            {duelMode && (
+                <PetColiseumDuel
+                    playerPet={duelPlayer}
+                    enemyPet={duelEnemy}
+                    playerReservePet={partyMode ? duelPlayerRes : undefined}
+                    enemyReservePet={partyMode ? duelEnemyRes : undefined}
+                    seed={seed}
+                    sharedImages={harnessShared}
+                    onFightAgain={restart}
+                    onExit={() => {}}
+                />
+            )}
+            {arenaMode && (
+                <PetArenaMatch blue={arenaBlue} red={arenaRed} seed={seed} sharedImages={harnessShared} onExit={() => { }} />
+            )}
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <button style={btn} onClick={restart}>⟲ Replay</button>
                 <button style={btn} onClick={() => setPlaying((p) => !p)}>{playing ? "❚❚ Pause" : "▶ Play"}</button>

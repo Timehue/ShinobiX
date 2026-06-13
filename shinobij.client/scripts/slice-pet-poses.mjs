@@ -14,7 +14,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_ROOT = path.resolve(HERE, '..');
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 
-const POSES = ['idle', 'attack', 'hurt', 'cast'];
+// Pose names + count are configurable so the same gap-slicer handles the 4-pose
+// combat sheet (default) AND the 2-frame run sheet (--poses run-a,run-b).
+const POSES = arg('poses', 'idle,attack,hurt,cast').split(',').map((s) => s.trim()).filter(Boolean);
+const N = POSES.length;
 const ALPHA_T = 24;     // a pixel counts as "occupied" above this alpha
 const GAP_MIN = 0.018;  // merge segments closer than this fraction of width
 const FRAME = 512;      // output square size
@@ -30,6 +33,27 @@ function deWhiteInPlace(data) {
         if (mn >= 222) data[i + 3] = 0;        // solid white bg → fully transparent
         else if (mn >= 196) data[i + 3] = Math.round(data[i + 3] * ((222 - mn) / 26)); // edge feather
     }
+}
+
+// Remove a UNIFORM dark/coloured background by flood-filling from the frame edges,
+// clearing pixels close in colour to the corner — handles sheets Nano-Banana
+// renders on BLACK/GREY instead of white (which de-white can't catch). Edge-
+// connected only, so an interior region the same colour as the bg is preserved.
+function removeEdgeBg(data, W, H) {
+    const ci = 0, cj = (W - 1) * 4, ck = (H - 1) * W * 4;
+    const br = (data[ci] + data[cj] + data[ck]) / 3, bg = (data[ci + 1] + data[cj + 1] + data[ck + 1]) / 3, bb = (data[ci + 2] + data[cj + 2] + data[ck + 2]) / 3;
+    const tol = 70 * 70;
+    const close = (i) => { const dr = data[i] - br, dg = data[i + 1] - bg, db = data[i + 2] - bb; return dr * dr + dg * dg + db * db < tol; };
+    const stack = [];
+    const visit = (x, y) => {
+        if (x < 0 || y < 0 || x >= W || y >= H) return;
+        const i = (y * W + x) * 4;
+        if (data[i + 3] === 0 || !close(i)) return;
+        data[i + 3] = 0; stack.push(x, y);
+    };
+    for (let x = 0; x < W; x++) { visit(x, 0); visit(x, H - 1); }
+    for (let y = 0; y < H; y++) { visit(0, y); visit(W - 1, y); }
+    while (stack.length) { const y = stack.pop(), x = stack.pop(); visit(x + 1, y); visit(x - 1, y); visit(x, y + 1); visit(x, y - 1); }
 }
 
 async function main() {
@@ -68,22 +92,25 @@ async function main() {
         if (last && s[0] - last[1] <= gapPx) last[1] = s[1];
         else merged.push([...s]);
     }
-    // Keep the 4 widest segments (drops stray specks), then re-sort left→right.
+    // Keep the N widest segments (drops stray specks), then re-sort left→right.
     merged.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]));
-    let cells = merged.slice(0, 4).sort((a, b) => a[0] - b[0]);
-    if (cells.length < 4) {
-        console.warn(`only found ${cells.length} segments — falling back to even quarters`);
-        cells = [0, 1, 2, 3].map((i) => [Math.floor((i * W) / 4), Math.floor(((i + 1) * W) / 4) - 1]);
+    let cells = merged.slice(0, N).sort((a, b) => a[0] - b[0]);
+    if (cells.length < N) {
+        console.warn(`only found ${cells.length} segments — falling back to even ${N}ths`);
+        cells = Array.from({ length: N }, (_, i) => [Math.floor((i * W) / N), Math.floor(((i + 1) * W) / N) - 1]);
     }
     console.log(`sheet ${W}x${H} → ${cells.length} poses at columns ${cells.map((c) => `${c[0]}-${c[1]}`).join(', ')}`);
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < N; i++) {
         const [x0, x1] = cells[i];
         const w = Math.max(1, x1 - x0 + 1);
         // Extract the cell → strip its white bg → trim to the creature → square.
         const cell = await sharp(inPath).ensureAlpha()
             .extract({ left: x0, top: 0, width: w, height: H })
             .raw().toBuffer({ resolveWithObject: true });
+        // Dark/grey corner → Nano-Banana rendered this on a non-white bg; flood it
+        // out by colour first, then de-white cleans any remaining bright specks.
+        if (Math.min(cell.data[0], cell.data[1], cell.data[2]) < 200) removeEdgeBg(cell.data, cell.info.width, cell.info.height);
         deWhiteInPlace(cell.data);
         const frame = await sharp(cell.data, { raw: { width: cell.info.width, height: cell.info.height, channels: 4 } })
             .trim({ threshold: 10 })                                   // crop to the creature (bg now transparent)
