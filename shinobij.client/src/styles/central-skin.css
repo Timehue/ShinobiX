@@ -12,8 +12,25 @@
     --bsv2-ink-2:       #0a1428;
     --bsv2-player:      #4ea8ff;
     --bsv2-enemy:       #e04444;
+    position: relative !important;
     padding: 20px !important;
+    /* Immersive "Thousand Gates" citadel backdrop so Central reads as a place,
+       like the village hubs — darkened so the gold cards/text stay legible. */
+    background:
+        linear-gradient(180deg, rgba(5,9,18,0.42) 0%, rgba(5,9,18,0.58) 55%, rgba(5,9,18,0.74) 100%),
+        url('/central-hub.webp') center top / cover no-repeat !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
 }
+
+/* Keep hub content above the ambience particle layer, which sits just over the
+   citadel backdrop. (Modal overlays use their own classes, so they're untouched
+   and still render above everything.) */
+.central-hub .central-hero,
+.central-hub .central-log,
+.central-hub .central-grid { position: relative; z-index: 1; }
+.central-hub > .scene-ambience { z-index: 0 !important; }
 
 .central-hub .central-hero {
     background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
