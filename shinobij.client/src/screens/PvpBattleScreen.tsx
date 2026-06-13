@@ -1091,9 +1091,12 @@ export function PvpBattleScreen({
                                         const ox = col * X_STEP + HEX_W / 2 - ORB / 2;
                                         const oy = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
                                         return (
+                                            // Glide between cells instead of snapping (Move / Push / Pull /
+                                            // ground relocation) so units read as walking, not teleporting.
+                                            // Stable key => same DOM node => CSS transitions moves, not mount.
                                             <div key={isOpp ? "opp-orb" : "me-orb"}
                                                 className={`avatar-orb ${isOpp ? "enemy-orb" : ""}`}
-                                                style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none" }}>
+                                                style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                                 <img className="tiny-map-avatar" src={imgSrc} alt={altName} />
                                             </div>
                                         );
