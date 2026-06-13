@@ -45,10 +45,16 @@ test("a valid, numerically-safe, terminating match for every seed (4v4 + 2v2)", 
     }
 });
 
-test("a clearly stronger team wins", () => {
-    // Blue out-stats Red hard → Blue should win every seed.
-    const wins = SEEDS.map((seed) => runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 350, attack: 35 }), seed).winner);
-    assert.ok(wins.every((w) => w === "blue"), `expected all blue, got ${wins.join(",")}`);
+test("a clearly stronger team wins — from EITHER side", () => {
+    // The map/spawns aren't perfectly mirror-symmetric, so a side-lean exists for
+    // stat-IDENTICAL teams; but pet QUALITY must dominate side. A hard stat edge
+    // wins every seed whether it's Blue or Red — so real matches (player vs AI,
+    // never identical) are decided by the pets, not the spawn corner.
+    const strong = { hp: 1200, attack: 150 }, weak = { hp: 350, attack: 35 };
+    const blueWins = SEEDS.map((seed) => runPetArenaMatch(roster(COMP, strong), roster(COMP, weak), seed).winner);
+    assert.ok(blueWins.every((w) => w === "blue"), `strong Blue should sweep, got ${blueWins.join(",")}`);
+    const redWins = SEEDS.map((seed) => runPetArenaMatch(roster(COMP, weak), roster(COMP, strong), seed).winner);
+    assert.ok(redWins.every((w) => w === "red"), `strong Red should sweep, got ${redWins.join(",")}`);
 });
 
 test("the match reaches the win score OR a full team elimination", () => {
