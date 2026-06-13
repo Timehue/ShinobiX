@@ -7,7 +7,7 @@ import { PET_GRID_COLS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type ArenaTile } from "../lib/pet-tactics";
 import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
-import { isPetOnExpedition, petDisplayName } from "../lib/pet";
+import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { rankedDelta } from "../lib/progression";
@@ -47,7 +47,7 @@ function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
     return team.map((pet, i) => ({ pet, role: (i === def ? "defender" : i === asn ? "assassin" : i === sge ? "sage" : "tracker") as ArenaRole }));
 }
 
-export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
+export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -81,6 +81,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // "tactical" is the full-screen team game mode (vs AI / co-op, 2v2 or 4v4).
     // Defaults to the cinematic battle so Pet Arena opens straight into it.
     const [arenaView, setArenaView] = useState<"battle" | "tactical">("battle");
+    // Tactical Arena PvP challenge — search box + status message for sending a
+    // 2v2/4v4 challenge to another player (team size = the arena4v4 toggle).
+    const [arenaChallengeName, setArenaChallengeName] = useState("");
+    const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
@@ -152,6 +156,58 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             setPetChallengeMsg(`❌ Network error sending challenge.`);
         }
     }
+
+    // Send a Tactical Arena PvP challenge. Rides the same /api/player/challenge
+    // delivery as cinematic pet challenges (mode "clanWarPet" so the global
+    // accept banner surfaces it) but flagged arenaMatch — the accept handler
+    // launches the full-screen game mode instead of the duel. Team size comes
+    // from the arena4v4 toggle; my roster is referenced by id (resolved
+    // server-side against challenger.pets) for a deterministic match.
+    async function sendArenaChallenge(toName: string) {
+        const name = toName.trim();
+        if (!name) { setArenaChallengeMsg("Enter a player name to challenge."); return; }
+        if (name.toLowerCase() === character.name.toLowerCase()) { setArenaChallengeMsg("You can't challenge yourself."); return; }
+        const size: 2 | 4 = arena4v4 ? 4 : 2;
+        const myTeam = pickArenaTeam(character.pets, size);
+        if (myTeam.length < 1) { setArenaChallengeMsg("You need at least one available pet to send a challenge."); return; }
+        const targetRecord = allServerPlayers.find((p) => p.name.toLowerCase() === name.toLowerCase());
+        if (targetRecord?.character && targetRecord.character.pets.length === 0) {
+            setArenaChallengeMsg(`${name} has no pets available for an arena match.`);
+            return;
+        }
+        const challenge: DuelChallenge = {
+            id: makeId(),
+            fromName: character.name,
+            toName: name,
+            challenger: character,
+            petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
+            createdAt: Date.now(),
+            mode: "clanWarPet",
+            arenaMatch: true,
+            arenaSize: size,
+            challengerTeamIds: myTeam.map((p) => p.id),
+        };
+        try {
+            const res = await fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: name, challenge }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({} as { error?: string }));
+                setArenaChallengeMsg(`❌ ${data?.error ?? `Could not reach ${name}. Check the name and try again.`}`);
+                return;
+            }
+            setDuelChallenges([
+                ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
+                challenge,
+            ]);
+            setArenaChallengeMsg(`✅ Tactical Arena (${size === 4 ? "4v4" : "2v2"}) challenge sent to ${name}! They'll see it shortly.`);
+        } catch {
+            setArenaChallengeMsg("❌ Network error sending challenge.");
+        }
+    }
+
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
         .filter((player) => player.name !== character.name)
         .flatMap((player) => player.character.pets.filter((pet) => !isPetOnExpedition(pet)).map((pet) => ({ owner: player.name, pet })));
@@ -552,6 +608,22 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         onPendingPetBattleStarted?.();
     }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
 
+    // A Tactical Arena PvP challenge resolved (both sides hold identical
+    // embedded teams + seed) → launch the full-screen match. Even the teams
+    // to the smaller roster so a lopsided pick can't auto-stomp; both clients
+    // run this from the same arrays, so the deterministic match stays in sync.
+    useEffect(() => {
+        if (!pendingArenaMatch) return;
+        const n = Math.min(pendingArenaMatch.blue.length, pendingArenaMatch.red.length, pendingArenaMatch.size);
+        setArenaView("tactical");
+        setArenaMatch({
+            blue: autoRoleTeam(pendingArenaMatch.blue, n),
+            red: autoRoleTeam(pendingArenaMatch.red, n),
+            seed: pendingArenaMatch.seed,
+        });
+        onPendingArenaMatchStarted?.();
+    }, [pendingArenaMatch?.seed]);
+
     const pendingClanPetBattle = loadPendingClanPetBattle();
     // Hollow Gate (and other forced duels) skip the view tabs — those land
     // straight in a battle and shouldn't expose the Tactical Arena switch.
@@ -607,7 +679,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 </div>
             )}
 
-            {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
+            {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && !c.arenaMatch && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span>{c.petParty ? "🐾🐾" : "🐾"} <strong>{c.fromName}</strong> challenged you to a {c.petParty ? "2v2 pet battle" : "pet battle"}!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
@@ -1005,6 +1077,21 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             >
                                 Enter Arena ({arena4v4 ? "4v4" : "2v2"})
                             </button>
+                        </div>
+
+                        <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
+                            <strong>⚔️ Challenge a Player</strong>
+                            <p className="hint" style={{ margin: 0 }}>Send another player a {arena4v4 ? "4v4" : "2v2"} Tactical Arena challenge — your teams fight each other. (Uses the team size above.)</p>
+                            <input
+                                value={arenaChallengeName}
+                                onChange={(e) => { setArenaChallengeName(e.target.value); setArenaChallengeMsg(""); }}
+                                placeholder="Search by player name"
+                                onKeyDown={(e) => { if (e.key === "Enter") void sendArenaChallenge(arenaChallengeName); }}
+                            />
+                            <button onClick={() => void sendArenaChallenge(arenaChallengeName)} disabled={!arenaChallengeName.trim()} style={{ background: "#b45309" }}>
+                                Send {arena4v4 ? "4v4" : "2v2"} Challenge
+                            </button>
+                            {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{arenaChallengeMsg}</p>}
                         </div>
 
                         <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>

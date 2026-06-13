@@ -60,6 +60,18 @@ export function increasePetHappiness(pet: Pet, amount = 10): Pet {
     return { ...pet, happiness: Math.min(100, petHappiness(pet) + amount) };
 }
 
+// Pick a deterministic top-N team of available (not on expedition) pets,
+// ordered by level (desc) then id (asc) so the choice is stable across
+// reloads. Used by the Tactical Arena Fight-AI launcher and the PvP
+// challenge to build each side's roster. `size` is the requested team size
+// (2 or 4); fewer available pets just yields a smaller team (min 1).
+export function pickArenaTeam(pets: Pet[], size: number): Pet[] {
+    return pets
+        .filter((p) => !isPetOnExpedition(p))
+        .sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+        .slice(0, Math.max(1, size));
+}
+
 // Extract the numeric "variant" suffix from a pet ID like
 // "wolf-2" or "wolf-2-mythic" → returns 2. Used by the renderer to pick
 // which sprite variant to show so multiple instances of the same template
