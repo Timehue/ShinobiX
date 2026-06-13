@@ -1,4 +1,6 @@
 import { type Screen, villagePageImage } from "../App";
+import type { Biome, WeatherType } from "../types/core";
+import { SceneAmbience } from "../components/SceneAmbience";
 
 // Bespoke pixel-art building icons (generated via scripts/gen-asset.mjs, then
 // committed as bundle assets). One biome-neutral set reused across all four
@@ -30,6 +32,16 @@ const VILLAGE_ACCENT: Record<string, { border: string; glow: string }> = {
     "Moonshadow Village": { border: "rgba(192, 132, 252, 0.55)", glow: "rgba(168, 85, 247, 0.7)" },
 };
 
+// Ambience tuned to each village's painted scene: snow over Frostfang, drifting
+// petals over Moonshadow, leaves over the forest villages, rain over Stormveil's
+// storm-coast. Drives the same SceneAmbience overlay used in sector views.
+const VILLAGE_AMBIENCE: Record<string, { biome: Biome; weather?: WeatherType }> = {
+    "Frostfang Village": { biome: "snow" },
+    "Stormveil Village": { biome: "forest", weather: "rain" },
+    "Ashen Leaf Village": { biome: "forest" },
+    "Moonshadow Village": { biome: "shadow" },
+};
+
 export function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
     // `saveMsg` was destructured without a setter and stayed "" forever —
     // the conditional render at line 28 was dead code. Removed.
@@ -52,6 +64,7 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
     ];
 
     const accent = VILLAGE_ACCENT[characterVillage] ?? VILLAGE_ACCENT["Frostfang Village"];
+    const ambience = VILLAGE_AMBIENCE[characterVillage] ?? VILLAGE_AMBIENCE["Frostfang Village"];
 
     return (
         <div className="stormveil-village-screen">
@@ -67,6 +80,9 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
                     "--village-glow": accent.glow,
                 } as CSSProperties}
             >
+                {/* Living village: drifting biome ambience behind the building
+                    markers (z-index below the z-4 map buttons). */}
+                <SceneAmbience className="amb-under" biome={ambience.biome} weather={ambience.weather} />
                 {locations.map((location) => (
                     <button
                         key={location.name}

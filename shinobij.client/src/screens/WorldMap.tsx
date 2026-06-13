@@ -9,6 +9,8 @@ import type { Pet } from "../types/pet";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
+import { SceneAmbience } from "../components/SceneAmbience";
+import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
 import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
@@ -60,33 +62,66 @@ function playerNameTile(name: string): number {
     return 10 + (h % 124);
 }
 
+// Which scene-image theme each sector shows. Single source of truth shared by
+// the background image picker and the ambience-biome picker so the drifting
+// particles always match the painted scene the player is looking at.
+const SECTOR_IMAGE_GROUPS: Record<string, number[]> = {
+    ice: [52, 48, 53, 54, 50, 55],
+    dark: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 17, 20, 19, 18, 14, 15, 13],
+    temple: [34, 60, 59],
+    water: [23, 26, 21, 22, 27, 32, 28, 33, 42],
+    forrest: [36, 37, 38, 39, 40, 43, 46],
+    stormveil: [31, 35, 10, 16],
+    meadow2: [44, 24, 29, 30, 59, 1],
+    meadow: [25, 41, 45, 47, 57, 51],
+};
+
+function sectorImageTheme(sector: number): string {
+    for (const [theme, sectors] of Object.entries(SECTOR_IMAGE_GROUPS)) {
+        if (sectors.includes(sector)) return theme;
+    }
+    return "meadow";
+}
+
 function sectorBackgroundImage(sector: number) {
     if (sector === 99) return "/deathgate-sector.webp";
 
     const village = villageForOutskirtsSector(sector);
     if (village) return villagePageImage(village);
 
-    const sectorImages: Record<string, number[]> = {
-        ice: [52, 48, 53, 54, 50, 55],
-        dark: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 17, 20, 19, 18, 14, 15, 13],
-        temple: [34, 60, 59],
-        water: [23, 26, 21, 22, 27, 32, 28, 33, 42],
-        forrest: [36, 37, 38, 39, 40, 43, 46],
-        stormveil: [31, 35, 10, 16],
-        meadow2: [44, 24, 29, 30, 59, 1],
-        meadow: [25, 41, 45, 47, 57, 51],
-    };
+    switch (sectorImageTheme(sector)) {
+        case "ice": return iceSectorImg;
+        case "dark": return darkSectorImg;
+        case "temple": return templeSectorImg;
+        case "water": return waterSectorImg;
+        case "stormveil": return stormveilVillageImg;
+        case "forrest": return forrestSectorImg;
+        case "meadow2": return meadow2SectorImg;
+        default: return meadowSectorImg;
+    }
+}
 
-    if (sectorImages.ice.includes(sector)) return iceSectorImg;
-    if (sectorImages.dark.includes(sector)) return darkSectorImg;
-    if (sectorImages.temple.includes(sector)) return templeSectorImg;
-    if (sectorImages.water.includes(sector)) return waterSectorImg;
-    if (sectorImages.stormveil.includes(sector)) return stormveilVillageImg;
-    if (sectorImages.forrest.includes(sector)) return forrestSectorImg;
-    if (sectorImages.meadow2.includes(sector)) return meadow2SectorImg;
-    if (sectorImages.meadow.includes(sector)) return meadowSectorImg;
-
-    return meadowSectorImg;
+// Ambience biome (drives drifting particles + god-ray tint) chosen to match the
+// painted scene image — NOT the territory biome, which can differ (e.g. a
+// volcano-territory sector that paints as forest). Outskirts mirror their village.
+function ambienceBiomeForSector(sector: number): Biome {
+    if (sector === 99) return "volcano";
+    const village = villageForOutskirtsSector(sector);
+    if (village === "Frostfang Village") return "snow";
+    if (village === "Moonshadow Village") return "shadow";
+    if (village === "Stormveil Village") return "forest";
+    if (village === "Ashen Leaf Village") return "volcano";
+    switch (sectorImageTheme(sector)) {
+        case "ice": return "snow";
+        case "dark": return "shadow";
+        case "temple": return "shadow";   // cherry-blossom temple → drifting petals
+        case "forrest": return "forest";
+        case "stormveil": return "forest";
+        case "water": return "central";   // soft motes over the lagoon
+        case "meadow2": return "central";
+        case "meadow": return "central";
+        default: return "central";
+    }
 }
 export function WorldMap({
     setCurrentBiome,
@@ -417,29 +452,36 @@ export function WorldMap({
         // Ashen Leaf -> sector 38 (24, 18)
         // Frostfang  -> sector 47 (62, 11)
         // Moonshadow -> sector 11 (81, 67)
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 20, y: 65, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 24, y: 18, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 72, y: 27, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 81, y: 67, icon: "MS" },
-        { name: "Central", type: "central", biome: "central" as Biome, x: 52, y: 35, icon: "C", staminaReward: 20, xpReward: 20 },
-        // Hollow Gate sits between sectors 1 (67,46), 57 (57,49), and 52 (65,25) — a hidden shrine entrance.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 62, y: 38, icon: "HG" },
+        // Coords aligned to the new World Map.png baked-in banners (measured on a
+        // 0–100 grid): each village marker sits on its painted banner medallion.
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 18, y: 82, icon: "SV" },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 18, y: 39, icon: "AL" },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 85, y: 39, icon: "FF" },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 76, y: 82, icon: "MS" },
+        { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", staminaReward: 20, xpReward: 20 },
+        // Hollow Gate — a hidden shrine entrance tucked along the central ring road.
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 62, y: 55, icon: "HG" },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const sectorPoints = [
-        { id: 1, x: 67, y: 46 }, { id: 2, x: 72, y: 45 }, { id: 3, x: 78, y: 45 }, { id: 4, x: 83, y: 47 }, { id: 5, x: 87, y: 51 },
-        { id: 6, x: 74, y: 53 }, { id: 7, x: 79, y: 56 }, { id: 8, x: 84, y: 59 }, { id: 9, x: 69, y: 61 }, { id: 10, x: 75, y: 65 },
-        { id: 11, x: 81, y: 67 }, { id: 12, x: 88, y: 69 }, { id: 13, x: 64, y: 70 }, { id: 14, x: 71, y: 74 }, { id: 15, x: 78, y: 76 },
-        { id: 16, x: 84, y: 78 }, { id: 17, x: 90, y: 79 }, { id: 18, x: 73, y: 86 }, { id: 19, x: 81, y: 88 }, { id: 20, x: 89, y: 90 },
-        { id: 21, x: 16, y: 49 }, { id: 22, x: 21, y: 45 }, { id: 23, x: 27, y: 42 }, { id: 24, x: 33, y: 40 }, { id: 25, x: 39, y: 43 },
-        { id: 26, x: 18, y: 56 }, { id: 27, x: 24, y: 54 }, { id: 28, x: 31, y: 55 }, { id: 29, x: 38, y: 58 }, { id: 30, x: 45, y: 60 },
-        { id: 31, x: 20, y: 65 }, { id: 32, x: 27, y: 67 }, { id: 33, x: 34, y: 70 }, { id: 34, x: 41, y: 72 }, { id: 35, x: 47, y: 76 },
-        { id: 36, x: 13, y: 30 }, { id: 37, x: 18, y: 23 }, { id: 38, x: 24, y: 18 }, { id: 39, x: 31, y: 17 }, { id: 40, x: 38, y: 20 },
-        { id: 41, x: 45, y: 25 }, { id: 42, x: 18, y: 34 }, { id: 43, x: 27, y: 31 }, { id: 44, x: 36, y: 33 }, { id: 45, x: 45, y: 36 },
-        { id: 46, x: 56, y: 15 }, { id: 47, x: 62, y: 11 }, { id: 48, x: 69, y: 12 }, { id: 49, x: 76, y: 15 }, { id: 50, x: 83, y: 20 },
-        { id: 51, x: 58, y: 24 }, { id: 52, x: 65, y: 25 }, { id: 53, x: 72, y: 27 }, { id: 54, x: 80, y: 31 }, { id: 55, x: 88, y: 36 },
-        { id: 56, x: 53, y: 43 }, { id: 57, x: 57, y: 49 }, { id: 58, x: 52, y: 55 }, { id: 59, x: 57, y: 61 }, { id: 60, x: 50, y: 67 },
-        { id: 99, x: 51, y: 8 }, // Death's Gate — cursed PvP zone
+        // ── Shadow / Moonshadow territory (1–20) — bottom-right quadrant ──
+        { id: 1, x: 58, y: 50 }, { id: 2, x: 64, y: 49 }, { id: 3, x: 71, y: 49 }, { id: 4, x: 78, y: 50 }, { id: 5, x: 85, y: 53 },
+        { id: 6, x: 91, y: 58 }, { id: 7, x: 63, y: 57 }, { id: 8, x: 70, y: 57 }, { id: 9, x: 77, y: 58 }, { id: 10, x: 84, y: 61 },
+        { id: 11, x: 72, y: 79 }, { id: 12, x: 90, y: 66 }, { id: 13, x: 63, y: 65 }, { id: 14, x: 70, y: 66 }, { id: 15, x: 79, y: 67 },
+        { id: 16, x: 86, y: 70 }, { id: 17, x: 92, y: 75 }, { id: 18, x: 66, y: 75 }, { id: 19, x: 81, y: 76 }, { id: 20, x: 88, y: 81 },
+        // ── Forest / Stormveil territory (21–35) — bottom-left quadrant ──
+        { id: 21, x: 15, y: 57 }, { id: 22, x: 23, y: 55 }, { id: 23, x: 31, y: 57 }, { id: 24, x: 39, y: 59 }, { id: 25, x: 45, y: 53 },
+        { id: 26, x: 13, y: 65 }, { id: 27, x: 21, y: 66 }, { id: 28, x: 29, y: 67 }, { id: 29, x: 37, y: 68 }, { id: 30, x: 44, y: 66 },
+        { id: 31, x: 18, y: 78 }, { id: 32, x: 26, y: 77 }, { id: 33, x: 34, y: 79 }, { id: 34, x: 41, y: 80 }, { id: 35, x: 47, y: 73 },
+        // ── Volcano / Ashen Leaf territory (36–45) — top-left quadrant ──
+        { id: 36, x: 13, y: 30 }, { id: 37, x: 20, y: 23 }, { id: 38, x: 18, y: 42 }, { id: 39, x: 28, y: 20 }, { id: 40, x: 35, y: 22 },
+        { id: 41, x: 43, y: 27 }, { id: 42, x: 25, y: 32 }, { id: 43, x: 32, y: 30 }, { id: 44, x: 39, y: 35 }, { id: 45, x: 45, y: 38 },
+        // ── Snow / Frostfang territory (46–55) — top-right quadrant ──
+        { id: 46, x: 58, y: 18 }, { id: 47, x: 82, y: 44 }, { id: 48, x: 65, y: 15 }, { id: 49, x: 73, y: 15 }, { id: 50, x: 81, y: 19 },
+        { id: 51, x: 60, y: 28 }, { id: 52, x: 67, y: 27 }, { id: 53, x: 74, y: 29 }, { id: 54, x: 81, y: 31 }, { id: 55, x: 89, y: 37 },
+        // ── Central ring (56–60) — heart of the map ──
+        { id: 56, x: 44, y: 47 }, { id: 57, x: 54, y: 48 }, { id: 58, x: 48, y: 55 }, { id: 59, x: 55, y: 58 }, { id: 60, x: 49, y: 64 },
+        { id: 99, x: 51, y: 10 }, // Death's Gate — cursed PvP zone (on the volcano)
     ];
 
     function biomeForSector(sector: number): Biome {
@@ -1122,6 +1164,13 @@ export function WorldMap({
                                 backgroundImage: `url(${territory.backgroundImage || sectorBackgroundImage(selectedSector)})`,
                             }}
                         >
+                            {/* Living sector: 3D depth-particles behind, 2D biome
+                                ambience (snow/embers/petals/leaves/weather) in front.
+                                Ambience biome matches the painted scene art; weather
+                                is the real sector weather. pointer-events:none, so
+                                tile movement still works. */}
+                            <SceneAmbience3D biome={ambienceBiomeForSector(selectedSector)} />
+                            <SceneAmbience biome={ambienceBiomeForSector(selectedSector)} weather={sectorWeather} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
                                 const otherHere = sectorPlayers.filter(p => playerNameTile(p.name) === index);
@@ -1594,6 +1643,10 @@ export function WorldMap({
                 className="anime-world-map atlas-world-map generated-world-map"
                 style={{ backgroundImage: `url(${worldMapBg})` }}
             >
+                {/* Gentle magical-dust + light-sweep over the whole world (sits
+                    behind the z-10 sector/village markers). Keeps the overworld
+                    feeling alive without obscuring the painted map. */}
+                <SceneAmbience biome="central" intensity={0.5} />
                 <div className="sea-label sea-north">Hoppo Sea</div>
                 <div className="sea-label sea-east">Rimawari Ocean</div>
                 <div className="sea-label sea-south">Zubunure Sea</div>
