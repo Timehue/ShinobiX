@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { safeName, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
