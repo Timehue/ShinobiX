@@ -24,7 +24,7 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
-import { effectiveTagPercent, normalizeTagName, statusMatchesName, tagMatchesName } from "../lib/tags";
+import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement } from "../lib/elements";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
@@ -2274,10 +2274,11 @@ export function Arena({
         // `${flavorDisc}damage` reads "Genjutsu damage" / "damage" if ever empty.
         const flavorDisc = `${playerLensDiscipline(character)} `;
 
-        const enemyAffectingTags = new Set([
-            "Increase Damage Taken", "Decrease Damage Given", "Ignition", "Stun", "Bloodline Seal", "Poison", "Drain",
-            "Elemental Seal", "Lag", "Mirror", "Push", "Pull",
-        ]);
+        // Canonical opponent-affecting set (Buff Prevent / Cleanse Prevent / Recoil
+        // included). Mirrors the server's OPPONENT_AFFECTING_TAGS so an out-of-range
+        // ground jutsu can't apply an enemy debuff the server would reject. Sourced
+        // from lib/tags.ts (single source of truth) — do NOT re-hardcode here.
+        const enemyAffectingTags = new Set(opponentAffectingTags);
 
         jutsu.tags.forEach((tag) => {
             const tagName = normalizeTagName(tag.name);
@@ -4281,7 +4282,11 @@ export function Arena({
                                     const x = col * X_STEP + HEX_W / 2 - ORB / 2;
                                     const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
                                     return (
-                                        <div key={isEnemy ? "enemy-orb" : "player-orb"} className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}`} style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none" }}>
+                                        // Glide between cells instead of snapping (Move / Push / Pull /
+                                        // ground relocation) so units read as walking, not teleporting. The
+                                        // stable key keeps the same DOM node, so CSS transitions a position
+                                        // change but never the initial mount.
+                                        <div key={isEnemy ? "enemy-orb" : "player-orb"} className={`avatar-orb ${isEnemy ? "enemy-orb" : ""}`} style={{ position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
                                             <img className="tiny-map-avatar" src={imgSrc} alt={altText} />
                                         </div>
                                     );
@@ -4295,7 +4300,8 @@ export function Arena({
                                     const x = col * X_STEP + HEX_W / 2 - ORB / 2 + ORB * 0.62;
                                     const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - PET_ORB + ORB * 0.12;
                                     const collarVisual = petCollarVisual(pet.loadout?.collar);
-                                    const style: Record<string, string | number> = { position: "absolute", left: x, top: y, width: PET_ORB, height: PET_ORB, zIndex: 9, pointerEvents: "none" };
+                                    // Glide alongside the player (see orbForPos) rather than snapping.
+                                    const style: Record<string, string | number> = { position: "absolute", left: x, top: y, width: PET_ORB, height: PET_ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" };
                                     if (collarVisual) style["--collar-glow"] = collarVisual.glow;
                                     const orbGlowClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
                                     return (
