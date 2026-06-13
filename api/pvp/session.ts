@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID, randomBytes } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';

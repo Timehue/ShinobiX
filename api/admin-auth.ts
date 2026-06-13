@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
 import { safeEqual } from './_auth.js';
 import { enforceRateLimit } from './_ratelimit.js';
