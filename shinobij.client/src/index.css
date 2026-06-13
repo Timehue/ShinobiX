@@ -19402,7 +19402,8 @@ html[data-vp="xl"] .location-button small {
 }
 
 /* On xl (1080p): show the portaled sidebar, hide the in-grid player hud */
-html[data-vp="xl"] .battle-hud-sidebar {
+html[data-vp="xl"] .battle-hud-sidebar,
+html[data-vp="lg"] .battle-hud-sidebar {
     display: block;
     position: fixed;
     top: 0;
@@ -19420,7 +19421,8 @@ html[data-vp="xl"] .battle-hud-sidebar {
     box-sizing: border-box;
 }
 
-html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud {
+html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud,
+html[data-vp="lg"] .battle-hud-sidebar .combat-side-hud {
     position: static !important;
     width: 100% !important;
     height: auto !important;
@@ -19433,29 +19435,34 @@ html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud {
     font-size: 0.82rem !important;
 }
 
-html[data-vp="xl"] .battle-hud-sidebar .combat-avatar {
+html[data-vp="xl"] .battle-hud-sidebar .combat-avatar,
+html[data-vp="lg"] .battle-hud-sidebar .combat-avatar {
     max-width: 80px !important;
     max-height: 80px !important;
     margin: 0 auto 6px !important;
 }
 
-html[data-vp="xl"] .battle-hud-sidebar .combat-avatar img {
+html[data-vp="xl"] .battle-hud-sidebar .combat-avatar img,
+html[data-vp="lg"] .battle-hud-sidebar .combat-avatar img {
     max-width: 80px !important;
     max-height: 80px !important;
 }
 
 /* Narrow the sector banner (ornate frame) on xl to match the battle HUD sidebar */
-html[data-vp="xl"] .sector-banner-panel {
+html[data-vp="xl"] .sector-banner-panel,
+html[data-vp="lg"] .sector-banner-panel {
     width: var(--side-rail-w) !important;
 }
 
 /* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
     display: none !important;
 }
 
 /* On xl, arena fits within the center-game column without overhanging */
-html[data-vp="xl"] .arena-fullscreen {
+html[data-vp="xl"] .arena-fullscreen,
+html[data-vp="lg"] .arena-fullscreen {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -19464,7 +19471,8 @@ html[data-vp="xl"] .arena-fullscreen {
 }
 
 /* On xl, PvE combat-layout stays 2-column (main area + enemy hud) */
-html[data-vp="xl"] .arena-fullscreen .combat-layout {
+html[data-vp="xl"] .arena-fullscreen .combat-layout,
+html[data-vp="lg"] .arena-fullscreen .combat-layout {
     grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) !important;
     gap: 6px !important;
     width: 100% !important;
@@ -19473,13 +19481,15 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout {
 }
 
 /* On xl, PvP combat-layout becomes 3-column (main area + chat + enemy hud) */
-html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout,
+html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout {
     grid-template-columns: minmax(0, 1fr) 140px minmax(150px, 200px) !important;
     gap: 0 !important;
 }
 
 /* Keep hex battlefield within bounds */
-html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
+html[data-vp="xl"] .arena-fullscreen .hex-battlefield,
+html[data-vp="lg"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
@@ -19540,7 +19550,8 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     display: none;
 }
 
-html[data-vp="xl"] .battle-side-left {
+html[data-vp="xl"] .battle-side-left,
+html[data-vp="lg"] .battle-side-left {
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -19616,7 +19627,8 @@ html[data-vp="xl"] .battle-side-left {
 }
 
 /* xl: in-grid column instead of floating */
-html[data-vp="xl"] .battle-chat-col {
+html[data-vp="xl"] .battle-chat-col,
+html[data-vp="lg"] .battle-chat-col {
     position: relative;
     top: auto;
     right: auto;
@@ -19631,12 +19643,14 @@ html[data-vp="xl"] .battle-chat-col {
     z-index: 5;
     align-self: stretch;
 }
-html[data-vp="xl"] .battle-chat-col .battle-chat-messages {
+html[data-vp="xl"] .battle-chat-col .battle-chat-messages,
+html[data-vp="lg"] .battle-chat-col .battle-chat-messages {
     flex: 1 1 0;
     min-height: 200px;
     max-height: none;
 }
-html[data-vp="xl"] .battle-chat-col.battle-chat-hidden {
+html[data-vp="xl"] .battle-chat-col.battle-chat-hidden,
+html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
     width: 36px !important;
     max-height: none !important;
     overflow: hidden;
@@ -19757,38 +19771,45 @@ html[data-vp="xl"] .battle-chat-col.battle-chat-hidden {
 .battle-chat-input-row button:disabled { opacity: 0.4; cursor: default; }
 .battle-chat-input-row button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.3); }
 
-html[data-vp="xl"] .arena-fullscreen {
+html[data-vp="xl"] .arena-fullscreen,
+html[data-vp="lg"] .arena-fullscreen {
     position: relative;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-main-area {
     grid-column: 1 !important;
     grid-row: 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
     grid-column: 2 !important;
     grid-row: 1 !important;
 }
 
 /* PvP 3-column: chat in col 2, enemy HUD pushed to col 3 */
-html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .battle-chat-col {
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .battle-chat-col,
+html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .battle-chat-col {
     grid-column: 2 !important;
     grid-row: 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child {
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child,
+html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child {
     grid-column: 3 !important;
     grid-row: 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-side-hud {
+html[data-vp="xl"] .arena-fullscreen .combat-side-hud,
+html[data-vp="lg"] .arena-fullscreen .combat-side-hud {
     padding: 8px !important;
     font-size: 0.8rem !important;
 }
 
 /* Gold ornate frame on the enemy HUD (right side) */
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child,
+html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
     background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72)) !important;
     border: 4px solid #7c3f11 !important;
     border-image: linear-gradient(#f59e0b, #7c2d12) 1 !important;
@@ -19796,7 +19817,8 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-chil
     box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), -4px 0 16px rgba(0,0,0,.5) !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-avatar {
+html[data-vp="xl"] .arena-fullscreen .combat-avatar,
+html[data-vp="lg"] .arena-fullscreen .combat-avatar {
     max-width: 140px !important;
     max-height: 140px !important;
 }
@@ -19804,49 +19826,58 @@ html[data-vp="xl"] .arena-fullscreen .combat-avatar {
 /* ── Battle command bar & jutsu/item layout on 1080p ── */
 
 /* Basic action buttons: single row, all buttons visible */
-html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar {
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar {
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
     gap: 4px !important;
     padding: 4px !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button {
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar button {
     min-height: clamp(44px, 2.85vw, 58px) !important;
     padding: clamp(4px, 0.4vw, 9px) clamp(6px, 0.55vw, 12px) !important;
     font-size: clamp(13px, 0.85vw, 17px) !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button span {
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button span,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar button span {
     font-size: clamp(13px, 0.85vw, 17px) !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small {
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small,
+html[data-vp="lg"] .arena-fullscreen .shinobi-command-bar button small {
     font-size: clamp(10px, 0.65vw, 13px) !important;
 }
 
 /* Jutsu cards — compact square-image icons (1400–2199px). */
-html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid {
+html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid,
+html[data-vp="lg"] .arena-fullscreen .combat-equipped-jutsu-grid {
     grid-template-columns: repeat(auto-fill, minmax(clamp(100px, 6.4vw, 116px), 1fr)) !important;
     gap: 7px !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-jutsu-button {
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-button,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-button {
     min-height: 0 !important;
     padding: 4px !important;
     grid-template-rows: auto auto auto !important;
     gap: 2px !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-jutsu-thumb {
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-thumb,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-thumb {
     height: auto !important;
     aspect-ratio: 1 / 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-jutsu-name {
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-name,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-name {
     font-size: clamp(11px, 0.72vw, 13px) !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info {
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info,
+html[data-vp="lg"] .arena-fullscreen .combat-jutsu-info {
     font-size: clamp(9px, 0.6vw, 11px) !important;
 }
 
@@ -19877,19 +19908,22 @@ html[data-vp="lg"] .arena-fullscreen .combat-jutsu-info {
 }
 
 /* Jutsu layout card: tighter, less max-height so it doesn't dominate */
-html[data-vp="xl"] .arena-fullscreen .jutsu-layout-card {
+html[data-vp="xl"] .arena-fullscreen .jutsu-layout-card,
+html[data-vp="lg"] .arena-fullscreen .jutsu-layout-card {
     max-height: clamp(220px, 24vh, 320px) !important;
     overflow-y: auto !important;
     padding: clamp(5px, 0.55vw, 11px) !important;
 }
 
 /* Combat tabs (Jutsu/Weapons/Items tab buttons) */
-html[data-vp="xl"] .arena-fullscreen .combat-tabs {
+html[data-vp="xl"] .arena-fullscreen .combat-tabs,
+html[data-vp="lg"] .arena-fullscreen .combat-tabs {
     gap: 4px !important;
     margin-top: 5px !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-tabs button {
+html[data-vp="xl"] .arena-fullscreen .combat-tabs button,
+html[data-vp="lg"] .arena-fullscreen .combat-tabs button {
     min-height: clamp(32px, 2.2vw, 42px) !important;
     font-size: clamp(12px, 0.78vw, 15px) !important;
     padding: clamp(3px, 0.35vw, 7px) clamp(8px, 0.65vw, 14px) !important;
