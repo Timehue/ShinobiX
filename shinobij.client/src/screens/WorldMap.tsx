@@ -453,14 +453,15 @@ export function WorldMap({
         // Frostfang  -> sector 47 (62, 11)
         // Moonshadow -> sector 11 (81, 67)
         // Coords aligned to the new World Map.png baked-in banners (measured on a
-        // 0–100 grid): each village marker sits on its painted banner medallion.
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 18, y: 82, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 18, y: 39, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 85, y: 39, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 76, y: 82, icon: "MS" },
+        // 0–100 grid): each village marker sits ON its painted banner icon medallion
+        // (the dark circle at the banner's left end).
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, icon: "SV" },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 12, y: 40, icon: "AL" },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 79, y: 40, icon: "FF" },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 72, y: 84, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", staminaReward: 20, xpReward: 20 },
-        // Hollow Gate — a hidden shrine entrance tucked along the central ring road.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 62, y: 55, icon: "HG" },
+        // Hollow Gate — the dark gothic spire painted just below the central citadel.
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 46, y: 76, icon: "HG" },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const sectorPoints = [
@@ -472,7 +473,7 @@ export function WorldMap({
         // ── Forest / Stormveil territory (21–35) — bottom-left quadrant ──
         { id: 21, x: 15, y: 57 }, { id: 22, x: 23, y: 55 }, { id: 23, x: 31, y: 57 }, { id: 24, x: 39, y: 59 }, { id: 25, x: 45, y: 53 },
         { id: 26, x: 13, y: 65 }, { id: 27, x: 21, y: 66 }, { id: 28, x: 29, y: 67 }, { id: 29, x: 37, y: 68 }, { id: 30, x: 44, y: 66 },
-        { id: 31, x: 18, y: 78 }, { id: 32, x: 26, y: 77 }, { id: 33, x: 34, y: 79 }, { id: 34, x: 41, y: 80 }, { id: 35, x: 47, y: 73 },
+        { id: 31, x: 18, y: 78 }, { id: 32, x: 26, y: 77 }, { id: 33, x: 34, y: 79 }, { id: 34, x: 41, y: 80 }, { id: 35, x: 44, y: 90 },
         // ── Volcano / Ashen Leaf territory (36–45) — top-left quadrant ──
         { id: 36, x: 13, y: 30 }, { id: 37, x: 20, y: 23 }, { id: 38, x: 18, y: 42 }, { id: 39, x: 28, y: 20 }, { id: 40, x: 35, y: 22 },
         { id: 41, x: 43, y: 27 }, { id: 42, x: 25, y: 32 }, { id: 43, x: 32, y: 30 }, { id: 44, x: 39, y: 35 }, { id: 45, x: 45, y: 38 },
