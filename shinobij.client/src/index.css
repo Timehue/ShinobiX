@@ -63,8 +63,8 @@
         width: 1100px !important;
         min-width: 1100px !important;
         max-width: none !important;
-        height: 680px !important;
-        min-height: 680px !important;
+        height: 733px !important;
+        min-height: 733px !important;
         max-height: none !important;
         aspect-ratio: auto !important;
         transform: none !important;
@@ -6028,7 +6028,19 @@ body {
 }
 
 .generated-world-map {
-    background-size: cover !important;
+    /* Lock the container to the source map's 3:2 aspect (1536×1024) and paint
+       the image at 100% 100%. Previously `cover` cropped a near-square
+       container, hiding ~17% of each side and drifting the %-positioned
+       sector/village markers off their map features. Matching the aspect +
+       no-crop makes every marker land exactly where it should at any size. */
+    aspect-ratio: 1536 / 1024;
+    width: 100%;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(100dvh - 40px);
+    max-width: calc((100dvh - 40px) * 1.5);
+    margin: 0 auto;
+    background-size: 100% 100% !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     border: 4px solid rgba(250, 204, 21, 0.65);
@@ -18820,8 +18832,8 @@ button.combat-jutsu-button,
         width: 1100px !important;
         min-width: 1100px !important;
         max-width: none !important;
-        height: 680px !important;
-        min-height: 680px !important;
+        height: 733px !important;
+        min-height: 733px !important;
         max-height: none !important;
         aspect-ratio: auto !important;
         transform: none !important;
@@ -21560,4 +21572,74 @@ html[data-vp="xxl"] .banner-mobile-timers {
 .vn-character-initials {
     position: relative;
     z-index: 1;
+}
+
+/* ══ SceneAmbience — 2D liveness overlay (particles + god-rays + lightning) ══
+   Mounted inside any position:relative scene container. Pure decoration,
+   pointer-events:none so gameplay clicks pass straight through. */
+/* Scene containers that host an ambience overlay need a positioning context. */
+.sector-image-map,
+.generated-world-map,
+.village-scene-stage { position: relative; }
+.scene-ambience {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 4;
+    border-radius: inherit;
+}
+/* Sit beneath higher-z interactive markers (village building buttons are z-4). */
+.scene-ambience.amb-under { z-index: 2; }
+/* 3D parallax depth field sits just behind the 2D particle layer. */
+.scene-ambience-3d {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 3;
+    border-radius: inherit;
+}
+.scene-ambience-3d canvas { width: 100% !important; height: 100% !important; display: block; }
+.scene-ambience-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.scene-ambience-rays {
+    position: absolute;
+    inset: -12%;
+    mix-blend-mode: screen;
+    opacity: .5;
+    background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.10) 49%, transparent 62%);
+    animation: scene-ray-sweep 16s linear infinite;
+}
+.scene-rays-snow    { background: linear-gradient(115deg, transparent 36%, rgba(186,230,253,.16) 49%, transparent 62%); }
+.scene-rays-volcano { background: linear-gradient(115deg, transparent 36%, rgba(255,160,80,.16) 49%, transparent 62%); }
+.scene-rays-shadow  { background: linear-gradient(115deg, transparent 36%, rgba(192,132,252,.14) 49%, transparent 62%); }
+.scene-rays-forest  { background: linear-gradient(115deg, transparent 36%, rgba(190,255,170,.14) 49%, transparent 62%); }
+.scene-rays-central { background: linear-gradient(115deg, transparent 36%, rgba(255,240,180,.18) 49%, transparent 62%); }
+@keyframes scene-ray-sweep {
+    0%   { transform: translateX(-28%); opacity: 0; }
+    20%  { opacity: .55; }
+    50%  { opacity: .32; }
+    80%  { opacity: .55; }
+    100% { transform: translateX(28%); opacity: 0; }
+}
+.scene-ambience-lightning {
+    position: absolute;
+    inset: 0;
+    background: rgba(220,235,255,0);
+    animation: scene-lightning 8s steps(1) infinite;
+}
+@keyframes scene-lightning {
+    0%, 90%, 100% { background: rgba(220,235,255,0); }
+    91% { background: rgba(220,235,255,.45); }
+    92% { background: rgba(220,235,255,0); }
+    94% { background: rgba(220,235,255,.3); }
+    95% { background: rgba(220,235,255,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .scene-ambience-rays, .scene-ambience-lightning { animation: none; opacity: .22; }
 }
