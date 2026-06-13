@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Pet } from "../types/pet";
-import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, SCROLL_FIRST_SPAWN, type ArenaSlot, type ArenaRole } from "./pet-arena-sim";
+import { runPetArenaMatch, ARENA_TPS, MAX_SECONDS, WIN_SCORE, SCROLL_FIRST_SPAWN, type ArenaSlot, type ArenaRole } from "./pet-arena-sim";
 
 /*
  * Coverage for the Tactical Pet Arena match sim. Load-bearing invariant is
@@ -37,7 +37,7 @@ test("a valid, numerically-safe, terminating match for every seed (4v4 + 2v2)", 
         for (const comp of [COMP, ["defender", "sage"] as ArenaRole[]]) {
             const r = runPetArenaMatch(roster(comp), roster(comp), seed);
             assert.ok(["blue", "red", "draw"].includes(r.winner));
-            assert.ok(r.ticks >= 1 && r.ticks <= ARENA_TPS * 240, `ticks ${r.ticks}`);
+            assert.ok(r.ticks >= 1 && r.ticks <= ARENA_TPS * MAX_SECONDS, `ticks ${r.ticks}`);
             assert.equal(r.snapshots.length, r.ticks);
             for (const s of r.snapshots) assert.equal(s.actors.length, comp.length * 2);
             assertFinite({ scoreBlue: r.scoreBlue, scoreRed: r.scoreRed, ticks: r.ticks }, `seed${seed}`);
