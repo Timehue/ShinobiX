@@ -3,6 +3,12 @@
 Migrates persistent game storage from **Upstash Redis** to **Supabase Postgres**
 and runs the API under **cPanel / Phusion Passenger** instead of Vercel.
 
+> **Status: COMPLETE.** This migration has already been run in production. The
+> one-off migration/import scripts (`migrate-upstash-*.mjs`, `import-*.mjs`) and
+> the `ioredis` dependency have been removed from the repo. This guide is kept for
+> historical reference and the schema/setup notes below; see git history for the
+> original migration script source.
+
 ---
 
 ## What Changed
