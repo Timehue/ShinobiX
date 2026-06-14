@@ -1,42 +1,98 @@
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable react-hooks/set-state-in-effect */
+/*
+ * ClanWarTileCardDuel — the clan-war duel screen, now Shinobi Card Clash.
+ *
+ * This is server-authoritative real-time PvP: the server (api/clan/war/tilecards)
+ * runs the match and applies clan-war HP damage. This client only renders the
+ * PROJECTED session (the opponent's hand + staged plays are hidden) and sends
+ * actions: submit-deck (12-card lock-in during picking), commit-turn (stage this
+ * turn's plays), and forfeit. It polls `state` (no realtime subscription) so the
+ * opponent's staged plays never leak through a raw KV row.
+ *
+ * Each turn both players SECRETLY stage their plays, then commit. When both have
+ * committed (or the 60s turn timer elapses) the server reveals both sides at once
+ * and advances. Win 2 of 3 locations after turn 6.
+ */
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import type { CSSProperties } from "react";
 import type { Character } from "../types/character";
+import { CARD_CLASH_BOARD_BG, CARD_CLASH_LOCATION_ART } from "../lib/card-clash-art";
 import type { Screen } from "../types/core";
-import { getAllTileCards, type TileCard } from "../data/tile-cards";
-import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
+import { getAllTileCards } from "../data/tile-cards";
+import {
+    toClashCards,
+    indexClashCards,
+    validateDeck,
+    canAddToDeck,
+    buildPlayableDeck,
+    deckCopyLimit,
+    SHADOW_CLONE_CARD,
+    CARD_CLASH_DECK_SIZE,
+    CARD_CLASH_LOCATION_SLOTS,
+    CARD_CLASH_MAX_LEGENDARY,
+    type CardClashCard,
+} from "../lib/card-clash";
+import { CardClashCardView } from "../components/CardClashCardView";
 
-type CwTileCardStat = { id: string; element: string; top: number; right: number; bottom: number; left: number };
-type CwTileCardSide = {
-    name: string;
-    clan: string;
-    defaultDeck: CwTileCardStat[];
-    deck?: CwTileCardStat[];
-    handIds?: string[];
-    ready: boolean;
-};
-type CwTileCardCell = { cardId: string; owner: "p1" | "p2" } | null;
-type CwTileCardSession = {
-    warId: string;
-    challengeId: string;
-    p1: CwTileCardSide;
-    p2?: CwTileCardSide;
-    board: CwTileCardCell[];
-    turn: "p1" | "p2";
+// ── Server projection shapes (see tilecards.ts projectFor) ───────────────────
+type ServerCard = { id: string; element: string; rarity: CardClashCard["rarity"]; cost: number; power: number; ability: string };
+type ServerPlayed = ServerCard & { iid: string; basePower: number; currentPower: number; loc: number; protectedFromReduction?: boolean; isToken?: boolean };
+type ServerLoc = { def: { id: string; name: string; description: string; effectType: string }; p1: ServerPlayed[]; p2: ServerPlayed[] };
+type ServerMatch = { locations: ServerLoc[]; turn: number; log: string[] };
+type SideKey = "p1" | "p2";
+type View = {
+    warId: string; challengeId: string;
     status: "awaiting-p2" | "picking" | "active" | "done";
-    winner?: "p1" | "p2" | "draw";
-    turnDeadline?: number;
-    pickingDeadline?: number;
-    coinFlip?: "p1" | "p2";
+    winner?: SideKey | "draw";
+    coinFlip?: SideKey;
+    turnDeadline?: number; pickingDeadline?: number;
+    match: ServerMatch | null; turn: number;
+    side: SideKey | null;
+    you: { side: SideKey; name: string; clan: string; ready: boolean; committed: boolean; chakra: number; nextDiscount: number; hand: ServerCard[]; pending: { handIndex: number; loc: number }[]; deckCount: number } | null;
+    opponent: { name: string; clan: string; ready: boolean; committed: boolean; chakra: number; nextDiscount: number; handCount: number; deckCount: number } | null;
 };
 
-export function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
-    void sharedImages;
-    const [session, setSession] = useState<CwTileCardSession | null>(null);
+type Staged = { handIndex: number; loc: number };
+
+function locBonus(card: { element: string; rarity: string; cost: number }, effectType: string): number {
+    switch (effectType) {
+        case "fireBonus": return card.element === "Fire" ? 2 : 0;
+        case "waterBonus": return card.element === "Water" ? 2 : 0;
+        case "earthBonus": return card.element === "Earth" ? 2 : 0;
+        case "windBonus": return card.element === "Wind" ? 2 : 0;
+        case "lightningBonus": return card.element === "Lightning" ? 2 : 0;
+        case "shadowBonus": return card.element === "Shadow" ? 2 : 0;
+        case "iceBonus": return card.element === "Ice" ? 2 : 0;
+        case "commonBonus": return card.rarity === "common" ? 2 : 0;
+        case "rareBonus": return card.rarity === "rare" ? 2 : 0;
+        case "epicLegendaryBonus": return card.rarity === "epic" || card.rarity === "legendary" ? 2 : 0;
+        case "lowCostBonus": return card.cost <= 2 ? 1 : 0;
+        case "highCostBonus": return card.cost >= 5 ? 2 : 0;
+        default: return 0;
+    }
+}
+
+export function ClanWarTileCardDuel({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+    const [view, setView] = useState<View | null>(null);
     const [error, setError] = useState("");
-    const [selectedCardId, setSelectedCardId] = useState<string>("");
     const [busy, setBusy] = useState(false);
-    // Read the clan-war stash for warId + challengeId. If missing,
-    // we can't proceed — kick the player back.
+    const [now, setNow] = useState(() => Date.now());
+
+    // Card catalog → Clash cards, for resolving names/art/abilities from the
+    // server's minimal card payloads.
+    const clashById = useMemo(() => indexClashCards(toClashCards(getAllTileCards([]))), []);
+    const ownedCards = useMemo(() => {
+        const seen = new Set<string>();
+        const out: CardClashCard[] = [];
+        for (const id of character.tileCards ?? []) {
+            if (seen.has(id)) continue;
+            seen.add(id);
+            const c = clashById[id];
+            if (c) out.push(c);
+        }
+        return out;
+    }, [character.tileCards, clashById]);
+
     const stash = useMemo(() => {
         try {
             const raw = sessionStorage.getItem("clanWarChallenge.v1");
@@ -49,433 +105,291 @@ export function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { ch
         if (!stash?.challengeId || !stash?.warId) return;
         try {
             const r = await fetch("/api/clan/war/tilecards", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "state", warId: stash.warId, challengeId: stash.challengeId }),
             });
             const data = await r.json().catch(() => ({}));
-            if (r.ok && data.session) {
-                setSession(data.session as CwTileCardSession);
-                setError("");
-            } else if (r.status === 404) {
-                // Session not initialized yet on this client. Trigger init.
-                // launchClanWarBattle already fired init, but in resume cases
-                // (refresh after navigation) we may need to retry.
-                setError("Waiting for duel to start…");
-            } else {
-                setError(data.error ?? `HTTP ${r.status}`);
-            }
-        } catch (e) {
-            setError(String((e as Error).message));
-        }
+            if (r.ok && data.session) { setView(data.session as View); setError(""); }
+            else if (r.status === 404) setError("Waiting for the duel to start…");
+            else setError(data.error ?? `HTTP ${r.status}`);
+        } catch (e) { setError(String((e as Error).message)); }
     }, [stash?.challengeId, stash?.warId]);
 
+    // Poll only (no realtime) so the opponent's staged plays never leak.
     useEffect(() => {
         if (!stash) return;
-        // Always do an initial fetch — subscriptions only push NEW
-        // writes, so we need the current state to render anything.
         void refresh();
-        // Realtime path: subscribe to the cw-tilecards:<id> KV row.
-        // Supabase pushes the updated session on every server commit
-        // (~30-80ms). Falls back to the 1.5s polling loop when
-        // VITE_SUPABASE_* env vars aren't configured.
-        let unsubscribe: (() => void) | null = null;
-        if (realtimeAvailable()) {
-            unsubscribe = subscribeKvKey<CwTileCardSession>(
-                `cw-tilecards:${stash.challengeId}`,
-                (next) => { setSession(next); setError(""); },
-            );
-        }
-        // Keep a low-frequency poll as belt-and-braces — picks up
-        // server-driven transitions that don't directly write the
-        // row (e.g., the picking-deadline auto-start) and provides a
-        // fallback when Realtime is unconfigured.
-        const id = setInterval(refresh, unsubscribe ? 5000 : 1500);
-        return () => {
-            clearInterval(id);
-            if (unsubscribe) { try { unsubscribe(); } catch { /* noop */ } }
-        };
+        const id = setInterval(refresh, 1500);
+        const clock = setInterval(() => setNow(Date.now()), 1000);
+        return () => { clearInterval(id); clearInterval(clock); };
     }, [refresh, stash]);
 
-    // Clear the sessionStorage stash when the duel finishes — the
-    // server has already applied HP damage by then.
     useEffect(() => {
-        if (session?.status === "done") {
+        if (view?.status === "done") {
             try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
         }
-    }, [session?.status]);
+    }, [view?.status]);
 
-    // ── Hooks must run in identical order every render (Rules of Hooks).
-    // The original layout had an early `if (!stash) return ...` here, with
-    // additional useMemo/useState/useEffect calls below it. That meant the
-    // "no stash" render path skipped those hooks entirely, producing a
-    // potential mismatch on later renders if stash transitioned (in practice
-    // it can't — stash uses [] deps — but the lint rule is right to flag it
-    // and the brittle pattern is easy to break later). All hooks now live
-    // BEFORE the early return; the no-stash render is reached via the same
-    // hook sequence as the active duel render.
-
-    // Picking-phase state: the player's selected card IDs (max 5) and
-    // their full owned-card collection. Local-only until they click
-    // "Lock in deck" which submits to the server.
-    const ownedTileCards = useMemo(() => {
-        const all = getAllTileCards([]);
-        const owned = (character.tileCards ?? [])
-            .map(id => all.find(c => c.id === id))
-            .filter((c): c is TileCard => Boolean(c));
-        return owned;
-    }, [character.tileCards]);
-    const [pickedIds, setPickedIds] = useState<string[]>([]);
-
-    // Compute derived state (non-hooks) — these are safe to evaluate with
-    // null session because the ternaries short-circuit on the null guard.
-    const mySide: "p1" | "p2" | null = !session ? null
-        : session.p1.name.toLowerCase() === character.name.toLowerCase() ? "p1"
-        : session.p2 && session.p2.name.toLowerCase() === character.name.toLowerCase() ? "p2"
-        : null;
-    const me = session && mySide ? (mySide === "p1" ? session.p1 : session.p2!) : null;
-    const opp = session && mySide ? (mySide === "p1" ? session.p2 : session.p1) : null;
-    const isMyTurn = !!(session && mySide && session.status === "active" && session.turn === mySide);
-    const secondsRemaining = session?.turnDeadline ? Math.max(0, Math.ceil((session.turnDeadline - Date.now()) / 1000)) : 0;
-    const pickingSecondsRemaining = session?.pickingDeadline ? Math.max(0, Math.ceil((session.pickingDeadline - Date.now()) / 1000)) : 0;
-
-    // Pre-populate the picker with the fallback deck once the session loads.
+    // ── Picking-phase deck (pre-filled from saved Card Hall deck / auto-build) ──
+    const [pickedIds, setPickedIds] = useState<string[] | null>(null);
     useEffect(() => {
-        if (session?.status === "picking" && pickedIds.length === 0 && me?.defaultDeck) {
-            setPickedIds(me.defaultDeck.map(c => c.id));
+        if (view?.status === "picking" && pickedIds === null && !view.you?.ready) {
+            const saved = character.cardClashDeck ?? [];
+            const seed = validateDeck(saved, clashById).valid
+                ? saved
+                : buildPlayableDeck(character.tileCards ?? [], clashById, toClashCards(getAllTileCards([])));
+            setPickedIds(seed);
         }
-    }, [session?.status, me?.defaultDeck, pickedIds.length]);
+    }, [view?.status, view?.you?.ready, pickedIds, character.cardClashDeck, character.tileCards, clashById]);
 
-    function togglePick(id: string) {
-        setPickedIds(prev => {
-            if (prev.includes(id)) return prev.filter(x => x !== id);
-            if (prev.length >= 5) return prev;
-            return [...prev, id];
+    // ── Active-phase staging ────────────────────────────────────────────────
+    const [staged, setStaged] = useState<Staged[]>([]);
+    const [selHand, setSelHand] = useState<number | null>(null);
+    const committed = !!view?.you?.committed;
+    // Reset staging whenever the turn advances (or we commit).
+    const turnRef = useRef<number>(0);
+    useEffect(() => {
+        if (view?.turn && view.turn !== turnRef.current) { turnRef.current = view.turn; setStaged([]); setSelHand(null); }
+    }, [view?.turn]);
+    useEffect(() => { if (committed) { setStaged([]); setSelHand(null); } }, [committed]);
+
+    async function post(action: string, extra: Record<string, unknown>) {
+        if (!view) return;
+        setBusy(true);
+        try {
+            const r = await fetch("/api/clan/war/tilecards", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action, warId: view.warId, challengeId: view.challengeId, ...extra }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (r.ok && data.session) { setView(data.session as View); setError(""); }
+            else setError(data.error ?? `HTTP ${r.status}`);
+        } catch (e) { setError(String((e as Error).message)); }
+        setBusy(false);
+    }
+
+    function deckPayload(ids: string[]) {
+        return ids.map((id) => {
+            const c = clashById[id];
+            const ability = c.abilityType === "ongoingElementBoostHere" ? "none" : c.abilityType;
+            return { id: c.id, element: c.element, rarity: c.rarity, cost: c.cost, power: c.power, ability };
         });
     }
 
-    async function lockInDeck() {
-        if (!session || pickedIds.length !== 5) return;
-        const all = getAllTileCards([]);
-        const cards = pickedIds.map(id => all.find(c => c.id === id)).filter((c): c is TileCard => Boolean(c));
-        if (cards.length !== 5) {
-            setError("Could not resolve all 5 cards in your selection.");
-            return;
-        }
-        const deckPayload = cards.map(c => ({ id: c.id, element: c.element, top: c.top, right: c.right, bottom: c.bottom, left: c.left }));
-        setBusy(true);
-        try {
-            const r = await fetch("/api/clan/war/tilecards", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "submit-deck", warId: session.warId, challengeId: session.challengeId, deck: deckPayload }),
-            });
-            const data = await r.json().catch(() => ({}));
-            if (r.ok && data.session) {
-                setSession(data.session as CwTileCardSession);
-                setError("");
-            } else {
-                setError(data.error ?? `HTTP ${r.status}`);
-            }
-        } catch (e) {
-            setError(String((e as Error).message));
-        }
-        setBusy(false);
+    const pickerValid = pickedIds ? validateDeck(pickedIds, clashById).valid : false;
+    function addPick(id: string) {
+        if (!pickedIds) return;
+        const res = canAddToDeck(pickedIds, id, clashById);
+        if (!res.ok) { setError(res.reason ?? "Can't add that card."); return; }
+        setError(""); setPickedIds([...pickedIds, id]);
+    }
+    function removePick(id: string) {
+        if (!pickedIds) return;
+        const i = pickedIds.indexOf(id);
+        if (i === -1) return;
+        setPickedIds([...pickedIds.slice(0, i), ...pickedIds.slice(i + 1)]);
     }
 
-    // Coin-flip flash: shows for ~2 seconds when transitioning from
-    // picking → active so both clients see the same outcome.
-    const [showCoinFlip, setShowCoinFlip] = useState(false);
-    const lastStatusRef = useRef<CwTileCardSession["status"] | null>(null);
-    useEffect(() => {
-        const prev = lastStatusRef.current;
-        lastStatusRef.current = session?.status ?? null;
-        if (prev === "picking" && session?.status === "active" && session.coinFlip) {
-            setShowCoinFlip(true);
-            const t = setTimeout(() => setShowCoinFlip(false), 2200);
-            return () => clearTimeout(t);
+    // Staging helpers
+    const stagedCost = (() => {
+        if (!view?.you) return 0;
+        let discount = view.you.nextDiscount;
+        let total = 0;
+        for (const s of staged) {
+            const card = view.you.hand[s.handIndex];
+            if (!card) continue;
+            total += Math.max(1, card.cost - discount);
+            discount = card.ability === "discountNextCard" ? 1 : 0;
         }
-    }, [session?.status, session?.coinFlip]);
+        return total;
+    })();
+    const chakraLeft = (view?.you?.chakra ?? 0) - stagedCost;
 
-    async function place(pos: number) {
-        if (!isMyTurn || !selectedCardId || !session) return;
-        if (session.board[pos] !== null) return;
-        setBusy(true);
-        try {
-            const r = await fetch("/api/clan/war/tilecards", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "move",
-                    warId: session.warId,
-                    challengeId: session.challengeId,
-                    pos,
-                    cardId: selectedCardId,
-                }),
-            });
-            const data = await r.json().catch(() => ({}));
-            if (r.ok && data.session) {
-                setSession(data.session as CwTileCardSession);
-                setSelectedCardId("");
-            } else {
-                setError(data.error ?? `HTTP ${r.status}`);
-            }
-        } catch (e) {
-            setError(String((e as Error).message));
-        }
-        setBusy(false);
+    function stagedAtLoc(loc: number): number { return staged.filter((s) => s.loc === loc).length; }
+
+    function tryStage(loc: number) {
+        if (selHand === null || !view?.you || committed) return;
+        const card = view.you.hand[selHand];
+        if (!card) return;
+        if (staged.some((s) => s.handIndex === selHand)) return; // already staged
+        const myKey = view.side!;
+        const revealed = view.match?.locations[loc]?.[myKey].length ?? 0;
+        if (revealed + stagedAtLoc(loc) >= CARD_CLASH_LOCATION_SLOTS) { setError("That location is full."); return; }
+        const cost = Math.max(1, card.cost - (staged.length === 0 ? view.you.nextDiscount : 0));
+        if (cost > chakraLeft) { setError("Not enough Chakra."); return; }
+        setError(""); setStaged([...staged, { handIndex: selHand, loc }]); setSelHand(null);
     }
+    function unstage(handIndex: number) { setStaged(staged.filter((s) => s.handIndex !== handIndex)); }
 
-    async function forfeit() {
-        if (!session || !window.confirm("Forfeit the duel? The opposing clan wins and deals damage to your clan.")) return;
-        setBusy(true);
-        try {
-            await fetch("/api/clan/war/tilecards", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "forfeit", warId: session.warId, challengeId: session.challengeId }),
-            });
-        } catch { /* ignore */ }
-        setBusy(false);
-        void refresh();
-    }
-
-    function cardStats(cardId: string): CwTileCardStat | null {
-        if (!session) return null;
-        const p1Deck = session.p1.deck ?? session.p1.defaultDeck;
-        const hit = p1Deck.find(c => c.id === cardId);
+    function resolveServerCard(sc: ServerCard): CardClashCard {
+        const hit = clashById[sc.id];
         if (hit) return hit;
-        const p2Deck = session.p2?.deck ?? session.p2?.defaultDeck ?? [];
-        return p2Deck.find(c => c.id === cardId) ?? null;
+        return { ...SHADOW_CLONE_CARD, ...sc, name: sc.id === "token-shadow-clone" ? "Shadow Clone" : sc.id, abilityType: "none", abilityText: "", role: "summoner", top: 0, right: 0, bottom: 0, left: 0, description: "" };
     }
 
-    const score = useMemo(() => {
-        if (!session) return { p1: 0, p2: 0 };
-        let p1 = 0, p2 = 0;
-        for (const c of session.board) {
-            if (!c) continue;
-            if (c.owner === "p1") p1++; else p2++;
-        }
-        return { p1, p2 };
-    }, [session]);
-
-    const myScore = mySide === "p1" ? score.p1 : score.p2;
-    const oppScore = mySide === "p1" ? score.p2 : score.p1;
-    const youWon = session?.status === "done" && session.winner === mySide;
-    const isDraw = session?.status === "done" && session.winner === "draw";
-
-    // No-stash fallback render (moved below all hooks to satisfy Rules of Hooks).
+    // ── Renders ──────────────────────────────────────────────────────────────
     if (!stash) {
         return (
-            <div className="card" style={{ maxWidth: 700, margin: "1rem auto", padding: "1.4rem" }}>
-                <h2>⚠ No active clan-war tile-card duel</h2>
-                <p>The duel context was lost. Return to the Shinobi Council Hall.</p>
-                <button onClick={() => setScreen("shinobiCouncil")}>Back to Council Hall</button>
-            </div>
+            <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}><div className="cc-body">
+                <div className="cc-empty-note">
+                    <h2>⚠ No active clan-war duel</h2>
+                    <p className="cc-muted">The duel context was lost. Return to the Shinobi Council Hall.</p>
+                    <button className="cc-btn" onClick={() => setScreen("shinobiCouncil")}>Back to Council Hall</button>
+                </div>
+            </div></div>
         );
     }
 
+    const youKey = view?.side ?? "p1";
+    const oppKey: SideKey = youKey === "p1" ? "p2" : "p1";
+    const pickSecs = view?.pickingDeadline ? Math.max(0, Math.ceil((view.pickingDeadline - now) / 1000)) : 0;
+    const turnSecs = view?.turnDeadline ? Math.max(0, Math.ceil((view.turnDeadline - now) / 1000)) : 0;
+
     return (
-        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "0.8rem" }}>
-                <h2 style={{ margin: 0 }}>🃏 Clan War Tile Card Duel</h2>
-                <button type="button" onClick={() => setScreen("shinobiCouncil")} style={{ marginLeft: "auto", padding: "0.3rem 0.7rem", fontSize: "0.85rem" }}>← Back</button>
+        <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}>
+            <div className="cc-header">
+                <div className="cc-title"><b>Shinobi Card Clash</b><span>Clan War Duel</span></div>
+                <span className="cc-header-spacer" />
+                {view && view.status !== "done" && (
+                    <button className="cc-btn danger" disabled={busy} onClick={() => { if (window.confirm("Forfeit the duel? Your clan takes the damage.")) void post("forfeit", {}); }}>Forfeit</button>
+                )}
+                <button className="cc-btn ghost" onClick={() => setScreen("shinobiCouncil")}>← Council</button>
             </div>
-            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
-            {!session && <p className="hint">Connecting to duel session…</p>}
-            {session && session.status === "awaiting-p2" && (
-                <div style={{ background: "#0b1220", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem" }}>
-                    <strong style={{ color: "#fbbf24" }}>⏳ Waiting for the opposing clan's duelist to join…</strong>
-                    <p className="hint" style={{ marginTop: 6 }}>They'll be auto-pulled in when the challenge accepts on their client.</p>
-                </div>
-            )}
-            {/* Picking phase — 30s for both players to lock in 5-card decks. */}
-            {session && session.status === "picking" && me && (() => {
-                const opponentReady = mySide === "p1" ? !!session.p2?.ready : !!session.p1.ready;
-                const meReady = !!me.ready;
-                return (
-                    <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem", background: "#0b1220", padding: "0.6rem 0.8rem", borderRadius: 6 }}>
-                            <strong style={{ color: "#fbbf24" }}>🃏 Pick your 5-card deck</strong>
-                            <div style={{ textAlign: "right" }}>
-                                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: "1.4rem" }}>⏱ {pickingSecondsRemaining}s</div>
-                                <small style={{ color: "#94a3b8" }}>
-                                    You: {meReady ? "✅ Locked in" : `${pickedIds.length}/5 picked`} · Opponent: {opponentReady ? "✅ Locked in" : "Still picking…"}
-                                </small>
-                            </div>
-                        </div>
-                        {!meReady && (
-                            <>
-                                <p className="hint" style={{ marginBottom: 8 }}>
-                                    Tap up to 5 cards from your collection. If both players lock in before the timer runs out the match starts early; otherwise the auto-picked top-5 deck is used.
-                                </p>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, maxHeight: 360, overflowY: "auto", padding: 6, background: "#0b1220", borderRadius: 6 }}>
-                                    {ownedTileCards.length === 0 ? (
-                                        <p className="hint">You don't own any tile cards — the auto-picked fallback deck will be used at timeout.</p>
-                                    ) : ownedTileCards.map(card => {
-                                        const picked = pickedIds.includes(card.id);
-                                        const disabled = !picked && pickedIds.length >= 5;
-                                        return (
-                                            <button
-                                                key={card.id}
-                                                onClick={() => togglePick(card.id)}
-                                                disabled={disabled}
-                                                style={{
-                                                    padding: "0.5rem 0.6rem", background: picked ? "#1e3a8a" : "#0f172a",
-                                                    border: `2px solid ${picked ? "#60a5fa" : "#334155"}`, borderRadius: 6,
-                                                    color: "#e5e7eb", fontSize: "0.78rem", cursor: disabled ? "not-allowed" : "pointer",
-                                                    opacity: disabled ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                                                }}
-                                            >
-                                                <strong style={{ fontSize: "0.78rem" }}>{card.name}</strong>
-                                                <small style={{ color: "#94a3b8" }}>{card.element} · {card.rarity}</small>
-                                                <div style={{ fontSize: "0.72rem", marginTop: 2 }}>
-                                                    ↑{card.top} ←{card.left} →{card.right} ↓{card.bottom}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
-                                    <button
-                                        onClick={() => void lockInDeck()}
-                                        disabled={busy || pickedIds.length !== 5}
-                                        style={{ padding: "0.5rem 1rem", background: pickedIds.length === 5 ? "linear-gradient(#15803d,#0a4019)" : "#1f2937", borderColor: pickedIds.length === 5 ? "#4ade80" : "#475569" }}
-                                    >
-                                        {busy ? "Locking in…" : pickedIds.length === 5 ? "✅ Ready — Lock in deck" : `Pick ${5 - pickedIds.length} more`}
-                                    </button>
-                                    <button onClick={() => void forfeit()} disabled={busy} className="danger-button" style={{ fontSize: "0.8rem" }}>Forfeit</button>
-                                </div>
-                            </>
-                        )}
-                        {meReady && (
-                            <div style={{ background: "#0a2010", border: "1px solid #4ade80", borderRadius: 6, padding: "0.8rem", textAlign: "center" }}>
-                                <strong style={{ color: "#4ade80" }}>✅ Your deck is locked in.</strong>
-                                <p className="hint" style={{ marginTop: 6 }}>
-                                    {opponentReady
-                                        ? "Both players ready — the match starts immediately after the coin flip."
-                                        : `Waiting for the opposing duelist to lock in… ${pickingSecondsRemaining}s remaining. If they time out, their auto-picked fallback deck is used.`}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                );
-            })()}
-            {/* Coin-flip flash — shows for ~2s when the match starts. */}
-            {showCoinFlip && session?.coinFlip && mySide && (
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, animation: "fadeIn 0.3s" }}>
-                    <div style={{ background: "linear-gradient(#1e3a8a,#172554)", border: "2px solid #fbbf24", borderRadius: 16, padding: "2rem 3rem", textAlign: "center", boxShadow: "0 0 40px rgba(251,191,36,0.5)" }}>
-                        <div style={{ fontSize: "3rem", marginBottom: 8 }}>🪙</div>
-                        <h2 style={{ color: "#fbbf24", margin: "0 0 8px" }}>Coin Flip</h2>
-                        <p style={{ fontSize: "1.1rem", color: "#e5e7eb" }}>
-                            <strong style={{ color: session.coinFlip === mySide ? "#4ade80" : "#f87171" }}>
-                                {session.coinFlip === mySide ? "You go first!" : `${opp?.name ?? "Opponent"} goes first.`}
-                            </strong>
-                        </p>
-                    </div>
-                </div>
-            )}
-            {session && session.status === "active" && mySide && me && opp && (
-                <>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem", background: "#0b1220", padding: "0.6rem 0.8rem", borderRadius: 6 }}>
+
+            <div className="cc-body">
+                {error && <div className="cc-deck-errors">⚠ {error}</div>}
+                {!view && <p className="cc-muted">Connecting to duel session…</p>}
+
+                {view?.status === "awaiting-p2" && (
+                    <div className="cc-empty-note">⏳ Waiting for the opposing clan's duelist to join…</div>
+                )}
+
+                {/* ── Picking phase ── */}
+                {view?.status === "picking" && (
+                    view.you?.ready ? (
+                        <div className="cc-empty-note">✅ Your deck is locked in. Waiting for the opponent… <b>{pickSecs}s</b></div>
+                    ) : (
                         <div>
-                            <strong style={{ color: "#4ade80" }}>{me.name} ({me.clan})</strong>
-                            <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Score: <strong style={{ color: "#4ade80" }}>{myScore}</strong></div>
-                        </div>
-                        <div style={{ textAlign: "center" }}>
-                            <div style={{ color: "#fbbf24", fontWeight: 700 }}>{isMyTurn ? "🟢 YOUR TURN" : "⏳ OPPONENT'S TURN"}</div>
-                            <small style={{ color: "#94a3b8" }}>{secondsRemaining}s</small>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                            <strong style={{ color: "#f87171" }}>{opp.name} ({opp.clan})</strong>
-                            <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Score: <strong style={{ color: "#f87171" }}>{oppScore}</strong></div>
-                        </div>
-                    </div>
-                    {/* 3x3 board */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, maxWidth: 420, margin: "0 auto 1rem" }}>
-                        {session.board.map((cell, idx) => {
-                            const card = cell ? cardStats(cell.cardId) : null;
-                            const owner = cell?.owner;
-                            const isMine = owner === mySide;
-                            const bg = !cell ? (isMyTurn && selectedCardId ? "#1e293b" : "#0b1220") : isMine ? "#15803d" : "#7f1d1d";
-                            return (
-                                <button
-                                    key={idx}
-                                    disabled={!isMyTurn || !selectedCardId || cell !== null || busy}
-                                    onClick={() => void place(idx)}
-                                    style={{
-                                        aspectRatio: "1", padding: 8, background: bg, border: "1px solid #475569",
-                                        borderRadius: 6, color: "#e5e7eb", fontSize: "0.78rem", cursor: cell || !isMyTurn || !selectedCardId ? "default" : "pointer",
-                                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
-                                        position: "relative", minHeight: 80,
-                                    }}
-                                >
-                                    {card && (
-                                        <>
-                                            <strong style={{ fontSize: "0.7rem" }}>{card.id}</strong>
-                                            <div style={{ fontSize: "0.65rem", opacity: 0.85 }}>{card.element}</div>
-                                            <div style={{ fontSize: "0.7rem", marginTop: 2 }}>
-                                                <span style={{ position: "absolute", top: 4, left: "50%", transform: "translateX(-50%)" }}>{card.top}</span>
-                                                <span style={{ position: "absolute", left: 4, top: "50%", transform: "translateY(-50%)" }}>{card.left}</span>
-                                                <span style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)" }}>{card.right}</span>
-                                                <span style={{ position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)" }}>{card.bottom}</span>
-                                            </div>
-                                        </>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {/* My hand */}
-                    <div>
-                        <strong style={{ color: "#94a3b8" }}>Your Hand ({(me.handIds ?? []).length} cards)</strong>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                            {(me.handIds ?? []).map(id => {
-                                const card = cardStats(id);
-                                if (!card) return null;
-                                const sel = selectedCardId === id;
-                                return (
-                                    <button
-                                        key={id}
-                                        disabled={!isMyTurn || busy}
-                                        onClick={() => setSelectedCardId(sel ? "" : id)}
-                                        style={{
-                                            padding: "0.5rem 0.7rem", background: sel ? "#1e3a8a" : "#0b1220",
-                                            border: `2px solid ${sel ? "#60a5fa" : "#334155"}`, borderRadius: 6,
-                                            color: "#e5e7eb", fontSize: "0.78rem", cursor: isMyTurn ? "pointer" : "default",
-                                            display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 90,
-                                        }}
-                                    >
-                                        <strong style={{ fontSize: "0.78rem" }}>{card.id}</strong>
-                                        <small style={{ color: "#94a3b8" }}>{card.element}</small>
-                                        <div style={{ fontSize: "0.72rem", marginTop: 2 }}>
-                                            ↑{card.top} ←{card.left} →{card.right} ↓{card.bottom}
-                                        </div>
+                            <div className="cc-hud">
+                                <b>🃏 Build your 12-card deck</b>
+                                <span className="cc-hud-spacer" />
+                                <span className="cc-turn" style={{ color: "var(--cc-gold)" }}>⏱ {pickSecs}s</span>
+                            </div>
+                            {pickedIds && (
+                                <>
+                                    <div className="cc-deck-meter">
+                                        <span className={`big ${pickerValid ? "ok" : ""}`}>{pickedIds.length}/{CARD_CLASH_DECK_SIZE}</span>
+                                        <span className="cc-muted" style={{ fontSize: 12, marginLeft: "auto" }}>
+                                            Legendary {pickedIds.filter((id) => clashById[id]?.rarity === "legendary").length}/{CARD_CLASH_MAX_LEGENDARY}
+                                        </span>
+                                    </div>
+                                    <button className="cc-btn primary" disabled={busy || !pickerValid} onClick={() => void post("submit-deck", { deck: deckPayload(pickedIds) })} style={{ marginBottom: 10 }}>
+                                        {busy ? "Locking in…" : "✅ Lock in deck"}
                                     </button>
+                                    {ownedCards.length === 0
+                                        ? <div className="cc-empty-note">You own no cards — your auto-built fallback deck will be used at timeout.</div>
+                                        : (
+                                            <div className="cc-grid">
+                                                {ownedCards.map((card) => {
+                                                    const copies = pickedIds.filter((id) => id === card.id).length;
+                                                    const maxed = copies >= deckCopyLimit(card.rarity);
+                                                    return (
+                                                        <div key={card.id} style={{ position: "relative", opacity: maxed ? 0.5 : 1 }}>
+                                                            <CardClashCardView card={card} onClick={() => (copies > 0 ? removePick(card.id) : addPick(card.id))} />
+                                                            {copies > 0 && <span className="cc-tag" style={{ position: "absolute", top: 2, right: 2, background: "#0a1326" }}>×{copies}</span>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                </>
+                            )}
+                        </div>
+                    )
+                )}
+
+                {/* ── Active / done: the board ── */}
+                {view && (view.status === "active" || view.status === "done") && view.match && view.you && (
+                    <>
+                        {view.status === "done" && (
+                            <div className={`cc-result ${view.winner === youKey ? "win" : view.winner === "draw" ? "draw" : "lose"}`}>
+                                <h2>{view.winner === youKey ? "🏆 Victory" : view.winner === "draw" ? "🤝 Draw" : "💀 Defeat"}</h2>
+                                <p className="cc-muted">{view.winner === "draw" ? "No damage on a draw." : "Clan-war HP damage applied automatically."}</p>
+                                <button className="cc-btn gold" onClick={() => setScreen("shinobiCouncil")}>Return to Council Hall</button>
+                            </div>
+                        )}
+
+                        <div className="cc-hud">
+                            <span className="cc-turn">Turn {view.match.turn}<span className="cc-hud-meta"> / 6</span></span>
+                            <span className="cc-chakra">
+                                {Array.from({ length: Math.max(view.match.turn, view.you.chakra) }).map((_, i) => (
+                                    <span key={i} className={`orb${i >= chakraLeft ? " spent" : ""}`} />
+                                ))}
+                                <span className="cc-hud-meta" style={{ marginLeft: 4 }}>{Math.max(0, chakraLeft)} Chakra</span>
+                            </span>
+                            <span className="cc-hud-spacer" />
+                            {view.status === "active" && <span className="cc-hud-meta">⏱ {turnSecs}s · 🟥 opp {view.opponent?.committed ? "✅ committed" : "thinking…"}</span>}
+                        </div>
+
+                        <div className="cc-locations">
+                            {view.match.locations.map((loc, li) => {
+                                const myCards = loc[youKey], oppCards = loc[oppKey];
+                                const youP = myCards.reduce((s, c) => s + c.currentPower + locBonus(c, loc.def.effectType), 0);
+                                const oppP = oppCards.reduce((s, c) => s + c.currentPower + locBonus(c, loc.def.effectType), 0);
+                                const win = youP > oppP ? "winning-player" : oppP > youP ? "winning-opponent" : "";
+                                const stagedHere = staged.filter((s) => s.loc === li);
+                                const canStage = view.status === "active" && !committed && selHand !== null;
+                                return (
+                                    <div key={loc.def.id} className={`cc-loc ${win} ${canStage ? "playable" : ""}`} onClick={() => canStage && tryStage(li)}>
+                                        <div className="cc-loc-head" style={{ "--cc-loc-img": CARD_CLASH_LOCATION_ART[loc.def.id] ? `url(${CARD_CLASH_LOCATION_ART[loc.def.id]})` : undefined } as CSSProperties}><b>{loc.def.name}</b><span className="eff">{loc.def.description}</span></div>
+                                        <div className="cc-zone opp"><div className="cc-slots">
+                                            {oppCards.map((c) => <CardClashCardView key={c.iid} card={resolveServerCard(c)} size="sm" owner="opponent" reveal displayedPower={c.currentPower + locBonus(c, loc.def.effectType)} />)}
+                                            {Array.from({ length: Math.max(0, CARD_CLASH_LOCATION_SLOTS - oppCards.length) }).map((_, i) => <span key={i} className="cc-slot-empty" />)}
+                                        </div></div>
+                                        <div className="cc-power-bar"><span className="opp-p">🟥 {oppP}</span>{canStage && <span className="cc-play-hint">▶ STAGE HERE</span>}<span className="you-p">{youP} 🟦</span></div>
+                                        <div className="cc-zone you"><div className="cc-slots">
+                                            {myCards.map((c) => <CardClashCardView key={c.iid} card={resolveServerCard(c)} size="sm" owner="player" reveal displayedPower={c.currentPower + locBonus(c, loc.def.effectType)} />)}
+                                            {stagedHere.map((s) => { const card = view.you!.hand[s.handIndex]; return <div key={`stg-${s.handIndex}`} style={{ opacity: 0.7 }}><CardClashCardView card={resolveServerCard(card)} size="sm" owner="player" onClick={() => unstage(s.handIndex)} /></div>; })}
+                                            {Array.from({ length: Math.max(0, CARD_CLASH_LOCATION_SLOTS - myCards.length - stagedHere.length) }).map((_, i) => <span key={i} className="cc-slot-empty" />)}
+                                        </div></div>
+                                    </div>
                                 );
                             })}
                         </div>
-                        {!isMyTurn && <p className="hint" style={{ marginTop: 6 }}>Wait for {opp.name} to place a card.</p>}
-                        {isMyTurn && !selectedCardId && <p className="hint" style={{ marginTop: 6 }}>Pick a card from your hand, then click an empty cell.</p>}
-                    </div>
-                    <div style={{ marginTop: "1rem", display: "flex", gap: 8 }}>
-                        <button onClick={() => void forfeit()} disabled={busy} className="danger-button" style={{ fontSize: "0.8rem" }}>Forfeit</button>
-                    </div>
-                </>
-            )}
-            {session && session.status === "done" && (
-                <div style={{ background: youWon ? "#0a2010" : isDraw ? "#1f1606" : "#1f0a0a", border: `1px solid ${youWon ? "#4ade80" : isDraw ? "#fbbf24" : "#f87171"}`, borderRadius: 8, padding: "1.2rem", textAlign: "center" }}>
-                    <h2 style={{ color: youWon ? "#4ade80" : isDraw ? "#fbbf24" : "#f87171", marginTop: 0 }}>
-                        {youWon ? "🏆 Victory" : isDraw ? "🤝 Draw" : "💀 Defeat"}
-                    </h2>
-                    <p>Final score — You: <strong>{myScore}</strong> · Opponent: <strong>{oppScore}</strong></p>
-                    {!isDraw && <p className="hint">Clan-war HP damage applied to the losing clan automatically.</p>}
-                    {isDraw && <p className="hint">No damage on a draw.</p>}
-                    <button onClick={() => setScreen("shinobiCouncil")} style={{ marginTop: 12, padding: "0.5rem 1rem", background: "linear-gradient(#1e3a8a,#172554)", borderColor: "#60a5fa" }}>
-                        🏯 Return to Council Hall
-                    </button>
-                </div>
-            )}
+
+                        {view.status === "active" && (
+                            <>
+                                <div className="cc-hand-wrap">
+                                    <div className="cc-hand-label">Your Hand — {view.you.hand.length} cards{committed ? " · committed, waiting for opponent…" : ""}</div>
+                                    <div className="cc-hand">
+                                        {view.you.hand.map((sc, i) => {
+                                            const isStaged = staged.some((s) => s.handIndex === i);
+                                            const card = resolveServerCard(sc);
+                                            return (
+                                                <div key={`${sc.id}-${i}`} style={{ opacity: isStaged ? 0.4 : 1 }}>
+                                                    <CardClashCardView card={card} selected={selHand === i} onClick={committed || isStaged ? undefined : () => setSelHand(selHand === i ? null : i)} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="cc-controls">
+                                    <span className="cc-muted" style={{ fontSize: 13 }}>
+                                        {committed ? "Committed — waiting for the opponent to commit…" : selHand !== null ? "Tap a location to stage the card" : "Tap a card, then a location. Commit when ready."}
+                                    </span>
+                                    <span className="cc-hud-spacer" />
+                                    {staged.length > 0 && !committed && <button className="cc-btn ghost" onClick={() => setStaged([])}>Clear</button>}
+                                    <button className="cc-btn primary" disabled={busy || committed} onClick={() => void post("commit-turn", { plays: staged })}>
+                                        {committed ? "Committed ✓" : `Commit Turn (${staged.length})`}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="cc-log">{(view.match.log ?? []).slice(-10).map((l, i) => <div key={i}>{l}</div>)}</div>
+                    </>
+                )}
+            </div>
         </div>
     );
 }
