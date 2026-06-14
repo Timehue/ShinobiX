@@ -379,7 +379,7 @@ export function Inventory({
 
                 <section className="inventory-backpack-panel">
                     <div className="inventory-panel-header">
-                        <h2>{inventoryTab === "items" ? "Backpack" : "Shinobi Tile Cards"}</h2>
+                        <h2>{inventoryTab === "items" ? "Backpack" : "Shinobi Card Clash Cards"}</h2>
 
                         <div className="inventory-tabs">
                             <button
@@ -395,7 +395,7 @@ export function Inventory({
                                 className={inventoryTab === "tileCards" ? "active" : ""}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
-                                🃏 Tile Cards
+                                🃏 Card Clash
                             </button>
                         </div>
                     </div>
@@ -516,7 +516,7 @@ export function Inventory({
 
                             {tileCardStacks.length === 0 ? (
                                 <p className="inventory-empty">
-                                    No Shinobi Tile Cards yet. Buy card packs from the Shop or Grand Marketplace.
+                                    No Shinobi Card Clash cards yet. Buy card packs from the Shop or Grand Marketplace.
                                 </p>
                             ) : (
                                 <div className="tile-card-inventory-grid">

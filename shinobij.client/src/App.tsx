@@ -146,7 +146,9 @@ import { type PetArenaOpponent } from "./data/pet-arena-opponents";
 import { PetYard } from "./screens/PetYard";
 import { ClanWarTileCardDuel } from "./screens/ClanWarTileCardDuel";
 import { ShinobiCouncilHall } from "./screens/ShinobiCouncilHall";
-import { ShinobiTiles } from "./components/ShinobiTiles";
+import { CardClashDuel } from "./screens/CardClashDuel";
+import { CardHall } from "./screens/CardHall";
+import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDeck } from "./lib/card-clash";
 import { DungeonEncounter, DungeonPetBattle } from "./screens/Dungeon";
 import { sharedClanWarCache, cwListWars, type CwWar, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
 import { PvpBattleScreen } from "./screens/PvpBattleScreen";
@@ -2651,32 +2653,23 @@ export default function App() {
                 setScreen("petArena");
                 break;
             case "tilecards": {
-                // PvP tile card duel — server-managed session, auto-init
-                // with the player's top 5 cards by stat sum, then route
-                // to the duel screen. Both clients race to init; server
-                // is idempotent and stitches both decks into one session.
+                // PvP Shinobi Card Clash duel — server-managed session, auto-join
+                // with a legal 12-card FALLBACK deck (the player's saved Card Hall
+                // deck if valid, else an auto-built one). The duel screen lets them
+                // customise during the 30s picking phase; on timeout the fallback
+                // is promoted. Both clients race to join; the server is idempotent.
                 const allCards = getAllTileCards([]);
-                const ownedIds: string[] = character.tileCards ?? [];
-                const ownedCards = ownedIds
-                    .map(id => allCards.find(c => c.id === id))
-                    .filter((c): c is TileCard => Boolean(c));
-                // Pick top 5 by stat sum. If fewer than 5 owned, pad
-                // with the strongest canonical cards available so the
-                // duel can still start. Players with no tile-card
-                // collection at all get a basic deck.
-                const sortedOwned = [...ownedCards].sort((a, b) => (b.top + b.right + b.bottom + b.left) - (a.top + a.right + a.bottom + a.left));
-                let deck = sortedOwned.slice(0, 5);
-                if (deck.length < 5) {
-                    const fillerPool = allCards
-                        .filter(c => !deck.some(d => d.id === c.id))
-                        .sort((a, b) => (a.top + a.right + a.bottom + a.left) - (b.top + b.right + b.bottom + b.left));
-                    deck = [...deck, ...fillerPool.slice(0, 5 - deck.length)];
-                }
-                const deckPayload = deck.map(c => ({ id: c.id, element: c.element, top: c.top, right: c.right, bottom: c.bottom, left: c.left }));
-                // Join the session with the auto-picked top-5 as our
-                // FALLBACK deck. The duel screen lets the player
-                // customize their actual deck during the 30s picking
-                // phase; if they time out, the fallback is promoted.
+                const clash = allCards.map(deriveCardClashCard);
+                const byId = Object.fromEntries(clash.map(c => [c.id, c]));
+                const saved = character.cardClashDeck ?? [];
+                const deckIds = validateClashDeck(saved, byId).valid
+                    ? saved
+                    : buildPlayableDeck(character.tileCards ?? [], byId, clash);
+                const deckPayload = deckIds.map(id => {
+                    const c = byId[id];
+                    const ability = c.abilityType === "ongoingElementBoostHere" ? "none" : c.abilityType;
+                    return { id: c.id, element: c.element, rarity: c.rarity, cost: c.cost, power: c.power, ability };
+                });
                 void fetch("/api/clan/war/tilecards", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -6703,8 +6696,8 @@ export default function App() {
                 pushHollowGateLog(`[Tile Seal] ${flavor}`);
                 markResolved();
                 setHollowGateEvent({
-                    title: "Shinobi Tile Seal",
-                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them at the 3×3 tile duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
+                    title: "Shinobi Card Clash Seal",
+                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them in a Shinobi Card Clash duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
                     kind: "tile_game",
                     choices: [
                         {
@@ -7682,7 +7675,7 @@ export default function App() {
                 )}
 
                 {/* App-level battle-lock keeper for the Hollow Gate tile seal.
-                    Lives here (not inside ShinobiTiles, which has many render
+                    Lives here (not inside the duel screen, which has many render
                     branches + leave paths) and is driven by the App-level
                     hollowGateTileGameActive flag, so it reliably locks while the
                     seal is in progress and resolves on win/lose/leave. A refresh
@@ -8864,17 +8857,15 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
-                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} />}
-                {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} dungeonMode tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
+                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={() => setScreen("village")} />}
+                {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
                 {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
                     callbacks all route back to the shrine; loss applies
                     the 20% maxHp penalty. Difficulty scales with floor. */}
                 {!activeTriggeredEvent && screen === "hollowGateTiles" && character && hollowGateRun && (
-                    <ShinobiTiles
+                    <CardClashDuel
                         character={character}
-                        updateCharacter={setCharacter}
                         creatorCards={creatorCards}
-                        dungeonMode
                         dungeonSceneImage={sharedImages["shrine:tile-tile-game"]}
                         tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
                         onDungeonWin={() => {

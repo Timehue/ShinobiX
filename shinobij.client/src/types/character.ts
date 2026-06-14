@@ -154,6 +154,19 @@ export type Character = {
     activePetId2v2?: string;
     tileCards: string[];
     savedTileDeck?: string[];
+    // ── Shinobi Card Clash (Card Hall 3-location card game) ──────────────────
+    // Its own 12-card deck field, kept separate from savedTileDeck so the legacy
+    // Shinobi Tiles encounters (Hollow Gate / clan war) keep working untouched.
+    // All additive/optional: legacy saves treat missing values as "never played".
+    cardClashDeck?: string[];
+    cardClashWins?: number;
+    cardClashLosses?: number;
+    cardClashDraws?: number;
+    // UTC date (YYYY-MM-DD) of the most recent Card Clash win — gates the
+    // once-per-day first-win ryo bonus.
+    cardClashDailyWinDate?: string;
+    // One-time "seen the Card Clash tutorial" flag (matches hollowGateIntroSeen).
+    cardClashTutorialSeen?: boolean;
     element?: string;
     elements?: string[];
     boneCharms: number;
