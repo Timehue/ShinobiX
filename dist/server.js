@@ -112,6 +112,7 @@ const pet_ranked_queue_js_1 = __importDefault(require("./api/pvp/pet-ranked-queu
 // Pet
 const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js"));
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
+const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
 const lobby_js_1 = __importDefault(require("./api/arena/lobby.js"));
 // Jutsu
 const speedup_js_1 = __importDefault(require("./api/jutsu/speedup.js"));
@@ -502,6 +503,7 @@ route('/pvp/pet-ranked-queue', pet_ranked_queue_js_1.default);
 // ─── Pet battle result ─────────────────────────────────────────────────────────
 route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
+route('/pet/evolve', evolve_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);
 // ─── Jutsu training ────────────────────────────────────────────────────────────
