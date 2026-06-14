@@ -57,7 +57,7 @@ Frontend (run inside `shinobij.client/`):
   references. See **`docs/auth-and-anti-cheat-patterns.md`** for the token-first
   auth model and the server-minted single-use token pattern for client-reported
   rewards.
-- **`ShinobiJ.Server/`, `*.slnx`, `*.esproj`** — Visual Studio solution scaffolding; not the runtime.
+- **`*.slnx`, `*.esproj`** — Visual Studio solution scaffolding (client project only); not the runtime. (The unused `ShinobiJ.Server/` .NET WeatherForecast stub — which also exposed unauthenticated API mirrors — was removed 2026-06.)
 
 ## Deployment
 
