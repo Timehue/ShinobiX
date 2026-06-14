@@ -48,9 +48,10 @@ Frontend (run inside `shinobij.client/`):
   helpers in `src/lib/`, types in `src/types/`. `authFetch.ts` wraps
   authenticated API calls; `fingerprint.ts` produces the `x-client-fp` header.
 - **Storage** — Supabase via `@supabase/supabase-js` (and `pg`). Schema in
-  `supabase-schema.sql`; migration notes in `SUPABASE_MIGRATION.md`. A legacy
-  Upstash/Redis KV layer is being migrated out (see `scripts/migrate-upstash-*`
-  and `api/kv-proxy.ts`).
+  `supabase-schema.sql`; migration notes in `SUPABASE_MIGRATION.md`. The legacy
+  Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
+  `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
+  `api/kv-proxy.ts` is the live Railway→cPanel disk-overlay proxy, not Upstash-era.
 - **`scripts/`** — one-off migration and PvP balance-simulation scripts.
 - **`docs/`** — design docs (e.g. `professions.md`) and security/auth
   references. See **`docs/auth-and-anti-cheat-patterns.md`** for the token-first

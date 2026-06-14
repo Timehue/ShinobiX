@@ -31,7 +31,6 @@
         "@types/express": "^5.0.0",
         "@types/node": "^22.0.0",
         "@types/pg": "^8.11.0",
-        "ioredis": "^5.10.1",
         "sharp": "^0.34.5",
         "tsx": "^4.22.3",
         "typescript": "^5.7.0"
