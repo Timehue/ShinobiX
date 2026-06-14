@@ -7,6 +7,7 @@ import {
     mythicSignatureMechanic,
     balanceBuiltInPetTemplate,
     mergePetJutsuSlots,
+    applyAuthoredPetJutsus,
     type PetTemplateArchetype,
 } from "./pet-balance";
 import { rawPetPool } from "../data/pet-pool";
@@ -235,4 +236,50 @@ test("migration keeps an extra player-only slot when the template has fewer", ()
     assert.equal(out.length, 3);
     assert.equal(out[1].kind, "heal"); // no template slot → player slot kept
     assert.equal(out[2].kind, "move");
+});
+
+// ── Admin-published (authored) kit (applyAuthoredPetJutsus) ────────────────
+
+test("authored: a renamed/recooled slot adopts the admin effect but keeps leveled power", () => {
+    const player = [
+        jt({ name: "Gale Slash", kind: "damage", power: 250, cooldown: 2 }),   // leveled
+        jt({ name: "Tengu Focus", kind: "buff", power: 30, cooldown: 3 }),
+    ];
+    const authored = [
+        jt({ name: "Storm Fang", kind: "damage", power: 120, cooldown: 3 }),    // renamed + recooled
+        jt({ name: "Tengu Focus", kind: "buff", power: 30, cooldown: 3 }),
+    ];
+    const out = applyAuthoredPetJutsus(player, authored);
+    assert.equal(out[0].name, "Storm Fang");
+    assert.equal(out[0].cooldown, 3);          // admin effect wins
+    assert.equal(out[0].power, 250);           // leveled power preserved (max)
+    assert.ok(out.every(j => j.currentCooldown === 0));
+});
+
+test("authored: an admin REMOVAL shortens the kit to the template length", () => {
+    const player = [jt({ name: "A", kind: "damage", power: 100 }), jt({ name: "B", kind: "heal", power: 80 }), jt({ name: "C", kind: "move" })];
+    const authored = [jt({ name: "A", kind: "damage", power: 60 })];   // admin deleted B and C
+    const out = applyAuthoredPetJutsus(player, authored);
+    assert.equal(out.length, 1);
+    assert.equal(out[0].name, "A");
+    assert.equal(out[0].power, 100);            // leveled power kept
+});
+
+test("authored: an admin ADDITION backfills a trailing slot from the template", () => {
+    const player = [jt({ name: "A", kind: "damage", power: 100 })];
+    const authored = [jt({ name: "A", kind: "damage", power: 60 }), jt({ name: "Newfang", kind: "crush", power: 90, cooldown: 4 })];
+    const out = applyAuthoredPetJutsus(player, authored);
+    assert.equal(out.length, 2);
+    assert.equal(out[1].name, "Newfang");
+    assert.equal(out[1].kind, "crush");
+    assert.equal(out[1].power, 90);             // no player slot → template power
+});
+
+test("authored merge is idempotent", () => {
+    const authored = [jt({ name: "A", kind: "damage", power: 60 }), jt({ name: "B", kind: "mark", power: 0, cooldown: 4, rounds: 3 })];
+    const once = applyAuthoredPetJutsus(authored, authored);
+    const twice = applyAuthoredPetJutsus(once, authored);
+    assert.deepEqual(twice.map(j => j.name), authored.map(j => j.name));
+    assert.deepEqual(twice.map(j => j.kind), authored.map(j => j.kind));
+    assert.deepEqual(twice.map(j => j.power), authored.map(j => j.power));
 });
