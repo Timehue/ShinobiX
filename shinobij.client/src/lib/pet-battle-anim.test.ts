@@ -36,6 +36,20 @@ test("petBattleSprite: full-body sprite wins via petbody shared image (base id)"
     assert.equal(src, "shared-body.png");
 });
 
+test("petBattleSprite: an evolved starter prefers its stage art, else falls back to base", () => {
+    const evolved = mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 });
+    // Stage art (visualId starter-fire-r) wins when published.
+    assert.equal(
+        petBattleSprite(evolved, { "petbody:starter-fire-r": "rare-body.png", "petbody:starter-fire": "base-body.png" }).src,
+        "rare-body.png",
+    );
+    // Missing stage art → falls back to the base starter art (no regression).
+    assert.equal(
+        petBattleSprite(evolved, { "petbody:starter-fire": "base-body.png" }).src,
+        "base-body.png",
+    );
+});
+
 test("petBattleLayers: all three bands present → returns the layer set", () => {
     const layers = petBattleLayers(mkPet({}), {
         "petlayers:standard-1:far": "f.png",

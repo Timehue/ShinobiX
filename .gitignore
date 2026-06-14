@@ -396,6 +396,11 @@ tmp/
 # locally, publish via /api/images, don't commit the raw generated WebPs.
 shinobij.client/asset-gen-out/
 
+# Evolved-pet 3D models (scripts/gen-pet-3d.mjs, fal Hunyuan3D) — ~3.5MB each,
+# ~38MB total, not wired into the cutscene yet (CSS spin is the default) and not
+# visually QA'd. Kept locally; too heavy to commit. Optimize / CDN-host before use.
+shinobij.client/public/pet-models/
+
 # Composite badge sources — re-export from AI tool if needed; sliced output in shinobij.client/public/badges/ is committed
 scripts/badge-sources/
 

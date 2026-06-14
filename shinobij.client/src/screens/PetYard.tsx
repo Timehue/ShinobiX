@@ -1,10 +1,13 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
 import type { Character } from "../types/character";
-import type { PetExpeditionType, PetTrainingType } from "../types/pet";
+import type { Pet, PetExpeditionType, PetTrainingType } from "../types/pet";
 import type { Screen } from "../types/core";
 import { boostAmount, getPetXpBonus } from "../lib/village-upgrades";
 import { capPetStats, collectPetTraining, gainPetXp, petTrainingGains, petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
+import { nextEvolution, EVOLUTION_STONE_NAMES, petVisualId } from "../data/pet-evolutions";
+import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
+import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
 import { currentDateKey, formatPetTimer } from "../lib/utils";
 import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
@@ -24,6 +27,9 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
     const [petHeartBurst, setPetHeartBurst] = useState(0);
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
+    const [evolveBusy, setEvolveBusy] = useState(false);
+    const [evolveMsg, setEvolveMsg] = useState("");
+    const [evolveCutscene, setEvolveCutscene] = useState<{ pet: Pet; oldName: string; oldImage?: string } | null>(null);
     // Pet escort offer state (Pet Tamer in clan only).
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
     const [escortBusy, setEscortBusy] = useState(false);
@@ -410,11 +416,70 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         setSelectedPetId(updatedPets[0]?.id ?? "");
     }
 
+    // Server-authoritative starter evolution. The endpoint validates the level
+    // gate + consumes one stone + computes the evolved stats; we only mirror the
+    // result (replace the pet, drop one consumed stone) into the local save.
+    async function evolveSelectedPet() {
+        if (!selectedPet || evolveBusy) return;
+        const next = nextEvolution(selectedPet);
+        if (!next) return;
+        const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "evolution stone";
+        if (selectedPet.level < next.requiredLevel) { setEvolveMsg(`❌ Reach level ${next.requiredLevel} first.`); return; }
+        if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`❌ Need ${stoneName} (Grand Marketplace).`); return; }
+        if (!confirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`)) return;
+        const oldName = petDisplayName(selectedPet);
+        const oldImage = selectedPet.image ?? selectedPet.bodyImage ?? `/pet-poses/${selectedPet.id}-idle.webp`;
+        setEvolveBusy(true); setEvolveMsg("");
+        try {
+            const res = await fetch("/api/pet/evolve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, petId: selectedPet.id }),
+            });
+            const data = await res.json().catch(() => ({})) as { pet?: Pet; error?: string };
+            if (!res.ok || !data.pet) { setEvolveMsg(`❌ ${data.error ?? "Evolution failed."}`); setEvolveBusy(false); return; }
+            // Point the evolved pet at its generated stage art (served from
+            // public/pet-evos/<visualId>.webp). image/bodyImage are the universal
+            // portrait/sprite source, so this lights up the cutscene reveal, the
+            // Pet Yard portrait, and the arena sprite at once.
+            const evoArt = `/pet-evos/${petVisualId(data.pet)}.webp`;
+            const evolved: Pet = { ...data.pet, image: evoArt, bodyImage: evoArt };
+            const invIdx = character.inventory.indexOf(next.requiredItem);
+            const nextInventory = invIdx >= 0
+                ? [...character.inventory.slice(0, invIdx), ...character.inventory.slice(invIdx + 1)]
+                : character.inventory;
+            updateCharacter({
+                ...character,
+                inventory: nextInventory,
+                pets: character.pets.map((p) => (p.id === selectedPet.id ? evolved : p)),
+            });
+            if (petEvolveCutsceneEnabled()) {
+                setEvolveCutscene({ pet: evolved, oldName, oldImage });
+                setEvolveMsg("");
+            } else {
+                setEvolveMsg(`✅ Evolved into ${evolved.name}!`);
+            }
+        } catch {
+            setEvolveMsg("❌ Network error — try again.");
+        }
+        setEvolveBusy(false);
+    }
+
     const expTypeLabel: Record<PetExpeditionType, string> = { scout: "Scout Routes", forage: "Forage Wilds", ruins: "Explore Old Ruins" };
     const expTypeIcon:  Record<PetExpeditionType, string> = { scout: "🏃", forage: "🌿", ruins: "🏛️" };
 
     return (
         <div className="pet-yard-screen">
+
+            {evolveCutscene && (
+                <PetEvolutionCutscene
+                    pet={evolveCutscene.pet}
+                    oldName={evolveCutscene.oldName}
+                    oldImage={evolveCutscene.oldImage}
+                    newImage={evolveCutscene.pet.image}
+                    onClose={() => setEvolveCutscene(null)}
+                />
+            )}
 
             {/* ── Expedition reward modal ── */}
             {expeditionResult && (
@@ -591,6 +656,29 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                 <span>💨 SPD: {selectedPet.speed}</span>
                             </div>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
+                            {(() => {
+                                const next = nextEvolution(selectedPet);
+                                if (!next) return null;
+                                const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "Evolution Stone";
+                                const hasLevel = selectedPet.level >= next.requiredLevel;
+                                const hasStone = character.inventory.includes(next.requiredItem);
+                                const ready = hasLevel && hasStone;
+                                return (
+                                    <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid #7c3aed", borderRadius: 8, padding: 8, background: "rgba(124,58,237,0.10)" }}>
+                                        <h4 style={{ margin: "0 0 4px" }}>✨ Evolution</h4>
+                                        <p className="hint" style={{ margin: "0 0 4px" }}>{petDisplayName(selectedPet)} → <strong>{next.name}</strong> <span style={{ textTransform: "capitalize" }}>({next.rarity})</span></p>
+                                        <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.72rem" }}>{next.description}</p>
+                                        <ul style={{ margin: "0 0 6px", paddingLeft: 16, fontSize: "0.72rem", listStyle: "none" }}>
+                                            <li style={{ color: hasLevel ? "#4ade80" : "#f87171" }}>{hasLevel ? "✓" : "✗"} Level {next.requiredLevel} (now {selectedPet.level})</li>
+                                            <li style={{ color: hasStone ? "#4ade80" : "#f87171" }}>{hasStone ? "✓" : "✗"} {stoneName}</li>
+                                        </ul>
+                                        <button onClick={evolveSelectedPet} disabled={!ready || evolveBusy} style={{ width: "100%" }}>
+                                            {evolveBusy ? "Evolving…" : ready ? `✨ Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
+                                        </button>
+                                        {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
+                                    </section>
+                                );
+                            })()}
                             <div className="pet-care-actions">
                                 <button onClick={petSelectedPet}>Pet +10% Happiness</button>
                             </div>
