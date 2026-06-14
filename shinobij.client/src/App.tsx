@@ -10388,7 +10388,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
             )}
 
             <p className="hint" style={{ marginTop: 14, fontSize: "0.78rem" }}>
-                Tip: Clan wars deal HP damage by challenge type — Combat ({CW_DAMAGE.pvp1v1} / {CW_DAMAGE.pvp2v2}) &gt; Pet ({CW_DAMAGE.pet1v1} / {CW_DAMAGE.pet2v2}) &gt; Tile Cards ({CW_DAMAGE.tilecards}). Drive the enemy clan to 0 HP to win.
+                Tip: Clan wars deal HP damage by challenge type — Combat ({CW_DAMAGE.pvp1v1} / {CW_DAMAGE.pvp2v2}) &gt; Pet ({CW_DAMAGE.pet1v1} / {CW_DAMAGE.pet2v2}) &gt; Card Clash ({CW_DAMAGE.tilecards}). Drive the enemy clan to 0 HP to win.
             </p>
             <p className="hint" style={{ fontSize: "0.72rem", color: "#64748b" }}>You are playing as {character.name}.</p>
         </div>

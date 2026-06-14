@@ -34,17 +34,17 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−20 HP</div>
                 <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>🐾🐾 Pet 2v2</div>
                 <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−40 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>🃏 Tile Cards</div>
+                <div style={{ padding: "0.3rem 0.6rem" }}>🃏 Card Clash</div>
                 <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−10 HP</div>
             </div>
             <p style={{ margin: "0 0 0.6rem" }}>
                 <strong style={{ color: "#60a5fa" }}>3. 2v2 needs 2 players per side.</strong> Both sending and accepting use a quick queue: one player opens the slot, a clanmate joins as partner, and the match goes live. Anyone can leave the queue before it fills.
             </p>
             <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>4. Accept = play.</strong> When the defender accepts, <em>both clients are auto-pulled into the battle</em>. PvP / Pet / Tile-Card screens open on their own. Fight, and the server records the result — no buttons to click after the win.
+                <strong style={{ color: "#60a5fa" }}>4. Accept = play.</strong> When the defender accepts, <em>both clients are auto-pulled into the battle</em>. PvP / Pet / Card Clash screens open on their own. Fight, and the server records the result — no buttons to click after the win.
             </p>
             <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", background: "#0a1a2a", border: "1px solid #60a5fa", borderRadius: 6, padding: "0.5rem 0.7rem" }}>
-                <strong style={{ color: "#60a5fa" }}>🃏 Tile-card duels:</strong> after accept you get <strong>30 seconds</strong> to pick 5 cards from your collection and hit <em>Lock in deck</em>. If both players ready up early the match starts immediately; otherwise the auto-picked top-5 deck is used. Then a <strong>coin flip</strong> decides who goes first. Place cards on a 3x3 board, capture by edge strength. Board full → winner gets credited.
+                <strong style={{ color: "#60a5fa" }}>🃏 Card Clash duels:</strong> after accept you get <strong>30 seconds</strong> to lock in a <strong>12-card deck</strong> (your saved Card Hall deck is pre-filled). Then it's <strong>Shinobi Card Clash</strong>: 3 random locations, 6 turns, and chakra that ramps each turn. Both duelists secretly commit their plays each turn, then reveal at once. Win <strong>2 of the 3 locations</strong> to take the duel — winner gets credited.
             </p>
             <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}>
                 ⏳ <strong>Don't ghost.</strong> Pending challenges expire after <strong>1 hour</strong> if the defender does nothing — each expired challenge takes <strong>−5 HP</strong> off the defender's clan.
