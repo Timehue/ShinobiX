@@ -44,6 +44,7 @@ import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWo
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS } from "../assets/coliseum/pet-poses-manifest";
+import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
@@ -441,7 +442,7 @@ function Standee({
     // Flipbook: swap to the pose frame matching the active beat (else the single
     // sprite). The pose category derives from the SAME state the choreography
     // uses, so the attack POSE lands together with the lunge MOTION.
-    const poses = usePetPoses(pet.id, mirrored);
+    const poses = usePetPoses(petVisualId(pet), mirrored);
     const poseCat = poseCategory(fainted ? "ko" : pose);
     const useTex = poses ? poses.tex[poseCat] : texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : bounds;
@@ -1445,7 +1446,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>;
 }) {
     const sprite = usePetSprite(pet, sharedImages, false);   // base art faces RIGHT; facing is flipped per-frame
-    const poses = usePetPoses(pet.id, false);
+    const poses = usePetPoses(petVisualId(pet), false);
     const group = useRef<THREE.Group>(null);
     const flip = useRef<THREE.Group>(null);                   // sprite flips here to face the target (nameplate stays unflipped)
     const facing = useRef(mirror ? -1 : 1);
@@ -1855,7 +1856,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     result: ArenaResult; clock: { current: DuelClock }; id: string; pet: Pet; sharedImages: Record<string, string>;
 }) {
     const sprite = usePetSprite(pet, sharedImages, false);
-    const poses = usePetPoses(pet.id, false);
+    const poses = usePetPoses(petVisualId(pet), false);
     const group = useRef<THREE.Group>(null);
     const flip = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);

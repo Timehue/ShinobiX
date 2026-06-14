@@ -664,6 +664,22 @@ export function scaleEventPetOpponent(pet: Pet, battle?: EventPetBattleInput): P
     });
 }
 
+/**
+ * Whether a pet may appear as a random wild befriend in explore-tile
+ * encounters. Two independent guards (belt-and-suspenders):
+ *   1. An explicit `wildSpawnable: false` flag (set on the starter base forms
+ *      AND their evolved templates), and
+ *   2. The `starter-` id prefix convention (covers `starter-fire`,
+ *      `starter-fire-r`, `starter-fire-l`, …) so even an un-flagged starter
+ *      template stays out of the wild.
+ * Both the starters and their evolutions live in the pool ONLY so the admin
+ * Pet Editor can image them — they must never spawn for players.
+ * See docs/pet-starter-evolution-plan.md §3.6.
+ */
+export function isWildSpawnable(pet: Pet): boolean {
+    return pet.wildSpawnable !== false && !pet.id.startsWith("starter-");
+}
+
 export function rollPetEncounter(pets: Pet[]): Pet | null {
     const roll = Math.random();
 
@@ -677,10 +693,11 @@ export function rollPetEncounter(pets: Pet[]): Pet | null {
         const rarityIndex = petRarityOrder.indexOf(rarity);
         const fallbackRarities = petRarityOrder.slice(0, rarityIndex + 1).reverse();
         for (const fallbackRarity of fallbackRarities) {
-            // Exclude the choose-at-creation starter companions — they live in
-            // petPool only so the admin Pet Editor can image them; they should
-            // never appear as a random wild befriend (would spawn duplicates).
-            const pool = pets.filter((pet) => pet.rarity === fallbackRarity && !pet.id.startsWith("starter-"));
+            // Exclude the choose-at-creation starter companions AND their
+            // evolved templates — they live in petPool only so the admin Pet
+            // Editor can image them; they must never appear as a random wild
+            // befriend. See isWildSpawnable.
+            const pool = pets.filter((pet) => pet.rarity === fallbackRarity && isWildSpawnable(pet));
             const chosen = pool[Math.floor(Math.random() * pool.length)];
             if (chosen) return cloneEncounterPet(chosen);
         }
