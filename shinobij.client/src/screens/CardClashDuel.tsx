@@ -43,6 +43,7 @@ export function CardClashDuel({
     dungeonSceneImage,
     onDungeonWin,
     onDungeonLose,
+    onDungeonDraw,
     onDungeonLeave,
 }: {
     character: Character;
@@ -52,6 +53,8 @@ export function CardClashDuel({
     onDungeonWin: () => void;
     /** Loss handler (e.g. Hollow Gate's 20% maxHp penalty). Falls back to leave. */
     onDungeonLose?: () => void;
+    /** Draw handler. If unset, a draw is treated as a loss (seals require a win). */
+    onDungeonDraw?: () => void;
     onDungeonLeave: () => void;
 }) {
     const allCards = useMemo(() => getAllTileCards(creatorCards), [creatorCards]);
@@ -81,6 +84,7 @@ export function CardClashDuel({
     // the loss stakes (or just leave when the caller has no loss handler).
     function resolve() {
         if (match.winner === "player") onDungeonWin();
+        else if (match.winner === "draw") (onDungeonDraw ?? onDungeonLose ?? onDungeonLeave)();
         else (onDungeonLose ?? onDungeonLeave)();
     }
 

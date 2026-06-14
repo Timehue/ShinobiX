@@ -18,6 +18,7 @@ import {
 import { equipmentSlotLabel, equipSlotForItem, isGloveItem, normalizeEquipmentSlot } from "../lib/equipment";
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
+import { deriveCardClashCard } from "../lib/card-clash";
 
 export function Inventory({
     character,
@@ -542,8 +543,7 @@ export function Inventory({
                                             <strong>{card?.name ?? id}</strong>
 
                                             <div className="tile-card-mini-stats">
-                                                <span>T:{card?.top ?? "?"} R:{card?.right ?? "?"}</span>
-                                                <span>B:{card?.bottom ?? "?"} L:{card?.left ?? "?"}</span>
+                                                <span>⏣ {card ? deriveCardClashCard(card).cost : "?"} · ⚔ {card ? deriveCardClashCard(card).power : "?"}</span>
                                                 <span>{card?.element ?? "Unknown"}</span>
                                             </div>
 
@@ -569,9 +569,15 @@ export function Inventory({
                                         ×
                                     </button>
                                     <strong>{selectedTileCard.card.name}</strong>
-                                    <p className="hint">
-                                        {selectedTileCard.card.rarity} {selectedTileCard.card.element} card | T:{selectedTileCard.card.top} R:{selectedTileCard.card.right} B:{selectedTileCard.card.bottom} L:{selectedTileCard.card.left} | Owned x{selectedTileCard.count}
-                                    </p>
+                                    {(() => {
+                                        const clash = deriveCardClashCard(selectedTileCard.card);
+                                        return (
+                                            <p className="hint">
+                                                {selectedTileCard.card.rarity} {selectedTileCard.card.element} · ⏣ {clash.cost} Chakra · ⚔ {clash.power} Power · {clash.role} | Owned x{selectedTileCard.count}
+                                                <br />{clash.abilityText}
+                                            </p>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </>
