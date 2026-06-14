@@ -100,6 +100,7 @@ import missionsDailyHandler          from './api/missions/daily.js';
 import missionsReportRaidHandler     from './api/missions/report-raid.js';
 import missionsReportPvpWinHandler   from './api/missions/report-pvp-win.js';
 import missionsReportPetEventHandler from './api/missions/report-pet-event.js';
+import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 // PvP — realtime + rewards + queues
 import pvpChatHandler           from './api/pvp/chat.js';
 import pvpSpectateHandler       from './api/pvp/spectate.js';
@@ -541,6 +542,7 @@ route('/missions/daily',            missionsDailyHandler);
 route('/missions/report-raid',      missionsReportRaidHandler);
 route('/missions/report-pvp-win',   missionsReportPvpWinHandler);
 route('/missions/report-pet-event', missionsReportPetEventHandler);
+route('/missions/claim-mission',    missionsClaimMissionHandler);
 
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic

@@ -14,6 +14,7 @@ import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
+import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { weatherForBiome } from "../data/sectors";
 import {
     gainXp,
@@ -68,7 +69,7 @@ export function Logbook({
     const defeatedAiIds = character.defeatedAiIds ?? [];
     const examProctor = creatorAis.find((ai) => ai.id === "builtin-ai-exam-proctor");
     const rogueNinja = creatorAis.find((ai) => ai.id === "builtin-ai-rogue-ninja");
-    type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string };
+    type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string; goScreen?: Screen; goLabel?: string };
     type ExamLogbookMission = { title: string; examKey: string; unlockLevel: number; requirements: ExamRequirement[] };
     const availableLogbookMissions = mergeBuiltinMissions(creatorMissions);
     const assignedMissions = acceptedMissionIds
@@ -150,24 +151,37 @@ export function Logbook({
             ? {
                 title: "Academy Training",
                 requirements: [
-                    { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2" },
-                    { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu" },
-                    { label: "Win your first battle", progress: character.totalAiKills ?? 0, target: 1, detail: "Fight in the Arena or a hunt" },
-                    { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds" },
-                    { label: "Complete your first mission", progress: character.totalMissionsCompleted ?? 0, target: 1, detail: "Accept a D-rank mission below" },
-                    { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it" },
+                    { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
+                    { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
+                    { label: "Win your first battle", progress: character.totalAiKills ?? 0, target: 1, detail: "Fight in the Arena or a hunt", goScreen: "battleArena", goLabel: "Go Arena" },
+                    { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
+                    { label: "Complete your first mission", progress: character.totalMissionsCompleted ?? 0, target: 1, detail: "Accept a D-rank mission below", goScreen: "missions", goLabel: "Go to Mission Hall" },
+                    { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it", goScreen: "battleArena", goLabel: "Go Arena" },
                 ],
             }
             : null;
     const academyComplete = academyChecklist ? academyChecklist.requirements.every((r) => r.progress >= r.target) : false;
 
-    function claimMission(mission: CreatorMission) {
+    // Server-authoritative for built-in field missions; creator-authored missions
+    // fall back to the legacy client payout (clientFallback). Mirrors Missions.claimFetchMission.
+    async function claimMission(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
         const raidReq = missionRaidRequirement(mission);
         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
         if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
         if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
+        const result = await postClaimMission(character.name, "field", mission.id);
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.applied) {
+            updateCharacter(applyServerMissionReward(character, result, gainXp));
+            setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
+            setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+            alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
+            return;
+        }
+        if (!result.clientFallback) return alert(claimReasonMessage(result.reason));
+        // Legacy client payout for creator-authored missions only.
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -257,6 +271,7 @@ export function Logbook({
                 <p>{progressText}{requirement.detail ? ` | ${requirement.detail}` : ""}</p>
                 <div className="mission-progress"><span style={{ width: `${Math.min(100, (requirement.progress / requirement.target) * 100)}%` }}></span></div>
                 {requirement.aiId && !complete && <button onClick={() => startExamFight(requirement.aiId as string)}>Fight {requirement.label.replace("Defeat ", "")}</button>}
+                {requirement.goScreen && !complete && <button onClick={() => setScreen(requirement.goScreen as Screen)}>{requirement.goLabel ?? "Go"}</button>}
             </div>
         );
     }
@@ -289,6 +304,20 @@ export function Logbook({
                     </section>
                 </>
             )}
+            <details className="summary-box mission-board-section" style={{ marginBottom: 12 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>🎓 Academy Help — how the game works</summary>
+                <div style={{ marginTop: 8, lineHeight: 1.5, fontSize: 14 }}>
+                    <p><strong>What should I do next?</strong> Follow your Academy goals above, top to bottom. Each one teaches a system and rewards you.</p>
+                    <p><strong>AP (Action Points).</strong> Each turn in battle you spend AP on Basic Attacks and Jutsu. When AP runs low, press End Turn / Wait to recover it.</p>
+                    <p><strong>Training.</strong> At the Training Grounds you pick a stat and a timer. Short timers are quick active play; long timers keep progressing while you're away.</p>
+                    <p><strong>Jutsu.</strong> Jutsu are your combat identity. Your bloodline gives you a starter set; unlock and equip more, and using them in battle raises their mastery.</p>
+                    <p><strong>Missions.</strong> Accept a mission, complete the task (fight or explore), then return to the Mission Hall and claim the reward. That do → return → claim loop is the core of the game.</p>
+                    <p><strong>Pets.</strong> Your companion fights with you in PvE and the Pet Arena. Manage pets, training, and expeditions at the Pet Yard.</p>
+                    <p><strong>Healing.</strong> After a tough fight, visit the Hospital to recover HP.</p>
+                    <p><strong>Story.</strong> Your village story unlocks once you finish Academy Training — then visit the Story Hall.</p>
+                    <p><strong>Reaching Genin.</strong> Level up to 15 and pass the Genin Exam (it appears here in your Logbook) to graduate from Academy Student.</p>
+                </div>
+            </details>
             {examMissions.length > 0 && (
                 <>
                     <h3>Rank Exams</h3>
@@ -349,7 +378,7 @@ export function Logbook({
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {!accepted ? <button onClick={() => acceptMission(mission)}>Accept</button> : complete ? <button onClick={() => claimMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    {!accepted ? <button onClick={() => acceptMission(mission)}>Accept</button> : complete ? <button onClick={() => { void claimMission(mission); }}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
                                 </div>
                             </div>
                         );
@@ -415,7 +444,7 @@ export function Logbook({
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {complete ? <button onClick={() => claimMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    {complete ? <button onClick={() => { void claimMission(mission); }}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
                                     <button className="danger-button" onClick={() => abandonMission(mission.id)}>Abandon</button>
                                 </div>
                             </div>

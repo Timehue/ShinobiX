@@ -51,6 +51,7 @@ import {
 import {
 } from "./lib/jutsu-points";
 import { normalizeJutsu } from "./lib/jutsu";
+import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
     starterBloodlineOffense,
     rebalanceNonBloodlineJutsu,
@@ -158,6 +159,7 @@ import { claimPendingWarCrates, damageSectorTerritory, grantTerritoryScrolls, hy
 import { StartScreen } from "./screens/StartScreen";
 import { PetBattleAvatar } from "./components/PetBattleAvatar";
 import { OnboardingCoach } from "./components/OnboardingCoach";
+import { ScreenHint } from "./components/ScreenHint";
 import { Village } from "./screens/Village";
 
 // ─── Core game types ─────────────────────────────────────────────────────
@@ -668,7 +670,7 @@ export type PendingArenaStoryBattle =
         // Academy Sparring Match — the onboarding "guaranteed first win".
         // A deliberately weak Lv-1 training dummy (low HP, Lv-1 offense) so a
         // combat-ready new player wins in a few hits. On win the spar branch in
-        // completePendingArenaStoryBattle advances onboardingStep → "tour".
+        // completePendingArenaStoryBattle advances onboardingStep → "training".
         kind: "academySparring";
         returnScreen: Screen;
     };
@@ -1687,9 +1689,9 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         stamina: maxStaminaForLevel(1),
         maxStamina: maxStaminaForLevel(1),
         rankTitle: "Academy Student",
-        // Begin onboarding at the choose-your-companion overlay; it hands off
-        // to "tour" once the player picks a starter pet (StarterPetSelect).
-        onboardingStep: "starter",
+        // Begin onboarding at the Academy intro modal; "Begin Academy Training"
+        // hands off to the choose-your-companion overlay (StarterPetSelect).
+        onboardingStep: "academyIntro",
         stats: baseStats(),
         unspentStats: STARTING_STAT_POINTS,
         equippedJutsuIds: bloodlineJutsuIds.slice(0, 3),
@@ -4206,6 +4208,8 @@ export default function App() {
         if (!character || activeTriggeredEvent) return;
         // Don't interrupt battle screens — let the VN fire after the player returns
         if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return;
+        // Gate the village story behind tutorial completion (skip sets "done").
+        if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
         const step = getCurrentStory(character);
         if (!step || character.level < step.levelReq) return;
         const village = character.storyVillage || character.village;
@@ -4787,7 +4791,8 @@ export default function App() {
     // is active so the uploaded art shows instead of the emoji fallback.
     // Idempotent — loadCategory's loadedCatsRef guard skips a re-fetch.
     useEffect(() => {
-        if (character?.onboardingStep === "starter") void loadCategory('pet');
+        // academyIntro preloads a beat early so portraits are ready at "Begin".
+        if (character?.onboardingStep === "starter" || character?.onboardingStep === "academyIntro") void loadCategory('pet');
     }, [character?.onboardingStep]);
 
     // Keep a ref to the latest save payload so the interval always uses current data.
@@ -5847,7 +5852,7 @@ export default function App() {
     // deliberately weak Lv-1 training dummy via the existing story-battle infra
     // (temporaryStoryAi + pendingArenaStoryBattle). The dummy has tiny HP and
     // Lv-1 offense, so a new player (who spawns combat-ready with 3 bloodline
-    // jutsu) wins in a few hits. The win advances onboardingStep → "tour" in
+    // jutsu) wins in a few hits. The win advances onboardingStep → "training" in
     // completePendingArenaStoryBattle; a loss just returns to the village and
     // re-prompts. Fully client-side (AI fight) — no server/PvP path.
     function startAcademySparringMatch() {
@@ -6106,8 +6111,7 @@ export default function App() {
         }
 
         if (pendingArenaStoryBattle.kind === "academySparring") {
-            // First-win dopamine: a modest one-time XP/ryo reward (not farmable —
-            // the step advances) + full heal, then hand off to the menu tour.
+            // First-win dopamine: modest one-time XP/ryo + full heal, then go train.
             const SPAR_XP = 60;
             const leveled = gainXp({ ...character, hp: survivingHp }, SPAR_XP);
             setCharacter({
@@ -6116,11 +6120,11 @@ export default function App() {
                 hp: leveled.maxHp,
                 stamina: leveled.maxStamina,
                 chakra: leveled.maxChakra,
-                onboardingStep: "tour",
+                onboardingStep: "training",
             });
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
-            return `Sparring match won! You bested the Academy training dummy. +${effectiveCharacterXpGain(character, SPAR_XP)} XP, +30 ryo. Time to tour your village.`;
+            return `Sparring match won! You bested the Academy training dummy. +${effectiveCharacterXpGain(character, SPAR_XP)} XP, +30 ryo. Time to start your training.`;
         }
 
         if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
@@ -8549,8 +8553,8 @@ export default function App() {
                                 pets: [...character.pets, granted],
                                 activePetId: granted.id,
                                 // Hand off to the guaranteed-first-win spar; the spar
-                                // win advances to the menu tour.
-                                onboardingStep: "spar",
+                                // win advances to the first stat-training objective.
+                                onboardingStep: "academySpar",
                             };
                             setCharacter(updated);
                             // Push immediately so the starter isn't lost on a fast refresh
@@ -8587,12 +8591,9 @@ export default function App() {
                 )}
 
                 {character
-                    && character.onboardingStep
-                    && character.onboardingStep !== "done"
+                    && normalizeOnboardingStep(character.onboardingStep) !== "done"
                     && screen !== "villageLore"
-                    // Never overlay a coach modal during the arena battle — this
-                    // covers the spar fight itself and the post-win victory screen
-                    // (the "tour" beat then fires once the player returns to the village).
+                    // Coach is hidden during the spar (the in-battle SparCoach handles it).
                     && screen !== "arena"
                     && character.name !== "Admin 1"
                     && character.name !== "Admin 2"
@@ -8605,6 +8606,11 @@ export default function App() {
                         updateCharacter={setCharacter}
                         onStartSpar={startAcademySparringMatch}
                     />
+                )}
+
+                {/* One-time contextual hints for free-roam systems (post-onboarding). */}
+                {character && character.name !== "Admin 1" && character.name !== "Admin 2" && (
+                    <ScreenHint screen={screen} character={character} updateCharacter={setCharacter} />
                 )}
 
                 {!activeTriggeredEvent && screen === "village" && character && (
