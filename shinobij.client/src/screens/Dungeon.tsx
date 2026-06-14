@@ -2,7 +2,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
-import { ShinobiTiles } from "../components/ShinobiTiles";
+import { CardClashDuel } from "./CardClashDuel";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type TileCard } from "../data/tile-cards";
 import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
@@ -83,7 +83,7 @@ export function DungeonEncounter({
         if (!isLastLine) setLineIndex((line) => line + 1);
     }
     if (stage === "tile" && isLastLine) {
-        return <ShinobiTiles character={character} updateCharacter={updateCharacter} creatorCards={creatorCards} dungeonMode onDungeonWin={onTileWin} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
+        return <CardClashDuel character={character} creatorCards={creatorCards} onDungeonWin={onTileWin} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
     }
     if (stage === "pet" && isLastLine) {
         return <DungeonPetBattle character={character} updateCharacter={updateCharacter} editablePets={editablePets} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
