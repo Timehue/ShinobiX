@@ -217,3 +217,48 @@ export function petFxSpriteKey(input: {
     if (beat === "guard") return { key: "shield" };
     return { key: "" };
 }
+
+// ── Tactical-arena role-ability + KO sprite picks ────────────────────────────
+// The tactical arena (PetColiseumArena) fired ONE generic puff for every role
+// ability, so an assassinate, a taunt-shield, a mark and a heal looked identical.
+// These give each its own sprite so a viewer reads WHAT happened. Cosmetic +
+// node-testable (the arena renderer is presentation-only, no balance/replay tie).
+
+export type ArenaAbilityKind = "guard" | "mark" | "assassinate" | "mend";
+
+/** The CASTER-side fx for a role ability (the ally heal-bloom / target mark-sigil
+ *  are spawned separately from the companion heal/ability-hit events). */
+export function arenaAbilityFxKey(kind: ArenaAbilityKind): FxSpritePick {
+    switch (kind) {
+        case "mend": return { key: "buff", variant: "fx-heal" };   // green cast glow on the sage
+        case "guard": return { key: "eshield" };                   // shield dome on the defender
+        case "mark": return { key: "shadow" };                     // dark gather as it marks a target
+        case "assassinate": return { key: "spark" };               // sharp dash-launch flash
+        default: return { key: "" };
+    }
+}
+
+/** A KO blast sprite themed to the victim's element, so a death reads with the
+ *  loser's identity (neutral kaboom fallback). */
+export function arenaKillFxKey(element?: string | null): string {
+    switch (String(element ?? "").toLowerCase()) {
+        case "fire": case "lava": return "kaboom";
+        case "water": return "explosion";
+        case "earth": case "iron": return "bighit";
+        case "wind": return "vortex";
+        case "lightning": return "spark";
+        case "blood": return "blood";
+        case "shadow": return "shadow";
+        default: return "kaboom";
+    }
+}
+
+/** Escalation banner for N defeats by one team inside a short window (resets when
+ *  the window lapses) — the MOBA "Double Kill!" beat that makes a snowball thrill. */
+export function multiKillLabel(streak: number): string | null {
+    if (streak <= 1) return null;
+    if (streak === 2) return "Double Kill!";
+    if (streak === 3) return "Triple Kill!";
+    if (streak === 4) return "Quadra Kill!";
+    return "RAMPAGE!";
+}

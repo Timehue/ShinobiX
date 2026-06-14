@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { jutsuElementVfxKey, jutsuVfxBurst, jutsuFxSpriteKey, petFxSpriteKey } from "./jutsu-vfx.ts";
+import { jutsuElementVfxKey, jutsuVfxBurst, jutsuFxSpriteKey, petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } from "./jutsu-vfx.ts";
 import type { Jutsu, JutsuTag } from "../types/combat.ts";
 
 // Minimal jutsu factory — only the fields jutsuFxSpriteKey reads.
@@ -159,4 +159,30 @@ test("pet support + guard beats pick heal / buff / shield, idle stays empty", ()
     assert.equal(petFxSpriteKey({ beat: "guard" }).key, "shield");
     assert.equal(petFxSpriteKey({ beat: "idle" }).key, "");
     assert.equal(petFxSpriteKey({ beat: "moveCallout" }).key, "");
+});
+
+test("arena role abilities each pick a DISTINCT sprite (no more one generic puff)", () => {
+    const keys = (["guard", "mark", "assassinate", "mend"] as const).map((k) => arenaAbilityFxKey(k).key);
+    assert.equal(new Set(keys).size, 4, `abilities should be visually distinct, got ${keys.join(",")}`);
+    assert.deepEqual(arenaAbilityFxKey("mend"), { key: "buff", variant: "fx-heal" });
+    assert.equal(arenaAbilityFxKey("guard").key, "eshield");
+    assert.equal(arenaAbilityFxKey("mark").key, "shadow");
+    assert.equal(arenaAbilityFxKey("assassinate").key, "spark");
+});
+
+test("arena KO blast is themed to the victim element, with a neutral fallback", () => {
+    assert.equal(arenaKillFxKey("fire"), "kaboom");
+    assert.equal(arenaKillFxKey("water"), "explosion");
+    assert.equal(arenaKillFxKey("wind"), "vortex");
+    assert.equal(arenaKillFxKey("lightning"), "spark");
+    assert.equal(arenaKillFxKey(null), "kaboom");
+    assert.equal(arenaKillFxKey("None"), "kaboom");
+});
+
+test("multi-kill labels escalate and reset below 2", () => {
+    assert.equal(multiKillLabel(1), null);
+    assert.equal(multiKillLabel(2), "Double Kill!");
+    assert.equal(multiKillLabel(3), "Triple Kill!");
+    assert.equal(multiKillLabel(4), "Quadra Kill!");
+    assert.equal(multiKillLabel(6), "RAMPAGE!");
 });
