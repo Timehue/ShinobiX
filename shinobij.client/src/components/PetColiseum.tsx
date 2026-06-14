@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Html, OrbitControls, OrthographicCamera } from "@react-three/drei";
+import { Billboard, Html, OrbitControls, OrthographicCamera, Sparkles } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import type { Pet, PetArenaFrame, PetBattleRecord } from "../App";
 import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } from "../lib/pet-tactics";
@@ -37,7 +37,7 @@ import {
     extractPetMoveName,
 } from "../lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
-import { petFxSpriteKey } from "../lib/jutsu-vfx";
+import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
@@ -317,6 +317,15 @@ function shadowTexture(): THREE.CanvasTexture {
 // Base visible-content height in world units — every creature is grounded to
 // this VISIBLE height (consistent silhouettes; padding no longer varies size).
 const TARGET_SPRITE_H = 2.6;
+
+// Element → a bright tint for idle aura wisps + dash-trail streaks (mirrors the
+// particle palette). Falls back to chakra-cyan for None/unknown.
+const ELEMENT_TINT: Record<string, string> = {
+    fire: "#fb923c", water: "#38bdf8", wind: "#a7f3d0", lightning: "#fde047",
+    earth: "#d6a45a", ice: "#bae6fd", lava: "#fb923c", blood: "#ef4444",
+    shadow: "#a78bfa", iron: "#cbd5e1",
+};
+const elementTint = (el?: string | null) => ELEMENT_TINT[String(el ?? "").toLowerCase()] ?? "#a5f3fc";
 
 // ── Afterimage trail — element-tinted ghost copies behind a fast-moving pet ───
 // A flat-color SILHOUETTE (the sprite's alpha masked to the element glow color),
@@ -1820,6 +1829,28 @@ function arenaPoseCat(st: ArenaState): PoseCat {
 
 /** One arena fighter — pose flipbook + facing + HP/lives/role nameplate + carrier
  *  aura, faded while respawning/dead. Driven by the match snapshot stream. */
+// One arena dash-trail ghost — element-flat silhouette behind the sprite, faded in
+// by the parent's speed gate. Owns its material via a ref so the per-frame uniform
+// writes are compiler-safe (mutating a memo from a parent useFrame is not).
+function ArenaGhost({ index, offsetX, fastRef, tex, color, L }: {
+    index: number; offsetX: number; fastRef: { current: number }; tex: THREE.Texture; color: string; L: ReturnType<typeof groundedSpriteLayout>;
+}) {
+    const mat = useRef<THREE.ShaderMaterial>(null);
+    const material = useMemo(() => makeGhostMaterial(color), [color]);
+    useEffect(() => () => material.dispose(), [material]);
+    useFrame(() => {
+        const m = mat.current; if (!m) return;
+        m.uniforms.map.value = tex;
+        m.uniforms.uOpacity.value = lerp(m.uniforms.uOpacity.value as number, fastRef.current * (index === 0 ? 0.5 : 0.3), 0.4);
+    });
+    return (
+        <mesh position={[L.meshX + offsetX, L.meshY, -0.04 - index * 0.01]}>
+            <planeGeometry args={[L.planeW, L.planeH]} />
+            <primitive object={material} ref={mat} attach="material" />
+        </mesh>
+    );
+}
+
 function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     result: ArenaResult; clock: { current: DuelClock }; id: string; pet: Pet; sharedImages: Record<string, string>;
 }) {
@@ -1839,6 +1870,8 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const facing = useRef(id.startsWith("blue") ? 1 : -1);
     const lastPos = useRef<[number, number]>([0, 0]);
     const runClock = useRef(0);
+    const fast = useRef(0);   // speed gate 0..1 → dash-trail opacity (read by the ArenaGhost children)
+    const tint = useMemo(() => elementTint(pet.element), [pet.element]);
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
     const [lives, setLives] = useState(3);
@@ -1864,6 +1897,9 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         const dx = p.wx - lastPos.current[0], dy = p.wy - lastPos.current[1];
         const spd = Math.sqrt(dx * dx + dy * dy); lastPos.current = [p.wx, p.wy];
         const moving = spd > 0.012 && !down;
+        // Dash trail: element-flat ghost copies fade in only on fast motion (an assassin
+        // dive streaks; a stroll doesn't). The ArenaGhost children read `fast` + the pose tex.
+        fast.current = down ? 0 : Math.max(0, Math.min(1, (spd - 0.02) / 0.13));
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.16 : 0;
         g.position.set(p.wx, p.wy + bob * p.depth, p.zo);
         g.scale.setScalar(p.depth);
@@ -1901,11 +1937,16 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
             <group ref={group}>
                 <mesh position={[0, shadowW * 0.5, -0.05]}><planeGeometry args={[shadowW * 2.6, shadowW * 2.6]} /><meshBasicMaterial ref={glowMat} map={shadowTexture()} color="#fde047" transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
                 <group ref={flip}>
+                    {/* Dash-trail ghosts BEHIND the sprite (local -x = behind facing), faded by speed. */}
+                    <ArenaGhost index={0} offsetX={-0.5} fastRef={fast} tex={useTex} color={tint} L={L} />
+                    <ArenaGhost index={1} offsetX={-1.0} fastRef={fast} tex={useTex} color={tint} L={L} />
                     <mesh position={[L.meshX, L.meshY, 0]}>
                         <planeGeometry args={[L.planeW, L.planeH]} />
                         <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.4} depthWrite={false} toneMapped={false} />
                     </mesh>
                 </group>
+                {/* Idle elemental aura — a few drifting element-tinted wisps so the creature reads ALIVE, not a static cutout. */}
+                <Sparkles count={5} scale={[1.0, 1.5, 0.6]} position={[0, 0.95, 0.05]} size={2.6} speed={0.25} opacity={0.5} color={tint} noise={1.2} />
                 <Html position={[0, L.contentWorldH + 0.4, 0]} center pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", transform: "scale(0.78)" }}>
                         <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center", marginBottom: 2 }}>
@@ -1969,37 +2010,67 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
 }
 
 /** Advances the clock, spawns elemental FX on hits/abilities, updates the score HUD. */
-function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloater, pushFeed, triggerHitstop, nameOf, setScore }: {
+function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloater, spawnDecal, pushFeed, triggerHitstop, triggerShake, triggerSlowmo, triggerFlash, pushBanner, nameOf, setScore }: {
     result: ArenaResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; onEnd: () => void;
-    spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
+    spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnFloater: (x: number, z: number, text: string, color: string, big: boolean) => void;
+    spawnDecal: (x: number, z: number) => void;
     pushFeed: (text: string, color: string) => void;
     triggerHitstop: (ms: number) => void;
+    triggerShake: (amp: number) => void;
+    triggerSlowmo: (ms: number, factor: number) => void;
+    triggerFlash: (color: string) => void;
+    pushBanner: (text: string, color: string) => void;
     nameOf: (id: string) => string;
     setScore: (b: number, r: number) => void;
 }) {
     const lastTick = useRef(-1); const ended = useRef(false);
+    const streak = useRef<{ blue: number; red: number; lastT: number }>({ blue: 0, red: 0, lastT: -999 });
     useFrame((_s, delta) => {
         const snaps = result.snapshots; const maxT = snaps.length - 1;
         advanceClock(maxT, delta);
         const cur = Math.floor(clock.current.t);
-        if (cur < lastTick.current) lastTick.current = -1;   // clock rewound (replay) → re-fire events
+        if (cur < lastTick.current) { lastTick.current = -1; streak.current = { blue: 0, red: 0, lastT: -999 }; }   // clock rewound (replay) → re-fire events
         if (cur > lastTick.current) {
             for (const e of result.events) {
                 if (e.t <= lastTick.current || e.t > cur) continue;
                 const snapAt = snaps[Math.min(maxT, e.t)];
                 if (e.type === "hit") {
                     const a = findArenaActor(snapAt, e.targetId);
-                    if (a) { spawnFx({ x: a.x, z: a.y, element: e.element, scale: e.crit ? 2.1 : e.ability ? 1.85 : 1.3, dur: e.ability ? 430 : 300 }); spawnFloater(a.x, a.y, `${e.dmg}`, e.crit ? "#fde047" : "#fecaca", e.crit); }
+                    if (a) {
+                        // An ABILITY-tagged hit is the tracker's MARK (only it deals ability damage) → a dark sigil; else the element burst.
+                        if (e.ability) spawnFx({ x: a.x, z: a.y, key: "shadow", scale: 1.8, dur: 430 });
+                        else spawnFx({ x: a.x, z: a.y, element: e.element, scale: e.crit ? 2.2 : 1.3, dur: 300 });
+                        spawnFloater(a.x, a.y, `${e.dmg}`, e.crit ? "#fde047" : "#fecaca", e.crit);
+                        if (e.crit) { spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.0, dur: 240 }); triggerHitstop(45); triggerShake(0.5); }   // crits land with a flash + a little weight
+                    }
                 } else if (e.type === "ability") {
-                    const a = findArenaActor(snapAt, e.actorId); if (a) spawnFx({ x: a.x, z: a.y, element: null, scale: 1.7, dur: 400 });
+                    // Each role ability reads distinctly (mend glow / guard dome / mark gather / assassin dash-flash).
+                    const a = findArenaActor(snapAt, e.actorId);
+                    if (a) { const pick = arenaAbilityFxKey(e.kind); if (pick.key) spawnFx({ x: a.x, z: a.y, key: pick.key, scale: e.kind === "guard" ? 2.1 : 1.7, dur: 440 }); }
                 } else if (e.type === "heal") {
-                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFloater(a.x, a.y, `+${e.amount}`, "#86efac", false);
+                    const a = findArenaActor(snapAt, e.targetId);
+                    if (a) { spawnFx({ x: a.x, z: a.y, key: "heal", scale: 1.7, dur: 470 }); spawnFloater(a.x, a.y, `+${e.amount}`, "#86efac", false); }
+                } else if (e.type === "shield") {
+                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, key: "eshield", scale: 2.0, dur: 480 });
                 } else if (e.type === "kill") {
-                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, element: null, scale: 2.9, dur: 540 });
-                    pushFeed(`☠ ${nameOf(e.targetId)}`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(150);
+                    const a = findArenaActor(snapAt, e.targetId);
+                    if (a) { spawnFx({ x: a.x, z: a.y, key: arenaKillFxKey(a.element), scale: 3.0, dur: 560 }); spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.4, dur: 360 }); spawnDecal(a.x, a.y); }
+                    pushFeed(`☠ ${nameOf(e.targetId)}`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    triggerHitstop(70); triggerSlowmo(220, 0.42); triggerShake(1.1);   // freeze the contact frame, then ease through the kill in slow-mo
+                    const w = ARENA_TPS * 3.5;
+                    if (e.t - streak.current.lastT > w) { streak.current.blue = 0; streak.current.red = 0; }
+                    streak.current.lastT = e.t; streak.current[e.team] += 1;
+                    const label = multiKillLabel(streak.current[e.team]);
+                    if (label) pushBanner(label, e.team === "blue" ? "#93c5fd" : "#fca5a5");   // Double/Triple/… as the squad chain-kills
                 } else if (e.type === "capture") {
-                    pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured the scroll!`, e.team === "blue" ? "#60a5fa" : "#f87171"); triggerHitstop(230);
+                    const c = e.actorId ? findArenaActor(snapAt, e.actorId) : null;
+                    if (c) spawnFx({ x: c.x, z: c.y, key: "power", scale: 4.0, dur: 720 });   // the apex burst at the scoring base
+                    const matchPoint = (e.team === "blue" ? snapAt.scoreBlue : snapAt.scoreRed) >= WIN_SCORE;
+                    pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured the scroll!`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushBanner(matchPoint ? `${e.team === "blue" ? "BLUE" : "RED"} WINS! 📜` : `${e.team === "blue" ? "BLUE" : "RED"} SCORES! 📜`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
+                    triggerHitstop(90); triggerSlowmo(matchPoint ? 460 : 280, 0.38); triggerShake(1.4);
                 } else if (e.type === "pickup" && e.actorId) {
                     pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
                 }
@@ -2026,25 +2097,40 @@ function ArenaFloater({ pos, text, color, big }: { pos: Vec3; text: string; colo
  *  carrier (the dramatic "will they make it home?" moment), then ease back out
  *  when the carry ends. Drives a CSS transform on the whole stage (backdrop +
  *  canvas + Html scale as one → pets stay locked to the painted paths). */
-function ArenaCamera({ result, clock, stageRef }: { result: ArenaResult; clock: { current: DuelClock }; stageRef: React.MutableRefObject<HTMLDivElement | null> }) {
+function ArenaCamera({ result, clock, stageRef, shake }: { result: ArenaResult; clock: { current: DuelClock }; stageRef: React.MutableRefObject<HTMLDivElement | null>; shake: React.MutableRefObject<number> }) {
     const size = useThree((s) => s.size);
     const sm = useRef({ cx: 0, cy: 0, z: 1, init: true });
     const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
-    useFrame(() => {
+    useFrame((state) => {
         const el = stageRef.current; if (!el || size.height < 1) return;
         const snaps = result.snapshots; const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
         const snap = snaps[i];
         let tcx = 0, tcy = 0, tz = 1;   // default: centered, WHOLE map (contain)
         if (snap.scroll.state === "carried" && snap.scroll.carrierId) {
             const c = snap.actors.find((a) => a.id === snap.scroll.carrierId);
-            if (c) { const p = arenaPlace(c.x, c.y); tcx = p.wx; tcy = p.wy; tz = 1.35; }   // ease in on the carrier
+            if (c) { const p = arenaPlace(c.x, c.y); tcx = p.wx; tcy = p.wy; tz = 1.35; }   // ease in on the carrier ("will they make it home?")
+        } else {
+            // No carry → frame the ACTION: centroid of living pets, and push in when they
+            // cluster (a teamfight), stay wide when they're spread out (laning/traversal).
+            let n = 0, mx = 0, my = 0; const live: Array<{ x: number; y: number }> = [];
+            for (const a of snap.actors) { if (a.state === "dead" || a.state === "respawning") continue; mx += a.x; my += a.y; n++; live.push(a); }
+            if (n > 0) {
+                mx /= n; my /= n;
+                let span = 0; for (const a of live) { const dx = a.x - mx, dy = a.y - my; const d = Math.sqrt(dx * dx + dy * dy); if (d > span) span = d; }
+                const p = arenaPlace(mx, my); tcx = p.wx; tcy = p.wy;
+                tz = clamp(1.28 - span * 0.03, 1, 1.28);   // tight cluster → push in (~1.28); spread → whole map (1.0)
+            }
         }
         const s = sm.current;
-        s.cx += (tcx - s.cx) * 0.045; s.cy += (tcy - s.cy) * 0.045; s.z += (tz - s.z) * 0.045;   // glide
+        s.cx += (tcx - s.cx) * 0.04; s.cy += (tcy - s.cy) * 0.04; s.z += (tz - s.z) * 0.04;   // gentle glide (no jerk)
         const zoomCam = Math.min(size.width / STAGE.worldW, size.height / STAGE.worldH);   // contain-fit (matches StageCamera + bg)
         const fx = size.width / 2 + s.cx * zoomCam, fy = size.height / 2 - s.cy * zoomCam;
         let tx = size.width / 2 - fx * s.z, ty = size.height / 2 - fy * s.z;
         tx = clamp(tx, size.width * (1 - s.z), 0); ty = clamp(ty, size.height * (1 - s.z), 0);   // keep the diorama covering the frame
+        // Impact shake — decaying screen jolt on crits / kills / captures (read-only here;
+        // advanceClock owns + decays the ref). Cosmetic, additive on top of the framing.
+        const amp = shake.current;
+        if (amp > 0.01) { tx += Math.sin(state.clock.elapsedTime * 92) * amp * 6; ty += Math.cos(state.clock.elapsedTime * 77) * amp * 6; }
         el.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s.z.toFixed(3)})`;
     });
     return null;
@@ -2063,17 +2149,22 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
     const clock = useRef<DuelClock>({ t: 0, playing: true });
     const seqRef = useRef(0);
     const hitstop = useRef(0);
+    const shake = useRef(0);                                   // camera shake amplitude (decays in ArenaCamera)
+    const slowmo = useRef({ ms: 0, factor: 1 });               // dramatic slow-mo on kills/captures
     const stageRef = useRef<HTMLDivElement | null>(null);   // the action-camera transforms this (backdrop + canvas together)
     const [ended, setEnded] = useState(false);
+    const [flash, setFlash] = useState<{ id: number; color: string } | null>(null);   // screen flash on captures
+    const [banner, setBanner] = useState<{ id: number; text: string; color: string } | null>(null);   // multi-kill / SCORES! callout
     const [score, setScoreState] = useState<[number, number]>([0, 0]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
     const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
+    const [decals, setDecals] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks where pets fell
     const nameById = useMemo(() => { const m = new Map<string, string>(); roster.forEach((r) => m.set(r.id, r.pet.name)); return m; }, [roster]);
     const nameOf = (id: string) => nameById.get(id) ?? id;
     const setScore = (b: number, r: number) => setScoreState((p) => (p[0] === b && p[1] === r ? p : [b, r]));
-    const spawnFx = (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => {
-        const frames = bundledJutsuFxFrames(elementVfxKey(n.element)) ?? bundledJutsuFxFrames("none");
+    const spawnFx = (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => {
+        const frames = (n.key ? bundledJutsuFxFrames(n.key) : null) ?? bundledJutsuFxFrames(elementVfxKey(n.element)) ?? bundledJutsuFxFrames("none");
         if (!frames) return;
         const id = seqRef.current++; const p = arenaPlace(n.x, n.z);
         setFxList((arr) => [...arr, { id, frames, pos: [p.wx, p.wy + 1.0 * p.depth, 8], scale: n.scale * p.depth * 0.78, dur: n.dur }]);   // beefier FX
@@ -2088,31 +2179,51 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
         setFeed((arr) => [{ id, text, color }, ...arr].slice(0, 6));
         window.setTimeout(() => setFeed((arr) => arr.filter((f) => f.id !== id)), 4500);
     };
-    const triggerHitstop = (ms: number) => { hitstop.current = Math.max(hitstop.current, ms); };
-    const advanceClock = (maxT: number, delta: number) => {
-        if (hitstop.current > 0) { hitstop.current -= delta * 1000; return; }   // brief freeze on kills/captures — impact
-        if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS);
+    const spawnDecal = (x: number, z: number) => {
+        const p = arenaPlace(x, z); const id = seqRef.current++;
+        setDecals((arr) => [...arr, { id, pos: [p.wx, p.wy - 0.12 * p.depth, 7] as Vec3, w: 1.7 * p.depth }].slice(-12));   // keep the last 12 — the arena testifies a real fight happened
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; setEnded(false); setScoreState([0, 0]); setFxList([]); setFloaters([]); setFeed([]); };
+    const triggerHitstop = (ms: number) => { hitstop.current = Math.max(hitstop.current, ms); };
+    const triggerShake = (amp: number) => { shake.current = Math.max(shake.current, amp); };
+    const triggerSlowmo = (ms: number, factor: number) => { if (ms > slowmo.current.ms) slowmo.current = { ms, factor }; };
+    const triggerFlash = (color: string) => { const id = seqRef.current++; setFlash({ id, color }); window.setTimeout(() => setFlash((f) => (f && f.id === id ? null : f)), 380); };
+    const pushBanner = (text: string, color: string) => { const id = seqRef.current++; setBanner({ id, text, color }); window.setTimeout(() => setBanner((b) => (b && b.id === id ? null : b)), 1500); };
+    const advanceClock = (maxT: number, delta: number) => {
+        if (shake.current > 0.01) shake.current *= 0.85;   // decay the screen-shake amplitude (this closure owns the ref; ArenaCamera only reads it)
+        if (hitstop.current > 0) { hitstop.current -= delta * 1000; return; }   // brief hard freeze on the contact frame
+        let factor = 1;
+        if (slowmo.current.ms > 0) { slowmo.current.ms -= delta * 1000; factor = slowmo.current.factor; }   // then ease through the moment in slow-mo (speed CONTRAST sells impact)
+        if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS * factor);
+    };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setFloaters([]); setFeed([]); setDecals([]); };
     const winLabel = result.winner === "blue" ? "Blue Team Wins" : result.winner === "red" ? "Red Team Wins" : "Draw";
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a" }}>
-            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}`}</style>
+            <style>{`@keyframes arenaFloat{0%{transform:translateY(4px);opacity:0}15%{opacity:1}100%{transform:translateY(-30px);opacity:0}}@keyframes arenaFeedIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}@keyframes arenaFlash{0%{opacity:0}12%{opacity:0.85}100%{opacity:0}}@keyframes arenaBanner{0%{opacity:0;transform:translate(-50%,-50%) scale(0.6)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}30%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}`}</style>
             {/* The STAGE — backdrop + canvas + Html overlays — is one layer the action camera scales/pans as a unit (everything stays pixel-locked). HUD lives outside it. */}
             <div ref={stageRef} style={{ position: "absolute", inset: 0, backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat", transformOrigin: "0 0", willChange: "transform" }}>
                 <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
                     <StageCamera fit="contain" />
+                    {/* Ambient life — warm dust/embers drifting over the whole arena so the stage breathes. */}
+                    <Sparkles count={36} scale={[STAGE.worldW, STAGE.worldH, 4]} position={[0, 2, 4]} size={2} speed={0.12} opacity={0.3} color="#fde9b8" noise={2} />
+                    {/* Accumulating scorch decals where pets fell — the board remembers the fight. */}
+                    {decals.map((d) => (<mesh key={d.id} position={d.pos} renderOrder={-3}><planeGeometry args={[d.w, d.w * 0.55]} /><meshBasicMaterial map={shadowTexture()} color="#2a1d12" transparent opacity={0.5} depthWrite={false} depthTest={false} toneMapped={false} /></mesh>))}
                     {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
                     {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
                     <ArenaScroll result={result} clock={clock} />
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
                     {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
-                    <ArenaCamera result={result} clock={clock} stageRef={stageRef} />
-                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnFloater={spawnFloater} pushFeed={pushFeed} triggerHitstop={triggerHitstop} nameOf={nameOf} setScore={setScore} />
+                    <ArenaCamera result={result} clock={clock} stageRef={stageRef} shake={shake} />
+                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnFloater={spawnFloater} spawnDecal={spawnDecal} pushFeed={pushFeed} triggerHitstop={triggerHitstop} triggerShake={triggerShake} triggerSlowmo={triggerSlowmo} triggerFlash={triggerFlash} pushBanner={pushBanner} nameOf={nameOf} setScore={setScore} />
                     <BloomFx />
                 </Canvas>
             </div>
+
+            {/* Screen wash on captures — a team-colored EDGE vignette (cinematic, not a blinding full flash) */}
+            {flash && <div key={flash.id} style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at center, transparent 38%, ${flash.color} 100%)`, pointerEvents: "none", animation: "arenaFlash 0.4s ease-out forwards", mixBlendMode: "screen" }} />}
+            {/* Big centered callout — multi-kills + SCORES! */}
+            {banner && <div key={banner.id} style={{ position: "absolute", top: "32%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none", color: banner.color, font: "900 44px Inter, system-ui, sans-serif", letterSpacing: 1, textShadow: "0 3px 16px #000, 0 0 24px currentColor", whiteSpace: "nowrap", animation: "arenaBanner 1.5s cubic-bezier(.2,.8,.2,1) forwards" }}>{banner.text}</div>}
 
             {/* Kill feed — instant read of what just happened */}
             <div style={{ position: "absolute", top: 52, right: 12, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end", pointerEvents: "none" }}>
