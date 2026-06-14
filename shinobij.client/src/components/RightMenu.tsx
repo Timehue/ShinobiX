@@ -90,6 +90,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("pets")}>Pets</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
                         <button onClick={() => navigate("logbook")}>Logbook</button>
+                        <button onClick={() => navigate("guides")}>📖 Guides</button>
                         <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}>💬 Discord</button>
                         <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}>♥ Patreon</button>
                         {(isAdminAccount || adminLoggedIn) && (

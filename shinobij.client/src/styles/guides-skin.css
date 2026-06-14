@@ -1,0 +1,246 @@
+/* ──────────────────────────────────────────────────────────────────
+   GUIDES SKIN — in-app guide library (start screen + in-game).
+   Matches the start-screen dark/gold theme.
+   ────────────────────────────────────────────────────────────────── */
+
+.guides-root {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 14px 14px 40px;
+    color: #e9e2cf;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+/* --------- Header --------- */
+
+.guides-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.guides-title {
+    flex: 1;
+    text-align: center;
+    margin: 0;
+    font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+    font-size: clamp(20px, 3.4vw, 30px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(180deg, #fef3c7 0%, #fbbf24 55%, #b45309 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.guides-head-spacer { width: 88px; }
+
+.guides-back {
+    appearance: none;
+    background: linear-gradient(180deg, rgba(13, 16, 28, 0.92), rgba(6, 8, 18, 0.96));
+    color: #fde68a;
+    border: 1px solid rgba(202, 138, 4, 0.55);
+    border-radius: 9px;
+    padding: 8px 14px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.guides-back:hover { border-color: rgba(250, 204, 21, 0.9); transform: translateY(-1px); }
+.guides-back.ghost { color: #c9bf9f; }
+
+.guides-intro {
+    text-align: center;
+    color: #b8a36a;
+    margin: 2px 0 18px;
+}
+
+/* --------- Library grid --------- */
+
+.guides-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.guide-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: left;
+    padding: 16px;
+    border-radius: 14px;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(17, 21, 36, 0.92), rgba(8, 10, 20, 0.96));
+    border: 1px solid rgba(202, 138, 4, 0.35);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+.guide-card:hover {
+    border-color: rgba(250, 204, 21, 0.85);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 18px rgba(250, 204, 21, 0.12);
+}
+
+.guide-card-icon {
+    font-size: 30px;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.35));
+}
+
+.guide-card-text { display: flex; flex-direction: column; gap: 4px; }
+
+.guide-card-title {
+    font-family: "Cinzel", "Trajan Pro", serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fde68a;
+}
+
+.guide-card-blurb {
+    font-size: 13px;
+    color: #b6ad92;
+    line-height: 1.45;
+}
+
+.guides-foot {
+    text-align: center;
+    margin-top: 22px;
+    color: #9c9377;
+    font-size: 13px;
+}
+.guides-foot a { color: #fbbf24; font-weight: 700; text-decoration: none; }
+.guides-foot a:hover { text-decoration: underline; }
+
+/* --------- Single-guide reader --------- */
+
+.guide-tagline {
+    text-align: center;
+    color: #b8a36a;
+    font-style: italic;
+    margin: 0 0 16px;
+}
+
+.guide-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 0 auto 22px;
+    max-width: 920px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(8, 10, 20, 0.55);
+    border: 1px solid rgba(202, 138, 4, 0.22);
+}
+.guide-toc-link {
+    appearance: none;
+    background: rgba(17, 21, 36, 0.8);
+    border: 1px solid rgba(202, 138, 4, 0.3);
+    color: #d9cf9c;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.guide-toc-link:hover { border-color: rgba(250, 204, 21, 0.8); color: #fde68a; }
+
+.guide-content { max-width: 920px; margin: 0 auto; }
+
+.guide-section {
+    margin-bottom: 26px;
+    scroll-margin-top: 14px;
+}
+
+.guide-section-h {
+    font-family: "Cinzel", "Trajan Pro", serif;
+    font-size: 19px;
+    font-weight: 700;
+    color: #fbbf24;
+    margin: 0 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(202, 138, 4, 0.3);
+}
+
+.guide-subh {
+    font-family: "Cinzel", "Trajan Pro", serif;
+    font-size: 15px;
+    color: #fde68a;
+    margin: 16px 0 6px;
+}
+
+.guide-p { margin: 0 0 12px; }
+
+.guide-list { margin: 0 0 12px; padding-left: 22px; }
+.guide-list li { margin-bottom: 6px; }
+
+/* Tables */
+.guide-table-wrap { overflow-x: auto; margin: 0 0 14px; }
+.guide-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    border: 1px solid rgba(202, 138, 4, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.guide-table th {
+    text-align: left;
+    background: linear-gradient(180deg, rgba(120, 53, 15, 0.55), rgba(70, 30, 8, 0.6));
+    color: #fde68a;
+    font-weight: 700;
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(202, 138, 4, 0.35);
+}
+.guide-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(202, 138, 4, 0.14);
+    vertical-align: top;
+}
+.guide-table tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+.guide-table tr:last-child td { border-bottom: none; }
+
+/* Callouts */
+.guide-callout {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border-left: 3px solid #8a6d1f;
+    background: rgba(8, 10, 20, 0.55);
+}
+.guide-callout-label {
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.guide-callout.tip { border-left-color: #d8a72b; }
+.guide-callout.tip .guide-callout-label { color: #f0c050; }
+.guide-callout.good { border-left-color: #3f9d5a; }
+.guide-callout.good .guide-callout-label { color: #6fd08a; }
+.guide-callout.warn { border-left-color: #c0563a; }
+.guide-callout.warn .guide-callout-label { color: #ee8a6a; }
+
+.guides-foot-row {
+    max-width: 920px;
+    margin: 20px auto 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+.guides-foot-note { color: #8b8268; font-size: 12px; font-style: italic; }
+
+@media (max-width: 640px) {
+    .guides-grid { grid-template-columns: 1fr; }
+    .guides-head-spacer { display: none; }
+}
