@@ -22,6 +22,7 @@ import { auraSphereLv9VnEvent, awakeningLv2VnEvent, craftDungeonEvents, hiddenDu
 import { getAllTileCards, shinobiTileCards, type TileCard } from "../data/tile-cards";
 import { mergeBuiltinMissions, missionRaidRequirement } from "../data/missions";
 import { petRarityOrder } from "../data/pet-config";
+import { isWildSpawnable } from "../lib/pet-balance";
 import { storylines } from "../data/storylines";
 import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
@@ -3646,7 +3647,7 @@ export function AdminPanel({
                 <div className="admin-subpanel">
                     <div className="admin-panel-heading">
                         <h3>Pet Editor</h3>
-                        <p>Edit pet names, stats, rarity, jutsus, descriptions, and upload pet photos. Wild explore rolls include standard, rare, legendary, and mythic pets.</p>
+                        <p>Edit pet names, stats, rarity, jutsus, descriptions, and upload pet photos. Wild explore rolls include standard, rare, legendary, and mythic pets. The 5 starters and their evolved forms are grouped under 🔒 Starters &amp; Evolutions and never spawn in the wild.</p>
                     </div>
 
                     <section className="summary-box">
@@ -3661,7 +3662,9 @@ export function AdminPanel({
                         <label>Select Pet</label>
                         <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)}>
                             {petRarityOrder.map((rarity) => {
-                                const petsOfRarity = editablePets.filter((pet) => pet.rarity === rarity);
+                                // Wild pets only — starters & their evolutions are
+                                // listed in their own locked group below.
+                                const petsOfRarity = editablePets.filter((pet) => pet.rarity === rarity && isWildSpawnable(pet));
 
                                 if (petsOfRarity.length === 0) return null;
 
@@ -3675,6 +3678,22 @@ export function AdminPanel({
                                     </optgroup>
                                 );
                             })}
+                            {(() => {
+                                // Locked group: the 5 starters + their 10 evolved
+                                // templates. Editable/imageable here but excluded
+                                // from every wild encounter (isWildSpawnable).
+                                const locked = editablePets.filter((pet) => !isWildSpawnable(pet));
+                                if (locked.length === 0) return null;
+                                return (
+                                    <optgroup label="🔒 STARTERS & EVOLUTIONS — never wild">
+                                        {locked.map((pet) => (
+                                            <option key={pet.id} value={pet.id}>
+                                                {pet.name} | {pet.rarity} | LVL {pet.level}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                );
+                            })()}
                         </select>
 
                         {/* Avatar overview — see every pet's avatar at a glance (amber =

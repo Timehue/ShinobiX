@@ -87,6 +87,30 @@ export const starterItems: GameItem[] = [
         description: "A Grand Marketplace pet feast. Feed to a selected pet for +2000 pet XP.",
         bonuses: {},
     },
+    // -- Evolution stones (Grand Marketplace — Fate Shards) --------------------
+    // Consumed by /api/pet/evolve to evolve a starter pet one rarity tier. The
+    // Awakening Stone powers the first evolution (Lv 50, Standard→Rare); the
+    // Ascension Stone the second (Lv 90, Rare→Legendary). Legendary/mythic
+    // rarity keeps them in the Grand Marketplace (bought with Fate Shards). See
+    // data/pet-evolutions.ts + docs/pet-starter-evolution-plan.md.
+    {
+        id: "evo-stone-awakening",
+        name: "Awakening Stone",
+        slot: "item",
+        rarity: "legendary",
+        cost: 150,
+        description: "A pulsing chakra stone. Use it in the Pet Yard to evolve a Level 50+ starter pet from Standard to Rare.",
+        bonuses: {},
+    },
+    {
+        id: "evo-stone-ascension",
+        name: "Ascension Stone",
+        slot: "item",
+        rarity: "mythic",
+        cost: 400,
+        description: "A radiant chakra stone. Use it in the Pet Yard to evolve a Level 90+ Rare starter pet to Legendary.",
+        bonuses: {},
+    },
     // Glow collars — one buyable item per collar color (see petCollars). Each
     // wraps the pet in a differently colored battle aura when equipped in the
     // Pet Yard. Cosmetic only (no bonuses); buy once with Fate Shards in the

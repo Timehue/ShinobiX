@@ -410,6 +410,7 @@ import { starterItems } from "./data/starter-items";
 // applied below where petPool is defined.
 import { rawPetPool } from "./data/pet-pool";
 import { STARTER_PETS } from "./data/starter-pets";
+import { STARTER_EVOLUTIONS } from "./data/pet-evolutions";
 // Per-village storyline arc + milestone constructors moved to ./data/storylines.
 import { storylines, villageBiomeMap, getCurrentStory } from "./data/storylines";
 // Built-in VN event templates moved to ./data/vn-events.
@@ -865,17 +866,16 @@ export function useSharedNow(): void {
 }
 
 // formatPetTimer moved to ./lib/utils.
-// Raw pet templates moved to ./data/pet-pool; the balancer scales each
-// template against the global stat caps before it goes into petPool.
-// The 5 starter companions (data/starter-pets) are appended UNBALANCED — they
-// keep their hand-authored standard-band stats/kits (NOT run through
-// balanceBuiltInPetTemplate). Adding them to petPool surfaces them in the admin
-// Pet Editor (for image upload via `pet:<id>`) and seeds editablePets; they're
-// excluded from wild encounters in rollPetEncounter so a chosen starter never
-// shows up as a random wild beast.
+// Raw pet templates (./data/pet-pool) are scaled by the balancer; the 5 starter
+// companions AND their 10 evolved templates (data/starter-pets, pet-evolutions)
+// are appended UNBALANCED (hand-authored stats/kits). Both are surfaced in the
+// admin Pet Editor for imaging and seeded into editablePets, but excluded from
+// wild encounters by isWildSpawnable — a starter or evolution never shows up as
+// a random wild beast.
 const petPool: Pet[] = [
     ...rawPetPool.map(balanceBuiltInPetTemplate),
     ...STARTER_PETS.map((option) => option.pet),
+    ...STARTER_EVOLUTIONS,
 ];
 
 function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
