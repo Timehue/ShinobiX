@@ -63,6 +63,7 @@ export type Screen =
     | "weeklyBoss"
     | "villageWar"
     | "tilecardsDuel"
+    | "guides"
     | "messages";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";

@@ -7,15 +7,13 @@ import {
     IconEyeOpen,
     IconEyeOff,
 } from "./CharacterCreator";
+import { GuidesLibrary } from "../components/GuidesLibrary";
 
 // The real community invite, matching RightMenu / MobileNav. The old
 // "discord.gg/shinobi-journey" vanity link did not resolve.
 const DISCORD_URL = "https://discord.gg/bCQGs8r6SK";
-// No standalone guides site exists yet, so "Guides" routes to the Discord (where
-// help/guides live). Repoint this if a real guides page is published.
-const GUIDES_URL = "https://discord.gg/bCQGs8r6SK";
 
-type StartView = "main" | "leaderboard";
+type StartView = "main" | "leaderboard" | "guides";
 
 type RosterEntry = {
     name: string;
@@ -109,7 +107,7 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                 <button
                     type="button"
                     className="start-nav-btn"
-                    onClick={() => window.open(GUIDES_URL, "_blank", "noopener,noreferrer")}
+                    onClick={() => setView(view === "guides" ? "main" : "guides")}
                 >
                     GUIDES
                 </button>
@@ -191,6 +189,10 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
 
             {view === "leaderboard" && (
                 <PublicLeaderboard onBack={() => setView("main")} />
+            )}
+
+            {view === "guides" && (
+                <GuidesLibrary onExit={() => setView("main")} />
             )}
         </div>
     );
