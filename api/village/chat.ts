@@ -16,9 +16,8 @@ type ChatMessage = {
     level?: number;
 };
 
-const MSG_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const MAX_MESSAGES = 60;
-const KV_TTL_SECONDS = 4 * 60 * 60; // 4-hour KV key TTL (refreshed on every POST)
+const MAX_MESSAGES = 30; // hold the most recent 30 messages; the oldest drops as new ones arrive (count-based, no age expiry)
+const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30-day KV key TTL (refreshed on every POST) — only garbage-collects truly abandoned villages, not active chat
 
 function chatKey(village: string): string {
     return `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
@@ -41,10 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         const messages = await kv.get<ChatMessage[]>(key) ?? [];
-        const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-        res.setHeader('X-Message-Count', String(fresh.length));
+        res.setHeader('X-Message-Count', String(messages.length));
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json(fresh);
+        return res.status(200).json(messages);
     }
 
     if (req.method === 'POST') {
@@ -120,8 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // through and run unlocked rather than dropping the write.
             const updated = await withKvLock(key, async () => {
                 const existing = await kv.get<ChatMessage[]>(key) ?? [];
-                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-                const next = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                const next = [...existing, newMsg].slice(-MAX_MESSAGES);
                 await kv.set(key, next, { ex: KV_TTL_SECONDS });
                 return next;
             });
