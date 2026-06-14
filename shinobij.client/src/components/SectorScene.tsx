@@ -19,7 +19,11 @@ import type { CSSProperties } from "react";
 import type { Biome } from "../types/core";
 
 const GRID_W = 12;
-const SCALE = 1.2; // over-scale gives pan headroom while always covering the grid
+// Over-scale gives pan headroom while always covering the grid. Kept equal to the
+// r3f scene's OVERSHOOT (SectorScene3DScene) so the flat backdrop and the 3D
+// parallax layer frame the painting at the SAME zoom — otherwise the 3D layer
+// fading in over this one reads as the scene zooming/reloading.
+const SCALE = 1.5;
 const PAN = 12;    // max camera travel (% of the backdrop) from edge to edge
 
 function prefersReducedMotion(): boolean {
