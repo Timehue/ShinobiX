@@ -640,11 +640,10 @@ export function Arena({
     // receives. Reads activeStatuses so a just-applied (deferred) buff waits a round.
     function enemyDefenseFor(rawDamage: number, bypass = false) {
         if (bypass || rawDamage <= 0) return { net: rawDamage, reflected: 0, absorbed: 0 };
-        const active = activeStatuses(enemyStatuses);
-        const absorbStatus = active.find((s) => s.name === "Absorb");
-        const reflectStatus = active.find((s) => s.name === "Reflect");
-        const absorbed = absorbStatus ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbStatus.percent || 30))) : 0;
-        const reflected = reflectStatus ? Math.floor(cappedPostDamage(rawDamage, reflectStatus.percent || 30)) : 0;
+        const absorbPct = sumActiveStatusPct(enemyStatuses, "Absorb");
+        const reflectPct = sumActiveStatusPct(enemyStatuses, "Reflect");
+        const absorbed = absorbPct > 0 ? Math.min(rawDamage, Math.floor(cappedPostDamage(rawDamage, absorbPct))) : 0;
+        const reflected = reflectPct > 0 ? Math.floor(cappedPostDamage(rawDamage, reflectPct)) : 0;
         // `absorbed` is returned so callers can LOG it — it used to silently
         // shrink the damage number, which read as "the AI's Absorb did nothing".
         return { net: Math.max(0, rawDamage - absorbed), reflected, absorbed };
@@ -1268,12 +1267,30 @@ export function Arena({
     function activeStatuses(statuses: CombatStatus[]) {
         return statuses.filter((status) => (status.activeRound ?? turn) <= turn);
     }
+    // Sum the percents of every active stack of a status. Absorb/Reflect/Lifesteal
+    // stack additively and the total is hard-capped at 60% by cappedPostDamage.
+    // A single stack sums to itself, so this is behaviour-preserving for one stack.
+    function sumActiveStatusPct(statuses: CombatStatus[], name: string, fallback = 30): number {
+        return activeStatuses(statuses)
+            .filter((s) => s.name === name)
+            .reduce((sum, s) => sum + (s.percent || fallback), 0);
+    }
     // Tags resolve next round for ALL jutsus except INSTANT_EFFECT ground-zone jutsus.
     function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">) {
         return !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT");
     }
     function statusForJutsu(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">, status: CombatStatus): CombatStatus {
         return bloodlineTagsResolveNextRound(jutsu) ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 } : status;
+    }
+    // HUD display only: a deferred (not-yet-active) status carries an extra +1
+    // round (statusForJutsu) so it survives the unconditional end-of-turn tick.
+    // That buffer must not show to the player — on the cast turn a 2-round buff
+    // would otherwise read "3r". Subtract it for not-yet-active statuses so the
+    // counter matches PvP and the move's intent. Gameplay/ticking are untouched.
+    function displayStatuses(statuses: CombatStatus[]): CombatStatus[] {
+        return statuses.map((s) =>
+            s.activeRound != null && s.activeRound > turn ? { ...s, rounds: Math.max(1, s.rounds - 1) } : s,
+        );
     }
     function isMoveJutsu(jutsu: Pick<Jutsu, "target" | "tags">) {
         return jutsu.tags.some((tag) => tagMatchesName(tag.name, "Move"));
@@ -3198,9 +3215,9 @@ export function Arena({
             if (restored > 0) effectLines.push(`Siphon: ${opponentName} restores ${restored} HP`);
         }
         // Lifesteal: enemy heals a % of damage it deals while its Lifesteal buff is active.
-        const enemyLifesteal = activeStatuses(enemyStatuses).find((s) => s.name === "Lifesteal");
-        if (enemyLifesteal && finalDamage > 0) {
-            const lsHeal = Math.floor(cappedPostDamage(finalDamage, enemyLifesteal.percent || 30));
+        const enemyLsPct = sumActiveStatusPct(enemyStatuses, "Lifesteal");
+        if (enemyLsPct > 0 && finalDamage > 0) {
+            const lsHeal = Math.floor(cappedPostDamage(finalDamage, enemyLsPct));
             if (lsHeal > 0) { healing += lsHeal; effectLines.push(`Lifesteal: ${opponentName} restores ${lsHeal} HP`); }
         }
         // Player defensive buffs vs the enemy's JUTSU. Previously ONLY the enemy
@@ -3208,12 +3225,12 @@ export function Arena({
         // against enemy jutsu (their main attack). Absorb converts a capped % of the
         // hit into avoided damage; Reflect bounces a capped % back to the enemy.
         // Pierce bypasses both. Mirrors the enemy basic-attack path (3357+).
-        const pAbsorbStatus = pierce ? undefined : activeStatuses(playerStatuses).find((s) => s.name === "Absorb");
-        const pStatusAbsorbed = pAbsorbStatus ? cappedPostDamage(finalDamage, pAbsorbStatus.percent || 30) : 0;
+        const pStatusAbsorbPct = pierce ? 0 : sumActiveStatusPct(playerStatuses, "Absorb");
+        const pStatusAbsorbed = pStatusAbsorbPct > 0 ? cappedPostDamage(finalDamage, pStatusAbsorbPct) : 0;
         const pItemAbsorbed = (!pierce && equippedAbsorbPercent > 0) ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
         const pAbsorbed = Math.min(finalDamage, pStatusAbsorbed + pItemAbsorbed);
-        const pReflectStatus = pierce ? undefined : activeStatuses(playerStatuses).find((s) => s.name === "Reflect");
-        const pStatusReflected = pReflectStatus ? Math.floor(cappedPostDamage(finalDamage, pReflectStatus.percent || 30)) : 0;
+        const pStatusReflectPct = pierce ? 0 : sumActiveStatusPct(playerStatuses, "Reflect");
+        const pStatusReflected = pStatusReflectPct > 0 ? Math.floor(cappedPostDamage(finalDamage, pStatusReflectPct)) : 0;
         const pItemReflected = (!pierce && equippedReflectPercent > 0) ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
         const pReflected = pStatusReflected + pItemReflected;
         const playerNetTaken = Math.max(0, finalDamage - pAbsorbed + extraDamage);
@@ -3505,13 +3522,13 @@ export function Arena({
         } else {
             const blocked = Math.min(playerShield, enemyDamage);
             const finalDamage = enemyDamage - blocked;
-            const absorb = activeStatuses(playerStatuses).find((s) => s.name === "Absorb");
+            const statusAbsorbPct = sumActiveStatusPct(playerStatuses, "Absorb");
             const itemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
-            const statusAbsorbed = absorb ? cappedPostDamage(finalDamage, absorb.percent || 30) : 0;
+            const statusAbsorbed = statusAbsorbPct > 0 ? cappedPostDamage(finalDamage, statusAbsorbPct) : 0;
             const absorbed = Math.min(finalDamage, itemAbsorbed + statusAbsorbed);
             playerHpAfterBasic = Math.max(0, Math.min(character.maxHp, playerHp - finalDamage + absorbed));
-            const reflect = activeStatuses(playerStatuses).find((s) => s.name === "Reflect");
-            const statusReflected = reflect ? cappedPostDamage(finalDamage, reflect.percent || 30) : 0;
+            const statusReflectPct = sumActiveStatusPct(playerStatuses, "Reflect");
+            const statusReflected = statusReflectPct > 0 ? cappedPostDamage(finalDamage, statusReflectPct) : 0;
             const itemReflected = equippedReflectPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
 
             setPlayerShield((s) => Math.max(0, s - blocked));
@@ -3526,9 +3543,9 @@ export function Arena({
             }
             // Enemy Lifesteal: heal the enemy by a % of the damage it dealt this attack.
             const enemyDealtToPlayer = Math.max(0, finalDamage - absorbed);
-            const basicEnemyLifesteal = activeStatuses(enemyStatuses).find((s) => s.name === "Lifesteal");
-            if (basicEnemyLifesteal && enemyDealtToPlayer > 0) {
-                const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLifesteal.percent || 30));
+            const basicEnemyLsPct = sumActiveStatusPct(enemyStatuses, "Lifesteal");
+            if (basicEnemyLsPct > 0 && enemyDealtToPlayer > 0) {
+                const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLsPct));
                 if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
             }
             // Enemy Recoil debuff: enemy hurts itself when it attacks (player-applied).
@@ -4133,7 +4150,7 @@ export function Arena({
                             shield={playerShield}
                             village={character.village}
                             turn={turn}
-                            statuses={playerStatuses}
+                            statuses={displayStatuses(playerStatuses)}
                         />
                     </div>,
                     portalTarget
@@ -4153,7 +4170,7 @@ export function Arena({
                     shield={playerShield}
                     village={character.village}
                     turn={turn}
-                    statuses={playerStatuses}
+                    statuses={displayStatuses(playerStatuses)}
                 />
 
                 <main className="combat-main-area">
@@ -4710,7 +4727,7 @@ export function Arena({
                     shield={enemyShield}
                     village={opponentCharacter?.village ?? pendingAiProfile?.village ?? "AI"}
                     turn={turn}
-                    statuses={enemyStatuses}
+                    statuses={displayStatuses(enemyStatuses)}
                 />
             </div>
 

@@ -12977,7 +12977,7 @@ button.combat-jutsu-button,
 .arena-fullscreen .effect-pill span {
     min-width: 0 !important;
     white-space: normal !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
     color: #e0f2fe !important;
     line-height: 1.15 !important;
 }
@@ -12985,6 +12985,27 @@ button.combat-jutsu-button,
 .arena-fullscreen .effect-pill small,
 .arena-fullscreen .empty-effects {
     color: #94a3b8 !important;
+    white-space: nowrap !important;
+}
+
+/* Stacked-effect count (e.g. "x3") — small and muted so the buff name reads first. */
+.effect-stack {
+    opacity: 0.6;
+    font-size: 0.82em;
+    font-weight: 600;
+}
+
+/* Buff vs debuff tone — a subtle left accent so players can tell them apart at a glance. */
+.arena-fullscreen .effects-buff .effect-pill {
+    border-left: 3px solid rgba(34, 197, 94, 0.55) !important;
+}
+
+.arena-fullscreen .effects-debuff .effect-pill {
+    border-left: 3px solid rgba(248, 113, 113, 0.55) !important;
+}
+
+.effects-debuff .effect-pill {
+    color: #f87171;
 }
 
 /* Pet Arena */
