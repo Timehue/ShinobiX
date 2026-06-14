@@ -100,6 +100,7 @@ const daily_js_1 = __importDefault(require("./api/missions/daily.js"));
 const report_raid_js_1 = __importDefault(require("./api/missions/report-raid.js"));
 const report_pvp_win_js_1 = __importDefault(require("./api/missions/report-pvp-win.js"));
 const report_pet_event_js_1 = __importDefault(require("./api/missions/report-pet-event.js"));
+const claim_mission_js_1 = __importDefault(require("./api/missions/claim-mission.js"));
 // PvP — realtime + rewards + queues
 const chat_js_2 = __importDefault(require("./api/pvp/chat.js"));
 const spectate_js_1 = __importDefault(require("./api/pvp/spectate.js"));
@@ -487,6 +488,7 @@ route('/missions/daily', daily_js_1.default);
 route('/missions/report-raid', report_raid_js_1.default);
 route('/missions/report-pvp-win', report_pvp_win_js_1.default);
 route('/missions/report-pet-event', report_pet_event_js_1.default);
+route('/missions/claim-mission', claim_mission_js_1.default);
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic
 // route() wrapper passes res straight through so the handlers stream normally.
