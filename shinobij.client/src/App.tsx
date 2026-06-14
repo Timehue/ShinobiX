@@ -148,6 +148,7 @@ import { ClanWarTileCardDuel } from "./screens/ClanWarTileCardDuel";
 import { ShinobiCouncilHall } from "./screens/ShinobiCouncilHall";
 import { CardClashDuel } from "./screens/CardClashDuel";
 import { CardHall } from "./screens/CardHall";
+import { GuidesLibrary } from "./components/GuidesLibrary";
 import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDeck } from "./lib/card-clash";
 import { DungeonEncounter, DungeonPetBattle } from "./screens/Dungeon";
 import { sharedClanWarCache, cwListWars, type CwWar, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
@@ -8858,6 +8859,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={() => setScreen("village")} />}
+                {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
                 {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
                     callbacks all route back to the shrine; loss applies

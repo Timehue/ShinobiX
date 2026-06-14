@@ -105,6 +105,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
                         <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
                         <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("guides")}>📖 Guides</button>
                         <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}>💬 Discord</button>
                         <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}>♥ Patreon</button>
                         {isAdminAccount && (
