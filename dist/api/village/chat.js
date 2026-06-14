@@ -8,9 +8,8 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const moderation_js_1 = require("../admin/moderation.js");
 const _lock_js_1 = require("../_lock.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
-const MSG_TTL_MS = 30 * 60 * 1000; // 30 minutes
-const MAX_MESSAGES = 60;
-const KV_TTL_SECONDS = 4 * 60 * 60; // 4-hour KV key TTL (refreshed on every POST)
+const MAX_MESSAGES = 30; // hold the most recent 30 messages; the oldest drops as new ones arrive (count-based, no age expiry)
+const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30-day KV key TTL (refreshed on every POST) — only garbage-collects truly abandoned villages, not active chat
 function chatKey(village) {
     return `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
@@ -31,10 +30,9 @@ async function handler(req, res) {
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
         const messages = await _storage_js_1.kv.get(key) ?? [];
-        const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-        res.setHeader('X-Message-Count', String(fresh.length));
+        res.setHeader('X-Message-Count', String(messages.length));
         res.setHeader('Cache-Control', 'no-store');
-        return res.status(200).json(fresh);
+        return res.status(200).json(messages);
     }
     if (req.method === 'POST') {
         // Cap chat posts at 20/min per IP — keeps the KV-lock R-M-W
@@ -108,8 +106,7 @@ async function handler(req, res) {
             // through and run unlocked rather than dropping the write.
             const updated = await (0, _lock_js_1.withKvLock)(key, async () => {
                 const existing = await _storage_js_1.kv.get(key) ?? [];
-                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-                const next = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                const next = [...existing, newMsg].slice(-MAX_MESSAGES);
                 await _storage_js_1.kv.set(key, next, { ex: KV_TTL_SECONDS });
                 return next;
             });
