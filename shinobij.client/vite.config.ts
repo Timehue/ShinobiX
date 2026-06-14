@@ -52,12 +52,6 @@ if (!isBuildMode && !env.VITE_SKIP_HTTPS) {
     }
 }
 
-const target = env.ASPNETCORE_HTTPS_PORT
-    ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}`
-    : env.ASPNETCORE_URLS
-        ? env.ASPNETCORE_URLS.split(';')[0]
-        : 'https://localhost:7275';
-
 function readBody(req: IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
@@ -455,12 +449,6 @@ export default defineConfig({
         },
     },
     server: {
-        proxy: {
-            '^/weatherforecast': {
-                target,
-                secure: false
-            },
-        },
         port: parseInt(env.DEV_SERVER_PORT || '50891'),
         ...(httpsConfig ? { https: httpsConfig } : {}),
     }
