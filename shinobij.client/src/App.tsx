@@ -829,7 +829,7 @@ export const adminIconOptions: { value: string; label: string }[] = [
 import {
     capPetStats,
     balanceBuiltInPetTemplate,
-    mergePetJutsuSlots,
+    registerPublishedPetTemplates, resolvePetTemplateJutsus,
     rollPetTrait,
     applyPetTraitBonuses,
     collectPetTraining,
@@ -884,9 +884,13 @@ function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
 
     return [...currentPets, ...missingBuiltInPets];
 }
-// cloneEncounterPet + builtInPetTemplateId moved to ./lib/pet-balance.
+
+// cloneEncounterPet + builtInPetTemplateId + the published-pet-template registry
+// (registerPublishedPetTemplates / resolvePetTemplateJutsus) all live in
+// ./lib/pet-balance; here we only supply the hardcoded baseline fallback.
 function normalizePet(pet: Pet): Pet {
-    const baseTemplate = petPool.find((template) => template.id === builtInPetTemplateId(pet.id));
+    const fallback = petPool.find((template) => template.id === builtInPetTemplateId(pet.id));
+    const { template: baseTemplate, jutsus } = resolvePetTemplateJutsus(pet, fallback);
     const merged = baseTemplate ? {
         ...pet,
         hp: Math.max(pet.hp ?? 0, baseTemplate.hp),
@@ -894,18 +898,9 @@ function normalizePet(pet: Pet): Pet {
         defense: Math.max(pet.defense ?? 0, baseTemplate.defense),
         speed: Math.max(pet.speed ?? 0, baseTemplate.speed),
         moveRange: pet.moveRange ?? baseTemplate.moveRange,
-        // Backfill element from the template for existing saves whose pets
-        // predate the element field. Pet's own element (if any) wins so a
-        // future admin-edit override would still stick.
+        // Backfill element for pre-element saves; the pet's own element wins if set.
         element: pet.element ?? baseTemplate.element,
-        // Phase 12c migration: merge the player's kit onto the current template
-        // so existing pets ADOPT the redesigned archetype kit (Phase 12b). The
-        // template's effect (kind/name/cooldown/rounds) wins; the player's
-        // leveled jutsu POWER is preserved (max). New trailing slots backfill.
-        // Only the re-themed UTILITY slots actually change — damage/move/special/
-        // signature are identical between old and new templates. See
-        // mergePetJutsuSlots for the full rationale + investment guarantees.
-        jutsus: mergePetJutsuSlots(pet.jutsus ?? [], baseTemplate.jutsus),
+        jutsus,
     } : pet;
     return capPetStats({
         ...merged,
@@ -4084,7 +4079,8 @@ export default function App() {
         return Array.from(merged.values());
     }
 
-    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
+    // Returns true if the published-pet-template registry changed (caller re-normalizes).
+    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
         if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeJutsusByRecency(prev, sharedCreatorJutsus));
@@ -4096,6 +4092,8 @@ export default function App() {
         if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+        // Publish admin-edited pet kits globally (normalizePet adopts authored templates).
+        return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
 
     async function pullSharedAdminContent() {
@@ -4105,7 +4103,9 @@ export default function App() {
         ]);
         const available = snapshots.filter((snap): snap is ReturnType<typeof buildPlayerSavePayload> => Boolean(snap));
         if (!available.length) return;
-        available.forEach(applySharedAdminContentSnapshot);
+        const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
+        // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
+        if (petTemplatesChanged) setCharacter((prev) => prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
         loadedCatsRef.current.delete('jutsu');
         loadedCatsRef.current.delete('bloodline');
         loadedCatsRef.current.delete('event');

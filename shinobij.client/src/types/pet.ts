@@ -131,4 +131,11 @@ export type Pet = {
     // their evolved templates out of explore-tile encounters while still
     // letting the admin Pet Editor image them. Undefined = spawnable (default).
     wildSpawnable?: boolean;
+    // Last-edited timestamp, stamped by the admin Pet Editor (updatePet) when a
+    // template's kit/stats/name change. Marks the pet as admin-AUTHORED so the
+    // shared-admin-content pull treats it as the authoritative template for every
+    // player's instance (overriding the hardcoded balanced baseline), and gives
+    // the two-admin merge a recency tiebreaker. Undefined = never admin-edited →
+    // keep the built-in baseline. Mirrors Jutsu.updatedAt.
+    updatedAt?: number;
 };
