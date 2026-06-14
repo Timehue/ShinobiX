@@ -1878,6 +1878,7 @@ button {
     .right-menu-panel h3 {
         color: #facc15;
         margin-top: 12px;
+        text-shadow: 0 2px 4px #000, 0 0 10px rgba(0, 0, 0, 0.9);
     }
 
 .right-menu-buttons {
@@ -8095,11 +8096,15 @@ textarea {
     color: #f8fafc !important;
 }
 
-/* Layer the fixed profile stats over the sector banner art instead of covering it. */
+/* Layer the fixed profile stats over the night-village banner art. The art is
+   richer than the old flat panel, so the gradient is darker (and darkest toward
+   the bottom, where the lantern/maple detail sits under the dense caps/XP text)
+   to keep every stat line readable. The gold frame used to be baked into the
+   image; it's now a CSS border since the new art is frameless. */
 .left-profile-card {
-    background: linear-gradient(180deg, rgba(3, 7, 18, 0.04), rgba(3, 7, 18, 0.16) 42%, rgba(3, 7, 18, 0.28)), url("./assets/sectorbanner.webp") center / 100% 100% no-repeat !important;
-    border-right: 0 !important;
-    box-shadow: none !important;
+    background: linear-gradient(180deg, rgba(3, 7, 18, 0.34), rgba(3, 7, 18, 0.30) 38%, rgba(3, 7, 18, 0.55) 76%, rgba(3, 7, 18, 0.74)), url("./assets/sectorbanner.webp") center / cover no-repeat !important;
+    border-right: 3px solid #facc15 !important;
+    box-shadow: inset -1px 0 0 rgba(250, 204, 21, 0.25), 0 0 22px rgba(0, 0, 0, 0.55) !important;
     overflow: hidden !important;
     padding: 70px 18px 24px !important;
     gap: 10px !important;
