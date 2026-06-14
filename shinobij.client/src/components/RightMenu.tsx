@@ -55,7 +55,10 @@ export const RightMenu = memo(function RightMenu({
         <aside
             className={`right-menu-panel ${menuOpen ? "open" : "closed"}`}
             style={{
-                backgroundImage: `url(${rightMenuBg})`,
+                // Dark scrim over the night-village art so the header buttons and
+                // gold "Main Menu" heading stay readable over the bright moon up
+                // top; mid stays clear, bottom dims again under the torii art.
+                backgroundImage: `linear-gradient(180deg, rgba(3,7,18,0.55), rgba(3,7,18,0.28) 26%, rgba(3,7,18,0.20) 60%, rgba(3,7,18,0.50)), url(${rightMenuBg})`,
             }}
         >
             <div className="right-menu-header-row">
