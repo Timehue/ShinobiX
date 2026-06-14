@@ -481,6 +481,80 @@ export function mergePetJutsuSlots(playerJutsus: PetJutsu[], templateJutsus: Pet
     });
 }
 
+/**
+ * Apply an admin-AUTHORED template kit onto a saved pet's jutsus — used when the
+ * template comes from the admin Pet Editor (a published, intentional kit) rather
+ * than the hardcoded baseline. Unlike mergePetJutsuSlots (which preserves any
+ * player-only EXTRA slot for migration safety), this makes the template the
+ * EXACT kit: the result length equals the template's, so an admin REMOVING a
+ * move drops it and ADDING one backfills a trailing slot. Each slot adopts the
+ * template's effect (name/kind/cooldown/rounds/signature/aoe); the player's
+ * leveled POWER is preserved per slot via Math.max so this never strips combat
+ * investment. currentCooldown resets to 0.
+ *
+ * Pure + deterministic; idempotent (re-running on an already-authored kit is a
+ * no-op since the slots already match the template).
+ */
+export function applyAuthoredPetJutsus(playerJutsus: PetJutsu[], templateJutsus: PetJutsu[]): PetJutsu[] {
+    return templateJutsus.map((base, i) => {
+        const player = playerJutsus[i];
+        return {
+            ...base,
+            power: Math.max(player?.power ?? 0, base.power ?? 0),          // keep the leveled power
+            currentCooldown: 0,
+        };
+    });
+}
+
+// ── Admin-published (authored) pet templates ──────────────────────────────────
+// Pets edited in the admin Pet Editor ship in the admin save (editablePets) and
+// every client pulls those saves (App.pullSharedAdminContent). Edited pets carry
+// an `updatedAt` stamp; we register them here, keyed by base template id, so
+// resolvePetTemplateJutsus adopts the admin-AUTHORED kit/stats for every player's
+// instance — overriding the hardcoded balanced baseline. Unedited pets (no
+// updatedAt) are ignored, so they keep the built-in template exactly. This is the
+// one intentional module-level registry in an otherwise-pure file; it's populated
+// only by the admin-content pull and read by normalizePet.
+const publishedPetTemplates = new Map<string, Pet>();
+
+/**
+ * Merge a pulled admin save's editablePets into the registry. Only admin-edited
+ * pets (updatedAt present) override; when the same pet is edited in BOTH admin
+ * saves, the STRICTLY-newer copy wins (recency — avoids a stale snapshot
+ * clobbering a fresh edit). Returns true if anything changed so the caller can
+ * re-normalize the live roster.
+ */
+export function registerPublishedPetTemplates(pets: Pet[]): boolean {
+    let changed = false;
+    for (const pet of pets) {
+        if (!pet?.updatedAt) continue;
+        const baseId = builtInPetTemplateId(pet.id);
+        const existing = publishedPetTemplates.get(baseId);
+        if (existing && (existing.updatedAt ?? 0) >= (pet.updatedAt ?? 0)) continue;
+        publishedPetTemplates.set(baseId, pet);
+        changed = true;
+    }
+    return changed;
+}
+
+/**
+ * Resolve a saved pet's effective base template + merged jutsus. An admin-
+ * published (authored) template wins over the hardcoded baseline (`fallback`);
+ * its kit is applied EXACTLY (applyAuthoredPetJutsus). Otherwise the baseline's
+ * Phase-12c slot merge runs (mergePetJutsuSlots — template effect wins, player
+ * extra slots kept). Both preserve the player's leveled power. Returns the
+ * baseline pet's `jutsus` untouched when no template exists.
+ */
+export function resolvePetTemplateJutsus(pet: Pet, fallback: Pet | undefined): { template: Pet | undefined; jutsus: PetJutsu[] } {
+    const authored = publishedPetTemplates.get(builtInPetTemplateId(pet.id));
+    const template = authored ?? fallback;
+    if (!template) return { template: undefined, jutsus: pet.jutsus ?? [] };
+    const jutsus = authored
+        ? applyAuthoredPetJutsus(pet.jutsus ?? [], template.jutsus)
+        : mergePetJutsuSlots(pet.jutsus ?? [], template.jutsus);
+    return { template, jutsus };
+}
+
 // ── Training math ───────────────────────────────────────────────────────
 
 /** Combined training-speed multiplier: duration tier × Loyal trait × happiness. */

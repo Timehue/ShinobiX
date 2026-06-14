@@ -3732,8 +3732,13 @@ export function AdminPanel({
                             const selectedPet = pet;
 
                             function updatePet(updated: Partial<Pet>) {
+                                // Stamp updatedAt so the shared-admin-content pull treats this pet as
+                                // admin-AUTHORED and publishes its kit/stats to every player's instance
+                                // (overriding the built-in baseline). Also gives the two-admin merge a
+                                // recency tiebreaker so an edit can't be clobbered by a stale copy.
+                                const stamped = { ...updated, updatedAt: Date.now() };
                                 setEditablePets(
-                                    editablePets.map((p) => p.id === selectedPet.id ? { ...p, ...updated } : p)
+                                    editablePets.map((p) => p.id === selectedPet.id ? { ...p, ...stamped } : p)
                                 );
                                 // Mirror image changes to character.pets so the pet tab
                                 // shows the new image immediately without a page reload.
