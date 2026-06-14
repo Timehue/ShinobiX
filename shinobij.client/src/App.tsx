@@ -1303,31 +1303,6 @@ export function getProfessionRankForXp(profession: Profession, xp: number): numb
     return Math.min(PROFESSION_MAX_RANK, rank);
 }
 
-// Vanguard Rank 2+ perk: all Vanguard XP gains are +10%. Applies to per-kill
-// XP, mission completion XP, anything that flows through gainProfessionXp.
-// Multiplier is keyed off CURRENT rank (before this grant) so rank-up timing
-// doesn't matter — the bonus kicks in starting with the first gain at Rank 2.
-function professionXpMultiplier(character: Character): number {
-    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 2) {
-        return 1.1;
-    }
-    return 1;
-}
-
-// Award profession XP and auto-rank-up. No-op if the character has no
-// profession. Returns the updated character — caller should setCharacter().
-export function gainProfessionXp(character: Character, amount: number): Character {
-    if (!character.profession || amount <= 0) return character;
-    const boosted = Math.floor(amount * professionXpMultiplier(character));
-    const nextXp = (character.professionXp ?? 0) + boosted;
-    const nextRank = getProfessionRankForXp(character.profession, nextXp);
-    return {
-        ...character,
-        professionXp: nextXp,
-        professionRank: nextRank,
-    };
-}
-
 // Reward-currency helpers (normalize/apply/format + rewardSummary) extracted to
 // ./lib/currency. The symbols still referenced here are imported back near the
 // top of this file. None were part of the public "../App" surface.
