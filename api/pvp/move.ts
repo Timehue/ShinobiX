@@ -278,6 +278,15 @@ function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
 function countActive(f: PvpFighter, name: string, round: number): number {
     return activeStatuses(f, round).filter(s => nameMatches(s.name, name)).length;
 }
+// Sum the percents of every active stack of a status. Used by the post-damage
+// defensive tags (Absorb/Reflect/Lifesteal): they stack additively and the
+// total is hard-capped at 60% downstream by cappedPostDamage. A single stack
+// sums to itself, so this is behaviour-preserving for the common case.
+function sumActivePct(f: PvpFighter, name: string, round: number, fallback = 30): number {
+    return activeStatuses(f, round)
+        .filter(st => st.name === name)
+        .reduce((sum, st) => sum + (st.percent ?? fallback), 0);
+}
 // Tags resolve next round for ALL jutsus (bloodline or not) except INSTANT_EFFECT
 // ground-zone jutsus where the enemy is standing in the zone on cast.
 // Mirrors the client-side fix in App.tsx — previously only bloodline jutsus were
@@ -618,10 +627,12 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
 
     const blocked = pierce ? 0 : Math.min(o.shield, damage);
     const finalDmg = Math.max(0, damage - blocked);
-    const reflect = activeStatuses(o, round).find(st => st.name === 'Reflect');
-    const reflectedDmg = reflect && !pierce ? cappedPostDamage(finalDmg, reflect.percent ?? 30) : 0;
-    const defAbsorb = activeStatuses(o, round).find(st => st.name === 'Absorb');
-    const absorbHeal = defAbsorb && !pierce ? cappedPostDamage(finalDmg, defAbsorb.percent ?? 30) : 0;
+    // Absorb/Reflect stack additively across active stacks (hard-capped at 60%
+    // by cappedPostDamage), matching Lifesteal below. Was first-stack-only (.find).
+    const reflectPct = sumActivePct(o, 'Reflect', round);
+    const reflectedDmg = reflectPct > 0 && !pierce ? cappedPostDamage(finalDmg, reflectPct) : 0;
+    const absorbPct = sumActivePct(o, 'Absorb', round);
+    const absorbHeal = absorbPct > 0 && !pierce ? cappedPostDamage(finalDmg, absorbPct) : 0;
 
     // Named-armor passives (stack with status-based versions above).
     // Percentages are clamped to [0, 100] at session merge; pierce
