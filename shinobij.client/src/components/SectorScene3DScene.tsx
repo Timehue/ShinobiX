@@ -16,7 +16,7 @@
  * uses emissiveMap (color black + emissive white = the texture shown flat),
  * which also keeps three's colour-space + displacement pipeline correct.
  */
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -24,7 +24,7 @@ import type { Biome } from "../types/core";
 
 const CAM_Z = 10;       // camera distance
 const FOV = 45;
-const OVERSHOOT = 1.5;  // plane is bigger than the view so parallax never reveals an edge
+const OVERSHOOT = 1.5;  // plane is bigger than the view so parallax never reveals an edge — keep in sync with SectorScene's SCALE so both layers frame at the same zoom
 const AMP = 0.5;        // how far the camera travels across the grid (world units)
 const DISPLACE = 0.7;   // depth relief (world units toward the camera)
 const GRID_W = 12;
@@ -108,7 +108,7 @@ function buildHazeTexture(color: string): THREE.CanvasTexture {
     return tex;
 }
 
-function Backdrop({ image, biome, focus, depth }: { image: string; biome: Biome; focus: number; depth?: string }) {
+function Backdrop({ image, biome, focus, depth, onReady }: { image: string; biome: Biome; focus: number; depth?: string; onReady?: () => void }) {
     // Load the colour painting and, when present, a baked AI depth map together.
     const urls = useMemo(() => (depth ? [image, depth] : [image]), [image, depth]);
     const textures = useTexture(urls);
@@ -140,6 +140,13 @@ function Backdrop({ image, biome, focus, depth }: { image: string; biome: Biome;
     const hazeTex = useMemo(() => buildHazeTexture(HAZE[biome]), [biome]);
     useEffect(() => () => { colorTex.dispose(); depthTex.dispose(); hazeTex.dispose(); }, [colorTex, depthTex, hazeTex]);
 
+    // Fire `onReady` once the first frame of THIS painting has actually rendered,
+    // so the gate (SectorScene3D) can fade this layer in over the flat backdrop —
+    // no abrupt swap between the two framings. Re-arm when the painting changes
+    // (new sector) so the next scene fades in on its own first paint.
+    const readyRef = useRef(false);
+    useEffect(() => { readyRef.current = false; }, [image]);
+
     // Plane sized to fill the view (plus overshoot) at the backdrop's depth.
     const visH = 2 * CAM_Z * Math.tan((FOV * Math.PI) / 180 / 2);
     const visW = visH * (size.width / Math.max(1, size.height));
@@ -158,6 +165,10 @@ function Backdrop({ image, biome, focus, depth }: { image: string; biome: Biome;
         cam.position.y += (ty - cam.position.y) * 0.05;
         cam.position.z = CAM_Z;
         cam.lookAt(0, 0, 0);
+        if (!readyRef.current) {
+            readyRef.current = true;
+            onReady?.();
+        }
     });
 
     return (
@@ -183,7 +194,7 @@ function Backdrop({ image, biome, focus, depth }: { image: string; biome: Biome;
     );
 }
 
-export default function SectorScene3DScene({ image, biome, focus, depth }: { image: string; biome: Biome; focus: number; depth?: string }) {
+export default function SectorScene3DScene({ image, biome, focus, depth, onReady }: { image: string; biome: Biome; focus: number; depth?: string; onReady?: () => void }) {
     return (
         <Canvas
             className="sector-scene-3d-canvas"
@@ -192,7 +203,7 @@ export default function SectorScene3DScene({ image, biome, focus, depth }: { ima
             gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
             frameloop="always"
         >
-            <Backdrop image={image} biome={biome} focus={focus} depth={depth} />
+            <Backdrop image={image} biome={biome} focus={focus} depth={depth} onReady={onReady} />
         </Canvas>
     );
 }
