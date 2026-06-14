@@ -120,4 +120,15 @@ export type Pet = {
     // matchup: Fire > Wind > Lightning > Earth > Water > Fire. Pets without
     // an element (or with "None") fight neutral against everything.
     element?: JutsuElement;
+    // Starter-pet evolution stage (0 = base/standard, 1 = rare, 2 = legendary).
+    // Only the 5 `starter-*` companions evolve; everything else stays undefined
+    // (treated as 0). Set server-side by /api/pet/evolve. The persistent `id`
+    // never changes across stages — stage is the source of truth for which
+    // form a starter is in. See docs/pet-starter-evolution-plan.md.
+    evolutionStage?: 0 | 1 | 2;
+    // When explicitly false, this pet can NEVER appear as a random wild
+    // befriend (rollPetEncounter). Used to lock the starter base forms AND
+    // their evolved templates out of explore-tile encounters while still
+    // letting the admin Pet Editor image them. Undefined = spawnable (default).
+    wildSpawnable?: boolean;
 };

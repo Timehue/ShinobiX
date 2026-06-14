@@ -112,6 +112,7 @@ import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 // Pet
 import petBattleResultHandler from './api/pet/battle-result.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
+import petEvolveHandler from './api/pet/evolve.js';
 import arenaLobbyHandler from './api/arena/lobby.js';
 // Jutsu
 import jutsuSpeedupHandler       from './api/jutsu/speedup.js';
@@ -558,6 +559,7 @@ route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 // ─── Pet battle result ─────────────────────────────────────────────────────────
 route('/pet/battle-result', petBattleResultHandler);
 route('/pet/ranked-start',  petRankedStartHandler);
+route('/pet/evolve',        petEvolveHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', arenaLobbyHandler);

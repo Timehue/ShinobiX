@@ -15,6 +15,7 @@
 
 import type { Pet } from "../types/pet";
 import type { JutsuElement } from "../types/core";
+import { petVisualId } from "../data/pet-evolutions";
 import type {
     PetSpriteMode,
     PetVfxKey,
@@ -56,7 +57,9 @@ export function petBattleLayers(
     sharedImages: Record<string, string> = {},
 ): { far: string; mid: string; near: string } | null {
     const baseId = petStripVariant(pet.id);
+    const visualId = petVisualId(pet);
     const pick = (band: "far" | "mid" | "near"): string =>
+        sharedImages[`${PET_LAYER_PREFIX}${visualId}:${band}`] ||
         sharedImages[`${PET_LAYER_PREFIX}${pet.id}:${band}`] ||
         sharedImages[`${PET_LAYER_PREFIX}${baseId}:${band}`] ||
         "";
@@ -75,12 +78,15 @@ export function petBattleSheet(
     sharedImages: Record<string, string> = {},
 ): { src: string; frames: number } | null {
     const baseId = petStripVariant(pet.id);
+    const visualId = petVisualId(pet);
     const src =
+        sharedImages[`${PET_SHEET_PREFIX}${visualId}`] ||
         sharedImages[`${PET_SHEET_PREFIX}${pet.id}`] ||
         sharedImages[`${PET_SHEET_PREFIX}${baseId}`] ||
         "";
     if (!src) return null;
     const framesRaw =
+        sharedImages[`${PET_SHEET_PREFIX}${visualId}:frames`] ||
         sharedImages[`${PET_SHEET_PREFIX}${pet.id}:frames`] ||
         sharedImages[`${PET_SHEET_PREFIX}${baseId}:frames`] ||
         "";
@@ -103,13 +109,20 @@ export function petBattleSprite(
     sharedImages: Record<string, string> = {},
 ): { mode: PetSpriteMode; src: string } {
     const baseId = petStripVariant(pet.id);
+    // Evolved starters keep their base id but carry a stage `visualId`
+    // (starter-fire-r / -l). Try the stage art FIRST, then fall back to the base
+    // art — so an evolved pet shows its own form once that art is published, and
+    // the unchanged base art until then (no regression). See data/pet-evolutions.
+    const visualId = petVisualId(pet);
     const body =
+        sharedImages[PET_BODY_PREFIX + visualId] ||
         sharedImages[PET_BODY_PREFIX + pet.id] ||
         sharedImages[PET_BODY_PREFIX + baseId] ||
         pet.bodyImage ||
         "";
     if (body) return { mode: "fullBodySprite", src: body };
     const circle =
+        sharedImages[PET_IMG_PREFIX + visualId] ||
         sharedImages[PET_IMG_PREFIX + pet.id] ||
         sharedImages[PET_IMG_PREFIX + baseId] ||
         pet.image ||

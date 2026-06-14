@@ -62,3 +62,23 @@ export function petBloomEnabled(): boolean {
 export function setPetBloomEnabled(on: boolean): void {
     try { localStorage.setItem(BLOOM_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
+
+/*
+ * Pet EVOLUTION cutscene flag (the Digimon-style reveal — see
+ * docs/pet-starter-evolution-plan.md §4). When ON, evolving a starter in the Pet
+ * Yard plays a short cinematic (old name → tube of light + silhouette morph →
+ * burst → new name → 360° hero spin) before returning to the yard. The
+ * evolution itself is server-authoritative and already persisted before the
+ * cutscene plays, so it is purely celebratory and always skippable — flipping
+ * this OFF just replaces it with the inline "Evolved into X!" toast. DEFAULT ON.
+ * Per-device persisted.
+ */
+const EVOLVE_CUTSCENE_KEY = "petEvolveCutscene.v1";
+
+export function petEvolveCutsceneEnabled(): boolean {
+    try { return localStorage.getItem(EVOLVE_CUTSCENE_KEY) !== "0"; } catch { return true; }
+}
+
+export function setPetEvolveCutsceneEnabled(on: boolean): void {
+    try { localStorage.setItem(EVOLVE_CUTSCENE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
