@@ -12,6 +12,7 @@ import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getOffenseStat } from "../lib/combat-math";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { storylines, getCurrentStory } from "../data/storylines";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { STORY_BOSS_SAVE_TTL_MS, storyBossSaveKey } from "../lib/battle-save";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import {
@@ -39,6 +40,28 @@ export function StoryHall({
     const storyLine = storylines[character.storyVillage || character.village] || [];
     const current = getCurrentStory(character);
     const [lineIndex, setLineIndex] = useState(0);
+    // Gate the village story behind tutorial completion (matches the auto-trigger
+    // gate in App.tsx). "storyUnlocked" is allowed — that beat is actively sending
+    // the player here, and visiting flips onboarding to "done".
+    const storyTutorialLocked = !["done", "storyUnlocked"].includes(normalizeOnboardingStep(character.onboardingStep));
+    if (storyTutorialLocked) {
+        return (
+            <div className="card cinematic-card">
+                <div className="visual-novel">
+                    <div className="vn-stage vn-complete">
+                        <div className="vn-character hero-character">🎓</div>
+                        <div className="vn-dialogue">
+                            <div className="vn-speaker">Academy</div>
+                            <p>Complete Academy Training to unlock your village story. Open your Logbook to see what's next on your path to Genin.</p>
+                            <div className="vn-controls">
+                                <button onClick={() => setScreen("logbook")}>Open Logbook</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
     const hiddenCreatorVnIds = new Set([AWAKENING_VN_ID, AURA_SPHERE_VN_ID, DUNGEON_VN_ID]);
     const creatorVisualNovels = creatorEvents
         .filter((event) =>

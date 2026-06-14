@@ -1,0 +1,166 @@
+// Server-authoritative mission reward catalog + the small pure reward helpers
+// the claim endpoint needs. This is the trusted source of payout values for the
+// built-in missions; the client never sends reward amounts.
+//
+// VERBATIM MIRROR of the client data — keep in lockstep:
+//   • COMBAT_MISSIONS  ← shinobij.client/src/data/combat-missions.ts
+//   • FIELD_MISSIONS    ← shinobij.client/src/data/missions.ts
+//                         (builtinHuntMissions + builtinFetchMissions)
+//   • the reward-bonus math ← shinobij.client/src/lib/{village-upgrades,
+//                              aura-sphere}.ts (missionHall upgrade + aura sphere)
+//   • TERRITORY_CONTROL_SCROLL_ID / DAILY_MISSION_LIMIT / AURA_SPHERE_ITEM_ID
+//                         ← shinobij.client/src/constants/game.ts
+// The colocated _mission-catalog.test.ts pins these against an inline replica;
+// a drift on either side must change both (that's the point).
+
+export const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
+export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
+export const DAILY_MISSION_LIMIT = 20;
+export const VILLAGE_UPGRADE_MAX_LEVEL = 50;
+// Field missions always grant a flat 3 Territory Control Scrolls on claim
+// (matches Logbook.claimMission's grantTerritoryScrolls(..., 3)).
+export const FIELD_MISSION_SCROLLS = 3;
+
+export type CurrencyKey = 'fateShards' | 'honorSeals' | 'boneCharms' | 'auraStones' | 'auraDust' | 'mythicSeals';
+export const CURRENCY_KEYS: readonly CurrencyKey[] = [
+    'fateShards', 'honorSeals', 'boneCharms', 'auraStones', 'auraDust', 'mythicSeals',
+];
+
+export type CombatMissionDef = {
+    key: string;
+    min: number;
+    xp: number;
+    ryo: number;
+    territoryScrolls: number;
+    aiProfileId: string;
+};
+
+export type FieldMissionDef = {
+    id: string;
+    levelReq: number;
+    xpReward: number;
+    ryoReward: number;
+    staminaReward: number;
+    currencyRewards?: Partial<Record<CurrencyKey, number>>;
+};
+
+// ── COMBAT_MISSIONS — mirror of data/combat-missions.ts ─────────────────────
+export const COMBAT_MISSIONS: CombatMissionDef[] = [
+    { key: 'combat-d-errand', min: 1, xp: 25, ryo: 20, territoryScrolls: 1, aiProfileId: 'builtin-ai-mist-sentinel' },
+    { key: 'combat-c-patrol', min: 10, xp: 75, ryo: 60, territoryScrolls: 1, aiProfileId: 'builtin-ai-ember-duelist' },
+    { key: 'combat-b-escort', min: 30, xp: 150, ryo: 125, territoryScrolls: 1, aiProfileId: 'builtin-ai-frost-sealer' },
+    { key: 'combat-a-hunt', min: 50, xp: 300, ryo: 250, territoryScrolls: 1, aiProfileId: 'builtin-ai-shadow-weaver' },
+    { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
+];
+
+// ── FIELD_MISSIONS — mirror of data/missions.ts (hunt + fetch builtins) ──────
+export const FIELD_MISSIONS: FieldMissionDef[] = [
+    // builtinHuntMissions
+    { id: 'hunt-wild-boar', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8 },
+    { id: 'hunt-forest-hawk', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8 },
+    { id: 'hunt-frost-wolf', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12 },
+    { id: 'hunt-ash-lizard', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12 },
+    { id: 'hunt-shadow-panther', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 } },
+    { id: 'hunt-ironback-bear', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 } },
+    { id: 'hunt-ember-drake', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 } },
+    { id: 'hunt-moon-serpent', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 } },
+    { id: 'hunt-ancient-chakra-beast', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 } },
+    { id: 'hunt-worldstorm-dragon', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 } },
+    // builtinFetchMissions
+    { id: 'fetch-d-supply-trail', levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8 },
+    { id: 'fetch-c-border-scout', levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14 },
+    { id: 'fetch-b-enemy-cache', levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
+    { id: 'fetch-a-black-route', levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
+    { id: 'fetch-s-shadow-front', levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
+];
+
+// ── Academy Trial — the one-time onboarding mission (no client equivalent) ───
+// Tiny, off the daily cap, one-time (gated by character.academyTrialClaimed).
+// No premium currency, no territory scrolls.
+export const ACADEMY_TRIAL = {
+    id: 'academy-trial',
+    xp: 40,
+    ryo: 30,
+    stamina: 5,
+} as const;
+
+export function combatMissionByKey(key: string): CombatMissionDef | undefined {
+    return COMBAT_MISSIONS.find((m) => m.key === key);
+}
+
+export function fieldMissionById(id: string): FieldMissionDef | undefined {
+    return FIELD_MISSIONS.find((m) => m.id === id);
+}
+
+// ── Reward bonus % — mirror of Logbook/Missions:
+//     getMissionRewardBonus(char) + getActiveAuraSphereBonuses(char).missionRewardPercent
+//   getMissionRewardBonus = villageUpgradeBonus(missionHall) = level × 0.5
+//   aura sphere mission % = (equipped) ? (lvl>=100 ? 1 : lvl>=50 ? 2 : 0) : 0
+type CatalogChar = Record<string, unknown>;
+
+function missionHallBonusPct(char: CatalogChar): number {
+    const upgrades = (char.villageUpgrades as Record<string, unknown> | undefined) ?? {};
+    const raw = Math.floor(Number(upgrades.missionHall ?? 0));
+    const level = Math.min(VILLAGE_UPGRADE_MAX_LEVEL, Math.max(0, Number.isFinite(raw) ? raw : 0));
+    return level * 0.5;
+}
+
+function auraSphereMissionPct(char: CatalogChar): number {
+    const equipment = (char.equipment as Record<string, unknown> | undefined) ?? {};
+    const equipped = equipment.aura === AURA_SPHERE_ITEM_ID || equipment.accessory === AURA_SPHERE_ITEM_ID;
+    if (!equipped) return 0;
+    const level = Math.max(1, Math.floor(Number(char.auraSphereLevel ?? 1)));
+    if (level >= 100) return 1;
+    if (level >= 50) return 2;
+    return 0;
+}
+
+export function missionRewardBonusPct(char: CatalogChar): number {
+    return missionHallBonusPct(char) + auraSphereMissionPct(char);
+}
+
+// boostAmount — verbatim from village-upgrades.ts.
+export function boostAmount(amount: number, percent: number): number {
+    return Math.max(0, Math.floor(amount * (1 + percent / 100)));
+}
+
+// ── Daily-cap accounting — mirror of character-progress.ts. The cap lives on
+//    the character (dailyMissionsCompleted + lastDailyReset), so the server
+//    enforces it straight off the saved character. `todayKey` = UTC YYYY-MM-DD.
+export function dailyMissionsCompleted(char: CatalogChar, todayKey: string): number {
+    return char.lastDailyReset === todayKey ? Number(char.dailyMissionsCompleted ?? 0) : 0;
+}
+
+export function hasDailyMissionSlot(char: CatalogChar, todayKey: string): boolean {
+    return dailyMissionsCompleted(char, todayKey) < DAILY_MISSION_LIMIT;
+}
+
+// Returns the character fields that markMissionCompleted bumps (mirror of
+// character-progress.markMissionCompleted) — caller spreads these onto the char.
+export function markMissionCompletedFields(char: CatalogChar, todayKey: string, monthKey: string) {
+    return {
+        clanMissionContrib: Number(char.clanMissionContrib ?? 0) + 1,
+        totalMissionsCompleted: Number(char.totalMissionsCompleted ?? 0) + 1,
+        dailyMissionsCompleted: dailyMissionsCompleted(char, todayKey) + 1,
+        lastDailyReset: todayKey,
+        clanContribMonth: monthKey,
+    };
+}
+
+// Apply currency rewards onto a character (mirror of currency.applyCurrencyRewards).
+export function applyCurrencyRewardFields(char: CatalogChar, rewards?: Partial<Record<CurrencyKey, number>>) {
+    const out: Partial<Record<CurrencyKey, number>> = {};
+    if (!rewards) return out;
+    for (const key of CURRENCY_KEYS) {
+        const amount = Math.max(0, Math.floor(Number(rewards[key] ?? 0)));
+        if (amount > 0) out[key] = Number(char[key] ?? 0) + amount;
+    }
+    return out;
+}
+
+// Push `count` territory scrolls onto the character's inventory array.
+export function grantTerritoryScrollsToInventory(char: CatalogChar, count: number): string[] {
+    const inventory = Array.isArray(char.inventory) ? (char.inventory as string[]) : [];
+    const n = Math.max(0, Math.floor(count));
+    return [...inventory, ...Array.from({ length: n }, () => TERRITORY_CONTROL_SCROLL_ID)];
+}

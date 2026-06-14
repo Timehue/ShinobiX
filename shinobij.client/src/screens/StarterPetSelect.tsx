@@ -85,11 +85,14 @@ export function StarterPetSelect({
                     <h2 style={{ margin: "0 0 12px", color: "#f0f9ff" }}>Choose Your Companion</h2>
                     <p style={{ margin: "0 0 8px", lineHeight: 1.6 }}>
                         Welcome to {character.village}, {character.name}. Before you set out, a
-                        young spirit-beast has come looking for a partner.
+                        young spirit-beast has come looking for a partner — your <strong>first
+                        companion</strong>. Pets fight beside you in PvE and the Pet Arena, so this
+                        choice matters.
                     </p>
                     <p style={{ margin: "0 0 20px", lineHeight: 1.6, color: "#bae6fd" }}>
                         Five wait at the Pet Yard — one for each element. Pick the one that
-                        suits your style. <strong>You can befriend more later</strong> out in the world.
+                        suits your style; the element shapes its strengths but isn't a permanent
+                        lock. <strong>You can befriend more later</strong> out in the world.
                     </p>
                     <button
                         onClick={() => setStarted(true)}
