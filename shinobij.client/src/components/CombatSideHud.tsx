@@ -13,6 +13,23 @@ function effectivePoolPercent(rawPct: number): number {
     return Math.round((raw / (raw + K_AMP_PVE)) * 100); // K_AMP == K_DR == 0.5
 }
 
+// Post-damage defensive tags that stack additively and are hard-capped in combat
+// (cappedPostDamage in move.ts / combat-math.ts caps the applied % at 60). The
+// panel shows the capped total so a stacked Absorb/Reflect/Lifesteal can't read
+// as e.g. "90%".
+const CAP_SUM_TAGS = new Set(["Absorb", "Reflect", "Lifesteal"]);
+const HARD_CAP_PCT = 60;
+
+// Short, single-line labels for the verbose damage-modifier tags. The full
+// canonical name stays in the hover tooltip; this just keeps "Decrease Damage
+// Taken" from wrapping into a tall, hard-to-read column in the side panel.
+const SHORT_LABELS: Record<string, string> = {
+    "Increase Damage Given": "Damage dealt ↑",
+    "Decrease Damage Given": "Damage dealt ↓",
+    "Increase Damage Taken": "Damage taken ↑",
+    "Decrease Damage Taken": "Damage taken ↓",
+};
+
 export function CombatSideHud({
     name,
     avatar,
@@ -96,8 +113,8 @@ export function CombatSideHud({
                 <span>Round {turn}</span>
             </div>
 
-            <CombatEffectsPanel title="Buffs" statuses={statuses.filter((s) => s.kind === "positive")} />
-            <CombatEffectsPanel title="Debuffs" statuses={statuses.filter((s) => s.kind === "negative")} />
+            <CombatEffectsPanel title="Buffs" tone="positive" statuses={statuses.filter((s) => s.kind === "positive")} />
+            <CombatEffectsPanel title="Debuffs" tone="negative" statuses={statuses.filter((s) => s.kind === "negative")} />
         </aside>
     );
 }
@@ -105,9 +122,11 @@ export function CombatSideHud({
 export function CombatEffectsPanel({
     title,
     statuses,
+    tone = "positive",
 }: {
     title: string;
     statuses: { name: string; rounds: number; amount?: number; percent?: number }[];
+    tone?: "positive" | "negative";
 }) {
     // Group duplicate stacking statuses (e.g. three "Increase Damage Given")
     // into one pill with a ×count, summing the raw percent. For soft-cap pool
@@ -126,24 +145,38 @@ export function CombatEffectsPanel({
         }
     }
     return (
-        <div className="combat-effect-panel">
+        <div className={`combat-effect-panel ${tone === "negative" ? "effects-debuff" : "effects-buff"}`}>
             <h4>{title}</h4>
             {grouped.length === 0 ? (
                 <p className="empty-effects">No active effects</p>
             ) : (
                 grouped.map((s, i) => {
+                    // Pool tags stack into a diminishing-returns curve, so a raw
+                    // sum (e.g. "63%") overstates the real effect. Show the rounded
+                    // effective % once stacked; a single instance reads its own
+                    // face value. Always round — the raw percents carry mastery
+                    // scaling that would otherwise print as "21.799999999999997%".
                     const pooled = s.percent != null && POOL_TAGS.has(s.name);
-                    const tooltip = pooled
-                        ? `${s.count} stack${s.count > 1 ? "s" : ""} · +${s.percent}% raw ≈ ${effectivePoolPercent(s.percent ?? 0)}% effective. Diminishing-returns pool shared with other damage modifiers.`
-                        : undefined;
+                    const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
+                    const rawPct = s.percent != null ? Math.round(s.percent) : null;
+                    const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
+                    const cappedPct = capped ? Math.min(rawPct ?? 0, HARD_CAP_PCT) : null;
+                    const valueText =
+                        s.percent != null
+                            ? (pooled && s.count > 1 ? `~${effPct}%`
+                                : capped ? `${cappedPct}%`
+                                : `${rawPct}%`)
+                            : s.amount != null ? `${Math.round(s.amount)}` : "active";
+                    const label = SHORT_LABELS[s.name] ?? s.name;
+                    const title = pooled
+                        ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% raw ≈ ${effPct}% effective. Diminishing-returns pool shared with other damage modifiers.`
+                        : capped
+                            ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% total${(rawPct ?? 0) > HARD_CAP_PCT ? `, capped at ${HARD_CAP_PCT}%` : ""}.`
+                            : s.name;
                     return (
-                        <div key={i} className="effect-pill" title={tooltip}>
-                            <span>{s.name}{s.count > 1 ? ` ×${s.count}` : ""}</span>
-                            <small>
-                                {s.percent != null
-                                    ? (pooled ? `${s.percent}% → ~${effectivePoolPercent(s.percent)}%` : `${s.percent}%`)
-                                    : s.amount != null ? `${s.amount}` : "active"} | {s.rounds}r
-                            </small>
+                        <div key={i} className="effect-pill" title={title}>
+                            <span>{label}{s.count > 1 ? <span className="effect-stack"> ×{s.count}</span> : null}</span>
+                            <small>{valueText} · {s.rounds}r</small>
                         </div>
                     );
                 })
