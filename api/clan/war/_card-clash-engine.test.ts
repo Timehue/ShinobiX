@@ -1,0 +1,213 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+    validateSubmittedDeck,
+    validatePlays,
+    resolveTurn,
+    determineWinner,
+    locationSidePower,
+    createMatch,
+    dealOpening,
+    clashCopyLimit,
+    CLASH_DECK_SIZE,
+    type ClashCard,
+    type ClashSide,
+    type ClashMatch,
+    type ClashAbility,
+} from './_card-clash-engine.js';
+
+function card(over: Partial<ClashCard> = {}): ClashCard {
+    return { id: 'c', element: 'None', rarity: 'common', cost: 1, power: 3, ability: 'none', ...over };
+}
+
+function deckOf(n: number, over: Partial<ClashCard> = {}): ClashCard[] {
+    return Array.from({ length: n }, (_, i) => card({ id: `c${i}`, ...over }));
+}
+
+function side(over: Partial<ClashSide> = {}): ClashSide {
+    return {
+        name: 'P', clan: 'C', defaultDeck: [], deck: [], hand: [],
+        chakra: 6, nextDiscount: 0, committed: false, pending: [], ready: true, ...over,
+    };
+}
+
+function emptyMatch(): ClashMatch {
+    // training-ground / volcano-pass / river-shrine
+    return createMatch(['training-ground', 'volcano-pass', 'river-shrine']);
+}
+
+// ── Deck validation ────────────────────────────────────────────────────────
+
+test('validateSubmittedDeck enforces size, bounds, copy + legendary limits', () => {
+    const ok = deckOf(12).map((c, i) => ({ ...c, id: `u${i}` }));
+    assert.equal(validateSubmittedDeck(ok).ok, true);
+
+    assert.equal(validateSubmittedDeck(deckOf(11)).ok, false); // wrong size
+    assert.equal(validateSubmittedDeck(deckOf(12, { cost: 9 })).ok, false); // cost OOB
+    assert.equal(validateSubmittedDeck(deckOf(12, { power: 99 })).ok, false); // power OOB
+
+    // 3 copies of one common (limit 2)
+    const tooMany = [card({ id: 'x' }), card({ id: 'x' }), card({ id: 'x' }), ...deckOf(9).map((c, i) => ({ ...c, id: `y${i}` }))];
+    assert.equal(validateSubmittedDeck(tooMany).ok, false);
+
+    // 3 legendaries (cap 2)
+    const legs = [
+        card({ id: 'l1', rarity: 'legendary' }), card({ id: 'l2', rarity: 'legendary' }), card({ id: 'l3', rarity: 'legendary' }),
+        ...deckOf(9).map((c, i) => ({ ...c, id: `z${i}` })),
+    ];
+    assert.equal(validateSubmittedDeck(legs).ok, false);
+});
+
+test('clashCopyLimit: common/rare 2, epic/legendary 1', () => {
+    assert.equal(clashCopyLimit('common'), 2);
+    assert.equal(clashCopyLimit('rare'), 2);
+    assert.equal(clashCopyLimit('epic'), 1);
+    assert.equal(clashCopyLimit('legendary'), 1);
+});
+
+// ── Commit validation ──────────────────────────────────────────────────────
+
+test('validatePlays rejects overspending chakra', () => {
+    const m = emptyMatch();
+    const s = side({ chakra: 2, hand: [card({ cost: 2 }), card({ cost: 2 })] });
+    assert.equal(validatePlays(m, s, 'p1', [{ handIndex: 0, loc: 0 }, { handIndex: 1, loc: 0 }]).ok, false);
+    assert.equal(validatePlays(m, s, 'p1', [{ handIndex: 0, loc: 0 }]).ok, true);
+});
+
+test('validatePlays rejects duplicate hand index and full locations', () => {
+    const m = emptyMatch();
+    const s = side({ chakra: 6, hand: [card(), card(), card(), card(), card()] });
+    assert.equal(validatePlays(m, s, 'p1', [{ handIndex: 0, loc: 0 }, { handIndex: 0, loc: 1 }]).ok, false);
+    // 5 cards into one 4-slot location
+    assert.equal(validatePlays(m, s, 'p1', [0, 1, 2, 3, 4].map((handIndex) => ({ handIndex, loc: 0 }))).ok, false);
+    assert.equal(validatePlays(m, s, 'p1', [0, 1, 2, 3].map((handIndex) => ({ handIndex, loc: 0 }))).ok, true);
+});
+
+test('validatePlays honours discountNextCard in play order', () => {
+    const m = emptyMatch();
+    // 3 chakra: a discount card (cost 1) then a cost-3 card → discounted to 2 → total 3
+    const s = side({ chakra: 3, hand: [card({ cost: 1, ability: 'discountNextCard' }), card({ cost: 3 })] });
+    assert.equal(validatePlays(m, s, 'p1', [{ handIndex: 0, loc: 0 }, { handIndex: 1, loc: 0 }]).ok, true);
+});
+
+// ── Resolution + on-reveal ──────────────────────────────────────────────────
+
+function commitAndResolve(
+    m: ClashMatch, p1: ClashSide, p2: ClashSide,
+    p1Plays: { handIndex: number; loc: number }[], p2Plays: { handIndex: number; loc: number }[],
+) {
+    p1.pending = p1Plays; p2.pending = p2Plays;
+    return resolveTurn(m, p1, p2, 'p1');
+}
+
+test('resolveTurn places cards, spends chakra, advances + draws', () => {
+    const m = emptyMatch();
+    const p1 = side({ chakra: 1, hand: [card({ cost: 1, power: 4 })], deck: [card({ id: 'd1' })] });
+    const p2 = side({ chakra: 1, hand: [card({ cost: 1, power: 2 })], deck: [card({ id: 'd2' })] });
+    const r = commitAndResolve(m, p1, p2, [{ handIndex: 0, loc: 0 }], [{ handIndex: 0, loc: 1 }]);
+    assert.equal(r.isFinal, false);
+    assert.equal(m.locations[0].p1.length, 1);
+    assert.equal(m.locations[1].p2.length, 1);
+    assert.equal(m.turn, 2);
+    assert.equal(p1.chakra, 2);
+    assert.equal(p1.hand.length, 1); // played 1, drew 1
+});
+
+test('onRevealDebuffEnemiesHere reduces revealed enemies, respects protection', () => {
+    const m = emptyMatch();
+    // p2 has a protected card and a normal card already on loc 0 from a prior turn
+    m.locations[0].p2.push(
+        { ...card({ id: 'norm', power: 3 }), iid: 'a', owner: 'p2', basePower: 3, currentPower: 3, loc: 0 },
+        { ...card({ id: 'prot', power: 3 }), iid: 'b', owner: 'p2', basePower: 3, currentPower: 3, loc: 0, protectedFromReduction: true },
+    );
+    const p1 = side({ chakra: 6, hand: [card({ ability: 'onRevealDebuffEnemiesHere', cost: 1 })] });
+    const p2 = side({ chakra: 6, hand: [] });
+    commitAndResolve(m, p1, p2, [{ handIndex: 0, loc: 0 }], []);
+    assert.equal(m.locations[0].p2[0].currentPower, 2); // normal reduced
+    assert.equal(m.locations[0].p2[1].currentPower, 3); // protected can't go below base
+});
+
+test('summonClone adds a 1-power token; buffSelf adds +2', () => {
+    const m = emptyMatch();
+    const p1 = side({ chakra: 6, hand: [card({ ability: 'summonClone', cost: 1 }), card({ ability: 'onRevealBuffSelf', cost: 1, power: 5 })] });
+    const p2 = side({ chakra: 6, hand: [] });
+    commitAndResolve(m, p1, p2, [{ handIndex: 0, loc: 0 }, { handIndex: 1, loc: 1 }], []);
+    assert.equal(m.locations[0].p1.length, 2); // card + clone
+    assert.ok(m.locations[0].p1.some((c) => c.isToken && c.currentPower === 1));
+    assert.equal(m.locations[1].p1[0].currentPower, 7); // 5 + 2
+});
+
+test('marquee ability onRevealDoubleSelf doubles power (server)', () => {
+    const m = emptyMatch();
+    const p1 = side({ chakra: 6, hand: [card({ ability: 'onRevealDoubleSelf', power: 5, cost: 1 })] });
+    const p2 = side({ chakra: 6, hand: [] });
+    commitAndResolve(m, p1, p2, [{ handIndex: 0, loc: 0 }], []);
+    assert.equal(m.locations[0].p1[0].currentPower, 10);
+});
+
+test('marquee buff/debuff-everywhere span all locations (server)', () => {
+    const m = emptyMatch();
+    m.locations[1].p1.push({ ...card({ id: 'ally', power: 3 }), iid: 'al', owner: 'p1', basePower: 3, currentPower: 3, loc: 1 });
+    m.locations[2].p2.push({ ...card({ id: 'en', power: 3 }), iid: 'en', owner: 'p2', basePower: 3, currentPower: 3, loc: 2 });
+    const p1 = side({ chakra: 6, hand: [
+        card({ ability: 'onRevealBuffAlliesEverywhere', cost: 1 }),
+        card({ ability: 'onRevealDebuffEnemiesEverywhere', cost: 1 }),
+    ] });
+    const p2 = side({ chakra: 6, hand: [] });
+    commitAndResolve(m, p1, p2, [{ handIndex: 0, loc: 0 }, { handIndex: 1, loc: 0 }], []);
+    assert.equal(m.locations[1].p1[0].currentPower, 4); // ally buffed across locations
+    assert.equal(m.locations[2].p2[0].currentPower, 2); // enemy debuffed across locations
+});
+
+test('validateSubmittedDeck accepts marquee ability strings', () => {
+    const deck = deckOf(12).map((c, i) => ({ ...c, id: `u${i}`, ability: 'onRevealDoubleSelf' as ClashAbility }));
+    assert.equal(validateSubmittedDeck(deck).ok, true);
+});
+
+test('location bonus applies in scoring (Fire on Volcano Pass = +2)', () => {
+    const m = emptyMatch(); // loc 1 = volcano-pass (fireBonus)
+    const p1 = side({ chakra: 6, hand: [card({ element: 'Fire', power: 4, cost: 1 })] });
+    const p2 = side({ chakra: 6, hand: [] });
+    commitAndResolve(m, p1, p2, [{ handIndex: 0, loc: 1 }], []);
+    assert.equal(locationSidePower(m.locations[1], 'p1'), 6); // 4 + 2
+});
+
+test('determineWinner: most locations, then board power, else draw', () => {
+    const m = emptyMatch();
+    const put = (loc: number, side: 'p1' | 'p2', power: number, id: string) =>
+        m.locations[loc][side].push({ ...card({ id, power }), iid: id, owner: side, basePower: power, currentPower: power, loc });
+    put(0, 'p1', 5, 'a'); put(0, 'p2', 2, 'b');
+    put(1, 'p1', 5, 'c'); put(1, 'p2', 2, 'd');
+    put(2, 'p2', 9, 'e');
+    assert.equal(determineWinner(m), 'p1'); // p1 wins 2 of 3
+});
+
+// ── Full simulated match ─────────────────────────────────────────────────────
+
+test('a full 6-turn networked match resolves to a winner', () => {
+    const mkDeck = (tag: string, power: number): ClashCard[] =>
+        Array.from({ length: 12 }, (_, i) => card({ id: `${tag}${i}`, power, cost: 1, ability: 'none' as ClashAbility }));
+    const m = createMatch(['training-ground', 'stone-gate', 'wind-bridge']);
+    const d1 = dealOpening(mkDeck('a', 5));
+    const d2 = dealOpening(mkDeck('b', 3));
+    const p1 = side({ chakra: 1, hand: d1.hand, deck: d1.rest });
+    const p2 = side({ chakra: 1, hand: d2.hand, deck: d2.rest });
+
+    let final = false;
+    let guard = 0;
+    while (!final && guard < 10) {
+        guard++;
+        // each side plays its first affordable card into a location with room
+        const stage = (s: ClashSide): { handIndex: number; loc: number }[] => {
+            if (s.hand.length === 0) return [];
+            const loc = m.locations.findIndex((l) => (s === p1 ? l.p1 : l.p2).length < 4);
+            return loc >= 0 && s.hand[0].cost <= s.chakra ? [{ handIndex: 0, loc }] : [];
+        };
+        p1.pending = stage(p1);
+        p2.pending = stage(p2);
+        final = resolveTurn(m, p1, p2, 'p1').isFinal;
+    }
+    assert.equal(m.turn, 6);
+    assert.ok(['p1', 'p2', 'draw'].includes(determineWinner(m)));
+    // p1's stronger cards should generally win, but at minimum the game completes.
+});
