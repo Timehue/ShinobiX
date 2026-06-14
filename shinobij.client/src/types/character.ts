@@ -268,14 +268,35 @@ export type Character = {
     hollowGateWardenKills?: number;
     hollowGateIntroSeen?: boolean;
     // Early-game onboarding flags (additive; undefined = not started / legacy).
-    // onboardingStep drives the forced first-session coach; the others are
-    // one-time "seen/claimed" gates matching the hollowGateIntroSeen convention.
-    // Order: "starter" (choose-your-companion overlay) → "spar" (guaranteed
-    // first-win Academy spar) → "tour" (village menu) → "training" → "jutsu" →
-    // "logbook" (open the Logbook to see the Academy goals) → "done". Each beat
-    // advances on the real action.
-    onboardingStep?: "starter" | "spar" | "tour" | "training" | "jutsu" | "logbook" | "done";
+    // onboardingStep drives the forced first-session "Academy Path" coach; the
+    // others are one-time "seen/claimed" gates matching the hollowGateIntroSeen
+    // convention. Canonical order:
+    //   "academyIntro" (framing modal) → "starter" (choose-your-companion) →
+    //   "academySpar" (guaranteed first-win spar) → "training" → "jutsu" →
+    //   "firstMission" (claim the Academy Trial) → "logbook" (open the goals) →
+    //   "storyUnlocked" (village story now available) → "done". Each beat
+    //   advances on the real action.
+    // Legacy values "spar"/"tour" still appear in older saves and are mapped via
+    // normalizeOnboardingStep() (lib/onboarding-step.ts) — never compare against
+    // them directly for routing; normalize first.
+    onboardingStep?:
+        | "academyIntro"
+        | "starter"
+        | "academySpar"
+        | "training"
+        | "jutsu"
+        | "firstMission"
+        | "logbook"
+        | "storyUnlocked"
+        | "done"
+        // legacy (older saves) — normalized away by normalizeOnboardingStep()
+        | "spar"
+        | "tour";
     academyChecklistClaimed?: boolean;
+    // One-time claim gate for the onboarding "Academy Trial" mission (Workstream F).
+    academyTrialClaimed?: boolean;
+    // Dismissed one-time contextual screen hints (Shop/Hospital/World Map/etc.).
+    seenHints?: string[];
     geninCeremonySeen?: boolean;
     endlessTowerRun?: EndlessTowerRun | null;
     endlessTowerBestWave?: number;

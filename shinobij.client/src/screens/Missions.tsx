@@ -15,6 +15,8 @@ import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } 
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 import { gainXp } from "../App";
 import { grantTerritoryScrolls } from "../lib/world-state";
+import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
 
 export function Missions({
     character,
@@ -48,27 +50,61 @@ export function Missions({
     // pattern: per-rank XP + ryo (matching the card), +1 Territory Scroll, and
     // the kill-counter / daily-mission bookkeeping that used to run on the win.
     // No stamina — stamina is not part of any mission reward.
-    function claimCombatMission(mission: CombatMission) {
+    // Server-authoritative: the win only queued the claim (pendingCombatMissionClaims);
+    // the SERVER recomputes + pays the reward (so the client can't inflate it), then
+    // we mirror the returned amounts onto the local character.
+    async function claimCombatMission(mission: CombatMission) {
         if (!(character.pendingCombatMissionClaims ?? []).includes(mission.key)) return;
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
-        const boostedXp = boostAmount(mission.xp, missionRewardBonus);
-        const boostedRyo = boostAmount(mission.ryo, missionRewardBonus);
-        const aiId = mission.aiProfileId;
-        const leveled = grantTerritoryScrolls(gainXp(character, boostedXp), mission.territoryScrolls);
-        updateCharacter(markMissionCompleted({
-            ...leveled,
-            ryo: leveled.ryo + boostedRyo,
-            totalAiKills: (leveled.totalAiKills ?? 0) + 1,
-            dailyAiKills: (leveled.dailyAiKills ?? 0) + 1,
-            defeatedAiIds: (leveled.defeatedAiIds ?? []).includes(aiId) ? (leveled.defeatedAiIds ?? []) : [...(leveled.defeatedAiIds ?? []), aiId],
-            aiKills: { ...(leveled.aiKills ?? {}), [aiId]: ((leveled.aiKills ?? {})[aiId] ?? 0) + 1 },
-            pendingCombatMissionClaims: (leveled.pendingCombatMissionClaims ?? []).filter((key) => key !== mission.key),
-        }));
-        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo. +${mission.territoryScrolls} Territory Control Scroll${mission.territoryScrolls === 1 ? "" : "s"}.`);
+        const result = await postClaimMission(character.name, "combat", mission.key);
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (!result.applied) return alert(claimReasonMessage(result.reason));
+        updateCharacter(applyServerMissionReward(character, result, gainXp));
+        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo. +${result.reward.territoryScrolls} Territory Control Scroll${result.reward.territoryScrolls === 1 ? "" : "s"}.`);
     }
+    // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
+    // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
+    // advances the OnboardingCoach firstMission → logbook beat.
+    async function claimAcademyTrial() {
+        const result = await postClaimMission(character.name, "academy-trial", "academy-trial");
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (!result.applied) return alert(claimReasonMessage(result.reason));
+        updateCharacter(applyServerMissionReward(character, result, gainXp));
+        alert(`Academy Trial complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina. Now open your Logbook to see your goals.`);
+    }
+    const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
-    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) })); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`); }
+    // Server-authoritative for built-in field missions; creator-authored missions
+    // (not in the server catalog) fall back to the legacy client payout via the
+    // clientFallback signal.
+    async function claimFetchMission(mission: CreatorMission) {
+        const progress = missionProgress[mission.id] ?? 0;
+        const raidReq = missionRaidRequirement(mission);
+        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
+        if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
+        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
+        const result = await postClaimMission(character.name, "field", mission.id);
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.applied) {
+            updateCharacter(applyServerMissionReward(character, result, gainXp));
+            setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
+            setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+            alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
+            return;
+        }
+        if (!result.clientFallback) return alert(claimReasonMessage(result.reason));
+        // Legacy client payout for creator-authored missions only.
+        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
+        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
+        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
+        const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3);
+        updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) }));
+        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
+        setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);
+    }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
     const rankColor: Record<string, string> = { "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
@@ -98,6 +134,30 @@ export function Missions({
                     </div>
                 </div>
             </div>
+
+            {/* -- Academy Trial (onboarding, one-time) -- */}
+            {showAcademyTrial && (
+                <section
+                    className="mh-section"
+                    style={{ border: "1px solid #facc15", borderRadius: 12, padding: 14, marginBottom: 14, background: "rgba(250,204,21,0.06)" }}
+                >
+                    <h3 className="mh-section-title" style={{ marginTop: 0 }}>🎓 Academy Trial</h3>
+                    <p className="hint" style={{ marginTop: 0 }}>
+                        Your first official mission. You've already done the hard part — claim your reward to graduate the basics.
+                    </p>
+                    <ul style={{ margin: "0 0 12px", paddingLeft: 18, lineHeight: 1.5 }}>
+                        <li>✅ Won your first Academy spar</li>
+                        <li>✅ Started stat training</li>
+                        <li>✅ Unlocked / equipped a jutsu</li>
+                    </ul>
+                    <p style={{ margin: "0 0 12px", color: "#cbd5e1", fontSize: 13 }}>
+                        Reward: small XP &amp; ryo, a little stamina. (No daily-limit cost.)
+                    </p>
+                    <button className="start-primary-btn" onClick={() => { void claimAcademyTrial(); }}>
+                        Claim Academy Trial reward
+                    </button>
+                </section>
+            )}
 
             {/* -- Tabs -- */}
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
@@ -151,7 +211,7 @@ export function Missions({
                                     </div>
                                 </div>
                                 {claimable
-                                    ? <button className="mh-combat-btn mh-claim-btn" onClick={() => claimCombatMission(mission)}>✅ Claim Reward</button>
+                                    ? <button className="mh-combat-btn mh-claim-btn" onClick={() => { void claimCombatMission(mission); }}>✅ Claim Reward</button>
                                     : <button
                                         className="mh-combat-btn"
                                         disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
@@ -221,7 +281,7 @@ export function Missions({
                                                 {!accepted
                                                     ? <button onClick={() => acceptFetchMission(mission)}>Accept Mission</button>
                                                     : complete
-                                                        ? <button className="mh-claim-btn" onClick={() => claimFetchMission(mission)}>✅ Claim Reward</button>
+                                                        ? <button className="mh-claim-btn" onClick={() => { void claimFetchMission(mission); }}>✅ Claim Reward</button>
                                                         : <button onClick={() => setScreen("worldMap")}>🗺️ Go to Sector {mission.targetSector}</button>}
                                                 {mission.aiProfileId && (
                                                     <button onClick={() => startCreatorMissionBattle(mission)}>⚔️ Battle AI</button>

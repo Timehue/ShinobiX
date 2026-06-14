@@ -10,6 +10,7 @@ import type { Pet } from "../types/pet";
 import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
+import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { CombatSideHud } from "../components/CombatSideHud";
@@ -516,6 +517,12 @@ export function Arena({
     const [turn, setTurn] = useState(1);
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
+    // Onboarding "Academy spar" — the guaranteed-first-win tutorial fight. The two
+    // flags below are DISPLAY-ONLY (drive the SparCoach banner); they never affect
+    // combat math. Set additively from basicAttack()/castJutsu() during this fight.
+    const isAcademySpar = pendingStoryBattle?.kind === "academySparring";
+    const [sparAttacked, setSparAttacked] = useState(false);
+    const [sparCasted, setSparCasted] = useState(false);
     const [dashMode, setDashMode] = useState(false);
     const [hoveredBattleTile, setHoveredBattleTile] = useState<number | null>(null);
 
@@ -1543,6 +1550,7 @@ export function Arena({
 
         if (character.stamina < 10) return setLog("Basic Attack needs 10 stamina.");
         if (!spendAp(40, "basicAttack")) return;
+        if (isAcademySpar && !sparAttacked) setSparAttacked(true); // tutorial banner only
 
         const basicAttackJutsu = makeJutsu("basic-attack", "Basic Attack", character.specialty, 40, 1, 10, 0, 0, 10, [{ name: "Damage", percent: 10 }], "Earth");
         let damage = calculateDamage(
@@ -2239,6 +2247,7 @@ export function Arena({
         }
 
         if (!spendAp(jutsu.ap, jutsu.id)) return;
+        if (isAcademySpar && !sparCasted) setSparCasted(true); // tutorial banner only
         setPendingTargetJutsuId("");
 
         if (relocatesToGround) {
@@ -4019,6 +4028,18 @@ export function Arena({
 
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+            {/* Onboarding spar coaching — read-only top banner, only during the
+                guaranteed-first-win Academy spar. Never covers the bottom action
+                bar; dismissible so it can't trap. */}
+            {isAcademySpar && battleStarted && !battleEnded && (
+                <SparCoach
+                    attacked={sparAttacked}
+                    casted={sparCasted}
+                    ap={ap}
+                    enemyHp={enemyHp}
+                    enemyMaxHp={enemyMaxHp}
+                />
+            )}
             {/* Server battle-lock keeper — registers an un-skippable lock while a
                 live arena fight can ACTUALLY resume from disk, so a refresh can't
                 flee it. Limited to plain AI-profile fights: those rebuild from the
