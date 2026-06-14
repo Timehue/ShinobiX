@@ -6718,6 +6718,9 @@ body {
 
 .sector-image-map {
     position: relative; /* containing block for the ambience layers + walking <SectorAvatar> overlay */
+    isolation: isolate; /* own stacking context so the z-index:-1 <SectorScene> backdrop
+                           paints ABOVE this element's blue .pixel-map fill, not behind it
+                           (a -1 child of a non-stacking parent escapes and is hidden). */
     overflow: hidden;   /* clip the over-scaled, panning <SectorScene> backdrop */
     background-size: cover !important;
     background-position: center !important;
