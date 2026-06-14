@@ -153,9 +153,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             return hasFixedEffectPower(next) ? { ...next, effectPower: next.ap === 60 ? 40 : 0 } : next;
         }));
     }
-    const bloodlinePointLimit: Record<Rank, number> = { "B Rank": 8, "A Rank": 10, "S Rank": 11 };
     const currentTotalPoints = bloodlinePoints(jutsus);
-    const pointLimit = bloodlinePointLimit[rank] ?? 8;
+    const pointLimit = pointBudgetForRank(rank);
     const overLimit = currentTotalPoints > pointLimit;
 
     async function saveBloodline() {
@@ -192,7 +191,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         });
         // Enforce point limit before doing any async work.
         const finalPoints = bloodlinePoints(finalizedJutsus);
-        const finalLimit = bloodlinePointLimit[rank] ?? 8;
+        const finalLimit = pointBudgetForRank(rank);
         if (finalPoints > finalLimit) {
             alert(`${bloodlineName} is over the ${rank} point limit (${finalPoints}/${finalLimit} points). Remove or simplify jutsu tags before saving.`);
             return;
