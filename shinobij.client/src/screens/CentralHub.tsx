@@ -264,10 +264,10 @@ export function CentralHub({
     ];
 
     const NAMED_ARMOR_SPECIALS: Array<{ kind: string; bonusKey: string; valueRoll: () => number }> = [
-        { kind: "Absorb",          bonusKey: "absorbPercent",    valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Absorb",          bonusKey: "absorbPercent",    valueRoll: () => +(0.08 + Math.random() * 1.92).toFixed(2) },   // 0.08 – 2.00 %
         { kind: "Shield",          bonusKey: "shield",           valueRoll: () => 75 + Math.floor(Math.random() * 76) },         // 75 – 150 HP
-        { kind: "Reflect",         bonusKey: "reflectPercent",   valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
-        { kind: "Life Steal",      bonusKey: "lifeStealPercent", valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Reflect",         bonusKey: "reflectPercent",   valueRoll: () => +(0.08 + Math.random() * 1.92).toFixed(2) },   // 0.08 – 2.00 %
+        { kind: "Life Steal",      bonusKey: "lifeStealPercent", valueRoll: () => +(0.08 + Math.random() * 1.92).toFixed(2) },   // 0.08 – 2.00 %
         { kind: "Increase Damage", bonusKey: "damagePercent",    valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
     ];
 
@@ -1356,10 +1356,10 @@ export function CentralHub({
                                                 <div className="nwo-section nwo-section-wide">
                                                     <div className="nwo-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
                                                     <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>🛡 Absorb</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>🛡 Absorb</span><span className="nwo-pct">0.08–2%</span></div>
                                                         <div className="nwo-row"><span>🔰 Shield</span><span className="nwo-pct">+75 to +150 HP</span></div>
-                                                        <div className="nwo-row"><span>↩️ Reflect</span><span className="nwo-pct">10–20%</span></div>
-                                                        <div className="nwo-row"><span>🩸 Life Steal</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>↩️ Reflect</span><span className="nwo-pct">0.08–2%</span></div>
+                                                        <div className="nwo-row"><span>🩸 Life Steal</span><span className="nwo-pct">0.08–2%</span></div>
                                                         <div className="nwo-row"><span>💥 Increase Damage</span><span className="nwo-pct">0.75–1.50%</span></div>
                                                     </div>
                                                 </div>
