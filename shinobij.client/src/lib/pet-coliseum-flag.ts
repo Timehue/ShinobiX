@@ -43,12 +43,20 @@ export function setPetDuelEnabled(on: boolean): void {
  * a fullscreen render pass (a real mobile/low-end cost) and needs a visual + perf
  * review before it can be a default — and on a TRANSPARENT canvas (the arena
  * composites over a DOM backdrop) it must be eyeballed for alpha correctness.
- * Per-device persisted. Toggle in the console: localStorage.setItem("petBloom.v1","1").
+ * AUTO default: ON for desktop (fine pointer), OFF on touch/mobile to spare the
+ * extra fullscreen pass. Force either way: localStorage.setItem("petBloom.v1","1"|"0").
+ * Per-device persisted.
  */
 const BLOOM_KEY = "petBloom.v1";
 
 export function petBloomEnabled(): boolean {
-    try { return localStorage.getItem(BLOOM_KEY) === "1"; } catch { return false; }
+    try {
+        const v = localStorage.getItem(BLOOM_KEY);
+        if (v === "1") return true;
+        if (v === "0") return false;
+        // Auto: glow on real-pointer desktops; skip the pass on touch/mobile for perf.
+        return typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(pointer: fine)").matches;
+    } catch { return false; }
 }
 
 export function setPetBloomEnabled(on: boolean): void {
