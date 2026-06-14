@@ -8,6 +8,7 @@
 @import "./styles/atlas-skin.css";
 @import "./styles/start-skin.css";
 @import "./styles/card-clash-skin.css";
+@import "./styles/guides-skin.css";
 
 * {
     box-sizing: border-box;
