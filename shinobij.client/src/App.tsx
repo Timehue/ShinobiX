@@ -46,7 +46,6 @@ import {
 import {
     jutsuEffectInfo,
     jutsuDisplayAtLevel,
-    describeJutsuEffects,
 } from "./lib/jutsu-effects";
 import {
 } from "./lib/jutsu-points";
@@ -179,7 +178,6 @@ import {
     type JutsuType,
     type JutsuElement,
     type JutsuTarget,
-    type JutsuSort,
     type WeatherType,
     type AdminAccount,
     type AdminRole,
@@ -1776,17 +1774,6 @@ export function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJut
 
 export function stringifyServerSavePayload(payload: unknown) {
     return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
-}
-
-export function getJutsuSelectOptions(jutsus: Jutsu[], typeFilter: "All" | JutsuType, elementFilter: "All" | JutsuElement, sortBy: JutsuSort) {
-    return [...jutsus]
-        .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
-        .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter)
-        .sort((a, b) => {
-            if (sortBy === "ap" || sortBy === "range" || sortBy === "effectPower") return a[sortBy] - b[sortBy];
-            if (sortBy === "effect") return describeJutsuEffects(a).localeCompare(describeJutsuEffects(b)) || a.name.localeCompare(b.name);
-            return String(a[sortBy]).localeCompare(String(b[sortBy])) || a.name.localeCompare(b.name);
-        });
 }
 
 export function storyToCreatorEvent(step: StoryStep, village: string, index: number): CreatorEvent {
@@ -8909,7 +8896,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
-                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} />}
+                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
@@ -8953,10 +8940,13 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "userView" && character && viewingUserName && (
                     <UserView
                         viewingName={viewingUserName}
+                        viewerCharacter={character}
                         allServerPlayers={allServerPlayers}
                         playerRoster={playerRoster}
                         savedBloodlines={savedBloodlines}
+                        creatorJutsus={creatorJutsus}
                         sharedImages={sharedImages}
+                        onMessage={() => setScreen("messages")}
                         onBack={() => setScreen("userHub")}
                     />
                 )}

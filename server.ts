@@ -30,6 +30,7 @@ import { join } from 'node:path';
 import saveHandler       from './api/save/[name].js';
 import heartbeatHandler  from './api/player/heartbeat.js';
 import challengeHandler  from './api/player/challenge.js';
+import friendsHandler    from './api/player/friends.js';
 import attackHandler     from './api/player/attack.js';
 import clearAttackHandler from './api/player/clear-attack.js';
 import healHandler       from './api/player/heal.js';
@@ -428,6 +429,7 @@ route('/save/:name', saveHandler);
 // Player
 route('/player/heartbeat',    heartbeatHandler);
 route('/player/challenge',    challengeHandler);
+route('/player/friends',      friendsHandler);
 route('/player/attack',       attackHandler);
 route('/player/clear-attack', clearAttackHandler);
 route('/player/heal',         healHandler);
