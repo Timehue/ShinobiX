@@ -28,6 +28,7 @@ import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, baseStats, capStat, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, reconcileCharacterStatBudget } from "../lib/stats";
 import { armorQualityTiers, equipmentSlotLabel, itemSectionOptions } from "../lib/equipment";
+import { addItem, removeItem, countItem } from "../lib/inventory";
 import { compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
@@ -347,8 +348,8 @@ export function AdminPanel({
         if (editingItemId === item.id) setEditingItemId("");
         setItemBulkSelections((ids) => ids.filter((id) => id !== item.id));
         updateCharacter({
-            ...character,
-            inventory: character.inventory.filter((id) => id !== item.id),
+            // Drain every copy of this item from BOTH stores (inventory[] + itemStacks).
+            ...removeItem(character, item.id, Number.MAX_SAFE_INTEGER),
             equipment: Object.fromEntries(
                 Object.entries(character.equipment).map(([slot, id]) => [slot, id === item.id ? "" : id])
             ) as Character["equipment"],
@@ -3332,7 +3333,7 @@ export function AdminPanel({
                                         <button onClick={() => loadAdminItem(item)}>Load / Edit</button>
                                         <button
                                             onClick={() => {
-                                                updateCharacter({ ...character, inventory: [...character.inventory, item.id] });
+                                                updateCharacter(addItem(character, item.id, 1));
                                                 alert(`${item.name} added to your inventory.`);
                                             }}
                                         >
@@ -4972,9 +4973,9 @@ export function AdminPanel({
                                 <div><strong>Warden Kills (this character):</strong><br/>{character.hollowGateWardenKills ?? 0}</div>
                                 <div><strong>Saved Run:</strong><br/>{character.hollowGateRun ? `Floor ${character.hollowGateRun.floor} · ${character.hollowGateRun.completed ? "completed" : "in progress"}` : "None"}</div>
                                 <div><strong>Intro VN Seen:</strong><br/>{character.hollowGateIntroSeen ? "Yes" : "No"}</div>
-                                <div><strong>Hollow Gate Keys:</strong><br/>{character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length}</div>
-                                <div><strong>Fragments:</strong><br/>{character.inventory.filter(id => id === DUNGEON_LEGENDARY_FRAGMENT_ID).length}</div>
-                                <div><strong>Veils of the Hollow:</strong><br/>{character.inventory.filter(id => id === VEIL_OF_THE_HOLLOW_ID).length}</div>
+                                <div><strong>Hollow Gate Keys:</strong><br/>{countItem(character, HOLLOW_GATE_KEY_ID)}</div>
+                                <div><strong>Fragments:</strong><br/>{countItem(character, DUNGEON_LEGENDARY_FRAGMENT_ID)}</div>
+                                <div><strong>Veils of the Hollow:</strong><br/>{countItem(character, VEIL_OF_THE_HOLLOW_ID)}</div>
                             </div>
                         </section>
 

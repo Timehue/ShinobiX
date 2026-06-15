@@ -34,8 +34,8 @@ import {
     getAllItems,
     getItemById,
     addInventoryItems,
-    removeInventoryItems,
 } from "./lib/items";
+import { removeItem, countItem, ownsItem, normalizeInventory } from "./lib/inventory";
 import { getAllTileCards, type TileCard } from "./data/tile-cards";
 import type {
 } from "./types/clan";
@@ -1447,7 +1447,7 @@ export function normalizeCharacter(parsed: Character): Character {
     const maxStamina = Math.max(parsed.maxStamina ?? expectedMaxStamina, expectedMaxStamina);
     const stats = normalizeStats(parsed.stats);
 
-    return {
+    const normalized: Character = {
         ...parsed,
         level,
         xp,
@@ -1540,6 +1540,7 @@ export function normalizeCharacter(parsed: Character): Character {
         claimedMapControlDate: parsed.claimedMapControlDate,
         examsPassed: Array.isArray(parsed.examsPassed) ? parsed.examsPassed.filter(Boolean) : [],
     };
+    return normalizeInventory(normalized); // migrate inline stackables → itemStacks (idempotent)
 }
 
 function accountKey(name: string) {
@@ -3889,7 +3890,8 @@ export default function App() {
         savedBloodlines: SavedBloodline[];
     }> = {}) {
         return {
-            character: characterToSave,
+            // Compact stackables into itemStacks before the server cap (save-side migration).
+            character: normalizeInventory(characterToSave),
             currentBiome,
             activeTraining,
             activeJutsuTraining,
@@ -5794,8 +5796,8 @@ export default function App() {
         // The explore-tile Hidden Dungeon (no override) is free to enter; only the
         // Central Hub relic dungeons (passed as an override) stay gated behind a key.
         if (dungeonOverride) {
-            if (!character.inventory.includes(DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
-            setCharacter({ ...character, inventory: removeInventoryItems(character.inventory, { [DUNGEON_KEY_ID]: 1 }) });
+            if (!ownsItem(character, DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open this relic dungeon.");
+            setCharacter(removeItem(character, DUNGEON_KEY_ID, 1));
         }
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
@@ -6288,7 +6290,7 @@ export default function App() {
             alert("The Hollow Gate seal is still bound. Your village Kage must purchase the Hollow Gate upgrade from the Town Hall before anyone can enter.");
             return;
         }
-        const ownedKeys = character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length;
+        const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
         if (ownedKeys <= 0) {
             alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
             return;
@@ -6306,10 +6308,8 @@ export default function App() {
         const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`);
         if (!ok) return;
 
-        // Consume exactly one Hollow Gate Key.
-        const newInv = [...character.inventory];
-        const idx = newInv.indexOf(HOLLOW_GATE_KEY_ID);
-        if (idx >= 0) newInv.splice(idx, 1);
+        // Consume exactly one Hollow Gate Key (drains the counted stack).
+        const afterKey = removeItem(character, HOLLOW_GATE_KEY_ID, 1);
 
         const run = generateHollowGateShrineRun(1);
         setHollowGateRun(run);
@@ -6322,8 +6322,7 @@ export default function App() {
         const isFirstEntry = !character.hollowGateIntroSeen;
         setHollowGateIntroPage(isFirstEntry ? 0 : null);
         setCharacter({
-            ...character,
-            inventory: newInv,
+            ...afterKey,
             hollowGateRun: run,
             hollowGateIntroSeen: true,
             dailyHollowGateRuns: runsToday + 1,

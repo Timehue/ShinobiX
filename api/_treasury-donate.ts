@@ -59,18 +59,48 @@ export function cleanTreasuryItems(items: unknown): TreasuryItemStack[] {
         .map(([itemId, count]) => ({ itemId, count }));
 }
 
-function countOwned(inventory: unknown, itemId: string): number {
-    if (!Array.isArray(inventory)) return 0;
-    return inventory.filter((i) => i === itemId).length;
+// Stackable bulk items live in donorChar.itemStacks ([{itemId,count}]); unique
+// gear lives in donorChar.inventory (string[]). Ownership + removal must span
+// BOTH stores (mirrors the client's lib/inventory helpers).
+type ItemStack = { itemId: string; count: number };
+
+function readStacks(donorChar: Record<string, unknown>): ItemStack[] {
+    if (!Array.isArray(donorChar.itemStacks)) return [];
+    return (donorChar.itemStacks as unknown[])
+        .map((s) => ({
+            itemId: String((s as Record<string, unknown>)?.itemId ?? ''),
+            count: Math.max(0, Math.floor(Number((s as Record<string, unknown>)?.count ?? 0))),
+        }))
+        .filter((s) => s.itemId && s.count > 0);
 }
 
-function removeFromInventory(inventory: unknown, itemId: string, n: number): string[] {
-    const inv = Array.isArray(inventory) ? (inventory as unknown[]).slice() : [];
+function countOwned(donorChar: Record<string, unknown>, itemId: string): number {
+    const inv = Array.isArray(donorChar.inventory) ? donorChar.inventory : [];
+    let n = inv.filter((i) => i === itemId).length;
+    for (const s of readStacks(donorChar)) if (s.itemId === itemId) n += s.count;
+    return n;
+}
+
+// Remove `n` of itemId across both stores (counted stack first, then array).
+// Returns the next inventory[] and itemStacks[] to write back on the donor.
+function removeOwned(donorChar: Record<string, unknown>, itemId: string, n: number): { inventory: string[]; itemStacks: ItemStack[] } {
     let remaining = n;
-    return inv.filter((i) => {
+    const nextStacks: ItemStack[] = [];
+    for (const s of readStacks(donorChar)) {
+        if (s.itemId === itemId && remaining > 0) {
+            const take = Math.min(s.count, remaining);
+            remaining -= take;
+            if (s.count - take > 0) nextStacks.push({ itemId: s.itemId, count: s.count - take });
+        } else {
+            nextStacks.push(s);
+        }
+    }
+    const inv = Array.isArray(donorChar.inventory) ? (donorChar.inventory as unknown[]).slice() : [];
+    const nextInventory = inv.filter((i) => {
         if (i === itemId && remaining > 0) { remaining--; return false; }
         return true;
     }) as string[];
+    return { inventory: nextInventory, itemStacks: nextStacks };
 }
 
 /**
@@ -128,11 +158,13 @@ export function applyTreasuryDonation(
     if (count > rules.itemCountCap) {
         return { ok: false, status: 400, error: `count exceeds per-call cap of ${rules.itemCountCap}.` };
     }
-    const owned = countOwned(donorChar.inventory, itemId);
+    const owned = countOwned(donorChar, itemId);
     if (owned < count) {
         return { ok: false, status: 400, error: `You do not own ${count} of that item (have ${owned}).` };
     }
-    nextDonorChar.inventory = removeFromInventory(donorChar.inventory, itemId, count);
+    const removed = removeOwned(donorChar, itemId, count);
+    nextDonorChar.inventory = removed.inventory;
+    nextDonorChar.itemStacks = removed.itemStacks;
     nextTreasury.items = cleanTreasuryItems([...(Array.isArray(prevTreasury.items) ? prevTreasury.items : []), { itemId, count }]);
     return { ok: true, nextDonorChar, nextTreasury };
 }

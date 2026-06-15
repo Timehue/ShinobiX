@@ -144,6 +144,14 @@ export type Character = {
     unspentStats: number;
     equippedJutsuIds: string[];
     inventory: string[];
+    // Counted stacks for non-unique items (consumables, throwables, scrolls,
+    // pet food/gear, dungeon shards — see `stackableItemIds`). One entry per
+    // distinct item id with a quantity, so bulk consumables don't burn one
+    // `inventory` array slot per copy (which used to silently overflow the
+    // server-side inventory cap). MUST stay an array (not a Record) so the
+    // save merge in api/_utils.ts `mergePreservingImages` takes it verbatim —
+    // a keyed object would resurrect deleted stacks. See lib/inventory.ts.
+    itemStacks?: { itemId: string; count: number }[];
     equipment: EquipmentSlots;
     jutsuMastery: JutsuMastery[];
     pets: Pet[];

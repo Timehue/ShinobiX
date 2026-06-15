@@ -24,6 +24,7 @@ import { clampNumber, currentDateKey, currentMonthKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeKageChallenges, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
+import { addItem, countItem, removeItem } from "./inventory";
 import { nonVanguardCharmSubstitute, nonVanguardShardSubstitute, vanguardOnlyHonorSeals, villageLeadership } from "../App";
 
 export type VillageWarRecord = {
@@ -1115,20 +1116,17 @@ export function sectorRaidDamageAmount(sector: number) {
 }
 
 export function territoryScrollCount(character: Character) {
-    return character.inventory.filter((itemId) => itemId === TERRITORY_CONTROL_SCROLL_ID).length;
+    return countItem(character, TERRITORY_CONTROL_SCROLL_ID);
 }
 
+// Returns a NEW Character with `count` scrolls removed (drains the counted
+// stack). Callers spread the result, e.g. `updateCharacter(removeTerritoryScrolls(c, n))`.
 export function removeTerritoryScrolls(character: Character, count: number) {
-    let remaining = Math.max(0, Math.floor(count));
-    return character.inventory.filter((itemId) => {
-        if (itemId !== TERRITORY_CONTROL_SCROLL_ID || remaining <= 0) return true;
-        remaining -= 1;
-        return false;
-    });
+    return removeItem(character, TERRITORY_CONTROL_SCROLL_ID, count);
 }
 
 export function grantTerritoryScrolls(character: Character, count: number) {
-    return { ...character, inventory: [...character.inventory, ...Array.from({ length: Math.max(0, Math.floor(count)) }, () => TERRITORY_CONTROL_SCROLL_ID)] };
+    return addItem(character, TERRITORY_CONTROL_SCROLL_ID, count);
 }
 
 export function damageSectorTerritory(sector: number, amount: number) {
