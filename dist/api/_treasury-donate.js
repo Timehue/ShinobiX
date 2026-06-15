@@ -42,21 +42,49 @@ function cleanTreasuryItems(items) {
         .filter(([, count]) => count > 0)
         .map(([itemId, count]) => ({ itemId, count }));
 }
-function countOwned(inventory, itemId) {
-    if (!Array.isArray(inventory))
-        return 0;
-    return inventory.filter((i) => i === itemId).length;
+function readStacks(donorChar) {
+    if (!Array.isArray(donorChar.itemStacks))
+        return [];
+    return donorChar.itemStacks
+        .map((s) => ({
+        itemId: String(s?.itemId ?? ''),
+        count: Math.max(0, Math.floor(Number(s?.count ?? 0))),
+    }))
+        .filter((s) => s.itemId && s.count > 0);
 }
-function removeFromInventory(inventory, itemId, n) {
-    const inv = Array.isArray(inventory) ? inventory.slice() : [];
+function countOwned(donorChar, itemId) {
+    const inv = Array.isArray(donorChar.inventory) ? donorChar.inventory : [];
+    let n = inv.filter((i) => i === itemId).length;
+    for (const s of readStacks(donorChar))
+        if (s.itemId === itemId)
+            n += s.count;
+    return n;
+}
+// Remove `n` of itemId across both stores (counted stack first, then array).
+// Returns the next inventory[] and itemStacks[] to write back on the donor.
+function removeOwned(donorChar, itemId, n) {
     let remaining = n;
-    return inv.filter((i) => {
+    const nextStacks = [];
+    for (const s of readStacks(donorChar)) {
+        if (s.itemId === itemId && remaining > 0) {
+            const take = Math.min(s.count, remaining);
+            remaining -= take;
+            if (s.count - take > 0)
+                nextStacks.push({ itemId: s.itemId, count: s.count - take });
+        }
+        else {
+            nextStacks.push(s);
+        }
+    }
+    const inv = Array.isArray(donorChar.inventory) ? donorChar.inventory.slice() : [];
+    const nextInventory = inv.filter((i) => {
         if (i === itemId && remaining > 0) {
             remaining--;
             return false;
         }
         return true;
     });
+    return { inventory: nextInventory, itemStacks: nextStacks };
 }
 /**
  * Decide a single treasury donation. Pure: no IO, no clocks. Returns the
@@ -106,11 +134,13 @@ function applyTreasuryDonation(treasury, donorChar, donation, rules) {
     if (count > rules.itemCountCap) {
         return { ok: false, status: 400, error: `count exceeds per-call cap of ${rules.itemCountCap}.` };
     }
-    const owned = countOwned(donorChar.inventory, itemId);
+    const owned = countOwned(donorChar, itemId);
     if (owned < count) {
         return { ok: false, status: 400, error: `You do not own ${count} of that item (have ${owned}).` };
     }
-    nextDonorChar.inventory = removeFromInventory(donorChar.inventory, itemId, count);
+    const removed = removeOwned(donorChar, itemId, count);
+    nextDonorChar.inventory = removed.inventory;
+    nextDonorChar.itemStacks = removed.itemStacks;
     nextTreasury.items = cleanTreasuryItems([...(Array.isArray(prevTreasury.items) ? prevTreasury.items : []), { itemId, count }]);
     return { ok: true, nextDonorChar, nextTreasury };
 }
