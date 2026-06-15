@@ -39,6 +39,7 @@ import {
 import { petBattleCamera, petCameraHoldMs } from "../lib/pet-battle-camera";
 import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } from "../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
+import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
@@ -1565,38 +1566,204 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     );
 }
 
-/** One in-flight projectile billboard (its own ref → no array ref-callbacks). */
+// ── Travelling-projectile textures + body ────────────────────────────────────
+// White-luminance shapes (the material `color` tints them) for the element-
+// distinct flying attacks: a round fire/water orb, a wind crescent blade, a
+// jagged lightning bolt, a faceted earth boulder. Lazy singletons (one each),
+// mirroring shadowTexture(). The renderer rotates the whole projectile to its
+// travel direction, so each shape is authored pointing along +x.
+let _projRoundTex: THREE.CanvasTexture | null = null;
+let _projCrescentTex: THREE.CanvasTexture | null = null;
+let _projBoltTex: THREE.CanvasTexture | null = null;
+let _projRockTex: THREE.CanvasTexture | null = null;
+
+function projRoundTexture(): THREE.CanvasTexture {
+    if (_projRoundTex) return _projRoundTex;
+    const S = 128, c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    const rad = g.createRadialGradient(S / 2, S / 2, 1, S / 2, S / 2, S / 2);
+    rad.addColorStop(0, "rgba(255,255,255,1)");
+    rad.addColorStop(0.35, "rgba(255,255,255,0.92)");
+    rad.addColorStop(0.7, "rgba(255,255,255,0.32)");
+    rad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = rad; g.fillRect(0, 0, S, S);
+    _projRoundTex = new THREE.CanvasTexture(c); _projRoundTex.colorSpace = THREE.SRGBColorSpace;
+    return _projRoundTex;
+}
+
+function projCrescentTexture(): THREE.CanvasTexture {
+    if (_projCrescentTex) return _projCrescentTex;
+    const S = 128, c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    // A crescent blade: a disc with an offset disc carved out, convex edge leading
+    // (+x). Soft white so the wind tint glows on the blade.
+    g.fillStyle = "rgba(255,255,255,1)";
+    g.beginPath(); g.arc(S * 0.46, S / 2, S * 0.42, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = "destination-out";
+    g.beginPath(); g.arc(S * 0.30, S / 2, S * 0.40, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = "source-over";
+    // Bright leading rim.
+    g.strokeStyle = "rgba(255,255,255,0.9)"; g.lineWidth = 3;
+    g.beginPath(); g.arc(S * 0.46, S / 2, S * 0.42, -1.1, 1.1); g.stroke();
+    _projCrescentTex = new THREE.CanvasTexture(c); _projCrescentTex.colorSpace = THREE.SRGBColorSpace;
+    return _projCrescentTex;
+}
+
+function projBoltTexture(): THREE.CanvasTexture {
+    if (_projBoltTex) return _projBoltTex;
+    const S = 128, c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    // A jagged horizontal streak (travels along +x) with a couple of forks. Fixed
+    // zig pattern (no rng) so it's stable; flicker is applied at render time.
+    const midY = S / 2, zig = [0, -16, 12, -8, 16, -12, 0];
+    const drawBolt = (w: number, alpha: number) => {
+        g.strokeStyle = `rgba(255,255,255,${alpha})`; g.lineWidth = w; g.lineJoin = "round"; g.lineCap = "round";
+        g.beginPath();
+        zig.forEach((dy, i) => { const x = 8 + (i / (zig.length - 1)) * (S - 16); const y = midY + dy; if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+        g.stroke();
+    };
+    drawBolt(11, 0.28); drawBolt(5, 0.7); drawBolt(2, 1);   // glow → core
+    // A short fork.
+    g.strokeStyle = "rgba(255,255,255,0.8)"; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(S * 0.55, midY + 4); g.lineTo(S * 0.66, midY + 22); g.stroke();
+    _projBoltTex = new THREE.CanvasTexture(c); _projBoltTex.colorSpace = THREE.SRGBColorSpace;
+    return _projBoltTex;
+}
+
+function projRockTexture(): THREE.CanvasTexture {
+    if (_projRockTex) return _projRockTex;
+    const S = 128, c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    const cx = S / 2, cy = S / 2, R = S * 0.40;
+    // Soft glow under the rock so the earth tint reads even on dark floors.
+    const rad = g.createRadialGradient(cx, cy, 2, cx, cy, S / 2);
+    rad.addColorStop(0, "rgba(255,255,255,0.5)"); rad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = rad; g.fillRect(0, 0, S, S);
+    // A faceted boulder — a fixed irregular heptagon (no rng).
+    const verts = [0.12, -0.5, 0.62, -0.32, 0.55, 0.28, 0.1, 0.6, -0.42, 0.42, -0.62, -0.1, -0.28, -0.5];
+    g.beginPath();
+    for (let i = 0; i < verts.length; i += 2) { const x = cx + verts[i] * R * 2, y = cy + verts[i + 1] * R * 2; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+    g.closePath();
+    g.fillStyle = "rgba(255,255,255,0.95)"; g.fill();
+    // A couple of darker facet seams for a chiselled read.
+    g.strokeStyle = "rgba(120,120,120,0.55)"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx + 0.12 * R * 2, cy - 0.5 * R * 2); g.lineTo(cx - 0.28 * R * 2, cy - 0.5 * R * 2); g.lineTo(cx + 0.1 * R * 2, cy + 0.6 * R * 2); g.stroke();
+    _projRockTex = new THREE.CanvasTexture(c); _projRockTex.colorSpace = THREE.SRGBColorSpace;
+    return _projRockTex;
+}
+
+function projHeadTexture(tex: ProjTexKind): THREE.CanvasTexture {
+    switch (tex) {
+        case "crescent": return projCrescentTexture();
+        case "bolt": return projBoltTexture();
+        case "rock": return projRockTexture();
+        default: return projRoundTexture();
+    }
+}
+
+/** The shared element/role-distinct projectile body — a glowing head (round
+ *  fireball / undulating water ball / spinning wind crescent / tumbling rock /
+ *  jagged bolt) with a comet tail and, for signature/crit shots, a pulsing aura
+ *  ring. Self-animates flicker + spin off the clock (no rng → replay-safe). The
+ *  PARENT group owns world position, the travel-direction rotation (so the head
+ *  always points where it's going — both stages look straight down −z, so world
+ *  xy == screen) and the perspective depth-scale. */
+function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
+    const core = useRef<THREE.Mesh>(null);
+    const ring = useRef<THREE.Mesh>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const headTex = projHeadTexture(visual.tex);
+    const baseW = visual.size * visual.stretch;   // head half-extent along travel
+    const baseH = visual.size;                     // head half-extent across travel
+    const tailLen = baseW * visual.tail * 3.2;
+    useFrame((s) => {
+        const t = s.clock.elapsedTime;
+        const c = core.current;
+        if (c) {
+            const fl = visual.flicker ? 1 + Math.sin(t * 38 + visual.size * 60) * 0.5 * visual.flicker : 1;
+            c.scale.set(baseW * 2.2 * fl, baseH * 2.2 * fl, 1);
+            if (visual.spin) c.rotation.z = t * visual.spin;
+        }
+        if (ring.current && ringMat.current) {
+            const p = (t * 1.7) % 1;
+            const rs = visual.size * (1 + p * 2.6);
+            ring.current.scale.set(rs, rs, 1);
+            ringMat.current.opacity = (1 - p) * 0.45;
+        }
+    });
+    return (
+        <group>
+            {/* comet tail — soft glow stretched BEHIND the head (parent faces +x = travel) */}
+            <mesh position={[-tailLen * 0.5 - baseW * 0.3, 0, -0.02]} scale={[tailLen, baseH * 2.6, 1]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            {/* soft outer glow so the bolt reads + blooms */}
+            <mesh position={[0, 0, -0.01]} scale={[baseW * 3, baseH * 3, 1]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.42} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            {/* bright element head */}
+            <mesh ref={core}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial map={headTex} color={visual.core} transparent opacity={0.97} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+            </mesh>
+            {visual.charged && (
+                <mesh ref={ring} position={[0, 0, 0.01]}>
+                    <ringGeometry args={[0.4, 0.5, 24]} />
+                    <meshBasicMaterial ref={ringMat} color={visual.glow} transparent opacity={0.45} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                </mesh>
+            )}
+        </group>
+    );
+}
+
+/** One in-flight projectile — an element-distinct flying attack (fireball /
+ *  water ball / wind cut / rock throw / lightning bolt) that points where it's
+ *  going. Driven by the sim's homing projectile in `snapshots[t].projectiles`. */
 function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResult; clock: { current: DuelClock } }) {
-    const mesh = useRef<THREE.Mesh>(null);
-    const mat = useRef<THREE.MeshBasicMaterial>(null);
-    const haloMat = useRef<THREE.MeshBasicMaterial>(null);
-    useFrame(() => {
-        const m = mesh.current, mm = mat.current;
-        if (!m || !mm) return;
+    const grp = useRef<THREE.Group>(null);
+    const curId = useRef<number | null>(null);
+    const lastAngle = useRef(0);
+    const [visual, setVisual] = useState<ProjectileVisual>(() => projectileVisual({ element: null }));
+    useFrame((state) => {
+        const g = grp.current;
+        if (!g) return;
         const snaps = duel.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
         const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
         const pr = snaps[i0].projectiles[index];
-        if (!pr) { m.visible = false; return; }
+        if (!pr) { g.visible = false; curId.current = null; return; }
         const nxt = snaps[i1].projectiles.find((q) => q.id === pr.id);
-        m.visible = true;
-        const pp = stagePlace(nxt ? lerp(pr.x, nxt.x, f) : pr.x, nxt ? lerp(pr.y, nxt.y, f) : pr.y);
-        m.position.set(pp.wx, pp.wy + pp.depth, 7);
-        m.scale.setScalar(pp.depth);
-        const col = elementColor(pr.element).glow;
-        mm.color.set(col);
-        if (haloMat.current) haloMat.current.color.set(col);
+        // A new bolt took this slot → reselect its element-distinct look.
+        if (pr.id !== curId.current) {
+            curId.current = pr.id;
+            setVisual(projectileVisual({ element: pr.element, kind: pr.kind, charged: pr.kind === "crush" }));
+        }
+        g.visible = true;
+        const sx = nxt ? lerp(pr.x, nxt.x, f) : pr.x;
+        const sy = nxt ? lerp(pr.y, nxt.y, f) : pr.y;
+        const pp = stagePlace(sx, sy);
+        g.position.set(pp.wx, pp.wy + pp.depth, 7);
+        g.scale.setScalar(pp.depth);
+        // Point the head along its WORLD travel direction (world xy == screen here).
+        if (nxt) {
+            const p1 = stagePlace(nxt.x, nxt.y);
+            const dxw = p1.wx - pp.wx, dyw = p1.wy - pp.wy;
+            if (dxw * dxw + dyw * dyw > 1e-5) lastAngle.current = Math.atan2(dyw, dxw);
+        }
+        // Water undulates a touch in flight (perpendicular sine).
+        if (visual.wobble) {
+            const wob = Math.sin(state.clock.elapsedTime * 9 + index) * visual.wobble * pp.depth;
+            g.position.x += -Math.sin(lastAngle.current) * wob;
+            g.position.y += Math.cos(lastAngle.current) * wob;
+        }
+        g.rotation.z = lastAngle.current;
     });
     return (
-        <mesh ref={mesh} visible={false}>
-            <sphereGeometry args={[0.42, 14, 14]} />
-            <meshBasicMaterial ref={mat} transparent opacity={0.95} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            {/* soft outer halo so the bolt reads across the big map + blooms */}
-            <mesh scale={[2.1, 2.1, 2.1]}>
-                <sphereGeometry args={[0.42, 12, 12]} />
-                <meshBasicMaterial ref={haloMat} transparent opacity={0.32} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-        </mesh>
+        <group ref={grp} visible={false}>
+            <ProjectileBody visual={visual} />
+        </group>
     );
 }
 
@@ -2023,10 +2190,36 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
     );
 }
 
+/** A synthesised travelling projectile for the tactical arena. The arena sim has
+ *  NO projectiles — ranged hits/heals resolve at the target — so the renderer
+ *  flies a cosmetic element/role-distinct streak from the shooter to the victim
+ *  that lands just as the impact FX fires. Pure presentation; never read by the
+ *  sim (no balance / determinism tie). */
+function ArenaShot({ from, to, visual, dur, depth, arc, onDone }: {
+    from: Vec3; to: Vec3; visual: ProjectileVisual; dur: number; depth: number; arc: number; onDone: () => void;
+}) {
+    const grp = useRef<THREE.Group>(null);
+    const start = useRef<number | null>(null);
+    const angle = Math.atan2(to[1] - from[1], to[0] - from[0]);   // world xy == screen here
+    useFrame((state) => {
+        const g = grp.current; if (!g) return;
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) * 1000 / dur);
+        const x = lerp(from[0], to[0], p);
+        const y = lerp(from[1], to[1], p) + (arc ? Math.sin(p * Math.PI) * arc * depth : 0);   // a small lob for thrown rock
+        g.position.set(x, y, from[2]);
+        g.rotation.z = angle;
+        g.scale.setScalar(depth * (0.55 + 0.45 * Math.min(1, p / 0.12)));   // quick scale-in at the muzzle
+        if (p >= 1) onDone();
+    });
+    return (<group ref={grp}><ProjectileBody visual={visual} /></group>);
+}
+
 /** Advances the clock, spawns elemental FX on hits/abilities, updates the score HUD. */
-function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloater, spawnDecal, pushFeed, triggerHitstop, triggerShake, triggerSlowmo, triggerFlash, pushBanner, nameOf, setScore }: {
+function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot, spawnFloater, spawnDecal, pushFeed, triggerHitstop, triggerShake, triggerSlowmo, triggerFlash, pushBanner, nameOf, setScore }: {
     result: ArenaResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void; onEnd: () => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
+    spawnShot: (n: { fromX: number; fromY: number; toX: number; toY: number; element?: string | null; role?: string | null; kind?: string | null; support?: boolean; charged?: boolean }) => void;
     spawnFloater: (x: number, z: number, text: string, color: string, big: boolean) => void;
     spawnDecal: (x: number, z: number) => void;
     pushFeed: (text: string, color: string) => void;
@@ -2051,12 +2244,20 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloat
                 const snapAt = snaps[Math.min(maxT, e.t)];
                 if (e.type === "hit") {
                     const a = findArenaActor(snapAt, e.targetId);
+                    const src = findArenaActor(snapAt, e.actorId);
                     if (a) {
                         // An ABILITY-tagged hit is the tracker's MARK (only it deals ability damage) → a dark sigil; else the element burst.
                         if (e.ability) spawnFx({ x: a.x, z: a.y, key: "shadow", scale: 1.8, dur: 430 });
                         else spawnFx({ x: a.x, z: a.y, element: e.element, scale: e.crit ? 2.2 : 1.3, dur: 300 });
                         spawnFloater(a.x, a.y, `${e.dmg}`, e.crit ? "#fde047" : "#fecaca", e.crit);
                         if (e.crit) { spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.0, dur: 240 }); triggerHitstop(45); triggerShake(0.5); }   // crits land with a flash + a little weight
+                        // A ranged blow / tracker mark / assassin lunge flies a projectile in from the shooter
+                        // (melee swings at point-blank skip it — the impact burst is enough).
+                        if (src) {
+                            const gap = Math.hypot(a.x - src.x, a.y - src.y);
+                            if (gap >= 1.6 || e.ability || (src.role === "assassin" && gap >= 0.6))
+                                spawnShot({ fromX: src.x, fromY: src.y, toX: a.x, toY: a.y, element: e.element, role: src.role, kind: e.ability ? "mark" : "damage", charged: e.crit });
+                        }
                     }
                 } else if (e.type === "ability") {
                     // Each role ability reads distinctly (mend glow / guard dome / mark gather / assassin dash-flash).
@@ -2064,9 +2265,22 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnFloat
                     if (a) { const pick = arenaAbilityFxKey(e.kind); if (pick.key) spawnFx({ x: a.x, z: a.y, key: pick.key, scale: e.kind === "guard" ? 2.1 : 1.7, dur: 440 }); }
                 } else if (e.type === "heal") {
                     const a = findArenaActor(snapAt, e.targetId);
-                    if (a) { spawnFx({ x: a.x, z: a.y, key: "heal", scale: 1.7, dur: 470 }); spawnFloater(a.x, a.y, `+${e.amount}`, "#86efac", false); }
+                    const src = findArenaActor(snapAt, e.actorId);
+                    if (a) {
+                        spawnFx({ x: a.x, z: a.y, key: "heal", scale: 1.7, dur: 470 }); spawnFloater(a.x, a.y, `+${e.amount}`, "#86efac", false);
+                        // The sage floats a soft heal-comet to the ally it mends.
+                        if (src && src.id !== a.id && Math.hypot(a.x - src.x, a.y - src.y) >= 1.2)
+                            spawnShot({ fromX: src.x, fromY: src.y, toX: a.x, toY: a.y, element: src.element, role: src.role, support: true });
+                    }
                 } else if (e.type === "shield") {
-                    const a = findArenaActor(snapAt, e.targetId); if (a) spawnFx({ x: a.x, z: a.y, key: "eshield", scale: 2.0, dur: 480 });
+                    const a = findArenaActor(snapAt, e.targetId);
+                    const src = findArenaActor(snapAt, e.actorId);
+                    if (a) {
+                        spawnFx({ x: a.x, z: a.y, key: "eshield", scale: 2.0, dur: 480 });
+                        // A shield cast ONTO an ally (not the defender's self-guard) flies a ward-comet over.
+                        if (src && src.id !== a.id && Math.hypot(a.x - src.x, a.y - src.y) >= 1.2)
+                            spawnShot({ fromX: src.x, fromY: src.y, toX: a.x, toY: a.y, element: src.element, role: src.role, support: true });
+                    }
                 } else if (e.type === "kill") {
                     const a = findArenaActor(snapAt, e.targetId);
                     if (a) { spawnFx({ x: a.x, z: a.y, key: arenaKillFxKey(a.element), scale: 3.0, dur: 560 }); spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.4, dur: 360 }); spawnDecal(a.x, a.y); }
@@ -2171,6 +2385,7 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
     const [banner, setBanner] = useState<{ id: number; text: string; color: string } | null>(null);   // multi-kill / SCORES! callout
     const [score, setScoreState] = useState<[number, number]>([0, 0]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
+    const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; visual: ProjectileVisual; dur: number; depth: number; arc: number }>>([]);   // synthesised travelling projectiles
     const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
     const [decals, setDecals] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks where pets fell
@@ -2182,6 +2397,21 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
         if (!frames) return;
         const id = seqRef.current++; const p = arenaPlace(n.x, n.z);
         setFxList((arr) => [...arr, { id, frames, pos: [p.wx, p.wy + 1.0 * p.depth, 8], scale: n.scale * p.depth * 0.78, dur: n.dur }]);   // beefier FX
+    };
+    // Fly a cosmetic element/role-distinct projectile from a shooter to its target.
+    const spawnShot = (n: { fromX: number; fromY: number; toX: number; toY: number; element?: string | null; role?: string | null; kind?: string | null; support?: boolean; charged?: boolean }) => {
+        const visual = projectileVisual({ element: n.element, role: n.role, kind: n.kind, support: n.support, charged: n.charged });
+        const a = arenaPlace(n.fromX, n.fromY), b = arenaPlace(n.toX, n.toY);
+        const distW = Math.hypot(b.wx - a.wx, b.wy - a.wy);
+        let dur = Math.min(360, Math.max(120, 90 + distW * 12)) / Math.max(0.4, visual.speedMul);
+        if (visual.tex === "bolt") dur *= 0.6;   // lightning snaps to its mark
+        const id = seqRef.current++;
+        setShots((arr) => [...arr, {
+            id,
+            from: [a.wx, a.wy + 1.0 * a.depth, 8] as Vec3,
+            to: [b.wx, b.wy + 1.0 * b.depth, 8] as Vec3,
+            visual, dur, depth: b.depth, arc: visual.tex === "rock" ? 0.8 : 0,
+        }]);
     };
     const spawnFloater = (x: number, z: number, text: string, color: string, big: boolean) => {
         const p = arenaPlace(x, z); const id = seqRef.current++;
@@ -2209,7 +2439,7 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
         if (slowmo.current.ms > 0) { slowmo.current.ms -= delta * 1000; factor = slowmo.current.factor; }   // then ease through the moment in slow-mo (speed CONTRAST sells impact)
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS * factor);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setFloaters([]); setFeed([]); setDecals([]); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setShots([]); setFloaters([]); setFeed([]); setDecals([]); };
     const winLabel = result.winner === "blue" ? "Blue Team Wins" : result.winner === "red" ? "Red Team Wins" : "Draw";
 
     return createPortal((
@@ -2227,9 +2457,10 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
                     {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
                     <ArenaScroll result={result} clock={clock} />
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
+                    {shots.map((sh) => (<ArenaShot key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} dur={sh.dur} depth={sh.depth} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />))}
                     {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
                     <ArenaCamera result={result} clock={clock} stageRef={stageRef} shake={shake} />
-                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnFloater={spawnFloater} spawnDecal={spawnDecal} pushFeed={pushFeed} triggerHitstop={triggerHitstop} triggerShake={triggerShake} triggerSlowmo={triggerSlowmo} triggerFlash={triggerFlash} pushBanner={pushBanner} nameOf={nameOf} setScore={setScore} />
+                    <ArenaDirector result={result} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnFx={spawnFx} spawnShot={spawnShot} spawnFloater={spawnFloater} spawnDecal={spawnDecal} pushFeed={pushFeed} triggerHitstop={triggerHitstop} triggerShake={triggerShake} triggerSlowmo={triggerSlowmo} triggerFlash={triggerFlash} pushBanner={pushBanner} nameOf={nameOf} setScore={setScore} />
                     <BloomFx />
                 </Canvas>
             </div>
