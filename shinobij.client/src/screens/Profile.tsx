@@ -4,6 +4,7 @@ import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
 import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } from "../constants/game";
+import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { ProfessionRankBar } from "../screens/ProfessionRankBar";
@@ -406,6 +407,7 @@ export function Profile({
             {onDeleteCharacter && (
                 <section className="profile-build-panel">
                     <h2>Account</h2>
+                    <ChangePasswordCard playerName={character.name} />
                     <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>
                     <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
                 </section>
