@@ -4824,6 +4824,44 @@ export default function App() {
         }
     }
 
+    // Shared autosave POST used by the debounced save, the 15s interval, and the
+    // immediate training flush. The caller clears charDirtyRef before invoking;
+    // persistSave re-arms it on failure so the next tick retries. Base64 image
+    // strings are stripped from the body (server stores them separately).
+    async function persistSave(snap: NonNullable<typeof latestSaveRef.current>) {
+        const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
+        const accountName = snap.name;
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(bodyWithVersion, (_k: string, v: unknown) => typeof v === "string" && v.startsWith("data:image") ? "" : v),
+            });
+            if (res.status === 409) {
+                // Another tab/device wrote first. Refetch + reapply rather than
+                // overwriting their work — better than silently losing the other
+                // tab's progress.
+                void refetchAfterSaveConflict(accountName);
+                return;
+            }
+            if (res.ok) {
+                try {
+                    const data = await res.json() as { _saveVersion?: number };
+                    if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
+                } catch { /* server may return 200 with empty body; ignore */ }
+                // Mirror to localStorage so the next login can paint instantly.
+                writeSavePreview(accountName, { ...snap.payload, _saveVersion: latestSaveVersionRef.current });
+            } else {
+                // Rejected (401/403/413/426/5xx). Don't silently drop it — warn
+                // and re-arm the dirty flag so the next tick retries.
+                console.warn(`[autosave] server rejected save (status ${res.status})`);
+                charDirtyRef.current = true;
+            }
+        } catch {
+            charDirtyRef.current = true; // restore so next tick retries
+        }
+    }
+
     // Dirty-tracking: only auto-save when character state actually changed locally.
     // This prevents a second device (e.g. desktop) from continuously re-uploading the
     // snapshot it loaded from the server, which would overwrite progress made on the
@@ -4834,6 +4872,20 @@ export default function App() {
     // we seed prevCharRef so the load itself isn't counted as a local change.
     const prevCharRef = useRef<Character | null>(null);
     const charDirtyRef = useRef(false);
+    // Set by the training screens (via the *Now setters below) to request an
+    // immediate save on the next commit rather than waiting for the 3s/15s
+    // autosave. Players reported starting a training on one device and not
+    // seeing it on another because they switched/closed before the debounced
+    // save fired. Snapshot loads use the raw setters so they never flush.
+    const flushSaveRef = useRef(false);
+    const setActiveTrainingNow = useCallback((t: ActiveTraining | null) => {
+        setActiveTraining(t);
+        flushSaveRef.current = true;
+    }, []);
+    const setActiveJutsuTrainingNow = useCallback((t: ActiveJutsuTraining | null) => {
+        setActiveJutsuTraining(t);
+        flushSaveRef.current = true;
+    }, []);
 
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
@@ -4877,46 +4929,12 @@ export default function App() {
             const snap = latestSaveRef.current;
             if (!snap) return;
             charDirtyRef.current = false;
-            const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
-            const accountName = snap.name;
-            fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(bodyWithVersion, (_k: string, v: unknown) => typeof v === "string" && v.startsWith("data:image") ? "" : v),
-            }).then(async (res) => {
-                if (res.status === 409) {
-                    // Another tab/device wrote first. Refetch + reapply rather
-                    // than overwriting their work. The user's local changes
-                    // since the conflict will need to be redone, but that's
-                    // better than silently losing the other tab's progress.
-                    void refetchAfterSaveConflict(accountName);
-                    return;
-                }
-                if (res.ok) {
-                    try {
-                        const data = await res.json() as { _saveVersion?: number };
-                        if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
-                    } catch { /* server may return 200 with empty body; ignore */ }
-                    // Mirror to localStorage so the next login can paint instantly.
-                    writeSavePreview(accountName, {
-                        ...snap.payload,
-                        _saveVersion: latestSaveVersionRef.current,
-                    });
-                } else if (!res.ok) {
-                    // Rejected (401/403/413/426/5xx). Don't silently drop it —
-                    // warn and re-arm the dirty flag so the next tick retries.
-                    console.warn(`[autosave] server rejected save (status ${res.status})`);
-                    charDirtyRef.current = true;
-                }
-            }).catch(() => { charDirtyRef.current = true; });
+            void persistSave(snap);
         }, 3000);
         return () => { if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current); };
     }, [character, currentAccountName]);
 
     useEffect(() => {
-        function stripAutosaveImages(_key: string, value: unknown) {
-            return typeof value === "string" && value.startsWith("data:image") ? "" : value;
-        }
         const id = setInterval(() => {
             // Only save if the character actually changed locally since the last server sync.
             // A second logged-in device that loaded from server and did nothing will have
@@ -4925,39 +4943,25 @@ export default function App() {
             const snap = latestSaveRef.current;
             if (!snap) return;
             charDirtyRef.current = false; // optimistically clear; restored on failure
-            const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
-            const accountName = snap.name;
-            fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(bodyWithVersion, stripAutosaveImages),
-            }).then(async (res) => {
-                if (res.status === 409) {
-                    void refetchAfterSaveConflict(accountName);
-                    return;
-                }
-                if (res.ok) {
-                    try {
-                        const data = await res.json() as { _saveVersion?: number };
-                        if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
-                    } catch { /* ignore */ }
-                    // Mirror to localStorage so the next login can paint instantly.
-                    writeSavePreview(accountName, {
-                        ...snap.payload,
-                        _saveVersion: latestSaveVersionRef.current,
-                    });
-                } else if (!res.ok) {
-                    // Rejected (401/403/413/426/5xx). Re-arm dirty + warn so a
-                    // persistent rejection is visible rather than silently lost.
-                    console.warn(`[autosave] server rejected save (status ${res.status})`);
-                    charDirtyRef.current = true;
-                }
-            }).catch(() => {
-                charDirtyRef.current = true; // restore so next tick retries
-            });
+            void persistSave(snap);
         }, 15_000);
         return () => clearInterval(id);
     }, []);
+
+    // Immediate flush requested by a training start/stop. Declared AFTER the
+    // latestSaveRef-refresh effect above so, on the same commit, latestSaveRef
+    // already includes the new training state. Cancels any pending debounced
+    // save so we don't double-write.
+    useEffect(() => {
+        if (!flushSaveRef.current) return;
+        flushSaveRef.current = false;
+        if (!character || !currentAccountName) return;
+        const snap = latestSaveRef.current;
+        if (!snap) return;
+        if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; }
+        charDirtyRef.current = false;
+        void persistSave(snap);
+    }, [activeTraining, activeJutsuTraining]);
 
     // Save on page unload (F5 / tab close / navigation away) so that progress
     // made since the last auto-save is not lost.
@@ -8841,7 +8845,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
+                {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
@@ -8849,7 +8853,7 @@ export default function App() {
                     const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);
                     return <DungeonPetBattle character={character} updateCharacter={setCharacter} editablePets={editablePets} enemyOverride={enemyPet} enemyOwner={pendingEventEncounter.event.name} onWin={completeEventEncounter} onLeave={leaveEventEncounter} sharedImages={sharedImages} />;
                 })()}
-                {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
+                {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} onMissionBattleStart={() => setMissionBattleActive(true)} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
