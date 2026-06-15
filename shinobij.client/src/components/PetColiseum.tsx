@@ -1466,6 +1466,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const prevHp = useRef(Infinity);
     const flash = useRef(0);
     const lastPos = useRef<[number, number]>([0, 0]);
+    const scaleSm = useRef(0);   // smoothed depth-scale → no size pop from a jittery tick or a reserve swap-in teleport
     const runClock = useRef(0);
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
 
@@ -1485,7 +1486,12 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const a0 = findActor(snaps[i0], id);
         if (!a0) return;
         const a1 = findActor(snaps[i1], id) ?? a0;
-        const p = stagePlace(lerp(a0.x, a1.x, f), lerp(a0.y, a1.y, f));
+        // A >3-field-unit jump in one tick is a teleport (reserve swap-in), never real
+        // travel — hard-cut at the tick midpoint instead of sliding (+ scaling) across.
+        const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
+        const teleport = (tdx * tdx + tdy * tdy) > 9;
+        const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
+        const p = stagePlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
 
         // Speed in stage units → drives the run cycle + bob + trail.
         const dx = p.wx - lastPos.current[0], dy = p.wy - lastPos.current[1];
@@ -1495,8 +1501,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
 
         // run-bob + a forward lean make the locomotion READ; depth scales it all.
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.18 : 0;
+        scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
         g.position.set(p.wx, p.wy + bob * p.depth, p.zo);
-        g.scale.setScalar(p.depth);
+        g.scale.setScalar(scaleSm.current);
         // Turn to FACE the target (flip by the sim's facing) so a pet never fights
         // with its back to the enemy; the forward run-lean flips along with it.
         if (Math.abs(a0.faceX) > 0.12) facing.current = a0.faceX < 0 ? -1 : 1;
@@ -1530,7 +1537,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
 
         if (shadow.current && shadowMat.current) {
             shadow.current.position.set(p.wx, p.wy - 0.08 * p.depth, p.zo - 0.1);
-            shadow.current.scale.set(shadowW * p.depth, shadowW * 0.32 * p.depth, 1);
+            shadow.current.scale.set(shadowW * scaleSm.current, shadowW * 0.32 * scaleSm.current, 1);
             shadowMat.current.opacity = 0.4 * (a0.state === "dead" ? 0.4 : 1);
         }
     });
@@ -2042,6 +2049,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const nameWrap = useRef<HTMLDivElement>(null);
     const facing = useRef(id.startsWith("blue") ? 1 : -1);
     const lastPos = useRef<[number, number]>([0, 0]);
+    const scaleSm = useRef(0);   // smoothed depth-scale → absorbs any residual position jitter so the sprite never pulses big↔small (snaps on a teleport)
     const runClock = useRef(0);
     const fast = useRef(0);   // speed gate 0..1 → dash-trail opacity (read by the ArenaGhost children)
     const tint = useMemo(() => elementTint(pet.element), [pet.element]);
@@ -2071,18 +2079,22 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         // whole board while the perspective scale sweeps — the "grows huge then small"
         // glitch. Hard-cut at the tick midpoint instead.
         const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
-        const ff = (tdx * tdx + tdy * tdy) > 9 ? (f < 0.5 ? 0 : 1) : f;
+        const teleport = (tdx * tdx + tdy * tdy) > 9;
+        const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
         const p = arenaPlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
         const dx = p.wx - lastPos.current[0], dy = p.wy - lastPos.current[1];
         const spd = Math.sqrt(dx * dx + dy * dy); lastPos.current = [p.wx, p.wy];
         const moving = spd > 0.012 && !down;
+        // Smooth the depth-scale: snap on a teleport (which already hard-cuts position),
+        // else ease toward the target so a jittery tick can't pop the sprite's size.
+        scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
         // Dash trail: a single element-flat ghost that fades in ONLY at genuine dash speed
         // (an assassin dive streaks; an ordinary stroll doesn't). Gate raised so routine
         // movement no longer leaves a constant smear of afterimages.
         fast.current = down ? 0 : Math.max(0, Math.min(1, (spd - 0.07) / 0.13));
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.16 : 0;
         g.position.set(p.wx, p.wy + bob * p.depth, p.zo);
-        g.scale.setScalar(p.depth);
+        g.scale.setScalar(scaleSm.current);
         // Hide downed/respawning pets entirely — a faded corpse frozen at the death spot
         // read as a "spawn freeze". The scorch decal + kill FX already mark where it fell.
         g.visible = !down;
@@ -2102,12 +2114,12 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         if (carryMark.current) carryMark.current.style.display = a0.carrying ? "inline" : "none";
         if (shadow.current && shadowMat.current) {
             shadow.current.position.set(p.wx, p.wy - 0.08 * p.depth, p.zo - 0.1);
-            shadow.current.scale.set(shadowW * p.depth, shadowW * 0.32 * p.depth, 1);
+            shadow.current.scale.set(shadowW * scaleSm.current, shadowW * 0.32 * scaleSm.current, 1);
             shadowMat.current.opacity = down ? 0 : 0.4;
         }
         if (aura.current && auraMat.current) {   // team-colored ground glow (brighter while carrying)
             aura.current.position.set(p.wx, p.wy - 0.05 * p.depth, p.zo - 0.12);
-            const aw = shadowW * 1.6 * p.depth; aura.current.scale.set(aw, aw * 0.46, 1);
+            const aw = shadowW * 1.6 * scaleSm.current; aura.current.scale.set(aw, aw * 0.46, 1);
             auraMat.current.opacity = down ? 0 : (a0.carrying ? 0.85 : 0.5);
         }
     });
