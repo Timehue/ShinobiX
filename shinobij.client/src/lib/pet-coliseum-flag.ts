@@ -52,3 +52,34 @@ export function petEvolveCutsceneEnabled(): boolean {
 export function setPetEvolveCutsceneEnabled(on: boolean): void {
     try { localStorage.setItem(EVOLVE_CUTSCENE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
 }
+
+/*
+ * Authoritative PvE combat engine flag — the kill-switch for the pet-combat
+ * redesign (docs/pet-combat-redesign-plan.md). When ON, NON-RANKED pet battles
+ * (Pet Arena 1v1 + 2v2, Hollow Gate / dungeon duels, clan-war pet2v2) resolve
+ * with the new CONTINUOUS duel engine (lib/pet-duel-sim.ts) rendered by
+ * PetColiseumDuel — pets approach, hold spacing, kite, trade homing elemental
+ * projectiles, dodge, and unleash ultimates. When OFF, those fights fall back to
+ * the old round-based resolver (lib/pet-battle-sim.ts) + the PetColiseum renderer.
+ *
+ * RANKED pet battles are NOT affected by this flag — they stay on the old engine
+ * until balance + server-side validation are proven (plan Phases E/F). Flipping
+ * this OFF is the instant rollback for the PvE engine. DEFAULT OFF until the
+ * balance harness (scripts/pet-duel-balance.ts) shows sane win-rates, then this
+ * default flips to ON. Per-device persisted; force either way with
+ * localStorage.setItem("petDuelEngine.v1", "1"|"0").
+ */
+const DUEL_ENGINE_KEY = "petDuelEngine.v1";
+
+export function petDuelEngineEnabled(): boolean {
+    try {
+        const v = localStorage.getItem(DUEL_ENGINE_KEY);
+        if (v === "1") return true;
+        if (v === "0") return false;
+        return false; // DEFAULT OFF — flips to true once balance-tuned (plan Part 5).
+    } catch { return false; }
+}
+
+export function setPetDuelEngineEnabled(on: boolean): void {
+    try { localStorage.setItem(DUEL_ENGINE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}

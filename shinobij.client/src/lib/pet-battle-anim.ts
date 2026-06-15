@@ -263,7 +263,11 @@ export function buildPetAnimationEvents(input: BuildPetAnimInput): PetBattleAnim
     if (DODGE_RE.test(message) && (OFFENSE_KINDS.has(kind) || RANGED_STATUS_KINDS.has(kind) || kind === "dot")) {
         const dodgerId = actorId;
         const attackerId = targetId;
-        const ranged = RANGED_STATUS_KINDS.has(kind) || kind === "dot" || ((kind === "damage" || kind === "lifesteal") && dist > 2);
+        // Same range rule as a landed hit: ranged status, DoTs, far strikes, OR an
+        // elemental blast are fired (so the dodged attack reads as a projectile
+        // whiffing past), else a melee lunge that the defender slips.
+        const elemental = vfx !== "none" && vfx !== "chakra";
+        const ranged = RANGED_STATUS_KINDS.has(kind) || kind === "dot" || ((kind === "damage" || kind === "lifesteal") && (dist > 2 || elemental));
         if (ranged) {
             events.push({ id: `${seq++}-rangedCast`, actorId: attackerId, targetId: dodgerId, type: "rangedCast", durationMs: 200, vfxKey: vfx });
             events.push({ id: `${seq++}-projectile`, actorId: attackerId, targetId: dodgerId, type: "projectile", durationMs: 300, vfxKey: vfx });
@@ -277,8 +281,15 @@ export function buildPetAnimationEvents(input: BuildPetAnimInput): PetBattleAnim
 
     // ── Landed offense (basic / damage / lifesteal). ────────────────────────
     if (OFFENSE_KINDS.has(kind)) {
-        // Melee = a basic, or a short-range strike; otherwise it's fired from afar.
-        const ranged = kind !== "basic" && dist > 2;
+        // A non-basic move fires from RANGE if it's thrown from afar OR it's an
+        // ELEMENTAL move — an elemental pet HURLS its element as a projectile
+        // instead of running in to bonk, even at close range. (The grid is small,
+        // so most fights sit at dist≤2 and elemental blasts were wrongly animating
+        // as melee lunges — the "no range, they just bonk" complaint.) Plain
+        // (non-elemental) strikes and basics still lunge to melee. Renderer-only:
+        // the engine's outcome is untouched; this only changes how it's drawn.
+        const elemental = vfx !== "none" && vfx !== "chakra";
+        const ranged = kind !== "basic" && (dist > 2 || elemental);
         const vk: PetVfxKey = kind === "lifesteal" ? "blood" : vfx;
         const moveName = extractPetMoveName(message);
         const signature = !!frame.signatureMove;
