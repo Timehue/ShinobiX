@@ -2021,6 +2021,23 @@ export function Arena({
         }
     }
 
+    // Sanctioned exit for the navigation lock: forfeit = an immediate loss.
+    // Mirrors the canonical in-combat defeat (hp:0 / hospitalized, or ranked Elo
+    // loss) and drives the fight into the standard "loss" end-state, so the
+    // existing per-type loss UI (endless run-end, dungeon fail, hospital, …) and
+    // the battleEnded effect (mission-flag clear) take it from there.
+    function forfeit() {
+        if (battleEnded) return;
+        if (!confirm("Forfeit this battle? It counts as a loss.")) return;
+        setBattleEnded(true);
+        setBattleResult("loss");
+        setRaidBattleKind("none");
+        setLog(`${character.name} forfeited the battle.`);
+        addCombatLog(`${character.name} forfeited the battle — counted as a loss.`, "defeat", character.name);
+        if (rankedBattleActive) applyRankedLoss();
+        else updateCharacter({ ...character, hp: 0, hospitalized: true });
+    }
+
     function applyRankedLoss() {
         if (!rankedBattleActive || !opponentCharacter) return;
         const loss = rankedDelta(opponentCharacter.rankedRating ?? 1000, character.rankedRating ?? 1000);
@@ -4489,6 +4506,7 @@ export function Arena({
                             </button>
                         )}
                         <button onClick={flee}><span>Flee</span><small>100 AP | 20%</small></button>
+                        {!isAcademySpar && <button onClick={forfeit} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}><span>Forfeit</span><small>Take the loss</small></button>}
                         <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
                     </div>
 
