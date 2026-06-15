@@ -31,6 +31,7 @@ const node_path_1 = require("node:path");
 const _name__js_1 = __importDefault(require("./api/save/[name].js"));
 const heartbeat_js_1 = __importDefault(require("./api/player/heartbeat.js"));
 const challenge_js_1 = __importDefault(require("./api/player/challenge.js"));
+const friends_js_1 = __importDefault(require("./api/player/friends.js"));
 const attack_js_1 = __importDefault(require("./api/player/attack.js"));
 const clear_attack_js_1 = __importDefault(require("./api/player/clear-attack.js"));
 const heal_js_1 = __importDefault(require("./api/player/heal.js"));
@@ -400,6 +401,7 @@ route('/save/:name', _name__js_1.default);
 // Player
 route('/player/heartbeat', heartbeat_js_1.default);
 route('/player/challenge', challenge_js_1.default);
+route('/player/friends', friends_js_1.default);
 route('/player/attack', attack_js_1.default);
 route('/player/clear-attack', clear_attack_js_1.default);
 route('/player/heal', heal_js_1.default);

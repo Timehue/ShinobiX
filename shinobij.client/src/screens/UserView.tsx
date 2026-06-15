@@ -13,23 +13,31 @@
 
 import { useState, useEffect } from "react";
 import type { Character, ServerPlayerSummary, PlayerRecord } from "../types/character";
-import type { SavedBloodline } from "../types/combat";
+import type { SavedBloodline, Jutsu } from "../types/combat";
 import { type Achievement, ACHIEVEMENTS } from "../constants/achievements";
 import { getCharacterElements } from "../lib/elements";
+import { sendStandardDuel } from "../lib/duel-challenge";
+import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 
 export function UserView({
     viewingName,
+    viewerCharacter,
     allServerPlayers,
     playerRoster,
     savedBloodlines,
+    creatorJutsus,
     sharedImages,
+    onMessage,
     onBack,
 }: {
     viewingName: string;
+    viewerCharacter: Character;
     allServerPlayers: ServerPlayerSummary[];
     playerRoster: PlayerRecord[];
     savedBloodlines: SavedBloodline[];
+    creatorJutsus: Jutsu[];
     sharedImages: Record<string, string>;
+    onMessage: () => void;
     onBack: () => void;
 }) {
     const lower = viewingName.toLowerCase();
@@ -47,6 +55,10 @@ export function UserView({
         return () => window.removeEventListener("keydown", onKey);
     }, [selectedAchievement]);
 
+    const [following, setFollowing] = useState<string[]>([]);
+    const [challengeBusy, setChallengeBusy] = useState(false);
+    useEffect(() => subscribeFollowing(viewerCharacter.name, setFollowing), [viewerCharacter.name]);
+
     if (!viewedCharacter) {
         return (
             <div className="card profile-page-card">
@@ -63,6 +75,20 @@ export function UserView({
     const ownedElements = getCharacterElements(viewedCharacter);
     const sharedAvatar = sharedImages['avatar:' + viewingName.toLowerCase()];
     const avatar = sharedAvatar || viewedCharacter.avatarImage || "";
+
+    const isSelf = lower === viewerCharacter.name.toLowerCase();
+    const isFollowed = following.some(f => f.toLowerCase() === lower);
+    async function toggleFollow() {
+        if (isFollowed) await unfollow(viewerCharacter.name, viewingName);
+        else await follow(viewerCharacter.name, viewingName);
+    }
+    async function sendChallenge() {
+        if (challengeBusy) return;
+        setChallengeBusy(true);
+        const r = await sendStandardDuel({ character: viewerCharacter, opponentName: viewingName, savedBloodlines, creatorJutsus });
+        setChallengeBusy(false);
+        alert(r.ok ? `Challenge sent to ${viewingName}.` : (r.error ?? "Challenge could not be sent."));
+    }
 
     return (
         <div className="card profile-page-card">
@@ -88,6 +114,19 @@ export function UserView({
                     </div>
                     <button className="back-btn" onClick={onBack}>Back to Users</button>
                 </div>
+
+                {!isSelf && (
+                    <div className="profile-actions">
+                        <button className="profile-action-btn" onClick={onMessage}>✉ Message</button>
+                        <button className="profile-action-btn" disabled={challengeBusy} onClick={() => void sendChallenge()}>
+                            {challengeBusy ? "Sending…" : "⚔ Challenge"}
+                        </button>
+                        <button
+                            className={`profile-action-btn${isFollowed ? " following" : ""}`}
+                            onClick={() => void toggleFollow()}
+                        >{isFollowed ? "★ Following" : "☆ Follow"}</button>
+                    </div>
+                )}
 
                 <section className="profile-overview-panel">
                     <div className="profile-avatar-upload-box">
