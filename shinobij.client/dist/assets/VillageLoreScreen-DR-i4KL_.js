@@ -1,4 +1,4 @@
-import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{a as t,t as n}from"./react-vendor-B5ZEWdOX.js";import"./index-DhGmcjIl.js";var r=e(t(),1),i={"Ashen Leaf Village":{icon:`🔥`,theme:`The Traditional Path`,lore:`Born from the remnants of a world once consumed by fire, Ashen Leaf rose where devastation met renewal.
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{a as t,t as n}from"./react-vendor-B5ZEWdOX.js";import"./index-k1adkMTj.js";var r=e(t(),1),i={"Ashen Leaf Village":{icon:`🔥`,theme:`The Traditional Path`,lore:`Born from the remnants of a world once consumed by fire, Ashen Leaf rose where devastation met renewal.
 
 Long ago, the land was reduced to ash during a great war between rival clans. From that scorched earth, a single forest began to grow—its leaves darkened by soot, yet alive with quiet strength.
 
