@@ -53,7 +53,11 @@ export function ScreenHint({
             <span style={{ flex: 1, lineHeight: 1.4 }}>{text}</span>
             <button
                 className="start-primary-btn"
-                style={{ flexShrink: 0 }}
+                // start-primary-btn is a full-width vertical-card button
+                // (display:block; width:100%; margin-top:16px). In this one-row
+                // flex banner those would make it hog the row and squish the
+                // hint text, so size it to its label and clear the top margin.
+                style={{ flexShrink: 0, display: "inline-block", width: "auto", marginTop: 0 }}
                 onClick={dismiss}
             >
                 Got it
