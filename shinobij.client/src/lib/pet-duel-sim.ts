@@ -56,6 +56,10 @@ const COST_DASH = 24;
 const COST_DODGE = 20;
 
 const CRIT_CHANCE = 0.12;
+// Damage scale — atk × DMG_SCALE × (ability power/100) before element/crit/mitigation.
+// Tuned via scripts/pet-duel-balance.ts so fights resolve in KOs well under the 30s
+// cap instead of timing out as HP-fraction draws (Phase D balance, plan §5).
+const DMG_SCALE = 1.5;
 const BASIC_REACH = 1.2;                    // melee contact distance (center-to-center)
 const MIN_SEP = BASIC_REACH * 0.9;          // bodies never overlap closer than this
 const MELEE_RANGE = 1.6;                    // melee-ability range
@@ -172,7 +176,7 @@ interface Fighter {
     repositionLeft: number;                  // hit-and-reposition: hold neutral for a beat after attacking
 }
 
-function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number): Fighter {
+function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number, atkMult = 1): Fighter {
     const speed = Math.max(0, pet.speed || 0);
     const maxHp = Math.max(1, Math.round(pet.hp || 1));
     const trait = pet.trait;
@@ -191,7 +195,10 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         id: `${team}-${slot}`, team, slot, pet, element: pet.element,
         x, y, faceX: team === "player" ? 1 : -1, faceY: 0,
         hp: maxHp, maxHp,
-        atk: Math.max(0, pet.attack || 0),
+        // atkMult applies the PvE damage modifier (e.g. the Pet-Tamer profession
+        // bonus); it's a pure scalar input so the sim stays deterministic in
+        // (pets, seed, mult). Enemy fighters always pass 1 (no bonus).
+        atk: Math.max(0, (pet.attack || 0) * atkMult),
         def: Math.max(0, pet.defense || 0),
         stamina: STAM_MAX,
         moveSpeed, dashSpeed: moveSpeed * 3.2,
@@ -323,7 +330,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     let mult = elementMult(att.element, tgt.element) * (crit ? 1.6 : 1) * Math.max(0.3, buff);
     if (tgt.statuses.marked) { mult *= 1.4; tgt.statuses.marked = false; }
     const mitigation = clamp(1 - tgt.def * 0.0012, 0.35, 1);
-    const base = att.atk * 0.5 * powerScale;
+    const base = att.atk * DMG_SCALE * powerScale;
     let dmg = Math.max(1, Math.round(base * mult * mitigation));
     // Shield soak.
     if (tgt.statuses.shieldHp > 0) {
@@ -380,7 +387,15 @@ function applyOnHit(att: Fighter, tgt: Fighter, ab: Ability) {
 function castSupport(f: Fighter, ab: Ability, fighters: Fighter[], t: number, events: DuelEvent[]) {
     const ally = pickAlly(f, fighters);
     if (ab.kind === "heal") {
-        const heal = Math.round(f.maxHp * 0.16 * (ab.power / 100)) * (ally.statuses.halfHeal ? 0.5 : 1);
+        // Heal sustains a hurt ally. SOLO (1v1, or the partner is down) it's the
+        // support pet's lifeline — boosted so a sage can outlast and win the
+        // HP-fraction timeout instead of being dead weight (harness: lifted sage
+        // 1v1 from ~17% toward ~30%). With a LIVING ally it stays at the
+        // 2v2-balanced rate so team healers aren't oppressive — the 1v1 harness
+        // can't see 2v2, so that path stays conservative. No persisted-stat change.
+        const hasAlly = fighters.some((g) => g.team === f.team && g.id !== f.id && g.hp > 0);
+        const healFrac = hasAlly ? 0.16 : 0.45;
+        const heal = Math.round(f.maxHp * healFrac * (ab.power / 100)) * (ally.statuses.halfHeal ? 0.5 : 1);
         ally.hp = Math.min(ally.maxHp, ally.hp + Math.max(1, Math.round(heal)));
         events.push({ t, type: "heal", side: f.team, actorId: f.id, targetId: ally.id, dmg: Math.round(heal) });
     } else if (ab.kind === "shield" || ab.kind === "barrier" || ab.kind === "absorb") {
@@ -420,7 +435,16 @@ const cellOf = (x: number, y: number): [number, number] => [
     clamp(Math.floor((y + ARENA_Y) / CELL_Y), 0, GROWS - 1),
 ];
 const cellCenter = (c: number, r: number): [number, number] => [(c + 0.5) * CELL_X - ARENA_X, (r + 0.5) * CELL_Y - ARENA_Y];
-const cellWalkable = (c: number, r: number) => c >= 0 && r >= 0 && c < GCOLS && r < GROWS && WALK_MASK.charCodeAt(r * GCOLS + c) === 49; // '1'
+const maskAt = (c: number, r: number) => WALK_MASK.charCodeAt(r * GCOLS + c) === 49; // '1'
+// FAIRNESS: the baked diorama mask is ~26% left-right asymmetric, which biased
+// the fixed-spawn duel toward one side (the player is ALWAYS the left team in PvE,
+// so an asymmetric map silently rigs the fight). We symmetrize the COLLISION the
+// duel uses — a cell is walkable if it OR its mirror column is — so both fighters
+// face identical terrain. Deterministic; the painted backdrop is unchanged (a pet
+// may occasionally cross where art shows a rock on one side — a minor visual nit
+// for an even fight). The tactical-arena mode keeps the raw asymmetric mask.
+const cellWalkable = (c: number, r: number) =>
+    c >= 0 && r >= 0 && c < GCOLS && r < GROWS && (maskAt(c, r) || maskAt(GCOLS - 1 - c, r));
 const cellBlocked = (c: number, r: number) => !cellWalkable(c, r);
 /** Is (x,y) on a walkable path tile (and inside the arena)? */
 function walkableAt(x: number, y: number): boolean {
@@ -548,14 +572,23 @@ function holdNeutral(f: Fighter, target: Fighter, dist: number, inv: number, dx:
  *  → (after recover + cooldown) drop back to neutral. That cadence is what reads
  *  as fighting instead of a center-pile. */
 function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng: () => number, t: number, events: DuelEvent[]) {
-    // Support first: heal a hurt ally, or buff/shield if not already.
+    // Support first: heal a hurt ally, or buff/shield if not already. But when the
+    // pet has NO living ally but itself (1v1, or its partner has fallen), it used
+    // to over-invest in self-support and got out-DPS'd — the balance harness showed
+    // support pets (sage) dealing ~37% less damage and timing out 2× as often. So
+    // SOLO it heals/shields only when genuinely LOW, freeing turns to fight, while
+    // with a real ally it keeps the proactive support (2v2 healer role intact). The
+    // atk BUFF stays in both cases — it raises the solo pet's own damage.
+    const hasAlly = fighters.some((g) => g.team === f.team && g.id !== f.id && g.hp > 0);
+    const healThresh = hasAlly ? 0.55 : 0.4;
+    const shieldThresh = hasAlly ? 0.7 : 0.45;
     for (let i = 0; i < f.abilities.length; i++) {
         const ab = f.abilities[i];
         if (ab.cls !== "support" || ab.cdLeft > 0 || f.stamina < ab.cost) continue;
         const ally = pickAlly(f, fighters);
-        const wantHeal = ab.kind === "heal" && ally.hp / ally.maxHp < 0.55;
+        const wantHeal = ab.kind === "heal" && ally.hp / ally.maxHp < healThresh;
         const wantBuff = (ab.kind === "buff" || ab.kind === "haste") && f.statuses.buffLeft <= 0 && f.statuses.hasteLeft <= 0;
-        const wantShield = (ab.kind === "shield" || ab.kind === "barrier" || ab.kind === "absorb") && ally.statuses.shieldHp <= 0 && ally.hp / ally.maxHp < 0.7;
+        const wantShield = (ab.kind === "shield" || ab.kind === "barrier" || ab.kind === "absorb") && ally.statuses.shieldHp <= 0 && ally.hp / ally.maxHp < shieldThresh;
         if (wantHeal || wantBuff || wantShield) { beginCast(f, i, f.id, t, events); return; }
     }
 
@@ -858,12 +891,12 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
-export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelResult {
+export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1): DuelResult {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
     // band — to clash in the front-center of the arena.
     const fighters = [
-        buildFighter(playerPet, "player", 0, -10.2, 2.8),
+        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult),
         buildFighter(enemyPet, "enemy", 0, 10.2, 2.8),
     ];
     return simulate(fighters, seed);
@@ -875,13 +908,13 @@ export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number): DuelRes
 export function runPetPartyDuel(
     playerLead: Pet, playerReserve: Pet | null,
     enemyLead: Pet, enemyReserve: Pet | null,
-    seed: number,
+    seed: number, playerDamageMult = 1,
 ): DuelResult {
     // Two lane duels: the LEAD pair on the FRONT lane (map-space Blue[1]/Red[1]),
     // the RESERVE pair on the BACK lane (Blue[3]/Red[3]) — spread apart so the 2v2
     // reads as two duels, not a clump. Slot targeting pairs lead-v-lead, reserve-v-reserve.
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0));
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8, playerDamageMult)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult));
     fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8));
     if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0));
     return simulate(fighters, seed);

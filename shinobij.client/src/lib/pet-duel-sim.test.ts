@@ -184,3 +184,47 @@ test("2v1 works when a reserve is missing", () => {
     for (const s of r.snapshots) assert.equal(s.actors.length, 3, "2v1 has three actors");
     assertAllNumbersFinite(r, "2v1");
 });
+
+// ── PvE balance regression fixtures (Phase D — scripts/pet-duel-balance.ts) ───
+// These lock in the first tuning pass: the PvE damage multiplier, the resolved-
+// damage scale, and the symmetric-collision fairness fix. They are coarse guards
+// (wide tolerances), not a balance spec — the harness is the tuning instrument.
+
+const FAIR_SEEDS = Array.from({ length: 40 }, (_, i) => i * 97 + 3);
+const scoreFrac = (results: string[]) =>
+    results.reduce((a, r) => a + (r === "win" ? 1 : r === "draw" ? 0.5 : 0), 0) / Math.max(1, results.length);
+
+test("playerDamageMult is deterministic and monotone — more bonus never fewer player wins", () => {
+    const mk = (mult: number, seed: number) => runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), seed, mult);
+    for (const seed of SEEDS) assert.deepEqual(mk(2, seed), mk(2, seed), `mult seed ${seed} diverged`);
+    // A big player damage bonus must win strictly more mirror matches than no bonus.
+    const wins = (mult: number) => FAIR_SEEDS.filter((s) => mk(mult, s).result === "win").length;
+    const lo = wins(1), hi = wins(3);
+    assert.ok(hi >= lo, `mult must not reduce wins (mult1=${lo}, mult3=${hi})`);
+    assert.ok(hi > lo, `a 3x player damage bonus should win more (mult1=${lo}, mult3=${hi})`);
+});
+
+test("position is fair — identical-pet mirrors score ~50% across realistic pets (no spawn-side bias)", () => {
+    // The player is ALWAYS the left/"player" team in PvE, so an asymmetric map
+    // would silently rig every fight. Guards the symmetric-collision fix. Averaged
+    // over representative rare-tier configs × many seeds — a single glass-cannon
+    // has high per-seed variance; the SYSTEMATIC side bias is what we guard.
+    const configs = [
+        makePet({ id: "m1", hp: 600, attack: 60, defense: 40, speed: 90, element: "Fire" }),
+        makePet({ id: "m2", hp: 480, attack: 50, defense: 30, speed: 110, element: "Water" }),
+        makePet({ id: "m3", hp: 720, attack: 45, defense: 55, speed: 70, element: "Earth" }),
+    ];
+    const results: string[] = [];
+    for (const p of configs) for (const s of FAIR_SEEDS) results.push(runPetDuel(p, p, s).result);
+    const score = scoreFrac(results);
+    assert.ok(score >= 0.42 && score <= 0.58, `mirror player score ${(score * 100).toFixed(0)}% over ${results.length} matches — spawn-side bias`);
+});
+
+test("fights resolve — most default matchups end in a KO before the 30s cap", () => {
+    // Guards the damage scale: too low and matches time out as HP-fraction draws.
+    const koed = FAIR_SEEDS.filter((s) => {
+        const r = runPetDuel(makePet({ id: "a", element: "Fire" }), makePet({ id: "b", element: "Water", speed: 110 }), s);
+        return r.events.some((e) => e.type === "ko") && r.ticks < CAP;
+    }).length;
+    assert.ok(koed >= FAIR_SEEDS.length * 0.6, `only ${koed}/${FAIR_SEEDS.length} matches KO'd before the cap — damage too low?`);
+});

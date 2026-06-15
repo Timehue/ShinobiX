@@ -8,6 +8,8 @@ import { type TileCard } from "../data/tile-cards";
 import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
 import { type ArenaTile } from "../lib/pet-tactics";
 import { petFramePace, runPetArenaBattle } from "../lib/pet-battle-sim";
+import { runPetDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { petDuelEngineEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
@@ -24,6 +26,8 @@ import {
 // Cinematic HD-2D coliseum — the dungeon-duel arena renderer. Lazy so three/r3f
 // only load when a duel actually mounts.
 const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
+// New continuous-duel renderer (authoritative PvE engine, behind petDuelEngine.v1).
+const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
 export function DungeonEncounter({
     event,
@@ -162,6 +166,9 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
     const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
     const [battleTiles, setBattleTiles] = useState<ArenaTile[]>([]);
+    // New continuous engine (petDuelEngine.v1 ON): precomputed duel for PetColiseumDuel.
+    const [duelBattle, setDuelBattle] = useState<{ result: DuelResult; playerPet: Pet; enemyPet: Pet; seed: number; id: number } | null>(null);
+    const [duelNonce, setDuelNonce] = useState(0); // monotonic per-fight React key (state, not ref → no render-time ref read)
     const [frameIndex, setFrameIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [result, setResult] = useState("");
@@ -180,14 +187,27 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
         startBattleMusic(); // rotate to a fresh battle track
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
-        const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, Date.now(), petTamerPveMultiplier(character));
-        setBattleFrames(battle.frames);
-        setBattleObstacles(battle.obstacles);
-        setBattleTiles(battle.tiles ?? []);
-        setFrameIndex(0);
-        setIsPlaying(true);
-        setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
-        if (battle.result === "win") updateCharacter({ ...character, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
+        const seed = Date.now();
+        const nextDuelId = duelNonce + 1;
+        // New continuous engine for this dungeon duel, or the old round engine.
+        // Outcome + the local win counter key off the same `outcome` value.
+        let outcome: "win" | "loss" | "draw";
+        if (petDuelEngineEnabled()) {
+            const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character));
+            outcome = duel.result;
+            setDuelNonce(nextDuelId);
+            setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet, seed, id: nextDuelId });
+        } else {
+            const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, seed, petTamerPveMultiplier(character));
+            outcome = battle.result;
+            setBattleFrames(battle.frames);
+            setBattleObstacles(battle.obstacles);
+            setBattleTiles(battle.tiles ?? []);
+            setFrameIndex(0);
+            setIsPlaying(true);
+        }
+        setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
+        if (outcome === "win") updateCharacter({ ...character, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
     }
     if (!selectedPet) {
         return (
@@ -201,7 +221,7 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
     if (isPetOnExpedition(selectedPet)) {
         return <div className="card cinematic-card"><h2>Rare Beast Seal</h2><p className="hint">{petDisplayName(selectedPet)} is away exploring. Choose another pet in the Pet Yard or wait for it to return.</p><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>;
     }
-    if (!battleFrames.length) {
+    if (!battleFrames.length && !duelBattle) {
         return (
             <div className="card cinematic-card">
                 <h2>Rare Beast Seal</h2>
@@ -224,6 +244,25 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
                     <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
                 </div>
             </div>
+        );
+    }
+    if (duelBattle) {
+        // New continuous engine: the screen already resolved + counted the win;
+        // PetColiseumDuel plays the precomputed fight (full-screen). Exiting after
+        // a win advances the seal (onWin), otherwise leaves the dungeon.
+        return (
+            <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading tactical arena…</div>}>
+                <PetColiseumDuel
+                    key={duelBattle.id}
+                    playerPet={duelBattle.playerPet}
+                    enemyPet={duelBattle.enemyPet}
+                    seed={duelBattle.seed}
+                    result={duelBattle.result}
+                    sharedImages={sharedImages}
+                    onFightAgain={() => startBattle()}
+                    onExit={duelBattle.result.result === "win" ? onWin : onLeave}
+                />
+            </Suspense>
         );
     }
     const duelProps = {
