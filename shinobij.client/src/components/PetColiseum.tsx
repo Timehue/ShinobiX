@@ -1668,6 +1668,32 @@ function projHeadTexture(tex: ProjTexKind): THREE.CanvasTexture {
     }
 }
 
+// Real painted element projectile sprites (gpt-image-1 → transparent WebP, in
+// src/assets/fx/projectiles/). Drawn ALPHA-blended (not additive) so the actual
+// fireball / water ball / wind cut / boulder / bolt reads as art over the scene
+// — only the genuinely-bright bits (fire & lightning cores) cross the bloom
+// threshold and glow, so rock/water stay solid instead of washing to light.
+// Base art faces +x (travelling right) with its tail to −x; the parent group
+// rotates it to the travel direction.
+const PROJ_SPRITE_URL: Record<string, string> = {
+    fire: new URL("../assets/fx/projectiles/fire.webp", import.meta.url).href,
+    water: new URL("../assets/fx/projectiles/water.webp", import.meta.url).href,
+    wind: new URL("../assets/fx/projectiles/wind.webp", import.meta.url).href,
+    earth: new URL("../assets/fx/projectiles/earth.webp", import.meta.url).href,
+    lightning: new URL("../assets/fx/projectiles/lightning.webp", import.meta.url).href,
+};
+const _projSpriteTex: Record<string, THREE.Texture> = {};
+function projSpriteTexture(key?: string): THREE.Texture | null {
+    if (!key) return null;
+    const url = PROJ_SPRITE_URL[key];
+    if (!url) return null;
+    if (_projSpriteTex[key]) return _projSpriteTex[key];
+    const t = new THREE.TextureLoader().load(url);
+    t.colorSpace = THREE.SRGBColorSpace;
+    _projSpriteTex[key] = t;
+    return t;
+}
+
 /** The shared element/role-distinct projectile body — a glowing head (round
  *  fireball / undulating water ball / spinning wind crescent / tumbling rock /
  *  jagged bolt) with a comet tail and, for signature/crit shots, a pulsing aura
@@ -1679,25 +1705,61 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
     const core = useRef<THREE.Mesh>(null);
     const ring = useRef<THREE.Mesh>(null);
     const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const spriteTex = projSpriteTexture(visual.spriteKey);
     const headTex = projHeadTexture(visual.tex);
     const baseW = visual.size * visual.stretch;   // head half-extent along travel
     const baseH = visual.size;                     // head half-extent across travel
     const tailLen = baseW * visual.tail * 3.2;
+    // Real painted sprite → a square plane scaled so the projectile body reads at
+    // ~the procedural size (the art carries its own tail/splash/dust).
+    const spriteScale = visual.size * 5.4;
+    const ringBase = spriteTex ? spriteScale * 0.42 : visual.size;
     useFrame((s) => {
         const t = s.clock.elapsedTime;
         const c = core.current;
         if (c) {
             const fl = visual.flicker ? 1 + Math.sin(t * 38 + visual.size * 60) * 0.5 * visual.flicker : 1;
-            c.scale.set(baseW * 2.2 * fl, baseH * 2.2 * fl, 1);
-            if (visual.spin) c.rotation.z = t * visual.spin;
+            if (spriteTex) {
+                // Real art is already aimed by the parent; only fire/lightning pulse.
+                c.scale.set(spriteScale * fl, spriteScale * fl, 1);
+            } else {
+                c.scale.set(baseW * 2.2 * fl, baseH * 2.2 * fl, 1);
+                if (visual.spin) c.rotation.z = t * visual.spin;
+            }
         }
         if (ring.current && ringMat.current) {
             const p = (t * 1.7) % 1;
-            const rs = visual.size * (1 + p * 2.6);
+            const rs = ringBase * (1 + p * 2.4);
             ring.current.scale.set(rs, rs, 1);
             ringMat.current.opacity = (1 - p) * 0.45;
         }
     });
+
+    // REAL painted element sprite (fireball / water ball / wind cut / boulder /
+    // bolt): alpha-blended so true colours composite over the scene — no white-out.
+    if (spriteTex) {
+        return (
+            <group>
+                {/* faint additive halo so the shot still pops a touch + blooms */}
+                <mesh position={[0, 0, -0.01]} scale={[spriteScale * 0.85, spriteScale * 0.85, 1]}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.18} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                <mesh ref={core}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial map={spriteTex} transparent opacity={1} depthWrite={false} toneMapped={false} />
+                </mesh>
+                {visual.charged && (
+                    <mesh ref={ring} position={[0, 0, 0.01]}>
+                        <ringGeometry args={[0.4, 0.5, 24]} />
+                        <meshBasicMaterial ref={ringMat} color={visual.glow} transparent opacity={0.45} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                    </mesh>
+                )}
+            </group>
+        );
+    }
+
+    // Procedural fallback — support heal-comet, shadow, neutral (no painted art).
     return (
         <group>
             {/* comet tail — soft glow stretched BEHIND the head (parent faces +x = travel) */}
@@ -1705,12 +1767,12 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </mesh>
-            {/* soft outer glow so the bolt reads + blooms */}
+            {/* soft outer glow */}
             <mesh position={[0, 0, -0.01]} scale={[baseW * 3, baseH * 3, 1]}>
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.42} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </mesh>
-            {/* bright element head */}
+            {/* bright head */}
             <mesh ref={core}>
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial map={headTex} color={visual.core} transparent opacity={0.97} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
