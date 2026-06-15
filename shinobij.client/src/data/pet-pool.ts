@@ -152,13 +152,14 @@ export const rawPetPool: Pet[] = ([
         speed: 115,
         unlockedForPve: false,
         element: "Wind",
-        // Identity: trickster — debuffs enemy, heals self, two damage forms, fastest dash
+        // Identity: moon-SAGE — shields and heals its ally, wards off damage, keeps a
+        // single swift fang for offense, fastest dash. (Sage role: low attack, support kit.)
         jutsus: [
-            { name: "Nine Shadow Blessing", power: 25,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
-            { name: "Eclipse Fang",         power: 180, cooldown: 3, currentCooldown: 0, kind: "damage" },
-            { name: "Moonbreak Nova",       power: 260, cooldown: 4, currentCooldown: 0, kind: "damage" },
-            { name: "Moonlit Restoration",  power: 95,  cooldown: 5, currentCooldown: 0, kind: "heal"     },
-            { name: "Shadow Root Bind",     power: 0,   cooldown: 4, currentCooldown: 0, kind: "movelock" },
+            { name: "Nine Shadow Blessing", power: 25,  cooldown: 3, currentCooldown: 0, kind: "buff"    },
+            { name: "Eclipse Fang",         power: 180, cooldown: 3, currentCooldown: 0, kind: "damage"  },
+            { name: "Lunar Aegis",          power: 220, cooldown: 4, currentCooldown: 0, kind: "barrier" },
+            { name: "Moonlit Restoration",  power: 95,  cooldown: 5, currentCooldown: 0, kind: "heal"    },
+            { name: "Spirit Ward",          power: 150, cooldown: 4, currentCooldown: 0, kind: "absorb"  },
             { name: "Phantom Phase",        power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"     },
         ],
     },

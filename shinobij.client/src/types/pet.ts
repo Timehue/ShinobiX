@@ -7,6 +7,7 @@
  */
 
 import type { JutsuElement } from "./core";
+import type { PetRole, PetSubRole } from "../lib/pet-roles";
 
 export type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 
@@ -131,6 +132,14 @@ export type Pet = {
     // their evolved templates out of explore-tile encounters while still
     // letting the admin Pet Editor image them. Undefined = spawnable (default).
     wildSpawnable?: boolean;
+    // Native combat ROLE + SUB-ROLE (see lib/pet-roles.ts). Derived
+    // deterministically from the pet (element/variant + starter/mythic overrides)
+    // and backfilled by capPetStats, so every loaded pet carries one. The role is
+    // the coarse identity the tactical-arena + grid AIs read; the sub-role is the
+    // archetype that flavors stats + moveset. Optional so old saves load cleanly
+    // (capPetStats fills them); training freely customizes stats on top.
+    role?: PetRole;
+    subRole?: PetSubRole;
     // Last-edited timestamp, stamped by the admin Pet Editor (updatePet) when a
     // template's kit/stats/name change. Marks the pet as admin-AUTHORED so the
     // shared-admin-content pull treats it as the authoritative template for every

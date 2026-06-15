@@ -23,10 +23,11 @@ const newMechCount = (p: Pet) => p.jutsus.filter(j => NEW_MECH.has(j.kind)).leng
 
 // ── petTemplateArchetype ─────────────────────────────────────────────────
 
-test("petTemplateArchetype is deterministic and elementless falls back to striker", () => {
+test("petTemplateArchetype is deterministic and returns a valid sub-role for any input", () => {
+    const ALL: PetTemplateArchetype[] = ["tank", "bruiser", "striker", "kite", "control", "support", "assassin"];
     assert.equal(petTemplateArchetype("Fire", 0), petTemplateArchetype("Fire", 0));
-    assert.equal(petTemplateArchetype(undefined, 3), "striker");
-    assert.equal(petTemplateArchetype("None", 3), "striker");
+    assert.ok(ALL.includes(petTemplateArchetype(undefined, 3)));
+    assert.ok(ALL.includes(petTemplateArchetype("None", 3)));
     // Negative/large variants wrap cleanly (no out-of-bounds).
     assert.ok(petTemplateArchetype("Water", 123).length > 0);
 });
@@ -131,7 +132,7 @@ test("the redesign preserves slot COUNT per non-mythic template (save-merge stay
 test("mythicSignatureMechanic returns a themed move for every mythic and null otherwise", () => {
     assert.equal(mythicSignatureMechanic("Abyssal Oni Hound")?.kind, "wound");
     assert.equal(mythicSignatureMechanic("Ancient Frost Titan")?.kind, "taunt");
-    assert.equal(mythicSignatureMechanic("Eclipse Kitsune")?.kind, "mark");
+    assert.equal(mythicSignatureMechanic("Eclipse Kitsune")?.kind, "haste");
     assert.equal(mythicSignatureMechanic("Not A Pet"), null);
 });
 

@@ -23,6 +23,7 @@ import { getAllTileCards, shinobiTileCards, type TileCard } from "../data/tile-c
 import { mergeBuiltinMissions, missionRaidRequirement } from "../data/missions";
 import { petRarityOrder } from "../data/pet-config";
 import { isWildSpawnable } from "../lib/pet-balance";
+import { PRIMARY_SUBROLE, type PetRole } from "../lib/pet-roles";
 import { storylines } from "../data/storylines";
 import { starterItems } from "../data/starter-items";
 import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
@@ -3838,6 +3839,21 @@ export function AdminPanel({
                                         <option value="rare">rare</option>
                                         <option value="legendary">legendary</option>
                                         <option value="mythic">mythic</option>
+                                    </select>
+
+                                    <label>Combat Role</label>
+                                    <select
+                                        value={pet.role ?? ""}
+                                        onChange={(e) => {
+                                            const r = e.target.value as PetRole | "";
+                                            updatePet(r ? { role: r, subRole: PRIMARY_SUBROLE[r] } : { role: undefined, subRole: undefined });
+                                        }}
+                                    >
+                                        <option value="">Auto (derived from element)</option>
+                                        <option value="defender">Defender</option>
+                                        <option value="tracker">Tracker</option>
+                                        <option value="assassin">Assassin</option>
+                                        <option value="sage">Sage</option>
                                     </select>
 
                                     <label>Level / XP / Max Level</label>

@@ -67,8 +67,8 @@ const ELEMENT_BEATS: Record<string, string> = {
 };
 function elementMult(att?: string | null, def?: string | null): number {
     if (!att || !def || att === "None" || def === "None") return 1;
-    if (ELEMENT_BEATS[att] === def) return 1.25;
-    if (ELEMENT_BEATS[def] === att) return 0.8;
+    if (ELEMENT_BEATS[att] === def) return 1.15;   // +15% super-effective (was 25%)
+    if (ELEMENT_BEATS[def] === att) return 0.85;   // −15% resisted
     return 1;
 }
 
