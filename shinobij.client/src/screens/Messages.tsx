@@ -7,6 +7,7 @@
  */
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
+import { refreshUnreadMail } from "../lib/mail-unread";
 
 type DmMessage = { from: string; text: string; ts: number };
 type InboxEntry = { with: string; lastTs: number; lastText: string; unread: number };
@@ -38,7 +39,17 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         try { const r = await fetch("/api/messages"); if (r.ok) { const j = await r.json(); setInbox(Array.isArray(j) ? j : []); } } catch { /* offline */ }
     }, []);
     const loadThread = useCallback(async (withName: string) => {
-        try { const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`); if (r.ok) { const j = await r.json(); setThread(Array.isArray(j) ? j : []); } } catch { /* offline */ }
+        try {
+            const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`);
+            if (r.ok) {
+                const j = await r.json();
+                setThread(Array.isArray(j) ? j : []);
+                // Opening a conversation marks it read server-side — nudge the
+                // shared unread store so the nav badge clears without waiting a
+                // full poll interval.
+                refreshUnreadMail();
+            }
+        } catch { /* offline */ }
     }, []);
 
     useEffect(() => { void loadInbox(); }, [loadInbox]);
