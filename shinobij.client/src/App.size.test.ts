@@ -17,7 +17,7 @@ import { readFileSync } from "node:fs";
 // → 23,627 (Stage 1C complete) → 11,892 (Stage 1D + AdminPanel complete)
 // → 10,380 (combat-AI + world-state system moves). What remains is the App()
 // core (~150 hooks) and its module-level wiring — decompose via hooks, not moves.
-const MAX_LINES = 10_475;
+const MAX_LINES = 10_461;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
