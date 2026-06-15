@@ -820,6 +820,110 @@
     border: 2px dashed rgba(34,211,238,0.5);
     color: #67e8f9;
 }
+
+/* ----- Tactical Arena two-column (picker + battle plan) ----- */
+.pet-arena-screen .pet-arena-tactical-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+@media (max-width: 860px) {
+    .pet-arena-screen .pet-arena-tactical-top { grid-template-columns: 1fr; }
+}
+
+/* ----- Battle Plan composition panel ----- */
+.pet-arena-screen .pet-battle-plan {
+    background:
+        linear-gradient(180deg, rgba(10,15,28,0.86), rgba(6,10,20,0.92)),
+        url('../assets/coliseum/battle-plan-bg.webp') center / cover no-repeat !important;
+}
+.pet-arena-screen .pet-battle-plan .bp-title {
+    margin: 0 0 10px;
+    font: 700 13px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright) !important;
+}
+.pet-arena-screen .pet-battle-plan .bp-roles { display: grid; gap: 6px; }
+.pet-arena-screen .pet-battle-plan .bp-role {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 9px;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.25);
+    font: 600 12px Inter, sans-serif !important;
+}
+.pet-arena-screen .pet-battle-plan .bp-role.empty { opacity: 0.42; border-style: dashed; }
+.pet-arena-screen .pet-battle-plan .bp-role img {
+    width: 20px; height: 20px; object-fit: contain;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+.pet-arena-screen .pet-battle-plan .bp-role-name { color: #e8edf5; }
+.pet-arena-screen .pet-battle-plan .bp-role-count {
+    margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.pet-arena-screen .pet-battle-plan .bp-stats {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--bsv2-gold-faint);
+    font: 400 11px Inter, sans-serif !important;
+    color: #94a3b8;
+}
+.pet-arena-screen .pet-battle-plan .bp-stats strong { color: #e8edf5; }
+.pet-arena-screen .pet-battle-plan .bp-tips {
+    display: grid; gap: 5px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--bsv2-gold-faint);
+    font: 400 11px Inter, sans-serif !important;
+    color: #b9c2d0; line-height: 1.45;
+}
+
+/* ----- Element matchup hint (under a pet) + composition verdict ----- */
+.pet-arena-screen .pet-matchup-hint {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    margin: 8px 0 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid var(--bsv2-gold-faint);
+    font: 600 11px Inter, sans-serif !important;
+    letter-spacing: 0.02em;
+}
+.pet-arena-screen .pet-matchup-hint .el  { color: var(--bsv2-gold-bright); }
+.pet-arena-screen .pet-matchup-hint .adv { color: #4ade80; }
+.pet-arena-screen .pet-matchup-hint .dis { color: #f87171; }
+.pet-arena-screen .pet-matchup-hint.neutral { color: #94a3b8; font-weight: 500; }
+.pet-arena-screen .pet-matchup-hint.good { display: block; color: #4ade80; border-color: rgba(74,222,128,0.4); }
+.pet-arena-screen .pet-matchup-hint.warn { display: block; color: #fbbf24; border-color: rgba(251,191,36,0.4); }
+
+/* ----- Quick-challenge online players list + tips ----- */
+.pet-arena-screen .pet-challenge-list {
+    display: grid; gap: 6px; margin-top: 8px;
+    max-height: 300px; overflow-y: auto;
+}
+.pet-arena-screen .pet-challenge-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--bsv2-gold-faint);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(20,28,46,0.6), rgba(10,15,28,0.7));
+}
+.pet-arena-screen .pet-challenge-row strong { color: #e8edf5; }
+.pet-arena-screen .pet-challenge-row .hint { margin: 0; }
+.pet-arena-screen .pet-challenge-row button { margin-left: auto; white-space: nowrap; }
+.pet-arena-screen .pet-online-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.pet-arena-screen .pet-online-dot.on  { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.7); }
+.pet-arena-screen .pet-online-dot.off { background: #475569; }
+.pet-arena-screen .pet-arena-tips {
+    display: grid; gap: 5px;
+    margin-top: 10px; padding: 10px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.22);
+    border: 1px dashed var(--bsv2-gold-faint);
+    font: 400 11px Inter, sans-serif !important;
+    color: #b9c2d0; line-height: 1.45;
+}
 .pet-arena-screen .pet-pick-meta {
     font: 500 10px Inter, sans-serif !important;
     letter-spacing: 0.04em;

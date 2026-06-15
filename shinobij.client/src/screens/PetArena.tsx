@@ -2,16 +2,17 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
-import type { Screen } from "../types/core";
-import { PET_GRID_COLS } from "../constants/pet-arena";
+import type { Screen, JutsuElement } from "../types/core";
+import { PET_GRID_COLS, PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type ArenaTile } from "../lib/pet-tactics";
 import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
 import { petDuelEngineEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
-import { derivePetRole, ROLE_META } from "../lib/pet-roles";
+import { derivePetRole, ROLE_META, type PetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
+import { ELEMENT_ICON } from "../lib/element-icons";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { rankedDelta } from "../lib/progression";
@@ -38,6 +39,90 @@ import duelEarth from "../assets/coliseum/duel-earth.webp";
 const DUEL_HERO_BY_ELEMENT: Record<string, string> = {
     Fire: duelFire, Water: duelWater, Wind: duelWind, Lightning: duelLightning, Earth: duelEarth,
 };
+
+// Painted element emblem, inline. Renders nothing for None/unknown elements.
+function ElIcon({ el, size = 16 }: { el?: string; size?: number }) {
+    const src = el ? ELEMENT_ICON[el] : undefined;
+    return src ? <img src={src} alt="" aria-hidden="true" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "-3px", marginRight: 2 }} /> : null;
+}
+
+// Rock-paper-scissors element edge (Fire▸Wind▸Lightning▸Earth▸Water▸Fire, ±15%).
+// Returns the element this one is strong vs + the element it's weak to.
+function elementMatchup(el?: string): { strong?: JutsuElement; weak?: JutsuElement } {
+    if (!el || el === "None") return {};
+    const strong = PET_ELEMENT_BEATS[el as JutsuElement];
+    const weak = (Object.keys(PET_ELEMENT_BEATS) as JutsuElement[]).find((k) => PET_ELEMENT_BEATS[k] === el);
+    return { strong, weak };
+}
+
+// Small element strength/weakness line shown under a pet so the player can read
+// the matchup at a glance instead of memorising the chakra wheel.
+function MatchupHint({ element }: { element?: string }) {
+    if (!element || element === "None") {
+        return <p className="pet-matchup-hint neutral">◇ Neutral element — no elemental edge or weakness.</p>;
+    }
+    const { strong, weak } = elementMatchup(element);
+    return (
+        <p className="pet-matchup-hint">
+            <span className="el"><ElIcon el={element} /> {element}</span>
+            {strong && <span className="adv">▲ vs <ElIcon el={strong} /> {strong}</span>}
+            {weak && <span className="dis">▼ vs <ElIcon el={weak} /> {weak}</span>}
+        </p>
+    );
+}
+
+const ROLE_ORDER: PetRole[] = ["defender", "assassin", "tracker", "sage"];
+
+// Tactical-Arena "battle plan" — a composition read-out + coaching hint that
+// fills the space beside the team picker. Pure: derives role counts / element
+// spread / avg level from the picked pets and surfaces the weakest-link tip.
+function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
+    const counts: Record<PetRole, number> = { defender: 0, tracker: 0, assassin: 0, sage: 0 };
+    let levelSum = 0;
+    const elements = new Set<string>();
+    for (const p of pets) {
+        const role = (p.role ?? derivePetRole(p).role) as PetRole;
+        counts[role] = (counts[role] ?? 0) + 1;
+        levelSum += p.level ?? 1;
+        if (p.element && p.element !== "None") elements.add(p.element);
+    }
+    const avg = pets.length ? Math.round(levelSum / pets.length) : 0;
+    const balanced = pets.length > 0 && counts.defender > 0 && counts.sage > 0 && counts.tracker > 0 && counts.assassin > 0;
+    const hint = !pets.length ? "Pick your squad below — your role coverage shows up here."
+        : counts.defender === 0 ? "No Defender — add one to hold the front line and soak hits."
+        : counts.sage === 0 ? "No Sage — without a healer your squad has no sustain."
+        : counts.tracker === 0 ? "No Tracker — you have no ranged pressure to chip from afar."
+        : counts.assassin === 0 ? "No Assassin — add burst to finish low targets."
+        : "Balanced squad — all four roles covered. Strong all-round comp!";
+    return (
+        <div className="pet-pick-panel pet-battle-plan">
+            <h4 className="bp-title">🧭 Battle Plan</h4>
+            <div className="bp-roles">
+                {ROLE_ORDER.map((r) => {
+                    const m = ROLE_META[r];
+                    return (
+                        <div key={r} className={`bp-role${counts[r] === 0 ? " empty" : ""}`} style={{ color: m.color }}>
+                            <img src={ROLE_ICON[r]} alt="" aria-hidden="true" />
+                            <span className="bp-role-name">{m.label}</span>
+                            <span className="bp-role-count">×{counts[r]}</span>
+                        </div>
+                    );
+                })}
+            </div>
+            <p className={`pet-matchup-hint ${balanced ? "good" : "warn"}`} style={{ marginTop: 10 }}>{hint}</p>
+            <div className="bp-stats">
+                <span>Squad <strong>{pets.length}/{size}</strong></span>
+                <span>Avg Lv <strong>{avg || "—"}</strong></span>
+                <span>Elements <strong>{elements.size ? [...elements].map((e) => <ElIcon key={e} el={e} size={15} />) : "—"}</strong></span>
+            </div>
+            <div className="bp-tips">
+                <div>🏁 Race to capture the scroll and clash across the map.</div>
+                <div>🧠 Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
+                <div>⚡ Element edge ±15%: Fire▸Wind▸Lightning▸Earth▸Water▸Fire.</div>
+            </div>
+        </div>
+    );
+}
 
 // HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
 // load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
@@ -753,7 +838,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
                     </span>
                 )}
-                <span className="pet-pick-meta">{opts?.owner ? `${opts.owner} · ` : ""}Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
+                <span className="pet-pick-meta">{opts?.owner ? `${opts.owner} · ` : ""}Lv {pet.level}{pet.element && pet.element !== "None" ? <> · <ElIcon el={pet.element} size={13} />{pet.element}</> : ""}</span>
             </button>
         );
     };
@@ -928,6 +1013,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         </div>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
+                    {selectedPet && <MatchupHint element={selectedPet.element} />}
                 </section>
 
                 <section className="summary-box pet-arena-selector">
@@ -998,7 +1084,37 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 })()}
                             </div>
                         ) : (
-                            <p className="hint">Type a player's name to send them a pet battle challenge.</p>
+                            (() => {
+                                const others = allServerPlayers
+                                    .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
+                                    .sort((a, b) => Number(b.online) - Number(a.online) || (b.level ?? 0) - (a.level ?? 0))
+                                    .slice(0, 8);
+                                return (
+                                    <div>
+                                        <p className="hint" style={{ marginTop: 4 }}>Challenge an online shinobi below, or search a name above.</p>
+                                        {others.length > 0 ? (
+                                            <div className="pet-challenge-list">
+                                                {others.map((p) => (
+                                                    <div key={p.name} className="pet-challenge-row">
+                                                        <span className={`pet-online-dot ${p.online ? "on" : "off"}`} />
+                                                        <strong>{p.name}</strong>
+                                                        <span className="hint">Lv {p.level} · {p.village || "—"}</span>
+                                                        <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>⚔️ Challenge</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="hint">No other shinobi found — search a name to send an offline challenge.</p>
+                                        )}
+                                        <div className="pet-arena-tips">
+                                            <div>⚔️ Win pet duels to earn ryo (daily cap).</div>
+                                            <div>🐾🐾 Toggle 2v2 below to bring two pets into the challenge.</div>
+                                            <div>🛡 Roles &amp; element edge decide close fights — check the matchup hint.</div>
+                                        </div>
+                                        {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                    </div>
+                                );
+                            })()
                         )
                     ) : (
                         <>
@@ -1014,6 +1130,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 <p className="hint">No AI opponents available.</p>
                             )}
                             {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} sharedImages={sharedImages} />}
+                            {selectedOpponent && <MatchupHint element={selectedOpponent.pet.element} />}
                         </>
                     )}
                 </section>
@@ -1230,7 +1347,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                                     <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
                                                 </span>
                                             )}
-                                            <span className="pet-pick-meta">Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
+                                            <span className="pet-pick-meta">Lv {pet.level}{pet.element && pet.element !== "None" ? <> · <ElIcon el={pet.element} size={13} />{pet.element}</> : ""}</span>
                                         </button>
                                     );
                                 })}
@@ -1268,20 +1385,26 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         );
                         return (
                             <div style={{ display: "grid", gap: "0.7rem" }}>
-                                <div>
-                                    <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Team size</label>
-                                    <div className="pet-arena-mode-toggle" style={{ maxWidth: 320, marginTop: 6 }}>
-                                        {sizeBtn(2, "👥 2v2")}{sizeBtn(4, "👥👥 4v4")}
-                                    </div>
-                                </div>
+                                <div className="pet-arena-tactical-top">
+                                    <div style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
+                                        <div>
+                                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Team size</label>
+                                            <div className="pet-arena-mode-toggle" style={{ maxWidth: 320, marginTop: 6 }}>
+                                                {sizeBtn(2, "👥 2v2")}{sizeBtn(4, "👥👥 4v4")}
+                                            </div>
+                                        </div>
 
-                                <div>
-                                    <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — tap to add / remove</label>
-                                    <div style={{ marginTop: 6 }}>
-                                        {available.length < 1
-                                            ? <p className="hint" style={{ color: "#f59e0b", margin: 0 }}>You have no pets available (all on expeditions?).</p>
-                                            : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
+                                        <div>
+                                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — tap to add / remove</label>
+                                            <div style={{ marginTop: 6 }}>
+                                                {available.length < 1
+                                                    ? <p className="hint" style={{ color: "#f59e0b", margin: 0 }}>You have no pets available (all on expeditions?).</p>
+                                                    : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
+                                            </div>
+                                        </div>
                                     </div>
+
+                                    <BattlePlan pets={character.pets.filter((p) => tacticalPicks.includes(p.id))} size={tacticalSize} />
                                 </div>
 
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
