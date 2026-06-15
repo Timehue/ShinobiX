@@ -377,7 +377,7 @@ import {
 // App-scope helpers (xpNeeded, maxHpForLevel, etc.) not yet extracted.
 import {
     effectiveCharacterXpGain,
-    rankedDelta,
+    rankedDelta, applyServerBaseReward, type PvpWinBaseSummary,
 } from "./lib/progression";
 
 // All-users directory screen moved to ./screens/UserHub. Lazy-loaded — accessed
@@ -3390,15 +3390,16 @@ export default function App() {
                     ranked: challenge.mode === "ranked",
                     rankedKind: "player",
                     // Server-authoritative base PvP-win reward (audit #7 / Stage 3
-                    // Phase 3): the server credits the winner's base ryo + XP on
-                    // claim-rewards. rewardSector feeds ONLY the Death's Gate (99)
-                    // 2× bonus and must mirror handlePvpWin's `context?.sector ??
-                    // currentSector`. Spar is the no-stakes practice mode (mode
-                    // === "standard" with no clan-war points and no sector
-                    // attack), so we OPT OUT of base XP/ryo there — practice
-                    // matches shouldn't pay 100 XP + 75 ryo per round-robin.
-                    // Every other mode (ranked, clan war, sector raid) keeps it.
-                    baseRewards: !(challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack),
+                    // Phase 3; PvP-audit #1/#3): the server credits the winner's
+                    // base ryo + XP on claim-rewards and the client DEFERS to that
+                    // value (handlePvpWin → applyServerBaseReward), so the repeat-
+                    // opponent decay actually sticks and a tampered client can't
+                    // inflate the payout. Enabled for ALL PvP wins — including
+                    // practice spars — so spar round-robins are throttled by the
+                    // same decay instead of paying full ryo/XP every rematch (the
+                    // honest first win/hour is unchanged). rewardSector feeds ONLY
+                    // the Death's Gate (99) 2× bonus and mirrors handlePvpWin.
+                    baseRewards: true,
                     rewardSector: currentSector,
                     // Biome + weather. Ranked forces neutral; everything else
                     // ships the live values so terrainMultiplier/weatherMultiplier
@@ -9048,7 +9049,7 @@ export default function App() {
                         .filter((id): id is string => Boolean(id))
                         .map(id => getItemById(pvpAllItems, id))
                         .filter((item): item is GameItem => Boolean(item));
-                    function handlePvpWin(_opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }) {
+                    function handlePvpWin(_opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary) {
                         if (!character) return;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
@@ -9086,7 +9087,7 @@ export default function App() {
                             ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
-                        const leveled = gainXp(character, xpGain);
+                        const leveled = serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Spar/friendly-duel detection for non-Vanguard local effects
                         // (e.g., ranked rating still uses isFriendlyDuel implicitly).
@@ -9105,7 +9106,7 @@ export default function App() {
                             // ryo / fateShards include the war-ground bounty
                             // when it fires; bountyRyo+bountyFateShards are 0
                             // for non-raid wins or when already claimed today.
-                            ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
+                            ryo: (serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,

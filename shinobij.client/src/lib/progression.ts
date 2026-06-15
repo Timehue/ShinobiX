@@ -45,3 +45,44 @@ export function rankedDelta(winnerRating: number, loserRating: number): number {
     const expected = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400));
     return Math.max(8, Math.round(24 * (1 - expected)));
 }
+
+// Server-authoritative base PvP-win reward summary, returned by
+// /api/pvp/claim-rewards (mirrors creditPvpWinBase's summary in
+// api/_xp-engine.ts). When the server credits a win, the client applies THESE
+// values rather than recomputing locally — so the server-side repeat-opponent
+// decay (PvP audit #1) sticks instead of being clobbered by the client's own
+// grant on the next save flush.
+export type PvpWinBaseSummary = {
+    ryo: number;
+    xp: number;
+    level: number;
+    rankTitle: string;
+    maxHp: number;
+    maxChakra: number;
+    maxStamina: number;
+    unspentStats: number;
+};
+
+// Apply a server-credited base reward onto the local character, replacing the
+// progression fields (xp / level / rank title / pool maxes / unspent stats /
+// ryo) with the server's authoritative post-credit values. Current pools are
+// refilled to the new maxes ONLY when the win produced a level-up — mirroring
+// App.tsx's gainXp, which sets hp/chakra/stamina to the new max on each level
+// gained and otherwise leaves them untouched. Every other character field is
+// preserved so the caller can still layer its client-only extras (territory
+// scrolls, auraDust, kill counters, war bounty) on top.
+export function applyServerBaseReward(character: Character, base: PvpWinBaseSummary): Character {
+    const leveledUp = base.level > (character.level ?? 0);
+    return {
+        ...character,
+        xp: base.xp,
+        level: base.level,
+        maxHp: base.maxHp,
+        maxChakra: base.maxChakra,
+        maxStamina: base.maxStamina,
+        unspentStats: base.unspentStats,
+        ryo: base.ryo,
+        ...(base.rankTitle ? { rankTitle: base.rankTitle } : {}),
+        ...(leveledUp ? { hp: base.maxHp, chakra: base.maxChakra, stamina: base.maxStamina } : {}),
+    };
+}

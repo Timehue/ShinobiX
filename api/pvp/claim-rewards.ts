@@ -7,6 +7,8 @@ import { withKvLock } from '../_lock.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
+import { recordPairWinAndDecay } from './_reward-farm.js';
+import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
@@ -149,11 +151,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             type RatingOut = { field: string; value: number; delta: number };
             type BaseOut = ReturnType<typeof creditPvpWinBase>['summary'];
 
+            // Ladder-integrity guard (audit #2): when the two fighters share a
+            // recent IP or browser fingerprint, this ranked match is almost
+            // certainly two alts (or a same-household boost), so we do NOT move
+            // either player's Elo — the win/loss simply doesn't count for the
+            // ladder. Mirrors the same-device rule already enforced for Vanguard
+            // Honor-Seals (_vanguard-rewards.ts). The base ryo/XP path is left
+            // alone here — it has its own repeat-opponent decay (#1), which has
+            // no device false-positives — so only the LADDER is protected.
+            // Computed OUTSIDE the save lock (read-only key scan). Fails OPEN: a
+            // KV hiccup must never block a legitimate rating settlement.
+            let rankedEligible = isRankedClaim;
+            if (isRankedClaim) {
+                try {
+                    if (await hasRecentIpOrFpOverlap(winnerName, loserName)) rankedEligible = false;
+                } catch { /* fail open */ }
+            }
+
             // Apply ONE fighter's once-per-battle ranked-rating delta (guarded by
             // its own NX receipt) and return that fighter's resulting rating. A
             // re-settle (receipt already placed) reads back the stored value.
             const settleRatingFor = async (slug: string, role: 'winner' | 'loser'): Promise<RatingOut | undefined> => {
-                if (!isRankedClaim || !slug) return undefined;
+                if (!rankedEligible || !slug) return undefined;
                 const saveKey = `save:${slug}`;
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
@@ -178,7 +197,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!record || !char) return undefined;
                 const { xpGain, ryoGain } = computePvpWinGains(char, session.rewardSector);
                 if (!alreadyForWinner) {
-                    const credit = creditPvpWinBase(char, xpGain, ryoGain);
+                    // Repeat-opponent decay (audit #1): scale this win's base
+                    // reward down by how many times the winner already banked a
+                    // win over THIS loser in the last hour. Recorded exactly once
+                    // here — on the single real credit (the `!alreadyForWinner`
+                    // branch), never on a replay — so the farm counter advances
+                    // per banked win, not per claim retry. SCOPED to genuine
+                    // player-vs-player: an AI raid boss / NPC loser has no save,
+                    // so PvE grind (sector raids vs bosses) keeps its full reward.
+                    const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
+                    const decay = loserRecord?.character ? await recordPairWinAndDecay(winnerSlug, loserSlug) : 1;
+                    const dXp = Math.max(0, Math.floor(xpGain * decay));
+                    const dRyo = Math.max(0, Math.floor(ryoGain * decay));
+                    const credit = creditPvpWinBase(char, dXp, dRyo);
                     await kv.set(saveKey, mergePreservingImages({ ...record, character: credit.char }, record));
                     return credit.summary;
                 }
