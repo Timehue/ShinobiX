@@ -80,6 +80,19 @@ test('autoArenaRoles assigns each role once, by stats, deterministically', () =>
     assert.deepEqual([...roles].sort(), ['assassin', 'defender', 'sage', 'tracker']); // each exactly once
 });
 
+test('autoArenaRoles uses each pet NATIVE role when present (players field their own comp)', () => {
+    const s = (role: PetSnapshot['role'], i: number): PetSnapshot =>
+        ({ id: 'p' + i, name: 'P', rarity: 'r', level: 20, hp: 700, attack: 80, defense: 50, speed: 60, element: 'Fire', role });
+    // An all-assassin-ish party is NOT force-rebalanced — the native roles win.
+    assert.deepEqual(autoArenaRoles([s('assassin', 0), s('assassin', 1), s('defender', 2), s('sage', 3)]),
+        ['assassin', 'assassin', 'defender', 'sage']);
+    // If ANY pet lacks a native role (e.g. a pre-feature save), fall back to the
+    // balanced stat-profile so the match still gets a full spread.
+    const mixed: PetSnapshot[] = [s('assassin', 0), s('assassin', 1), s('defender', 2),
+        { id: 'p3', name: 'P', rarity: 'r', level: 20, hp: 900, attack: 50, defense: 95, speed: 40, element: 'Earth' }];
+    assert.deepEqual([...autoArenaRoles(mixed)].sort(), ['assassin', 'defender', 'sage', 'tracker']);
+});
+
 test('resolveMatch seals 4v4 — player pets used, empty seats AI-filled, pairs share a seal', () => {
     const lobby = newLobby('ABCD', 'host', 1000);
     slotOf(lobby, 'blue', 0).pets = [pet({ id: 'h1' }), pet({ id: 'h2' })].map((p) => snapshotPet(p));
