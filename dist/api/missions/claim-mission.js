@@ -177,6 +177,22 @@ async function handler(req, res) {
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
             };
         }, { failClosed: true });
+        // New-shinobi dailies: a successful mission claim is the main activity
+        // signal for pre-profession players. reportNewbieEvent no-ops for anyone
+        // who has a profession and takes its own locks, so it runs AFTER the
+        // claim's save lock has released (no nested locking). Best-effort — a
+        // failure here must never fail the (already-applied) claim.
+        if (outcome.applied) {
+            try {
+                await (0, _progress_js_1.reportNewbieEvent)({ playerName, kind: 'newbie-missions' });
+                if (missionType === 'combat') {
+                    await (0, _progress_js_1.reportNewbieEvent)({ playerName, kind: 'newbie-battle-wins' });
+                }
+            }
+            catch (e) {
+                console.error('[claim-mission newbie]', e);
+            }
+        }
         return res.status(200).json({ ok: true, ...outcome });
     }
     catch (err) {
