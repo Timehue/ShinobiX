@@ -24,6 +24,7 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
+import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty } from "../lib/pve-difficulty";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -494,7 +495,18 @@ export function Arena({
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
-    const enemyCombatStats = opponentCharacter?.stats ?? pendingAiProfile?.stats ?? aiStatsForLevel(opponentLevel);
+    // PvE difficulty curve — scale standard PvE AI enemy stats by the band for
+    // the ENCOUNTER's level (easy <30, medium 30-49, hard 50-89, peer 90+).
+    // Excludes real PvP (opponentCharacter), the endless tower (already
+    // wave-scaled), and ranked, so nothing double-dips and PvP balance is
+    // untouched. See lib/pve-difficulty.ts.
+    const pveDifficultyStatFactor = (!opponentCharacter && !endlessBattleActive && !rankedBattleActive)
+        ? pveDifficultyStatMultiplier(opponentLevel)
+        : 1;
+    const enemyCombatStats = scaleStatsForPveDifficulty(
+        opponentCharacter?.stats ?? pendingAiProfile?.stats ?? aiStatsForLevel(opponentLevel),
+        pveDifficultyStatFactor,
+    );
     const enemyAiJutsus = pendingAiProfile
         ? allJutsus.filter((jutsu) => pendingAiProfile.jutsuIds.includes(jutsu.id))
         : opponentCharacter
@@ -1578,6 +1590,9 @@ export function Arena({
             // "starting next round") amp/debuff boost this same attack.
             activeStatuses(playerStatuses),
             activeStatuses(enemyStatuses),
+            // Basic attack has no trained mastery — match PvP (move.ts uses
+            // mastery 0), not calculateDamage's default of max level.
+            0,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -1701,6 +1716,8 @@ export function Arena({
             // not boost the attack they were cast alongside).
             activeStatuses(playerStatuses),
             activeStatuses(enemyStatuses),
+            // Weapon has no trained jutsu mastery — match PvP (mastery 0).
+            0,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -2284,7 +2301,13 @@ export function Arena({
         }
 
         let damage = calculateDamage(
-            { ...jutsu, effectPower: scaled.scaledEffectPower },
+            // Raw effectPower — calculateDamage applies the single mastery step
+            // (rawEP + level×0.2) via the masteryLevel arg below, exactly like
+            // the PvP server (api/pvp/move.ts). Passing scaled.scaledEffectPower
+            // here double-scaled mastery (scaleJutsuByLevel already baked level
+            // in), so PvE only matched PvP at max mastery. `scaled.*` is still
+            // used for the resource costs.
+            jutsu,
             characterCombatStats,
             enemyCombatStats,
             enemyMaxHp,
