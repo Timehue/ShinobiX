@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { loadOrIssueDailyMissions } from './_progress.js';
+import { loadOrIssueDailyMissions, loadOrIssueNewbieDailies } from './_progress.js';
 import type { Profession } from './_pool.js';
 
 const VALID_PROFESSIONS: Profession[] = ['healer', 'vanguard', 'petTamer'];
@@ -26,7 +26,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const char = record?.character as Record<string, unknown> | undefined;
         const profession = char?.profession as Profession | undefined;
         if (!profession || !VALID_PROFESSIONS.includes(profession)) {
-            return res.status(200).json({ profession: null, missions: [] });
+            // No profession yet → serve the new-shinobi daily set instead of an
+            // empty panel, so the early game (pre-L13) isn't a dead zone. These
+            // auto-grant ryo on completion via reportNewbieEvent (claim-mission).
+            const newbie = await loadOrIssueNewbieDailies(playerName);
+            return res.status(200).json({
+                profession: null,
+                track: 'newbie',
+                date: newbie.date,
+                missions: newbie.missions,
+            });
         }
 
         const state = await loadOrIssueDailyMissions(playerName, profession);

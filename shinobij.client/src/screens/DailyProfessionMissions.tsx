@@ -1,5 +1,3 @@
-// Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from "react";
 import type { Character, Profession } from "../App";
 
@@ -12,13 +10,15 @@ type DailyMission = {
     target: number;
     progress: number;
     uniqueTargets?: string[];
-    xpReward: number;
+    xpReward?: number;   // profession track
+    ryoReward?: number;  // new-shinobi track
     completedAt: number | null;
-    claimed: boolean;
+    claimed?: boolean;
 };
 
 type Response = {
     profession: Profession | null;
+    track?: 'newbie';
     date?: string;
     missions: DailyMission[];
 };
@@ -44,10 +44,8 @@ export function DailyProfessionMissions({ character }: { character: Character })
     const seenCompletedRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
-        if (!character.profession) {
-            setLoading(false);
-            return;
-        }
+        // Fetch for everyone — players without a profession get the new-shinobi
+        // daily set from the same endpoint (so the early game isn't a dead zone).
         // Reset the "already toasted" set whenever profession or player
         // name changes. Otherwise the set carries stale ids from a
         // previous profession (or a different account on the same device)
@@ -73,9 +71,9 @@ export function DailyProfessionMissions({ character }: { character: Character })
                     if (!m.completedAt) continue;
                     if (seenCompletedRef.current.has(m.id)) continue;
                     seenCompletedRef.current.add(m.id);
-                    if (!isFirstPoll) {
+                    if (!isFirstPoll && json.profession) {
                         window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                            detail: { name: m.name, xp: m.xpReward, profession: json.profession ?? undefined },
+                            detail: { name: m.name, xp: m.xpReward ?? 0, profession: json.profession },
                         }));
                     }
                 }
@@ -96,9 +94,10 @@ export function DailyProfessionMissions({ character }: { character: Character })
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.profession, character.name]);
 
-    if (!character.profession) return null;
-    const accent = PROFESSION_ACCENT[character.profession];
-    const label = PROFESSION_LABEL[character.profession];
+    const prof = character.profession;
+    const isNewbie = !prof;
+    const accent = prof ? PROFESSION_ACCENT[prof] : "#facc15";
+    const label = prof ? PROFESSION_LABEL[prof] : "New Shinobi";
     // Guard against a 200 response that omits `missions` — render off a safe
     // local so a partial payload can't throw `.length`/`.map` during render.
     const missions = data?.missions ?? [];
@@ -106,7 +105,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
     return (
         <div className="card" style={{ border: `1px solid ${accent}55`, marginBottom: "1rem" }}>
             <h3 style={{ marginTop: 0, color: accent }}>
-                📜 Daily {label} Missions
+                {isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
             </h3>
             {loading && <p className="hint">Loading…</p>}
             {error && <p style={{ color: "#f87171" }}>{error}</p>}
@@ -135,7 +134,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                                         {done && "✓ "}{m.name}
                                     </strong>
                                     <span className="hint" style={{ fontSize: "0.75rem" }}>
-                                        +{m.xpReward} {label} XP
+                                        {isNewbie ? `+${m.ryoReward ?? 0} ryo` : `+${m.xpReward ?? 0} ${label} XP`}
                                     </span>
                                 </div>
                                 <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.8rem" }}>

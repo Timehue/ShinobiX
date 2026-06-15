@@ -114,3 +114,52 @@ export function pickDailyMissions(
     }
     return chosen;
 }
+
+// ── New-shinobi (pre-profession) daily track ───────────────────────────────────
+// Players who have not chosen a profession (professions unlock at L13) otherwise
+// see an EMPTY daily-mission panel — exactly the window where the return habit
+// should form. This small set fixes that. It pays RYO — a modest, easily-tuned
+// economy faucet — and is kept entirely separate from the balance-sensitive
+// profession pools above so those stay untouched. Tune the ryoReward values
+// freely; they are the only balance levers here.
+
+export type NewbieMissionKind = 'newbie-battle-wins' | 'newbie-missions';
+
+export type NewbieMissionTemplate = {
+    templateId: string;
+    kind: NewbieMissionKind;
+    name: string;
+    description: string;
+    target: number;
+    ryoReward: number;
+};
+
+// One battle task + one mission task per day. Both progress off server-validated
+// mission CLAIMS (api/missions/claim-mission): a "battle" is a won Arena combat
+// mission; a "mission" is any claimed mission. New players live in that loop, so
+// these reliably advance (unlike PvP-win hooks, which pre-profession players
+// rarely trigger).
+const NEWBIE_BATTLE_POOL: NewbieMissionTemplate[] = [
+    { templateId: 'newbie-battles-2', kind: 'newbie-battle-wins', name: 'Sparring Practice', description: 'Win 2 battles.', target: 2, ryoReward: 120 },
+    { templateId: 'newbie-battles-3', kind: 'newbie-battle-wins', name: 'Proving Ground', description: 'Win 3 battles.', target: 3, ryoReward: 160 },
+];
+
+const NEWBIE_MISSION_POOL: NewbieMissionTemplate[] = [
+    { templateId: 'newbie-missions-2', kind: 'newbie-missions', name: 'Errand Runner', description: 'Complete 2 missions.', target: 2, ryoReward: 120 },
+    { templateId: 'newbie-missions-3', kind: 'newbie-missions', name: 'Village Service', description: 'Complete 3 missions.', target: 3, ryoReward: 160 },
+];
+
+function seededPickOne<T>(pool: T[], seedStr: string): T | undefined {
+    if (pool.length === 0) return undefined;
+    const rng = mulberry32(stringHash(seedStr));
+    return pool[Math.floor(rng() * pool.length)];
+}
+
+// Pick today's new-shinobi set: one battle task + one mission task, each
+// deterministic per (player, date) so it's stable across a day and can't be
+// re-rolled, but varies day to day.
+export function pickNewbieMissions(playerName: string, dateKey: string): NewbieMissionTemplate[] {
+    const battle = seededPickOne(NEWBIE_BATTLE_POOL, `${playerName}:${dateKey}:nb-battle`);
+    const mission = seededPickOne(NEWBIE_MISSION_POOL, `${playerName}:${dateKey}:nb-mission`);
+    return [battle, mission].filter((t): t is NewbieMissionTemplate => Boolean(t));
+}

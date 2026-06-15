@@ -53,3 +53,36 @@ const _pool_js_1 = require("./_pool.js");
         node_assert_1.strict.notDeepEqual(a, b);
     });
 });
+(0, node_test_1.describe)('pickNewbieMissions', () => {
+    (0, node_test_1.it)('returns exactly one battle task and one mission task', () => {
+        const picks = (0, _pool_js_1.pickNewbieMissions)('alice', '2026-05-25');
+        node_assert_1.strict.equal(picks.length, 2);
+        const kinds = picks.map(m => m.kind).sort();
+        node_assert_1.strict.deepEqual(kinds, ['newbie-battle-wins', 'newbie-missions']);
+    });
+    (0, node_test_1.it)('is deterministic per (player, date)', () => {
+        const a = (0, _pool_js_1.pickNewbieMissions)('bob', '2026-05-25');
+        const b = (0, _pool_js_1.pickNewbieMissions)('bob', '2026-05-25');
+        node_assert_1.strict.deepEqual(a.map(m => m.templateId), b.map(m => m.templateId));
+    });
+    (0, node_test_1.it)('every newbie mission pays ryo (> 0) and has a positive target', () => {
+        for (const m of (0, _pool_js_1.pickNewbieMissions)('carol', '2026-05-25')) {
+            node_assert_1.strict.ok(m.ryoReward > 0);
+            node_assert_1.strict.ok(m.target > 0);
+        }
+    });
+    (0, node_test_1.it)('can vary across days for the same player', () => {
+        // Sample a span of days; the seeded pick should not be frozen to a
+        // single template per kind for all dates.
+        const battleIds = new Set();
+        const missionIds = new Set();
+        for (let d = 1; d <= 28; d += 1) {
+            const date = `2026-05-${String(d).padStart(2, '0')}`;
+            const picks = (0, _pool_js_1.pickNewbieMissions)('dave', date);
+            battleIds.add(picks.find(m => m.kind === 'newbie-battle-wins').templateId);
+            missionIds.add(picks.find(m => m.kind === 'newbie-missions').templateId);
+        }
+        node_assert_1.strict.ok(battleIds.size >= 2);
+        node_assert_1.strict.ok(missionIds.size >= 2);
+    });
+});
