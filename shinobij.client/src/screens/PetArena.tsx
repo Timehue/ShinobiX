@@ -730,6 +730,45 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // straight in a battle and shouldn't expose the Tactical Arena switch.
     const isHollowGate = pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate";
 
+    // Render one pet as a visual pick-card (portrait + role badge + level/element).
+    // Shared by the cinematic battle view's pickers below — replaces the bare
+    // <select> dropdowns so picking a pet is a tap on its art, not a text line.
+    const petPickCard = (key: string, pet: Pet, sel: boolean, onClick: () => void, opts?: { owner?: string; dim?: boolean }) => {
+        const baseId = pet.id.replace(/-\d{10,}$/, "");
+        const img = pet.image || sharedImages[`pet:${pet.id}`] || sharedImages[`pet:${baseId}`] || "";
+        const { role } = pet.role && pet.subRole ? { role: pet.role } : derivePetRole(pet);
+        const rm = ROLE_META[role];
+        return (
+            <button key={key} type="button"
+                className={`pet-pick${sel ? " selected" : ""}`}
+                title={opts?.owner ? `${opts.owner}: ${petDisplayName(pet)}` : petDisplayName(pet)}
+                style={opts?.dim ? { opacity: 0.5 } : undefined}
+                onClick={onClick}>
+                {img
+                    ? <img className="pet-pick-img" src={img} alt="" />
+                    : <div className="pet-pick-img placeholder" />}
+                <span className="pet-pick-name">{petDisplayName(pet)}</span>
+                {rm && (
+                    <span className="pet-pick-role" style={{ color: rm.color }}>
+                        <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
+                    </span>
+                )}
+                <span className="pet-pick-meta">{opts?.owner ? `${opts.owner} · ` : ""}Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
+            </button>
+        );
+    };
+    // Visual single-select picker grid (scrollable). Each entry carries an explicit
+    // key so it works for own pets (key = id) and owner:pet opponents alike.
+    const petPicker = (
+        entries: { key: string; pet: Pet; owner?: string; dim?: boolean }[],
+        selectedKey: string,
+        onPick: (key: string) => void,
+    ) => (
+        <div className="pet-pick-grid pet-pick-strip">
+            {entries.map(({ key, pet, owner, dim }) => petPickCard(key, pet, key === selectedKey, () => onPick(key), { owner, dim }))}
+        </div>
+    );
+
     return (
         <div className="card pet-arena-screen">
             <div className="pet-arena-header">
@@ -880,9 +919,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     {character.pets.length === 0 ? (
                         <p className="hint">You need a pet before entering the arena.</p>
                     ) : (
-                        <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)}>
-                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} | Lv {pet.level} | {pet.rarity}{pet.element && pet.element !== "None" ? ` | ${pet.element}` : ""}</option>)}
-                        </select>
+                        <div className="pet-pick-panel">
+                            {petPicker(
+                                character.pets.map((pet) => ({ key: pet.id, pet, dim: isPetOnExpedition(pet) })),
+                                selectedPetId,
+                                setSelectedPetId,
+                            )}
+                        </div>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
                 </section>
@@ -960,9 +1003,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     ) : (
                         <>
                             {opponentPets.length > 0 ? (
-                                <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
-                                    {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
-                                </select>
+                                <div className="pet-pick-panel">
+                                    {petPicker(
+                                        opponentPets.map((entry) => ({ key: `${entry.owner}:${entry.pet.id}`, pet: entry.pet, owner: entry.owner })),
+                                        selectedOpponentKey,
+                                        setSelectedOpponentKey,
+                                    )}
+                                </div>
                             ) : (
                                 <p className="hint">No AI opponents available.</p>
                             )}
@@ -984,14 +1031,22 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         </span>
                     </label>
                     {partyMode && (
-                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                            <label>Reserve pet:</label>
-                            <select value={reservePetId} onChange={(e) => setReservePetId(e.target.value)} style={{ padding: "0.3rem" }}>
-                                <option value="">— auto-pick —</option>
-                                {character.pets.filter(p => p.id !== selectedPetId).map(p => (
-                                    <option key={p.id} value={p.id}>{petDisplayName(p)} (Lv {p.level}{p.element && p.element !== "None" ? `, ${p.element}` : ""})</option>
-                                ))}
-                            </select>
+                        <div style={{ marginTop: "0.5rem" }}>
+                            <label style={{ fontWeight: 600, fontSize: "0.85rem" }}>Reserve pet (faces their reserve in match 2)</label>
+                            <div className="pet-pick-panel" style={{ marginTop: 6 }}>
+                                <div className="pet-pick-grid">
+                                    <button type="button"
+                                        className={`pet-pick pet-pick-auto${reservePetId === "" ? " selected" : ""}`}
+                                        onClick={() => setReservePetId("")}>
+                                        <span className="pet-pick-auto-glyph">🎲</span>
+                                        <span className="pet-pick-name">Auto-pick</span>
+                                        <span className="pet-pick-meta">best counter</span>
+                                    </button>
+                                    {character.pets.filter((p) => p.id !== selectedPetId).map((pet) =>
+                                        petPickCard(pet.id, pet, reservePetId === pet.id, () => setReservePetId(pet.id), { dim: isPetOnExpedition(pet) }),
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1191,7 +1246,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets, then accept — the match begins after a short countdown.</p>
                                     {available.length < 1
                                         ? <p className="hint" style={{ color: "#f59e0b" }}>You have no pets available (all on expeditions?).</p>
-                                        : pickGrid(respondPicks, setRespondPicks, size)}
+                                        : <div className="pet-pick-panel">{pickGrid(respondPicks, setRespondPicks, size)}</div>}
                                     <div className="menu">
                                         <button disabled={respondPicks.length < 1} style={{ background: "#16a34a" }}
                                             onClick={() => void respondToArenaChallenge(pendingArenaResponse, respondPicks)}>
@@ -1225,7 +1280,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     <div style={{ marginTop: 6 }}>
                                         {available.length < 1
                                             ? <p className="hint" style={{ color: "#f59e0b", margin: 0 }}>You have no pets available (all on expeditions?).</p>
-                                            : pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}
+                                            : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize)}</div>}
                                     </div>
                                 </div>
 
