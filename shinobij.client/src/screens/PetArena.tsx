@@ -1084,37 +1084,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 })()}
                             </div>
                         ) : (
-                            (() => {
-                                const others = allServerPlayers
-                                    .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
-                                    .sort((a, b) => Number(b.online) - Number(a.online) || (b.level ?? 0) - (a.level ?? 0))
-                                    .slice(0, 8);
-                                return (
-                                    <div>
-                                        <p className="hint" style={{ marginTop: 4 }}>Challenge an online shinobi below, or search a name above.</p>
-                                        {others.length > 0 ? (
-                                            <div className="pet-challenge-list">
-                                                {others.map((p) => (
-                                                    <div key={p.name} className="pet-challenge-row">
-                                                        <span className={`pet-online-dot ${p.online ? "on" : "off"}`} />
-                                                        <strong>{p.name}</strong>
-                                                        <span className="hint">Lv {p.level} · {p.village || "—"}</span>
-                                                        <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>⚔️ Challenge</button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="hint">No other shinobi found — search a name to send an offline challenge.</p>
-                                        )}
-                                        <div className="pet-arena-tips">
-                                            <div>⚔️ Win pet duels to earn ryo (daily cap).</div>
-                                            <div>🐾🐾 Toggle 2v2 below to bring two pets into the challenge.</div>
-                                            <div>🛡 Roles &amp; element edge decide close fights — check the matchup hint.</div>
-                                        </div>
-                                        {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
-                                    </div>
-                                );
-                            })()
+                            <div>
+                                <p className="hint" style={{ marginTop: 4 }}>Type a player's name above to find and challenge them.</p>
+                                <div className="pet-arena-tips">
+                                    <div>⚔️ Win pet duels to earn ryo (daily cap).</div>
+                                    <div>🐾🐾 Toggle 2v2 below to bring two pets into the challenge.</div>
+                                    <div>🛡 Roles &amp; element edge decide close fights — check the matchup hint.</div>
+                                </div>
+                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                            </div>
                         )
                     ) : (
                         <>
