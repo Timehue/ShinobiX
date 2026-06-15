@@ -489,28 +489,22 @@ export function mergePetJutsuSlots(playerJutsus: PetJutsu[], templateJutsus: Pet
 }
 
 /**
- * Apply an admin-AUTHORED template kit onto a saved pet's jutsus — used when the
- * template comes from the admin Pet Editor (a published, intentional kit) rather
- * than the hardcoded baseline. Unlike mergePetJutsuSlots (which preserves any
- * player-only EXTRA slot for migration safety), this makes the template the
- * EXACT kit: the result length equals the template's, so an admin REMOVING a
- * move drops it and ADDING one backfills a trailing slot. Each slot adopts the
- * template's effect (name/kind/cooldown/rounds/signature/aoe); the player's
- * leveled POWER is preserved per slot via Math.max so this never strips combat
- * investment. currentCooldown resets to 0.
+ * Apply an admin-AUTHORED template kit — used when the template comes from the
+ * admin Pet Editor (a published, intentional kit) rather than the hardcoded
+ * baseline. The admin panel is AUTHORITATIVE: the result IS the template kit
+ * exactly — same length, and each slot's name/kind/cooldown/rounds/signature/aoe
+ * AND power are taken straight from the template. So an admin REMOVING a move
+ * drops it, ADDING one backfills a trailing slot, and editing a move's power
+ * applies verbatim — even a DECREASE overrides any level-up / chakra-training
+ * power the player had banked on that slot (owner-chosen WYSIWYG behavior; cf.
+ * mergePetJutsuSlots, the baseline migration path, which keeps the leveled power
+ * via Math.max). currentCooldown resets to 0.
  *
  * Pure + deterministic; idempotent (re-running on an already-authored kit is a
  * no-op since the slots already match the template).
  */
-export function applyAuthoredPetJutsus(playerJutsus: PetJutsu[], templateJutsus: PetJutsu[]): PetJutsu[] {
-    return templateJutsus.map((base, i) => {
-        const player = playerJutsus[i];
-        return {
-            ...base,
-            power: Math.max(player?.power ?? 0, base.power ?? 0),          // keep the leveled power
-            currentCooldown: 0,
-        };
-    });
+export function applyAuthoredPetJutsus(templateJutsus: PetJutsu[]): PetJutsu[] {
+    return templateJutsus.map((base) => ({ ...base, currentCooldown: 0 }));
 }
 
 // ── Admin-published (authored) pet templates ──────────────────────────────────
@@ -547,19 +541,68 @@ export function registerPublishedPetTemplates(pets: Pet[]): boolean {
 /**
  * Resolve a saved pet's effective base template + merged jutsus. An admin-
  * published (authored) template wins over the hardcoded baseline (`fallback`);
- * its kit is applied EXACTLY (applyAuthoredPetJutsus). Otherwise the baseline's
- * Phase-12c slot merge runs (mergePetJutsuSlots — template effect wins, player
- * extra slots kept). Both preserve the player's leveled power. Returns the
- * baseline pet's `jutsus` untouched when no template exists.
+ * its kit is applied EXACTLY — the admin panel is authoritative, including power
+ * (applyAuthoredPetJutsus). Otherwise the baseline's Phase-12c slot merge runs
+ * (mergePetJutsuSlots — template effect wins, player extra slots kept, leveled
+ * power preserved via Math.max). Returns the baseline pet's `jutsus` untouched
+ * when no template exists.
  */
 export function resolvePetTemplateJutsus(pet: Pet, fallback: Pet | undefined): { template: Pet | undefined; jutsus: PetJutsu[] } {
     const authored = publishedPetTemplates.get(builtInPetTemplateId(pet.id));
     const template = authored ?? fallback;
     if (!template) return { template: undefined, jutsus: pet.jutsus ?? [] };
     const jutsus = authored
-        ? applyAuthoredPetJutsus(pet.jutsus ?? [], template.jutsus)
+        ? applyAuthoredPetJutsus(template.jutsus)
         : mergePetJutsuSlots(pet.jutsus ?? [], template.jutsus);
     return { template, jutsus };
+}
+
+/**
+ * Normalize a saved/loaded pet against the built-in pool: adopt its effective
+ * template (admin-authored kit wins, else the hardcoded baseline), floor its
+ * stats vs the template, and clamp everything to the rarity caps. `petPool` is the
+ * caller's full built-in pool (App-local — it closes over the balanced rawPetPool
+ * plus the starters/evolutions). Reads the published-template registry; otherwise
+ * pure. (Lived inline in App.tsx; extracted here as the canonical pet-normalizer.)
+ */
+export function normalizePetTemplate(pet: Pet, petPool: Pet[]): Pet {
+    const fallback = petPool.find((template) => template.id === builtInPetTemplateId(pet.id));
+    const { template: baseTemplate, jutsus } = resolvePetTemplateJutsus(pet, fallback);
+    const merged = baseTemplate ? {
+        ...pet,
+        hp: Math.max(pet.hp ?? 0, baseTemplate.hp),
+        attack: Math.max(pet.attack ?? 0, baseTemplate.attack),
+        defense: Math.max(pet.defense ?? 0, baseTemplate.defense),
+        speed: Math.max(pet.speed ?? 0, baseTemplate.speed),
+        moveRange: pet.moveRange ?? baseTemplate.moveRange,
+        // Backfill element for pre-element saves; the pet's own element wins if set.
+        element: pet.element ?? baseTemplate.element,
+        jutsus,
+    } : pet;
+    return capPetStats({
+        ...merged,
+        rarity: merged.rarity ?? "standard",
+        level: Math.max(1, Math.floor(merged.level ?? 1)),
+        xp: Math.max(0, Math.floor(merged.xp ?? 0)),
+        maxLevel: Math.max(1, Math.floor(merged.maxLevel ?? 100)),
+        unlockedForPve: Boolean(merged.unlockedForPve || Math.floor(merged.level ?? 1) >= 50),
+        happiness: petHappiness(merged),
+        expedition: merged.expedition
+            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000), token: typeof merged.expedition.token === "string" ? merged.expedition.token : undefined }
+            : undefined,
+    });
+}
+
+/**
+ * Re-normalize a roster (owned pets) with `normalize`, returning the new array
+ * only when a pet's effective kit/stats actually changed (else null, so callers
+ * skip a needless state update). Used to push live admin pet-editor edits onto
+ * the editing admin's own pets in-session. Pure.
+ */
+export function renormalizedIfChanged(roster: Pet[], normalize: (pet: Pet) => Pet): Pet[] | null {
+    const pets = roster.map(normalize);
+    const sig = (p: Pet) => JSON.stringify([p.jutsus, p.hp, p.attack, p.defense, p.speed, p.role, p.subRole, p.moveRange]);
+    return pets.some((p, i) => sig(p) !== sig(roster[i])) ? pets : null;
 }
 
 // ── Training math ───────────────────────────────────────────────────────
