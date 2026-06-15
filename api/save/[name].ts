@@ -805,6 +805,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
+    // Player saves must NEVER be cached. The GET is authed via custom headers
+    // (x-player-name / x-player-password) that Cloudflare doesn't treat as a
+    // cache-bypass signal, so a broad edge cache rule could otherwise serve a
+    // stale save (training set on one device missing on another) — or worse,
+    // serve one player's save to another keyed only on the URL. no-store on
+    // every response (GET reads, POST/DELETE writes) closes that off.
+    res.setHeader('Cache-Control', 'no-store');
+
     const name = safeName(String(req.query.name ?? ''));
     if (!name) return res.status(400).json({ error: 'Invalid name.' });
 
