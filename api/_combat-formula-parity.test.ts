@@ -34,6 +34,9 @@ const CLIENT_APP = readFileSync(join(ROOT, 'shinobij.client', 'src', 'screens', 
 // STUN_AP_PENALTY lives in the client constants module, not combat-math —
 // pinned here so the server endTurn AP penalty can't drift from the client's.
 const CLIENT_GAME_CONSTS = readFileSync(join(ROOT, 'shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
+// EP-at-level scaling for display lives in the jutsu-scaling module; pinned here
+// so the EP a player SEES can't drift from the EP combat actually deals.
+const CLIENT_SCALING = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'jutsu-scaling.ts'), 'utf8');
 
 function num(src: string, name: string): number {
     const m = src.match(new RegExp(`(?:export\\s+)?const\\s+${name}(?:\\s*:[^=]+)?\\s*=\\s*([0-9.]+)`));
@@ -167,6 +170,29 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.ok(
             CLIENT_APP.includes('mergeCombatStatus('),
             'Arena.tsx no longer routes status application through mergeCombatStatus — non-stackable statuses can stack again',
+        );
+    });
+    // EP mastery-scaling parity (2026-06-15). The PvP server applies a jutsu's
+    // mastery to EP exactly ONCE: scaledEp = effectPower + level×0.2 (move.ts
+    // resolveBaseDamage), and calculateDamage mirrors it. The bug: the PvE cast
+    // fed scaleJutsuByLevel's already-mastery-scaled EP into calculateDamage,
+    // which applied mastery a SECOND time — so PvE only matched PvP at max
+    // mastery and under-hit below it. The cast must pass RAW effectPower.
+    it('PvE jutsu cast does not double-scale mastery EP (feeds raw EP)', () => {
+        assert.ok(
+            !CLIENT_APP.includes('effectPower: scaled.scaledEffectPower'),
+            'Arena.tsx feeds pre-scaled EP into calculateDamage again — PvE damage diverges from PvP below max mastery',
+        );
+    });
+    // "Show current-level EP": the inspect display (scaleJutsuByLevel) must use
+    // the SAME formula combat actually uses (effectPower + level×0.2) so the EP a
+    // player sees equals the EP that lands. The old display formula
+    // (effectPower − (50−level)×0.2) under-reported the dealt EP by 10 per cast.
+    it('display EP (scaleJutsuByLevel) matches the dealt-damage EP formula', () => {
+        assert.match(
+            CLIENT_SCALING,
+            /scaledEffectPower\s*=\s*Math\.max\(\s*1\s*,\s*Math\.floor\(\s*jutsu\.effectPower\s*\+\s*level\s*\*\s*0\.2\s*\)\s*\)/,
+            'scaleJutsuByLevel.scaledEffectPower no longer equals rawEP + level×0.2 — displayed EP would diverge from dealt damage',
         );
     });
 });
