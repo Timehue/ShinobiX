@@ -313,7 +313,11 @@ const RANGED_KINDS = new Set(["dot", "debuff", "movelock", "freeze", "stun", "co
  * deterministic. Priority: dedicated supporters/controllers first, then trait
  * identity, then stat shape, defaulting to a balanced striker.
  */
-export function petArchetypeFor(pet: Pick<Pet, "jutsus" | "trait" | "attack" | "defense" | "speed" | "hp">): PetArchetype {
+export function petArchetypeFor(pet: Pick<Pet, "jutsus" | "trait" | "attack" | "defense" | "speed" | "hp" | "subRole">): PetArchetype {
+    // The native sub-role wins when present — the grid AI then reads the pet's
+    // intrinsic role (and derives its per-turn move range from it) instead of
+    // re-guessing from kit/stats. Falls back to the stat-shape derivation below.
+    if (pet.subRole) return pet.subRole;
     const jutsus = pet.jutsus ?? [];
     const controlCount = jutsus.filter(j => CONTROL_KINDS.has(j.kind)).length;
     const supportCount = jutsus.filter(j => SUPPORT_KINDS.has(j.kind)).length;

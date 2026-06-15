@@ -32,7 +32,10 @@ export type PetSnapshot = {
     defense: number;
     speed: number;
     element: string;
+    role?: ArenaRole;           // native combat role from the owner's save; preferred over autoArenaRoles
 };
+
+const ARENA_ROLES = new Set<ArenaRole>(["defender", "tracker", "assassin", "sage"]);
 
 export type LobbySlot = {
     team: Team;
@@ -127,6 +130,7 @@ export function snapshotPet(raw: Record<string, unknown>): PetSnapshot {
         defense: clampStat(raw.defense, 0, 100000, 30),
         speed: clampStat(raw.speed, 1, 100000, 50),
         element: String(raw.element ?? "Fire"),
+        role: ARENA_ROLES.has(raw.role as ArenaRole) ? (raw.role as ArenaRole) : undefined,
     };
 }
 
@@ -160,12 +164,14 @@ function pick(idx: number[], score: (i: number) => number, dir: "max" | "min"): 
 }
 
 /**
- * Auto-assign the four arena roles across a team by stats (mirrors the client's
- * autoRoleTeam): toughest → Defender, best attack+speed → Assassin, weakest
- * attacker → Sage, the rest → Tracker. Deterministic (ties resolve to the lower
- * index) so every client that runs it on the same sealed roster agrees.
+ * Roles for a team. Prefers each pet's NATIVE role (from the owner's save) so
+ * players field their OWN comps — no forced rebalance. Falls back to a
+ * stat-profile assignment only when a pet is missing a role (e.g. a pre-feature
+ * save): toughest → Defender, best attack+speed → Assassin, weakest attacker →
+ * Sage, the rest → Tracker. Deterministic; the result is sealed into the match.
  */
 export function autoArenaRoles(pets: PetSnapshot[]): ArenaRole[] {
+    if (pets.length > 0 && pets.every((p) => p.role)) return pets.map((p) => p.role!);
     const n = pets.length;
     if (n <= 2) return pets.map((_, i) => (i === 0 ? "defender" : "assassin"));
     const all = pets.map((_, i) => i);
@@ -182,14 +188,14 @@ export function autoArenaRoles(pets: PetSnapshot[]): ArenaRole[] {
 // order across all empty seats at start, so a sealed match is fully concrete and
 // identical for every client (no client-side AI rolling → no replay divergence).
 export const AI_POOL: PetSnapshot[] = [
-    { id: "legendary-0", name: "Aegis Sentinel", rarity: "legendary", level: 30, hp: 920, attack: 84, defense: 88, speed: 64, element: "Earth" },
-    { id: "legendary-1", name: "Stormtalon", rarity: "legendary", level: 30, hp: 660, attack: 132, defense: 38, speed: 122, element: "Lightning" },
-    { id: "legendary-2", name: "Cinderfang", rarity: "legendary", level: 30, hp: 720, attack: 124, defense: 48, speed: 96, element: "Fire" },
-    { id: "legendary-3", name: "Tidepriest", rarity: "legendary", level: 30, hp: 780, attack: 78, defense: 70, speed: 72, element: "Water" },
-    { id: "generic-ai-pet-guardhound", name: "Guardhound", rarity: "rare", level: 28, hp: 840, attack: 92, defense: 80, speed: 70, element: "Earth" },
-    { id: "generic-ai-pet-emberlynx", name: "Emberlynx", rarity: "rare", level: 28, hp: 680, attack: 120, defense: 44, speed: 108, element: "Fire" },
-    { id: "legendary-4", name: "Galewing", rarity: "legendary", level: 30, hp: 700, attack: 110, defense: 52, speed: 116, element: "Wind" },
-    { id: "legendary-5", name: "Mossward", rarity: "legendary", level: 30, hp: 880, attack: 80, defense: 84, speed: 60, element: "Earth" },
+    { id: "legendary-0", name: "Aegis Sentinel", rarity: "legendary", level: 30, hp: 920, attack: 84, defense: 88, speed: 64, element: "Earth", role: "defender" },
+    { id: "legendary-1", name: "Stormtalon", rarity: "legendary", level: 30, hp: 660, attack: 132, defense: 38, speed: 122, element: "Lightning", role: "assassin" },
+    { id: "legendary-2", name: "Cinderfang", rarity: "legendary", level: 30, hp: 720, attack: 124, defense: 48, speed: 96, element: "Fire", role: "assassin" },
+    { id: "legendary-3", name: "Tidepriest", rarity: "legendary", level: 30, hp: 780, attack: 78, defense: 70, speed: 72, element: "Water", role: "sage" },
+    { id: "generic-ai-pet-guardhound", name: "Guardhound", rarity: "rare", level: 28, hp: 840, attack: 92, defense: 80, speed: 70, element: "Earth", role: "defender" },
+    { id: "generic-ai-pet-emberlynx", name: "Emberlynx", rarity: "rare", level: 28, hp: 680, attack: 120, defense: 44, speed: 108, element: "Fire", role: "tracker" },
+    { id: "legendary-4", name: "Galewing", rarity: "legendary", level: 30, hp: 700, attack: 110, defense: 52, speed: 116, element: "Wind", role: "tracker" },
+    { id: "legendary-5", name: "Mossward", rarity: "legendary", level: 30, hp: 880, attack: 80, defense: 84, speed: 60, element: "Earth", role: "defender" },
 ];
 
 /**
