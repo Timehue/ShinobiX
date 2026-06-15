@@ -29,9 +29,10 @@ the same three things:
    *all* PvE; missions are one reskinned mechanic; expeditions are three timers;
    the weekly boss is a tap-race. The systems work — they just don't vary.
 3. **Built-but-dormant systems sitting unused.** A fully-scaffolded clan upgrade
-   tree is inert; a server-authoritative pet-ranked ladder is unwired on the
-   client; 49 achievements pay nothing; territory and the village-war loop barely
-   touch each other.
+   tree is inert; 49 achievements pay nothing; territory and the village-war loop
+   barely touch each other. *(Update 2026-06-15: the server-authoritative
+   pet-ranked ladder — originally listed here as "unwired on the client" — is now
+   wired: PetArena.tsx → /api/pet/ranked-start + /api/pet/battle-result.)*
 
 ### Depth scorecard
 
