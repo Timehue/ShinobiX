@@ -325,7 +325,6 @@ import {
 // Pure pet helpers extracted to ./lib/pet (imported below for internal use;
 // external callers import petDisplayName directly from ./lib/pet).
 import {
-    petHappiness,
     isPetOnExpedition,
 } from "./lib/pet";
 import { buildAcceptedArenaMatch } from "./lib/arena-challenge";
@@ -831,14 +830,12 @@ export const adminIconOptions: { value: string; label: string }[] = [
 // stay here because they close over the petPool array (which itself is
 // derived via balanceBuiltInPetTemplate from the imported lib).
 import {
-    capPetStats,
     balanceBuiltInPetTemplate,
-    registerPublishedPetTemplates, resolvePetTemplateJutsus,
+    registerPublishedPetTemplates, normalizePetTemplate, renormalizedIfChanged,
     rollPetTrait,
     applyPetTraitBonuses,
     collectPetTraining,
     gainPetXp,
-    builtInPetTemplateId,
     scaleEventPetOpponent,
 } from "./lib/pet-balance";
 export { gainPetXp, collectPetTraining };
@@ -889,35 +886,12 @@ function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
     return [...currentPets, ...missingBuiltInPets];
 }
 
-// cloneEncounterPet + builtInPetTemplateId + the published-pet-template registry
-// (registerPublishedPetTemplates / resolvePetTemplateJutsus) all live in
-// ./lib/pet-balance; here we only supply the hardcoded baseline fallback.
+// normalizePet's logic lives in ./lib/pet-balance (normalizePetTemplate); here we
+// only bind the App-local petPool (balanced rawPetPool + starters/evolutions) as
+// its baseline fallback. cloneEncounterPet + the published-template registry also
+// live in ./lib/pet-balance.
 function normalizePet(pet: Pet): Pet {
-    const fallback = petPool.find((template) => template.id === builtInPetTemplateId(pet.id));
-    const { template: baseTemplate, jutsus } = resolvePetTemplateJutsus(pet, fallback);
-    const merged = baseTemplate ? {
-        ...pet,
-        hp: Math.max(pet.hp ?? 0, baseTemplate.hp),
-        attack: Math.max(pet.attack ?? 0, baseTemplate.attack),
-        defense: Math.max(pet.defense ?? 0, baseTemplate.defense),
-        speed: Math.max(pet.speed ?? 0, baseTemplate.speed),
-        moveRange: pet.moveRange ?? baseTemplate.moveRange,
-        // Backfill element for pre-element saves; the pet's own element wins if set.
-        element: pet.element ?? baseTemplate.element,
-        jutsus,
-    } : pet;
-    return capPetStats({
-        ...merged,
-        rarity: merged.rarity ?? "standard",
-        level: Math.max(1, Math.floor(merged.level ?? 1)),
-        xp: Math.max(0, Math.floor(merged.xp ?? 0)),
-        maxLevel: Math.max(1, Math.floor(merged.maxLevel ?? 100)),
-        unlockedForPve: Boolean(merged.unlockedForPve || Math.floor(merged.level ?? 1) >= 50),
-        happiness: petHappiness(merged),
-        expedition: merged.expedition
-            ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000), token: typeof merged.expedition.token === "string" ? merged.expedition.token : undefined }
-            : undefined,
-    });
+    return normalizePetTemplate(pet, petPool);
 }
 // eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance.
 // starterBloodlineOffense moved to ./data/jutsu (imported back above).
@@ -2203,6 +2177,18 @@ export default function App() {
     const [ancientChestVn, setAncientChestVn] = useState<CreatorEvent>(defaultAncientChestVn);
     const [editablePets, setEditablePets] = useState<Pet[]>(petPool);
     const [selectedPetId, setSelectedPetId] = useState(petPool[0]?.id ?? "");
+    // Admin pet-editor edits are AUTHORITATIVE in-session: when the admin changes a
+    // pet template (fresh updatedAt), publish it + re-normalize owned pets so the Pet
+    // Yard / combat match the editor at once — not after a save → pull round-trip.
+    // (Other clients still adopt it via pullSharedAdminContent.) Idempotent + guarded,
+    // so pull paths that set editablePets and edits to unowned pets are cheap no-ops.
+    useEffect(() => {
+        if (!registerPublishedPetTemplates(editablePets)) return;
+        setCharacter((prev) => {
+            const pets = prev && renormalizedIfChanged(prev.pets, normalizePet);
+            return pets ? { ...prev!, pets } : prev;
+        });
+    }, [editablePets]);
     useEffect(() => {
         if (!tabVisible) return; // pause when tab hidden
         let alive = true;

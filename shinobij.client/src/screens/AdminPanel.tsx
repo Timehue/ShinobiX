@@ -3896,6 +3896,18 @@ export function AdminPanel({
                                                 <option value="lifesteal">🩸 lifesteal — damage + drain 40% HP back</option>
                                                 <option value="shield">🛡️ shield — small fast ward (power × 0.45)</option>
                                                 <option value="absorb">✨ absorb — 35% damage reduction for 3 rounds</option>
+                                                <option value="crush">🪨 crush — damage + larger ATK/DEF strip (Earth)</option>
+                                                <option value="burn">🔥 burn — DoT (15%/round) + small ATK debuff</option>
+                                                <option value="freeze">🧊 freeze — 50% chance to skip a turn each round</option>
+                                                <option value="confuse">🌀 confuse — 50% chance the target hits itself</option>
+                                                <option value="stun">💫 stun — guaranteed skip of next turn (1 round)</option>
+                                                <option value="wound">🩸 wound — DoT that also halves the target's healing</option>
+                                                <option value="mark">🔻 mark — the next hit on the target deals bonus damage</option>
+                                                <option value="slow">🐌 slow — target loses movement + dodge for N rounds</option>
+                                                <option value="haste">⚡ haste — self buff: +movement + dodge for N rounds</option>
+                                                <option value="taunt">❗ taunt — forces the target to attack the caster (2v2)</option>
+                                                <option value="push">👊 push — light damage + shove target one tile away</option>
+                                                <option value="pull">🪝 pull — light damage + drag target one tile closer</option>
                                             </select>
 
                                             <label>

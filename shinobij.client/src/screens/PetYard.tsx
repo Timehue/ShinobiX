@@ -986,14 +986,29 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                     <p className="hint">This pet has no jutsu yet.</p>
                                 ) : selectedPet.jutsus.map((jutsu, i) => {
                                     const kindMeta: Record<string, { icon: string; label: string; color: string }> = {
-                                        damage:   { icon: "⚔",  label: "Damage",   color: "#fca5a5" },
-                                        buff:     { icon: "⬆",  label: "Buff",     color: "#86efac" },
-                                        heal:     { icon: "✚",  label: "Heal",     color: "#4ade80" },
-                                        debuff:   { icon: "⬇",  label: "Debuff",   color: "#f97316" },
-                                        dot:      { icon: "☠",  label: "Poison",   color: "#c084fc" },
-                                        move:     { icon: "➡",  label: "Move",     color: "#93c5fd" },
-                                        barrier:  { icon: "◇",  label: "Barrier",  color: "#7dd3fc" },
-                                        movelock: { icon: "⛓",  label: "Rootlock", color: "#fbbf24" },
+                                        damage:    { icon: "⚔",  label: "Damage",   color: "#fca5a5" },
+                                        buff:      { icon: "⬆",  label: "Buff",     color: "#86efac" },
+                                        heal:      { icon: "✚",  label: "Heal",     color: "#4ade80" },
+                                        debuff:    { icon: "⬇",  label: "Debuff",   color: "#f97316" },
+                                        dot:       { icon: "☠",  label: "Poison",   color: "#c084fc" },
+                                        move:      { icon: "➡",  label: "Move",     color: "#93c5fd" },
+                                        barrier:   { icon: "◇",  label: "Barrier",  color: "#7dd3fc" },
+                                        movelock:  { icon: "⛓",  label: "Rootlock", color: "#fbbf24" },
+                                        lifesteal: { icon: "🩸", label: "Lifesteal",color: "#f87171" },
+                                        shield:    { icon: "🛡", label: "Shield",   color: "#7dd3fc" },
+                                        absorb:    { icon: "✨", label: "Absorb",   color: "#a5b4fc" },
+                                        crush:     { icon: "🪨", label: "Crush",    color: "#fca5a5" },
+                                        burn:      { icon: "🔥", label: "Burn",     color: "#fb923c" },
+                                        freeze:    { icon: "🧊", label: "Freeze",   color: "#7dd3fc" },
+                                        confuse:   { icon: "🌀", label: "Confuse",  color: "#93c5fd" },
+                                        stun:      { icon: "💫", label: "Stun",     color: "#fde047" },
+                                        wound:     { icon: "🩸", label: "Wound",    color: "#f87171" },
+                                        mark:      { icon: "🔻", label: "Mark",     color: "#f97316" },
+                                        slow:      { icon: "🐌", label: "Slow",     color: "#7dd3fc" },
+                                        haste:     { icon: "⚡", label: "Haste",    color: "#fde047" },
+                                        taunt:     { icon: "❗", label: "Taunt",    color: "#f97316" },
+                                        push:      { icon: "👊", label: "Push",     color: "#fca5a5" },
+                                        pull:      { icon: "🪝", label: "Pull",     color: "#93c5fd" },
                                     };
                                     const km = kindMeta[jutsu.kind] ?? { icon: "✦", label: jutsu.kind, color: "#aaa" };
                                     return (
