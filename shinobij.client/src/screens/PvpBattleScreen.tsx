@@ -15,6 +15,7 @@ import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { useBoardScale } from "../lib/use-board-scale";
+import { hexLineTiles } from "../lib/hex-path";
 import {
     normalizeCharacter,
     playerLensDiscipline,
@@ -28,6 +29,46 @@ import type { PvpWinBaseSummary } from "../lib/progression";
 // SPIRAL_RADIUS in api/pvp/move.ts so the highlighted hexes equal what the
 // server actually zones.
 const PVP_SPIRAL_RADIUS = 2;
+
+// Avatar travel animation. A fighter's marker steps through each hex on the line
+// between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
+// Move / Dash / Flicker / Push / Pull read as crossing the board rather than
+// teleporting. The glide is a touch longer than the step so hops overlap into a
+// smooth continuous walk.
+const PATH_STEP_MS = 130;
+const ORB_PATH_TRANSITION = "left 180ms linear, top 180ms linear";
+
+/**
+ * Tween a fighter's *displayed* tile from its previous cell to `targetPos` along
+ * the hex line, returning the cell to draw the avatar at this frame. The real
+ * (session) position still drives targeting/highlights — only the avatar marker
+ * lags behind to animate the trip. `targetPos < 0` means "no session yet" (hold).
+ * The first real value seeds without animating, and an oversized jump (state
+ * resync / reconnect) snaps instead of crawling across the grid.
+ */
+function useWaypointPos(targetPos: number, width: number, height: number): number {
+    const [displayPos, setDisplayPos] = useState(targetPos);
+    const prevRef = useRef(targetPos);
+    const seededRef = useRef(false);
+    const timersRef = useRef<number[]>([]);
+    useEffect(() => {
+        timersRef.current.forEach(id => clearTimeout(id));
+        timersRef.current = [];
+        const to = targetPos;
+        if (to < 0) return;
+        if (!seededRef.current) { seededRef.current = true; prevRef.current = to; setDisplayPos(to); return; }
+        const from = prevRef.current;
+        prevRef.current = to;
+        if (from < 0 || from === to) { setDisplayPos(to); return; }
+        const path = hexLineTiles(from, to, width, height);
+        if (path.length > 8) { setDisplayPos(to); return; }   // big resync — don't crawl
+        path.slice(1).forEach((p, idx) => {                   // path[0] === from (already shown)
+            timersRef.current.push(window.setTimeout(() => setDisplayPos(p), idx * PATH_STEP_MS));
+        });
+        return () => { timersRef.current.forEach(id => clearTimeout(id)); timersRef.current = []; };
+    }, [targetPos, width, height]);
+    return displayPos;
+}
 
 export function PvpBattleScreen({
     character,
@@ -638,6 +679,11 @@ export function PvpBattleScreen({
         return () => { active = false; clearInterval(iv); };
     }, [battleId]);
 
+    // Avatar travel tween — must run unconditionally (above the early return) to
+    // keep hook order stable. -1 while the session is still loading.
+    const p1AnimPos = useWaypointPos(session ? session.p1.pos : -1, gridWidth, gridHeight);
+    const p2AnimPos = useWaypointPos(session ? session.p2.pos : -1, gridWidth, gridHeight);
+
     if (!session) return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -656,6 +702,9 @@ export function PvpBattleScreen({
         && character.name.trim().toLowerCase() !== session.p2.name.trim().toLowerCase();
     const myPos = me.pos;
     const oppPos = opp.pos;
+    // Animated avatar cells (lag behind myPos/oppPos to walk the hex path).
+    const myPathPos = role === "p1" ? p1AnimPos : p2AnimPos;
+    const oppPathPos = role === "p1" ? p2AnimPos : p1AnimPos;
     const myAp = role === "p1" ? session.ap.p1 : session.ap.p2;
     const oppAp = role === "p1" ? session.ap.p2 : session.ap.p1;
     const myCooldowns = role === "p1" ? session.cooldowns.p1 : session.cooldowns.p2;
@@ -710,6 +759,13 @@ export function PvpBattleScreen({
     const inspectedJutsu = sessionEquippedJutsu.find(j => j.id === inspectedJutsuId) ?? null;
     const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tagMatchesName(tag.name, "Move")));
     const pvpIsGroundTargetJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu && (jutsu.target === "EMPTY_GROUND" || pvpIsMoveJutsu(jutsu)));
+    // A jutsu is self-targeted (cast on the caster) when it isn't a ground/Move
+    // jutsu AND it either declares SELF or touches no opponent (no damage + no
+    // opponent-affecting tag). Mirrors the server's targeting gate in
+    // api/pvp/move.ts (selfTarget / affectsOpponent) so a click on the caster's
+    // own tile resolves to exactly what the server applies.
+    const pvpIsSelfTargetJutsu = (jutsu: Jutsu | null | undefined) =>
+        Boolean(jutsu) && !pvpIsGroundTargetJutsu(jutsu) && (jutsu!.target === "SELF" || !pvpAffectsOpponent(jutsu!));
     const pvpGroundEffectClass = (jutsu: Jutsu | null | undefined, tileUse: "target" | "affected") => {
         if (!jutsu) return "";
         const tagNames = new Set((jutsu.tags ?? []).map(tag => normalizeTagName(tag.name)));
@@ -740,7 +796,11 @@ export function PvpBattleScreen({
     const dashRangeTiles = new Set(dashMode ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= 3) : []);
     const moveAdjacentTiles = new Set(selectedActionId === "move" ? pvpHexNeighbors(myPos).filter(t => t !== oppPos) : []);
     const jutsuRange = pendingJutsu ? Math.max(1, Number(pendingJutsu.range) || 1) : 0;
-    const jutsuRangeTiles = new Set(pendingJutsu ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
+    // Range glow + opponent click-target are for jutsu that reach the enemy. A
+    // self/buff jutsu only ever targets the caster's own tile (selfTargetTile
+    // below), so exclude it here — otherwise the enemy hex would light up and a
+    // click on the enemy would fire a self-buff at the wrong tile.
+    const jutsuRangeTiles = new Set(pendingJutsu && !pvpIsSelfTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
     const groundJutsuTiles = new Set(pvpIsGroundTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= jutsuRange) : []);
     const groundJutsuAffectedTiles = new Set(
         pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu)
@@ -755,6 +815,10 @@ export function PvpBattleScreen({
                 : []
             : []
     );
+    // Self/buff jutsu: the affected area is the caster's own tile. When such a
+    // jutsu is armed we light up that tile as the click target so every jutsu
+    // uses the same arm-then-click-target flow (self / opponent / ground).
+    const selfTargetTile = pendingJutsu && pvpIsSelfTargetJutsu(pendingJutsu) ? myPos : -1;
     const activeGroundEffects = session.groundEffects ?? [];
     const pvpEquippedWeapons = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand"; });
     const pvpEquippedThrown = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "thrown"; });
@@ -922,6 +986,10 @@ export function PvpBattleScreen({
         if (selectedActionId === "move" && moveAdjacentTiles.has(tileIdx)) {
             setSelectedActionId(undefined); submitAction("move", tileIdx); return;
         }
+        if (pendingJutsuId && pendingJutsu && pvpIsSelfTargetJutsu(pendingJutsu) && tileIdx === myPos) {
+            const jId = pendingJutsuId; clearPendingPvpJutsu();
+            submitAction("jutsu", undefined, jId); return;
+        }
         if (pendingJutsuId && pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu) && groundJutsuTiles.has(tileIdx)) {
             const jId = pendingJutsuId; clearPendingPvpJutsu();
             submitAction("jutsu", tileIdx, jId); return;
@@ -944,16 +1012,16 @@ export function PvpBattleScreen({
         if (!isMyTurn || submitting || done) return;
         setInspectedJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
         setPendingBasicAttack(false); setPendingWeaponId("");
-        // Target decision mirrors the server (api/pvp/move.ts) exactly via the
-        // shared pvpAffectsOpponent contract: a jutsu is self-only (auto-cast on
-        // the caster) when it is explicitly SELF-target OR touches no opponent
-        // (no damage + no opponent-affecting tag). Anything that touches the
-        // opponent — damage, a debuff, or displacement — must arm-then-click the
-        // enemy so the click matches the server's in-range opponent gate.
-        const selfTarget = jutsu.target === "SELF" || !pvpAffectsOpponent(jutsu);
-        if (pvpIsGroundTargetJutsu(jutsu)) armPendingPvpJutsu(jutsu);
-        else if (selfTarget) submitAction("jutsu", undefined, jutsu.id);
-        else armPendingPvpJutsu(jutsu);
+        // Uniform two-step flow for EVERY jutsu: clicking the card only ARMS it
+        // and highlights the affected hexes — the cast doesn't fire until the
+        // player clicks the actual target tile (handleTileClick): their own tile
+        // for a self/buff jutsu, the opponent for a damage/debuff jutsu, or a
+        // ground tile for an EMPTY_GROUND / Move jutsu. The self/ground/opponent
+        // classification mirrors the server's targeting gate (api/pvp/move.ts via
+        // the shared pvpAffectsOpponent contract), so the click always resolves to
+        // what the server applies. Arming is a card highlight only — it never
+        // writes to the battle log.
+        armPendingPvpJutsu(jutsu);
     }
 
     const fallbackIcon = (j: Jutsu) =>
@@ -1127,26 +1195,32 @@ export function PvpBattleScreen({
                                 left: "0", top: "0",
                             }}>
                                 {(() => {
-                                    const orbForPos = (pos: number, isOpp: boolean, imgSrc: string, altName: string) => {
+                                    const orbForPos = (animPos: number, isOpp: boolean, imgSrc: string, altName: string) => {
+                                        const pos = animPos >= 0 ? animPos : (isOpp ? oppPos : myPos);
                                         const row = Math.floor(pos / gridWidth);
                                         const col = pos % gridWidth;
                                         const ox = col * X_STEP + HEX_W / 2 - ORB / 2;
                                         const oy = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
+                                        const isImg = imgSrc.startsWith("data:image") || imgSrc.startsWith("blob:") || imgSrc.startsWith("/api/img");
                                         return (
-                                            // Glide between cells instead of snapping (Move / Push / Pull /
-                                            // ground relocation) so units read as walking, not teleporting.
-                                            // Stable key => same DOM node => CSS transitions moves, not mount.
+                                            // Walk the hex path between cells instead of snapping (Move / Dash /
+                                            // Flicker / Push / Pull / ground relocation) so units read as travelling,
+                                            // not teleporting. Stable key => same DOM node => CSS transitions each
+                                            // hop. Always rendered (emoji fallback when there's no avatar image) so
+                                            // emoji-only fighters travel too rather than blinking tile-to-tile.
                                             <div key={isOpp ? "opp-orb" : "me-orb"}
                                                 className={`avatar-orb ${isOpp ? "enemy-orb" : ""}`}
-                                                style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                                <img className="tiny-map-avatar" src={imgSrc} alt={altName} />
+                                                style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none", transition: ORB_PATH_TRANSITION }}>
+                                                {isImg
+                                                    ? <img className="tiny-map-avatar" src={imgSrc} alt={altName} />
+                                                    : <span style={{ fontSize: 28, lineHeight: 1 }} role="img" aria-label={altName}>🥷</span>}
                                             </div>
                                         );
                                     };
                                     return (
                                         <>
-                                            {(myAvatar.startsWith("data:image") || myAvatar.startsWith("blob:") || myAvatar.startsWith("/api/img")) && orbForPos(myPos, false, myAvatar, me.name)}
-                                            {(oppAvatar.startsWith("data:image") || oppAvatar.startsWith("blob:") || oppAvatar.startsWith("/api/img")) && orbForPos(oppPos, true, oppAvatar, opp.name)}
+                                            {orbForPos(myPathPos, false, myAvatar, me.name)}
+                                            {orbForPos(oppPathPos, true, oppAvatar, opp.name)}
                                         </>
                                     );
                                 })()}
@@ -1209,19 +1283,16 @@ export function PvpBattleScreen({
                                         const isPendingTarget = (!!pendingJutsuId && i === oppPos && jutsuRangeTiles.has(i)) ||
                                             (!!pendingWeapon && i === oppPos && weaponRangeTilesSet.has(i)) ||
                                             (pendingBasicAttack && i === oppPos && basicAttackRangeTiles.has(i));
+                                        const isSelfTarget = i === selfTargetTile;
                                         return (
                                             <button
                                                 key={i}
-                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}`}
+                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}${isSelfTarget ? " jutsu-self-target-tile" : ""}`}
                                                 style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                                 onMouseEnter={() => setHoveredPvpTile(i)}
                                                 onMouseLeave={() => setHoveredPvpTile(null)}
                                                 onClick={() => handleTileClick(i)}
-                                            >
-                                                {isMyTile && !myAvatar.startsWith("data:") && !myAvatar.startsWith("blob:") && !myAvatar.startsWith("/api/img") ? "🥷"
-                                                    : isOppTile && !oppAvatar.startsWith("data:") && !oppAvatar.startsWith("blob:") && !oppAvatar.startsWith("/api/img") ? "EN"
-                                                    : ""}
-                                            </button>
+                                            />
                                         );
                                     })
                                 )}
