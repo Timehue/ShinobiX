@@ -16,6 +16,7 @@
  * is the thing that failed to load.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportError } from "../lib/sentry";
 
 type Props = { children: ReactNode };
 type State = { error: Error | null };
@@ -51,6 +52,9 @@ export class ErrorBoundary extends Component<Props, State> {
     componentDidCatch(error: Error, info: ErrorInfo): void {
         console.error("[ErrorBoundary]", error, info?.componentStack);
         if (isChunkLoadError(error)) {
+            // Benign: a stale deploy left this tab pointing at 404'd chunk URLs.
+            // Auto-reload once to pull the fresh build; do NOT report it — it's
+            // expected churn, not a bug, and would only burn the event quota.
             try {
                 if (!sessionStorage.getItem(RELOAD_FLAG)) {
                     sessionStorage.setItem(RELOAD_FLAG, "1");
@@ -59,7 +63,11 @@ export class ErrorBoundary extends Component<Props, State> {
             } catch {
                 /* fall through to the manual reload card */
             }
+            return;
         }
+        // Genuine render crash — report it so we hear about it from tooling, not
+        // from players. No-op when Sentry is disabled (DSN unset).
+        reportError(error, { componentStack: info?.componentStack });
     }
 
     private reload = (): void => {

@@ -14,6 +14,7 @@ import { xpNeeded } from "../App";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
+import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
 // snapshots from App), the navigate callback (stable), and a boolean.
@@ -66,6 +67,7 @@ export const MobileNav = memo(function MobileNav({
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
                     <span className="mnb-icon">☰</span>
                     Menu
+                    <MailUnreadDot />
                 </button>
             </nav>
 
@@ -96,7 +98,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
                         <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail</button>
+                        <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail<MailUnreadBadge /></button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
                         <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
                         <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>

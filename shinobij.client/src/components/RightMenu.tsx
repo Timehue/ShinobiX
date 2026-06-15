@@ -19,6 +19,7 @@ import { villageBiomes } from "../data/village-biomes";
 import type { Screen, Biome } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
+import { MailUnreadBadge } from "./MailUnreadBadge";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -81,7 +82,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("village")} disabled={!atHome} title={atHome ? undefined : `Travel to ${characterVillage} to enter`}>Village</button>
                         <button onClick={() => navigate("worldMap")}>Travel</button>
                         <button onClick={() => navigate("userHub")}>Users</button>
-                        <button onClick={() => navigate("messages")}>📬 Mail</button>
+                        <button onClick={() => navigate("messages")}>📬 Mail<MailUnreadBadge /></button>
                         <button onClick={() => navigate("missions")}>Missions</button>
                         <button onClick={() => navigate("training")}>Training</button>
                         <button onClick={() => navigate("profile")}>Character</button>

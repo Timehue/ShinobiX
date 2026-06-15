@@ -17785,6 +17785,36 @@ button.combat-jutsu-button,
   display: none; /* hidden on desktop */
 }
 
+/* Unread-mail indicators (shared by the desktop right-rail + mobile nav). */
+.mail-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: 7px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-nav-unread-dot {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #dc2626;
+  box-shadow: 0 0 0 2px #0b1120;
+}
+
 @media (max-width: 800px) {
   /* Add bottom padding to center-game so content isn't under the nav */
   .center-game {
@@ -17847,6 +17877,7 @@ button.combat-jutsu-button,
     color: #facc15;
     background: rgba(250,204,21,0.1);
     border: 1px solid rgba(250,204,21,0.3);
+    position: relative; /* anchor for the unread-mail dot */
   }
 
   .mobile-nav-btn:disabled {
