@@ -18,16 +18,16 @@ const C_COMBAT = [
     { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
 ];
 const C_FIELD = [
-    { id: 'hunt-wild-boar', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {} },
-    { id: 'hunt-forest-hawk', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {} },
-    { id: 'hunt-frost-wolf', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {} },
-    { id: 'hunt-ash-lizard', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {} },
-    { id: 'hunt-shadow-panther', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 } },
-    { id: 'hunt-ironback-bear', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 } },
-    { id: 'hunt-ember-drake', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: 'hunt-moon-serpent', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: 'hunt-ancient-chakra-beast', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 } },
-    { id: 'hunt-worldstorm-dragon', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 } },
+    { id: 'hunt-wild-boar', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {}, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-torn-hide'] },
+    { id: 'hunt-forest-hawk', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, currencyRewards: {}, itemRewards: ['hunt-beast-meat', 'hunt-wild-feather', 'hunt-small-fang'] },
+    { id: 'hunt-frost-wolf', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {}, itemRewards: ['hunt-wolf-fang', 'hunt-wolf-fang', 'hunt-frost-pelt'] },
+    { id: 'hunt-ash-lizard', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, currencyRewards: {}, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-cracked-horn'] },
+    { id: 'hunt-shadow-panther', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
+    { id: 'hunt-ironback-bear', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-cracked-horn', 'hunt-cracked-horn'] },
+    { id: 'hunt-ember-drake', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-ember-scale', 'hunt-wolf-fang'] },
+    { id: 'hunt-moon-serpent', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
+    { id: 'hunt-ancient-chakra-beast', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-ancient-beast-core'] },
+    { id: 'hunt-worldstorm-dragon', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-titan-bone'] },
     { id: 'fetch-d-supply-trail', levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8, currencyRewards: {} },
     { id: 'fetch-c-border-scout', levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14, currencyRewards: {} },
     { id: 'fetch-b-enemy-cache', levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
@@ -53,7 +53,19 @@ const C_FIELD = [
             node_assert_1.strict.equal(got.ryoReward, want.ryoReward, `${want.id} ryoReward`);
             node_assert_1.strict.equal(got.staminaReward, want.staminaReward, `${want.id} staminaReward`);
             node_assert_1.strict.deepEqual(got.currencyRewards ?? {}, want.currencyRewards, `${want.id} currency`);
+            node_assert_1.strict.deepEqual(got.itemRewards ?? [], want.itemRewards ?? [], `${want.id} itemRewards`);
         }
+    });
+    (0, node_test_1.it)('HUNT_MISSION_IDS = exactly the hunt-* entries (those carrying itemRewards)', () => {
+        const huntIds = C_FIELD.filter((m) => Array.isArray(m.itemRewards)).map((m) => m.id);
+        node_assert_1.strict.equal(_mission_catalog_js_1.HUNT_MISSION_IDS.size, huntIds.length);
+        for (const id of huntIds)
+            node_assert_1.strict.ok(_mission_catalog_js_1.HUNT_MISSION_IDS.has(id), `HUNT_MISSION_IDS missing ${id}`);
+        // huntMissionById resolves hunts but NOT fetches (so a fetch id can't be
+        // claimed against the hunt cap).
+        node_assert_1.strict.ok((0, _mission_catalog_js_1.huntMissionById)('hunt-wild-boar'), 'hunt resolves');
+        node_assert_1.strict.equal((0, _mission_catalog_js_1.huntMissionById)('fetch-d-supply-trail'), undefined, 'fetch is not a hunt');
+        node_assert_1.strict.equal((0, _mission_catalog_js_1.huntMissionById)('nope'), undefined, 'unknown is not a hunt');
     });
     (0, node_test_1.it)('Academy Trial is tiny, one-time, no premium currency', () => {
         node_assert_1.strict.equal(_mission_catalog_js_1.ACADEMY_TRIAL.id, 'academy-trial');
@@ -99,7 +111,33 @@ const C_FIELD = [
         node_assert_1.strict.equal(fields.clanContribMonth, '2026-06');
     });
 });
+(0, node_test_1.describe)('hunt daily-cap accounting matches character-progress.ts (hunt pool)', () => {
+    (0, node_test_1.it)('hasDailyHuntSlot honours the 20/day cap keyed on lastHuntReset (independent of missions)', () => {
+        node_assert_1.strict.equal(_mission_catalog_js_1.DAILY_HUNT_LIMIT, 20);
+        node_assert_1.strict.equal((0, _mission_catalog_js_1.dailyHuntsCompleted)({}, '2026-06-13'), 0);
+        node_assert_1.strict.equal((0, _mission_catalog_js_1.dailyHuntsCompleted)({ lastHuntReset: '2026-06-12', dailyHuntsCompleted: 19 }, '2026-06-13'), 0); // stale day → reset
+        node_assert_1.strict.equal((0, _mission_catalog_js_1.dailyHuntsCompleted)({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 19 }, '2026-06-13'), 19);
+        node_assert_1.strict.ok((0, _mission_catalog_js_1.hasDailyHuntSlot)({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 19 }, '2026-06-13'));
+        node_assert_1.strict.ok(!(0, _mission_catalog_js_1.hasDailyHuntSlot)({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 20 }, '2026-06-13'));
+        // Mission counter does NOT consume hunt slots (separate pools).
+        node_assert_1.strict.ok((0, _mission_catalog_js_1.hasDailyHuntSlot)({ lastDailyReset: '2026-06-13', dailyMissionsCompleted: 20 }, '2026-06-13'));
+    });
+    (0, node_test_1.it)('markHuntCompletedFields bumps the hunt counter + clan/lifetime totals, stamps day/month', () => {
+        const fields = (0, _mission_catalog_js_1.markHuntCompletedFields)({ lastHuntReset: '2026-06-13', dailyHuntsCompleted: 4, totalMissionsCompleted: 10, clanMissionContrib: 2 }, '2026-06-13', '2026-06');
+        node_assert_1.strict.equal(fields.totalMissionsCompleted, 11);
+        node_assert_1.strict.equal(fields.dailyHuntsCompleted, 5);
+        node_assert_1.strict.equal(fields.clanMissionContrib, 3);
+        node_assert_1.strict.equal(fields.lastHuntReset, '2026-06-13');
+        node_assert_1.strict.equal(fields.clanContribMonth, '2026-06');
+    });
+});
 (0, node_test_1.describe)('reward application helpers', () => {
+    (0, node_test_1.it)('grantItemsToInventory appends literal item ids, dropping blanks/non-strings', () => {
+        node_assert_1.strict.deepEqual((0, _mission_catalog_js_1.grantItemsToInventory)({ inventory: ['a'] }, ['x', 'y']), ['a', 'x', 'y']);
+        node_assert_1.strict.deepEqual((0, _mission_catalog_js_1.grantItemsToInventory)({}, ['x']), ['x']);
+        node_assert_1.strict.deepEqual((0, _mission_catalog_js_1.grantItemsToInventory)({ inventory: ['a'] }, undefined), ['a']);
+        node_assert_1.strict.deepEqual((0, _mission_catalog_js_1.grantItemsToInventory)({ inventory: [] }, ['x', '', 'y']), ['x', 'y']);
+    });
     (0, node_test_1.it)('applyCurrencyRewardFields adds only positive amounts onto existing balances', () => {
         const fields = (0, _mission_catalog_js_1.applyCurrencyRewardFields)({ boneCharms: 5, auraDust: 1 }, { boneCharms: 2, auraDust: 20, fateShards: 0 });
         node_assert_1.strict.deepEqual(fields, { boneCharms: 7, auraDust: 21 });

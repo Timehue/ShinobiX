@@ -488,6 +488,25 @@ function sanitizeCharacterSave(
         chunin: 39,
         // jonin / specialJonin don't have level gates per App.tsx EXAM_LEVEL_GATES
     };
+    // Server-side requirement FLOOR (gameplay-loop audit L-1). The full exam
+    // checklist (elements, stat-training, jutsu mastery, clan, boss defeats) is
+    // evaluated client-side; here we additionally enforce the subset backed by
+    // the rate-limited lifetime counters clamped above, so a tampered client
+    // can't just append an exam key at the level threshold and skip the grind.
+    // We ONLY check counters the sanitizer itself bounds (expensive to forge)
+    // and FAIL OPEN on every requirement we can't verify here — a legit player
+    // who passed client-side always carries these counters (same character
+    // state the client gated on), so this can never softlock a real player.
+    // max(totalMissionsCompleted, clanMissionContrib) mirrors the client's
+    // `?? clanMissionContrib` fallback so the server is never stricter.
+    const examCounter = (field: string): number => Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
+    const examMissionsDone = Math.max(examCounter('totalMissionsCompleted'), examCounter('clanMissionContrib'));
+    const EXAM_COUNTER_REQUIREMENTS_MET: Record<string, boolean> = {
+        genin: examCounter('totalAiKills') >= 20 && examMissionsDone >= 20 && examCounter('totalTilesExplored') >= 50,
+        chunin: examMissionsDone >= 50 && examCounter('totalTilesExplored') >= 100,
+        jonin: examCounter('totalPvpKills') >= 10 && examCounter('totalVillageRaids') >= 20,
+        specialJonin: examCounter('totalPvpKills') >= 100,
+    };
     const exExams = Array.isArray(exChar.examsPassed) ? (exChar.examsPassed as unknown[]).map(String) : [];
     const inExams = Array.isArray(char.examsPassed) ? (char.examsPassed as unknown[]).map(String) : [];
     const charLevel = Number(char.level ?? exChar.level ?? 1);
@@ -500,11 +519,13 @@ function sanitizeCharacterSave(
             seenExams.add(e);
         }
     }
-    // Accept NEW exam additions only if they pass the level gate.
+    // Accept NEW exam additions only if they pass the level gate AND the
+    // server-trackable requirement floor. Exams absent from the map fail open.
     for (const e of inExams) {
         if (!KNOWN_EXAMS.has(e) || seenExams.has(e)) continue;
         const required = EXAM_LEVEL_GATES_SERVER[e];
         if (required != null && charLevel < required) continue;
+        if (e in EXAM_COUNTER_REQUIREMENTS_MET && !EXAM_COUNTER_REQUIREMENTS_MET[e]) continue;
         validatedExams.push(e);
         seenExams.add(e);
     }

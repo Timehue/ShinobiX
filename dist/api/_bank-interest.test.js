@@ -7,6 +7,9 @@ const _bank_interest_js_1 = require("./_bank-interest.js");
 // + lib/village-upgrades.ts), kept SEPARATE from the port so a drift on either
 // side fails the sweep below. If the client formula changes, both must change.
 const C_PER_LEVEL = 0.25, C_MAX_LEVEL = 50, C_WINDOW = 24 * 60 * 60 * 1000;
+// Mirror of Bank.tsx BANK_INTEREST_PRINCIPAL_CAP (M-2): interest is paid on at
+// most this much banked ryo.
+const C_PRINCIPAL_CAP = 10_000_000;
 function cInterestPercent(char) {
     const up = (char.villageUpgrades && typeof char.villageUpgrades === 'object') ? char.villageUpgrades : {};
     const lvl = Math.min(C_MAX_LEVEL, Math.max(0, Math.floor(Number(up.bank ?? 0)) || 0));
@@ -18,7 +21,7 @@ function cClaim(char, now) {
     const bankRyo = Number(char.bankRyo ?? 0) || 0;
     const interestPercent = cInterestPercent(char);
     const nextClaimAt = (Number(char.lastBankInterestAt ?? 0) || 0) + C_WINDOW;
-    const projected = Math.max(0, Math.floor(bankRyo * (interestPercent / 100)));
+    const projected = Math.max(0, Math.floor(Math.min(bankRyo, C_PRINCIPAL_CAP) * (interestPercent / 100)));
     const canClaim = bankRyo > 0 && interestPercent > 0 && now >= nextClaimAt && projected > 0;
     return { canClaim, projected, interestPercent, nextClaimAt };
 }
@@ -64,6 +67,14 @@ function cClaim(char, now) {
         const ok = (0, _bank_interest_js_1.computeBankInterest)(char, 1_000_000 + _bank_interest_js_1.BANK_INTEREST_WINDOW_MS);
         node_assert_1.strict.equal(ok.eligible, true);
         node_assert_1.strict.equal(ok.interest, 50); // floor(1000 * 5/100)
+    });
+    (0, node_test_1.it)('caps the interest-earning principal at 10M ryo (M-2 anti-inflation guardrail)', () => {
+        const t = 10 * _bank_interest_js_1.BANK_INTEREST_WINDOW_MS;
+        // At max bank (12.5%): under the cap scales linearly; at/above the cap the
+        // payout flattens to floor(10M * 12.5%) = 1,250,000 regardless of balance.
+        node_assert_1.strict.equal((0, _bank_interest_js_1.computeBankInterest)({ bankRyo: 8_000_000, villageUpgrades: { bank: 50 } }, t).interest, 1_000_000);
+        node_assert_1.strict.equal((0, _bank_interest_js_1.computeBankInterest)({ bankRyo: 10_000_000, villageUpgrades: { bank: 50 } }, t).interest, 1_250_000);
+        node_assert_1.strict.equal((0, _bank_interest_js_1.computeBankInterest)({ bankRyo: 50_000_000, villageUpgrades: { bank: 50 } }, t).interest, 1_250_000);
     });
     (0, node_test_1.it)('reasons: no-upgrade / empty / too-small', () => {
         const t = 10 * _bank_interest_js_1.BANK_INTEREST_WINDOW_MS;

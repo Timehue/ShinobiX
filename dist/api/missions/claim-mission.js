@@ -10,18 +10,22 @@ const _xp_engine_js_1 = require("../_xp-engine.js");
 const _progress_js_1 = require("./_progress.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Server-authoritative mission claim. Replaces the old client-side reward math
-// for built-in COMBAT and FIELD missions and the onboarding ACADEMY-TRIAL: the
-// client posts only { missionType, missionId } — never amounts — and the server
-// resolves the reward from the trusted catalog, recomputes XP with the same
-// engine as the client (api/_xp-engine.gainXp), enforces eligibility, persists
-// under the save lock, and returns the server-computed amounts for the client to
-// mirror onto its local character (same reconcile pattern as report-pet-event).
+// for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
+// the client posts only { missionType, missionId } — never amounts — and the
+// server resolves the reward from the trusted catalog, recomputes XP with the
+// same engine as the client (api/_xp-engine.gainXp), enforces eligibility,
+// persists under the save lock, and returns the server-computed amounts for the
+// client to mirror onto its local character (reconcile pattern as report-pet-event).
 //
 // Eligibility enforced server-side (against the SAVED character, not the body):
 //   • combat       — missionId must be in pendingCombatMissionClaims (queued by
 //                    the Arena win); consumed on claim. Counts toward daily cap.
 //   • field        — level requirement + daily cap. (Explore/raid progress stays
 //                    client-tracked — same trust model as raids/expeditions.)
+//   • hunt         — Hunter Guild contract: level req + the INDEPENDENT daily
+//                    hunt cap; grants material drops (itemRewards) server-side so
+//                    they can't be minted client-side (audit M-1). Hunt progress
+//                    (explore count) stays client-tracked like field missions.
 //   • academy-trial— one-time (character.academyTrialClaimed). OFF the daily cap.
 //
 // Unknown / creator-authored mission ids are not in the catalog → the response
@@ -49,7 +53,7 @@ async function handler(req, res) {
         const missionId = String(body.missionId ?? '').slice(0, 80);
         if (!playerName)
             return res.status(400).json({ error: 'Invalid player name.' });
-        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'academy-trial') {
+        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial') {
             return res.status(400).json({ error: 'Invalid mission type.' });
         }
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
@@ -73,6 +77,7 @@ async function handler(req, res) {
             // ── Resolve mission + per-type eligibility ──────────────────────
             let baseXp = 0, baseRyo = 0, baseStamina = 0;
             let scrolls = 0;
+            let items = [];
             let currencyBase;
             let combat;
             let completion = 'daily';
@@ -107,6 +112,24 @@ async function handler(req, res) {
                 currencyBase = def.currencyRewards;
                 completion = 'daily';
             }
+            else if (missionType === 'hunt') {
+                // Hunter Guild contract — own daily pool, grants material drops.
+                // Creator-authored hunts aren't in the catalog → clientFallback.
+                const def = (0, _mission_catalog_js_1.huntMissionById)(missionId);
+                if (!def)
+                    return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (Number(char.level ?? 1) < def.levelReq)
+                    return { applied: false, reason: 'level' };
+                if (!(0, _mission_catalog_js_1.hasDailyHuntSlot)(char, todayKey))
+                    return { applied: false, reason: 'daily-cap' };
+                baseXp = def.xpReward;
+                baseRyo = def.ryoReward;
+                baseStamina = def.staminaReward;
+                scrolls = _mission_catalog_js_1.HUNT_MISSION_SCROLLS;
+                currencyBase = def.currencyRewards;
+                items = def.itemRewards ?? [];
+                completion = 'hunt';
+            }
             else {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed)
@@ -131,6 +154,9 @@ async function handler(req, res) {
             if (scrolls > 0) {
                 next = { ...next, inventory: (0, _mission_catalog_js_1.grantTerritoryScrollsToInventory)(next, scrolls) };
             }
+            if (items.length > 0) {
+                next = { ...next, inventory: (0, _mission_catalog_js_1.grantItemsToInventory)(next, items) };
+            }
             const currencyFields = (0, _mission_catalog_js_1.applyCurrencyRewardFields)(next, currencyBase);
             next = { ...next, ...currencyFields };
             if (combat) {
@@ -150,6 +176,9 @@ async function handler(req, res) {
             }
             if (completion === 'daily') {
                 next = { ...next, ...(0, _mission_catalog_js_1.markMissionCompletedFields)(next, todayKey, monthKey) };
+            }
+            else if (completion === 'hunt') {
+                next = { ...next, ...(0, _mission_catalog_js_1.markHuntCompletedFields)(next, todayKey, monthKey) };
             }
             else if (completion === 'total') {
                 next = {
@@ -171,6 +200,7 @@ async function handler(req, res) {
                     stamina: staminaBoosted,
                     territoryScrolls: scrolls,
                     currency: currencyBase ? { ...currencyBase } : {},
+                    items: [...items],
                 },
                 combat,
                 completion,
