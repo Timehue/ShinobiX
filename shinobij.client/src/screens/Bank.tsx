@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { type Character, getBankInterestPercent } from "../App";
 
+// MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
+// audit M-2): interest is paid on at most this much banked ryo, so the projected
+// figure shown here matches the server's authoritative payout. Keep in lockstep.
+const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
+
 export function Bank({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
     const [amount, setAmount] = useState(0);
     const interestPercent = getBankInterestPercent(character);
@@ -8,7 +13,7 @@ export function Bank({ character, updateCharacter }: { character: Character; upd
     const nextClaimAt = lastClaim + 24 * 60 * 60 * 1000;
     // eslint-disable-next-line react-hooks/purity -- claim-eligibility is time-sensitive; re-evaluated on every re-render is intentional
     const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
-    const projectedInterest = Math.max(0, Math.floor(character.bankRyo * (interestPercent / 100)));
+    const projectedInterest = Math.max(0, Math.floor(Math.min(character.bankRyo, BANK_INTEREST_PRINCIPAL_CAP) * (interestPercent / 100)));
 
     function deposit() {
         // Number.isFinite guard: a non-numeric input yields NaN, and `NaN > ryo`

@@ -9,30 +9,39 @@ import { utcDateKey, reportNewbieEvent } from './_progress.js';
 import {
     combatMissionByKey,
     fieldMissionById,
+    huntMissionById,
     ACADEMY_TRIAL,
     missionRewardBonusPct,
     boostAmount,
     hasDailyMissionSlot,
+    hasDailyHuntSlot,
     markMissionCompletedFields,
+    markHuntCompletedFields,
     applyCurrencyRewardFields,
     grantTerritoryScrollsToInventory,
+    grantItemsToInventory,
     FIELD_MISSION_SCROLLS,
+    HUNT_MISSION_SCROLLS,
     type CurrencyKey,
 } from './_mission-catalog.js';
 
 // Server-authoritative mission claim. Replaces the old client-side reward math
-// for built-in COMBAT and FIELD missions and the onboarding ACADEMY-TRIAL: the
-// client posts only { missionType, missionId } — never amounts — and the server
-// resolves the reward from the trusted catalog, recomputes XP with the same
-// engine as the client (api/_xp-engine.gainXp), enforces eligibility, persists
-// under the save lock, and returns the server-computed amounts for the client to
-// mirror onto its local character (same reconcile pattern as report-pet-event).
+// for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
+// the client posts only { missionType, missionId } — never amounts — and the
+// server resolves the reward from the trusted catalog, recomputes XP with the
+// same engine as the client (api/_xp-engine.gainXp), enforces eligibility,
+// persists under the save lock, and returns the server-computed amounts for the
+// client to mirror onto its local character (reconcile pattern as report-pet-event).
 //
 // Eligibility enforced server-side (against the SAVED character, not the body):
 //   • combat       — missionId must be in pendingCombatMissionClaims (queued by
 //                    the Arena win); consumed on claim. Counts toward daily cap.
 //   • field        — level requirement + daily cap. (Explore/raid progress stays
 //                    client-tracked — same trust model as raids/expeditions.)
+//   • hunt         — Hunter Guild contract: level req + the INDEPENDENT daily
+//                    hunt cap; grants material drops (itemRewards) server-side so
+//                    they can't be minted client-side (audit M-1). Hunt progress
+//                    (explore count) stays client-tracked like field missions.
 //   • academy-trial— one-time (character.academyTrialClaimed). OFF the daily cap.
 //
 // Unknown / creator-authored mission ids are not in the catalog → the response
@@ -52,9 +61,10 @@ type ClaimOutcome =
             stamina: number;
             territoryScrolls: number;
             currency: Partial<Record<CurrencyKey, number>>;
+            items: string[];          // literal item ids (hunt material drops)
         };
         combat?: { aiProfileId: string; missionKey: string };
-        completion: 'daily' | 'total' | 'none';
+        completion: 'daily' | 'total' | 'none' | 'hunt';
         academyTrialClaimed?: boolean;
     };
 
@@ -73,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const missionType = String(body.missionType ?? '');
         const missionId = String(body.missionId ?? '').slice(0, 80);
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'academy-trial') {
+        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial') {
             return res.status(400).json({ error: 'Invalid mission type.' });
         }
 
@@ -100,9 +110,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // ── Resolve mission + per-type eligibility ──────────────────────
             let baseXp = 0, baseRyo = 0, baseStamina = 0;
             let scrolls = 0;
+            let items: string[] = [];
             let currencyBase: Partial<Record<CurrencyKey, number>> | undefined;
             let combat: { aiProfileId: string; missionKey: string } | undefined;
-            let completion: 'daily' | 'total' | 'none' = 'daily';
+            let completion: 'daily' | 'total' | 'none' | 'hunt' = 'daily';
             let academyTrialClaimed = false;
 
             if (missionType === 'combat') {
@@ -122,6 +133,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 scrolls = FIELD_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 completion = 'daily';
+            } else if (missionType === 'hunt') {
+                // Hunter Guild contract — own daily pool, grants material drops.
+                // Creator-authored hunts aren't in the catalog → clientFallback.
+                const def = huntMissionById(missionId);
+                if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (Number(char.level ?? 1) < def.levelReq) return { applied: false, reason: 'level' };
+                if (!hasDailyHuntSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
+                baseXp = def.xpReward; baseRyo = def.ryoReward; baseStamina = def.staminaReward;
+                scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
+                items = def.itemRewards ?? [];
+                completion = 'hunt';
             } else {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed) return { applied: false, reason: 'already-claimed' };
@@ -145,6 +167,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (scrolls > 0) {
                 next = { ...next, inventory: grantTerritoryScrollsToInventory(next, scrolls) };
             }
+            if (items.length > 0) {
+                next = { ...next, inventory: grantItemsToInventory(next, items) };
+            }
             const currencyFields = applyCurrencyRewardFields(next, currencyBase);
             next = { ...next, ...currencyFields };
 
@@ -166,6 +191,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (completion === 'daily') {
                 next = { ...next, ...markMissionCompletedFields(next, todayKey, monthKey) };
+            } else if (completion === 'hunt') {
+                next = { ...next, ...markHuntCompletedFields(next, todayKey, monthKey) };
             } else if (completion === 'total') {
                 next = {
                     ...next,
@@ -187,6 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     stamina: staminaBoosted,
                     territoryScrolls: scrolls,
                     currency: currencyBase ? { ...currencyBase } : {},
+                    items: [...items],
                 },
                 combat,
                 completion,

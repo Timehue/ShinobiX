@@ -14,23 +14,34 @@
 // The colocated _mission-catalog.test.ts pins these against an inline replica;
 // a drift on either side must change both (that's the point).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ACADEMY_TRIAL = exports.FIELD_MISSIONS = exports.COMBAT_MISSIONS = exports.CURRENCY_KEYS = exports.FIELD_MISSION_SCROLLS = exports.VILLAGE_UPGRADE_MAX_LEVEL = exports.DAILY_MISSION_LIMIT = exports.AURA_SPHERE_ITEM_ID = exports.TERRITORY_CONTROL_SCROLL_ID = void 0;
+exports.HUNT_MISSION_IDS = exports.ACADEMY_TRIAL = exports.FIELD_MISSIONS = exports.COMBAT_MISSIONS = exports.CURRENCY_KEYS = exports.HUNT_MISSION_SCROLLS = exports.FIELD_MISSION_SCROLLS = exports.VILLAGE_UPGRADE_MAX_LEVEL = exports.DAILY_HUNT_LIMIT = exports.DAILY_MISSION_LIMIT = exports.AURA_SPHERE_ITEM_ID = exports.TERRITORY_CONTROL_SCROLL_ID = void 0;
 exports.combatMissionByKey = combatMissionByKey;
 exports.fieldMissionById = fieldMissionById;
+exports.huntMissionById = huntMissionById;
 exports.missionRewardBonusPct = missionRewardBonusPct;
 exports.boostAmount = boostAmount;
 exports.dailyMissionsCompleted = dailyMissionsCompleted;
 exports.hasDailyMissionSlot = hasDailyMissionSlot;
+exports.dailyHuntsCompleted = dailyHuntsCompleted;
+exports.hasDailyHuntSlot = hasDailyHuntSlot;
+exports.markHuntCompletedFields = markHuntCompletedFields;
 exports.markMissionCompletedFields = markMissionCompletedFields;
 exports.applyCurrencyRewardFields = applyCurrencyRewardFields;
 exports.grantTerritoryScrollsToInventory = grantTerritoryScrollsToInventory;
+exports.grantItemsToInventory = grantItemsToInventory;
 exports.TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 exports.AURA_SPHERE_ITEM_ID = 'aura-sphere';
 exports.DAILY_MISSION_LIMIT = 20;
+// Hunter Guild contracts use a daily pool independent of missions (own counter
+// + reset key), so 20 hunts and 20 missions can be done in the same day. Mirror
+// of constants/game.ts DAILY_HUNT_LIMIT. (audit M-1)
+exports.DAILY_HUNT_LIMIT = 20;
 exports.VILLAGE_UPGRADE_MAX_LEVEL = 50;
 // Field missions always grant a flat 3 Territory Control Scrolls on claim
-// (matches Logbook.claimMission's grantTerritoryScrolls(..., 3)).
+// (matches Logbook.claimMission's grantTerritoryScrolls(..., 3)). Hunts grant
+// the same flat 3 (matches HunterBoard.claimHunt's grantTerritoryScrolls(..., 3)).
 exports.FIELD_MISSION_SCROLLS = 3;
+exports.HUNT_MISSION_SCROLLS = 3;
 exports.CURRENCY_KEYS = [
     'fateShards', 'honorSeals', 'boneCharms', 'auraStones', 'auraDust', 'mythicSeals',
 ];
@@ -43,18 +54,20 @@ exports.COMBAT_MISSIONS = [
     { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
 ];
 // ── FIELD_MISSIONS — mirror of data/missions.ts (hunt + fetch builtins) ──────
+// hunt-* entries carry itemRewards (Hunter-Guild materials) and are claimed via
+// the 'hunt' missionType (own daily cap); fetch-* entries via 'field'.
 exports.FIELD_MISSIONS = [
     // builtinHuntMissions
-    { id: 'hunt-wild-boar', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8 },
-    { id: 'hunt-forest-hawk', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8 },
-    { id: 'hunt-frost-wolf', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12 },
-    { id: 'hunt-ash-lizard', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12 },
-    { id: 'hunt-shadow-panther', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 } },
-    { id: 'hunt-ironback-bear', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 } },
-    { id: 'hunt-ember-drake', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: 'hunt-moon-serpent', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: 'hunt-ancient-chakra-beast', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 } },
-    { id: 'hunt-worldstorm-dragon', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 } },
+    { id: 'hunt-wild-boar', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-torn-hide'] },
+    { id: 'hunt-forest-hawk', levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, itemRewards: ['hunt-beast-meat', 'hunt-wild-feather', 'hunt-small-fang'] },
+    { id: 'hunt-frost-wolf', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, itemRewards: ['hunt-wolf-fang', 'hunt-wolf-fang', 'hunt-frost-pelt'] },
+    { id: 'hunt-ash-lizard', levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-cracked-horn'] },
+    { id: 'hunt-shadow-panther', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
+    { id: 'hunt-ironback-bear', levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, itemRewards: ['hunt-beast-meat', 'hunt-beast-meat', 'hunt-cracked-horn', 'hunt-cracked-horn'] },
+    { id: 'hunt-ember-drake', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-ash-scale', 'hunt-ash-scale', 'hunt-ember-scale', 'hunt-wolf-fang'] },
+    { id: 'hunt-moon-serpent', levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, itemRewards: ['hunt-shadow-pelt', 'hunt-shadow-pelt', 'hunt-shadow-claw', 'hunt-shadow-claw'] },
+    { id: 'hunt-ancient-chakra-beast', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-ancient-beast-core'] },
+    { id: 'hunt-worldstorm-dragon', levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, itemRewards: ['hunt-legendary-material', 'hunt-legendary-material', 'hunt-titan-bone'] },
     // builtinFetchMissions
     { id: 'fetch-d-supply-trail', levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8 },
     { id: 'fetch-c-border-scout', levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14 },
@@ -76,6 +89,13 @@ function combatMissionByKey(key) {
 }
 function fieldMissionById(id) {
     return exports.FIELD_MISSIONS.find((m) => m.id === id);
+}
+// The built-in hunt ids (every FIELD_MISSIONS entry that carries itemRewards).
+// The 'hunt' claim path resolves rewards through fieldMissionById but only for
+// ids in this set, so a fetch mission can't be claimed against the hunt cap.
+exports.HUNT_MISSION_IDS = new Set(exports.FIELD_MISSIONS.filter((m) => Array.isArray(m.itemRewards)).map((m) => m.id));
+function huntMissionById(id) {
+    return exports.HUNT_MISSION_IDS.has(id) ? fieldMissionById(id) : undefined;
 }
 function missionHallBonusPct(char) {
     const upgrades = char.villageUpgrades ?? {};
@@ -111,6 +131,26 @@ function dailyMissionsCompleted(char, todayKey) {
 function hasDailyMissionSlot(char, todayKey) {
     return dailyMissionsCompleted(char, todayKey) < exports.DAILY_MISSION_LIMIT;
 }
+// ── Hunt daily-cap accounting — mirror of character-progress.ts (hunt pool).
+//    The hunt cap lives on its own counter (dailyHuntsCompleted + lastHuntReset),
+//    independent of the mission cap. (audit M-1)
+function dailyHuntsCompleted(char, todayKey) {
+    return char.lastHuntReset === todayKey ? Number(char.dailyHuntsCompleted ?? 0) : 0;
+}
+function hasDailyHuntSlot(char, todayKey) {
+    return dailyHuntsCompleted(char, todayKey) < exports.DAILY_HUNT_LIMIT;
+}
+// Mirror of character-progress.markHuntCompleted — caller spreads these onto the
+// char. Bumps the clan/lifetime aggregates like a mission, plus the hunt counter.
+function markHuntCompletedFields(char, todayKey, monthKey) {
+    return {
+        clanMissionContrib: Number(char.clanMissionContrib ?? 0) + 1,
+        totalMissionsCompleted: Number(char.totalMissionsCompleted ?? 0) + 1,
+        dailyHuntsCompleted: dailyHuntsCompleted(char, todayKey) + 1,
+        lastHuntReset: todayKey,
+        clanContribMonth: monthKey,
+    };
+}
 // Returns the character fields that markMissionCompleted bumps (mirror of
 // character-progress.markMissionCompleted) — caller spreads these onto the char.
 function markMissionCompletedFields(char, todayKey, monthKey) {
@@ -139,4 +179,10 @@ function grantTerritoryScrollsToInventory(char, count) {
     const inventory = Array.isArray(char.inventory) ? char.inventory : [];
     const n = Math.max(0, Math.floor(count));
     return [...inventory, ...Array.from({ length: n }, () => exports.TERRITORY_CONTROL_SCROLL_ID)];
+}
+// Append literal item ids (e.g. hunt material drops) onto the inventory array.
+function grantItemsToInventory(char, items) {
+    const inventory = Array.isArray(char.inventory) ? char.inventory : [];
+    const add = Array.isArray(items) ? items.filter((i) => typeof i === 'string' && !!i) : [];
+    return [...inventory, ...add];
 }

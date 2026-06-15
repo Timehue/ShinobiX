@@ -21,6 +21,16 @@ export const BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BANK_UPGRADE_PER_LEVEL = 0.25;
 const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 
+// Anti-inflation guardrail (gameplay-loop audit M-2). Interest is paid on at
+// most this much principal, so a very large vault earns a FLAT (linear) amount
+// rather than an unbounded COMPOUNDING one — past the cap, the balance grows by
+// a fixed daily ryo figure, not a fixed percentage, so it can't double itself
+// forever. Below the cap behaviour is identical to before (no rate change), and
+// the cap is far above any normal balance (the top wealth achievement is 5M
+// wallet+bank), so legitimate players are unaffected. TUNABLE: lower to tighten
+// the faucet. MIRROR: shinobij.client/src/screens/Bank.tsx `projectedInterest`.
+export const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
+
 type CharLike = Record<string, unknown>;
 
 /** villageUpgradeBonus(character,'bank') — clamp(floor(level),0,50) * 0.25. */
@@ -54,7 +64,9 @@ export function computeBankInterest(char: CharLike, now: number): BankInterestRe
     if (interestPercent <= 0) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'no-upgrade' };
     if (bankRyo <= 0) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'empty' };
     if (now < nextClaimAt) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'cooldown' };
-    const interest = Math.max(0, Math.floor(bankRyo * (interestPercent / 100)));
+    // Pay interest only on the first BANK_INTEREST_PRINCIPAL_CAP ryo (M-2).
+    const principal = Math.min(bankRyo, BANK_INTEREST_PRINCIPAL_CAP);
+    const interest = Math.max(0, Math.floor(principal * (interestPercent / 100)));
     if (interest <= 0) return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'too-small' };
     return { eligible: true, interest, interestPercent, nextClaimAt, reason: 'ok' };
 }
