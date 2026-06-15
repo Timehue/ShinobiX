@@ -16,6 +16,7 @@ import { ADMIN_DELETED_ITEM_MARKER } from "../constants/game";
 import { starterItems } from "../data/starter-items";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import type { Character } from "../types/character";
+import { addItems, unifiedItemStacks } from "./inventory";
 
 export function isArmorOrGloveItem(item: GameItem) {
     const armorSlots: EquipmentSlot[] = ["head", "body", "armor", "waist", "legs", "feet"];
@@ -115,10 +116,16 @@ export function removeTreasuryItem(items: TreasuryItemStack[] | undefined, itemI
         .filter((stack) => stack.count > 0);
 }
 
+// Add items, routing each id to the correct store (uniques → inventory[],
+// stackables → itemStacks). Thin wrapper over lib/inventory `addItems`.
 export function addInventoryItems(character: Character, itemIds: string[]) {
-    return { ...character, inventory: [...character.inventory, ...itemIds] };
+    return addItems(character, itemIds);
 }
 
+// LEGACY array-only remover — kept for any caller that only has the raw
+// inventory[] and is removing NON-stackable ids. For stackable-aware removal
+// (the common case) use `removeItem` / `removeItems` from lib/inventory, which
+// also drains itemStacks.
 export function removeInventoryItems(inventory: string[], requirements: Record<string, number>) {
     const remaining = { ...requirements };
     return inventory.filter((itemId) => {
@@ -128,10 +135,9 @@ export function removeInventoryItems(inventory: string[], requirements: Record<s
     });
 }
 
+// Display stacks across BOTH stores (inventory[] + itemStacks), named + sorted.
 export function inventoryItemStacks(character: Character, allItems: GameItem[]) {
-    const counts = new Map<string, number>();
-    character.inventory.forEach((itemId) => counts.set(itemId, (counts.get(itemId) ?? 0) + 1));
-    return [...counts.entries()]
-        .map(([itemId, count]) => ({ itemId, count, name: itemDisplayName(itemId, allItems) }))
+    return unifiedItemStacks(character)
+        .map(({ itemId, count }) => ({ itemId, count, name: itemDisplayName(itemId, allItems) }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }

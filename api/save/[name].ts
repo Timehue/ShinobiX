@@ -11,7 +11,7 @@ import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
 const PRIVATE_CHAR_FIELDS = [
-    'ryo', 'bankedRyo', 'inventory', 'missions', 'missionLog',
+    'ryo', 'bankedRyo', 'inventory', 'itemStacks', 'missions', 'missionLog',
     'completedMissions', 'activeMissions', 'questLog', 'bankLog',
 ] as const;
 
@@ -57,7 +57,7 @@ function stripPrivateFields(data: Record<string, unknown>): Record<string, unkno
 // touches many character fields and a missed whitelist entry would silently
 // break opponent rendering.
 const COMBAT_STRIP_CHAR_FIELDS = [
-    'inventory', 'tileCards', 'savedTileDeck',
+    'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
     'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
     'storyTraits', 'storyTitle',
     'weeklyBossKills', 'claimedWarCrateIds',
@@ -213,7 +213,7 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
     // Inventory / equipment / pets / mastery / bloodlines must start empty —
     // otherwise the first save can ship with a maxed loadout and the
     // per-save inventory cap (500) won't catch it because there's no diff.
-    inventory: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
+    inventory: [], itemStacks: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
     equipment: {},
 };
 
@@ -450,6 +450,27 @@ function sanitizeCharacterSave(
     const INVENTORY_CAP = 500;
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
+    }
+    // Counted stacks for bulk consumables (client lib/inventory.ts moves
+    // stackable ids out of inventory[] into here, which is what keeps the cap
+    // above from overflowing for hoarders). Validate structurally so a tampered
+    // client can't bloat the save: dedupe by id, floor + clamp each count, drop
+    // non-positive entries, and cap the number of distinct stack keys.
+    const ITEM_STACK_MAX = 9999;
+    const ITEM_STACK_KEY_CAP = 200;
+    if (Array.isArray(char.itemStacks)) {
+        const counts = new Map<string, number>();
+        for (const s of char.itemStacks as unknown[]) {
+            if (!s || typeof s !== 'object') continue;
+            const itemId = String((s as Record<string, unknown>).itemId ?? '');
+            if (!itemId) continue;
+            const n = Math.max(0, Math.floor(Number((s as Record<string, unknown>).count ?? 0)));
+            if (n <= 0) continue;
+            counts.set(itemId, Math.min(ITEM_STACK_MAX, (counts.get(itemId) ?? 0) + n));
+        }
+        char.itemStacks = [...counts.entries()]
+            .slice(0, ITEM_STACK_KEY_CAP)
+            .map(([itemId, count]) => ({ itemId, count }));
     }
     // ─── examsPassed validation ───────────────────────────────────────────────
     // Rank exams: genin/chunin/jonin/specialJonin gate level progression

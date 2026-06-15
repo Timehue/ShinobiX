@@ -12,6 +12,7 @@
 
 import type { Character } from "../types/character";
 import { MAX_LEVEL } from "./game";
+import { totalItemCount } from "../lib/inventory";
 
 export type AchievementCategory =
     | "Progression" | "Combat" | "PvP" | "Ranked" | "Missions"
@@ -98,7 +99,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-charms-100",       name: "Bone Hoarder",      desc: "Hold 100 Bone Charms at once.",                 category: "Wealth",     icon: "🪬", hidden: true, check: c => (c.boneCharms ?? 0) >= 100 },
     { id: "secret-stones-100",       name: "Crystal Hoarder",   desc: "Hold 100 Aura Stones at once.",                 category: "Wealth",     icon: "💠", hidden: true, check: c => (c.auraStones ?? 0) >= 100 },
     { id: "secret-mythic-10",        name: "Mythic Seeker",     desc: "Hold 10 Mythic Seals at once.",                 category: "Wealth",     icon: "🔱", hidden: true, check: c => (c.mythicSeals ?? 0) >= 10 },
-    { id: "secret-packrat",          name: "Packrat",           desc: "Carry 100+ items in your inventory.",           category: "Wealth",     icon: "🎒", hidden: true, check: c => c.inventory.length >= 100 },
+    { id: "secret-packrat",          name: "Packrat",           desc: "Carry 100+ items in your inventory.",           category: "Wealth",     icon: "🎒", hidden: true, check: c => totalItemCount(c) >= 100 },
     { id: "secret-loadout-full",     name: "Full Arsenal",      desc: "Equip all 15 jutsu slots simultaneously.",      category: "Combat",     icon: "📿", hidden: true, check: c => c.equippedJutsuIds.length >= 15 },
     { id: "secret-monthly-50",       name: "Monthly Reaper",    desc: "Earn 50 PvP kills in a single month.",          category: "PvP",        icon: "🌑", hidden: true, check: c => (c.monthlyPvpKills ?? 0) >= 50 },
     { id: "secret-hunter-5",         name: "Bounty Hunter",     desc: "Reach hunter rank 5.",                          category: "Trials",     icon: "🏹", hidden: true, check: c => (c.hunterRank ?? 0) >= 5 },

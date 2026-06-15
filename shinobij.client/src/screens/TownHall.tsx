@@ -7,6 +7,7 @@ import type { VillageUpgradeKey, Screen } from "../types/core";
 import { LeaderPortrait } from "../components/Marks";
 import { clampNumber, currentDateKey, currentMonthKey, makeId } from "../lib/utils";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
+import { addItem, removeItem, ownsItem } from "../lib/inventory";
 import { dailyMissionsCompleted } from "../lib/character-progress";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { VILLAGE_UPGRADE_MAX_LEVEL, getBankInterestPercent, getHospitalDiscountPercent, getJutsuTrainingSpeedBonus, getMissionRewardBonus, getPetXpBonus, getShopDiscountPercent, getTownDefenseGuardBonus, getTrainingXpBonus, getVillageUpgrades, villageUpgradeCost, villageUpgradeDefinitions } from "../lib/village-upgrades";
@@ -160,12 +161,10 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     }
     async function donateVillageItem() {
         if (!villageDonateItemId) return alert("Choose an item to donate.");
-        if (!character.inventory.includes(villageDonateItemId)) return alert("You do not have that item.");
+        if (!ownsItem(character, villageDonateItemId)) return alert("You do not have that item.");
         const treasury = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
         if (!treasury) return;
-        const nextInventory = [...character.inventory];
-        nextInventory.splice(nextInventory.indexOf(villageDonateItemId), 1);
-        updateCharacter({ ...character, inventory: nextInventory });
+        updateCharacter(removeItem(character, villageDonateItemId, 1));
         updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
     }
     async function sendVillageCurrency() {
@@ -228,7 +227,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             return alert(`Transfer failed: ${(err as Error).message}`);
         }
         if (villageSendPlayer === character.name) {
-            updateCharacter({ ...character, inventory: [...character.inventory, villageSendItemId] });
+            updateCharacter(addItem(character, villageSendItemId, 1));
         }
         updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
     }

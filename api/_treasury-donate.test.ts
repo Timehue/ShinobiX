@@ -86,6 +86,33 @@ describe('applyTreasuryDonation — item', () => {
         assert.deepEqual(out.nextTreasury.items, [{ itemId: 'sword', count: 2 }]);
     });
 
+    it('donates a stackable held in itemStacks (drains the counted stack)', () => {
+        const out = applyTreasuryDonation(
+            { items: [] },
+            { inventory: ['shield'], itemStacks: [{ itemId: 'territory-control-scroll', count: 5 }] },
+            { kind: 'item', itemId: 'territory-control-scroll', count: 3 },
+            RULES,
+        );
+        assert.equal(out.ok, true);
+        if (!out.ok) return;
+        // unique gear untouched, counted stack drained by 3
+        assert.deepEqual(out.nextDonorChar.inventory, ['shield']);
+        assert.deepEqual(out.nextDonorChar.itemStacks, [{ itemId: 'territory-control-scroll', count: 2 }]);
+        assert.deepEqual(out.nextTreasury.items, [{ itemId: 'territory-control-scroll', count: 3 }]);
+    });
+
+    it('rejects donating more of a stackable than owned across both stores', () => {
+        const out = applyTreasuryDonation(
+            { items: [] },
+            { inventory: [], itemStacks: [{ itemId: 'pet-treat', count: 1 }] },
+            { kind: 'item', itemId: 'pet-treat', count: 2 },
+            RULES,
+        );
+        assert.equal(out.ok, false);
+        if (out.ok) return;
+        assert.match(out.error, /do not own/);
+    });
+
     it('merges into an existing treasury stack', () => {
         const out = applyTreasuryDonation(
             { items: [{ itemId: 'scroll', count: 3 }] },

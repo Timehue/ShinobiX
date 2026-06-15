@@ -12,6 +12,7 @@ import { currentDateKey, formatPetTimer } from "../lib/utils";
 import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
+import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
 
 export function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
@@ -281,19 +282,8 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         }
     }
 
-    function removeInventoryItem(itemId: string) {
-        let removed = false;
-        return character.inventory.filter((entry) => {
-            if (!removed && entry === itemId) {
-                removed = true;
-                return false;
-            }
-            return true;
-        });
-    }
-
     function inventoryCount(itemId: string) {
-        return character.inventory.filter((entry) => entry === itemId).length;
+        return countItem(character, itemId);
     }
 
     // Equip a glow collar (or clear it with id = undefined) on the selected
@@ -301,7 +291,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
     // and can be equipped on any pet, so equipping just records the id.
     function equipCollar(collarId?: string) {
         if (!selectedPet) return;
-        if (collarId && !character.inventory.includes(collarId)) return;
+        if (collarId && !ownsItem(character, collarId)) return;
         updateCharacter({
             ...character,
             pets: character.pets.map((p) => p.id === selectedPet.id
@@ -315,7 +305,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
     // equipped on any pet, so this just records the id on pet.loadout.pvp.
     function equipPvpGear(gearId?: string) {
         if (!selectedPet) return;
-        if (gearId && !character.inventory.includes(gearId)) return;
+        if (gearId && !ownsItem(character, gearId)) return;
         updateCharacter({
             ...character,
             pets: character.pets.map((p) => p.id === selectedPet.id
@@ -331,14 +321,13 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         if (!selectedPet) return;
         const current = selectedPet.loadout?.consumable;
         if (consumableId === current) return;
-        if (consumableId && !character.inventory.includes(consumableId)) return;
-        // Install the new one (consume from inventory) and return the old one.
-        let nextInventory = [...character.inventory];
-        if (consumableId) nextInventory = removeInventoryItem(consumableId);
-        if (current) nextInventory = [...nextInventory, current];
+        if (consumableId && !ownsItem(character, consumableId)) return;
+        // Install the new one (consume from the stack) and return the old one.
+        let next = character;
+        if (consumableId) next = removeItem(next, consumableId, 1);
+        if (current) next = addItem(next, current, 1);
         updateCharacter({
-            ...character,
-            inventory: nextInventory,
+            ...next,
             pets: character.pets.map((p) => p.id === selectedPet.id
                 ? { ...p, loadout: { ...p.loadout, consumable: consumableId } }
                 : p),
@@ -352,11 +341,10 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         if (!selectedPet) return;
         const current = selectedPet.loadout?.pve;
         if (gearId === current) return; // no change
-        if (gearId && !character.inventory.includes(gearId)) return; // must own one to install
-        const nextInventory = gearId ? removeInventoryItem(gearId) : [...character.inventory];
+        if (gearId && !ownsItem(character, gearId)) return; // must own one to install
+        const next = gearId ? removeItem(character, gearId, 1) : character;
         updateCharacter({
-            ...character,
-            inventory: nextInventory,
+            ...next,
             pets: character.pets.map((p) => p.id === selectedPet.id
                 ? { ...p, loadout: { ...p.loadout, pve: gearId, pveDurability: gearId ? PET_PVE_DURABILITY : undefined } }
                 : p),
@@ -375,14 +363,13 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
 
     function feedPet(treat: typeof petFeedItems[number]) {
         if (!selectedPet) return;
-        if (!character.inventory.includes(treat.id)) {
+        if (!ownsItem(character, treat.id)) {
             return alert(`You need ${treat.name} to feed ${selectedPet.name}.`);
         }
 
         const fedPet = increasePetHappiness(gainPetXp(selectedPet, treat.xp));
         updateCharacter({
-            ...character,
-            inventory: removeInventoryItem(treat.id),
+            ...removeItem(character, treat.id, 1),
             pets: character.pets.map((p) => p.id === selectedPet.id ? fedPet : p),
         });
         alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${fedPet.level > selectedPet.level ? ` Level ${fedPet.level}!` : ""}`);
@@ -782,7 +769,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                 })}
                             </div>
                             {(() => {
-                                const owned = petCollars.filter((c) => character.inventory.includes(c.id));
+                                const owned = petCollars.filter((c) => ownsItem(character, c.id));
                                 if (owned.length === 0) {
                                     return <p className="hint" style={{ margin: "8px 0 0" }}>Buy collars in the Grand Marketplace (Aura / Accessory, 🔮 Fate Shards) to glow your pet.</p>;
                                 }
@@ -810,7 +797,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                 );
                             })()}
                             {(() => {
-                                const ownedGear = petPvpGear.filter((g) => character.inventory.includes(g.id));
+                                const ownedGear = petPvpGear.filter((g) => ownsItem(character, g.id));
                                 return (
                                     <div className="pet-gear-picker">
                                         <label>PVP Gear</label>
@@ -830,7 +817,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                             {(() => {
                                 const equippedPveId = selectedPet.loadout?.pve;
                                 const pveDur = selectedPet.loadout?.pveDurability ?? 0;
-                                const ownedIds = petPveGear.filter((g) => character.inventory.includes(g.id)).map((g) => g.id);
+                                const ownedIds = petPveGear.filter((g) => ownsItem(character, g.id)).map((g) => g.id);
                                 const optionIds = [...new Set([...(equippedPveId ? [equippedPveId] : []), ...ownedIds])];
                                 if (optionIds.length === 0) {
                                     return (
@@ -849,7 +836,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                                 const g = petPveGearById(id);
                                                 if (!g) return null;
                                                 const isEquipped = id === equippedPveId;
-                                                const ownCount = character.inventory.filter((i) => i === id).length;
+                                                const ownCount = countItem(character, id);
                                                 const label = isEquipped
                                                     ? `${g.name} — equipped (${pveDur}/${PET_PVE_DURABILITY})`
                                                     : `${g.name} — ${g.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
@@ -861,7 +848,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                             })()}
                             {(() => {
                                 const equippedConsId = selectedPet.loadout?.consumable;
-                                const ownedIds = petConsumables.filter((c) => character.inventory.includes(c.id)).map((c) => c.id);
+                                const ownedIds = petConsumables.filter((c) => ownsItem(character, c.id)).map((c) => c.id);
                                 const optionIds = [...new Set([...(equippedConsId ? [equippedConsId] : []), ...ownedIds])];
                                 if (optionIds.length === 0) {
                                     return (
@@ -880,7 +867,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                                 const c = petConsumableById(id);
                                                 if (!c) return null;
                                                 const isEquipped = id === equippedConsId;
-                                                const ownCount = character.inventory.filter((i) => i === id).length;
+                                                const ownCount = countItem(character, id);
                                                 const label = isEquipped
                                                     ? `${c.name} — equipped`
                                                     : `${c.name} — ${c.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;

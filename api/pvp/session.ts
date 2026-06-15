@@ -320,7 +320,7 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
     'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
     'auraStones', 'mythicSeals', 'auraDust',
     // Non-combat inventory (pvpItems and equipment ARE used by combat)
-    'inventory', 'tileCards', 'savedTileDeck',
+    'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
     // Daily / weekly ledgers
     'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
     'dailyFateSpins', 'lastDailyReset',

@@ -8,7 +8,13 @@
  */
 
 import type { Pet, PetRarity, PetTrait, PetTrainingType, PetExpeditionType } from "../types/pet";
-import { TERRITORY_CONTROL_SCROLL_ID } from "../constants/game";
+import {
+    TERRITORY_CONTROL_SCROLL_ID,
+    DUNGEON_KEY_ID,
+    LEGENDARY_WAR_CRATE_ID,
+    WARFORGED_RELIC_ID,
+    DUNGEON_LEGENDARY_RELIC_ID,
+} from "../constants/game";
 
 // ── Trait roster + descriptions ──────────────────────────────────────────
 
@@ -108,6 +114,18 @@ export const stackableItemIds = new Set<string>([
     "hollow-gate-key",
     "dungeon-legendary-fragment",
     "veil-of-the-hollow",
+    // High-volume consumables / throwables / reward materials. These are the
+    // items players accumulate in bulk, so they live as counted stacks in
+    // Character.itemStacks (one entry each) instead of one inventory[] slot per
+    // copy — which is what used to overflow the 500-entry save cap and silently
+    // drop newly-picked-up items. Evolution stones are deliberately NOT here:
+    // they're 1-at-a-time and the evolve paths key off inventory[].
+    DUNGEON_KEY_ID,
+    LEGENDARY_WAR_CRATE_ID,
+    WARFORGED_RELIC_ID,
+    DUNGEON_LEGENDARY_RELIC_ID,
+    "thrown-shuriken", "thrown-senbon", "thrown-serpent-dust",
+    "item-smoke-bomb", "item-attack-pill", "item-defense-pill",
 ]);
 
 export function petFeedXpForItem(itemId?: string): number | undefined {
