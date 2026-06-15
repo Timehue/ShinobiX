@@ -24,6 +24,11 @@ import {
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
 
+// AOE_SPIRAL ground-nova footprint radius for the aiming preview. MUST match
+// SPIRAL_RADIUS in api/pvp/move.ts so the highlighted hexes equal what the
+// server actually zones.
+const PVP_SPIRAL_RADIUS = 2;
+
 export function PvpBattleScreen({
     character,
     battleId,
@@ -722,10 +727,13 @@ export function PvpBattleScreen({
     const pvpGroundZoneClass = (effect: PvpGroundEffectState | undefined) => {
         if (!effect) return "";
         const tagNames = new Set((effect.tags ?? []).map(tag => normalizeTagName(tag.name)));
-        if (tagNames.has("Poison")) return " ground-effect-poison";
-        if (tagNames.has("Recoil")) return " ground-effect-fire";
-        if (tagNames.has("Decrease Damage Given")) return " ground-effect-lightning";
-        return " ground-effect-force";
+        // A large footprint (> the 7-hex Instant-Effect zone) is an AOE_SPIRAL
+        // nova — give it an extra pulsing treatment so the shockwave reads.
+        const nova = (effect.tiles?.length ?? 0) >= 8 ? " ground-effect-nova" : "";
+        if (tagNames.has("Poison")) return " ground-effect-poison" + nova;
+        if (tagNames.has("Recoil")) return " ground-effect-fire" + nova;
+        if (tagNames.has("Decrease Damage Given")) return " ground-effect-lightning" + nova;
+        return " ground-effect-force" + nova;
     };
 
     const allTiles = Array.from({ length: gridWidth * gridHeight }, (_, i) => i);
@@ -737,11 +745,13 @@ export function PvpBattleScreen({
     const groundJutsuAffectedTiles = new Set(
         pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu)
             ? hoveredPvpTile !== null
-                ? pendingJutsu.method === "INSTANT_EFFECT"
-                    ? [hoveredPvpTile, ...pvpHexNeighbors(hoveredPvpTile)]
-                    : pendingJutsu.method === "AOE_CIRCLE"
-                        ? pvpHexNeighbors(hoveredPvpTile)
-                        : [hoveredPvpTile]
+                ? pendingJutsu.method === "AOE_SPIRAL"
+                    ? allTiles.filter(t => pvpDist(hoveredPvpTile, t) <= PVP_SPIRAL_RADIUS)
+                    : pendingJutsu.method === "INSTANT_EFFECT"
+                        ? [hoveredPvpTile, ...pvpHexNeighbors(hoveredPvpTile)]
+                        : pendingJutsu.method === "AOE_CIRCLE"
+                            ? pvpHexNeighbors(hoveredPvpTile)
+                            : [hoveredPvpTile]
                 : []
             : []
     );

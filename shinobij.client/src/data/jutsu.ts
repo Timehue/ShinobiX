@@ -357,7 +357,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
 ].map((bloodline) => ({ ...bloodline, totalPoints: bloodlinePoints(bloodline.jutsus) }));
 
 export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
-export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
-export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
+export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL"];
+export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL"];
 export const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
 export const fortyApBlockedBloodlineTags = ["Pierce", "Siphon", "Mirror", "Copy", "Wound"];
