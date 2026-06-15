@@ -303,7 +303,8 @@ function shadowTexture(): THREE.CanvasTexture {
 
 // Base visible-content height in world units — every creature is grounded to
 // this VISIBLE height (consistent silhouettes; padding no longer varies size).
-const TARGET_SPRITE_H = 2.6;
+// Trimmed from 2.6 so pets sit IN the full-screen arena instead of looming over it.
+const TARGET_SPRITE_H = 2.3;
 
 // Element → a bright tint for idle aura wisps + dash-trail streaks (mirrors the
 // particle palette). Falls back to chakra-cyan for None/unknown.
@@ -376,7 +377,7 @@ function Afterimage({ index, trail, fastRef, tex, color, L, fainted }: {
 
 // ── One grounded pet standee — Y-locked billboard, feet on the floor ─────────
 function Standee({
-    pet, side, pos, reach, toward, pose, hitPower, beatKey, fainted, hp, maxHp, texture, bounds, aspect,
+    pet, side, pos, reach, toward, pose, hitPower, beatKey, fainted, texture, bounds, aspect,
 }: {
     pet: Pet;
     side: "player" | "enemy";
@@ -396,9 +397,6 @@ function Standee({
      *  (recoil/hit) re-jolts on each hit of a multi-hit flurry. */
     beatKey: number;
     fainted: boolean;
-    /** Live HP for the overhead nameplate bar (per-slot in 2v2). */
-    hp: number;
-    maxHp: number;
     texture: THREE.Texture;
     /** Alpha-scanned content box + image aspect → grounds the visible feet. */
     bounds: SpriteBounds;
@@ -516,8 +514,6 @@ function Standee({
         fastRef.current = reduce ? 0 : Math.max(0, Math.min(1, (speed - 0.03) / 0.10));
     });
 
-    const safeMax = Math.max(1, maxHp);
-    const hpPct = Math.max(0, Math.min(100, (hp / safeMax) * 100));
     return (
         <group>
             <group ref={group} position={[base.x, 0, base.z]}>
@@ -537,13 +533,11 @@ function Standee({
                         </mesh>
                     </group>
                 </Billboard>
-                <Html position={[0, L.contentWorldH + 0.35, 0]} center distanceFactor={9} pointerEvents="none" zIndexRange={[6, 0]}>
+                <Html position={[0, L.contentWorldH + 0.12, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
+                    {/* Just the name now — HP lives in the fixed corner cards (no
+                        redundant floating bar). */}
                     <div style={{ textAlign: "center", font: "700 13px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", opacity: fainted ? 0.5 : 1 }}>
-                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 3 }}>Lv.{pet.level} {pet.name}</div>
-                        <div style={{ width: 96, height: 8, margin: "0 auto", background: "#0b1020", borderRadius: 5, border: "1px solid #000", overflow: "hidden" }}>
-                            <div data-hp={side} style={{ width: `${hpPct}%`, height: "100%", background: side === "player" ? "#4ade80" : "#f87171", transition: "width .35s" }} />
-                        </div>
-                        <div style={{ color: "#cbd5e1", fontSize: 10, marginTop: 2 }} data-hpnum={side}>{Math.max(0, Math.round(hp))}/{safeMax}</div>
+                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000" }}>Lv.{pet.level} {pet.name}</div>
                     </div>
                 </Html>
             </group>
@@ -1177,13 +1171,15 @@ export function PetColiseum({
         ? { pet: frame.signatureMove.petName, move: frame.signatureMove.name, enemy: frame.signatureMove.side === "enemy" }
         : null;
 
-    return (
-        <div style={{ position: "relative", width: "100%", height: "clamp(380px, 62vh, 700px)", borderRadius: 12, overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
-            {/* Keyframes for the DOM overlays (cut-in sweep, announcer pop). */}
+    return createPortal((
+        // Full-screen takeover (like the Tactical Arena) — the duel pops OUT of the
+        // page into an immersive fixed overlay instead of a small inline box.
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#3a2a16, #1a1206 60%, #0a0703)" }}>
+            {/* Keyframes for the announcer pop. The signature cut-in uses the shared
+                .pet-cutin styles + animation from index.css. */}
             <style>{`
-                @keyframes colCutinSweep { 0% { transform: translateX(var(--from)) skewX(-8deg); opacity: 0; } 18% { transform: translateX(0) skewX(-8deg); opacity: 1; } 82% { transform: translateX(0) skewX(-8deg); opacity: 1; } 100% { transform: translateX(var(--to)) skewX(-8deg); opacity: 0; } }
                 @keyframes colAnnouncerPop { 0% { transform: translateX(-50%) scale(0.6); opacity: 0; } 25% { transform: translateX(-50%) scale(1.08); opacity: 1; } 75% { transform: translateX(-50%) scale(1); opacity: 1; } 100% { transform: translateX(-50%) scale(0.95); opacity: 0; } }
-                @media (prefers-reduced-motion: reduce) { .col-cutin, .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } }
+                @media (prefers-reduced-motion: reduce) { .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } }
             `}</style>
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
@@ -1200,7 +1196,7 @@ export function PetColiseum({
                         : 0;
                     return (
                         <Standee key={c.pet.id} pet={c.pet} side={c.side} pos={c.pos} reach={c.reach} toward={c.toward}
-                            pose={pose} hitPower={hitPower} beatKey={animIdx} fainted={c.fainted} hp={c.hp} maxHp={c.maxHp}
+                            pose={pose} hitPower={hitPower} beatKey={animIdx} fainted={c.fainted}
                             texture={c.sprite.texture} bounds={c.sprite.bounds} aspect={c.sprite.aspect} />
                     );
                 })}
@@ -1279,24 +1275,27 @@ export function PetColiseum({
                 </div>
             )}
 
-            {/* Signature cut-in — a skewed banner sweeping in from the caster's side. */}
-            {sigCutin && (
-                <div key={`sig-${frame?.message}`} className="col-cutin" style={{ position: "absolute", top: "34%", left: 0, right: 0, display: "flex", justifyContent: "center", pointerEvents: "none", zIndex: 6 }}>
-                    <div style={{
-                        ["--from" as string]: sigCutin.enemy ? "60vw" : "-60vw",
-                        ["--to" as string]: sigCutin.enemy ? "-60vw" : "60vw",
-                        animation: "colCutinSweep 1.9s cubic-bezier(.22,.9,.3,1) both",
-                        padding: "10px 34px",
-                        background: "linear-gradient(100deg, rgba(15,23,42,0.95) 0%, rgba(109,40,217,0.92) 50%, rgba(15,23,42,0.95) 100%)",
-                        border: "1px solid rgba(196,181,253,0.6)", borderRadius: 8,
-                        boxShadow: "0 6px 30px rgba(109,40,217,0.45)",
-                        textAlign: "center",
-                    }}>
-                        <div style={{ color: "#c4b5fd", font: "700 12px Inter, system-ui, sans-serif", letterSpacing: "0.2em", textTransform: "uppercase" }}>{sigCutin.pet}</div>
-                        <div style={{ color: "#fff", font: "900 22px Inter, system-ui, sans-serif", textShadow: "0 0 16px rgba(196,181,253,0.8)" }}>{sigCutin.move}!</div>
+            {/* Signature cut-in — the anime-style PORTRAIT + move-name slam (the rich
+                cut-in from the classic renderer; reuses the shared .pet-cutin CSS /
+                speed-lines / slam animation from index.css). Full-screen at last. */}
+            {sigCutin && (() => {
+                const side = sigCutin.enemy ? "enemy" : "player";
+                // Use the ACTUAL caster's portrait (correct even when a 2v2 reserve
+                // casts), falling back to the lead on that side.
+                const sigPet = placed.find((c) => c.side === side && c.pet.name === sigCutin.pet)?.pet
+                    ?? (sigCutin.enemy ? enemyPet : playerPet);
+                return (
+                    <div className={`pet-cutin ${side}`} key={`cutin-${frame?.message}`}>
+                        <div className="pet-cutin-portrait">
+                            <PetBattleAvatar pet={sigPet} side={side} active sharedImages={sharedImages} />
+                        </div>
+                        <div className="pet-cutin-text">
+                            <span className="pet-cutin-pet">{sigCutin.pet}</span>
+                            <span className="pet-cutin-move">{sigCutin.move}!</span>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {toast && (
                 <div key={frame?.message} style={{ position: "absolute", top: 56, right: 14, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(15,23,42,0.92)", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", boxShadow: "0 4px 16px #0008" }}>
@@ -1344,9 +1343,19 @@ export function PetColiseum({
                 {sfxMuted ? "🔇" : "🔊"}
             </button>
 
+            {/* Always-visible Exit so a full-screen duel can be left mid-fight (the
+                result is already computed + applied, so leaving just skips the replay). */}
+            <button
+                onClick={onExit}
+                title="Exit battle"
+                style={{ position: "absolute", top: 14, right: 56, width: 34, height: 34, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
+            >
+                ✕
+            </button>
+
             <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>HD-2D coliseum · ?orbit=1 to rotate</div>
         </div>
-    );
+    ), document.body);
 }
 
 const resultBtn: React.CSSProperties = { padding: "8px 14px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 8, cursor: "pointer", font: "700 13px Inter, system-ui, sans-serif" };
