@@ -10050,6 +10050,19 @@ textarea {
 .hex-tile.ground-affected-tile.ground-effect-force {
     filter: saturate(1.65) brightness(1.22);
 }
+/* AOE_SPIRAL ground nova — large footprint pulses like a lingering shockwave */
+.hex-tile.ground-effect-nova {
+    animation: pvpGroundNova 1.15s ease-in-out infinite;
+}
+@keyframes pvpGroundNova {
+    0%, 100% { filter: saturate(1.55) brightness(1.12); }
+    50% {
+        filter: saturate(2) brightness(1.42);
+        box-shadow:
+            inset 0 0 26px rgba(255, 255, 255, 0.35),
+            0 0 22px rgba(255, 255, 255, 0.3) !important;
+    }
+}
 /* ===== PvP movement / dash visual effects ===== */
 .pvp-dash-fx {
     position: absolute;

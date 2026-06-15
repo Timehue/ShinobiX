@@ -15,6 +15,7 @@ import {
     GROUND_EFFECT_TAGS,
     OPPONENT_AFFECTING_TAGS,
 } from './_tags.js';
+import { filledDiskTiles } from './_aoe.js';
 
 // All session writes flow through here so the combat log gets capped
 // + the idempotency token ring buffer is appended before it hits KV.
@@ -39,6 +40,10 @@ const GRID_W = 12;
 const GRID_H = 10;
 const MAX_ROUNDS = 25;
 const MAX_ACTIONS = 5;
+// AOE_SPIRAL ground-nova footprint radius (filled hex disk around the landing
+// tile). Bigger than INSTANT_EFFECT's radius-1 zone. Mirror in the client
+// preview (shinobij.client/src/screens/PvpBattleScreen.tsx PVP_SPIRAL_RADIUS).
+const SPIRAL_RADIUS = 2;
 // Must match session.ts. 15 min covers the live fight; every move resets
 // the TTL via writeSession, so an active match never expires — only
 // abandoned ones (a tab closed mid-fight) decay quickly.
@@ -1204,6 +1209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // client mirrors the exact same set so its targeting decision
                 // (auto-cast vs arm-opponent) agrees with this gate.
                 const affectsOpponent = (jutsu.effectPower ?? 0) > 0 || tags.some(t => OPPONENT_AFFECTING_TAGS.has(normalizeTagName(t.name)));
+                const jutsuMethod = normalizeJutsuMethod(jutsu.method);
                 if (needsGroundTile && tile === undefined) {
                     return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs a ground tile target.`));
                 }
@@ -1222,7 +1228,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lines.push(`${me.name} uses ${jutsu.name}:${castFlavor ? ' ' + castFlavor : ''}`);
                 const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
-                const jutsuMethod = normalizeJutsuMethod(jutsu.method);
 
                 // Ground-target and movement jutsus: choose an open tile in range.
                 // AOE_CIRCLE resolves from the chosen tile and only hits if the opponent
@@ -1235,6 +1240,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
+                    if (jutsuMethod === 'AOE_SPIRAL') {
+                        // Dash in, then erupt a spiral ground nova centred on the
+                        // landing tile (faithful port of the reference's spiral AOE;
+                        // tile math in api/pvp/_aoe.ts). The filled hex disk becomes a
+                        // 2-round ground zone carrying this jutsu's ground tags; the
+                        // enemy takes the effect immediately if caught inside it and
+                        // again each round they stand in the zone.
+                        const zoneTags = groundEffectTags(tags);
+                        if (!zoneTags.length) {
+                            return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its spiral nova.`));
+                        }
+                        const groundEffect: PvpGroundEffect = {
+                            id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                            owner: role,
+                            name: jutsu.name,
+                            tiles: filledDiskTiles(destTile, SPIRAL_RADIUS, GRID_W, GRID_H),
+                            rounds: 2,
+                            tags: zoneTags,
+                        };
+                        lines.push(`${jutsu.name} erupts in a spiral, blanketing ${groundEffect.tiles.length} hexes for 2 rounds.`);
+                        const spiralGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
+                        lines.push(...spiralGround.lines);
+                        result = commit(movedSelf, spiralGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
+                        break;
+                    }
                     const ring = hexNeighbors(destTile);
                     if (jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos)) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
@@ -1258,16 +1288,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
                         return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — target tile out of range or occupied.`));
                     }
-                    if (jutsuMethod === 'INSTANT_EFFECT') {
+                    if (jutsuMethod === 'INSTANT_EFFECT' || jutsuMethod === 'AOE_SPIRAL') {
                         const zoneTags = groundEffectTags(tags);
                         if (!zoneTags.length) {
                             return finish(await rejectWithLog(`${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`));
                         }
+                        // AOE_SPIRAL lays a bigger filled-disk (spiral) footprint;
+                        // INSTANT_EFFECT keeps the tight centre+neighbours zone. (A
+                        // legit AOE_SPIRAL carries the Move tag and resolves in the
+                        // movement branch above; this is the no-dash fallback.)
+                        const zoneTiles = jutsuMethod === 'AOE_SPIRAL'
+                            ? filledDiskTiles(targetTile, SPIRAL_RADIUS, GRID_W, GRID_H)
+                            : groundEffectTiles(targetTile);
                         const groundEffect: PvpGroundEffect = {
                             id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                             owner: role,
                             name: jutsu.name,
-                            tiles: groundEffectTiles(targetTile),
+                            tiles: zoneTiles,
                             rounds: 2,
                             tags: zoneTags,
                         };
