@@ -9,6 +9,8 @@ const _lock_js_1 = require("../_lock.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _receipts_js_1 = require("../_receipts.js");
+const _reward_farm_js_1 = require("./_reward-farm.js");
+const _player_ips_js_1 = require("../_player-ips.js");
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
 // the evidence by 23+ hours. 2 hours gives players with bad connections,
@@ -139,11 +141,29 @@ async function handler(req, res) {
             const winnerSlug = (0, _utils_js_1.safeName)(winnerName);
             const loserSlug = (0, _utils_js_1.safeName)(loserName);
             const claimerSlug = playerName; // already safeName()'d above
+            // Ladder-integrity guard (audit #2): when the two fighters share a
+            // recent IP or browser fingerprint, this ranked match is almost
+            // certainly two alts (or a same-household boost), so we do NOT move
+            // either player's Elo — the win/loss simply doesn't count for the
+            // ladder. Mirrors the same-device rule already enforced for Vanguard
+            // Honor-Seals (_vanguard-rewards.ts). The base ryo/XP path is left
+            // alone here — it has its own repeat-opponent decay (#1), which has
+            // no device false-positives — so only the LADDER is protected.
+            // Computed OUTSIDE the save lock (read-only key scan). Fails OPEN: a
+            // KV hiccup must never block a legitimate rating settlement.
+            let rankedEligible = isRankedClaim;
+            if (isRankedClaim) {
+                try {
+                    if (await (0, _player_ips_js_1.hasRecentIpOrFpOverlap)(winnerName, loserName))
+                        rankedEligible = false;
+                }
+                catch { /* fail open */ }
+            }
             // Apply ONE fighter's once-per-battle ranked-rating delta (guarded by
             // its own NX receipt) and return that fighter's resulting rating. A
             // re-settle (receipt already placed) reads back the stored value.
             const settleRatingFor = async (slug, role) => {
-                if (!isRankedClaim || !slug)
+                if (!rankedEligible || !slug)
                     return undefined;
                 const saveKey = `save:${slug}`;
                 const record = await _storage_js_1.kv.get(saveKey);
@@ -170,7 +190,19 @@ async function handler(req, res) {
                     return undefined;
                 const { xpGain, ryoGain } = (0, _xp_engine_js_1.computePvpWinGains)(char, session.rewardSector);
                 if (!alreadyForWinner) {
-                    const credit = (0, _xp_engine_js_1.creditPvpWinBase)(char, xpGain, ryoGain);
+                    // Repeat-opponent decay (audit #1): scale this win's base
+                    // reward down by how many times the winner already banked a
+                    // win over THIS loser in the last hour. Recorded exactly once
+                    // here — on the single real credit (the `!alreadyForWinner`
+                    // branch), never on a replay — so the farm counter advances
+                    // per banked win, not per claim retry. SCOPED to genuine
+                    // player-vs-player: an AI raid boss / NPC loser has no save,
+                    // so PvE grind (sector raids vs bosses) keeps its full reward.
+                    const loserRecord = loserSlug ? await _storage_js_1.kv.get(`save:${loserSlug}`) : null;
+                    const decay = loserRecord?.character ? await (0, _reward_farm_js_1.recordPairWinAndDecay)(winnerSlug, loserSlug) : 1;
+                    const dXp = Math.max(0, Math.floor(xpGain * decay));
+                    const dRyo = Math.max(0, Math.floor(ryoGain * decay));
+                    const credit = (0, _xp_engine_js_1.creditPvpWinBase)(char, dXp, dRyo);
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: credit.char }, record));
                     return credit.summary;
                 }
