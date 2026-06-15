@@ -178,13 +178,15 @@ export function lerp(a: number, b: number, t: number): number {
 // shows the field, and when they close to fight it punches in. The renderer
 // eases toward this each frame (CameraRig). Pure — tuned so a full-width spread
 // reproduces the established wide framing, so it never regresses the look.
-// Tuned for the tight anime stage: the camera sits CLOSE (pets big) and punches
-// in further as they clash. Smaller pull-back than the maze build.
-const CAM_FOLLOW_BACK_BASE = 7;
-const CAM_FOLLOW_BACK_PER_SPAN = 0.55;
-const CAM_FOLLOW_HEIGHT_BASE = 3.4;
+// Pulled back + raised vs the original (7 / 3.4) now that the duel is a FULL-SCREEN
+// stage: a farther, higher camera frames the pets standing IN the arena rather than
+// in a tight close-up, and flattens the perspective so the front pet no longer dwarfs
+// the back one.
+const CAM_FOLLOW_BACK_BASE = 9;
+const CAM_FOLLOW_BACK_PER_SPAN = 0.5;
+const CAM_FOLLOW_HEIGHT_BASE = 4.5;
 const CAM_FOLLOW_HEIGHT_PER_BACK = 0.16;
-const CAM_FOLLOW_LOOK_Y = 1.65;
+const CAM_FOLLOW_LOOK_Y = 1.75;
 const CAM_FOLLOW_LOOK_Z_OFFSET = -2.6; // look slightly past the pets (keeps the backdrop up-frame)
 
 export function cameraForCombatants(
