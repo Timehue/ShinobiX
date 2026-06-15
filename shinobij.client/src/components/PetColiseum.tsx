@@ -1991,18 +1991,24 @@ export type PetColiseumDuelProps = {
     playerReservePet?: Pet;
     enemyReservePet?: Pet;
     seed: number;
+    /** Precomputed duel result. When provided, the renderer PLAYS it instead of
+     *  re-running the sim — so the mounting screen owns the authoritative result
+     *  (for reward posting) and the sim runs exactly once. Omit only in the
+     *  /petvfx.html preview harness, where the renderer self-runs from the seed. */
+    result?: DuelResult;
     sharedImages?: Record<string, string>;
     onFightAgain: () => void;
     onExit: () => void;
 };
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, sharedImages = {}, onFightAgain, onExit }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, sharedImages = {}, onFightAgain, onExit }: PetColiseumDuelProps) {
     const duel = useMemo(
-        () => (playerReservePet || enemyReservePet)
-            ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
-            : runPetDuel(playerPet, enemyPet, seed),
+        () => result
+            ?? ((playerReservePet || enemyReservePet)
+                ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
+                : runPetDuel(playerPet, enemyPet, seed)),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
+        [result, seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
     );
     const roster = useMemo(() => {
         const r: Array<{ id: string; pet: Pet; mirror: boolean }> = [{ id: "player-0", pet: playerPet, mirror: false }];
