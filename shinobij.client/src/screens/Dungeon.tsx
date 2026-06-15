@@ -16,15 +16,13 @@ import { currentDateKey } from "../lib/utils";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import {
-    PetArenaBattlefield,
     petTamerPveMultiplier,
     type CreatorEvent,
     type PetArenaFrame,
 } from "../App";
-import { petColiseumEnabled } from "../lib/pet-coliseum-flag";
 
-// Cinematic HD-2D coliseum — lazy so three/r3f only load when the flag is on.
-// The classic PetArenaBattlefield below stays intact as the fallback.
+// Cinematic HD-2D coliseum — the dungeon-duel arena renderer. Lazy so three/r3f
+// only load when a duel actually mounts.
 const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
 
 export function DungeonEncounter({
@@ -228,8 +226,6 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
             </div>
         );
     }
-    // Both renderers consume the SAME frames/props — cinematic vs classic is a
-    // pure presentation choice (shared flag with the Pet Arena toggle).
     const duelProps = {
         playerPet: selectedPet,
         enemyPet,
@@ -247,12 +243,10 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
         onExit: result === "Victory" ? onWin : onLeave,
         sharedImages,
     };
-    return petColiseumEnabled() ? (
+    return (
         <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading 3D arena…</div>}>
             <PetColiseum {...duelProps} />
         </Suspense>
-    ) : (
-        <PetArenaBattlefield {...duelProps} />
     );
 }
 
