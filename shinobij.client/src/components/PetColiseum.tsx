@@ -806,6 +806,46 @@ function FxAnim({
     );
 }
 
+/** A REAL painted element projectile for the cinematic coliseum duel (PetColiseum,
+ *  the live "battle" view). The fireball / water ball / wind cut / boulder / bolt
+ *  flies caster→target as an alpha-blended billboard, mirrored to face its travel
+ *  direction (the camera is angled, so we key off the dominant horizontal axis).
+ *  Returns null for elements with no painted sprite — the caller falls back to the
+ *  element flipbook. */
+function ColiseumProjectile({ element, from, to, durationMs, scale, onDone }: {
+    element?: string | null; from: Vec3; to: Vec3; durationMs: number; scale: number; onDone: () => void;
+}) {
+    const group = useRef<THREE.Group>(null);
+    const start = useRef<number | null>(null);
+    const visual = useMemo(() => projectileVisual({ element }), [element]);
+    const tex = projSpriteTexture(visual.spriteKey);
+    const flip = to[0] < from[0] ? -1 : 1;   // base art faces +x → mirror for a leftward shot
+    useFrame((state) => {
+        const g = group.current; if (!g) return;
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) * 1000 / durationMs);
+        g.position.set(lerp(from[0], to[0], p), lerp(from[1], to[1], p), lerp(from[2], to[2], p));
+        if (p >= 1) onDone();
+    });
+    if (!tex) return null;
+    return (
+        <group ref={group} position={from}>
+            <Billboard>
+                {/* faint additive glow so the shot still pops + blooms a touch */}
+                <mesh position={[0, 0, -0.01]} scale={[scale * 0.85, scale * 0.85, 1]}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.18} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                {/* the real painted element sprite (alpha-blended → true colours) */}
+                <mesh scale={[scale * flip, scale, 1]}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
+                </mesh>
+            </Billboard>
+        </group>
+    );
+}
+
 // ── Camera shake rig — decaying sinusoid offset on contact beats (no RNG) ─────
 function CameraRig({ amp, shakeKey, target }: { amp: number; shakeKey: number; target: { pos: Vec3; look: Vec3 } }) {
     const base = useRef<THREE.Vector3 | null>(null);
@@ -903,7 +943,7 @@ function ResponsiveCamera() {
     return null;
 }
 
-type FxInstance = { id: number; frames: string[]; from: Vec3; to?: Vec3; durationMs: number; scale: number };
+type FxInstance = { id: number; frames: string[]; from: Vec3; to?: Vec3; durationMs: number; scale: number; projElement?: string | null };
 type LabelInstance = { id: number; text: string; className: string; pos: Vec3 };
 
 export type PetColiseumProps = {
@@ -1115,9 +1155,17 @@ export function PetColiseum({
         const actorElement = (sigSide ?? frame?.actor) === "enemy" ? enemyPet.element : playerPet.element;
 
         if (beat === "projectile") {
-            // Elemental VFX flying between them.
-            const f = bundledJutsuFxFrames(String(activeAnimEvent.vfxKey ?? "none"));
-            if (f) { const id = seq.current++; setFx((p) => [...p, { id, frames: f, from: fromV, to: toV, durationMs: 320, scale: 1.1 }]); }
+            // A REAL painted element projectile (fireball / water ball / wind cut /
+            // boulder / bolt) flies between them; non-roster elements (None/Shadow/
+            // bloodline-only) fall back to the element flipbook.
+            const sk = projectileVisual({ element: actorElement }).spriteKey;
+            if (sk) {
+                const id = seq.current++;
+                setFx((p) => [...p, { id, frames: [], from: fromV, to: toV, durationMs: 360, scale: 2.5, projElement: actorElement }]);
+            } else {
+                const f = bundledJutsuFxFrames(String(activeAnimEvent.vfxKey ?? "none"));
+                if (f) { const id = seq.current++; setFx((p) => [...p, { id, frames: f, from: fromV, to: toV, durationMs: 320, scale: 1.1 }]); }
+            }
         } else if (beat === "impact" || beat === "beam" || beat === "statusApply" || beat === "charge" || beat === "guard") {
             const focal = beat === "charge" || beat === "guard" ? fromV : toV;
             const pick = petFxSpriteKey({
@@ -1202,8 +1250,11 @@ export function PetColiseum({
                     );
                 })}
                 {fx.map((f) => (
-                    <FxAnim key={f.id} frames={f.frames} from={f.from} to={f.to} durationMs={f.durationMs} scale={f.scale}
-                        onDone={() => setFx((p) => p.filter((x) => x.id !== f.id))} />
+                    f.projElement !== undefined && f.to
+                        ? <ColiseumProjectile key={f.id} element={f.projElement} from={f.from} to={f.to} durationMs={f.durationMs} scale={f.scale}
+                            onDone={() => setFx((p) => p.filter((x) => x.id !== f.id))} />
+                        : <FxAnim key={f.id} frames={f.frames} from={f.from} to={f.to} durationMs={f.durationMs} scale={f.scale}
+                            onDone={() => setFx((p) => p.filter((x) => x.id !== f.id))} />
                 ))}
                 {dusts.map((d) => (
                     <DustPuff key={d.id} at={d.at} onDone={() => setDusts((p) => p.filter((x) => x.id !== d.id))} />
