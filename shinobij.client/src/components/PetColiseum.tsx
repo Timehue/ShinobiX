@@ -84,20 +84,6 @@ const CAM_FOV = 36;
 // no .webp module-type declaration needed.
 const COLISEUM_FLOOR_URL = new URL("../assets/coliseum/coliseum-floor.webp", import.meta.url).href;
 const COLISEUM_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
-const MAZE_WALL_URL = new URL("../assets/coliseum/maze-wall.webp", import.meta.url).href;
-
-// Stone maze-wall texture (one shared, RepeatWrapping so it tiles up tall walls).
-let _mazeWallTex: THREE.Texture | null = null;
-function mazeWallTexture(): THREE.Texture {
-    if (_mazeWallTex) return _mazeWallTex;
-    const t = new THREE.TextureLoader().load(MAZE_WALL_URL);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(1, 2);
-    t.anisotropy = 4;
-    _mazeWallTex = t;
-    return t;
-}
 
 /** Load a bundled scene texture (sRGB). */
 function loadSceneTexture(url: string): THREE.Texture {
@@ -674,21 +660,31 @@ function ObstacleMesh({ p }: { p: ObstaclePlacement }) {
     });
     if (isWall) {
         const cover = p.kind === "cover";
-        const h = cover ? 1.15 : 2.3;
-        // Near-full-tile footprint so adjacent wall tiles CONNECT into solid maze
-        // walls/corridors instead of reading as separate blocks.
+        const h = cover ? 1.0 : 1.85;     // cover = low rock you shoot over; blocked = tall boulder
         const ww = TILE_WORLD_W * 0.99, wd = TILE_WORLD_D * 0.99;
+        // Deterministic per-tile variation (no RNG → replays stay identical).
+        const spin = p.x * 1.7 + p.z * 2.3;
         return (
-            <group>
-                <mesh position={[p.x, h / 2, p.z]}>
-                    <boxGeometry args={[ww, h, wd]} />
-                    {/* Generated stone-block texture so the maze reads as dungeon
-                        walls, not flat cubes. Cover walls take a faint cool tint. */}
-                    <meshStandardMaterial map={mazeWallTexture()} color={cover ? "#c3cdda" : "#ffffff"} roughness={0.9} metalness={0.04} />
+            <group position={[p.x, 0, p.z]}>
+                {/* Mossy dark-stone boulder cluster — a shinobi rock-garden obstacle that
+                    reads as natural cover, not a grey dungeon block. Faceted flat-shaded
+                    geometry catches the lantern light; a smaller accent rock + moss cap
+                    break the silhouette so it never looks like a cube. */}
+                <mesh position={[0, h * 0.44, 0]} rotation={[0.06, spin, 0.05]} scale={[ww * 0.56, h * 0.52, wd * 0.56]}>
+                    <dodecahedronGeometry args={[1, 0]} />
+                    <meshStandardMaterial color={cover ? "#6b7568" : "#586054" } roughness={0.98} metalness={0.02} flatShading />
                 </mesh>
-                {/* Contact shadow blob so the wall reads as planted, not floating. */}
-                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.x, 0.02, p.z + wd * 0.18]}>
-                    <planeGeometry args={[ww * 1.4, wd * 1.4]} />
+                <mesh position={[ww * 0.33, h * 0.2, wd * 0.25]} rotation={[0.4, spin * 1.6, 0.25]} scale={[ww * 0.32, h * 0.3, wd * 0.32]}>
+                    <dodecahedronGeometry args={[1, 0]} />
+                    <meshStandardMaterial color={cover ? "#5c6659" : "#4a5247"} roughness={1} metalness={0} flatShading />
+                </mesh>
+                <mesh position={[-ww * 0.18, h * 0.46, -wd * 0.2]} rotation={[0.6, spin * 0.7, 0.12]} scale={[ww * 0.24, h * 0.16, wd * 0.22]}>
+                    <dodecahedronGeometry args={[1, 0]} />
+                    <meshStandardMaterial color="#55663f" roughness={1} metalness={0} flatShading />
+                </mesh>
+                {/* Contact shadow blob so the rocks read as planted, not floating. */}
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, wd * 0.18]}>
+                    <planeGeometry args={[ww * 1.6, wd * 1.5]} />
                     <meshBasicMaterial map={shadowTexture()} transparent opacity={0.5} depthWrite={false} toneMapped={false} />
                 </mesh>
             </group>

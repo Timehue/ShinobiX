@@ -43,7 +43,9 @@ const width = parseInt(arg('width', '1280'), 10);
 const provider = arg('provider', 'fal');
 const userPrompt = arg('prompt');
 if (!userPrompt) { console.error('need --prompt'); process.exit(1); }
-const prompt = `${userPrompt}. ${STYLE}`;
+// --no-style : skip the establishing-shot STYLE suffix (for top-down floor/texture
+// art where "wide cinematic establishing shot" would force an unwanted perspective).
+const prompt = flag('no-style') ? userPrompt : `${userPrompt}. ${STYLE}`;
 
 const reviewDir = path.join(CLIENT, 'asset-gen-out', 'bg');
 fs.mkdirSync(reviewDir, { recursive: true });
