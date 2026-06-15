@@ -11,6 +11,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
+import coopHero from "../assets/coliseum/coop-hero.webp";
 
 const PetArenaMatch = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
 
@@ -96,9 +97,10 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
     return (
         <Overlay>
             <div style={{ width: "min(560px, 94vw)", maxHeight: "90vh", overflowY: "auto", ...PANEL, background: "#0b1120" }}>
-                <div style={{ display: "flex", alignItems: "center", marginBottom: "0.6rem" }}>
-                    <strong style={{ fontSize: "1.05rem" }}>🤝 Co-op Arena</strong>
-                    <button onClick={leave} disabled={busy} style={{ marginLeft: "auto", background: "#334155" }}>✕ Close</button>
+                <div style={{ position: "relative", height: 108, borderRadius: 10, overflow: "hidden", marginBottom: "0.7rem", border: "1px solid #1e293b", backgroundImage: `url(${coopHero})`, backgroundSize: "cover", backgroundPosition: "center 32%" }}>
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,12,22,0.2) 0%, rgba(8,12,22,0.55) 55%, rgba(8,12,22,0.9) 100%)" }} />
+                    <button onClick={leave} disabled={busy} style={{ position: "absolute", top: 8, right: 8, zIndex: 1, background: "rgba(15,23,42,0.85)" }}>✕ Close</button>
+                    <strong style={{ position: "absolute", left: 14, bottom: 10, zIndex: 1, fontSize: "1.2rem", letterSpacing: "0.04em", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🤝 Co-op Arena</strong>
                 </div>
 
                 {!lobby && (
