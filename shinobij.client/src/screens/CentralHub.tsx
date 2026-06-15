@@ -25,6 +25,8 @@ import {
 import { sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import { type VillageWarRecord } from "../lib/world-state";
 import { SceneAmbience } from "../components/SceneAmbience";
+import { SceneCritters } from "../components/SceneCritters";
+import { DayNightSky } from "../components/DayNightSky";
 
 export function CentralHub({
     character,
@@ -635,9 +637,12 @@ export function CentralHub({
 
     return (
         <div className="central-hub">
-            {/* Drifting golden motes + god-ray sweep over the citadel backdrop
-                (sits behind the cards via z-index in central-skin.css). */}
+            {/* Drifting golden motes + god-ray sweep + time-of-day wash + a few
+                doves/fireflies over the citadel backdrop (all sit behind the cards
+                via z-index in central-skin.css). */}
             <SceneAmbience biome="central" />
+            <DayNightSky />
+            <SceneCritters biome="central" density={0.7} />
             <div className="central-hero">
                 <h1>⛩️ Central — The Thousand Gates</h1>
                 <p>
