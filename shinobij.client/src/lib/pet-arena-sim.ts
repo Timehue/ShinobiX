@@ -990,6 +990,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         ...red.map((s, i) => buildFighter(s.pet, "red", s.role, i, nR)),
     ];
     const center = ARENA_CENTER;   // on the painted center paw (measured off the art)
+    const sepX = new Array(fs.length).fill(0), sepY = new Array(fs.length).fill(0);   // per-tick body-separation accumulators (reused; see the declump pass)
     const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: SCROLL_FIRST_SPAWN, dropTimer: 0 };
     const score = { blue: 0, red: 0 };
     const snapshots: ArenaSnapshot[] = []; const events: ArenaEvent[] = [];
@@ -1010,13 +1011,27 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         const squad = buildSquad(fs, scroll);   // shared squad awareness (focus + call + peels) + commander (posture + rally) — built once per tick
         for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, score, squad);
         for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, rng, t, events); }
-        // separate overlapping bodies
+        // Separate overlapping bodies. Accumulate every pair's push from the FROZEN
+        // start-of-pass positions, then apply once and DAMPED — so a dense scrum (3-4
+        // pets contesting the scroll / jammed in a choke) eases into a stable ring
+        // instead of order-dependent compounding shoves that ping-pong each pet against
+        // its moveToward pull. That ping-pong read as pets "vibrating in place" and —
+        // because the depth scale is tied to y — pulsing big↔small. The equilibrium
+        // spacing (1.5) is unchanged; only the transient is calmer (gap closes ~half/tick).
+        for (let i = 0; i < fs.length; i++) { sepX[i] = 0; sepY[i] = 0; }
         for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
             const a = fs[i], b = fs[j]; if (!alive(a) || !alive(b)) continue;
             const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
-            if (d >= 1.5 || d < 1e-6) continue; const push = (1.5 - d) / 2, ux = dx / d, uy = dy / d;
-            const ax = a.x - ux * push, ay = a.y - uy * push, bx = b.x + ux * push, by = b.y + uy * push;
-            if (walkableAt(ax, ay)) { a.x = ax; a.y = ay; } if (walkableAt(bx, by)) { b.x = bx; b.y = by; }
+            if (d >= 1.5 || d < 1e-6) continue;
+            const push = (1.5 - d) * 0.25, ux = dx / d, uy = dy / d;   // 0.25/pet ⇒ ~half the gap per tick (was a full-gap snap, applied per-pair in sequence)
+            sepX[i] -= ux * push; sepY[i] -= uy * push; sepX[j] += ux * push; sepY[j] += uy * push;
+        }
+        for (let i = 0; i < fs.length; i++) {
+            const f = fs[i]; if (!alive(f) || (sepX[i] === 0 && sepY[i] === 0)) continue;
+            const nx = f.x + sepX[i], ny = f.y + sepY[i];
+            if (walkableAt(nx, ny)) { f.x = nx; f.y = ny; }            // slide along a wall if the diagonal is blocked (never wedge)
+            else if (walkableAt(nx, f.y)) f.x = nx;
+            else if (walkableAt(f.x, ny)) f.y = ny;
         }
         // deaths → score, life, respawn, drop scroll
         for (const f of fs) {
