@@ -425,18 +425,77 @@ const POWER: Record<ArenaRole, number> = { defender: 110, tracker: 100, assassin
 //  turned near-even matches into turtle stalemates — draws nearly doubled — so it was
 //  cut; the local-outnumber regroup in candidates() already covers piecemeal feeding.)
 const CALL_TARGET_BONUS = 20;          // directed focus-fire weight (modest: nudges target choice, never overrides the objective)
+
+// ── Commander (R3): per-tick team STRATEGIC read ─────────────────────────────
+// A thin "commander" layer (Killzone-3 style): one deterministic pass per team that
+// reads whether the squad is WINNING or LOSING the board — not just the scoreboard
+// (captures are the only score, but board POWER + life reserve decide whether a team
+// can even contest the next objective) — and publishes a POSTURE every pet folds into
+// its intent scores, plus a RALLY point (influence-picked, biased toward the objective)
+// to re-form on. Orthogonal to the score-based PHASE_ADJ rubber-band: PHASE_ADJ reacts
+// to the SCOREBOARD, posture reacts to the BOARD STATE. Pure (positions/hp/lives/roles
+// only, id-stable, no rng) so replays stay byte-identical.
+type Posture = "press" | "even" | "regroup";
+const PRESS_THRESH = 1.1, REGROUP_THRESH = -2.2;   // asymmetric: regroup needs a CLEAR board deficit (not a mild one) so a team presses through small disadvantages instead of turtling to the cap (captures are the only score)
+/** Board "standing" for `team`: role/HP-weighted power delta + life-reserve delta +
+ *  who holds the scroll. >0 = winning the board, <0 = losing it. Deterministic. */
+function teamStanding(fs: AF[], team: "blue" | "red", scroll: Scroll): number {
+    const opp = oppOf(team);
+    let myPow = 0, enPow = 0;
+    for (const g of fs) { if (!alive(g)) continue; const p = POWER[g.role] * hpFrac(g); if (g.team === team) myPow += p; else enPow += p; }
+    const powTerm = (myPow - enPow) / Math.max(1, myPow + enPow);          // −1..1
+    const myL = teamLives(fs, team), enL = teamLives(fs, opp);
+    const lifeTerm = (myL - enL) / Math.max(1, myL + enL);                 // −1..1
+    let carrierEdge = 0;
+    if (scroll.state === "carried" && scroll.carrierId) { const c = fs.find((g) => g.id === scroll.carrierId); if (c) carrierEdge = c.team === team ? 1 : -1; }
+    return powTerm * 3 + lifeTerm * 1.5 + carrierEdge * 0.6;
+}
+/** Composition lean: a burst/skirmish team (≥2 assassins, or an assassin+tracker pair)
+ *  wants to PRESS to cash in its burst — so it crosses into "press" on a smaller edge. */
+function compBias(fs: AF[], team: "blue" | "red"): number {
+    let asn = 0, trk = 0;
+    for (const g of fs) if (g.team === team) { if (g.role === "assassin") asn++; else if (g.role === "tracker") trk++; }
+    return (asn >= 2 ? 0.6 : 0) + (asn >= 1 && trk >= 1 ? 0.2 : 0);
+}
+function teamPosture(fs: AF[], team: "blue" | "red", scroll: Scroll): Posture {
+    const s = teamStanding(fs, team, scroll) + compBias(fs, team);
+    return s >= PRESS_THRESH ? "press" : s <= REGROUP_THRESH ? "regroup" : "even";
+}
+/** The team's rally point for re-forming: the safest of {each ally, the ally centroid}
+ *  by LOCAL power balance (an influence read), then pulled toward the objective so a
+ *  rally always stages FORWARD, never a home-corner turtle. Snapped onto the connected
+ *  mesh. Deterministic (stable scan order, first-wins ties). */
+function teamRally(fs: AF[], team: "blue" | "red"): [number, number] {
+    const allies = fs.filter((g) => g.team === team && alive(g));
+    if (allies.length === 0) return ARENA_CENTER;
+    const enemies = fs.filter((g) => g.team !== team && alive(g));
+    let cx = 0, cy = 0; for (const a of allies) { cx += a.x; cy += a.y; } cx /= allies.length; cy /= allies.length;
+    const cands: Array<[number, number]> = allies.map((a) => [a.x, a.y]); cands.push([cx, cy]);
+    let best = cands[0], bv = -Infinity;
+    for (const [x, y] of cands) {
+        const dcx = x - ARENA_CENTER[0], dcy = y - ARENA_CENTER[1];
+        const v = localPower(x, y, allies, 5.5) - localPower(x, y, enemies, 5.5) - Math.sqrt(dcx * dcx + dcy * dcy) * 4;
+        if (v > bv) { bv = v; best = [x, y]; }                              // first-wins ties (stable order) → deterministic
+    }
+    return snapMain((best[0] + ARENA_CENTER[0]) / 2, (best[1] + ARENA_CENTER[1]) / 2);
+}
+
 interface Squad {
     focus: { blue: Record<string, number>; red: Record<string, number> };
     callTarget: { blue: string | null; red: string | null };
     peel: Record<string, string>;
+    posture: { blue: Posture; red: Posture };
+    rally: { blue: [number, number]; red: [number, number] };
 }
-function buildSquad(fs: AF[]): Squad {
+function buildSquad(fs: AF[], scroll: Scroll): Squad {
     const focus = { blue: {} as Record<string, number>, red: {} as Record<string, number> };
     for (const g of fs) { if (!alive(g) || !g.aiTargetId) continue; const m = focus[g.team]; m[g.aiTargetId] = (m[g.aiTargetId] ?? 0) + 1; }
     return {
         focus,
         callTarget: { blue: pickCallTarget(fs, "blue"), red: pickCallTarget(fs, "red") },
         peel: assignPeels(fs),
+        posture: { blue: teamPosture(fs, "blue", scroll), red: teamPosture(fs, "red", scroll) },
+        rally: { blue: teamRally(fs, "blue"), red: teamRally(fs, "red") },
     };
 }
 /** The enemy `team` should collapse on this tick: the carrier, then whoever is closest
@@ -562,15 +621,13 @@ function anticipateP(f: AF, fs: AF[], scroll: Scroll): Plan {
     const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
     return { gx: ex, gy: ey, stopAt: 0.4, target: nearestEnemy(f, fs), channel: false };
 }
-/** Rally to the team — toward the nearest defender (the wall), but biased to the
- *  centre/fight so a regrouping pet never just parks in its spawn corner (which
- *  reads as — and tests as — frozen). moveToward snaps the goal into the connected
- *  region. Only used when there IS an ally to group to (see candidates). */
-function regroupPlan(f: AF, fs: AF[]): Plan {
-    const allies = alliesAlive(f, fs, false);
-    const anchor = allies.find((a) => a.role === "defender") ?? nearestPt(f.x, f.y, allies);
-    const ax = anchor ? anchor.x : ARENA_CENTER[0], ay = anchor ? anchor.y : ARENA_CENTER[1];
-    const gx = (ax + ARENA_CENTER[0]) / 2, gy = (ay + ARENA_CENTER[1]) / 2;
+/** Rally to the commander's influence-picked point (teamRally): the safest cluster of
+ *  the squad pulled toward the objective, so a regrouping pet re-forms FORWARD with its
+ *  team instead of parking in its spawn corner (which reads as — and tests as — frozen).
+ *  moveToward snaps the goal into the connected region. Only used when there IS an ally
+ *  to group to (see candidates). */
+function regroupPlan(f: AF, fs: AF[], rally: [number, number]): Plan {
+    const [gx, gy] = rally;                                       // the commander's influence-picked rally (forward of home, near the objective)
     const block = nearestEnemy(f, fs);
     return { gx, gy, stopAt: 1.2, target: block && dist(f, block) < f.atkRange ? block : null, channel: false };
 }
@@ -626,7 +683,13 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
     if (!f.carrying && alliesAlive(f, fs, false).length > 0) {   // "regroup" needs an ally to group TO — a lone pet fights (stays mobile)
         const myPow = localPower(f.x, f.y, alliesAlive(f, fs, true), LOCAL_R);
         const enPow = localPower(f.x, f.y, enemies, LOCAL_R);
-        if (enPow > myPow * OUTNUMBER_RATIO) cands.push({ score: REGROUP_SCORE[f.role], kind: "regroup", plan: regroupPlan(f, fs) });
+        // Regroup is the SELF-LIMITING local-outnumber pull-back: it only exists while a
+        // pet is genuinely being collapsed on (enPow > myPow×1.5 nearby), and vanishes the
+        // moment allies group up — so the team re-forms and RE-ENGAGES instead of turtling.
+        // The commander only ever AMPLIFIES this (POSTURE_ADJ.regroup) for a board-losing
+        // team and points it at the influence-picked rally — never forces a team-wide
+        // fallback (a prototype that did exactly that dragged near-even matches to the cap).
+        if (enPow > myPow * OUTNUMBER_RATIO) cands.push({ score: REGROUP_SCORE[f.role], kind: "regroup", plan: regroupPlan(f, fs, squad.rally[f.team]) });
     }
 
     // PEEL (R2, cross-role): answer the threat the blackboard ASSIGNED to me. Defenders
@@ -728,6 +791,15 @@ const PHASE_ADJ: Record<MatchPhase, Partial<Record<CandKind, number>>> = {
     comeback: { objective: 16, hunt: 12, interceptCarrier: 14, frontline: 8, retreat: -14, regroup: -10 },
     emergency: { objective: 30, protectCarrier: 30, interceptCarrier: 36, escort: 24, hunt: -16, frontline: -16, support: -8 },
 };
+// Power POSTURE (R3): the commander's board read nudges intent KINDs — PRESS to
+// CONVERT a winning board (collapse on kills + push the objective, stop disengaging),
+// REGROUP to re-form a losing one at the rally. Modest like TRAIT_ADJ; stacks with the
+// score-based PHASE_ADJ (orthogonal axes: scoreboard vs board-strength).
+const POSTURE_ADJ: Record<Posture, Partial<Record<CandKind, number>>> = {
+    press: { hunt: 9, frontline: 7, interceptCarrier: 10, objective: 8, escort: 4, retreat: -9, regroup: -10 },
+    even: {},
+    regroup: { regroup: 10, protectAlly: 6, support: 4, hunt: -5, frontline: -5 },
+};
 // Trait personality: nudges (not overrides) the role's choices by the pet's OWN
 // trait, so two same-role pets play a little differently — an Aggressive one dives,
 // a Loyal one guards. Mild on purpose; absent/unknown traits → no change.
@@ -751,7 +823,9 @@ function decide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: num
     const ctx = makeCtx(f, fs, scroll, score);
     const cands = candidates(f, fs, scroll, ctx, squad);
     const adj = PHASE_ADJ[ctx.phase];
-    for (const c of cands) { const a = adj[c.kind]; if (a) c.score += a; }              // match-state rubber-band
+    for (const c of cands) { const a = adj[c.kind]; if (a) c.score += a; }              // match-state rubber-band (scoreboard)
+    const padj = POSTURE_ADJ[squad.posture[f.team]];                                    // commander posture (board strength)
+    for (const c of cands) { const a = padj[c.kind]; if (a) c.score += a; }
     const tadj = f.pet.trait ? TRAIT_ADJ[f.pet.trait] : undefined;                      // trait personality
     if (tadj) for (const c of cands) { const a = tadj[c.kind]; if (a) c.score += a; }
     let best = cands[0];
@@ -933,7 +1007,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         // timing), but a clearly stronger team wins from EITHER side (verified), so
         // real matches — player pets vs AI pets, never identical — are decided by
         // pet quality, not side.
-        const squad = buildSquad(fs);   // shared squad awareness (focus-fire tally) — built once per tick
+        const squad = buildSquad(fs, scroll);   // shared squad awareness (focus + call + peels) + commander (posture + rally) — built once per tick
         for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, score, squad);
         for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, rng, t, events); }
         // separate overlapping bodies
