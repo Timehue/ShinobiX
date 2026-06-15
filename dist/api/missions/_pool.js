@@ -8,6 +8,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getMissionPool = getMissionPool;
 exports.pickDailyMissions = pickDailyMissions;
+exports.pickNewbieMissions = pickNewbieMissions;
 const HEALER_POOL = [
     { templateId: 'healer-triage-run', profession: 'healer', kind: 'healer-heal-unique', name: 'Triage Run', description: 'Heal 3 different patients.', target: 3, xpReward: 50 },
     { templateId: 'healer-mercy-round', profession: 'healer', kind: 'healer-heal-unique', name: 'Mercy Round', description: 'Heal 4 different patients.', target: 4, xpReward: 60 },
@@ -87,4 +88,31 @@ function pickDailyMissions(profession, playerName, dateKey, count = 3) {
         chosen.push(remaining.splice(idx, 1)[0]);
     }
     return chosen;
+}
+// One battle task + one mission task per day. Both progress off server-validated
+// mission CLAIMS (api/missions/claim-mission): a "battle" is a won Arena combat
+// mission; a "mission" is any claimed mission. New players live in that loop, so
+// these reliably advance (unlike PvP-win hooks, which pre-profession players
+// rarely trigger).
+const NEWBIE_BATTLE_POOL = [
+    { templateId: 'newbie-battles-2', kind: 'newbie-battle-wins', name: 'Sparring Practice', description: 'Win 2 battles.', target: 2, ryoReward: 120 },
+    { templateId: 'newbie-battles-3', kind: 'newbie-battle-wins', name: 'Proving Ground', description: 'Win 3 battles.', target: 3, ryoReward: 160 },
+];
+const NEWBIE_MISSION_POOL = [
+    { templateId: 'newbie-missions-2', kind: 'newbie-missions', name: 'Errand Runner', description: 'Complete 2 missions.', target: 2, ryoReward: 120 },
+    { templateId: 'newbie-missions-3', kind: 'newbie-missions', name: 'Village Service', description: 'Complete 3 missions.', target: 3, ryoReward: 160 },
+];
+function seededPickOne(pool, seedStr) {
+    if (pool.length === 0)
+        return undefined;
+    const rng = mulberry32(stringHash(seedStr));
+    return pool[Math.floor(rng() * pool.length)];
+}
+// Pick today's new-shinobi set: one battle task + one mission task, each
+// deterministic per (player, date) so it's stable across a day and can't be
+// re-rolled, but varies day to day.
+function pickNewbieMissions(playerName, dateKey) {
+    const battle = seededPickOne(NEWBIE_BATTLE_POOL, `${playerName}:${dateKey}:nb-battle`);
+    const mission = seededPickOne(NEWBIE_MISSION_POOL, `${playerName}:${dateKey}:nb-mission`);
+    return [battle, mission].filter((t) => Boolean(t));
 }

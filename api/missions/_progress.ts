@@ -4,7 +4,10 @@ import {
     type Profession,
     type MissionKind,
     type MissionTemplate,
+    type NewbieMissionKind,
+    type NewbieMissionTemplate,
     pickDailyMissions,
+    pickNewbieMissions,
 } from './_pool.js';
 
 export type DailyMission = {
@@ -238,5 +241,131 @@ export async function reportMissionEvent(opts: {
         await awardProfessionXp(playerName, profession, result.xpAwarded);
     }
 
+    return result;
+}
+
+// ── New-shinobi (pre-profession) daily track ───────────────────────────────────
+// A parallel, self-contained daily set for players who haven't chosen a
+// profession. Mirrors the profession track's shape and auto-grant model, but
+// pays RYO (not profession XP, which they don't have) and lives under its own
+// storage key so the profession system is untouched. Gated on "no profession":
+// every entry point no-ops the moment a player has chosen one.
+
+export type NewbieDailyMission = {
+    id: string;
+    templateId: string;
+    kind: NewbieMissionKind;
+    name: string;
+    description: string;
+    target: number;
+    progress: number;
+    ryoReward: number;
+    completedAt: number | null;
+};
+
+export type NewbieDailyState = {
+    date: string;            // "YYYY-MM-DD" UTC
+    missions: NewbieDailyMission[];
+};
+
+function newbieDailyKey(playerName: string): string {
+    return `missions:newbie-daily:${playerName}`;
+}
+
+function fromNewbieTemplate(t: NewbieMissionTemplate, dateKey: string): NewbieDailyMission {
+    return {
+        id: `${t.templateId}:${dateKey}`,
+        templateId: t.templateId,
+        kind: t.kind,
+        name: t.name,
+        description: t.description,
+        target: t.target,
+        progress: 0,
+        ryoReward: t.ryoReward,
+        completedAt: null,
+    };
+}
+
+// Load (or issue) today's new-shinobi dailies. Callers should only invoke this
+// for players WITHOUT a profession.
+export async function loadOrIssueNewbieDailies(
+    playerName: string,
+    now = new Date(),
+): Promise<NewbieDailyState> {
+    const today = utcDateKey(now);
+    const existing = await kv.get<NewbieDailyState>(newbieDailyKey(playerName));
+    if (existing && existing.date === today) return existing;
+    const picks = pickNewbieMissions(playerName, today);
+    const state: NewbieDailyState = {
+        date: today,
+        missions: picks.map(t => fromNewbieTemplate(t, today)),
+    };
+    await kv.set(newbieDailyKey(playerName), state, { ex: 36 * 60 * 60 });
+    return state;
+}
+
+// Grant ryo to the player's character, under the same save lock the save
+// endpoint uses (mirrors awardProfessionXp). Re-checks "no profession" inside
+// the lock so a player who chose a profession between the report and the grant
+// is never paid the newbie reward.
+async function awardNewbieRyo(playerName: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const saveKey = `save:${playerName}`;
+    await withKvLock(saveKey, async () => {
+        const record = await kv.get<Record<string, unknown>>(saveKey);
+        const char = record?.character as Record<string, unknown> | undefined;
+        if (!char || char.profession) return;
+        const updated = {
+            ...record,
+            character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
+        };
+        await kv.set(saveKey, updated);
+    });
+}
+
+export type NewbieCompletedInfo = { id: string; name: string; ryoReward: number };
+
+// Progress the new-shinobi dailies for a matching event kind. No-op for players
+// who have a profession. Auto-grants ryo on completion (same model as the
+// profession dailies' auto-grant). Locks the newbie-daily key for the
+// read-modify-write so concurrent reports can't lose an increment.
+export async function reportNewbieEvent(opts: {
+    playerName: string;
+    kind: NewbieMissionKind;
+    now?: Date;
+}): Promise<{ ryoAwarded: number; completed: NewbieCompletedInfo[] }> {
+    const { playerName, kind } = opts;
+    const now = opts.now ?? new Date();
+
+    // Cheap gate before taking the lock: only pre-profession players have a
+    // newbie set. (Re-checked inside awardNewbieRyo under the save lock.)
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const char = save?.character as Record<string, unknown> | undefined;
+    if (!char || char.profession) return { ryoAwarded: 0, completed: [] };
+
+    const dKey = newbieDailyKey(playerName);
+    const result = await withKvLock(dKey, async () => {
+        const state = await loadOrIssueNewbieDailies(playerName, now);
+        let ryoAwarded = 0;
+        const completed: NewbieCompletedInfo[] = [];
+        let changed = false;
+        const next = state.missions.map(m => {
+            if (m.kind !== kind || m.completedAt) return m;
+            const nextProgress = m.progress + 1;
+            changed = true;
+            if (nextProgress >= m.target) {
+                ryoAwarded += m.ryoReward;
+                completed.push({ id: m.id, name: m.name, ryoReward: m.ryoReward });
+                return { ...m, progress: m.target, completedAt: Date.now() };
+            }
+            return { ...m, progress: nextProgress };
+        });
+        if (changed) await kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
+        return { ryoAwarded, completed };
+    });
+
+    if (result.ryoAwarded > 0) {
+        await awardNewbieRyo(playerName, result.ryoAwarded);
+    }
     return result;
 }

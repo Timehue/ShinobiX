@@ -26,7 +26,16 @@ async function handler(req, res) {
         const char = record?.character;
         const profession = char?.profession;
         if (!profession || !VALID_PROFESSIONS.includes(profession)) {
-            return res.status(200).json({ profession: null, missions: [] });
+            // No profession yet → serve the new-shinobi daily set instead of an
+            // empty panel, so the early game (pre-L13) isn't a dead zone. These
+            // auto-grant ryo on completion via reportNewbieEvent (claim-mission).
+            const newbie = await (0, _progress_js_1.loadOrIssueNewbieDailies)(playerName);
+            return res.status(200).json({
+                profession: null,
+                track: 'newbie',
+                date: newbie.date,
+                missions: newbie.missions,
+            });
         }
         const state = await (0, _progress_js_1.loadOrIssueDailyMissions)(playerName, profession);
         if (!state) {
