@@ -660,6 +660,143 @@
     min-width: 0;
 }
 
+/* ----- Pet Arena hero banner (painterly Flux scene behind the title) ----- */
+.pet-arena-screen .pet-arena-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 16px 20px 14px !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 10px !important;
+    background-color: #0a1020 !important;
+    background-size: cover !important;
+    background-position: center 40% !important;
+    background-repeat: no-repeat !important;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), 0 6px 18px rgba(0,0,0,0.5);
+    margin-bottom: 12px;
+}
+.pet-arena-screen .pet-arena-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(6,10,22,0.12) 0%, rgba(6,10,22,0.5) 52%, rgba(6,10,22,0.93) 100%);
+    pointer-events: none;
+}
+.pet-arena-screen .pet-arena-hero > * {
+    position: relative;
+    z-index: 1;
+}
+.pet-arena-screen .pet-arena-hero .hero-title {
+    font: 700 19px Cinzel, serif !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+    color: var(--bsv2-gold-bright) !important;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 18px rgba(196,162,90,0.35);
+    margin: 0 !important;
+}
+.pet-arena-screen .pet-arena-hero .hero-sub {
+    color: #dce5f2 !important;
+    font: 400 12px Inter, sans-serif !important;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+    margin: 5px 0 0 !important;
+    max-width: 760px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.95);
+}
+
+/* ----- Tactical Arena team picker (bigger slots, portraits + role badges) ----- */
+.pet-arena-screen .pet-pick-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)) !important;
+    gap: 12px !important;
+    margin-top: 2px;
+}
+.pet-arena-screen .pet-pick {
+    position: relative;
+    display: grid !important;
+    justify-items: center;
+    gap: 7px;
+    padding: 14px 8px 11px !important;
+    background: linear-gradient(180deg, rgba(20,28,46,0.9), rgba(9,14,27,0.94)) !important;
+    border: 2px solid var(--bsv2-gold-faint) !important;
+    border-radius: 12px !important;
+    color: #d7deeb !important;
+    cursor: pointer;
+    transition: border-color 130ms, transform 130ms, box-shadow 130ms, background 130ms;
+}
+.pet-arena-screen .pet-pick:hover {
+    transform: translateY(-2px);
+    border-color: var(--bsv2-gold-soft) !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+.pet-arena-screen .pet-pick.selected {
+    border-color: #22d3ee !important;
+    background: linear-gradient(180deg, rgba(14,116,144,0.32), rgba(8,40,52,0.5)) !important;
+    box-shadow: 0 0 0 1px rgba(34,211,238,0.35), 0 0 16px rgba(34,211,238,0.28);
+}
+.pet-arena-screen .pet-pick-img {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(0,0,0,0.55);
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.4);
+}
+.pet-arena-screen .pet-pick-img.placeholder {
+    background: radial-gradient(circle at 50% 40%, #3a465e, #1e2738) !important;
+}
+.pet-arena-screen .pet-pick-name {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.04em;
+    color: #e8edf5 !important;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pet-arena-screen .pet-pick-role {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px 2px 6px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    background: rgba(0,0,0,0.28);
+    font: 700 10px Inter, sans-serif !important;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.pet-arena-screen .pet-pick-role-icon {
+    width: 17px;
+    height: 17px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+.pet-arena-screen .pet-pick-meta {
+    font: 500 10px Inter, sans-serif !important;
+    letter-spacing: 0.04em;
+    color: #93a0b4 !important;
+}
+.pet-arena-screen .pet-pick-order {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #5eead4, #0e7490) !important;
+    color: #03222b !important;
+    font: 800 13px Inter, sans-serif !important;
+    border: 2px solid #04161c;
+    box-shadow: 0 2px 7px rgba(0,0,0,0.55);
+}
+
 /* ----- Modal overlay (e.g. pet yard popups) ----- */
 .pet-yard-overlay {
     background: rgba(5,9,18,0.85) !important;
