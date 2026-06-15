@@ -49,6 +49,11 @@ export interface ProjectileVisual {
     wobble: number;
     /** Tail length multiplier (comet / charged are longer). */
     tail: number;
+    /** When set, the renderer draws this REAL painted element sprite (alpha-
+     *  blended) as the head instead of the procedural glow shape — the actual
+     *  fireball / water ball / wind cut / boulder / bolt art. Undefined for
+     *  support and neutral shots (those keep the procedural glow). */
+    spriteKey?: string;
     /** Travel-speed multiplier for the arena spawner (1 = base; the sim drives
      *  the duel so it ignores this). Assassin lances are fast, defenders slow. */
     speedMul: number;
@@ -103,6 +108,17 @@ const SUPPORT_TINT = { core: "#dcfce7", glow: "#34d399" };
 
 const SUPPORT_KINDS = new Set(["heal", "shield", "barrier", "absorb", "buff", "haste"]);
 
+// Element (incl. bloodline natures) → the bundled real painted projectile sprite
+// in src/assets/fx/projectiles/<key>.webp. Lava rides the fireball, Iron the
+// boulder; Blood/Shadow/None have no painted sprite and keep the procedural glow.
+const SPRITE_FOR: Record<string, string> = {
+    fire: "fire", lava: "fire",
+    water: "water",
+    wind: "wind",
+    earth: "earth", iron: "earth",
+    lightning: "lightning",
+};
+
 /** Apply the arena role's DELIVERY feel on top of the element body — silhouette
  *  size/length/spin/speed only, so the element colours + texture survive. */
 function applyRole(v: ProjectileVisual, role: string): ProjectileVisual {
@@ -137,8 +153,13 @@ export function projectileVisual(input: ProjectileVisualInput): ProjectileVisual
     if (role) v = applyRole(v, role);
 
     const kind = String(input.kind ?? "").toLowerCase();
-    if (input.support || SUPPORT_KINDS.has(kind)) {
+    const isSupport = !!input.support || SUPPORT_KINDS.has(kind);
+    if (isSupport) {
+        // A heal/ward comet — recolour green and stay procedural (no element art).
         v = { ...v, core: SUPPORT_TINT.core, glow: SUPPORT_TINT.glow };
+    } else if (SPRITE_FOR[el]) {
+        // A real elemental shot — draw the painted fireball/boulder/bolt sprite.
+        v = { ...v, spriteKey: SPRITE_FOR[el] };
     }
 
     // A heavy "crush" hit reads a notch bigger even when not a full signature.

@@ -82,6 +82,24 @@ test("charged (signature/crit) is the bigger, longer-tailed specialty tier", () 
     assert.ok(big.size > base.size && big.tail > base.tail);
 });
 
+test("core elements (and natures) get the real painted sprite; support/neutral do not", () => {
+    assert.equal(projectileVisual({ element: "Fire" }).spriteKey, "fire");
+    assert.equal(projectileVisual({ element: "Water" }).spriteKey, "water");
+    assert.equal(projectileVisual({ element: "Wind" }).spriteKey, "wind");
+    assert.equal(projectileVisual({ element: "Earth" }).spriteKey, "earth");
+    assert.equal(projectileVisual({ element: "Lightning" }).spriteKey, "lightning");
+    // Bloodline natures ride the closest sprite.
+    assert.equal(projectileVisual({ element: "Lava" }).spriteKey, "fire");
+    assert.equal(projectileVisual({ element: "Iron" }).spriteKey, "earth");
+    // Role keeps the element sprite (delivery changes, not identity).
+    assert.equal(projectileVisual({ element: "Fire", role: "assassin" }).spriteKey, "fire");
+    // Support shots and neutral/no-sprite natures stay procedural (no sprite).
+    assert.equal(projectileVisual({ element: "Fire", kind: "heal" }).spriteKey, undefined);
+    assert.equal(projectileVisual({ element: "Fire", support: true }).spriteKey, undefined);
+    assert.equal(projectileVisual({ element: "Shadow" }).spriteKey, undefined);
+    assert.equal(projectileVisual({ element: "None" }).spriteKey, undefined);
+});
+
 test("crush reads heavier than a basic hit of the same element", () => {
     const basic = projectileVisual({ element: "Earth" });
     const crush = projectileVisual({ element: "Earth", kind: "crush" });
