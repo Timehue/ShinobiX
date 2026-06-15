@@ -13,8 +13,9 @@
 
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
+import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 
 export function UserHub({
     currentName,
@@ -32,6 +33,14 @@ export function UserHub({
     onBack: () => void;
 }) {
     const [search, setSearch] = useState("");
+    const [tab, setTab] = useState<'all' | 'following'>('all');
+    const [following, setFollowing] = useState<string[]>([]);
+    useEffect(() => subscribeFollowing(currentName, setFollowing), [currentName]);
+    const isFollowed = (name: string) => following.some(f => f.toLowerCase() === name.toLowerCase());
+    function toggleFollow(name: string) {
+        if (isFollowed(name)) void unfollow(currentName, name);
+        else void follow(currentName, name);
+    }
 
     // Merge roster + server list so we have avatars for as many players as possible.
     const merged = (() => {
@@ -76,7 +85,8 @@ export function UserHub({
     merged.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
 
     const q = search.trim().toLowerCase();
-    const filtered = q ? merged.filter(p => p.name.toLowerCase().includes(q)) : merged;
+    const searched = q ? merged.filter(p => p.name.toLowerCase().includes(q)) : merged;
+    const filtered = tab === 'following' ? searched.filter(p => isFollowed(p.name)) : searched;
 
     // Split into online + offline so we can render section headers.
     // Cleaner than a flat list — players know at a glance who's actually around.
@@ -113,8 +123,15 @@ export function UserHub({
                 onChange={(e) => setSearch(e.target.value)}
             />
 
+            <div className="user-hub-tabs">
+                <button className={`user-hub-tab${tab === 'all' ? ' active' : ''}`} onClick={() => setTab('all')}>All</button>
+                <button className={`user-hub-tab${tab === 'following' ? ' active' : ''}`} onClick={() => setTab('following')}>
+                    ★ Following{following.length ? ` (${following.length})` : ''}
+                </button>
+            </div>
+
             {filtered.length === 0 ? (
-                <p className="hint">No users found.</p>
+                <p className="hint">{tab === 'following' ? "You're not following anyone yet. Open a profile to follow them." : "No users found."}</p>
             ) : (
                 <>
                     {online.length > 0 && (
@@ -124,7 +141,7 @@ export function UserHub({
                                 <span className="user-hub-section-count">{online.length}</span>
                             </div>
                             <div className="user-hub-list">
-                                {online.map(p => renderRow(p, sharedImages, timeAgo, onSelect))}
+                                {online.map(p => renderRow(p, sharedImages, timeAgo, onSelect, isFollowed(p.name), toggleFollow))}
                             </div>
                         </>
                     )}
@@ -136,7 +153,7 @@ export function UserHub({
                                 <span className="user-hub-section-count">{offline.length}</span>
                             </div>
                             <div className="user-hub-list">
-                                {offline.map(p => renderRow(p, sharedImages, timeAgo, onSelect))}
+                                {offline.map(p => renderRow(p, sharedImages, timeAgo, onSelect, isFollowed(p.name), toggleFollow))}
                             </div>
                         </>
                     )}
@@ -153,6 +170,8 @@ function renderRow(
     sharedImages: Record<string, string>,
     timeAgo: (ts: number) => string,
     onSelect: (name: string) => void,
+    isFollowed: boolean,
+    onToggleFollow: (name: string) => void,
 ) {
     const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
     const avatar = sharedAvatar || p.avatar || "";
@@ -181,6 +200,14 @@ function renderRow(
                 <span className={`user-hub-dot ${p.online ? "online" : "offline"}`} />
                 <small>{p.online ? "Online" : timeAgo(p.lastSeenAt)}</small>
             </div>
+            <span
+                className={`user-hub-follow-star${isFollowed ? " following" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label={isFollowed ? "Unfollow" : "Follow"}
+                title={isFollowed ? "Unfollow" : "Follow"}
+                onClick={(e) => { e.stopPropagation(); onToggleFollow(p.name); }}
+            >{isFollowed ? "★" : "☆"}</span>
         </button>
     );
 }
