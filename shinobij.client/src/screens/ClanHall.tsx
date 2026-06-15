@@ -16,6 +16,7 @@ import { postClanTreasuryDonation, postClanUpgradePurchase } from "../lib/player
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
+import { removeItem, ownsItem } from "../lib/inventory";
 import { getTownDefenseGuardBonus } from "../lib/village-upgrades";
 import { makeNoticePost, normalizeNoticePosts, noticeTypeLabel } from "../lib/clan-notices";
 import { readImageFile } from "../lib/shared-images";
@@ -258,13 +259,11 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
     async function donateClanItem() {
         if (!clanData) return;
         if (!clanDonateItemId) return alert("Choose an item to donate.");
-        if (!character.inventory.includes(clanDonateItemId)) return alert("You do not have that item.");
+        if (!ownsItem(character, clanDonateItemId)) return alert("You do not have that item.");
         const treasury = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
         if (!treasury) return;
-        const nextInventory = [...character.inventory];
-        nextInventory.splice(nextInventory.indexOf(clanDonateItemId), 1);
         await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, 50));
-        updateCharacter({ ...character, inventory: nextInventory, clanEventContrib: (character.clanEventContrib ?? 0) + 1 });
+        updateCharacter({ ...removeItem(character, clanDonateItemId, 1), clanEventContrib: (character.clanEventContrib ?? 0) + 1 });
     }
     async function donateAllTerritoryScrollsToClan() {
         if (!clanData) return;
@@ -273,7 +272,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         const treasury = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
         if (!treasury) return;
         await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, count * 20));
-        updateCharacter({ ...character, inventory: removeTerritoryScrolls(character, count), clanEventContrib: (character.clanEventContrib ?? 0) + count });
+        updateCharacter({ ...removeTerritoryScrolls(character, count), clanEventContrib: (character.clanEventContrib ?? 0) + count });
         alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
     }
     async function sendClanCurrency() {

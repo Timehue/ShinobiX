@@ -10,6 +10,7 @@ import { armorReductionForQuality, equipmentSlotLabel, normalizeEquipmentSlot } 
 import { craftDungeonEvents } from "../data/vn-events";
 import { elementIcon, getCharacterElements, rollAwakeningElements, rollNewAwakeningElement, uniqueElements } from "../lib/elements";
 import { getAllItems } from "../lib/items";
+import { addItem, removeItem, countItem } from "../lib/inventory";
 import { makeId } from "../lib/utils";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
@@ -415,7 +416,7 @@ export function CentralHub({
     const allHubItems = getAllItems(creatorItems);
 
     function countInventory(itemId: string) {
-        return character.inventory.filter((id) => id === itemId).length;
+        return countItem(character, itemId);
     }
 
     // Rewards are auto-distributed by the weekly-boss API at the 24h
@@ -471,23 +472,24 @@ export function CentralHub({
 
     function craftPointsTotal(): number {
         return Object.entries(CRAFT_POINTS).reduce((sum, [id, pts]) => {
-            return sum + character.inventory.filter((i) => i === id).length * pts;
+            return sum + countItem(character, id) * pts;
         }, 0);
     }
 
-    // Burn materials cheapest-first until costPts is paid. Returns the
-    // post-craft inventory; does not mutate state.
-    function consumeCraftPoints(costPts: number): string[] {
+    // Burn materials cheapest-first until costPts is paid. Returns a new
+    // Character with the consumed materials removed from BOTH stores (hunt drops
+    // live in inventory[], relics in itemStacks); does not mutate state.
+    function consumeCraftPoints(costPts: number): Character {
         const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
-        const inv = [...character.inventory];
+        let next = character;
         let remaining = costPts;
         for (const [id, pts] of ordered) {
-            while (remaining > 0 && inv.includes(id)) {
-                inv.splice(inv.indexOf(id), 1);
+            while (remaining > 0 && countItem(next, id) > 0) {
+                next = removeItem(next, id, 1);
                 remaining -= pts;
             }
         }
-        return inv;
+        return next;
     }
 
     // Points-based weapon/armor crafting — both tabs draw from the unified
@@ -518,9 +520,8 @@ export function CentralHub({
         const total = craftPointsTotal();
         if (total < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${total}.`);
         updateCharacter({
-            ...character,
+            ...addItem(consumeCraftPoints(costPts), item.id, 1),
             ryo: character.ryo - ryo,
-            inventory: [...consumeCraftPoints(costPts), item.id],
         });
         alert(`${item.name} forged and added to your inventory.`);
     }
@@ -533,9 +534,8 @@ export function CentralHub({
         const total = craftPointsTotal();
         if (total < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${total}.`);
         updateCharacter({
-            ...character,
+            ...addItem(consumeCraftPoints(costPts), item.id, 1),
             ryo: character.ryo - ryo,
-            inventory: [...consumeCraftPoints(costPts), item.id],
         });
         alert(`${item.name} forged and added to your inventory.`);
     }
@@ -990,8 +990,7 @@ export function CentralHub({
 
                 function craftItem(costPts: number, grant: (c: Character) => Character) {
                     if (totalPts < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${totalPts}.`);
-                    const newInv = consumeCraftPoints(costPts);
-                    updateCharacter(grant({ ...character, inventory: newInv }));
+                    updateCharacter(grant(consumeCraftPoints(costPts)));
                     alert("Crafting complete!");
                 }
 
@@ -1042,7 +1041,7 @@ export function CentralHub({
                             {crafterTab === "supplies" && <><div className="crafter-material-list">
                                 <strong>Your Materials</strong>
                                 {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                    const count = character.inventory.filter((i) => i === id).length;
+                                    const count = countItem(character, id);
                                     return (
                                         <div key={id} className="crafter-material-row">
                                             <span>{label}</span>
@@ -1058,7 +1057,7 @@ export function CentralHub({
                                 to save vertical space. Each card keeps its own forge logic. */}
                             <div className="crafter-recipe-grid crafter-special-grid" style={{ marginBottom: 12 }}>
                             {(() => {
-                                const dungeonKeyCount = character.inventory.filter(id => id === DUNGEON_KEY_ID).length;
+                                const dungeonKeyCount = countItem(character, DUNGEON_KEY_ID);
                                 const fateShardCount = character.fateShards ?? 0;
                                 const canCraftWithKeys = dungeonKeyCount >= HOLLOW_GATE_KEY_DUNGEON_KEY_COST;
                                 const canCraftWithShards = fateShardCount >= HOLLOW_GATE_KEY_FATE_SHARD_COST;
@@ -1067,16 +1066,13 @@ export function CentralHub({
                                         alert(`You need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys. You have ${dungeonKeyCount}.`);
                                         return;
                                     }
-                                    const newInv = [...character.inventory];
-                                    let toRemove = HOLLOW_GATE_KEY_DUNGEON_KEY_COST;
-                                    for (let i = newInv.length - 1; i >= 0 && toRemove > 0; i -= 1) {
-                                        if (newInv[i] === DUNGEON_KEY_ID) {
-                                            newInv.splice(i, 1);
-                                            toRemove -= 1;
-                                        }
-                                    }
-                                    newInv.push(HOLLOW_GATE_KEY_ID);
-                                    updateCharacter({ ...character, inventory: newInv });
+                                    updateCharacter(
+                                        addItem(
+                                            removeItem(character, DUNGEON_KEY_ID, HOLLOW_GATE_KEY_DUNGEON_KEY_COST),
+                                            HOLLOW_GATE_KEY_ID,
+                                            1,
+                                        ),
+                                    );
                                     alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
                                 }
                                 function craftHollowGateKeyWithFateShards() {
@@ -1091,7 +1087,7 @@ export function CentralHub({
                                     });
                                     alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
                                 }
-                                const ownedKeys = character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length;
+                                const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
                                 return (
                                     <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
                                         <strong>⛩ Hollow Gate Key</strong>
@@ -1114,24 +1110,21 @@ export function CentralHub({
                             })()}
                             {(() => {
                                 const FRAGMENTS_PER_RELIC = 5;
-                                const fragmentCount = character.inventory.filter(id => id === DUNGEON_LEGENDARY_FRAGMENT_ID).length;
-                                const relicCount = character.inventory.filter(id => id === DUNGEON_LEGENDARY_RELIC_ID).length;
+                                const fragmentCount = countItem(character, DUNGEON_LEGENDARY_FRAGMENT_ID);
+                                const relicCount = countItem(character, DUNGEON_LEGENDARY_RELIC_ID);
                                 const canForge = fragmentCount >= FRAGMENTS_PER_RELIC;
                                 function forgeRelicFromFragments() {
                                     if (fragmentCount < FRAGMENTS_PER_RELIC) {
                                         alert(`You need ${FRAGMENTS_PER_RELIC} Dungeon Legendary Fragments. You have ${fragmentCount}.`);
                                         return;
                                     }
-                                    const newInv = [...character.inventory];
-                                    let toRemove = FRAGMENTS_PER_RELIC;
-                                    for (let i = newInv.length - 1; i >= 0 && toRemove > 0; i -= 1) {
-                                        if (newInv[i] === DUNGEON_LEGENDARY_FRAGMENT_ID) {
-                                            newInv.splice(i, 1);
-                                            toRemove -= 1;
-                                        }
-                                    }
-                                    newInv.push(DUNGEON_LEGENDARY_RELIC_ID);
-                                    updateCharacter({ ...character, inventory: newInv });
+                                    updateCharacter(
+                                        addItem(
+                                            removeItem(character, DUNGEON_LEGENDARY_FRAGMENT_ID, FRAGMENTS_PER_RELIC),
+                                            DUNGEON_LEGENDARY_RELIC_ID,
+                                            1,
+                                        ),
+                                    );
                                     alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
                                 }
                                 return (
@@ -1171,7 +1164,7 @@ export function CentralHub({
                             {crafterTab === "weapons" && <><div className="crafter-material-list">
                                 <strong>Your Materials</strong>
                                 {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                    const count = character.inventory.filter((i) => i === id).length;
+                                    const count = countItem(character, id);
                                     return (
                                         <div key={id} className="crafter-material-row">
                                             <span>{label}</span>
@@ -1241,7 +1234,7 @@ export function CentralHub({
                             {crafterTab === "armor" && <><div className="crafter-material-list">
                                 <strong>Your Materials</strong>
                                 {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                    const count = character.inventory.filter((i) => i === id).length;
+                                    const count = countItem(character, id);
                                     return (
                                         <div key={id} className="crafter-material-row">
                                             <span>{label}</span>

@@ -24,7 +24,7 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
     'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
     'auraStones', 'mythicSeals', 'auraDust',
     // Loadout / scouting surface
-    'inventory', 'tileCards', 'savedTileDeck',
+    'inventory', 'itemStacks', 'tileCards', 'savedTileDeck',
     'jutsu', 'jutsuMastery', 'equippedJutsu', 'signatureJutsu',
     'equipment', 'equippedSet',
     'stats', 'trainedStats', 'statPoints',

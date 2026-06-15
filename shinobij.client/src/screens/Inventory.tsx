@@ -19,6 +19,7 @@ import { equipmentSlotLabel, equipSlotForItem, isGloveItem, normalizeEquipmentSl
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
+import { addItem, addItems, removeItem, unifiedItemStacks } from "../lib/inventory";
 
 export function Inventory({
     character,
@@ -34,7 +35,6 @@ export function Inventory({
     const [selectedInventoryItem, setSelectedInventoryItem] = useState<null | {
         entry: string;
         item?: GameItem;
-        index: number;
         count: number;
         source: "backpack" | "equipped";
         equipmentSlot?: EquipmentSlot;
@@ -76,19 +76,13 @@ export function Inventory({
         }, {})
     );
 
-    const inventoryEntries = character.inventory.map((entry, index) => {
-        const item = getItemById(allItems, entry) ?? allItems.find((candidate) => candidate.name === entry);
-        return { entry, index, item, stackKey: item?.id ?? entry };
+    // Unified backpack stacks across BOTH stores (inventory[] uniques +
+    // itemStacks counted bulk items). One row per distinct id, with its total
+    // count — the UI is fully id/count based now, no array indices.
+    const backpackStacks = unifiedItemStacks(character).map(({ itemId, count }) => {
+        const item = getItemById(allItems, itemId) ?? allItems.find((candidate) => candidate.name === itemId);
+        return { entry: itemId, item, count, stackKey: item?.id ?? itemId };
     });
-
-    const backpackStacks = inventoryEntries.reduce<Array<{ entry: string; item?: GameItem; indices: number[]; stackKey: string }>>((stacks, entry) => {
-        const existing = stacks.find((stack) => stack.stackKey === entry.stackKey);
-        if (existing) {
-            existing.indices.push(entry.index);
-            return stacks;
-        }
-        return [...stacks, { entry: entry.entry, item: entry.item, indices: [entry.index], stackKey: entry.stackKey }];
-    }, []);
 
     const visualSlots: Array<{ label: string; equipmentSlot?: EquipmentSlot; accepts?: EquipmentSlot; className: string }> = [
         { label: "Aura", equipmentSlot: "aura", accepts: "aura", className: "slot-keystone" },
@@ -118,11 +112,7 @@ export function Inventory({
         );
     }
 
-    function removeInventoryIndex(index: number) {
-        return character.inventory.filter((_, itemIndex) => itemIndex !== index);
-    }
-
-    function equipItem(item: GameItem, index: number) {
+    function equipItem(item: GameItem) {
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
             alert(`You need the ${item.weaponElement} element to equip ${item.name}.`);
             return;
@@ -131,11 +121,13 @@ export function Inventory({
         // (or get evicted by) the weapon on the shared "hand" slot.
         const slot = equipSlotForItem(item);
         const previousEquipped = equippedIdForSlot(slot);
-        const nextInventory = removeInventoryIndex(index);
+        // Pull one copy from the backpack (drains the counted stack for
+        // stackables like throwables); return any evicted item to it.
+        let next = removeItem(character, item.id, 1);
+        if (previousEquipped) next = addItem(next, previousEquipped, 1);
 
         updateCharacter({
-            ...character,
-            inventory: previousEquipped ? [...nextInventory, previousEquipped] : nextInventory,
+            ...next,
             equipment: {
                 ...character.equipment,
                 [slot]: item.id,
@@ -151,8 +143,7 @@ export function Inventory({
         if (!equippedId) return;
 
         updateCharacter({
-            ...character,
-            inventory: [...character.inventory, equippedId],
+            ...addItem(character, equippedId, 1),
             equipment: {
                 ...character.equipment,
                 [normalized]: undefined,
@@ -165,7 +156,7 @@ export function Inventory({
         setSelectedInventoryItem(null);
     }
 
-    function consumeItem(entry: string, index: number) {
+    function consumeItem(entry: string) {
         if (entry === LEGENDARY_WAR_CRATE_ID) {
             const rewards = [WARFORGED_RELIC_ID];
             if (Math.random() < 0.35) rewards.push(DUNGEON_KEY_ID);
@@ -175,8 +166,7 @@ export function Inventory({
             const honorSealGain = vanguardOnlyHonorSeals(character, 10);
             const charmGain = nonVanguardCharmSubstitute(character, 10);
             updateCharacter({
-                ...character,
-                inventory: [...removeInventoryIndex(index), ...rewards],
+                ...addItems(removeItem(character, LEGENDARY_WAR_CRATE_ID, 1), rewards),
                 honorSeals: (character.honorSeals ?? 0) + honorSealGain,
                 boneCharms: (character.boneCharms ?? 0) + charmGain,
                 ryo: character.ryo + 500,
@@ -191,8 +181,7 @@ export function Inventory({
 
         if (entry === "Soldier Pill") {
             updateCharacter({
-                ...character,
-                inventory: removeInventoryIndex(index),
+                ...removeItem(character, "Soldier Pill", 1),
                 stamina: Math.min(character.maxStamina, character.stamina + 25),
             });
             setSelectedInventoryItem(null);
@@ -201,8 +190,7 @@ export function Inventory({
 
         if (entry === "Chakra Pill") {
             updateCharacter({
-                ...character,
-                inventory: removeInventoryIndex(index),
+                ...removeItem(character, "Chakra Pill", 1),
                 chakra: Math.min(character.maxChakra, character.chakra + 25),
             });
             setSelectedInventoryItem(null);
@@ -247,19 +235,9 @@ export function Inventory({
             return;
         }
 
-        let remaining = qty;
-        const nextInventory = character.inventory.filter((entry, index) => {
-            if (remaining <= 0) return true;
-            const matchesSelectedStack = entry === selected.entry || entry === item.id || index === selected.index;
-            if (!matchesSelectedStack) return true;
-            remaining -= 1;
-            return false;
-        });
-
         updateCharacter({
-            ...character,
+            ...removeItem(character, item.id, qty),
             ryo: character.ryo + saleValue,
-            inventory: nextInventory,
         });
         setSelectedInventoryItem(null);
     }
@@ -327,7 +305,6 @@ export function Inventory({
                                             setSelectedInventoryItem({
                                                 entry: equipped.id,
                                                 item: equipped,
-                                                index: -1,
                                                 count: 1,
                                                 source: "equipped",
                                                 equipmentSlot: slot.equipmentSlot,
@@ -418,7 +395,7 @@ export function Inventory({
                                 }
                                 return (
                                 <div className="backpack-grid">
-                                    {visible.map(({ entry, item, indices, stackKey }) => (
+                                    {visible.map(({ entry, item, count, stackKey }) => (
                                         <div
                                             className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}`}
                                             key={stackKey}
@@ -428,8 +405,7 @@ export function Inventory({
                                                 setSelectedInventoryItem({
                                                     entry,
                                                     item,
-                                                    index: indices[0],
-                                                    count: indices.length,
+                                                    count,
                                                     source: "backpack",
                                                 })
                                             }
@@ -441,8 +417,7 @@ export function Inventory({
                                                     setSelectedInventoryItem({
                                                         entry,
                                                         item,
-                                                        index: indices[0],
-                                                        count: indices.length,
+                                                        count,
                                                         source: "backpack",
                                                     });
                                                 }
@@ -480,8 +455,8 @@ export function Inventory({
                                                             : "General inventory item."}
                                             </p>
 
-                                            {indices.length > 1 && (
-                                                <span className="stack-count">{indices.length}</span>
+                                            {count > 1 && (
+                                                <span className="stack-count">{count}</span>
                                             )}
 
                                             <button
@@ -492,8 +467,7 @@ export function Inventory({
                                                     setSelectedInventoryItem({
                                                         entry,
                                                         item,
-                                                        index: indices[0],
-                                                        count: indices.length,
+                                                        count,
                                                         source: "backpack",
                                                     });
                                                 }}
@@ -722,7 +696,7 @@ export function Inventory({
                                     {selectedGameItem?.id === LEGENDARY_WAR_CRATE_ID && selected.source === "backpack" && (
                                         <button
                                             type="button"
-                                            onClick={() => consumeItem(selected.entry, selected.index)}
+                                            onClick={() => consumeItem(selected.entry)}
                                         >
                                             Open Crate
                                         </button>
@@ -731,7 +705,7 @@ export function Inventory({
                                     {selectedGameItem && selected.source === "backpack" && !selectedPetFoodXp && selectedGameItem.id !== LEGENDARY_WAR_CRATE_ID && (
                                         <button
                                             type="button"
-                                            onClick={() => equipItem(selectedGameItem, selected.index)}
+                                            onClick={() => equipItem(selectedGameItem)}
                                         >
                                             Equip to {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}
                                         </button>
@@ -749,7 +723,7 @@ export function Inventory({
                                     {!selectedGameItem && selected.source === "backpack" && (
                                         <button
                                             type="button"
-                                            onClick={() => consumeItem(selected.entry, selected.index)}
+                                            onClick={() => consumeItem(selected.entry)}
                                         >
                                             {selected.entry === "Soldier Pill" || selected.entry === "Chakra Pill" ? "Use" : "Inspect"}
                                         </button>
