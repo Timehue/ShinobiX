@@ -17846,6 +17846,60 @@ button.combat-jutsu-button,
   margin-top: 8px;
 }
 
+/* Profile action buttons (UserView) + Users-directory follow controls. */
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.profile-action-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.08);
+  color: #facc15;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.profile-action-btn:disabled { opacity: 0.5; cursor: default; }
+.profile-action-btn.following {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
+
+.user-hub-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+.user-hub-tab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+}
+.user-hub-tab.active {
+  border-color: rgba(250, 204, 21, 0.5);
+  background: rgba(250, 204, 21, 0.12);
+  color: #facc15;
+}
+
+.user-hub-follow-star {
+  margin-left: 8px;
+  font-size: 18px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.user-hub-follow-star.following { color: #facc15; }
+
 @media (max-width: 800px) {
   /* Add bottom padding to center-game so content isn't under the nav */
   .center-game {
