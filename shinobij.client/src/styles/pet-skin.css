@@ -26,7 +26,10 @@
     padding: 0 !important;
 }
 .pet-arena-screen {
-    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    background:
+        linear-gradient(180deg, rgba(9,13,26,0.84) 0%, rgba(7,11,22,0.92) 55%, rgba(5,8,18,0.97) 100%),
+        url('/arena-backdrop.webp') center top / cover no-repeat,
+        #070b16 !important;
     border: 1px solid var(--bsv2-gold-faint) !important;
     border-radius: 8px !important;
     box-shadow:
@@ -775,6 +778,47 @@
     object-fit: contain;
     flex-shrink: 0;
     filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
+
+/* Framed sub-panel wrapping a picker grid (gives the team / pet selection a
+   defined container over the arena backdrop instead of floating in the void). */
+.pet-arena-screen .pet-pick-panel {
+    background: linear-gradient(180deg, rgba(10,15,28,0.62), rgba(6,10,20,0.72)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: inset 0 0 22px rgba(0,0,0,0.45);
+}
+/* Battle-view pickers can list many pets — cap height + scroll so the panel
+   doesn't push the fight off-screen. */
+.pet-arena-screen .pet-pick-strip {
+    max-height: 248px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.pet-arena-screen .pet-pick-strip::-webkit-scrollbar { width: 8px; }
+.pet-arena-screen .pet-pick-strip::-webkit-scrollbar-thumb {
+    background: var(--bsv2-gold-faint);
+    border-radius: 8px;
+}
+/* "Auto-pick" chip in the 2v2 reserve picker — same footprint as a pet slot. */
+.pet-arena-screen .pet-pick-auto {
+    display: grid;
+    place-items: center;
+    gap: 4px;
+    min-height: 132px;
+    text-align: center;
+    font: 600 12px Cinzel, serif !important;
+    color: #cbd3e1 !important;
+}
+.pet-arena-screen .pet-pick-auto .pet-pick-auto-glyph {
+    width: 76px; height: 76px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 30px;
+    background: radial-gradient(circle at 50% 40%, rgba(34,211,238,0.18), rgba(14,116,144,0.12));
+    border: 2px dashed rgba(34,211,238,0.5);
+    color: #67e8f9;
 }
 .pet-arena-screen .pet-pick-meta {
     font: 500 10px Inter, sans-serif !important;
