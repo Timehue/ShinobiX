@@ -50,9 +50,15 @@ export function gainJutsuXp(character: Character, jutsuId: string, amount: numbe
 }
 
 export function scaleJutsuByLevel(jutsu: Jutsu, level: number) {
-    // EP scales additively: creator value = level 50 max. Each level below 50 subtracts 0.2 EP.
-    // Level 1: maxEP - 49×0.2 ˜ maxEP - 9.8. Level 50: maxEP.
-    const scaledEffectPower = Math.max(1, Math.floor(jutsu.effectPower - (50 - level) * 0.2));
+    // EP at the jutsu's current level — stored effectPower is the level-0 base;
+    // each level adds 0.2 EP. This matches what combat ACTUALLY deals: the PvP
+    // server (api/pvp/move.ts) and the shared calculateDamage both compute
+    // `scaledEp = effectPower + level × 0.2`. So this value is now the
+    // "current-level" EP shown on the inspect card and is identical to the
+    // number used in the damage formula (level 50 = base + 10). The old formula
+    // (base − (50−level)×0.2) treated stored EP as the level-50 max and
+    // under-reported the dealt EP by 10 at every level.
+    const scaledEffectPower = Math.max(1, Math.floor(jutsu.effectPower + level * 0.2));
     const costMultiplier = Math.max(0.8, 1 - Math.max(0, level - 1) * 0.004);
     const chakraCostPercent = jutsu.chakraCost > 0 ? jutsuResourceCostPercent(jutsu, level) : 0;
     const staminaCostPercent = jutsu.staminaCost > 0 ? jutsuResourceCostPercent(jutsu, level) : 0;
