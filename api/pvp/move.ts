@@ -907,7 +907,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const key = `pvp:${battleId}`;
         const sessionMaybe = await kv.get<PvpSession>(key);
         if (!sessionMaybe) return res.status(404).json({ error: 'Battle session not found' });
-        const session: PvpSession = sessionMaybe;
+        // `let`, not `const`: once we hold the move lock below we re-read the
+        // freshest session and reassign, so the read-modify-write resolves
+        // against the latest committed state (audit #5).
+        let session: PvpSession = sessionMaybe;
 
         // Idempotency: if the client's moveToken matches a recently
         // applied move, return the current session without re-applying.
@@ -945,17 +948,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
         // Per-session move lock, 3s TTL. The critical section is <50ms in the
         // common case; 3s is generous headroom while still releasing quickly if
-        // a process dies mid-move. A contended move just returns the current
-        // session (the client polls/retries). Reward idempotency does NOT rely
-        // on this lock — terminal grants use a durable NX receipt keyed on the
-        // battleId (see _vanguard-rewards.ts), so even a lock-expiry + replay
-        // can't double-pay.
-        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
-        if (!lockResult) return res.status(200).json(session);
+        // a process dies mid-move. Reward idempotency does NOT rely on this lock
+        // — terminal grants use a durable NX receipt keyed on the battleId (see
+        // _vanguard-rewards.ts), so even a lock-expiry + replay can't double-pay.
+        //
+        // Audit #5: acquire with a few short backoff retries instead of bailing
+        // on first contention. A move that races another writer (a double-tap,
+        // the opponent's overlapping claim-afk-win, a network retry) now waits
+        // for the in-flight write to land and then re-resolves on FRESH state,
+        // rather than being silently dropped and looking to the player like the
+        // battle froze.
+        let lockResult: unknown = null;
+        for (let attempt = 0; attempt < 4; attempt++) {
+            lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
+            if (lockResult) break;
+            if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 30 * (attempt + 1)));
+        }
+        if (!lockResult) {
+            // Still contended after the retry budget — surface a retry hint so
+            // the client re-submits (keeping the player's pending selection),
+            // instead of returning the unchanged session as if it applied.
+            return res.status(200).json(withRejected(session, 'The battle is busy applying another action — please try again.'));
+        }
 
         async function finish(payload: PvpSession) {
             await kv.del(lockKey).catch(() => undefined);
             return res.status(200).json(payload);
+        }
+
+        // Now that we hold the lock, re-read the freshest session: a writer may
+        // have committed during our acquire wait, so re-resolve against the
+        // latest state and re-check the state-dependent gates (audit #5). This
+        // closes the read-modify-write window the pre-lock snapshot left open.
+        {
+            const fresh = await kv.get<PvpSession>(key);
+            if (fresh) {
+                session = fresh;
+                if (moveToken && Array.isArray(session.recentMoveTokens) && session.recentMoveTokens.includes(moveToken)) {
+                    return finish(session); // our move already landed during the wait
+                }
+                if (session.status === 'done') return finish(session);
+                if (session.activePlayer !== role && action !== 'claim-afk-win') {
+                    return finish(withRejected(session, 'It is no longer your turn.'));
+                }
+            }
         }
         // Annotate a soft-rejected move with a structured, response-only reason.
         // The session itself is unchanged (and NOT persisted), so this never

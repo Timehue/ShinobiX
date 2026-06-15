@@ -22,6 +22,7 @@ import {
     type PvpSessionState,
 } from "../App";
 import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
+import type { PvpWinBaseSummary } from "../lib/progression";
 
 export function PvpBattleScreen({
     character,
@@ -58,7 +59,7 @@ export function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
-    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
+    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary) => void;
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
 }) {
     // Grid constants — exact match to arena
@@ -442,6 +443,10 @@ export function PvpBattleScreen({
             // Absent (casual fight, or 503/offline) → callbacks fall back to the
             // local delta, so nothing regresses during the rollout window.
             let serverRating: { field: string; value: number; delta: number } | undefined;
+            // Server-credited base ryo/XP (audit #3). When present, the win
+            // handler applies these authoritative (already repeat-decayed)
+            // values instead of recomputing locally — so the decay sticks.
+            let serverBase: PvpWinBaseSummary | undefined;
             try {
                 const r = await fetch("/api/pvp/claim-rewards", {
                     method: "POST",
@@ -449,9 +454,10 @@ export function PvpBattleScreen({
                     body: JSON.stringify({ playerName: character.name, battleId, outcome }),
                 });
                 if (r.ok) {
-                    const data = await r.json() as { alreadyClaimed?: boolean; rating?: { field: string; value: number; delta: number } };
+                    const data = await r.json() as { alreadyClaimed?: boolean; rating?: { field: string; value: number; delta: number }; base?: PvpWinBaseSummary };
                     alreadyClaimed = !!data.alreadyClaimed;
                     serverRating = data.rating;
+                    serverBase = data.base;
                 }
             } catch {
                 // Network failure → treat as first claim (fail open). One
@@ -460,7 +466,7 @@ export function PvpBattleScreen({
             }
             try { window.localStorage.setItem(localKey, "1"); } catch { /* storage quota — non-fatal */ }
             if (alreadyClaimed) return;
-            if (iWonNow) onWin?.(oppFighter.name, opponent, serverRating);
+            if (iWonNow) onWin?.(oppFighter.name, opponent, serverRating, serverBase);
             else onLoss?.(opponent, serverRating);
         })();
     }, [session?.status, session?.winner]);
@@ -510,7 +516,33 @@ export function PvpBattleScreen({
         // auto: true marks this as a timer-fired wait so the server counts it
         // toward the AFK skip counter (vs a manual Wait click).
         submitAction("wait", undefined, undefined, undefined, { auto: true });
-    }, [pvpPendingAutoWait, submitting, pvpIsMyTurn, pvpDone]);  
+    }, [pvpPendingAutoWait, submitting, pvpIsMyTurn, pvpDone]);
+
+    // Auto-claim a forfeit win when the opponent goes AFK (audit #4). The
+    // present fighter shouldn't have to notice and manually click "claim win" —
+    // mirror the server's claim-afk-win conditions (opponent skipped 2 rounds,
+    // or 90s with no contact for the crashed-tab case) and submit it
+    // automatically, so an abandoned fight resolves by attrition on its own. The
+    // server re-validates the exact same gate, so a slightly-early client fire is
+    // harmlessly rejected and simply retried on the next poll. Only the WAITING
+    // fighter fires this (never a spectator, never on my own turn).
+    useEffect(() => {
+        if (!session || session.status === "done" || pvpPrefightCountdown !== null) return;
+        const myName = character.name.trim().toLowerCase();
+        const amFighter = myName === session.p1.name.trim().toLowerCase()
+            || myName === session.p2.name.trim().toLowerCase();
+        if (!amFighter || session.activePlayer === role || submitting) return;
+        const oppRole = role === "p1" ? "p2" : "p1";
+        const oppSkips = session.consecAutoWait?.[oppRole] ?? 0;
+        const lastMove = Number(session.lastMoveAt ?? session.createdAt ?? 0);
+        const stale = lastMove > 0 && Date.now() - lastMove >= 90_000;
+        if (oppSkips < 2 && !stale) return;
+        const t = setTimeout(
+            () => submitAction("claim-afk-win", undefined, undefined, undefined, { allowWhenNotMyTurn: true }),
+            1500,
+        );
+        return () => clearTimeout(t);
+    }, [session?.activePlayer, session?.consecAutoWait, session?.lastMoveAt, session?.status, submitting, role, pvpPrefightCountdown]);
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
