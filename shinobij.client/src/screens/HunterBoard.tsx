@@ -7,6 +7,7 @@ import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NA
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, markHuntCompleted } from "../lib/character-progress";
+import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
@@ -69,10 +70,32 @@ export function HunterBoard({
         alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
     }
 
-    function claimHunt(mission: CreatorMission) {
+    function materialNamesLine(itemIds: string[]): string {
+        const names = itemIds.map((id) => starterItems.find((i) => i.id === id)?.name ?? id);
+        return names.length ? ` Materials: ${names.join(", ")}.` : "";
+    }
+
+    async function claimHunt(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
         if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
         if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${DAILY_HUNT_LIMIT}/${DAILY_HUNT_LIMIT}). Resets at midnight UTC.`);
+
+        // Server-authoritative for built-in hunts (audit M-1): the server resolves
+        // the reward from its trusted catalog, enforces the daily hunt cap, and
+        // grants the material drops so none of it can be minted client-side.
+        // Creator-authored hunts aren't in the catalog → clientFallback below.
+        const result = await postClaimMission(character.name, "hunt", mission.id);
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (result.applied) {
+            updateCharacter(applyServerMissionReward(character, result, gainXp));
+            setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
+            setMissionProgress({ ...missionProgress, [mission.id]: 0 });
+            alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina.${materialNamesLine(result.reward.items ?? [])}`);
+            return;
+        }
+        if (!result.clientFallback) return alert(claimReasonMessage(result.reason));
+
+        // Legacy client payout for creator-authored hunts only.
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -82,12 +105,7 @@ export function HunterBoard({
         updateCharacter(markHuntCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) }));
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
         setMissionProgress({ ...missionProgress, [mission.id]: 0 });
-        const materialNames = (mission.itemRewards ?? []).map((id) => {
-            const found = starterItems.find((i) => i.id === id);
-            return found?.name ?? id;
-        });
-        const matLine = materialNames.length ? ` Materials: ${materialNames.join(", ")}.` : "";
-        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.${matLine}`);
+        alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.${materialNamesLine(mission.itemRewards ?? [])}`);
     }
 
     const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];

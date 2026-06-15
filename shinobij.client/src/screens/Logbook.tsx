@@ -111,7 +111,9 @@ export function Logbook({
                 { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
                 { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
                 { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },
-                { label: "Join a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "No clan joined" },
+                // Solo-clearable on a low-population server: founding your own clan
+                // satisfies this just as well as joining one — no invite needed (L-2).
+                { label: "Join or found a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "Join one, or create your own at the Clan Hall — no invite needed", goScreen: "clan", goLabel: "Go Clan" },
                 { label: "Defeat Exam Proctor", progress: defeatedAiIds.includes("builtin-ai-exam-proctor") ? 1 : 0, target: 1, detail: examProctor ? "Level 25 arena AI" : "Exam Proctor missing", aiId: "builtin-ai-exam-proctor" },
             ],
         } : null,

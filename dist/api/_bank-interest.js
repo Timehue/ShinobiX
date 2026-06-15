@@ -16,7 +16,7 @@
 // closing the clock-rollback claim-repeatedly vector that the sanitizer's
 // lastBankInterestAt window check also guards.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BANK_INTEREST_WINDOW_MS = void 0;
+exports.BANK_INTEREST_PRINCIPAL_CAP = exports.BANK_INTEREST_WINDOW_MS = void 0;
 exports.bankInterestPercent = bankInterestPercent;
 exports.computeBankInterest = computeBankInterest;
 exports.BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -24,6 +24,15 @@ exports.BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
 // VILLAGE_UPGRADE_MAX_LEVEL = 50 (shinobij.client/src/lib/village-upgrades.ts).
 const BANK_UPGRADE_PER_LEVEL = 0.25;
 const VILLAGE_UPGRADE_MAX_LEVEL = 50;
+// Anti-inflation guardrail (gameplay-loop audit M-2). Interest is paid on at
+// most this much principal, so a very large vault earns a FLAT (linear) amount
+// rather than an unbounded COMPOUNDING one — past the cap, the balance grows by
+// a fixed daily ryo figure, not a fixed percentage, so it can't double itself
+// forever. Below the cap behaviour is identical to before (no rate change), and
+// the cap is far above any normal balance (the top wealth achievement is 5M
+// wallet+bank), so legitimate players are unaffected. TUNABLE: lower to tighten
+// the faucet. MIRROR: shinobij.client/src/screens/Bank.tsx `projectedInterest`.
+exports.BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
 /** villageUpgradeBonus(character,'bank') — clamp(floor(level),0,50) * 0.25. */
 function bankInterestPercent(char) {
     const upgrades = (char.villageUpgrades && typeof char.villageUpgrades === 'object')
@@ -49,7 +58,9 @@ function computeBankInterest(char, now) {
         return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'empty' };
     if (now < nextClaimAt)
         return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'cooldown' };
-    const interest = Math.max(0, Math.floor(bankRyo * (interestPercent / 100)));
+    // Pay interest only on the first BANK_INTEREST_PRINCIPAL_CAP ryo (M-2).
+    const principal = Math.min(bankRyo, exports.BANK_INTEREST_PRINCIPAL_CAP);
+    const interest = Math.max(0, Math.floor(principal * (interestPercent / 100)));
     if (interest <= 0)
         return { eligible: false, interest: 0, interestPercent, nextClaimAt, reason: 'too-small' };
     return { eligible: true, interest, interestPercent, nextClaimAt, reason: 'ok' };

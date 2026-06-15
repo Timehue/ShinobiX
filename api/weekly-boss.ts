@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { withKvLock } from './_lock.js';
 
 // One weekly boss state per ISO week. Players damage a shared "rampage
-// meter" (no HP cap — the boss cannot be killed by damage). 24h after
+// meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
 //   • Top 25 contributors    → 1 Dungeon Key each
 //   • Top 10 contributors    → 1 Weekly Boss Core each (stacks with key)
@@ -36,9 +36,13 @@ const WEEKLY_BOSS_LOG_FIGHT_CAP = 500000;
 // account is bounded well below the flat 500k (which a tampered client could
 // otherwise claim to steal MVP share). A maxed attacker still hits the flat cap.
 const WEEKLY_BOSS_LOG_FIGHT_MAX_HITS = 80;
-// 24h fight window. After this the boss "despawns" and rewards are
-// auto-distributed on the next POST that lands.
-const WEEKLY_BOSS_LIFETIME_MS = 24 * 60 * 60 * 1000;
+// Fight window after an admin spawns the boss. Widened 24h → 72h (gameplay-loop
+// audit M-3): the boss is spawned manually (the owner controls cadence — see
+// loadOrInitBoss), so a single 24h window was easy for most of the roster to
+// miss entirely. 72h spans a weekend so far more players get a turn before
+// rewards auto-distribute. This does NOT auto-spawn — manual cadence is
+// preserved. TUNABLE. (Mirrored in WeeklyBossArena.tsx copy + fallback.)
+const WEEKLY_BOSS_LIFETIME_MS = 72 * 60 * 60 * 1000;
 // Maximum arena attempts a player can make per boss spawn. After this
 // they're locked out until the boss despawns and a new one spawns.
 const WEEKLY_BOSS_MAX_ATTEMPTS = 3;

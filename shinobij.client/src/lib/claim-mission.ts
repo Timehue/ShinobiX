@@ -14,11 +14,11 @@
  */
 import { grantTerritoryScrolls } from "./world-state";
 import { applyCurrencyRewards } from "./currency";
-import { markMissionCompleted } from "./character-progress";
+import { markMissionCompleted, markHuntCompleted } from "./character-progress";
 import { currentMonthKey } from "./utils";
 import type { Character, CurrencyRewards } from "../types/character";
 
-export type MissionType = "combat" | "field" | "academy-trial";
+export type MissionType = "combat" | "field" | "hunt" | "academy-trial";
 
 export type ClaimReward = {
     xpBoosted: number;        // base after the town-hall boost; pass to gainXp
@@ -26,6 +26,7 @@ export type ClaimReward = {
     stamina: number;
     territoryScrolls: number;
     currency: CurrencyRewards;
+    items?: string[];         // literal item ids (hunt material drops)
 };
 
 export type ClaimMissionResult =
@@ -34,7 +35,7 @@ export type ClaimMissionResult =
         applied: true;
         reward: ClaimReward;
         combat?: { aiProfileId: string; missionKey: string };
-        completion: "daily" | "total" | "none";
+        completion: "daily" | "total" | "none" | "hunt";
         academyTrialClaimed?: boolean;
     }
     | { ok: true; applied: false; reason: string; clientFallback?: boolean }
@@ -72,6 +73,9 @@ export function applyServerMissionReward(
     if (result.reward.territoryScrolls > 0) {
         next = grantTerritoryScrolls(next, result.reward.territoryScrolls);
     }
+    if (result.reward.items && result.reward.items.length > 0) {
+        next = { ...next, inventory: [...next.inventory, ...result.reward.items] };
+    }
     next = applyCurrencyRewards(next, result.reward.currency);
     if (result.combat) {
         const aiId = result.combat.aiProfileId;
@@ -87,6 +91,9 @@ export function applyServerMissionReward(
     }
     if (result.completion === "daily") {
         next = markMissionCompleted(next);
+    } else if (result.completion === "hunt") {
+        // Hunter Guild contract — bumps the independent daily-hunt counter.
+        next = markHuntCompleted(next);
     } else if (result.completion === "total") {
         // Counts toward lifetime/clan totals (e.g. the Academy checklist's "first
         // mission" goal) but NOT the daily cap.

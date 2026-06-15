@@ -57,14 +57,18 @@ export function weeklyBossSchedule(character?: Character, now = Date.now(), over
     const boss = overrideAi
         ? { id: overrideAi.id, name: overrideAi.name, icon: overrideAi.icon }
         : poolBoss;
-    const dayOffset = (seed >>> 4) % 7;
+    // Spawn lands Mon–Thu (was any day) and the window is 72h (was 24h) so the
+    // preview stays "active" across a weekend and never bleeds past the ISO week
+    // boundary — Thu + 72h = Sun. Mirrors the server boss's widened lifetime
+    // (api/weekly-boss.ts WEEKLY_BOSS_LIFETIME_MS, gameplay-loop audit M-3).
+    const dayOffset = (seed >>> 4) % 4;
     const hour = (seed >>> 9) % 24;
     const start = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate()));
     const startDay = start.getUTCDay() || 7;
     start.setUTCDate(start.getUTCDate() - (startDay - 1) + dayOffset);
     start.setUTCHours(hour, 0, 0, 0);
     const startsAt = start.getTime();
-    const endsAt = startsAt + 24 * 60 * 60 * 1000;
+    const endsAt = startsAt + 72 * 60 * 60 * 1000;
     const killed = Boolean(character?.weeklyBossKills?.[weekKey]);
     const status: WeeklyBossStatus = killed ? "defeated" : now < startsAt ? "dormant" : now <= endsAt ? "active" : "escaped";
     return { weekKey, bossId: boss.id, bossName: boss.name, bossIcon: boss.icon, startsAt, endsAt, status };
