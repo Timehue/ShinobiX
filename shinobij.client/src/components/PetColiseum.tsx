@@ -1842,7 +1842,7 @@ function ArenaGhost({ index, offsetX, fastRef, tex, color, L }: {
     useFrame(() => {
         const m = mat.current; if (!m) return;
         m.uniforms.map.value = tex;
-        m.uniforms.uOpacity.value = lerp(m.uniforms.uOpacity.value as number, fastRef.current * (index === 0 ? 0.5 : 0.3), 0.4);
+        m.uniforms.uOpacity.value = lerp(m.uniforms.uOpacity.value as number, fastRef.current * 0.42, 0.4);
     });
     return (
         <mesh position={[L.meshX + offsetX, L.meshY, -0.04 - index * 0.01]}>
@@ -1894,17 +1894,26 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         const a0 = findArenaActor(snaps[i0], id); if (!a0) return;
         const a1 = findArenaActor(snaps[i1], id) ?? a0;
         const down = a0.state === "respawning" || a0.state === "dead";
-        const p = arenaPlace(lerp(a0.x, a1.x, f), lerp(a0.y, a1.y, f));
+        // Snap (don't interpolate) across a respawn TELEPORT: a >3-field-unit jump in a
+        // single tick is never real movement, and lerping it slides the sprite across the
+        // whole board while the perspective scale sweeps — the "grows huge then small"
+        // glitch. Hard-cut at the tick midpoint instead.
+        const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
+        const ff = (tdx * tdx + tdy * tdy) > 9 ? (f < 0.5 ? 0 : 1) : f;
+        const p = arenaPlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
         const dx = p.wx - lastPos.current[0], dy = p.wy - lastPos.current[1];
         const spd = Math.sqrt(dx * dx + dy * dy); lastPos.current = [p.wx, p.wy];
         const moving = spd > 0.012 && !down;
-        // Dash trail: element-flat ghost copies fade in only on fast motion (an assassin
-        // dive streaks; a stroll doesn't). The ArenaGhost children read `fast` + the pose tex.
-        fast.current = down ? 0 : Math.max(0, Math.min(1, (spd - 0.02) / 0.13));
+        // Dash trail: a single element-flat ghost that fades in ONLY at genuine dash speed
+        // (an assassin dive streaks; an ordinary stroll doesn't). Gate raised so routine
+        // movement no longer leaves a constant smear of afterimages.
+        fast.current = down ? 0 : Math.max(0, Math.min(1, (spd - 0.07) / 0.13));
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.16 : 0;
         g.position.set(p.wx, p.wy + bob * p.depth, p.zo);
         g.scale.setScalar(p.depth);
-        g.visible = a0.state !== "dead";
+        // Hide downed/respawning pets entirely — a faded corpse frozen at the death spot
+        // read as a "spawn freeze". The scorch decal + kill FX already mark where it fell.
+        g.visible = !down;
 
         if (Math.abs(a0.faceX) > 0.12) facing.current = a0.faceX < 0 ? -1 : 1;
         if (flip.current) { flip.current.scale.x = facing.current; flip.current.rotation.z = lerp(flip.current.rotation.z, moving ? -0.12 : 0, 0.2); }
@@ -1922,12 +1931,12 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         if (shadow.current && shadowMat.current) {
             shadow.current.position.set(p.wx, p.wy - 0.08 * p.depth, p.zo - 0.1);
             shadow.current.scale.set(shadowW * p.depth, shadowW * 0.32 * p.depth, 1);
-            shadowMat.current.opacity = down ? 0.12 : 0.4;
+            shadowMat.current.opacity = down ? 0 : 0.4;
         }
         if (aura.current && auraMat.current) {   // team-colored ground glow (brighter while carrying)
             aura.current.position.set(p.wx, p.wy - 0.05 * p.depth, p.zo - 0.12);
             const aw = shadowW * 1.6 * p.depth; aura.current.scale.set(aw, aw * 0.46, 1);
-            auraMat.current.opacity = down ? 0.1 : (a0.carrying ? 0.85 : 0.5);
+            auraMat.current.opacity = down ? 0 : (a0.carrying ? 0.85 : 0.5);
         }
     });
 
@@ -1938,9 +1947,8 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
             <group ref={group}>
                 <mesh position={[0, shadowW * 0.5, -0.05]}><planeGeometry args={[shadowW * 2.6, shadowW * 2.6]} /><meshBasicMaterial ref={glowMat} map={shadowTexture()} color="#fde047" transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
                 <group ref={flip}>
-                    {/* Dash-trail ghosts BEHIND the sprite (local -x = behind facing), faded by speed. */}
-                    <ArenaGhost index={0} offsetX={-0.5} fastRef={fast} tex={useTex} color={tint} L={L} />
-                    <ArenaGhost index={1} offsetX={-1.0} fastRef={fast} tex={useTex} color={tint} L={L} />
+                    {/* A single dash-trail ghost BEHIND the sprite (local -x = behind facing), faded in only at dash speed. */}
+                    <ArenaGhost index={0} offsetX={-0.55} fastRef={fast} tex={useTex} color={tint} L={L} />
                     <mesh position={[L.meshX, L.meshY, 0]}>
                         <planeGeometry args={[L.planeW, L.planeH]} />
                         <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.4} depthWrite={false} toneMapped={false} />
