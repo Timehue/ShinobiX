@@ -138,6 +138,32 @@ import { safeEqual } from './api/_auth.js';
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
 import { isAllowedOrigin } from './api/_utils.js';
 
+// ─── Sentry (optional, env-gated server error reporting) ───────────────────────
+// Activates ONLY when SENTRY_DSN is set. The require is guarded so a cPanel box
+// whose node_modules predates this dependency still boots — the cPanel auto-deploy
+// does git reset + Passenger restart but NOT `npm install`, so an unconditional
+// require of a not-yet-installed module would crash-loop the box. Here it just
+// logs a warning and runs without reporting. Set SENTRY_DSN on Railway (and, after
+// a manual cPanel "Run NPM Install", on cPanel) to enable. Errors only — no perf
+// tracing — to stay inside the free-tier event quota.
+let Sentry: typeof import('@sentry/node') | null = null;
+if (process.env.SENTRY_DSN) {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        Sentry = require('@sentry/node') as typeof import('@sentry/node');
+        Sentry.init({
+            dsn: process.env.SENTRY_DSN,
+            environment: process.env.NODE_ENV || 'production',
+            tracesSampleRate: 0,
+            sendDefaultPii: false,
+        });
+        console.log('[sentry] server error reporting enabled');
+    } catch (err) {
+        console.warn('[sentry] @sentry/node unavailable — error reporting disabled:', (err as Error)?.message);
+        Sentry = null;
+    }
+}
+
 // ─── App setup ───────────────────────────────────────────────────────────────
 
 const app = express();
@@ -630,6 +656,12 @@ app.get(/(.*)/, (_req, res) => {
 
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error('[server error]', err);
+    // Every route() handler error funnels here via next(err), so this is the one
+    // place that sees them all. Report before responding; never let a reporting
+    // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).
+    if (Sentry) {
+        try { Sentry.captureException(err); } catch { /* swallow */ }
+    }
     if (!res.headersSent) {
         res.status(500).json({ error: String(err) });
     }
