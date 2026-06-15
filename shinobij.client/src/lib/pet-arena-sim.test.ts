@@ -129,6 +129,36 @@ test("R1 — deterministic across many seeds + comps (the blackboard is pure)", 
     }
 });
 
+// ── R3: commander layer (board-standing posture + influence rally) ─────────────
+test("R3 — the commander layer stays pure (byte-identical replays through press/regroup/comp paths)", () => {
+    // The commander runs every tick off the frozen board: team standing → posture
+    // (press/even/regroup), composition bias, and an influence-picked rally point whose
+    // math (centroid averages, localPower, snapMain) is the new determinism surface. A
+    // STAT GAP drives one team into sustained "press" and the other into "regroup"; the
+    // double-assassin comp exercises compBias. All must replay byte-identical.
+    const seeds = Array.from({ length: 8 }, (_, i) => i * 617 + 11);
+    const comps: ArenaRole[][] = [COMP, ["assassin", "assassin", "tracker", "sage"], ["defender", "sage"]];
+    for (const comp of comps) for (const seed of seeds) {
+        const a = runPetArenaMatch(roster(comp, { attack: 130 }), roster(comp, { hp: 360 }), seed);
+        const b = runPetArenaMatch(roster(comp, { attack: 130 }), roster(comp, { hp: 360 }), seed);
+        assert.deepEqual(a, b, `comp ${comp.join("/")} seed ${seed} diverged`);
+    }
+});
+
+test("R3 — a board-losing team regroups without turtling the match to the cap", () => {
+    // The commander amplifies the SELF-LIMITING local-outnumber regroup (and never forces
+    // a team-wide fallback), so a clearly stronger team must still close out the large
+    // majority of matches before the 5-min cap — the regroup posture buys the loser smarter
+    // defense, not an indefinite turtle. (Guards the R3-prototype turtle regression.)
+    const seeds = Array.from({ length: 24 }, (_, i) => i * 67 + 5);
+    let capped = 0;
+    for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 130 }), roster(COMP, { hp: 360 }), seed);
+        if (r.ticks >= ARENA_TPS * MAX_SECONDS) capped++;
+    }
+    assert.ok(capped <= seeds.length * 0.35, `${capped}/${seeds.length} matches hit the cap — the commander is over-regrouping`);
+});
+
 test("R1 — the blackboard never turtles a near-even match into a stalemate", () => {
     // Captures are the ONLY score, so over-defending never closes a match. A prototype
     // team-wide "fall back when out-powered" cascade was cut precisely because it dragged
