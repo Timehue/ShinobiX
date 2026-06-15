@@ -17815,6 +17815,37 @@ button.combat-jutsu-button,
   box-shadow: 0 0 0 2px #0b1120;
 }
 
+/* Self-service change-password form (Profile → Account). */
+.change-password-card {
+  margin-bottom: 14px;
+}
+.change-password-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #e5e7eb;
+}
+.change-password-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+.change-password-fields input {
+  width: 100%;
+}
+.change-password-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+.change-password-card > button {
+  margin-top: 8px;
+}
+
 @media (max-width: 800px) {
   /* Add bottom padding to center-game so content isn't under the nav */
   .center-game {
