@@ -8,6 +8,7 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type ArenaTile } from "../lib/pet-tactics";
 import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
+import { derivePetRole } from "../lib/pet-roles";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { rankedDelta } from "../lib/progression";
@@ -30,16 +31,12 @@ const PetArenaMatch = lazy(() => import("../components/PetColiseum").then((m) =>
 // Co-op lobby (play the Tactical Arena 4v4 with friends) — lazy; pulls the arena chunk.
 const ArenaCoopLobby = lazy(() => import("../components/ArenaCoopLobby").then((m) => ({ default: m.ArenaCoopLobby })));
 
-// Auto-assign the four arena ROLES by stat profile (no manual role UI): highest
-// DEF → Defender, lowest ATK → Sage, highest ATK+SPD → Assassin, the rest → Tracker.
+// Build the arena slots from each pet's NATIVE role (pet.role, set by
+// derivePetRole + backfilled in capPetStats). Pets now carry an intrinsic role,
+// so the tactical AI reads it directly instead of stat-guessing a comp. Fallback
+// to derivePetRole for any pet that somehow lacks one.
 function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
-    const team = pets.slice(0, Math.max(1, count));
-    if (team.length <= 2) return team.map((pet, i) => ({ pet, role: (i === 0 ? "defender" : "assassin") as ArenaRole }));
-    const idx = team.map((_, i) => i);
-    const def = idx.slice().sort((a, b) => (team[b].defense ?? 0) - (team[a].defense ?? 0))[0];
-    const asn = idx.filter((i) => i !== def).sort((a, b) => ((team[b].attack ?? 0) + (team[b].speed ?? 0)) - ((team[a].attack ?? 0) + (team[a].speed ?? 0)))[0];
-    const sge = idx.filter((i) => i !== def && i !== asn).sort((a, b) => (team[a].attack ?? 0) - (team[b].attack ?? 0))[0];
-    return team.map((pet, i) => ({ pet, role: (i === def ? "defender" : i === asn ? "assassin" : i === sge ? "sage" : "tracker") as ArenaRole }));
+    return pets.slice(0, Math.max(1, count)).map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
 }
 
 export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void }) {

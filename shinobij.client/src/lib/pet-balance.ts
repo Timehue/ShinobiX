@@ -24,6 +24,7 @@ import {
 } from "../data/pet-config";
 import { petElementByName } from "../data/pet-elements";
 import { petHappiness, increasePetHappiness, petVariantIndex } from "./pet";
+import { derivePetRole, roleStatMult, petTemplateArchetype, type PetSubRole } from "./pet-roles";
 
 // ── Per-rarity stat clamp ───────────────────────────────────────────────
 
@@ -34,8 +35,12 @@ import { petHappiness, increasePetHappiness, petVariantIndex } from "./pet";
  */
 export function capPetStats(pet: Pet): Pet {
     const caps = petStatCaps[pet.rarity] ?? petStatCaps.standard;
+    // Backfill the native role/sub-role if absent (old saves load through here via
+    // normalizePet) — deterministic, so this never changes an already-set role.
+    const { role, subRole } = pet.role && pet.subRole ? pet : derivePetRole(pet);
     return {
         ...pet,
+        role, subRole,
         hp: Math.min(caps.hp, Math.max(1, Math.round(pet.hp))),
         attack: Math.min(caps.attack, Math.max(1, Math.round(pet.attack))),
         defense: Math.min(caps.defense, Math.max(1, Math.round(pet.defense))),
@@ -247,25 +252,11 @@ export function signatureMoveFor(element: JutsuElement | undefined, rarity: PetR
 // aligned. No pet has every answer: each archetype trades away whole categories
 // (a tank has no burst mechanic, an assassin no heal/shield, support no control).
 
-export type PetTemplateArchetype = "tank" | "bruiser" | "striker" | "kite" | "control" | "support" | "assassin";
-
-// Per-element role rotation. Indexed by the template's variant so a tier's pets
-// of one element spread across several roles while keeping the element's flavor.
-const elementArchetypeRotation: Record<Exclude<JutsuElement, "None">, PetTemplateArchetype[]> = {
-    Fire:      ["bruiser", "striker", "assassin", "bruiser", "striker"],
-    Water:     ["tank", "support", "control", "support", "tank"],
-    Wind:      ["kite", "assassin", "control", "kite", "striker"],
-    Lightning: ["striker", "assassin", "kite", "striker", "bruiser"],
-    Earth:     ["tank", "bruiser", "control", "tank", "bruiser"],
-};
-
-/** Deterministic archetype for a (element, variant) template. Elementless →
- *  striker (a neutral, all-rounder fallback). */
-export function petTemplateArchetype(element: JutsuElement | undefined, variant: number): PetTemplateArchetype {
-    if (!element || element === "None") return "striker";
-    const rotation = elementArchetypeRotation[element as Exclude<JutsuElement, "None">];
-    return rotation[((variant % rotation.length) + rotation.length) % rotation.length];
-}
+// The archetype (= sub-role) taxonomy + the (element, variant) → archetype lookup
+// now live in ./pet-roles (the native-role source of truth). Re-exported here so
+// existing importers + the kit-themer tests keep resolving from "./pet-balance".
+export type PetTemplateArchetype = PetSubRole;
+export { petTemplateArchetype };
 
 type KitSpec = { kind: PetJutsu["kind"]; label: string };
 
@@ -340,7 +331,7 @@ export function applyArchetypeKit(jutsus: PetJutsu[], archetype: PetTemplateArch
 type MythicMechSpec = { kind: PetJutsu["kind"]; name: string; cooldown: number; power: number; rounds?: number };
 
 const mythicMechByName: Record<string, MythicMechSpec> = {
-    "Eclipse Kitsune":     { kind: "mark",  name: "Eclipse Mark",        cooldown: 4, power: 0,   rounds: 3 }, // trickster assassin
+    "Eclipse Kitsune":     { kind: "haste", name: "Eclipse Veil",        cooldown: 4, power: 0,   rounds: 2 }, // moon-sage evasive ward
     "Worldstorm Dragon":   { kind: "haste", name: "Storm Tempo",         cooldown: 4, power: 0,   rounds: 2 }, // storm striker
     "Ancient Frost Titan": { kind: "taunt", name: "Glacial Challenge",   cooldown: 4, power: 0,   rounds: 2 }, // fortress tank
     "Solar Stag":          { kind: "mark",  name: "Solar Brand",         cooldown: 4, power: 0,   rounds: 2 }, // debuffer striker
@@ -402,14 +393,19 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     // which the engine treats as neutral. (Resolved before the archetype
     // re-theme below, which keys off the element.)
     const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
-    // Phase 12b: re-theme the non-mythic utility slots to the template's
-    // archetype (damage + move slots, and the slot count/order, are preserved
-    // so the positional save-merge keeps grandfathering existing pets). Mythics
-    // keep their hand-crafted kit untouched (their signature mechanic is
+    // Native role + sub-role (starter/mythic overrides + the even %4 cycle). The
+    // sub-role themes the kit; the role+sub-role lean the base stats below.
+    const { role, subRole } = derivePetRole({ id: pet.id, name: pet.name, element, rarity: pet.rarity });
+    // Phase 12b: re-theme the non-mythic utility slots to the pet's SUB-ROLE
+    // (damage + move slots, and the slot count/order, are preserved so the
+    // positional save-merge keeps grandfathering existing pets). Sages always
+    // theme as `support` so every sage carries an ally heal (owner requirement).
+    // Mythics keep their hand-crafted kit untouched (their signature mechanic is
     // appended further below). kitBonus is unchanged — same slot count.
+    const kitArchetype: PetSubRole = role === "sage" ? "support" : subRole;
     const baseKit = pet.rarity === "mythic"
         ? pet.jutsus
-        : applyArchetypeKit(pet.jutsus, petTemplateArchetype(element, variant), pet.rarity, pet.name);
+        : applyArchetypeKit(pet.jutsus, kitArchetype, pet.rarity, pet.name);
     const jutsus = baseKit.map((jutsu, i) => {
         if (jutsu.power <= 0) return { ...jutsu };
         const kindBonus = jutsu.kind === "damage" ? 8 : jutsu.kind === "heal" || jutsu.kind === "barrier" ? 4 : 0;
@@ -439,7 +435,18 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const jutsusComplete = mythicMech && !jutsusFinal.some(j => j.name === mythicMech.name)
         ? [...jutsusFinal, mythicMech]
         : jutsusFinal;
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusComplete, moveRange: pet.moveRange ?? base.moveRange, element });
+    // Lean the BASE stats toward the role + sub-role (budget-neutral-ish, clamped
+    // by capPetStats) — applied to ALL tiers including mythics, since the inline
+    // mythic stats are recomputed from the base table anyway, so without the lean a
+    // "fortress tank" mythic would be no tankier than a "glass-cannon" one. Their
+    // role is chosen to fit their hand-crafted kit (MYTHIC_ROLE), so kit + stats now
+    // agree. Training customizes freely on top of this baseline.
+    const tilt = roleStatMult(role, subRole);
+    return capPetStats({
+        ...pet, role, subRole,
+        hp: hp * tilt.hp, attack: attack * tilt.attack, defense: defense * tilt.defense, speed: speed * tilt.speed,
+        jutsus: jutsusComplete, moveRange: pet.moveRange ?? base.moveRange, element,
+    });
 }
 
 // ── Phase 12c: migrate a saved pet's kit onto its (redesigned) template ───────

@@ -697,8 +697,8 @@ function petElementMultiplier(attacker: Pet | undefined, defender: Pet | undefin
     const a = attacker?.element;
     const d = defender?.element;
     if (!a || a === "None" || !d || d === "None") return 1;
-    if (PET_ELEMENT_BEATS[a] === d) return 1.25;
-    if (PET_ELEMENT_BEATS[d] === a) return 0.80;
+    if (PET_ELEMENT_BEATS[a] === d) return 1.15;   // +15% super-effective (was 25%)
+    if (PET_ELEMENT_BEATS[d] === a) return 0.85;   // −15% resisted
     return 1;
 }
 function petElementLabel(mult: number): string {
@@ -1745,7 +1745,7 @@ function petReactivePostHit(attacker: PetBattleFighter, defender: PetBattleFight
 //
 // scorePetMatchup → numeric "expected edge" of one pet vs another:
 //   • stat ratio (HP × ATK power roughly)
-//   • element multiplier (1.25 super-effective, 0.80 resisted, else 1.0)
+//   • element multiplier (1.15 super-effective, 0.85 resisted, else 1.0)
 //   • trait counter penalty (my element's signature wasted against
 //     a counter-trait — e.g. Lightning vs Aggressive)
 //
