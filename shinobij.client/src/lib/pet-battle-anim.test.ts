@@ -124,10 +124,12 @@ test("elementVfxKey maps known elements and defaults to none", () => {
 
 const base = (over: Partial<PetFrameLike>): PetFrameLike => ({ actor: "player", message: "", ...over });
 
-test("melee strike: callout → windup → lunge → 3-hit flurry → recoil; numbers sum to damage", () => {
+test("melee strike (non-elemental): callout → windup → lunge → 3-hit flurry → recoil; numbers sum to damage", () => {
+    // A NON-elemental ("none") damage move lunges to melee. (An elemental move
+    // now fires a projectile even up close — see the next test.)
     const evts = buildPetAnimationEvents({
         frame: base({ actionKind: "damage", damage: 24, message: "Round 1: Foo uses Slash for 24 damage." }),
-        dist: 1, actorId: "p", targetId: "e", vfxKey: "fire",
+        dist: 1, actorId: "p", targetId: "e", vfxKey: "none",
     });
     // A 3-hit flurry: each impact is paired with a damageNumber, then recoil.
     assert.deepEqual(types(evts), ["moveCallout", "windup", "lunge", "impact", "damageNumber", "impact", "damageNumber", "impact", "damageNumber", "recoil"]);
@@ -138,6 +140,20 @@ test("melee strike: callout → windup → lunge → 3-hit flurry → recoil; nu
     // Offense events are authored by the attacker against the target.
     assert.equal(evts[1].actorId, "p");
     assert.equal(evts[1].targetId, "e");
+});
+
+test("elemental strike at close range fires a projectile, not a melee lunge", () => {
+    // The "no range, they just bonk" fix: an elemental pet HURLS its element as a
+    // projectile even at dist≤2 (the small grid put most fights this close).
+    const evts = buildPetAnimationEvents({
+        frame: base({ actionKind: "damage", damage: 24, message: "Round 1: Foo uses Fireball for 24 damage." }),
+        dist: 1, actorId: "p", targetId: "e", vfxKey: "fire",
+    });
+    assert.ok(types(evts).includes("rangedCast"), "elemental move casts");
+    assert.ok(types(evts).includes("projectile"), "elemental move fires a projectile");
+    assert.ok(!types(evts).includes("lunge"), "elemental move does not melee-lunge");
+    // Still resolves damage — the sub-hits sum to the engine's value.
+    assert.equal(evts.filter((e) => e.type === "damageNumber").reduce((s, e) => s + (e.amount ?? 0), 0), 24);
 });
 
 test("basic attack has no move callout (no 'uses' in the log line)", () => {
