@@ -471,13 +471,13 @@ export function WorldMap({
         // Coords aligned to the new World Map.png baked-in banners (measured on a
         // 0–100 grid + crosshair triangulation): each village marker sits ON its
         // painted banner icon medallion (the icon hexagon at the banner's far-left).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 13, y: 84, icon: "SV" },
+        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 12, y: 84, icon: "SV" },
         { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 11, y: 37, icon: "AL" },
         { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 78, y: 37, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 77, y: 83, icon: "MS" },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 75, y: 83, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 49, y: 45, icon: "C", staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the dark gothic spire painted just below the central citadel.
-        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 76, icon: "HG" },
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 79, icon: "HG" },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const sectorPoints = [
