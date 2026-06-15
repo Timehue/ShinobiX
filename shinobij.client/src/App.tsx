@@ -156,6 +156,7 @@ import { PvpBattleScreen } from "./screens/PvpBattleScreen";
 import { Arena } from "./screens/Arena";
 import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
+import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle } from "./lib/screen-guards";
 import { AdminPanel } from "./screens/AdminPanel";
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { claimPendingWarCrates, damageSectorTerritory, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
@@ -2332,6 +2333,11 @@ export default function App() {
     }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
+    // Lifted "fight in progress" flags (fed by Arena/PetArena onBattleActiveChange)
+    // so the nav lock can block leaving arena ranked / pet matches whose active
+    // state otherwise lives only inside the screen component.
+    const [arenaBattleActive, setArenaBattleActive] = useState(false);
+    const [petBattleActive, setPetBattleActive] = useState(false);
     // True while the player is in a mission AI fight launched from the Missions
     // screen. Mission completion (markMissionCompleted) is credited ONLY on a win
     // in winBattle and the flag is cleared on any battle end — so losing/fleeing a
@@ -3697,36 +3703,21 @@ export default function App() {
                     // A bookmarked/shared URL hash (#/village) takes precedence
                     // over the last-visited screen — but only for deep-linkable
                     // hub screens; mid-encounter screens fall back to localStorage
-                    // and the safe-screen routing below.
-                    const DEEP_LINKABLE = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
+                    // and the safe-screen routing below. DEEP_LINKABLE_SCREENS /
+                    // RESTORABLE_SCREENS live in lib/screen-guards (shared with the
+                    // navigation lock so the two never drift).
                     const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
-                    const persisted = (DEEP_LINKABLE.has(hashRaw) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
+                    const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
-                        // Screens that render correctly from the LOADED SAVE
-                        // ALONE after a refresh: the hub/lobby screens (same set
-                        // as DEEP_LINKABLE) plus the arena lobby family — an
-                        // in-progress PvE arena fight additionally resumes via
-                        // ArenaBattlePersister, and the lobby renders fine with no
-                        // fight in flight. Listed explicitly so the routing is
-                        // intentional, never "by omission".
-                        //
-                        // Anything NOT in this set is a mid-encounter / transient
-                        // screen whose state lives only in React and is lost on a
-                        // refresh (dungeon, storyBoss, weeklyBoss, endlessTower,
-                        // tilecardsDuel, petArena, the event battles, userView,
-                        // pvpBattle without a live server session, …). Those route
-                        // to a safe parent — the Hollow Gate shrine when a run is
-                        // active, otherwise the village — so the player never lands
-                        // on a blank/half-loaded screen. (Live PvP and pet-PvP
-                        // re-entry are forced above and never reach here.) Phase C
-                        // replaces this safe-parent routing with server-backed
-                        // force-re-entry for the battle screens.
-                        const RESTORABLE = new Set<string>([
-                            ...DEEP_LINKABLE,
-                            "arena", "battleArena", "arenaDistrict", "userHub",
-                        ]);
-                        target = RESTORABLE.has(persisted)
+                        // RESTORABLE_SCREENS = save-only hubs + the arena lobby
+                        // family. Anything else is transient/mid-encounter (state
+                        // lives only in React) and routes to a safe parent — the
+                        // Hollow Gate shrine during a run, otherwise the village —
+                        // so the player never lands on a blank/half-loaded screen.
+                        // Live battle re-entry is forced earlier and never reaches
+                        // here.
+                        target = RESTORABLE_SCREENS.has(persisted)
                             ? persisted
                             : inHollowGateRun ? "hollowGateShrine" : "village";
                     }
@@ -5655,11 +5646,23 @@ export default function App() {
 
     const canGoBack = screenHistory.length > 1;
 
+    // "In an unresolved fight" snapshot for the nav lock (isUnresolvedBattle in
+    // lib/screen-guards), kept in a ref so navigate()/goBack() read the latest.
+    // Battle screens drive their own exits, so this mainly blocks the global bar.
+    const inBattleRef = useRef(false);
+    useEffect(() => {
+        inBattleRef.current = isUnresolvedBattle({
+            screen, raidBattleKind, pvpBattleId, endlessBattleActive, arenaBattleActive, petBattleActive,
+            pendingArenaStoryBattle: !!pendingArenaStoryBattle, pendingEventEncounter: !!pendingEventEncounter,
+            activeDungeonEvent: !!activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle: !!pendingPetBattleOpponent,
+        });
+    }, [screen, raidBattleKind, pvpBattleId, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
+
     // Pop history and navigate to the previous screen. The same locks as
     // navigate() apply — can't back-out of an active battle or hospital
     // admission.
     const goBack = useCallback(() => {
-        if (raidBattleKind !== "none") {
+        if (inBattleRef.current) {
             alert("⚔️ You cannot leave during a battle. Finish the fight first!");
             return;
         }
@@ -5677,8 +5680,8 @@ export default function App() {
     }, [raidBattleKind, character?.hospitalized, screen]);
 
     function navigate(nextScreen: Screen) {
-        // Lock: cannot leave while in an active battle
-        if (raidBattleKind !== "none") {
+        // Lock: cannot leave during an active battle (any type — isUnresolvedBattle).
+        if (inBattleRef.current) {
             alert("⚔️ You cannot leave during a battle. Finish the fight first!");
             return;
         }
@@ -8847,7 +8850,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
                     const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);
@@ -9027,6 +9030,7 @@ export default function App() {
                         onHuntBeastDefeated={completeHuntForAi}
                         missionBattleActive={missionBattleActive}
                         onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
+                        onBattleActiveChange={setArenaBattleActive}
                         exploreAmbushActive={pendingExploreSector !== null}
                         onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}
