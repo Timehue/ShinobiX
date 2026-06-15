@@ -8,7 +8,8 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type ArenaTile } from "../lib/pet-tactics";
 import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
-import { derivePetRole } from "../lib/pet-roles";
+import { derivePetRole, ROLE_META } from "../lib/pet-roles";
+import { ROLE_ICON } from "../lib/role-icons";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { rankedDelta } from "../lib/progression";
@@ -22,6 +23,19 @@ import {
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
+import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
+import petDuelHero from "../assets/coliseum/pet-duel-hero.webp";
+import duelFire from "../assets/coliseum/duel-fire.webp";
+import duelWater from "../assets/coliseum/duel-water.webp";
+import duelWind from "../assets/coliseum/duel-wind.webp";
+import duelLightning from "../assets/coliseum/duel-lightning.webp";
+import duelEarth from "../assets/coliseum/duel-earth.webp";
+
+// Cinematic-duel hero banner matched to the selected pet's element. Falls back
+// to the generic blue-vs-red showdown for None / unknown elements.
+const DUEL_HERO_BY_ELEMENT: Record<string, string> = {
+    Fire: duelFire, Water: duelWater, Wind: duelWind, Lightning: duelLightning, Earth: duelEarth,
+};
 
 // HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
 // load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
@@ -804,6 +818,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
             {arenaView === "battle" && (
             <>
+            {!isHollowGate && (
+                <div className="pet-arena-hero" style={{ backgroundImage: `url(${DUEL_HERO_BY_ELEMENT[selectedPet?.element ?? ""] ?? petDuelHero})` }}>
+                    <h3 className="hero-title">⚔️ Pet Arena</h3>
+                    <p className="hero-sub">
+                        Cinematic 1v1 &amp; 2v2 duels — pit your pet against other players and the AI.
+                        {selectedPet?.element && selectedPet.element !== "None" ? ` Arena attuned to ${selectedPet.element}.` : ""}
+                    </p>
+                </div>
+            )}
             <div className="pet-arena-grid">
                 <section className="summary-box pet-arena-selector">
                     <h3>Your Pet</h3>
@@ -1040,33 +1063,46 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 below (after the countdown). */}
             {arenaView === "tactical" && (
                 <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
-                    <div>
-                        <h3 style={{ marginTop: 0 }}>🏟️ Tactical Arena</h3>
-                        <p className="hint" style={{ marginBottom: 0 }}>
-                            A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's stats. Preview mode — no rewards yet.
+                    <div className="pet-arena-hero" style={{ backgroundImage: `url(${tacticalArenaHero})`, marginBottom: 0 }}>
+                        <h3 className="hero-title">🏟️ Tactical Arena</h3>
+                        <p className="hero-sub">
+                            A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's role. Preview mode — no rewards yet.
                         </p>
                     </div>
 
                     {(() => {
                         const available = character.pets.filter((p) => !isPetOnExpedition(p));
-                        // Reusable pet-pick grid — tap to add/remove (capped at `max`);
-                        // the badge shows battle order.
+                        // Reusable pet-pick grid — tap to add/remove (capped at `max`).
+                        // Each slot is a roomy card: a large portrait, the pet's name,
+                        // its native combat role badge (so the player can build a
+                        // balanced comp at a glance), and a level/element line. The
+                        // order badge in the corner shows battle order when picked.
                         const pickGrid = (picks: string[], setPicks: (ids: string[]) => void, max: number) => (
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: "0.4rem" }}>
+                            <div className="pet-pick-grid">
                                 {available.map((pet) => {
                                     const sel = picks.includes(pet.id);
                                     const order = picks.indexOf(pet.id);
                                     const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
+                                    const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
+                                    const rm = ROLE_META[role];
+                                    const atMax = !sel && picks.length >= max;
                                     return (
                                         <button key={pet.id} type="button"
-                                            onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : picks.length >= max ? picks : [...picks, pet.id])}
-                                            style={{ position: "relative", padding: "0.3rem", background: sel ? "#0e7490" : "#1e293b", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 3 }}>
-                                            {sel && <span style={{ position: "absolute", top: 2, right: 5, fontSize: "0.7rem", color: "#22d3ee", fontWeight: 700 }}>{order + 1}</span>}
+                                            className={`pet-pick${sel ? " selected" : ""}`}
+                                            title={rm ? `${petDisplayName(pet)} — ${rm.label} (${subRole})` : petDisplayName(pet)}
+                                            style={atMax ? { opacity: 0.45 } : undefined}
+                                            onClick={() => setPicks(sel ? picks.filter((x) => x !== pet.id) : atMax ? picks : [...picks, pet.id])}>
+                                            {sel && <span className="pet-pick-order">{order + 1}</span>}
                                             {img
-                                                ? <img src={img} alt="" style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
-                                                : <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#334155" }} />}
-                                            <span style={{ fontSize: "0.65rem", maxWidth: 76, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{petDisplayName(pet)}</span>
-                                            <span style={{ fontSize: "0.6rem", color: "#94a3b8" }}>Lv {pet.level}</span>
+                                                ? <img className="pet-pick-img" src={img} alt="" />
+                                                : <div className="pet-pick-img placeholder" />}
+                                            <span className="pet-pick-name">{petDisplayName(pet)}</span>
+                                            {rm && (
+                                                <span className="pet-pick-role" style={{ color: rm.color }}>
+                                                    <img className="pet-pick-role-icon" src={ROLE_ICON[role]} alt="" aria-hidden="true" /> {rm.label}
+                                                </span>
+                                            )}
+                                            <span className="pet-pick-meta">Lv {pet.level}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
                                         </button>
                                     );
                                 })}

@@ -1,6 +1,7 @@
 import { type Pet } from "../App";
 import { petDisplayName } from "../lib/pet";
 import { ROLE_META, derivePetRole } from "../lib/pet-roles";
+import { ROLE_ICON } from "../lib/role-icons";
 import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
 import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
 import type { PetVisualState } from "../types/pet-battle";
@@ -71,9 +72,9 @@ export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string;
                     <span
                         className="pet-role-badge"
                         title={`${rm.label} (${subRole}) — native combat role`}
-                        style={{ marginLeft: 8, padding: "1px 7px", borderRadius: 999, border: `1px solid ${rm.color}`, color: rm.color, fontSize: "0.72em", fontWeight: 600, whiteSpace: "nowrap" }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 8, padding: "1px 8px", borderRadius: 999, border: `1px solid ${rm.color}`, color: rm.color, fontSize: "0.72em", fontWeight: 600, whiteSpace: "nowrap", verticalAlign: "middle" }}
                     >
-                        {rm.icon} {rm.label} · {subRole}
+                        <img src={ROLE_ICON[role]} alt="" aria-hidden="true" style={{ width: 15, height: 15, objectFit: "contain" }} /> {rm.label} · {subRole}
                     </span>
                 )}
                 <p>{owner} | {pet.rarity} | Lv {pet.level}</p>
