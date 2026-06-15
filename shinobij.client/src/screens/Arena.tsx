@@ -105,6 +105,7 @@ export function Arena({
     setPvpBattleContext,
     setPvpSeedSession,
     setPendingPetBattleOpponent,
+    onBattleActiveChange,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -147,6 +148,10 @@ export function Arena({
     setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
     setPvpSeedSession?: (session: PvpSessionState | null) => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
+    // Reports "an arena fight is in progress" up to App so the global nav lock
+    // can block travelling out of any arena fight (AI, ranked, endless, story,
+    // human). Fires false on resolve/unmount.
+    onBattleActiveChange?: (active: boolean) => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -517,6 +522,13 @@ export function Arena({
     const [turn, setTurn] = useState(1);
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
+    // Report arena-fight-in-progress up to App for the global navigation lock.
+    // A fight is "in progress" once it has started and not yet ended; on resolve
+    // (battleEnded flips true) or unmount we report false so the player can leave.
+    useEffect(() => {
+        onBattleActiveChange?.(battleStarted && !battleEnded);
+        return () => onBattleActiveChange?.(false);
+    }, [battleStarted, battleEnded, onBattleActiveChange]);
     // Onboarding "Academy spar" — the guaranteed-first-win tutorial fight. The two
     // flags below are DISPLAY-ONLY (drive the SparCoach banner); they never affect
     // combat math. Set additively from basicAttack()/castJutsu() during this fight.
