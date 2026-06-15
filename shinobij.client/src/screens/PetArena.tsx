@@ -14,23 +14,17 @@ import { rankedDelta } from "../lib/progression";
 import { currentDateKey, makeId } from "../lib/utils";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import {
-    PetArenaBattlefield,
     petTamerPveMultiplier,
     type DuelChallenge,
     type PetArenaFrame,
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
-import { petColiseumEnabled, setPetColiseumEnabled, petDuelEnabled, setPetDuelEnabled } from "../lib/pet-coliseum-flag";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 
-// HD-2D coliseum renderer — lazy so three/react-three-fiber load ONLY when the
-// "Cinematic arena" flag is on, keeping the cold-landing bundle untouched.
+// HD-2D coliseum renderer — the pet-battle arena. Lazy so three/react-three-fiber
+// load ONLY when a battle actually mounts, keeping the cold-landing bundle untouched.
 const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseum })));
-// Continuous-duel PREVIEW renderer (combat redesign Phase C) — same lazy chunk.
-// Behind petDuel.v1; runs the new real-time engine for the VISUALS only, so the
-// shipped engine still owns the outcome + rewards (no gameplay/ranked impact).
-const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 // Tactical Arena game mode (deathmatch + capture-scroll, 2v2 / 4v4) — same lazy chunk.
 const PetArenaMatch = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
 // Co-op lobby (play the Tactical Arena 4v4 with friends) — lazy; pulls the arena chunk.
@@ -63,15 +57,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
     // Last party result, shown as a summary block ("2–0 — You take the set!").
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
-    // HD-2D "cinematic" coliseum renderer — DEFAULT ON (the classic battlefield
-    // stays fully intact behind this toggle as the fallback). Persisted
-    // per-device; toggles the battle PRESENTATION only — engine/frames identical.
-    const [useColiseum, setUseColiseum] = useState(() => petColiseumEnabled());
-    // Experimental "Live combat" preview — renders the new continuous-duel
-    // engine for the look/feel. Default OFF; meaningful only when the cinematic
-    // arena is on, and suppressed for ranked (the shipped engine owns that
-    // outcome, so a preview must not contradict the player's real Elo result).
-    const [useDuel, setUseDuel] = useState(() => petDuelEnabled());
     // Tactical Arena game mode — a full-screen 2v2/4v4 deathmatch + capture-scroll
     // match (separate from the 1v1/2v2 battle). Teams are built + frozen on launch.
     const [arenaMatch, setArenaMatch] = useState<{ blue: ArenaSlot[]; red: ArenaSlot[]; seed: number } | null>(null);
@@ -964,34 +949,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     </button>
                 )}
                 {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
-                <button
-                    onClick={() => {
-                        setUseColiseum((on) => {
-                            const next = !on;
-                            setPetColiseumEnabled(next);
-                            return next;
-                        });
-                    }}
-                    title="Toggle between the cinematic HD-2D arena and the classic battlefield (cosmetic only — same battle outcome)"
-                    style={{ marginLeft: "auto", background: useColiseum ? "#6d28d9" : undefined }}
-                >
-                    {useColiseum ? "🎬 Coliseum: ON" : "🎬 Coliseum: OFF"}
-                </button>
-                {useColiseum && (
-                    <button
-                        onClick={() => {
-                            setUseDuel((on) => {
-                                const next = !on;
-                                setPetDuelEnabled(next);
-                                return next;
-                            });
-                        }}
-                        title="EXPERIMENTAL real-time combat preview — pets clash continuously instead of in turns. Visual only: the battle outcome + rewards are unchanged, and it's not used for ranked."
-                        style={{ background: useDuel ? "#a855f7" : undefined }}
-                    >
-                        {useDuel ? "⚡ Live combat: ON" : "⚡ Live combat: OFF"}
-                    </button>
-                )}
             </div>
 
             {partyResult && battleReady && showResult && (
@@ -1008,9 +965,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
                 {(() => {
-                    // Shared prop block — both renderers (DOM + HD-2D coliseum)
-                    // consume the SAME frames/props. The HD-2D scene is a pure
-                    // presentation swap; the engine and frame-stepping are identical.
+                    // Prop block for the HD-2D coliseum renderer. The renderer is a
+                    // pure presentation layer over the deterministic battle frames;
+                    // the engine and frame-stepping own the outcome.
                     const battleProps = {
                         playerPet: selectedPet,
                         enemyPet: (battleOpponent ?? selectedOpponent)!.pet,
@@ -1060,31 +1017,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             return opp?.opponentRating !== undefined ? { rating: opp.opponentRating } : undefined;
                         })(),
                     };
-                    // HD-2D coliseum is lazy-loaded (three/r3f only ship when the
-                    // flag is on → cold-landing bundle is untouched).
-                    // "Live combat" preview runs the new engine for the visuals
-                    // only — suppressed for ranked so it can never contradict the
-                    // server-settled Elo result. Outcome/rewards are unaffected.
-                    const showDuel = useColiseum && useDuel && !battleOpponent?.ranked;
-                    return useColiseum ? (
+                    // HD-2D coliseum is the arena renderer — lazy-loaded so
+                    // three/r3f only ship when a battle actually mounts (the
+                    // cold-landing bundle is untouched).
+                    return (
                         <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading 3D arena…</div>}>
-                            {showDuel ? (
-                                <PetColiseumDuel
-                                    playerPet={battleProps.playerPet}
-                                    enemyPet={battleProps.enemyPet}
-                                    playerReservePet={battleProps.playerReservePet}
-                                    enemyReservePet={battleProps.enemyReservePet}
-                                    seed={(battleOpponent ?? selectedOpponent)?.battleSeed ?? 1}
-                                    sharedImages={sharedImages}
-                                    onFightAgain={battleProps.onFightAgain}
-                                    onExit={battleProps.onExit}
-                                />
-                            ) : (
-                                <PetColiseum {...battleProps} />
-                            )}
+                            <PetColiseum {...battleProps} />
                         </Suspense>
-                    ) : (
-                        <PetArenaBattlefield {...battleProps} />
                     );
                 })()}
                 </div>
