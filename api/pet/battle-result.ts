@@ -58,11 +58,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
         const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome as PetBattleOutcome : null;
-        // Ranked-pet-ladder marker (audit #7 / Stage 3). DORMANT until the
-        // client sends it: when true the SERVER owns the petRankedRating swing
-        // (computed from the caller's + opponent's saved ratings) instead of
-        // the client self-applying rankedDelta. No current client sets this,
-        // so the casual path below is byte-for-byte unchanged.
+        // Ranked-pet-ladder marker (audit #7 / Stage 3). LIVE — the client sends
+        // this from the pet-ranked queue (shinobij.client/src/screens/PetArena.tsx
+        // posts { ranked: true, matchToken } here). When true the SERVER owns the
+        // petRankedRating swing (computed from the caller's + opponent's ratings as
+        // sealed by the match token) instead of the client self-applying
+        // rankedDelta. When absent the casual path below runs unchanged.
         const ranked = body.ranked === true;
         const opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
         // Optional opponent name — used to verify the claimed opponentLevel
@@ -123,15 +124,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const saveKey = `save:${playerName}`;
 
-        // ── Ranked pet ladder credit (audit #7 / Stage 3 — DORMANT) ──────────
-        // Unreachable until a client sends `ranked:true` (none does today), so
-        // the casual path below is byte-for-byte unchanged. When active, the
-        // SERVER owns the petRankedRating swing: it computes the Elo change from
-        // the caller's CURRENT saved rating + the opponent's saved rating (read
-        // above, default 1000 for AI/roster foes) and the reported outcome, then
-        // credits the caller's save. This mirrors the client's pet-ranked
-        // appliers exactly (creditRankedFromSelf is a verbatim port), so moving
-        // it server-side is a zero-balance change.
+        // ── Ranked pet ladder credit (audit #7 / Stage 3 — LIVE) ────────────
+        // Reached when the client sends `ranked:true` — the pet-ranked queue does:
+        // PetArena.tsx posts { ranked: true, matchToken } here after a match
+        // accepted via /api/pet/ranked-start (Arena.tsx mints that token). When the
+        // flag is absent the casual path below runs unchanged. The SERVER owns the
+        // petRankedRating swing: it computes the Elo change from the caller's +
+        // opponent's ratings as SEALED by the match token (read below) and the
+        // reported outcome, then credits the caller's save. This mirrors the
+        // client's pet-ranked appliers exactly (creditRankedOutcome), so it is a
+        // zero-balance change.
         //
         // Differences from the casual path, by design (matching the client's
         // ranked-pet branch in App.tsx, which grants NO ryo and bypasses the
@@ -152,8 +154,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // asserting ranked:true against an arbitrary opponent. The token also
             // lets the server settle BOTH accounts from the SAME sealed snapshot,
             // exactly once each — so the loser can't dodge their drop by never
-            // reporting. (Pet ranked is dormant on the client; this is the server
-            // half — see api/pet/ranked-start.ts.)
+            // reporting. (Client wiring: PetArena.tsx sends ranked:true + matchToken;
+            // Arena.tsx mints the token via api/pet/ranked-start.ts.)
             const matchToken = typeof body.matchToken === 'string' ? body.matchToken.trim() : '';
             const tok = matchToken
                 ? await kv.get<{ a: string; b: string; aRating: number; bRating: number }>(`pet:ranked-token:${matchToken}`)
