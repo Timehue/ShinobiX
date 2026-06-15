@@ -1,6 +1,8 @@
 import { type Screen, villagePageImage } from "../App";
 import type { Biome, WeatherType } from "../types/core";
 import { SceneAmbience } from "../components/SceneAmbience";
+import { SceneCritters } from "../components/SceneCritters";
+import { DayNightSky } from "../components/DayNightSky";
 
 // Bespoke pixel-art building icons (generated via scripts/gen-asset.mjs, then
 // committed as bundle assets). One biome-neutral set reused across all four
@@ -80,9 +82,12 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
                     "--village-glow": accent.glow,
                 } as CSSProperties}
             >
-                {/* Living village: drifting biome ambience behind the building
-                    markers (z-index below the z-4 map buttons). */}
+                {/* Living village: time-of-day wash, drifting biome ambience, and
+                    wildlife (birds by day, fireflies after dark) behind the building
+                    markers (all z-index below the z-4 map buttons). */}
+                <DayNightSky className="amb-under" />
                 <SceneAmbience className="amb-under" biome={ambience.biome} weather={ambience.weather} />
+                <SceneCritters className="amb-under" biome={ambience.biome} density={0.9} />
                 {locations.map((location) => (
                     <button
                         key={location.name}

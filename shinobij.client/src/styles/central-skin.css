@@ -30,7 +30,9 @@
 .central-hub .central-hero,
 .central-hub .central-log,
 .central-hub .central-grid { position: relative; z-index: 1; }
-.central-hub > .scene-ambience { z-index: 0 !important; }
+.central-hub > .scene-ambience,
+.central-hub > .day-night-sky,
+.central-hub > .scene-critters { z-index: 0 !important; }
 
 .central-hub .central-hero {
     background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;

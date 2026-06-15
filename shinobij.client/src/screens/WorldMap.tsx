@@ -14,6 +14,10 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
+import { SectorForeground } from "../components/SectorForeground";
+import { SectorScatter } from "../components/SectorScatter";
+import { SceneCritters } from "../components/SceneCritters";
+import { DayNightSky } from "../components/DayNightSky";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
@@ -1193,8 +1197,19 @@ export function WorldMap({
                                 focus={sectorPlayerPos}
                                 depth={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
                             />
+                            {/* Biome ground-objects scattered across the field (rocks,
+                                bushes, crystals, lanterns…) — explorable density under
+                                the grid. Deterministic per sector. */}
+                            <SectorScatter sector={selectedSector} biome={ambienceBiomeForSector(selectedSector)} />
+                            {/* Time-of-day wash over the backdrop + depth layers (real
+                                local clock) — keeps the hero, particles + markers crisp. */}
+                            <DayNightSky />
                             <SceneAmbience3D biome={ambienceBiomeForSector(selectedSector)} />
                             <SceneAmbience biome={ambienceBiomeForSector(selectedSector)} weather={sectorWeather} />
+                            {/* Biome wildlife (birds / butterflies / fireflies after
+                                dark) — the layer that makes the sector feel patrolled,
+                                not parked on a still image. */}
+                            <SceneCritters biome={ambienceBiomeForSector(selectedSector)} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
                                 const otherHere = sectorPlayers.filter(p => playerNameTile(p.name) === index);
@@ -1229,6 +1244,11 @@ export function WorldMap({
                                 name={character.name}
                                 biome={ambienceBiomeForSector(selectedSector)}
                             />
+
+                            {/* Near-camera foliage band that parallaxes against the
+                                backdrop as you cross the grid — the "walking THROUGH
+                                the biome" depth cue. No-op until its biome band is baked. */}
+                            <SectorForeground biome={ambienceBiomeForSector(selectedSector)} focus={sectorPlayerPos} />
 
                             {creatorEvents
                                 .filter((event) => event.eventKind !== "visualNovel" && event.targetSector === selectedSector)
@@ -1446,6 +1466,11 @@ export function WorldMap({
                         <div className="pixel-map walkable-sector-map sector-image-map">
                             <SectorScene image={territoryBg} biome={biome} focus={sectorPlayerPos} />
                             <SectorScene3D image={territoryBg} biome={biome} focus={sectorPlayerPos} />
+                            <SectorScatter sector={virtualSector} biome={biome} />
+                            <DayNightSky />
+                            <SceneAmbience3D biome={biome} />
+                            <SceneAmbience biome={biome} weather={weather} />
+                            <SceneCritters biome={biome} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
                                 return (
@@ -1463,6 +1488,7 @@ export function WorldMap({
                                 name={character.name}
                                 biome={loc.biome}
                             />
+                            <SectorForeground biome={loc.biome} focus={sectorPlayerPos} />
                         </div>
                     </main>
 
@@ -1620,6 +1646,13 @@ export function WorldMap({
                         </div>
                     )}
 
+                    {/* Living preview: time-of-day wash + drifting biome ambience +
+                        wildlife behind the menu, so the village breathes while you
+                        decide where to go. */}
+                    <DayNightSky className="amb-under" />
+                    <SceneAmbience className="amb-under" biome={selectedLandmark.biome} weather={weatherForBiome(selectedLandmark.biome)} />
+                    <SceneCritters className="amb-under" biome={selectedLandmark.biome} density={0.85} />
+
                     <div className="village-full-overlay">
                         <h2>{selectedLandmark.name}</h2>
                         <p>{biomeLabel(selectedLandmark.biome)}</p>
@@ -1672,6 +1705,21 @@ export function WorldMap({
                     behind the z-10 sector/village markers). Keeps the overworld
                     feeling alive without obscuring the painted map. */}
                 <SceneAmbience biome="central" intensity={0.5} />
+                {/* Real-clock time-of-day wash + a high, sparse bird flock drifting
+                    over the atlas. Both sit below the z-10 markers. */}
+                <DayNightSky className="amb-under" intensity={0.8} />
+                <SceneCritters biome="central" mode="world" className="amb-under" />
+                {/* Per-nation biome atmosphere — a soft elemental glow over each
+                    homeland so the four regions read at a glance. */}
+                {[
+                    { c: "volcano", x: 11, y: 37 },
+                    { c: "snow", x: 78, y: 37 },
+                    { c: "forest", x: 12, y: 84 },
+                    { c: "shadow", x: 75, y: 83 },
+                    { c: "central", x: 49, y: 45 },
+                ].map((g) => (
+                    <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
+                ))}
                 <div className="sea-label sea-north">Hoppo Sea</div>
                 <div className="sea-label sea-east">Rimawari Ocean</div>
                 <div className="sea-label sea-south">Zubunure Sea</div>
@@ -1742,6 +1790,18 @@ export function WorldMap({
                         </button>
                     );
                 })}
+
+                {/* Settlement life — a soft hearth glow + a rising hearth-smoke
+                    wisp over each village/Central, so the towns read as lived-in.
+                    Pointer-events:none + below the z-10 markers, so clicks are
+                    untouched. */}
+                {locations.filter((l) => l.type === "village" || l.type === "central").map((l) => (
+                    <div key={"poi-life-" + l.name} className="world-poi-life" style={{ left: l.x + "%", top: l.y + "%" }} aria-hidden="true">
+                        <span className="world-poi-glow" />
+                        <span className="world-poi-smoke" />
+                        <span className="world-poi-smoke world-poi-smoke-2" />
+                    </div>
+                ))}
             </div>
             </div>{/* end world-map-scroll */}
 
