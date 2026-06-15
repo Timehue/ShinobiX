@@ -71,7 +71,7 @@ export type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
 export type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu" | "Any";
 export type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
 export type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
-export type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "INSTANT_EFFECT";
+export type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "INSTANT_EFFECT" | "AOE_SPIRAL";
 export type JutsuSort = "name" | "type" | "element" | "effect" | "ap" | "range" | "effectPower";
 export type WeatherType =
     | "clear"

@@ -99,6 +99,15 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             if (next.method === "INSTANT_EFFECT") {
                 next.tags = next.tags.filter((t) => instantEffectGroundTags.includes(t.name));
             }
+            // AOE_SPIRAL — tied to BOTH movement (Move tag, slot 0) and the
+            // instant-effect ground tags: you dash to a tile and erupt a spiral
+            // ground nova. Lock target to GROUND, force Move into slot 0, and keep
+            // only the ground tags in the remaining slots.
+            if (next.method === "AOE_SPIRAL") {
+                next.target = "EMPTY_GROUND";
+                const groundTags = next.tags.filter((t) => t.name !== "Move" && instantEffectGroundTags.includes(t.name));
+                next.tags = [{ name: "Move", percent: 0 }, ...groundTags].slice(0, next.ap === 60 ? 2 : 3);
+            }
             if (next.ap === 40) {
                 next.tags = next.tags.filter((t) => !fortyApBlockedBloodlineTags.includes(t.name));
             }
@@ -147,6 +156,10 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             if (next.method === "INSTANT_EFFECT") {
                 next.tags = next.tags.filter((tag) => instantEffectGroundTags.includes(tag.name));
             }
+            if (next.method === "AOE_SPIRAL") {
+                const groundTags = next.tags.filter((tag) => tag.name !== "Move" && instantEffectGroundTags.includes(tag.name));
+                next.tags = [{ name: "Move", percent: 0 }, ...groundTags].slice(0, next.ap === 60 ? 2 : 3);
+            }
             if (next.ap === 40) {
                 next.tags = next.tags.filter((tag) => !fortyApBlockedBloodlineTags.includes(tag.name));
             }
@@ -169,6 +182,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     : tag
             )).filter((tag) => {
                 if (finalMethod === "INSTANT_EFFECT" && !instantEffectGroundTags.includes(tag.name)) return false;
+                if (finalMethod === "AOE_SPIRAL" && tag.name !== "Move" && !instantEffectGroundTags.includes(tag.name)) return false;
                 if (jutsu.ap === 40 && fortyApBlockedBloodlineTags.includes(tag.name)) return false;
                 if (seenJutsuTags.has(tag.name)) return false;
                 seenJutsuTags.add(tag.name);
@@ -251,11 +265,12 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <div className="inline-grid">
                         <select value={jutsu.target} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
                         <select value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
-                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "AOE_CIRCLE (Move + Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method}</option>)}
+                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method}</option>)}
                         </select>
                     </div>
-                    {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">AOE Circle: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
+                    {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">Circle Movement: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
                     {jutsu.method === "INSTANT_EFFECT" && <div className="summary-box bloodline-element-lock">Instant Effect: target is locked to GROUND. Click an open ground tile in battle; that tile and its surrounding hexes become a 2-round defensive zone. Decrease Damage Given, Recoil, or Poison apply immediately if the enemy is caught and again while they stand in it. Costs +1 jutsu point.</div>}
+                    {jutsu.method === "AOE_SPIRAL" && <div className="summary-box bloodline-element-lock">AOE Movement: you dash to a chosen ground tile, then erupt a spiral ground nova — a filled hex disk (radius 2) around your landing tile becomes a 2-round zone. Move tag is required and auto-added; the other slots take Decrease Damage Given, Recoil, or Poison. The effect hits the enemy immediately if they're inside the burst and again while they stand in it. A bigger footprint than Instant Effect. Costs +1 jutsu point.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
                         <button className={jutsu.ap === 40 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
@@ -317,9 +332,11 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         });
                         const allowedTags = jutsu.method === "INSTANT_EFFECT"
                             ? instantEffectGroundTags
-                            : jutsu.ap === 40
-                                ? allTags.filter((tagName) => !fortyApBlockedBloodlineTags.includes(tagName))
-                                : undefined;
+                            : jutsu.method === "AOE_SPIRAL"
+                                ? ["Move", ...instantEffectGroundTags]
+                                : jutsu.ap === 40
+                                    ? allTags.filter((tagName) => !fortyApBlockedBloodlineTags.includes(tagName))
+                                    : undefined;
                         return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>

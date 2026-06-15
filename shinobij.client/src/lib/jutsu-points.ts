@@ -49,7 +49,12 @@ export function jutsuPoints(jutsu: Jutsu, rank?: Rank | null) {
     let points = jutsu.tags.reduce((sum, tag) => sum + tagPointValue(tag, effectiveRank), 0);
     if (jutsu.ap === 40) points += 1;
     if (jutsu.range >= 5) points += 0.5;
-    if (jutsu.target === "EMPTY_GROUND" && (jutsu.method === "AOE_CIRCLE" || jutsu.method === "INSTANT_EFFECT")) points += 1;
+    if (jutsu.target === "EMPTY_GROUND") {
+        // AOE_CIRCLE is the cheap ring nudge; INSTANT_EFFECT and the bigger
+        // AOE_SPIRAL ground-nova each cost a full point.
+        if (jutsu.method === "AOE_CIRCLE") points += 0.5;
+        else if (jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL") points += 1;
+    }
     if (!hasFixedEffectPower(jutsu)) {
         if (jutsu.ap === 60 && jutsu.effectPower >= 45) points += 1;
     }
