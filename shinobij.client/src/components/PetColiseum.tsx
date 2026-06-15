@@ -2528,8 +2528,12 @@ export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: Pe
         const visual = projectileVisual({ element: n.element, role: n.role, kind: n.kind, support: n.support, charged: n.charged });
         const a = arenaPlace(n.fromX, n.fromY), b = arenaPlace(n.toX, n.toY);
         const distW = Math.hypot(b.wx - a.wx, b.wy - a.wy);
-        let dur = Math.min(360, Math.max(120, 90 + distW * 12)) / Math.max(0.4, visual.speedMul);
-        if (visual.tex === "bolt") dur *= 0.6;   // lightning snaps to its mark
+        // Travel time. The old 120–360ms (÷ speedMul) blinked past too fast to read;
+        // slow it down with a firm ~420ms floor so every shot is legible, while
+        // longer shots + speed-role pets still scale a little.
+        let dur = (260 + distW * 24) / Math.max(0.85, visual.speedMul);
+        if (visual.tex === "bolt") dur *= 0.85;   // lightning still snaps, but stays visible
+        dur = Math.min(820, Math.max(420, dur));
         const id = seqRef.current++;
         setShots((arr) => [...arr, {
             id,
