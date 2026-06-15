@@ -76,7 +76,8 @@ export function WeeklyBossArena({
     }
 
     const nowMs = Date.now();
-    const expiresAt = bossState.expiresAt ?? ((bossState.startedAt ?? nowMs) + 24 * 60 * 60 * 1000);
+    // Fallback window mirrors api/weekly-boss.ts WEEKLY_BOSS_LIFETIME_MS (72h, M-3).
+    const expiresAt = bossState.expiresAt ?? ((bossState.startedAt ?? nowMs) + 72 * 60 * 60 * 1000);
     const msToDespawn = Math.max(0, expiresAt - nowMs);
     const expired = bossState.rewardsDistributed || msToDespawn <= 0;
     const myKey = character.name.toLowerCase();
@@ -130,7 +131,7 @@ export function WeeklyBossArena({
                             </span>
                         </div>
                         <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
-                            The boss has no HP cap — it rampages for 24 hours, then despawns. Damage as much as you can to
+                            The boss has no HP cap — it rampages for 72 hours, then despawns. Damage as much as you can to
                             climb the leaderboard before the timer hits zero.
                         </p>
                     </div>
