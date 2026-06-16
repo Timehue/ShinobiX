@@ -37,7 +37,7 @@ const WALK_TILES_PER_SEC = 6.5; // glide speed across the grid
 // small planted shadow at the tip pulses while the marker gently bobs. The figure
 // box is narrower than a tile (the circle) and tall enough to hold circle + pin.
 const FIGURE_W = 0.58;      // box width  (× tile) — the circle's diameter
-const FIGURE_H = 0.86;      // box height (× tile) — circle + pointer
+const FIGURE_H = 0.76;      // box height (× tile) — circle + short pointer
 const BASE_ANCHOR = 100;    // % down the box that lands on the tile centre (the pin tip)
 
 // Soft glow tint per biome — same palette family as <SceneAmbience>.
