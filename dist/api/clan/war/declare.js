@@ -40,6 +40,12 @@ function warRoomBonusHp(rec) {
     const lvl = Number(rec?.upgrades?.warRoom ?? 0);
     return Number.isFinite(lvl) && lvl > 0 ? Math.floor(lvl) * WAR_ROOM_HP_PER_LEVEL : 0;
 }
+// Warmonger Doctrine adds a flat clan-war HP bonus to the starting pool.
+// KEEP IN SYNC with shinobij.client/src/lib/clan-doctrines.ts (DOCTRINE_WAR_HP).
+const DOCTRINE_WAR_HP = 100;
+function doctrineWarHp(rec) {
+    return rec?.doctrine === 'warmonger' ? DOCTRINE_WAR_HP : 0;
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -139,8 +145,8 @@ async function handler(req, res) {
         // record for its upgrades (cheap — declare is a rare action).
         const fromClanSlug = `clan-${fromClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
         const fromClanRecord = await _storage_js_1.kv.get(`save:${fromClanSlug}`);
-        const fromStartHp = _storage_js_2.CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord);
-        const toStartHp = _storage_js_2.CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord);
+        const fromStartHp = _storage_js_2.CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord) + doctrineWarHp(fromClanRecord);
+        const toStartHp = _storage_js_2.CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord) + doctrineWarHp(toClanRecord);
         const sortedClans = [fromClan, toClan].sort((a, b) => a.localeCompare(b));
         const id = (0, _storage_js_2.clanWarPairId)(fromClan, toClan);
         const key = (0, _storage_js_2.clanWarKey)(fromClan, toClan);

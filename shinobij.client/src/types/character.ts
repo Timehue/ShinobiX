@@ -252,6 +252,10 @@ export type Character = {
     // member-passive effects (training/pet XP, shop/hospital discounts) without a
     // live clan fetch at every reward site. Eventual-consistency by design.
     clanUpgradeLevels?: Record<string, number>;
+    // Snapshot of the clan's chosen Doctrine, stamped at Clan Hall load so the
+    // per-character bonus helpers can apply the doctrine perk (same pattern as
+    // clanUpgradeLevels above).
+    clanDoctrine?: import("../lib/clan-doctrines").ClanDoctrine;
     lastBankInterestAt?: number;
     dailyTilesExplored?: number;
     dailyMissionsCompleted?: number;

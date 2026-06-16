@@ -118,6 +118,23 @@ function validateClanSaveWrite(existing, incoming, ctx) {
             suppressed.push('village change (admin only)');
         }
     }
+    // ── doctrine ─────────────────────────────────────────────────────
+    // The clan's identity perk, chosen at creation. Only the founder (or admin)
+    // may change it afterward, and only to a known value — otherwise pin to the
+    // previous doctrine so a tampered member write can't swap perks or inject junk.
+    if (incoming.doctrine !== undefined) {
+        const KNOWN_DOCTRINES = new Set(['none', 'warmonger', 'merchant', 'scholars', 'medics']);
+        const inDoc = String(incoming.doctrine);
+        const changed = lower(inDoc) !== lower(prev.doctrine);
+        if (changed && !callerIsFounder && prev.doctrine !== undefined) {
+            next.doctrine = prev.doctrine;
+            suppressed.push('doctrine change (founder only)');
+        }
+        else if (!KNOWN_DOCTRINES.has(inDoc)) {
+            next.doctrine = prev.doctrine ?? 'none';
+            suppressed.push('unknown doctrine value rejected');
+        }
+    }
     // ── members ─────────────────────────────────────────────────────
     // A regular member can only add/remove themselves. Admin-role
     // members can add/remove anyone (legitimate kicks + accept-joins).
