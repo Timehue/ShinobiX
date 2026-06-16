@@ -3090,32 +3090,32 @@ button {
 
 /* ── Biome arena backgrounds ── */
 .hex-battlefield.hex-volcano {
-    background: url('/arena-volcano.webp') center center / cover no-repeat;
+    background: url('/arena-volcano-floor.webp') center center / cover no-repeat;
     border-color: #b91c1c;
     box-shadow: inset 0 0 80px rgba(220,38,38,.35), 0 0 24px rgba(234,88,12,.4);
 }
 .hex-battlefield.hex-snow {
-    background: url('/arena-snow.webp') center center / cover no-repeat;
+    background: url('/arena-snow-floor.webp') center center / cover no-repeat;
     border-color: #93c5fd;
     box-shadow: inset 0 0 80px rgba(147,197,253,.2), 0 0 24px rgba(186,230,253,.35);
 }
 .hex-battlefield.hex-forest {
-    background: url('/arena-forest.webp') center center / cover no-repeat;
+    background: url('/arena-forest-floor.webp') center center / cover no-repeat;
     border-color: #4ade80;
     box-shadow: inset 0 0 80px rgba(74,222,128,.18), 0 0 24px rgba(34,197,94,.3);
 }
 .hex-battlefield.hex-shadow {
-    background: url('/arena-shadow.webp') center center / cover no-repeat;
+    background: url('/arena-shadow-floor.webp') center center / cover no-repeat;
     border-color: #6d28d9;
     box-shadow: inset 0 0 80px rgba(109,40,217,.35), 0 0 24px rgba(167,139,250,.3);
 }
 .hex-battlefield.hex-central {
-    background: url('/arena-central.webp') center center / cover no-repeat;
+    background: url('/arena-central-floor.webp') center center / cover no-repeat;
     border-color: #94a3b8;
     box-shadow: inset 0 0 80px rgba(148,163,184,.18), 0 0 24px rgba(148,163,184,.2);
 }
 .hex-battlefield.hex-deathsgate {
-    background: url('/deathsgate-arena.webp') center center / cover no-repeat !important;
+    background: url('/deathsgate-arena-floor.webp') center center / cover no-repeat !important;
     border-color: #16a34a;
     box-shadow: inset 0 0 80px rgba(22,163,74,.25), 0 0 32px rgba(134,239,172,.35), 0 0 60px rgba(0,0,0,.8);
 }
@@ -11962,32 +11962,32 @@ textarea {
 
     /* Biome arena backgrounds — must follow the !important base rule above */
     .arena-fullscreen .hex-battlefield.hex-volcano {
-        background: url('/arena-volcano.webp') center center / cover no-repeat !important;
+        background: url('/arena-volcano-floor.webp') center center / cover no-repeat !important;
         border-color: #b91c1c !important;
         box-shadow: inset 0 0 80px rgba(220,38,38,.35), 0 0 24px rgba(234,88,12,.4) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-snow {
-        background: url('/arena-snow.webp') center center / cover no-repeat !important;
+        background: url('/arena-snow-floor.webp') center center / cover no-repeat !important;
         border-color: #93c5fd !important;
         box-shadow: inset 0 0 80px rgba(147,197,253,.2), 0 0 24px rgba(186,230,253,.35) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-forest {
-        background: url('/arena-forest.webp') center center / cover no-repeat !important;
+        background: url('/arena-forest-floor.webp') center center / cover no-repeat !important;
         border-color: #4ade80 !important;
         box-shadow: inset 0 0 80px rgba(74,222,128,.18), 0 0 24px rgba(34,197,94,.3) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-shadow {
-        background: url('/arena-shadow.webp') center center / cover no-repeat !important;
+        background: url('/arena-shadow-floor.webp') center center / cover no-repeat !important;
         border-color: #6d28d9 !important;
         box-shadow: inset 0 0 80px rgba(109,40,217,.35), 0 0 24px rgba(167,139,250,.3) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-central {
-        background: url('/arena-central.webp') center center / cover no-repeat !important;
+        background: url('/arena-central-floor.webp') center center / cover no-repeat !important;
         border-color: #94a3b8 !important;
         box-shadow: inset 0 0 80px rgba(148,163,184,.18), 0 0 24px rgba(148,163,184,.2) !important;
     }
     .arena-fullscreen .hex-battlefield.hex-deathsgate {
-        background: url('/deathsgate-arena.webp') center center / cover no-repeat !important;
+        background: url('/deathsgate-arena-floor.webp') center center / cover no-repeat !important;
         border-color: #16a34a !important;
         box-shadow: inset 0 0 80px rgba(22,163,74,.25), 0 0 32px rgba(134,239,172,.35), 0 0 60px rgba(0,0,0,.8) !important;
     }
