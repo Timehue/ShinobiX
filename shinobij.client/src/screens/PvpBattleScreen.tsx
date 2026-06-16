@@ -853,6 +853,10 @@ export function PvpBattleScreen({
             pvpAdjustedApCost(40), // basic attack
             ...sessionEquippedJutsu.map(j => pvpAdjustedApCost(j.ap ?? 40)),
             ...pvpEquippedWeapons.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
+            // Thrown weapons (slot 'thrown', AP 20) go through the same weapon
+            // action — they were missing here, so the turn auto-passed with 20 AP
+            // left even though a 20-AP throwable was still usable.
+            ...pvpEquippedThrown.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
             ...pvpEquippedConsumables.map(i => pvpAdjustedApCost(i.apCost ?? 35)),
         ];
         return Math.min(...costs);
