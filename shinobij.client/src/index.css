@@ -2293,6 +2293,24 @@ button {
     }
 }
 
+/* Starter "Choose Your Companion" onboarding overlay — same full-bleed pet-yard
+   backdrop as the Pet Yard, and the same desktop gutters so the picker cards sit
+   between the left profile card and the right menu instead of clipping under
+   them. Below 981px there are no sidebars, so it stays full-viewport. */
+.starter-pet-backdrop {
+    position: fixed;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(7,12,27,0.80) 0%, rgba(4,6,18,0.93) 100%),
+        url('/pet-yard.webp') center / cover no-repeat;
+}
+@media (min-width: 981px) {
+    .starter-pet-backdrop {
+        left: 265px;
+        right: 255px;
+    }
+}
+
 .pet-yard-overlay {
     min-height: 100%;
     padding: 20px;
