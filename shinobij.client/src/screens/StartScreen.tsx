@@ -256,6 +256,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "weeklyBoss":
             case "clans":
             case "tournament":
+            case "bounties":
                 return 0;
         }
     }
@@ -272,6 +273,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "professions": return " XP";
             case "clans":
             case "tournament":
+            case "bounties":
                 return "";
         }
     }
@@ -288,6 +290,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "clans": return "Clan Power (Ranked Wins + PvP Kills)";
             case "tournament": return "Last Tournament";
             case "professions": return "Top Profession XP (all professions)";
+            case "bounties": return "Active Bounties";
         }
     }
 
