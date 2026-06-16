@@ -6973,9 +6973,9 @@ body {
 .sector-avatar-pin {
     position: absolute;
     left: 50%;
-    bottom: -46%;
-    width: 30%;
-    height: 58%;
+    bottom: -30%;
+    width: 32%;
+    height: 44%;                        /* short, compact pointer (not a long spike) */
     transform: translateX(-50%);
     background: #fff;
     clip-path: polygon(0 0, 100% 0, 50% 100%);
