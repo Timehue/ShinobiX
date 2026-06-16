@@ -30,7 +30,7 @@ const GRID_H = 12;
 const PAD = 8;
 const GAP = 1;
 const WALK_TILES_PER_SEC = 6.5; // glide speed across the grid
-const FIGURE_SCALE = 1.25;      // figure is a little bigger than a tile for presence
+const FIGURE_SCALE = 0.98;      // roughly one tile — small, grounded standee (was 1.25)
 
 // Soft glow tint per biome — same palette family as <SceneAmbience>.
 const AURA: Record<Biome, string> = {
