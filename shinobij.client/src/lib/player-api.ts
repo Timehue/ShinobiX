@@ -88,6 +88,31 @@ export async function postClanUpgradePurchase(
     }
 }
 
+// Server-authoritative clan kick (api/clan/kick.ts): removes the member from the
+// shared clan record AND clears their character.clan on their own save (the
+// cross-save write the client can't do, which is why a blob-only "kick" doesn't
+// stick). Leadership-only, enforced server-side. Returns the updated member
+// list on success, or null on failure (alerts the actor).
+export async function postClanKick(
+    playerName: string,
+    clan: string,
+    targetName: string,
+): Promise<{ members: Array<Record<string, unknown>> } | null> {
+    try {
+        const res = await fetch("/api/clan/kick", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, clan, targetName }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; members?: Array<Record<string, unknown>> };
+        if (!res.ok || !data.ok || !data.members) { alert(data.error || "Couldn't remove that member. Please try again."); return null; }
+        return { members: data.members };
+    } catch {
+        alert("Couldn't remove that member. Please try again.");
+        return null;
+    }
+}
+
 type TreasuryDonationBody =
     | { currency: string; amount: number }
     | { itemId: string; count?: number };
