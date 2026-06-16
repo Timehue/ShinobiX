@@ -51,6 +51,12 @@ function warRoomBonusHp(rec: { upgrades?: Record<string, number> } | null | unde
     const lvl = Number(rec?.upgrades?.warRoom ?? 0);
     return Number.isFinite(lvl) && lvl > 0 ? Math.floor(lvl) * WAR_ROOM_HP_PER_LEVEL : 0;
 }
+// Warmonger Doctrine adds a flat clan-war HP bonus to the starting pool.
+// KEEP IN SYNC with shinobij.client/src/lib/clan-doctrines.ts (DOCTRINE_WAR_HP).
+const DOCTRINE_WAR_HP = 100;
+function doctrineWarHp(rec: { doctrine?: string } | null | undefined): number {
+    return rec?.doctrine === 'warmonger' ? DOCTRINE_WAR_HP : 0;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -86,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the caller typed. This blocks `"Clan-A"` from accidentally
         // declaring war on `"ClanA"` because both share `clan-clana`.
         const toClanSlug = `clan-${requestedToClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        const toClanRecord = await kv.get<{ name?: string; village?: string; members?: unknown[]; upgrades?: Record<string, number> }>(`save:${toClanSlug}`);
+        const toClanRecord = await kv.get<{ name?: string; village?: string; members?: unknown[]; upgrades?: Record<string, number>; doctrine?: string }>(`save:${toClanSlug}`);
         if (!toClanRecord) return res.status(404).json({ error: 'Target clan not found.' });
         const canonicalToClan = String(toClanRecord.name ?? '').trim();
         if (!canonicalToClan) return res.status(409).json({ error: 'Target clan record is missing its canonical name.' });
@@ -145,9 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // its own War Room bonus. toClanRecord is already loaded; load fromClan's
         // record for its upgrades (cheap — declare is a rare action).
         const fromClanSlug = `clan-${fromClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        const fromClanRecord = await kv.get<{ upgrades?: Record<string, number> }>(`save:${fromClanSlug}`);
-        const fromStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord);
-        const toStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord);
+        const fromClanRecord = await kv.get<{ upgrades?: Record<string, number>; doctrine?: string }>(`save:${fromClanSlug}`);
+        const fromStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(fromClanRecord) + doctrineWarHp(fromClanRecord);
+        const toStartHp = CLAN_WAR_HP_MAX + warRoomBonusHp(toClanRecord) + doctrineWarHp(toClanRecord);
 
         const sortedClans: [string, string] = [fromClan, toClan].sort((a, b) => a.localeCompare(b)) as [string, string];
         const id = clanWarPairId(fromClan, toClan);

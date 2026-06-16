@@ -9255,6 +9255,36 @@ textarea {
     gap: 8px;
 }
 
+/* Clan Doctrine picker (clan creation) */
+.clan-doctrine-pick {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin: 6px 0 10px;
+}
+.clan-doctrine-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    text-align: left;
+    padding: 8px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    background: rgba(15, 18, 34, 0.6);
+    color: #cbd5e1;
+    cursor: pointer;
+}
+.clan-doctrine-option small {
+    color: #94a3b8;
+    font-size: 0.7rem;
+}
+.clan-doctrine-option.active {
+    border-color: #fde047;
+    background: rgba(253, 224, 71, 0.12);
+    color: #fde047;
+}
+
 .clan-request-card {
     display: flex;
     align-items: center;
