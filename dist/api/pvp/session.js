@@ -132,9 +132,22 @@ function sanitizeJutsuList(rawList) {
         if ((0, _tags_js_1.jutsuHasFixedEffectPower)(cleanTags) && Number(out.effectPower) > _tags_js_1.FIXED_EFFECT_STANDARD_EP) {
             out.effectPower = _tags_js_1.FIXED_EFFECT_STANDARD_EP;
         }
+        // Bloodline weather affinity — keep only a valid weather token (a base
+        // element, or "None" for no interaction). An invalid value is dropped
+        // so weatherMultiplier falls back to the jutsu's own `element`; "None"
+        // is kept so it never matches a weather element (no buff/debuff).
+        if (out.weatherElement != null && !VALID_WEATHER_ELEMENTS.has(String(out.weatherElement))) {
+            delete out.weatherElement;
+        }
         return out;
     });
 }
+// Acceptable bloodline weather elements: the five base elements plus the
+// explicit "None" (flavor-only, no weather interaction). Mirrors the client's
+// weather-element choices in the Bloodline Maker.
+const VALID_WEATHER_ELEMENTS = new Set([
+    'Earth', 'Wind', 'Water', 'Lightning', 'Fire', 'None',
+]);
 // Acceptable weapon elements — must match VALID_ELEMENTS below so the weather
 // multiplier in api/pvp/move.ts treats this field consistently. Unknown
 // elements are dropped (no weather interaction) rather than blocking the item.

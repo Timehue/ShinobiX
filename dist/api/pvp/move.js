@@ -1393,7 +1393,11 @@ async function handler(req, res) {
                 const castFlavor = (typeof jutsu.battleDescription === 'string' ? jutsu.battleDescription.trim() : '')
                     .replace(/%user/g, me.name).replace(/%target/g, opp.name);
                 lines.push(`${me.name} uses ${jutsu.name}:${castFlavor ? ' ' + castFlavor : ''}`);
-                const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
+                // Weather keys off the jutsu's weather affinity: bloodline jutsu
+                // set an explicit weatherElement (base element, or "None" for no
+                // interaction); others fall back to their own element. Mirrors the
+                // client's weatherElementOf (lib/elements.ts).
+                const jWMult = weatherMultiplier(jutsu.weatherElement ?? jutsu.element, weatherPositiveElement, weatherNegativeElement);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown } : undefined;
                 // Ground-target and movement jutsus: choose an open tile in range.
                 // AOE_CIRCLE resolves from the chosen tile and only hits if the opponent
