@@ -111,6 +111,7 @@ import pvpSpectateHandler       from './api/pvp/spectate.js';
 import pvpStreamHandler         from './api/pvp/stream.js';
 import pvpCombatLogHandler      from './api/pvp/combat-log.js';
 import pvpClaimRewardsHandler   from './api/pvp/claim-rewards.js';
+import pvpBountyHandler         from './api/pvp/bounty.js';
 import pvpRankedQueueHandler    from './api/pvp/ranked-queue.js';
 import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
 // Pet
@@ -591,6 +592,7 @@ route('/pvp/spectate',         pvpSpectateHandler);
 route('/pvp/stream',           pvpStreamHandler);
 route('/pvp/combat-log',       pvpCombatLogHandler);
 route('/pvp/claim-rewards',    pvpClaimRewardsHandler);
+route('/pvp/bounty',           pvpBountyHandler);
 route('/pvp/ranked-queue',     pvpRankedQueueHandler);
 route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
 
