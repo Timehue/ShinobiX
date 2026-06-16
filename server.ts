@@ -95,6 +95,7 @@ import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.j
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — membership: kick (server-authoritative cross-save removal)
 import clanKickHandler               from './api/clan/kick.js';
+import clanMentorHandler             from './api/clan/mentor.js';
 // Clan — pet escort
 import clanPetEscortListHandler   from './api/clan/pet-escort/list.js';
 import clanPetEscortOfferHandler  from './api/clan/pet-escort/offer.js';
@@ -571,6 +572,8 @@ route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
 route('/clan/kick', clanKickHandler);
+// Clan — Sensei->Student mentorship (assign / claim milestone rewards / release).
+route('/clan/mentor', clanMentorHandler);
 
 // ─── Clan: pet escort ──────────────────────────────────────────────────────────
 route('/clan/pet-escort/list',   clanPetEscortListHandler);
