@@ -6918,9 +6918,9 @@ body {
 .sector-avatar-shadow {
     position: absolute;
     left: 50%;
-    bottom: 2%;
-    width: 50%;
-    height: 12%;
+    bottom: 1%;
+    width: 46%;
+    height: 8%;                         /* small, tight ground shadow at the feet */
     transform: translateX(-50%);
     border-radius: 50%;
     background: radial-gradient(ellipse at center, rgba(0,0,0,.6), rgba(0,0,0,0) 70%);
@@ -6929,9 +6929,9 @@ body {
 .sector-avatar-aura {
     position: absolute;
     left: 50%;
-    top: 44%;
-    width: 92%;
-    height: 92%;
+    top: 34%;                           /* glow sits behind the standing portrait */
+    width: 80%;
+    aspect-ratio: 1;
     transform: translate(-50%, -50%);
     border-radius: 50%;
     background: radial-gradient(circle, var(--aura, #ffe9a6) 0%, transparent 62%);
@@ -6943,17 +6943,18 @@ body {
     position: absolute;
     inset: 0;
     display: grid;
-    place-items: center;                /* portrait centred on the tile */
+    place-items: start center;          /* portrait stands at the top; shadow below it */
     /* 2.5D stand-up: tip the billboard up toward the camera, pivoting at the
-       ground line (bottom) so the figure reads as standing ON the map rather
-       than a coin lying flat. Combined with the directional facing flip. */
-    transform: perspective(720px) rotateX(12deg) scaleX(var(--face, 1));
+       ground line so the figure reads as standing ON the map — lifted above its
+       cast shadow, not a coin lying flat. Combined with the facing flip. */
+    transform: perspective(560px) rotateX(17deg) scaleX(var(--face, 1));
     transform-origin: 50% 100%;
 }
 
 .sector-avatar-body {
-    width: 78%;
-    height: 90%;                        /* gently upright medallion (was square) */
+    width: 96%;
+    height: auto;
+    aspect-ratio: 1;                    /* round portrait standee at the top of the box */
     transform-origin: 50% 100%;         /* squash/stretch pivots at the feet */
     animation: sectorAvatarIdle 3.4s ease-in-out infinite;
 }
