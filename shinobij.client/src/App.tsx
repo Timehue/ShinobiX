@@ -4915,12 +4915,12 @@ export default function App() {
         return () => clearInterval(id);
     }, []);
 
-    // Immediate flush requested by a training start/stop. Declared AFTER the
-    // latestSaveRef-refresh effect above so, on the same commit, latestSaveRef
-    // already includes the new training state. Cancels any pending debounced
-    // save so we don't double-write.
+    // Immediate flush on training start/stop OR a fresh KO (hospitalized
+    // false→true while charDirtyRef, not a load-while-admitted): losses set
+    // hospitalized client-side only, so without this, clicking "Pay & Discharge"
+    // inside the 3s debounce hit "not hospitalized" until autosave landed.
     useEffect(() => {
-        if (!flushSaveRef.current) return;
+        if (!flushSaveRef.current && !(character?.hospitalized && charDirtyRef.current)) return;
         flushSaveRef.current = false;
         if (!character || !currentAccountName) return;
         const snap = latestSaveRef.current;
@@ -4928,7 +4928,7 @@ export default function App() {
         if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; }
         charDirtyRef.current = false;
         void persistSave(snap);
-    }, [activeTraining, activeJutsuTraining]);
+    }, [activeTraining, activeJutsuTraining, character?.hospitalized]);
 
     // Save on page unload (F5 / tab close / navigation away) so that progress
     // made since the last auto-save is not lost.
