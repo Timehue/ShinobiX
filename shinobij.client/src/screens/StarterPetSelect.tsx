@@ -51,10 +51,11 @@ export function StarterPetSelect({
     const [pendingId, setPendingId] = useState<string | null>(null);
     const pending = pendingId ? STARTER_PETS.find((o) => o.pet.id === pendingId) ?? null : null;
 
+    // Positioning + the pet-yard backdrop image live in CSS (.starter-pet-backdrop)
+    // so the overlay can sit between the desktop side panels (the same 265/255
+    // gutters the Pet Yard uses) instead of sliding under them and clipping its
+    // content. Below 981px there are no sidebars, so it goes full-bleed.
     const backdrop: React.CSSProperties = {
-        position: "fixed",
-        inset: 0,
-        background: "linear-gradient(180deg, rgba(8,12,28,0.96), rgba(4,6,18,0.99))",
         overflowY: "auto",
         display: "flex",
         alignItems: "flex-start",
@@ -67,7 +68,7 @@ export function StarterPetSelect({
 
     if (!started) {
         return (
-            <div style={backdrop}>
+            <div className="starter-pet-backdrop" style={backdrop}>
                 <div style={{
                     background: "linear-gradient(180deg, rgba(15,18,34,0.97), rgba(8,10,22,0.99))",
                     border: "2px solid rgba(56,189,248,0.5)",
@@ -113,7 +114,7 @@ export function StarterPetSelect({
 
     if (!pending) {
         return (
-            <div style={backdrop}>
+            <div className="starter-pet-backdrop" style={backdrop}>
                 <div style={{ width: "100%", maxWidth: 1150, color: "#e5e7eb" }}>
                     <div style={{ textAlign: "center", marginBottom: 20 }}>
                         <p className="act-label" style={{ color: "#38bdf8", letterSpacing: 3, margin: 0 }}>
@@ -214,7 +215,7 @@ export function StarterPetSelect({
     // Confirm stage — pending is non-null here (the !pending branch returned above).
     const option = pending;
     return (
-        <div style={backdrop}>
+        <div className="starter-pet-backdrop" style={backdrop}>
             <div style={{
                 background: "linear-gradient(180deg, rgba(15,18,34,0.98), rgba(8,10,22,0.99))",
                 border: `2px solid ${option.accent}`,
