@@ -56,6 +56,7 @@ const world_state_js_1 = __importDefault(require("./api/world-state.js"));
 const messages_js_1 = __importDefault(require("./api/messages.js"));
 const perf_beacon_js_1 = __importDefault(require("./api/perf-beacon.js"));
 const kage_js_1 = __importDefault(require("./api/village/kage.js"));
+const kage_challenge_js_1 = __importDefault(require("./api/village/kage-challenge.js"));
 const bloodline_review_js_1 = __importDefault(require("./api/admin/bloodline-review.js"));
 const item_review_js_1 = __importDefault(require("./api/admin/item-review.js"));
 const list_js_3 = __importDefault(require("./api/bloodlines/list.js"));
@@ -444,6 +445,8 @@ route('/messages', messages_js_1.default);
 route('/perf-beacon', perf_beacon_js_1.default);
 // Village
 route('/village/kage', kage_js_1.default);
+// Village — server-authoritative Kage succession (declare/press/accept/resolve).
+route('/village/kage-challenge', kage_challenge_js_1.default);
 // Bloodlines
 route('/bloodlines/list', list_js_3.default);
 // Admin review queues
