@@ -5,6 +5,7 @@ import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
+import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
 import {
@@ -8904,7 +8905,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} initialWith={viewingUserName} />}
-                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
                         character={character}
@@ -9043,9 +9044,7 @@ export default function App() {
                         const ratingGain = context?.mode === "ranked" && opponent
                             ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
                             : 0;
-                        // Old point-based clan war system removed — the new
-                        // server-managed Clan War system auto-reports via
-                        // autoReportClanWarBattleResult below.
+                        // Old point-based clan war system removed — see autoReportClanWarBattleResult below.
                         if (context?.raidKind === "raidPlayer") {
                             damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
                         }
@@ -9058,6 +9057,7 @@ export default function App() {
                                 body: JSON.stringify({ action: "resolve", village: context.kageVillage, playerName: character.name, battleId: pvpBattleId }),
                             }).catch(() => {});
                         }
+                        if (pvpBattleId) void claimBountyOnWin(character.name, pvpBattleId).then(b => { if (b) { setCharacter(c => c ? { ...c, ryo: (c.ryo ?? 0) + b.amount } : c); alert(`💰 Bounty: +${b.amount.toLocaleString()} ryo for defeating ${b.target}!`); } });
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
@@ -10380,7 +10380,7 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
     );
 }
 
-export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions";
+export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions" | "bounties";
 
 
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
