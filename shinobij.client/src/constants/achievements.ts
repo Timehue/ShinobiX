@@ -100,7 +100,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-stones-100",       name: "Crystal Hoarder",   desc: "Hold 100 Aura Stones at once.",                 category: "Wealth",     icon: "💠", hidden: true, check: c => (c.auraStones ?? 0) >= 100 },
     { id: "secret-mythic-10",        name: "Mythic Seeker",     desc: "Hold 10 Mythic Seals at once.",                 category: "Wealth",     icon: "🔱", hidden: true, check: c => (c.mythicSeals ?? 0) >= 10 },
     { id: "secret-packrat",          name: "Packrat",           desc: "Carry 100+ items in your inventory.",           category: "Wealth",     icon: "🎒", hidden: true, check: c => totalItemCount(c) >= 100 },
-    { id: "secret-loadout-full",     name: "Full Arsenal",      desc: "Equip all 15 jutsu slots simultaneously.",      category: "Combat",     icon: "📿", hidden: true, check: c => c.equippedJutsuIds.length >= 15 },
+    { id: "secret-loadout-full",     name: "Full Arsenal",      desc: "Equip all 15 jutsu slots simultaneously.",      category: "Combat",     icon: "📿", hidden: true, check: c => (c.equippedJutsuIds?.length ?? 0) >= 15 },
     { id: "secret-monthly-50",       name: "Monthly Reaper",    desc: "Earn 50 PvP kills in a single month.",          category: "PvP",        icon: "🌑", hidden: true, check: c => (c.monthlyPvpKills ?? 0) >= 50 },
     { id: "secret-hunter-5",         name: "Bounty Hunter",     desc: "Reach hunter rank 5.",                          category: "Trials",     icon: "🏹", hidden: true, check: c => (c.hunterRank ?? 0) >= 5 },
     { id: "secret-titled",           name: "Self-Named",        desc: "Earn the right to set a custom title.",         category: "Progression",icon: "📛", hidden: true, check: c => !!c.customTitle },
@@ -112,7 +112,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "secret-exams-3",          name: "Trial Walker",      desc: "Pass 3 or more rank exams.",                    category: "Progression",icon: "🎓", hidden: true, check: c => (c.examsPassed?.length ?? 0) >= 3 },
     { id: "secret-war-vet-50",       name: "War Veteran",       desc: "Complete 50 village war missions.",             category: "Village",    icon: "⚔️", hidden: true, check: c => (c.villageWarMissionsCompleted ?? 0) >= 50 },
     { id: "secret-weekly-bosses-5",  name: "Weekly Reaper",     desc: "Defeat 5 distinct weekly bosses.",              category: "Combat",     icon: "👺", hidden: true, check: c => Object.keys(c.weeklyBossKills ?? {}).length >= 5 },
-    { id: "secret-tile-cards-1000",  name: "Tile Collector",    desc: "Collect 1,000 tile cards.",                     category: "Exploration",icon: "🀄", hidden: true, check: c => c.tileCards.length >= 1000 },
+    { id: "secret-tile-cards-1000",  name: "Tile Collector",    desc: "Collect 1,000 tile cards.",                     category: "Exploration",icon: "🀄", hidden: true, check: c => (c.tileCards?.length ?? 0) >= 1000 },
     { id: "secret-minmaxer",         name: "Min-Maxer",         desc: "Reach level 50+ with zero unspent stat points.",category: "Progression",icon: "🧮", hidden: true, check: c => c.level >= 50 && c.unspentStats === 0 },
     { id: "secret-war-crates-10",    name: "Salvager",          desc: "Claim 10 war crates.",                          category: "Village",    icon: "📦", hidden: true, check: c => (c.claimedWarCrateIds?.length ?? 0) >= 10 },
 ];
