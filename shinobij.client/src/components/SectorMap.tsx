@@ -11,15 +11,15 @@
  * board and lifts the centre so the orb stays readable on the trails. The painted
  * art is smooth (image-rendering:auto), overriding the grid's pixelated default.
  *
- * Behind localStorage `sectorMap.v1` (default OFF) while the look is finalised; flip
- * to "on" to preview. All layers pointer-events:none + behind the tiles, so
- * click-to-move and the avatar/markers overlays are untouched.
+ * Default ON for everyone; opt-out with localStorage `sectorMap.v1 = "off"` (falls
+ * back to the old SectorScene vista). All layers pointer-events:none + behind the
+ * tiles, so click-to-move and the avatar/markers overlays are untouched.
  */
 import type { CSSProperties } from "react";
 
 export function isSectorMapEnabled(): boolean {
     if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("sectorMap.v1") === "on"; } catch { return false; }
+    try { return window.localStorage?.getItem("sectorMap.v1") !== "off"; } catch { return true; }
 }
 
 export function SectorMap({ image }: { image?: string }) {
