@@ -218,6 +218,22 @@ const jutsuTags = (out, i = 0) => out[i].tags.map(t => String(t.name));
         node_assert_1.strict.equal(ep((0, session_js_1.sanitizeJutsuList)([{ id: 'ok', ap: 60, effectPower: 40, tags: [{ name: 'Stun' }] }])), 40);
     });
 });
+(0, node_test_1.describe)('sanitizeJutsuList — bloodline weatherElement affinity', () => {
+    const we = (out) => out[0].weatherElement;
+    (0, node_test_1.it)('keeps a valid base weather element', () => {
+        node_assert_1.strict.equal(we((0, session_js_1.sanitizeJutsuList)([{ id: 'j', element: 'Crystal', weatherElement: 'Fire' }])), 'Fire');
+    });
+    (0, node_test_1.it)("keeps 'None' so the flavor element gets no weather interaction", () => {
+        node_assert_1.strict.equal(we((0, session_js_1.sanitizeJutsuList)([{ id: 'j', element: 'Crystal', weatherElement: 'None' }])), 'None');
+    });
+    (0, node_test_1.it)('drops a junk weatherElement (falls back to the cosmetic element)', () => {
+        node_assert_1.strict.equal(we((0, session_js_1.sanitizeJutsuList)([{ id: 'j', element: 'Crystal', weatherElement: 'Crystal' }])), undefined);
+        node_assert_1.strict.equal(we((0, session_js_1.sanitizeJutsuList)([{ id: 'j', element: 'Fire', weatherElement: 42 }])), undefined);
+    });
+    (0, node_test_1.it)('leaves jutsu without a weatherElement untouched', () => {
+        node_assert_1.strict.equal(we((0, session_js_1.sanitizeJutsuList)([{ id: 'j', element: 'Fire' }])), undefined);
+    });
+});
 (0, node_test_1.describe)('sanitizePvpItems — canonicalizes weapon tags + effect', () => {
     (0, node_test_1.it)('rewrites weaponTags aliases and the weaponEffect to canonical names', () => {
         const out = pick((0, session_js_1.sanitizePvpItems)([{
