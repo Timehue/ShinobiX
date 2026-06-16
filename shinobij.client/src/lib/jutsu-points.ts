@@ -7,9 +7,12 @@
  * Extracted from App.tsx (jutsu cluster).
  */
 
-import { normalizeTagName, cappedDamageTags, tagCapForRank, percentageTags, hasFixedEffectPower } from "./tags";
+import { normalizeTagName, binaryTags, cappedDamageTags, tagCapForRank, percentageTags, hasFixedEffectPower } from "./tags";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { Rank } from "../types/core";
+
+/** One line-item in a jutsu's point cost — what it is and how much it adds. */
+export interface JutsuPointItem { label: string; points: number; }
 
 export function jutsuCountForRank(rank: Rank) { return rank === "B Rank" ? 4 : 5; }
 export function pointBudgetForRank(rank: Rank) { return rank === "S Rank" ? 11 : rank === "A Rank" ? 10 : 7; }
@@ -44,22 +47,37 @@ export function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
     return 1;
 }
 
-export function jutsuPoints(jutsu: Jutsu, rank?: Rank | null) {
+// Itemized point cost of a jutsu — the same rules jutsuPoints sums, but with a
+// human-readable label per item so the builder can show players WHAT is costing
+// points (and what to trim when over budget). jutsuPoints is the sum of these.
+export function jutsuPointBreakdown(jutsu: Jutsu, rank?: Rank | null): JutsuPointItem[] {
     const effectiveRank = rank ?? jutsu.bloodlineRank ?? null;
-    let points = jutsu.tags.reduce((sum, tag) => sum + tagPointValue(tag, effectiveRank), 0);
-    if (jutsu.ap === 40) points += 1;
-    if (jutsu.range >= 5) points += 0.5;
+    const items: JutsuPointItem[] = [];
+    for (const tag of jutsu.tags) {
+        if (!tag.name) continue;
+        const points = tagPointValue(tag, effectiveRank);
+        if (points <= 0) continue;
+        const showPercent = !binaryTags.includes(normalizeTagName(tag.name)) && tag.percent > 0;
+        items.push({ label: `${tag.name}${showPercent ? ` ${tag.percent}%` : ""}`, points });
+    }
+    if (jutsu.ap === 40) items.push({ label: "40 AP utility", points: 1 });
+    if (jutsu.range >= 5) items.push({ label: "Range 5", points: 0.5 });
     if (jutsu.target === "EMPTY_GROUND") {
         // AOE_CIRCLE is the cheap ring nudge; INSTANT_EFFECT and the bigger
         // AOE_SPIRAL ground-nova each cost a full point.
-        if (jutsu.method === "AOE_CIRCLE") points += 0.5;
-        else if (jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL") points += 1;
+        if (jutsu.method === "AOE_CIRCLE") items.push({ label: "Circle Movement", points: 0.5 });
+        else if (jutsu.method === "INSTANT_EFFECT") items.push({ label: "Instant Effect", points: 1 });
+        else if (jutsu.method === "AOE_SPIRAL") items.push({ label: "AOE Movement", points: 1 });
     }
-    if (!hasFixedEffectPower(jutsu)) {
-        if (jutsu.ap === 60 && jutsu.effectPower >= 45) points += 1;
+    if (!hasFixedEffectPower(jutsu) && jutsu.ap === 60 && jutsu.effectPower >= 45) {
+        items.push({ label: "Nuke damage", points: 1 });
     }
-    if (jutsu.cooldown <= 1) points += 0.5;
-    return points;
+    if (jutsu.cooldown <= 1) items.push({ label: "Cooldown ≤1", points: 0.5 });
+    return items;
+}
+
+export function jutsuPoints(jutsu: Jutsu, rank?: Rank | null) {
+    return jutsuPointBreakdown(jutsu, rank).reduce((sum, item) => sum + item.points, 0);
 }
 
 export function bloodlinePoints(jutsus: Jutsu[]) {

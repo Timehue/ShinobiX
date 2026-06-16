@@ -62,6 +62,12 @@ export type Jutsu = {
     // convention applies (see isZeroDamageFortyApJutsu). Decouples AP cost from
     // whether a jutsu deals damage.
     isUtility?: boolean;
+    // Mechanical element for the WEATHER system, decoupled from the cosmetic
+    // `element` (which carries a bloodline's flavor name, e.g. "Crystal"). One
+    // of the five base elements → gains/loses damage with matching weather;
+    // "None" → no weather buff or debuff. Set on bloodline jutsu by the Bloodline
+    // Maker; absent on starters/items, which fall back to `element`.
+    weatherElement?: JutsuElement;
 };
 
 export type EquipmentSlot =
@@ -110,6 +116,10 @@ export type SavedBloodline = {
     rank: Rank;
     image?: string;
     specialElement?: string;
+    // Bloodline-wide weather affinity: which base element (or "None") the
+    // special element behaves as for the weather system. Stamped onto every
+    // jutsu's weatherElement on save.
+    weatherElement?: JutsuElement;
     lore?: string;
     jutsus: Jutsu[];
     totalPoints: number;

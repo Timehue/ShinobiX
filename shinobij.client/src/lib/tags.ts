@@ -135,6 +135,31 @@ export const allTags = [
     "Wound",
 ];
 
+// Tag categories for the bloodline-maker dropdown — turns a flat wall of ~30
+// cryptic names into scannable groups. Every entry in `allTags` belongs to
+// exactly one group (enforced by the colocated test). `groupTags` filters these
+// to whatever the picker currently allows, preserving group + member order.
+export const tagGroups: { label: string; tags: string[] }[] = [
+    { label: "Damage & DoT", tags: ["Wound", "Poison", "Ignition", "Drain", "Recoil"] },
+    { label: "Offense (you)", tags: ["Increase Damage Given", "Lifesteal", "Siphon", "Increase Heal", "Overclock"] },
+    { label: "Defense (you)", tags: ["Shield", "Heal", "Absorb", "Reflect", "Decrease Damage Taken", "Debuff Prevent", "Stun Prevent"] },
+    { label: "Debuffs (enemy)", tags: ["Decrease Damage Given", "Increase Damage Taken", "Buff Prevent", "Cleanse Prevent", "Clear Prevent", "Lag"] },
+    { label: "Control", tags: ["Stun", "Bloodline Seal", "Elemental Seal", "Copy", "Mirror"] },
+    { label: "Movement", tags: ["Move", "Push", "Pull"] },
+];
+
+/** Group an available-tag list into the dropdown categories, dropping empties. */
+export function groupTags(available: string[]): { label: string; tags: string[] }[] {
+    const set = new Set(available);
+    const grouped = tagGroups
+        .map((group) => ({ label: group.label, tags: group.tags.filter((t) => set.has(t)) }))
+        .filter((group) => group.tags.length > 0);
+    // Anything not categorized (e.g. a future tag) lands in a trailing "Other".
+    const placed = new Set(tagGroups.flatMap((g) => g.tags));
+    const other = available.filter((t) => !placed.has(t));
+    return other.length ? [...grouped, { label: "Other", tags: other }] : grouped;
+}
+
 export const bloodlineUniqueTags = [
     "Stun",
     "Bloodline Seal",

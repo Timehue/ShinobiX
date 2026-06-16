@@ -61,6 +61,9 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         // fixed-shape object, so an un-listed field would be silently dropped and
         // the shared-merge tie-break would lose its signal on every reload).
         ...(jutsu.updatedAt != null ? { updatedAt: jutsu.updatedAt } : {}),
+        // Carry the weather affinity through too — set on bloodline jutsu so the
+        // weather system can read it independently of the cosmetic `element`.
+        ...(jutsu.weatherElement != null ? { weatherElement: jutsu.weatherElement } : {}),
     };
 }
 

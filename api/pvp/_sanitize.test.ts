@@ -249,6 +249,27 @@ describe('sanitizeJutsuList — clamps the legacy EP-100 fixed-effect sentinel',
     });
 });
 
+describe('sanitizeJutsuList — bloodline weatherElement affinity', () => {
+    const we = (out: unknown[]) => (out[0] as Record<string, unknown>).weatherElement;
+
+    it('keeps a valid base weather element', () => {
+        assert.equal(we(sanitizeJutsuList([{ id: 'j', element: 'Crystal', weatherElement: 'Fire' }])), 'Fire');
+    });
+
+    it("keeps 'None' so the flavor element gets no weather interaction", () => {
+        assert.equal(we(sanitizeJutsuList([{ id: 'j', element: 'Crystal', weatherElement: 'None' }])), 'None');
+    });
+
+    it('drops a junk weatherElement (falls back to the cosmetic element)', () => {
+        assert.equal(we(sanitizeJutsuList([{ id: 'j', element: 'Crystal', weatherElement: 'Crystal' }])), undefined);
+        assert.equal(we(sanitizeJutsuList([{ id: 'j', element: 'Fire', weatherElement: 42 }])), undefined);
+    });
+
+    it('leaves jutsu without a weatherElement untouched', () => {
+        assert.equal(we(sanitizeJutsuList([{ id: 'j', element: 'Fire' }])), undefined);
+    });
+});
+
 describe('sanitizePvpItems — canonicalizes weapon tags + effect', () => {
     it('rewrites weaponTags aliases and the weaponEffect to canonical names', () => {
         const out = pick(sanitizePvpItems([{
