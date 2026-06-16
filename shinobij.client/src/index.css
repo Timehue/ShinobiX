@@ -9284,6 +9284,14 @@ textarea {
     background: rgba(253, 224, 71, 0.12);
     color: #fde047;
 }
+/* Clan recruitment pitch shown on clan-browse cards */
+.clan-pitch {
+    display: block;
+    margin-top: 3px;
+    font-style: italic;
+    color: #94a3b8;
+    white-space: normal;
+}
 
 .clan-request-card {
     display: flex;

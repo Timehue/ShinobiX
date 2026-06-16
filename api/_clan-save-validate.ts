@@ -172,6 +172,24 @@ export function validateClanSaveWrite(
         }
     }
 
+    // ── recruitment pitch ────────────────────────────────────────────
+    // Leader-written blurb shown to clan-seekers in the browse. Leadership-only;
+    // length-capped (300) + content-moderated; otherwise pinned to the previous
+    // value so a rank-and-file member can't rewrite the clan's pitch or post junk.
+    if (incoming.recruitment !== undefined) {
+        const inText = String(incoming.recruitment).slice(0, 300);
+        const changed = inText !== String(prev.recruitment ?? '');
+        if (changed && !callerIsAdminRole) {
+            next.recruitment = prev.recruitment;
+            suppressed.push('recruitment change (leadership only)');
+        } else if (changed && !ctx.isAdmin && inText && !isCleanClanText(inText)) {
+            next.recruitment = prev.recruitment ?? '';
+            suppressed.push('recruitment failed content moderation');
+        } else {
+            next.recruitment = inText;
+        }
+    }
+
     // ── members ─────────────────────────────────────────────────────
     // A regular member can only add/remove themselves. Admin-role
     // members can add/remove anyone (legitimate kicks + accept-joins).
