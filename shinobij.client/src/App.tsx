@@ -39,7 +39,6 @@ import { removeItem, countItem, ownsItem, normalizeInventory } from "./lib/inven
 import { getAllTileCards, type TileCard } from "./data/tile-cards";
 import type {
 } from "./types/clan";
-import { makeNoticePost, normalizeNoticePosts } from "./lib/clan-notices";
 import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
@@ -3422,6 +3421,14 @@ export default function App() {
             setPvpBattleId(battleId);
             setPvpRole("p2");
             setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
+            if (challenge.kageVillage) {
+                // Kage engaged — halt the challenger's accept-obligation clock.
+                fetch("/api/village/kage-challenge", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "accept", village: challenge.kageVillage, playerName: character.name, battleId }),
+                }).catch(() => {});
+            }
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
@@ -9042,22 +9049,14 @@ export default function App() {
                         if (context?.raidKind === "raidPlayer") {
                             damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
                         }
-                        if (context?.kageChallengeId && context.kageVillage) {
-                            fetch("/api/village/kage", {
+                        if (context?.kageVillage) {
+                            // Server-authoritative Kage succession: the winner reports;
+                            // resolve reads the PvpSession and transfers/defends the seat.
+                            fetch("/api/village/kage-challenge", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "seat", village: context.kageVillage, playerName: character.name }),
+                                body: JSON.stringify({ action: "resolve", village: context.kageVillage, playerName: character.name, battleId: pvpBattleId }),
                             }).catch(() => {});
-                            const villageState = loadVillageState(context.kageVillage);
-                            saveVillageState(context.kageVillage, normalizeVillageState(context.kageVillage, {
-                                ...villageState,
-                                seatedKage: character.name,
-                                kageChallenges: villageState.kageChallenges.map(challenge => challenge.id === context.kageChallengeId ? { ...challenge, status: "resolved", winner: character.name, resolvedAt: Date.now() } : challenge),
-                                noticePosts: normalizeNoticePosts([
-                                    makeNoticePost("order", "Kage Challenge Resolved", `${character.name} won the official Kage duel and claimed the seat.`, "System", "System", true),
-                                    ...villageState.noticePosts,
-                                ]),
-                            }));
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector, playerRoster)
