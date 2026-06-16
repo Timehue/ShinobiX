@@ -10,12 +10,23 @@
 # or route IPv6); on a normal host it's unnecessary and would be fragile. We run
 # `node dist/server.js` directly instead. cPanel is unaffected — it still uses
 # app.js as before.
+#
+# TWO-STAGE build: the `builder` stage installs ALL deps (incl. the build-only
+# vite/three/sharp/typescript ≈ 0.5 GB) and builds server + client; the `runtime`
+# stage ships ONLY production deps + the built output. This keeps the FINAL image
+# small so Railway's image-EXPORT phase doesn't blow past its heartbeat/idle
+# timeout (the old single-stage image's export ran ~18 min and intermittently
+# failed). Runtime needs are exactly: dist/ + shinobij.client/dist/ + production
+# node_modules + package.json — verified: no runtime reads of source files (the
+# .git/HEAD read in server.ts is already gracefully optional; .git is dockerignored).
 # ─────────────────────────────────────────────────────────────────────────────
 # Node 22+ is required: @supabase/supabase-js's createClient() builds a Realtime
 # client that needs a native global WebSocket, which only exists in Node 22+.
 # On Node 20 createClient() throws ("Node.js 20 detected without native WebSocket
 # support"), breaking every Supabase read. (engines allow >=20; 22 is current LTS.)
-FROM node:22-bookworm-slim
+
+# ── Stage 1: builder — install everything + build the server bundle + React client ──
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -54,7 +65,25 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
 # App.tsx against OOM on smaller builders.
 RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
+# ── Stage 2: runtime — production deps + built output only (small final image) ──
+FROM node:22-bookworm-slim AS runtime
+
+WORKDIR /app
 ENV NODE_ENV=production
+
+# Production dependencies only (NODE_ENV=production + --omit=dev drops the build
+# toolchain — vite/three/sharp/typescript/tsx). The server (dist/server.js +
+# dist/api/**) needs only these runtime packages: express, @supabase/supabase-js,
+# pg, compression, dotenv, @sentry/node, socket.io, undici — all declared under
+# "dependencies" (not "devDependencies").
+COPY package.json ./
+RUN npm install --omit=dev
+
+# The built server + API (dist/) and the React SPA static bundle, which
+# express.static serves from join(__dirname,'..','shinobij.client','dist').
+# Nothing else from source is read at runtime.
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/shinobij.client/dist ./shinobij.client/dist
 
 # The platform injects PORT; the server reads process.env.PORT (server.ts:456)
 # and falls back to 3000 for local `docker run`.
