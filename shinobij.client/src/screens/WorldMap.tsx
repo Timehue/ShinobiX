@@ -16,9 +16,11 @@ import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
 import { SectorScatter } from "../components/SectorScatter";
+import { SectorMap, isSectorMapEnabled } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
+import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
 import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
@@ -119,6 +121,15 @@ function sectorDepthImage(sector: number): string | undefined {
     if (villageForOutskirtsSector(sector)) return undefined;
     const theme = sectorImageTheme(sector);
     return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
+}
+
+// The painted top-down ADVENTURE MAP for a sector (the new sector look). One of N
+// variants chosen deterministically per sector so same-biome sectors aren't identical.
+function sectorMapUrl(biome: Biome, seed: number): string | undefined {
+    const n = SECTOR_MAP[biome] ?? 0;
+    if (!n) return undefined;
+    const v = ((seed % n) + n) % n;
+    return v === 0 ? `/sector-map/${biome}.webp` : `/sector-map/${biome}-${v}.webp`;
 }
 
 // Ambience biome (drives drifting particles + god-ray tint) chosen to match the
@@ -1168,6 +1179,14 @@ export function WorldMap({
             ? playableAis.find((ai) => ai.id === activeHuntMissionForSector.aiProfileId)
             : undefined;
 
+        // New sector look: a painted top-down adventure MAP behind the grid (flag-gated,
+        // off by default). Replaces the 2D vista stack when active. Custom-territory
+        // backdrops keep their own art.
+        const sectorMapSrc = (isSectorMapEnabled() && !territory.backgroundImage)
+            ? sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector)
+            : undefined;
+        const sectorMapMode = !!sectorMapSrc;
+
         return (
             <div className="map-instance">
                 <div className="instance-frame">
@@ -1186,25 +1205,34 @@ export function WorldMap({
                                 biome matches the painted scene art; weather is the real
                                 sector weather. All pointer-events:none, so tile
                                 movement still works. */}
-                            <SectorScene
-                                image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
-                                biome={ambienceBiomeForSector(selectedSector)}
-                                focus={sectorPlayerPos}
-                            />
-                            <SectorScene3D
-                                image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
-                                biome={ambienceBiomeForSector(selectedSector)}
-                                focus={sectorPlayerPos}
-                                depth={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
-                            />
-                            {/* Biome ground-objects scattered across the field (rocks,
-                                bushes, crystals, lanterns…) — explorable density under
-                                the grid. Deterministic per sector. */}
-                            <SectorScatter sector={selectedSector} biome={ambienceBiomeForSector(selectedSector)} />
-                            {/* Time-of-day wash over the backdrop + depth layers (real
-                                local clock) — keeps the hero, particles + markers crisp. */}
-                            <DayNightSky />
-                            <SceneAmbience3D biome={ambienceBiomeForSector(selectedSector)} />
+                            {sectorMapMode ? (
+                                /* New sector look: a single hand-painted top-down adventure
+                                   MAP (paths + features + small POIs, no empty centre) drawn
+                                   full-bleed behind the grid; the orb + markers sit on top. */
+                                <SectorMap image={sectorMapSrc} />
+                            ) : (
+                                <>
+                                    <SectorScene
+                                        image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
+                                        biome={ambienceBiomeForSector(selectedSector)}
+                                        focus={sectorPlayerPos}
+                                    />
+                                    <SectorScene3D
+                                        image={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
+                                        biome={ambienceBiomeForSector(selectedSector)}
+                                        focus={sectorPlayerPos}
+                                        depth={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
+                                    />
+                                    {/* Biome ground-objects scattered across the field (rocks,
+                                        bushes, crystals, lanterns…) — explorable density under
+                                        the grid. Deterministic per sector. */}
+                                    <SectorScatter sector={selectedSector} biome={ambienceBiomeForSector(selectedSector)} />
+                                    {/* Time-of-day wash over the backdrop + depth layers (real
+                                        local clock) — keeps the hero, particles + markers crisp. */}
+                                    <DayNightSky />
+                                </>
+                            )}
+                            {!sectorMapMode && <SceneAmbience3D biome={ambienceBiomeForSector(selectedSector)} />}
                             <SceneAmbience biome={ambienceBiomeForSector(selectedSector)} weather={sectorWeather} />
                             {/* Biome wildlife (birds / butterflies / fireflies after
                                 dark) — the layer that makes the sector feel patrolled,
@@ -1247,8 +1275,8 @@ export function WorldMap({
 
                             {/* Near-camera foliage band that parallaxes against the
                                 backdrop as you cross the grid — the "walking THROUGH
-                                the biome" depth cue. No-op until its biome band is baked. */}
-                            <SectorForeground biome={ambienceBiomeForSector(selectedSector)} focus={sectorPlayerPos} />
+                                the biome" depth cue (2D vista only). No-op until baked. */}
+                            {!sectorMapMode && <SectorForeground biome={ambienceBiomeForSector(selectedSector)} focus={sectorPlayerPos} />}
 
                             {creatorEvents
                                 .filter((event) => event.eventKind !== "visualNovel" && event.targetSector === selectedSector)
