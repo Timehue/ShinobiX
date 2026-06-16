@@ -9,6 +9,7 @@
  */
 
 import type { TreasuryItemStack } from "../lib/items";
+import type { ClanDoctrine } from "../lib/clan-doctrines";
 
 export type ClanMemberEntry = {
     name: string; village: string; level: number; specialty: string;
@@ -18,6 +19,7 @@ export type ClanMemberEntry = {
 export type ClanData = {
     name: string; village: string; founderName: string;
     image?: string;
+    doctrine?: ClanDoctrine;
     createdAt: number; members: ClanMemberEntry[];
 };
 export type ClanJoinRequest = ClanMemberEntry & { requestedAt: number };
