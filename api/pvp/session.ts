@@ -306,6 +306,21 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
         });
 }
 
+// Validate the jutsu-mastery list shape before it's sealed. move.ts reads
+// `character.jutsuMastery` for EP / Drain scaling; a non-array value (tampered
+// KV row or NPC payload) would crash the move handler's `.find(...)` → 500 on
+// every move. Levels are clamped to [0,50] here (and again at use in move.ts);
+// entries without a string jutsuId are dropped. Only {jutsuId, level} survive —
+// the session is a combat snapshot and never writes mastery back to the save.
+function sanitizeMastery(raw: unknown): Array<{ jutsuId: string; level: number }> {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .filter((m): m is Record<string, unknown> => !!m && typeof m === 'object')
+        .filter((m) => typeof m.jutsuId === 'string')
+        .map((m) => ({ jutsuId: String(m.jutsuId), level: clampNumber(m.level, 0, 50, 0) }))
+        .slice(0, 1000);
+}
+
 // Fields STRIPPED from the character before it's sealed into the PvP
 // session record. The session is then exposed via /api/pvp/session GET
 // + /api/pvp/stream (both unauthenticated for spectator/EventSource
@@ -462,6 +477,18 @@ function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, client
     //   Genjutsu  → genOff/genDef + intelligence + willpower
     //   Ninjutsu  → ninOff/ninDef + willpower + speed
     merged.stats = clampStatsObject(saveCharacter.stats ?? clientCharacter.stats);
+    // Vitals defense-in-depth. A tampered save could ship a huge maxHp
+    // (effectively unkillable) or maxChakra (Poison ticks scale off the victim's
+    // maxChakra). Clamp to the game's hard caps — HP_CAP 10000, CHAKRA/STAMINA
+    // 5000 — which no legitimate build exceeds (maxHpForLevel caps at HP_CAP).
+    // NPC opponents use hydrateNpcCharacter (vitals left intact) so boss-tier HP
+    // is preserved for PvP-vs-AI flows.
+    merged.maxHp      = pickClamped(saveCharacter.maxHp,      clientCharacter.maxHp,      1, 10000, 100);
+    merged.maxChakra  = pickClamped(saveCharacter.maxChakra,  clientCharacter.maxChakra,  0, 5000,  50);
+    merged.maxStamina = pickClamped(saveCharacter.maxStamina, clientCharacter.maxStamina, 0, 5000,  50);
+    // Shape-validate the mastery list (see sanitizeMastery) — guards the move
+    // handler against a non-array crash and clamps each level to [0,50].
+    merged.jutsuMastery = sanitizeMastery(saveCharacter.jutsuMastery ?? clientCharacter.jutsuMastery);
     // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
     // Resolve the equipped loadout server-side from the catalog + the save's own
     // content (see resolveEquippedLoadout). Falls back to the raw save/client
@@ -520,6 +547,10 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     out.itemLifeStealPct = clampNumber(out.itemLifeStealPct, 0, 100, 0);
     out.itemShield       = clampNumber(out.itemShield,       0, 5000, 0);
     out.stats = clampStatsObject(out.stats);
+    // Shape-validate mastery (NPC payloads are client-supplied) so a malformed
+    // value can't crash the move handler. NPC vitals are left intact on purpose
+    // (boss-tier HP is legitimate for PvP-vs-AI).
+    out.jutsuMastery = sanitizeMastery(out.jutsuMastery);
     out.jutsu = sanitizeJutsuList(out.jutsu);
     out.pvpItems = sanitizePvpItems(out.pvpItems);
     // Same strip as real characters — NPCs can have arbitrary client-
