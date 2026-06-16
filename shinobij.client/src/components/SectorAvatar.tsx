@@ -30,7 +30,14 @@ const GRID_H = 12;
 const PAD = 8;
 const GAP = 1;
 const WALK_TILES_PER_SEC = 6.5; // glide speed across the grid
-const FIGURE_SCALE = 0.98;      // roughly one tile — small, grounded standee (was 1.25)
+// The avatar is a small upright "standee": a slim, tall box whose BASE (the
+// shadow line) sits on the target tile, with the portrait standing above it and a
+// little ground gap. Narrower than a tile, taller than a tile — so the head has
+// headroom above the tile and the figure reads as standing ON the map (2.5D),
+// not a flat coin lying on it.
+const FIGURE_W = 0.72;      // box width  (× tile)
+const FIGURE_H = 1.0;       // box height (× tile)
+const BASE_ANCHOR = 78;     // % down the box that lands on the tile centre (feet line)
 
 // Soft glow tint per biome — same palette family as <SceneAmbience>.
 const AURA: Record<Biome, string> = {
@@ -92,7 +99,9 @@ export function SectorAvatar({
         const { padX, padY, gapX, gapY } = metricsRef.current;
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
-        fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -50%)`;
+        // Anchor the box BASE (not its centre) on the tile, so the standee stands up
+        // out of the tile with its head above and its shadow on the tile.
+        fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
     }
 
     function applyFacing() {
@@ -121,9 +130,9 @@ export function SectorAvatar({
             };
             const fig = figRef.current;
             if (fig) {
-                const s = Math.max(0, tileSizePx() * FIGURE_SCALE);
-                fig.style.width = `${s}px`;
-                fig.style.height = `${s}px`;
+                const t = Math.max(0, tileSizePx());
+                fig.style.width = `${t * FIGURE_W}px`;
+                fig.style.height = `${t * FIGURE_H}px`;
             }
             paint();
         });
