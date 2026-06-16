@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { seededVillageAgenda, verifyAgendaCompletion } from '../_village-agenda.js';
 
 /*
  * /api/village/claim-daily-agenda  — POST only
@@ -29,8 +30,12 @@ import { withKvLock } from '../_lock.js';
  * concurrent ryo gains) and re-asserts via autosave; the two converge. The
  * sanitizer stays permissive for these currencies (they have other legit
  * sources — missions/raids/hunts — until later Stage-3 phases move those too).
- * Task COMPLETION is still not re-verified (daily counters remain
- * client-incremented — a later Stage-3 item).
+ * Task COMPLETION is now PARTIALLY re-verified: the server re-derives today's
+ * seeded agenda (api/_village-agenda.ts, mirroring the client's seeding) and
+ * authoritatively checks any task it can — currently only "control" (sectors
+ * held, from world:territory:*, written solely by server endpoints). The other
+ * kinds (missions/explore/ai/pet) still live in client-incremented save counters
+ * and stay trusted until a server-side daily ledger lands (TODO, Stage-3).
  *
  * Body: { playerName, village }. Caller MUST be the player (or admin) and a
  * member of `village`. Rate-limited 30/min per actor.
@@ -91,6 +96,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const date = utcDate();
+
+        // ── Server-side task-completion check (verifiable subset) ──────────────
+        // Re-derive today's seeded agenda and authoritatively verify any task the
+        // server can, BEFORE crediting / placing any NX marker. Today that's only
+        // "control" (sectors held): world:territory:* is written solely by server
+        // endpoints, so the count can't be faked (same source as claim-map-
+        // control). missions/explore/ai/pet live in client-incremented save
+        // counters and stay trusted (TODO: server-side daily ledger). Rejecting
+        // here (no marker placed) lets the player re-claim once they genuinely
+        // meet the task. Admins skip — they may test without holding territory.
+        if (!identity.admin) {
+            const seededKinds = seededVillageAgenda(village, date).map((task) => task.kind);
+            let heldSectors = 0;
+            if (seededKinds.includes('control')) {
+                const territoryKeys = await kv.keys('world:territory:*');
+                const territories = territoryKeys.length
+                    ? ((await kv.mget<Record<string, unknown>[]>(...territoryKeys)).filter(Boolean) as Record<string, unknown>[])
+                    : [];
+                heldSectors = territories.filter((t) => String(t.ownerVillage ?? '').trim() === village).length;
+            }
+            const gate = verifyAgendaCompletion(seededKinds, heldSectors);
+            if (!gate.ok) return res.status(403).json({ error: gate.error });
+        }
 
         // ── PERSONAL reward (audit #7 / Stage 3 Phase 2) ───────────────────────
         // Credit the player's OWN fixed agenda reward under lock:save:<name> (the
