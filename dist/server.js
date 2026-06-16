@@ -92,6 +92,8 @@ const transfer_js_2 = __importDefault(require("./api/clan/treasury/transfer.js")
 const collect_supply_js_1 = __importDefault(require("./api/clan/territory/collect-supply.js"));
 // Clan — upgrade tree purchase (server-authoritative spend from treasury)
 const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"));
+// Clan — membership: kick (server-authoritative cross-save removal)
+const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 // Clan — pet escort
 const list_js_5 = __importDefault(require("./api/clan/pet-escort/list.js"));
 const offer_js_1 = __importDefault(require("./api/clan/pet-escort/offer.js"));
@@ -508,6 +510,10 @@ route('/clan/territory/collect-supply', collect_supply_js_1.default);
 // ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
 // Locks the clan row, debits treasury ryo + warSupply, increments the building.
 route('/clan/upgrade/purchase', purchase_js_1.default);
+// ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
+// Leadership-only. Removes the member from the clan row AND clears their
+// character.clan on their own save (the cross-save write a client can't do).
+route('/clan/kick', kick_js_1.default);
 // ─── Clan: pet escort ──────────────────────────────────────────────────────────
 route('/clan/pet-escort/list', list_js_5.default);
 route('/clan/pet-escort/offer', offer_js_1.default);
