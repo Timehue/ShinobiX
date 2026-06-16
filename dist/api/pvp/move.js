@@ -295,19 +295,25 @@ function applyGroundEffectToFighter(fighter, effect, round) {
     for (const tag of effect.tags) {
         const tagName = normalizeTagName(tag.name);
         const pct = Math.max(1, Math.floor(tag.percent ?? 30));
+        // Zone debuffs refresh to ONE turn each pass (not 2). The zone re-applies
+        // every round a fighter stands in it, and these statuses are non-stackable
+        // (addStatus replaces), so a 2-turn refresh would reset the timer each pass
+        // and leave the debuff lingering a full 2 rounds AFTER the zone expired —
+        // strictly stronger than the same tag cast directly. A 1-turn refresh keeps
+        // it active only while standing in the zone, ending when the zone does.
         if (tagName === 'Decrease Damage Given') {
-            next = addStatus(next, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage for 2 turns.`);
+            next = addStatus(next, { name: 'Decrease Damage Given', rounds: 1, percent: pct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage this turn.`);
         }
         else if (tagName === 'Recoil') {
-            next = addStatus(next, { name: 'Recoil', rounds: 2, percent: pct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks for 2 turns.`);
+            next = addStatus(next, { name: 'Recoil', rounds: 1, percent: pct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks this turn.`);
         }
         else if (tagName === 'Poison') {
             const poisonPct = pct > 0 ? pct : 6;
             const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
-            next = addStatus(next, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg}/round for 2 turns.`);
+            next = addStatus(next, { name: 'Poison', rounds: 1, percent: poisonPct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg} this turn.`);
         }
     }
     return { fighter: next, lines };
@@ -619,9 +625,11 @@ function resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg,
             continue;
         }
         if (tagName === 'Copy') {
-            const copied = activeStatuses(o, round).filter(st => st.kind === 'positive');
-            copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st, rounds: Math.min(2, st.rounds) }, round); });
-            lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`);
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                const copied = activeStatuses(o, round).filter(st => st.kind === 'positive');
+                copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st, rounds: Math.min(2, st.rounds) }, round); });
+                lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`);
+            }
             continue;
         }
         if (tagName === 'Mirror') {
@@ -1520,6 +1528,13 @@ async function handler(req, res) {
                     id: 'weapon',
                     name: serverItem.name ?? 'Weapon Attack',
                     type: 'Bukijutsu',
+                    // A weapon attack deals damage from its weaponEp — it is NOT a
+                    // zero-damage utility. Hand weapons omit apCost, so wApCost
+                    // defaults to 40; without this flag the synthesized jutsu (id
+                    // 'weapon', ap 40) would trip the legacy 40-AP utility rule
+                    // (isZeroDamageFortyApJutsu) and deal ZERO base damage in PvP.
+                    // PvE is already exempt (its weapon synth uses an 'item-' id).
+                    isUtility: false,
                     effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,
