@@ -30,14 +30,15 @@ const GRID_H = 12;
 const PAD = 8;
 const GAP = 1;
 const WALK_TILES_PER_SEC = 6.5; // glide speed across the grid
-// The avatar is a small upright "standee": a slim, tall box whose BASE (the
-// shadow line) sits on the target tile, with the portrait standing above it and a
-// little ground gap. Narrower than a tile, taller than a tile — so the head has
-// headroom above the tile and the figure reads as standing ON the map (2.5D),
-// not a flat coin lying on it.
-const FIGURE_W = 0.72;      // box width  (× tile)
-const FIGURE_H = 1.0;       // box height (× tile)
-const BASE_ANCHOR = 78;     // % down the box that lands on the tile centre (feet line)
+// The avatar is a small "map-pin": a round portrait floating up top with a pointer
+// that tapers down to a single contact point on the tile (like a location marker /
+// the temple sprite's base sitting on a hex). The pin TIP — not the circle — is
+// anchored on the tile centre, so the marker reads as planted in the biome, and a
+// small planted shadow at the tip pulses while the marker gently bobs. The figure
+// box is narrower than a tile (the circle) and tall enough to hold circle + pin.
+const FIGURE_W = 0.58;      // box width  (× tile) — the circle's diameter
+const FIGURE_H = 0.86;      // box height (× tile) — circle + pointer
+const BASE_ANCHOR = 100;    // % down the box that lands on the tile centre (the pin tip)
 
 // Soft glow tint per biome — same palette family as <SceneAmbience>.
 const AURA: Record<Biome, string> = {
@@ -99,8 +100,8 @@ export function SectorAvatar({
         const { padX, padY, gapX, gapY } = metricsRef.current;
         const cx = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
         const cy = cellCentre(h, GRID_H, posRef.current.row, padY, gapY);
-        // Anchor the box BASE (not its centre) on the tile, so the standee stands up
-        // out of the tile with its head above and its shadow on the tile.
+        // Anchor the box BASE (the pin tip) on the tile centre, so the marker is
+        // planted at the spot with the circle floating above it.
         fig.style.transform = `translate(${cx}px, ${cy}px) translate(-50%, -${BASE_ANCHOR}%)`;
     }
 
@@ -186,7 +187,7 @@ export function SectorAvatar({
                 const { padX, padY, gapX, gapY } = metricsRef.current;
                 const t = tileSizePx();
                 const px = cellCentre(w, GRID_W, posRef.current.col, padX, gapX);
-                const py = cellCentre(h, GRID_H, posRef.current.row, padY, gapY) + t * 0.32;
+                const py = cellCentre(h, GRID_H, posRef.current.row, padY, gapY) + t * 0.04; // at the pin tip
                 const id = puffIdRef.current++;
                 setPuffs(prev => [...prev.slice(-5), { id, x: px, y: py }]);
                 window.setTimeout(() => setPuffs(prev => prev.filter(pf => pf.id !== id)), 520);
@@ -214,6 +215,7 @@ export function SectorAvatar({
                         {avatarImage
                             ? <img src={avatarImage} alt={name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                             : <span className="sector-avatar-initials">{initials}</span>}
+                        <span className="sector-avatar-pin" />
                     </span>
                 </span>
             </div>
