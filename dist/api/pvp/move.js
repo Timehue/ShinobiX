@@ -66,6 +66,12 @@ const WOUND_CAP_BY_RANK = {
     S: 35, // S rank bloodline jutsus
 };
 const WOUND_HARD_CAP_PCT = 60;
+// Hard ceiling for the Town Defense guard mitigation. api/pvp/session.ts seals
+// the real value (≤5%, recomputed from the defending guard's Town Defense
+// upgrade) onto the defender's character.guardDefensePct; this cap is pure
+// defense-in-depth so a tampered / legacy session value can never make a guard
+// meaningfully unkillable. Pierce (true damage) bypasses the mitigation.
+const GUARD_DEFENSE_MAX_MIT = 0.5;
 // AP penalty applied when a Stunned fighter starts their turn. Server-side
 // this lives at the next-turn setup in endTurn (baseAp = 100 - STUN_AP_PENALTY).
 // Client mirrors via shinobij.client/src/constants/game.ts STUN_AP_PENALTY.
@@ -744,7 +750,14 @@ function resolveDamageNumber(self, opponent, jutsu, round, masteryLevel, offStat
     const ampMult = ampMultiplierFor(self, opponent, round);
     // effectiveDR ∈ [0, 1): armor, DDT, and DDG all fed one pool — more always
     // helps, but with diminishing returns.
-    return Math.max(0, Math.floor(damageIn * (1 - effectiveDR) * ampMult));
+    const base = Math.max(0, Math.floor(damageIn * (1 - effectiveDR) * ampMult));
+    // Town Defense guard mitigation — a queued Village Guard's sealed bonus
+    // (api/pvp/session.ts, ≤5%) shaves a flat % off direct damage. Folded in
+    // AFTER the DR/amp pools so it stays a small, predictable reduction rather
+    // than being diluted through the diminishing-returns DR soft-cap. Pierce
+    // bypasses it above, consistent with every other defensive source.
+    const guardMit = Math.min(GUARD_DEFENSE_MAX_MIT, Math.max(0, Number(opponent.character.guardDefensePct ?? 0) / 100));
+    return guardMit > 0 ? Math.max(0, Math.floor(base * (1 - guardMit))) : base;
 }
 // Phase 4 — the post-damage consequence pipeline. Resolution order is LOAD-BEARING
 // (every step reads the FINAL post-mitigation damage, finalDmg) and is the single
