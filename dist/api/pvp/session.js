@@ -530,6 +530,24 @@ function normalizeElement(e) {
         return e;
     return '';
 }
+// ── Town Defense guard mitigation (server-authoritative) ─────────────────────
+// A Village Guard's "Town Defense" upgrade is meant to reduce the damage they
+// take "while defending through the Village Guard queue". The AI-fallback path
+// already folds it into the chosen AI's effective level client-side, but a
+// REAL-player guard duel previously dropped it entirely. We recompute it here
+// from the guard's OWN save (never the client body or the client-stamped queue
+// entry) and seal it onto the defender so api/pvp/move.ts can apply it as a
+// small, capped damage reduction. Mirrors getTownDefenseGuardBonus in the
+// client's lib/village-upgrades.ts: townDefense level × 0.1% per level, capped
+// at the upgrade max (50 levels → 5%).
+const TOWN_DEFENSE_PER_LEVEL = 0.1;
+const TOWN_DEFENSE_MAX_LEVEL = 50;
+const GUARD_DEFENSE_MAX_PCT = TOWN_DEFENSE_PER_LEVEL * TOWN_DEFENSE_MAX_LEVEL; // 5
+function townDefensePctFromSave(saveCharacter) {
+    const upgrades = (saveCharacter?.villageUpgrades ?? null);
+    const level = Math.floor(clampNumber(upgrades?.townDefense, 0, TOWN_DEFENSE_MAX_LEVEL, 0));
+    return Math.max(0, Math.min(GUARD_DEFENSE_MAX_PCT, level * TOWN_DEFENSE_PER_LEVEL));
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -669,6 +687,30 @@ async function handler(req, res) {
                 }
                 if (p2Hp <= 0) {
                     return res.status(400).json({ error: `${p2Name} is unconscious and cannot enter this fight.` });
+                }
+            }
+            // ── Seal the defending guard's Town Defense bonus ────────────────
+            // Only for continuous (sector / guard) fights, only for the DEFENDER
+            // (the fighter who is NOT the session creator / attacker), and only
+            // while that defender is actually in the Village Guard rotation — so
+            // an attacker can neither grant the bonus to themselves nor deny it
+            // to the guard. The value is recomputed from the guard's OWN save;
+            // the move resolver applies it as a ≤5% damage reduction.
+            if (!identity.admin && useCurrentVitals === true) {
+                const defenderRole = identity.name === p1Norm ? 'p2' : identity.name === p2Norm ? 'p1' : null;
+                if (defenderRole) {
+                    const defenderNorm = defenderRole === 'p1' ? p1Norm : p2Norm;
+                    const defenderSave = defenderRole === 'p1' ? p1Save : p2Save;
+                    const onGuardDuty = defenderNorm ? await _storage_js_1.kv.get(`guard:${defenderNorm}`) : null;
+                    if (onGuardDuty) {
+                        const pct = townDefensePctFromSave(defenderSave?.character);
+                        if (pct > 0) {
+                            if (defenderRole === 'p1')
+                                finalP1Character.guardDefensePct = pct;
+                            else
+                                finalP2Character.guardDefensePct = pct;
+                        }
+                    }
                 }
             }
             // Server-generated battleId. We used to accept a client-supplied
