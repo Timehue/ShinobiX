@@ -22,17 +22,27 @@ import {
     type DuelChallenge,
 } from "../App";
 import {
-    KAGE_CHALLENGE_CONTRIBUTION_REQUIRED,
-    KAGE_CHALLENGE_SUPPORT_REQUIRED,
-    KAGE_READY_WINDOW_MS,
     cleanVillageTreasury,
-    isKageChallengeWindow,
-    kageWindowLabel,
     makeVillageDailyAgenda,
     normalizeAnbuAppointees,
 } from "../lib/village-state";
 import { postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/player-api";
-import { activeVillageWarsFor, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type KageChallenge, type KageChallengeStatus, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
+import { activeVillageWarsFor, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
+
+// Server-authoritative Kage succession (mirrors api/village/_kage-challenge.ts —
+// keep these in sync). The full rules + obligation math live server-side; the
+// client only declares, presses the overlap clock, sends the duel, and renders.
+const KAGE_CHALLENGE_SEAL_COST = 500;
+const KAGE_CHALLENGE_MIN_LEVEL = 90;
+const KAGE_CHALLENGE_MIN_CONTRIBUTION = 250;
+type ServerKageChallenge = { challenger: string; status: "pending" | "accepted"; createdAt: number; obligationRemainingMs: number; battleId?: string };
+type ServerKageState = { kageSystemUnlocked?: boolean; seatedKage?: string; firstLiberator?: string; challenge?: ServerKageChallenge | null; postDefenseGraceUntil?: number };
+function formatObligation(ms: number): string {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 export function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
@@ -72,6 +82,8 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     const [villageSendCurrency, setVillageSendCurrency] = useState<VillageTreasuryCurrencyKey>("ryo");
     const [villageSendAmount, setVillageSendAmount] = useState(1);
     const [anbuAppointmentInputs, setAnbuAppointmentInputs] = useState<string[]>(() => normalizeAnbuAppointees(loadVillageState(character.village).anbuAppointees));
+    // Authoritative Kage state (seat + active challenge) polled from the server.
+    const [serverKage, setServerKage] = useState<ServerKageState | null>(null);
     // (Removed: warTargetVillage state — Town Hall no longer has its own
     // "Start Village War" bypass. The single canonical declare flow lives
     // in VillageWarScreen, gated by 500 Honor Seals + 7-day cooldown +
@@ -110,21 +122,57 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         return () => clearInterval(id);
     }, [character.village]);
     useEffect(() => saveVillageState(character.village, state), [character.village, state]);
-    // Fetch authoritative kage state from server so all players see the same seated kage.
+    // Poll authoritative kage state (seat + active challenge) so every player
+    // sees the same seated Kage and the live challenge. Replaces the old
+    // one-shot fetch; the seat still mirrors into `state` for the displays.
     useEffect(() => {
-        fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`)
+        let alive = true;
+        const fetchKage = () => fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`)
             .then(r => r.ok ? r.json() : null)
-            .then((serverState) => {
-                if (!serverState?.kageSystemUnlocked) return;
-                setState(prev => normalizeVillageState(character.village, {
-                    ...prev,
-                    kageSystemUnlocked: true,
-                    seatedKage: serverState.seatedKage ?? prev.seatedKage,
-                    firstLiberator: serverState.firstLiberator ?? prev.firstLiberator,
-                }));
+            .then((serverState: ServerKageState | null) => {
+                if (!alive || !serverState) return;
+                setServerKage(serverState);
+                if (serverState.kageSystemUnlocked) {
+                    setState(prev => normalizeVillageState(character.village, {
+                        ...prev,
+                        kageSystemUnlocked: true,
+                        seatedKage: serverState.seatedKage ?? prev.seatedKage,
+                        firstLiberator: serverState.firstLiberator ?? prev.firstLiberator,
+                    }));
+                }
             })
             .catch(() => {});
+        fetchKage();
+        const id = setInterval(fetchKage, 12_000);
+        return () => { alive = false; clearInterval(id); };
     }, [character.village]);
+    // Challenger drives the overlap "accept obligation" clock: while their
+    // challenge is pending, press the server every ~25s. The server only burns
+    // the Kage's obligation when BOTH are verifiably online, so an offline Kage
+    // can't be forfeited unfairly and an AFK challenger can't steal the seat.
+    useEffect(() => {
+        const ch = serverKage?.challenge;
+        if (!ch || ch.status !== "pending") return;
+        if (ch.challenger.toLowerCase() !== character.name.toLowerCase()) return;
+        let alive = true;
+        const press = () => fetch("/api/village/kage-challenge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "press", village: character.village, playerName: character.name }),
+        })
+            .then(r => r.ok ? r.json() : null)
+            .then((res: { forfeited?: boolean; obligationRemainingMs?: number } | null) => {
+                if (!alive || !res) return;
+                if (res.forfeited) { setServerKage(prev => prev ? { ...prev, seatedKage: character.name, challenge: null } : prev); return; }
+                if (typeof res.obligationRemainingMs === "number") {
+                    setServerKage(prev => prev?.challenge ? { ...prev, challenge: { ...prev.challenge, obligationRemainingMs: res.obligationRemainingMs! } } : prev);
+                }
+            })
+            .catch(() => {});
+        press();
+        const id = setInterval(press, 25_000);
+        return () => { alive = false; clearInterval(id); };
+    }, [serverKage?.challenge?.status, serverKage?.challenge?.challenger, character.name, character.village]);
     useEffect(() => { if (tab !== "guard" && tab !== "status") return; fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) }).then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([])); }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
     function addNotice(text: string, nextState: VillageState = state) { const post = makeNoticePost("general", "Village Notice", text, "System", "System"); return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8), noticePosts: normalizeNoticePosts([post, ...nextState.noticePosts]) }; }
@@ -254,75 +302,29 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     function toggleVillageNoticePin(id: string) {
         updateVillageState({ ...state, noticePosts: normalizeNoticePosts(state.noticePosts.map(notice => notice.id === id ? { ...notice, pinned: !notice.pinned } : notice)) });
     }
-    function declareKageChallenge() {
-        const seatedKage = state.seatedKage;
-        if (!state.kageSystemUnlocked) return alert("The Kage system is still sealed for this village.");
+    async function declareChallenge() {
+        if (!serverKage?.kageSystemUnlocked) return alert("The Kage system is still sealed for this village.");
+        const seatedKage = serverKage.seatedKage;
         if (!seatedKage) return alert("No seated Kage is available to challenge yet.");
         if (seatedKage.toLowerCase() === character.name.toLowerCase()) return alert("You are already the seated Kage.");
-        if (state.contributionPoints < KAGE_CHALLENGE_CONTRIBUTION_REQUIRED) return alert(`The village needs at least ${KAGE_CHALLENGE_CONTRIBUTION_REQUIRED} contribution points before Kage challenges open.`);
-        const active = state.kageChallenges.find(challenge => !["resolved", "expired"].includes(challenge.status));
-        if (active) return alert(`${active.challenger} already has an active Kage challenge.`);
-        const challenge: KageChallenge = {
-            id: makeId(),
-            village: character.village,
-            challenger: character.name,
-            seatedKage,
-            status: "supported",
-            createdAt: Date.now(),
-            support: [character.name],
-            opposition: [],
-            contributionRequired: KAGE_CHALLENGE_CONTRIBUTION_REQUIRED,
-        };
-        updateVillageState(addNotice(`${character.name} declared a Kage challenge against ${seatedKage}. Support required: ${KAGE_CHALLENGE_SUPPORT_REQUIRED}. Duel window: ${kageWindowLabel()}.`, {
-            ...state,
-            kageChallenges: [challenge, ...state.kageChallenges],
-        }));
-    }
-    function supportKageChallenge(id: string, side: "support" | "oppose") {
-        const nextChallenges = state.kageChallenges.map(challenge => {
-            if (challenge.id !== id || ["resolved", "expired"].includes(challenge.status)) return challenge;
-            const support = challenge.support.filter(name => name !== character.name);
-            const opposition = challenge.opposition.filter(name => name !== character.name);
-            if (side === "support") support.push(character.name);
-            else opposition.push(character.name);
-            const status = support.length >= KAGE_CHALLENGE_SUPPORT_REQUIRED && challenge.status === "open" ? "supported" : challenge.status;
-            return { ...challenge, support: Array.from(new Set(support)), opposition: Array.from(new Set(opposition)), status };
+        if (!window.confirm(`Declare a Kage challenge against ${seatedKage}? This stakes ${KAGE_CHALLENGE_SEAL_COST} Honor Seals. You must beat them in a duel — and they must accept it or forfeit the seat.`)) return;
+        const res = await fetch("/api/village/kage-challenge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "declare", village: character.village, playerName: character.name }),
         });
-        updateVillageState({ ...state, kageChallenges: nextChallenges });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; challenge?: ServerKageChallenge };
+        if (!res.ok || !data.ok) return alert(data.error || "Could not declare the challenge.");
+        // Reflect the server-side 500-seal debit locally; the autosave re-asserts
+        // the debited balance and the two converge (same pattern as the agenda /
+        // map-control reward endpoints).
+        updateCharacter({ ...character, honorSeals: Math.max(0, (character.honorSeals ?? 0) - KAGE_CHALLENGE_SEAL_COST) });
+        setServerKage(prev => prev ? { ...prev, challenge: data.challenge ?? prev.challenge } : prev);
+        alert(`Challenge declared against ${seatedKage}. Catch them online and send the official duel — they must accept it or forfeit the seat.`);
     }
-    function acceptKageChallenge(id: string) {
-        if (!isSeatedKage) return alert("Only the seated Kage can accept the challenge.");
-        if (!isKageChallengeWindow()) return alert(`Kage challenge accepts are only available from ${kageWindowLabel()}.`);
-        const now = Date.now();
-        const nextChallenges = state.kageChallenges.map(challenge => {
-            if (challenge.id !== id) return challenge;
-            if (challenge.support.length < KAGE_CHALLENGE_SUPPORT_REQUIRED) {
-                alert(`This challenge needs ${KAGE_CHALLENGE_SUPPORT_REQUIRED} support vote first.`);
-                return challenge;
-            }
-            return { ...challenge, status: "accepted" as KageChallengeStatus, acceptedAt: now, readyWindowEndsAt: now + KAGE_READY_WINDOW_MS, challengerReadyAt: undefined, kageReadyAt: now };
-        });
-        updateVillageState(addNotice(`${character.name} accepted the Kage challenge. Challenger has 1 hour to ready up during ${kageWindowLabel()}.`, { ...state, kageChallenges: nextChallenges }));
-    }
-    function readyKageChallenge(id: string) {
-        if (!isKageChallengeWindow()) return alert(`Kage challenge ready checks only run from ${kageWindowLabel()}.`);
-        const now = Date.now();
-        const nextChallenges = state.kageChallenges.map(challenge => {
-            if (challenge.id !== id) return challenge;
-            if (challenge.status !== "accepted" && challenge.status !== "ready") return challenge;
-            if (challenge.readyWindowEndsAt && now > challenge.readyWindowEndsAt) return { ...challenge, status: "expired" as KageChallengeStatus };
-            const isChallenger = challenge.challenger.toLowerCase() === character.name.toLowerCase();
-            const isKage = challenge.seatedKage.toLowerCase() === character.name.toLowerCase();
-            if (!isChallenger && !isKage) return challenge;
-            const updated = { ...challenge, challengerReadyAt: isChallenger ? now : challenge.challengerReadyAt, kageReadyAt: isKage ? now : challenge.kageReadyAt };
-            return updated.challengerReadyAt && updated.kageReadyAt ? { ...updated, status: "ready" as KageChallengeStatus } : updated;
-        });
-        updateVillageState({ ...state, kageChallenges: nextChallenges });
-    }
-    async function sendKageDuelChallenge(challenge: KageChallenge) {
-        if (challenge.status !== "ready") return alert("Both players must ready up before the official duel can be sent.");
-        if (challenge.challenger.toLowerCase() !== character.name.toLowerCase()) return alert("The challenger sends the official duel after both players are ready.");
-        const targetName = challenge.seatedKage;
+    async function sendKageDuel() {
+        const targetName = serverKage?.seatedKage;
+        if (!targetName || targetName.toLowerCase() === character.name.toLowerCase()) return;
         const duel: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -332,15 +334,11 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
             createdAt: Date.now(),
             mode: "standard",
-            kageChallengeId: challenge.id,
             kageVillage: character.village,
         };
         const sent = await postPlayerChallengeNotice(targetName, duel);
-        if (!sent) return alert(`${targetName} is not reachable right now. Try again while both players are online.`);
-        updateVillageState(addNotice(`${character.name} sent the official Kage duel challenge to ${targetName}.`, {
-            ...state,
-            kageChallenges: state.kageChallenges.map(candidate => candidate.id === challenge.id ? { ...candidate, officialDuelSentAt: Date.now() } : candidate),
-        }));
+        if (!sent) return alert(`${targetName} is not reachable right now. Try again while they're online.`);
+        alert(`Official Kage duel sent to ${targetName}. They must accept it — or keep burning their accept obligation until they forfeit the seat.`);
     }
     function supportVillageFocus(focus: string, elderFocusKey: "war" | "trade" | "training") {
         updateVillageState(addNotice(`${character.name} selected the ${focus} elder focus.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
@@ -396,8 +394,8 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         .sort((a, b) => b.monthlyKills - a.monthlyKills || b.totalKills - a.totalKills || b.level - a.level || a.name.localeCompare(b.name))
         .slice(0, 7);
     const anbuSlots = [...appointedAnbuSlots, ...Array.from({ length: 7 }, (_, index) => earnedAnbuSlots[index] ?? null)];
-    const kageChallenges = state.kageChallenges.filter(challenge => challenge.village === character.village);
-    const kageWindowOpen = isKageChallengeWindow();
+    const kageChallenge = serverKage?.challenge ?? null;
+    const isKageChallenger = !!kageChallenge && kageChallenge.challenger.toLowerCase() === character.name.toLowerCase();
     const agenda = state.dailyAgenda.date === currentDateKey() ? state.dailyAgenda : makeVillageDailyAgenda(character.village);
     const ownedVillageSectors = villageOwnedTerritories(character.village);
     function agendaProgress(task: VillageAgendaTask) {
@@ -519,7 +517,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
         {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
         {tab === "notices" && <section className="summary-box town-notice-board"><h3>Official Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post village-wide orders. Pinned orders stay at the top for everyone in {character.village}.</p>{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Kage / Elder Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={60} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="1-60" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Example: Defend Sector 18 tonight" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Post orders, guard calls, raid targets, medic requests, or supply needs." /><button onClick={postVillageNotice} disabled={!villageNoticeTitle.trim() || !villageNoticeBody.trim()}>Post Village Order</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No village orders posted yet.</p> : state.noticePosts.map(notice => { const canEditNotice = isSeatedKage || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
-        {tab === "politics" && <><section className="summary-box"><h3>Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "✅ War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "✅ Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "✅ Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>Kage Challenge Board</h3><p className="hint">Challenges run from {kageWindowLabel()}. Support required: {KAGE_CHALLENGE_SUPPORT_REQUIRED} vote. Contribution requirement: {KAGE_CHALLENGE_CONTRIBUTION_REQUIRED} village points.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={declareKageChallenge} disabled={!state.kageSystemUnlocked || isSeatedKage}>Declare Kage Challenge</button><p className="hint">Window now: <strong>{kageWindowOpen ? "Open" : "Closed"}</strong>. The seated Kage accepting opens a 1-hour ready check; both players must ready before the official duel can be sent.</p><div className="notice-board-list">{kageChallenges.length === 0 ? <p className="hint">No Kage challenges posted yet.</p> : kageChallenges.map(challenge => { const isChallenger = challenge.challenger.toLowerCase() === character.name.toLowerCase(); const isTargetKage = challenge.seatedKage.toLowerCase() === character.name.toLowerCase(); const bothReady = Boolean(challenge.challengerReadyAt && challenge.kageReadyAt); return <div key={challenge.id} className={`notice-post ${challenge.status === "ready" ? "pinned" : ""}`}><div className="notice-post-head"><span>{challenge.status.toUpperCase()}</span><small>{new Date(challenge.createdAt).toLocaleString()}</small></div><strong>{challenge.challenger} vs {challenge.seatedKage}</strong><p>Support {challenge.support.length}/{KAGE_CHALLENGE_SUPPORT_REQUIRED} · Oppose {challenge.opposition.length} · Ready {bothReady ? "both players" : `${challenge.challengerReadyAt ? "challenger" : "waiting challenger"} / ${challenge.kageReadyAt ? "Kage" : "waiting Kage"}`}</p>{challenge.readyWindowEndsAt && <small>Ready window ends {new Date(challenge.readyWindowEndsAt).toLocaleString()}</small>}<div className="menu"><button disabled={challenge.status === "resolved" || challenge.support.includes(character.name)} onClick={() => supportKageChallenge(challenge.id, "support")}>Support</button><button disabled={challenge.status === "resolved" || challenge.opposition.includes(character.name)} onClick={() => supportKageChallenge(challenge.id, "oppose")}>Oppose</button>{isTargetKage && challenge.status === "supported" && <button disabled={!kageWindowOpen} onClick={() => acceptKageChallenge(challenge.id)}>Accept Challenge</button>}{(isChallenger || isTargetKage) && (challenge.status === "accepted" || challenge.status === "ready") && <button disabled={!kageWindowOpen} onClick={() => readyKageChallenge(challenge.id)}>Ready</button>}{isChallenger && challenge.status === "ready" && <button onClick={() => void sendKageDuelChallenge(challenge)}>Send Official Duel</button>}</div>{challenge.officialDuelSentAt && <p className="hint">Official duel sent {new Date(challenge.officialDuelSentAt).toLocaleString()}.</p>}{challenge.winner && <p className="hint">Winner: {challenge.winner}</p>}</div>; })}</div></section></>}
+        {tab === "politics" && <><section className="summary-box"><h3>Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "✅ War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "✅ Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "✅ Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>Kage Challenge Board</h3><p className="hint">Beat the seated Kage in a duel to take the seat. Declaring costs {KAGE_CHALLENGE_SEAL_COST} Honor Seals and requires level {KAGE_CHALLENGE_MIN_LEVEL}+ with {KAGE_CHALLENGE_MIN_CONTRIBUTION}+ village contribution. The Kage must accept your duel or forfeit the seat.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div>{kageChallenge ? <div className={`notice-post ${kageChallenge.status === "accepted" ? "pinned" : ""}`}><div className="notice-post-head"><span>{kageChallenge.status.toUpperCase()}</span><small>{new Date(kageChallenge.createdAt).toLocaleString()}</small></div><strong>{kageChallenge.challenger} vs {serverKage?.seatedKage}</strong><p>Kage accept obligation remaining: <strong>{formatObligation(kageChallenge.obligationRemainingMs)}</strong> of online overlap.</p>{isKageChallenger && <><div className="menu"><button onClick={() => void sendKageDuel()}>Send Official Duel</button></div><p className="hint">Stay online together to burn the Kage's accept obligation — if it hits 0:00 they forfeit the seat to you. Or just beat them in the duel.</p></>}{isSeatedKage && <p className="hint">{kageChallenge.challenger} is challenging you. Accept their incoming duel to defend — if your accept obligation hits 0:00 while you're online, you forfeit the seat.</p>}</div> : <><button onClick={() => void declareChallenge()} disabled={!serverKage?.kageSystemUnlocked || isSeatedKage}>Declare Kage Challenge ({KAGE_CHALLENGE_SEAL_COST} Seals)</button><p className="hint">{isSeatedKage ? "You hold the Kage seat." : "No active challenge right now."}</p></>}</section></>}
     </div>;
 }
 
