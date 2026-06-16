@@ -6918,12 +6918,12 @@ body {
 .sector-avatar-shadow {
     position: absolute;
     left: 50%;
-    bottom: 4%;
-    width: 56%;
-    height: 13%;
+    bottom: 2%;
+    width: 50%;
+    height: 12%;
     transform: translateX(-50%);
     border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,0) 70%);
+    background: radial-gradient(ellipse at center, rgba(0,0,0,.6), rgba(0,0,0,0) 70%);
 }
 
 .sector-avatar-aura {
@@ -6944,12 +6944,16 @@ body {
     inset: 0;
     display: grid;
     place-items: center;                /* portrait centred on the tile */
-    transform: scaleX(var(--face, 1));  /* directional facing */
+    /* 2.5D stand-up: tip the billboard up toward the camera, pivoting at the
+       ground line (bottom) so the figure reads as standing ON the map rather
+       than a coin lying flat. Combined with the directional facing flip. */
+    transform: perspective(720px) rotateX(12deg) scaleX(var(--face, 1));
+    transform-origin: 50% 100%;
 }
 
 .sector-avatar-body {
-    width: 86%;
-    height: 86%;
+    width: 78%;
+    height: 90%;                        /* gently upright medallion (was square) */
     transform-origin: 50% 100%;         /* squash/stretch pivots at the feet */
     animation: sectorAvatarIdle 3.4s ease-in-out infinite;
 }
