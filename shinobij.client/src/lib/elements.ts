@@ -38,6 +38,16 @@ export function uniqueElements(elements: (string | undefined | null)[]): string[
         });
 }
 
+// The element a jutsu uses for the WEATHER system. Bloodline jutsu carry an
+// explicit `weatherElement` (one of the five base elements, or "None" for no
+// weather interaction); everything else falls back to its own `element`.
+// Mirrored inline in api/pvp/move.ts (the authoritative PvP engine) — keep the
+// two in sync. "None" never matches a weather element, so it yields no buff or
+// debuff.
+export function weatherElementOf(jutsu: { weatherElement?: string; element?: string }): string {
+    return jutsu.weatherElement ?? jutsu.element ?? "";
+}
+
 // ── Character-level lookups ──────────────────────────────────────────────
 
 export function getCharacterElements(

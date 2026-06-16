@@ -9,6 +9,7 @@ import {
     percentageTags,
     tagCapForRank,
 } from "../App";
+import { groupTags } from "../lib/tags";
 
 export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabledTags = [], allowedTags }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; disabledTags?: string[]; allowedTags?: string[] }) {
     const selectedTagInfo = tag
@@ -33,10 +34,14 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget,
                 }}
             >
                 <option value="">No Tag</option>
-                {availableTags.map((tagName) => (
-                    <option key={tagName} value={tagName} disabled={disabledTagSet.has(tagName)}>
-                        {tagName}{disabledTagSet.has(tagName) ? " [already used]" : ""}
-                    </option>
+                {groupTags(availableTags).map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                        {group.tags.map((tagName) => (
+                            <option key={tagName} value={tagName} disabled={disabledTagSet.has(tagName)}>
+                                {tagName}{disabledTagSet.has(tagName) ? " [already used]" : ""}
+                            </option>
+                        ))}
+                    </optgroup>
                 ))}
             </select>
             {selectedTagInfo && (

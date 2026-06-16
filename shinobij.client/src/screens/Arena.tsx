@@ -28,7 +28,7 @@ import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty } from "../lib/
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { hasCharacterElement } from "../lib/elements";
+import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
@@ -628,8 +628,11 @@ export function Arena({
     function weatherDamageMultiplier(jutsu: Jutsu) {
         if (rankedBattleActive) return 1;
         const weather = weatherEffects[currentWeather];
-        if (weather.positiveElement === jutsu.element) return 1.05;
-        if (weather.negativeElement === jutsu.element) return 0.98;
+        // Bloodline jutsu carry an explicit weatherElement (base element or
+        // "None"); others fall back to their own element. "None" never matches.
+        const el = weatherElementOf(jutsu);
+        if (weather.positiveElement === el) return 1.05;
+        if (weather.negativeElement === el) return 0.98;
         return 1;
     }
 
