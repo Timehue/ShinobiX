@@ -19,6 +19,32 @@ const HOSPITAL_DURATION_MS = 60_000;
 // Pay-to-skip discharge cost (matches client-side dischargeCost in Hospital.tsx).
 // Charged server-side when paySkip=true and the hospital timer hasn't expired.
 const PAY_SKIP_DISCHARGE_COST = 2500;
+// Server-side mirror of the client hospital-discount math
+// (shinobij.client/src/lib/village-upgrades.ts getHospitalDiscountPercent +
+// clan-upgrades.ts clanUpgradeEffectPercent('medicalWing')). The Hospital UI
+// shows a discounted discharge price; without mirroring it here the server
+// charged/required a flat 2500 — overcharging upgraded players and hard-blocking
+// anyone holding between the discounted price and 2500 ryo. Keep these constants
+// in sync with the client (village hospital perLevel 1%, max 50 levels; clan
+// Medical Wing 0.3%/level capped at 15%).
+const VILLAGE_HOSPITAL_MAX_LEVEL = 50;
+const VILLAGE_HOSPITAL_PCT_PER_LEVEL = 1;
+const CLAN_MEDICAL_WING_PCT_PER_LEVEL = 0.3;
+const CLAN_MEDICAL_WING_MAX_PCT = 15;
+function hospitalDiscountPct(char) {
+    const upgrades = (char.villageUpgrades ?? {});
+    const hospLvl = Math.min(VILLAGE_HOSPITAL_MAX_LEVEL, Math.max(0, Math.floor(Number(upgrades.hospital ?? 0))));
+    const villagePct = hospLvl * VILLAGE_HOSPITAL_PCT_PER_LEVEL;
+    const clanLevels = (char.clanUpgradeLevels ?? {});
+    const medLvl = Math.max(0, Math.floor(Number(clanLevels.medicalWing ?? 0)));
+    const clanPct = Math.min(CLAN_MEDICAL_WING_MAX_PCT, CLAN_MEDICAL_WING_PCT_PER_LEVEL * medLvl);
+    return villagePct + clanPct;
+}
+// discountCost(PAY_SKIP_DISCHARGE_COST, pct), mirroring lib/village-upgrades.ts.
+function discountedDischargeCost(char) {
+    const pct = hospitalDiscountPct(char);
+    return Math.max(1, Math.floor(PAY_SKIP_DISCHARGE_COST * Math.max(0, 1 - pct / 100)));
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -74,6 +100,9 @@ async function handler(req, res) {
             const until = Number(targetChar.hospitalizedUntil ?? 0);
             const timerExpired = !until || Date.now() >= until;
             const selfIsHealer = targetChar.profession === 'healer';
+            // Discounted discharge fee (Town Hall Hospital + clan Medical Wing),
+            // matching the price shown in the Hospital UI.
+            const dischargeCost = discountedDischargeCost(targetChar);
             let chargedRyo = 0;
             if (!identity.admin && !timerExpired) {
                 if (selfIsHealer) {
@@ -91,10 +120,10 @@ async function handler(req, res) {
                     else if (paySkip) {
                         // Pay to skip the remaining (already-shortened) wait.
                         const curRyo = Number(targetChar.ryo ?? 0);
-                        if (curRyo < PAY_SKIP_DISCHARGE_COST) {
-                            return res.status(402).json({ error: `Need ${PAY_SKIP_DISCHARGE_COST} ryo to pay-skip discharge.` });
+                        if (curRyo < dischargeCost) {
+                            return res.status(402).json({ error: `Need ${dischargeCost} ryo to pay-skip discharge.` });
                         }
-                        chargedRyo = PAY_SKIP_DISCHARGE_COST;
+                        chargedRyo = dischargeCost;
                     }
                     else {
                         return res.status(429).json({
@@ -105,10 +134,10 @@ async function handler(req, res) {
                 }
                 else if (paySkip) {
                     const curRyo = Number(targetChar.ryo ?? 0);
-                    if (curRyo < PAY_SKIP_DISCHARGE_COST) {
-                        return res.status(402).json({ error: `Need ${PAY_SKIP_DISCHARGE_COST} ryo to pay-skip discharge.` });
+                    if (curRyo < dischargeCost) {
+                        return res.status(402).json({ error: `Need ${dischargeCost} ryo to pay-skip discharge.` });
                     }
-                    chargedRyo = PAY_SKIP_DISCHARGE_COST;
+                    chargedRyo = dischargeCost;
                 }
                 else {
                     return res.status(429).json({
