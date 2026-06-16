@@ -307,12 +307,29 @@
         0 8px 24px rgba(0,0,0,0.6) !important;
 }
 
-/* Jutsu range highlight — dark blue, and don't light up the enemy tile */
+/* Clearer grid — brighter, slightly thicker hex outlines so the board reads
+   against the painted arena art (biome tile rules set their own low-alpha
+   border; override them all here). */
+.arena-fullscreen .hex-tile:not(.hex-barrier),
+.arena-fullscreen .hex-central .hex-tile:not(.hex-barrier),
+.arena-fullscreen .hex-forest .hex-tile:not(.hex-barrier),
+.arena-fullscreen .hex-snow .hex-tile:not(.hex-barrier),
+.arena-fullscreen .hex-volcano .hex-tile:not(.hex-barrier),
+.arena-fullscreen .hex-shadow .hex-tile:not(.hex-barrier),
+.arena-fullscreen .hex-deathsgate .hex-tile:not(.hex-barrier) {
+    border-width: 2px !important;
+    border-color: rgba(226, 232, 240, 0.7) !important;
+}
+
+/* Jutsu range highlight — dark blue, and don't light up the enemy tile.
+   Solid-ish blue fill + bright outline so the reachable tiles read clearly
+   against the painted arena art. */
 .arena-fullscreen .hex-tile.jutsu-range-tile {
-    outline: 2px solid rgba(30, 64, 175, 0.9) !important;
+    outline: 3px solid rgba(96, 165, 250, 0.95) !important;
+    background: rgba(37, 99, 235, 0.45) !important;
     box-shadow:
-        inset 0 0 18px rgba(23, 37, 84, 0.55),
-        0 0 10px rgba(30, 58, 138, 0.6) !important;
+        inset 0 0 22px rgba(30, 58, 138, 0.8),
+        0 0 12px rgba(59, 130, 246, 0.75) !important;
     filter: none !important;
 }
 .arena-fullscreen .hex-tile.hex-enemy.jutsu-range-tile,
@@ -328,10 +345,11 @@
    the class was added to the DOM but invisible, leading to "the range glow
    doesn't appear" reports for Move-tag jutsus. */
 .arena-fullscreen .hex-tile.dash-target-tile {
-    outline: 2px solid rgba(34, 197, 94, 0.9) !important;
+    outline: 3px solid rgba(74, 222, 128, 0.95) !important;
+    background: rgba(22, 163, 74, 0.45) !important;
     box-shadow:
-        inset 0 0 18px rgba(20, 83, 45, 0.55),
-        0 0 10px rgba(22, 163, 74, 0.6) !important;
+        inset 0 0 22px rgba(20, 83, 45, 0.8),
+        0 0 12px rgba(34, 197, 94, 0.75) !important;
     filter: none !important;
 }
 .arena-fullscreen .hex-tile.hex-enemy.dash-target-tile,
