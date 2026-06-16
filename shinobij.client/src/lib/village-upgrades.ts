@@ -9,6 +9,7 @@
 
 import { clampNumber } from "./utils";
 import { clanUpgradeEffectPercent } from "./clan-upgrades";
+import { doctrineShopDiscount, doctrineHospitalDiscount, doctrineXpBonus } from "./clan-doctrines";
 import type { Character } from "../types/character";
 import type { VillageUpgrades, VillageUpgradeKey } from "../types/core";
 
@@ -95,11 +96,11 @@ export function villageUpgradeCost(key: VillageUpgradeKey, currentLevel: number)
 function clanBonus(character: Character, key: "trainingGrounds" | "petDen" | "medicalWing" | "blacksmith"): number {
     return clanUpgradeEffectPercent(key, character.clanUpgradeLevels?.[key] ?? 0);
 }
-export function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0) + clanBonus(character, "trainingGrounds"); }
+export function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0) + clanBonus(character, "trainingGrounds") + doctrineXpBonus(character.clanDoctrine ?? "none"); }
 export function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining") + (character.elderFocus === "training" ? 10 : 0); }
-export function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0) + clanBonus(character, "blacksmith"); }
+export function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0) + clanBonus(character, "blacksmith") + doctrineShopDiscount(character.clanDoctrine ?? "none"); }
 export function getTownDefenseGuardBonus(character: Character) { return villageUpgradeBonus(character, "townDefense"); }
 export function getPetXpBonus(character: Character) { return villageUpgradeBonus(character, "petYard") + clanBonus(character, "petDen"); }
 export function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }
-export function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall"); }
-export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital") + clanBonus(character, "medicalWing"); }
+export function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall") + doctrineXpBonus(character.clanDoctrine ?? "none"); }
+export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital") + clanBonus(character, "medicalWing") + doctrineHospitalDiscount(character.clanDoctrine ?? "none"); }
