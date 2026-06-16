@@ -20,6 +20,7 @@ export type ClanData = {
     name: string; village: string; founderName: string;
     image?: string;
     doctrine?: ClanDoctrine;
+    recruitment?: string; // leader-written pitch shown to clan-seekers in the browse
     createdAt: number; members: ClanMemberEntry[];
 };
 export type ClanJoinRequest = ClanMemberEntry & { requestedAt: number };
