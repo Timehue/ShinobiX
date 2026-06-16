@@ -11,6 +11,7 @@ import {
     professionThresholds,
 } from "../App";
 import { loadArenaTournament } from "../lib/world-state";
+import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -24,7 +25,7 @@ type WeeklyBossLb = {
 };
 
 export 
-function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: (c: Character) => void }) {
     const [tab, setTab] = useState<LbTab>("ranked");
     const [professionFilter, setProfessionFilter] = useState<Profession>("healer");
     const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
@@ -36,6 +37,28 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         }).catch(() => {});
         return () => { alive = false; };
     }, [tab]);
+    const [bounties, setBounties] = useState<BountyEntry[]>([]);
+    const [bountyTarget, setBountyTarget] = useState("");
+    const [bountyAmount, setBountyAmount] = useState(5000);
+    useEffect(() => {
+        if (tab !== "bounties") return;
+        let alive = true;
+        fetchBountyBoard().then(list => { if (alive) setBounties(list); });
+        return () => { alive = false; };
+    }, [tab]);
+    async function submitBounty() {
+        const target = bountyTarget.trim();
+        if (!target) return alert("Choose a player to put a bounty on.");
+        if (target.toLowerCase() === character.name.toLowerCase()) return alert("You can't bounty yourself.");
+        if (bountyAmount < 1000) return alert("Minimum bounty is 1,000 ryo.");
+        if ((character.ryo ?? 0) < bountyAmount) return alert("You don't have enough ryo.");
+        const res = await placeBounty(character.name, target, bountyAmount);
+        if (!res.ok) return alert(res.error || "Could not place the bounty.");
+        updateCharacter({ ...character, ryo: (character.ryo ?? 0) - bountyAmount });
+        if (res.bounties) setBounties(res.bounties);
+        setBountyTarget("");
+        alert(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);
+    }
 
     const all = playerRoster.length > 0
         ? playerRoster.map(p => p.character)
@@ -87,6 +110,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: "👹" },
         { id: "tournament",  label: "Tournament",    icon: "🏆" },
         { id: "professions", label: "Professions",   icon: "🧑‍⚕️" },
+        { id: "bounties",    label: "Bounties",      icon: "💰" },
     ];
 
     // Profession leaderboard helpers. XP keeps accruing past the Rank 10
@@ -339,6 +363,23 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         <p className="hint" style={{ marginTop: 8, fontSize: "0.78rem" }}>
                             Profession XP keeps accruing past Rank 10 — no more rank rewards, but the leaderboard stays competitive.
                         </p>
+                    </>
+                )}
+                {tab === "bounties" && (
+                    <>
+                        <p className="hol-board-label">💰 Active Bounties — defeat the target in a duel to claim the pool</p>
+                        <div className="summary-box" style={{ marginBottom: 10 }}>
+                            <p className="hint">Stake ryo on a player's head; whoever beats them in a duel claims it. Your ryo: {(character.ryo ?? 0).toLocaleString()}.</p>
+                            <input list="bounty-target-options" value={bountyTarget} onChange={e => setBountyTarget(e.target.value)} placeholder="Player name" />
+                            <datalist id="bounty-target-options">{playerRoster.filter(p => p.name.toLowerCase() !== character.name.toLowerCase()).map(p => <option key={p.name} value={p.name} />)}</datalist>
+                            <input type="number" min={1000} step={1000} value={bountyAmount} onChange={e => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
+                            <div className="menu"><button onClick={() => void submitBounty()}>Place Bounty</button></div>
+                        </div>
+                        {bounties.length === 0
+                            ? <p className="hol-empty">No bounties on anyone's head yet.</p>
+                            : [...bounties].sort((a, b) => b.amount - a.amount).map((b, i) => (
+                                <Row key={b.target} rank={i + 1} name={b.target} value={b.amount} suffix=" ryo" />
+                            ))}
                     </>
                 )}
             </div>
