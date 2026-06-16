@@ -664,6 +664,27 @@ export function Arena({
         return Math.max(0, adjusted);
     }
 
+    // Cheapest AP cost of ANY action the player could still take this turn —
+    // move/dash, basic attack, an equipped jutsu, or an equipped weapon /
+    // throwable / consumable. Used to decide whether to auto-pass the turn.
+    // MUST include the cheap (20-AP) throwables/consumables: the old auto-pass
+    // checked only the 30-AP move cost, so it ended the turn with ~20 AP left
+    // even though a 20-AP item/jutsu was still usable.
+    function pveMinActionCost(): number {
+        const costs = [
+            adjustedApCost(30), // move / dash
+            adjustedApCost(40), // basic attack
+            ...equippedJutsus.map((j) => adjustedApCost(j.ap ?? 40)),
+            ...combatEquippedItems.map((item) => {
+                const slot = normalizeEquipmentSlot(item.slot);
+                const isWeapon = slot === "hand" || slot === "thrown";
+                // Mirrors the spendAp defaults: weapon/thrown 40, consumable 35.
+                return adjustedApCost(item.apCost ?? (isWeapon ? 40 : 35));
+            }),
+        ];
+        return Math.min(...costs);
+    }
+
     // Enemy defensive buffs (Absorb / Reflect) honored when the PLAYER damages the
     // enemy — mirrors how enemyTurn honors the player's Absorb/Reflect. Pierce (true
     // damage) bypasses them. Returns the damage the enemy actually takes (Absorb
@@ -734,8 +755,11 @@ export function Arena({
 
     useEffect(() => {
         if (!battleStarted || battleEnded || activeActor !== "player" || actionsThisTurn === 0) return;
-        const nextMoveCost = adjustedApCost(30);
-        if (nextMoveCost > 0 && ap < nextMoveCost) {
+        // Auto-pass only when the player can't afford the CHEAPEST remaining
+        // action — including 20-AP throwables/consumables/jutsu, not just the
+        // 30-AP move (which used to end the turn with 20 AP and a usable item).
+        const minCost = pveMinActionCost();
+        if (minCost > 0 && ap < minCost) {
             enemyTurn();
         }
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
