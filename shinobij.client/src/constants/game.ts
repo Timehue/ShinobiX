@@ -34,6 +34,11 @@ export const STUN_AP_PENALTY = 40;
 // ── Jutsu training caps ──────────────────────────────────────────────────
 export const JUTSU_MAX_LEVEL = 50;
 export const JUTSU_TRAINING_CAP = 30;
+// Mastery → jutsu DAMAGE ramp: an untrained jutsu deals this fraction of its
+// fully-mastered damage, scaling linearly to 100% at JUTSU_MAX_LEVEL. The maxed
+// value is unchanged, so endgame / max-mastery PvP balance is preserved — only
+// under-leveled jutsu hit softer. Mirrored in api/pvp/move.ts (parity-pinned).
+export const MASTERY_MIN_DAMAGE_FRAC = 0.3;
 
 // ── Storage keys for localStorage ────────────────────────────────────────
 export const STORAGE = "ninjav-admin-build-v1";
