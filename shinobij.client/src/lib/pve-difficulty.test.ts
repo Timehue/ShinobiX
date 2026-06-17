@@ -5,6 +5,9 @@ import {
     pveAiMasteryForLevel,
     pveEnemyHitCap,
     pveGuardedEnemyHit,
+    pveIsBurstJutsuAp,
+    pveEasyBandHoldsBurst,
+    pveEasyBandAllowsLethal,
 } from "./pve-difficulty";
 
 // ── Band brackets (the agreed difficulty curve, inclusive upper bounds) ──────
@@ -94,4 +97,31 @@ test("easy-band per-turn cap bounds cumulative damage (~38% of max HP)", () => {
 test("peer band passes raw damage through unchanged", () => {
     const hit = pveGuardedEnemyHit(1650, { enemyLevel: 95, playerMaxHp: 4000, playerHpTurnStart: 4000, dealtThisTurn: 0 });
     assert.equal(hit, 1650);
+});
+
+// ── Item 1: easy-band AI behaviour pacing ───────────────────────────────────
+test("burst jutsu = AP >= 60", () => {
+    assert.equal(pveIsBurstJutsuAp(60), true);
+    assert.equal(pveIsBurstJutsuAp(40), false);
+    assert.equal(pveIsBurstJutsuAp(20), false);
+});
+
+test("easy band holds burst for the opening rounds, then releases it", () => {
+    assert.equal(pveEasyBandHoldsBurst(8, 1), true, "round 1: hold");
+    assert.equal(pveEasyBandHoldsBurst(8, 2), true, "round 2: hold");
+    assert.equal(pveEasyBandHoldsBurst(8, 3), false, "round 3: release");
+    assert.equal(pveEasyBandHoldsBurst(8, 7), false);
+    // Outside the easy band the AI never holds back.
+    assert.equal(pveEasyBandHoldsBurst(45, 1), false, "medium never holds");
+    assert.equal(pveEasyBandHoldsBurst(95, 1), false, "peer never holds");
+});
+
+test("easy band only goes for the kill when the player is already low", () => {
+    assert.equal(pveEasyBandAllowsLethal(8, 1.0), false, "full HP: no lethal intent");
+    assert.equal(pveEasyBandAllowsLethal(8, 0.5), false, "half HP: still measured");
+    assert.equal(pveEasyBandAllowsLethal(8, 0.25), true, "<=25%: finish allowed");
+    assert.equal(pveEasyBandAllowsLethal(8, 0.1), true);
+    // Outside the easy band the AI always plays to win.
+    assert.equal(pveEasyBandAllowsLethal(60, 1.0), true);
+    assert.equal(pveEasyBandAllowsLethal(95, 1.0), true);
 });
