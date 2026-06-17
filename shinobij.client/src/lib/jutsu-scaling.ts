@@ -10,7 +10,7 @@
  */
 
 import { effectiveTagPercent } from "./tags";
-import { JUTSU_MAX_LEVEL } from "../constants/game";
+import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC } from "../constants/game";
 import type { Jutsu, JutsuMastery } from "../types/combat";
 import type { Character } from "../types/character";
 
@@ -50,15 +50,13 @@ export function gainJutsuXp(character: Character, jutsuId: string, amount: numbe
 }
 
 export function scaleJutsuByLevel(jutsu: Jutsu, level: number) {
-    // EP at the jutsu's current level — stored effectPower is the level-0 base;
-    // each level adds 0.2 EP. This matches what combat ACTUALLY deals: the PvP
-    // server (api/pvp/move.ts) and the shared calculateDamage both compute
-    // `scaledEp = effectPower + level × 0.2`. So this value is now the
-    // "current-level" EP shown on the inspect card and is identical to the
-    // number used in the damage formula (level 50 = base + 10). The old formula
-    // (base − (50−level)×0.2) treated stored EP as the level-50 max and
-    // under-reported the dealt EP by 10 at every level.
-    const scaledEffectPower = Math.max(1, Math.floor(jutsu.effectPower + level * 0.2));
+    // EP at the jutsu's current mastery — MUST mirror the dealt-damage formula in
+    // combat-math.ts / api/pvp/move.ts so the inspect card shows what actually
+    // lands. epAtMax is the fully-mastered value (base + JUTSU_MAX_LEVEL×0.2); an
+    // untrained jutsu shows MASTERY_MIN_DAMAGE_FRAC of it, ramping to 100% at max.
+    const epAtMax = jutsu.effectPower + JUTSU_MAX_LEVEL * 0.2;
+    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, level)) / JUTSU_MAX_LEVEL);
+    const scaledEffectPower = Math.max(1, Math.floor(epAtMax * masteryFrac));
     const costMultiplier = Math.max(0.8, 1 - Math.max(0, level - 1) * 0.004);
     const chakraCostPercent = jutsu.chakraCost > 0 ? jutsuResourceCostPercent(jutsu, level) : 0;
     const staminaCostPercent = jutsu.staminaCost > 0 ? jutsuResourceCostPercent(jutsu, level) : 0;
