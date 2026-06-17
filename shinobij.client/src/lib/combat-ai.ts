@@ -275,16 +275,19 @@ export function makeBuiltinAi(
 // D-Rank Errand isn't a level-8 +30 enemy versus a level-3 player. The shared
 // catalog builtin is never mutated; this returns a fresh clone with stats / HP /
 // armor recomputed for `targetLevel`.
-export function relevelBuiltinAi(base: CreatorAi, targetLevel: number, statBonus: number, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
+export function relevelBuiltinAi(base: CreatorAi, targetLevel: number, statBonus: number, hpOverride = 0, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
     const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(targetLevel || 1)));
     const jutsus = base.jutsuIds
         .map((id) => allJutsus.find((j) => j.id === id))
         .filter((j): j is Jutsu => Boolean(j));
     const loadoutId: AiLoadoutId = base.loadoutId ?? aiLoadoutFromJutsus(jutsus);
+    // makeBuiltinAi floors HP at max(hpOverride, aiHpForLevel(level)), so an
+    // hpOverride below the natural curve is a no-op — the floor only lifts low
+    // levels where the natural HP is below it.
     const rebuilt = makeBuiltinAi(
         base.id, base.name, base.icon, level, base.village,
         jutsus.length ? jutsus : aiJutsuLoadout(loadoutId, allJutsus),
-        Math.max(0, Math.floor(statBonus || 0)), undefined, loadoutId,
+        Math.max(0, Math.floor(statBonus || 0)), Math.max(0, Math.floor(hpOverride || 0)), loadoutId,
     );
     // Preserve identity fields makeBuiltinAi doesn't carry over.
     return { ...rebuilt, image: base.image, masterAi: base.masterAi };

@@ -205,8 +205,8 @@ export function Arena({
     const combatMissionForAi = missionBattleActive ? combatMissionByAiId(pendingAiProfileId) : undefined;
     const pendingAiProfile = useMemo(() => {
         if (rawPendingAiProfile && combatMissionForAi) {
-            const { level, statBonus } = missionAiLevelAndBonus(combatMissionForAi, character.level);
-            return relevelBuiltinAi(rawPendingAiProfile, level, statBonus);
+            const { level, statBonus, hp } = missionAiLevelAndBonus(combatMissionForAi, character.level);
+            return relevelBuiltinAi(rawPendingAiProfile, level, statBonus, hp);
         }
         return rawPendingAiProfile;
     }, [rawPendingAiProfile, combatMissionForAi, character.level]);
