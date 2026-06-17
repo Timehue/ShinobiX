@@ -15,7 +15,7 @@
 
 import { statusMatchesName } from "./tags";
 import { clampNumber } from "./utils";
-import { HP_CAP, MAX_STAT, JUTSU_MAX_LEVEL } from "../constants/game";
+import { HP_CAP, MAX_STAT, JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC } from "../constants/game";
 import { starterSavedBloodlines } from "../App";
 import type { Stats, Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuType } from "../types/core";
@@ -250,7 +250,13 @@ export function calculateDamage(
         return pvpPierceTrueDamage(offense, jutsu.ap ?? 40, masteryLevel);
     }
 
-    const scaledEp = Math.max(0, jutsu.effectPower) + masteryLevel * 0.2;
+    // Steep mastery → damage ramp. epAtMax is the unchanged fully-mastered value
+    // (effectPower + JUTSU_MAX_LEVEL×0.2); an untrained jutsu deals only
+    // MASTERY_MIN_DAMAGE_FRAC of it, scaling to 100% at max mastery. Keeps maxed
+    // damage (and max-mastery PvP) identical to before.
+    const epAtMax = Math.max(0, jutsu.effectPower) + JUTSU_MAX_LEVEL * 0.2;
+    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (clampNumber(masteryLevel, 0, JUTSU_MAX_LEVEL) / JUTSU_MAX_LEVEL);
+    const scaledEp = Math.max(0, epAtMax * masteryFrac);
     const baseDmg = Math.max(0, Math.floor(
         scaledEp * EP_MULTIPLIER_PVE * statFactor * weatherMult * bloodlineMult * itemMult
     ));

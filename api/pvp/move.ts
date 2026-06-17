@@ -56,6 +56,13 @@ const MAX_STAT = 2500;
 // damage set lands at ~1,150 (in the ~875-1,150 target band depending on
 // bloodline and armor-set pairing).
 const EP_MULTIPLIER = 32;
+// Mastery → jutsu DAMAGE ramp (mirrors client combat-math.ts; parity test pins
+// these equal). An untrained jutsu deals MASTERY_MIN_DAMAGE_FRAC of its fully-
+// mastered damage, scaling to 100% at JUTSU_MAX_LEVEL. The MAXED value is
+// unchanged, so max-mastery PvP balance is preserved — only under-leveled jutsu
+// hit softer.
+const JUTSU_MAX_LEVEL = 50;
+const MASTERY_MIN_DAMAGE_FRAC = 0.3;
 const K_DR = 0.5;                      // DR pool soft cap: effDR = raw / (raw + K_DR)
 // Damage-amplification soft-cap pool. Mirrors K_DR: IDG (attacker), IDT
 // (defender), and Ignition (defender) all feed one pool with diminishing
@@ -476,7 +483,12 @@ type JutsuDamageSetup = { baseDmg: number; effectiveDR: number; offStats: Record
 
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult: number, biome: string, round: number, masteryLevel: number): JutsuDamageSetup {
-    const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
+    // Steep mastery → damage ramp (mirrors client combat-math.ts). epAtMax is the
+    // unchanged fully-mastered value; an untrained jutsu deals MASTERY_MIN_DAMAGE_FRAC
+    // of it, scaling to 100% at JUTSU_MAX_LEVEL — so maxed PvP is identical to before.
+    const epAtMax = (jutsu.effectPower ?? 20) + JUTSU_MAX_LEVEL * 0.2;
+    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, masteryLevel)) / JUTSU_MAX_LEVEL);
+    const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : Math.max(0, epAtMax * masteryFrac);
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
     // statFactor = 1 + (off - def) * 0.85 / (MAX_STAT * 2), clamped [0.35, 1.85].
