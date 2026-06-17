@@ -160,6 +160,38 @@ export function pveGuardedEnemyHit(rawHit: number, guard: PveEnemyHitGuard): num
     return Math.max(0, hit);
 }
 
+// ── Easy-band AI behaviour pacing (the "teach, don't ambush" policy) ────────
+// In the easy band the enemy holds its heaviest jutsu for the opening rounds and
+// won't deliberately pick a killing blow against a healthy player — so a new
+// player gets to see the combat loop before eating a signature move. These are
+// pure policy helpers; Arena applies them to its move selection.
+
+const EASY_BURST_AP = 60;          // jutsu at/above this AP are "burst / signature"
+const EASY_BURST_HOLD_BEFORE = 3;  // burst is held until this round (1-indexed turn)
+const EASY_LETHAL_INTENT_FRACTION = 0.25; // AI only goes for the kill at/below this HP
+
+// A jutsu this expensive is a heavy/signature move the easy band holds back early.
+export function pveIsBurstJutsuAp(ap: number): boolean {
+    return (Number.isFinite(ap) ? ap : 0) >= EASY_BURST_AP;
+}
+
+// True while an easy-band enemy should still be sitting on its burst jutsu (the
+// first couple of rounds). Outside the easy band this is always false.
+export function pveEasyBandHoldsBurst(enemyLevel: number, turn: number): boolean {
+    if (pveDifficultyBand(enemyLevel) !== "easy") return false;
+    return Math.max(1, Math.floor(turn || 1)) < EASY_BURST_HOLD_BEFORE;
+}
+
+// Whether the AI may deliberately select a LETHAL move. Always allowed outside
+// the easy band; inside it, only when the player is already "very low" (so the
+// easy band reads as forgiving, not as a coin-flip execution). Pairs with the
+// mercy floor in pveGuardedEnemyHit, which also caps the damage itself.
+export function pveEasyBandAllowsLethal(enemyLevel: number, playerHpFraction: number): boolean {
+    if (pveDifficultyBand(enemyLevel) !== "easy") return true;
+    const frac = Number.isFinite(playerHpFraction) ? playerHpFraction : 1;
+    return frac <= EASY_LETHAL_INTENT_FRACTION;
+}
+
 // Scale every numeric combat stat by the difficulty factor, clamped to the stat
 // cap so the peer band tops out at a maxed-player-like profile rather than
 // overshooting. A factor of 1 returns the stats unchanged (no allocation).

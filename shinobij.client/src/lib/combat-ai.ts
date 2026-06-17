@@ -269,6 +269,27 @@ export function makeBuiltinAi(
     }, starterJutsus);
 }
 
+// Rebuild a builtin AI at a new level / stat bonus while preserving its identity
+// (id, name, icon, village, loadout, jutsus, image, masterAi). Used to align a
+// combat-mission foe to the PLAYER's level instead of a fixed boosted one — so a
+// D-Rank Errand isn't a level-8 +30 enemy versus a level-3 player. The shared
+// catalog builtin is never mutated; this returns a fresh clone with stats / HP /
+// armor recomputed for `targetLevel`.
+export function relevelBuiltinAi(base: CreatorAi, targetLevel: number, statBonus: number, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
+    const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(targetLevel || 1)));
+    const jutsus = base.jutsuIds
+        .map((id) => allJutsus.find((j) => j.id === id))
+        .filter((j): j is Jutsu => Boolean(j));
+    const loadoutId: AiLoadoutId = base.loadoutId ?? aiLoadoutFromJutsus(jutsus);
+    const rebuilt = makeBuiltinAi(
+        base.id, base.name, base.icon, level, base.village,
+        jutsus.length ? jutsus : aiJutsuLoadout(loadoutId, allJutsus),
+        Math.max(0, Math.floor(statBonus || 0)), undefined, loadoutId,
+    );
+    // Preserve identity fields makeBuiltinAi doesn't carry over.
+    return { ...rebuilt, image: base.image, masterAi: base.masterAi };
+}
+
 function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
     const villageJutsus = starterJutsus.filter((jutsu) => {
         if (village === "Stormveil Village") return ["Wind", "Lightning", "Water"].includes(jutsu.element);
