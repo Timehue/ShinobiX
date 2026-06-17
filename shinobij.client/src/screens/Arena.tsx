@@ -24,7 +24,7 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty } from "../lib/pve-difficulty";
+import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit } from "../lib/pve-difficulty";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -500,13 +500,36 @@ export function Arena({
     // Excludes real PvP (opponentCharacter), the endless tower (already
     // wave-scaled), and ranked, so nothing double-dips and PvP balance is
     // untouched. See lib/pve-difficulty.ts.
-    const pveDifficultyStatFactor = (!opponentCharacter && !endlessBattleActive && !rankedBattleActive)
-        ? pveDifficultyStatMultiplier(opponentLevel)
-        : 1;
+    const isStandardPve = !opponentCharacter && !endlessBattleActive && !rankedBattleActive;
+    const pveDifficultyStatFactor = isStandardPve ? pveDifficultyStatMultiplier(opponentLevel) : 1;
     const enemyCombatStats = scaleStatsForPveDifficulty(
         opponentCharacter?.stats ?? pendingAiProfile?.stats ?? aiStatsForLevel(opponentLevel),
         pveDifficultyStatFactor,
     );
+    // PvE AI mastery is tied to the enemy's level (was hard-coded to max=50 for
+    // every foe, so a level-8 D-rank cast its jutsu with endgame EP + tag%).
+    // Real PvP (opponentCharacter) is unaffected — it never routes through these
+    // client AI paths. See lib/pve-difficulty.ts.
+    const enemyTurnStartHpRef = useRef(character.hp);
+    const enemyTurnDealtRef = useRef(0);
+    const pveAiMastery = pveAiMasteryForLevel(opponentLevel);
+    // Every enemy→player hit in standard PvE passes through pveGuardedEnemyHit:
+    // per-hit cap + per-turn cap + easy-band mercy floor (no sudden death). The
+    // two refs track the player's HP at the START of the enemy's turn and the
+    // damage already dealt this turn (the enemy acts once per turn, then a player
+    // DoT tick resolves in finishEnemyAiAction — both counted). Non-standard PvE
+    // (live PvP, endless, ranked) bypasses the guard entirely. See pve-difficulty.ts.
+    const guardEnemyHit = (rawDamage: number): number => {
+        if (!isStandardPve) return Math.max(0, Math.floor(Number.isFinite(rawDamage) ? rawDamage : 0));
+        const guarded = pveGuardedEnemyHit(rawDamage, {
+            enemyLevel: opponentLevel,
+            playerMaxHp: character.maxHp,
+            playerHpTurnStart: enemyTurnStartHpRef.current,
+            dealtThisTurn: enemyTurnDealtRef.current,
+        });
+        enemyTurnDealtRef.current += guarded;
+        return guarded;
+    };
     const enemyAiJutsus = pendingAiProfile
         ? allJutsus.filter((jutsu) => pendingAiProfile.jutsuIds.includes(jutsu.id))
         : opponentCharacter
@@ -2801,6 +2824,9 @@ export function Arena({
                 // deferred-amp rules its actual cast resolves with.
                 activeStatuses(enemyStatuses),
                 activeStatuses(playerStatuses),
+                // Score moves at the AI's real (level-tied) mastery so it picks
+                // the same jutsu its cast will actually resolve at.
+                pveAiMastery,
             );
         } catch {
             return jutsu.effectPower;
@@ -3075,8 +3101,12 @@ export function Arena({
                 // buffs must not amplify the attack it makes the same turn.
                 activeStatuses(enemyStatuses),
                 activeStatuses(playerStatuses),
+                pveAiMastery,
             );
-        const damage = damageBase;
+        // Guard the hit (per-hit cap + per-turn cap + easy-band mercy; no-op in
+        // non-standard PvE). Guarding here — before finalDamage/Wound/Siphon derive
+        // from it — keeps bleed and lifesteal proportional to the damage dealt.
+        const damage = guardEnemyHit(damageBase);
         let healing = 0;
         let shield = 0;
         // Wound is now applied as a 2-round bleed DoT (queued to the player), not
@@ -3098,7 +3128,7 @@ export function Arena({
         const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
 
         jutsu.tags.forEach((tag) => {
-            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, 50);
+            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, pveAiMastery);
             if (tag.name === "Heal") {
                 const enemyHealMult = multiplicativeTagMultiplier(activeStatuses(enemyStatuses).filter((s) => s.name === "Increase Heal"), "increase");
                 const healAmt = Math.floor(HEAL_FLAT_PVE * enemyHealMult);
@@ -3298,7 +3328,7 @@ export function Arena({
         // Siphon: enemy heals a capped % of damage dealt (post-damage, self-contained).
         const siphonTag = jutsu.tags.find((t) => t.name === "Siphon");
         if (siphonTag) {
-            const restored = Math.floor(cappedPostDamage(finalDamage, effectiveTagPercent(siphonTag, jutsu.bloodlineRank, 50)));
+            const restored = Math.floor(cappedPostDamage(finalDamage, effectiveTagPercent(siphonTag, jutsu.bloodlineRank, pveAiMastery)));
             healing += restored;
             if (restored > 0) effectLines.push(`Siphon: ${opponentName} restores ${restored} HP`);
         }
@@ -3416,6 +3446,9 @@ export function Arena({
                 pDotDamage += Math.floor(raw * playerDotMit);
             }
         });
+        // DoT counts toward the enemy-turn budget so a bleed can't slip a player
+        // under the easy-band mercy floor.
+        pDotDamage = guardEnemyHit(pDotDamage);
         if (pDotDamage > 0) {
             const nextHp = Math.max(0, playerHp - pDotDamage);
             setPlayerHp(nextHp);
@@ -3450,6 +3483,11 @@ export function Arena({
         if (battleEnded) return;
         setActiveActor("enemy");
         setActionsThisTurn(0);
+        // Snapshot HP at the start of the enemy's turn and reset the per-turn
+        // damage accumulator — both feed the easy-band mercy floor / per-turn cap
+        // in guardEnemyHit (the enemy acts once, then a player DoT tick resolves).
+        enemyTurnStartHpRef.current = playerHp;
+        enemyTurnDealtRef.current = 0;
         const enemyStunned = enemyStatuses.some((s) => s.name === "Stun");
         const enemyLagStatus = enemyStatuses.find((s) => statusMatchesName(s, "Lag"));
         const enemyCompressed = !!enemyLagStatus;
@@ -3587,6 +3625,7 @@ export function Arena({
             // was raw, letting a deferred amp boost the enemy's same-turn basic.
             activeStatuses(enemyStatuses),
             activeStatuses(playerStatuses),
+            pveAiMastery,
         );
 
         // Bloodline Seal still nips an extra 15% off — calculateDamage already
@@ -3595,6 +3634,8 @@ export function Arena({
         if (activeStatuses(enemyStatuses).some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal")) {
             enemyDamage = Math.floor(enemyDamage * 0.85);
         }
+        // Same guard as the jutsu path (per-hit + per-turn + mercy; no-op uncapped).
+        enemyDamage = guardEnemyHit(enemyDamage);
 
         setEnemyAp(0);
 
@@ -3700,6 +3741,8 @@ export function Arena({
                 pDotDamage += Math.floor(raw * playerDotMit);
             }
         });
+        // DoT counts toward the enemy-turn budget (same mercy guard as the jutsu path).
+        pDotDamage = guardEnemyHit(pDotDamage);
         if (pDotDamage > 0) {
             const finalPlayerHp = Math.max(0, playerHpAfterBasic - pDotDamage);
             setPlayerHp((hp) => Math.max(0, hp - pDotDamage));
