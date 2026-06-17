@@ -13,6 +13,8 @@
  * reward — stamina only matters inside combat itself.
  */
 
+import { MAX_LEVEL } from "../constants/game";
+
 export type CombatMission = {
     /** Stable id persisted in Character.pendingCombatMissionClaims. Never reuse. */
     key: string;
@@ -49,4 +51,21 @@ export function combatMissionByAiId(aiProfileId: string): CombatMission | undefi
 /** Look up a queued claim's mission by its persisted key. */
 export function combatMissionByKey(key: string): CombatMission | undefined {
     return COMBAT_MISSIONS.find((mission) => mission.key === key);
+}
+
+// Re-leveling for combat-mission AIs (see relevelBuiltinAi). The foe is aligned
+// to the PLAYER's level (floored at the rank's min) with a small, rank-scaled
+// stat bonus — so a D-Rank Errand is a near-peer fight, not a fixed level-8 +30
+// enemy versus a level-3 player. The bonuses are gentler than the catalog
+// builtins' baked values (D used +30); the difficulty BANDS in lib/pve-difficulty
+// supply the easy/medium/hard scaling on top, so this stays "near player level".
+const MISSION_AI_RANK_STAT_BONUS: Record<string, number> = {
+    D: 0, C: 6, B: 12, A: 18, S: 24,
+};
+
+/** Target level + stat bonus for a combat mission's AI given the player's level. */
+export function missionAiLevelAndBonus(mission: CombatMission, playerLevel: number): { level: number; statBonus: number } {
+    const lvl = Math.max(1, Math.floor(Number.isFinite(playerLevel) ? playerLevel : 1));
+    const level = Math.max(mission.min, Math.min(MAX_LEVEL, lvl));
+    return { level, statBonus: MISSION_AI_RANK_STAT_BONUS[mission.rank] ?? 0 };
 }

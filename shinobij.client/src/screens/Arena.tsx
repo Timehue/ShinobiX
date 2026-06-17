@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
@@ -24,7 +24,7 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit } from "../lib/pve-difficulty";
+import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal } from "../lib/pve-difficulty";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -33,7 +33,8 @@ import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, get
 import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
-import { combatMissionByAiId } from "../data/combat-missions";
+import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
+import { relevelBuiltinAi } from "../lib/combat-ai";
 import { getAllItems, getItemById } from "../lib/items";
 import { makeId } from "../lib/utils";
 import { useBoardScale } from "../lib/use-board-scale";
@@ -196,7 +197,19 @@ export function Arena({
     // Timer callbacks read these so they always call fresh closures.
     // (enemyTurnRef and autoEndTurnRef are populated below once those functions are defined.)
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
-    const pendingAiProfile = creatorAis.find((ai) => ai.id === pendingAiProfileId);
+    const rawPendingAiProfile = creatorAis.find((ai) => ai.id === pendingAiProfileId);
+    // Item 2 — combat-mission foes are re-leveled to the PLAYER's level (floored
+    // at the rank's min) with a small rank bonus, so a D-Rank Errand isn't a fixed
+    // level-8 +30 enemy vs a level-3 player. memo'd so stats/rules aren't rebuilt
+    // every render; the shared catalog builtin in `creatorAis` is never mutated.
+    const combatMissionForAi = missionBattleActive ? combatMissionByAiId(pendingAiProfileId) : undefined;
+    const pendingAiProfile = useMemo(() => {
+        if (rawPendingAiProfile && combatMissionForAi) {
+            const { level, statBonus } = missionAiLevelAndBonus(combatMissionForAi, character.level);
+            return relevelBuiltinAi(rawPendingAiProfile, level, statBonus);
+        }
+        return rawPendingAiProfile;
+    }, [rawPendingAiProfile, combatMissionForAi, character.level]);
     const allItems = getAllItems(creatorItems);
     const isAtWarForFocus = activeVillageWarsFor(character.village).length > 0;
     const warFocusDamageReduction = (character.elderFocus === "war" && isAtWarForFocus) ? 0.99 : 1.0;
@@ -555,6 +568,12 @@ export function Arena({
     const [ap, setAp] = useState(100);
     const [enemyAp, setEnemyAp] = useState(100);
     const [turn, setTurn] = useState(1);
+    // Easy-band "teach, don't ambush" pacing: in the opening rounds an easy-band
+    // enemy holds its burst/signature jutsu, so the AI move-pickers fall through
+    // to weaker attacks / movement first. Standard PvE only.
+    const easyHoldBurst = isStandardPve && pveEasyBandHoldsBurst(opponentLevel, turn);
+    const applyEasyBurstHold = (jutsus: Jutsu[]): Jutsu[] =>
+        easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
     // Report arena-fight-in-progress up to App for the global navigation lock.
@@ -2916,13 +2935,17 @@ export function Arena({
     //   6. AP-EFFICIENCY + SIGNATURE-RESERVE (carried over).
     function smartAiJutsuPick(availableAp: number): Jutsu | undefined {
         const expanded = smartExpandedJutsuPool();
-        const usable = expanded
+        // Easy band holds its burst jutsu in the opening rounds (no-op otherwise).
+        const usable = applyEasyBurstHold(expanded
             .filter((jutsu) => jutsu.ap <= availableAp)
             .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
-            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range);
+            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range));
 
         // 1. Lethal scan — include active DoT damage in the KO threshold so
         // a setup jutsu can finish through chip damage. Cheapest lethal wins.
+        // Gated in the easy band: the AI only deliberately goes for the kill when
+        // the player is already very low, so a healthy learner isn't executed.
+        const allowLethal = !isStandardPve || pveEasyBandAllowsLethal(opponentLevel, playerHp / Math.max(1, character.maxHp));
         const dotThisTurn = activePlayerDotThisTurn();
         const requiredKo = Math.max(0, playerHp + playerShield - dotThisTurn);
         let bestLethal: { jutsu: Jutsu; ap: number } | null = null;
@@ -2932,7 +2955,7 @@ export function Arena({
                 if (!bestLethal || jutsu.ap < bestLethal.ap) bestLethal = { jutsu, ap: jutsu.ap };
             }
         }
-        if (bestLethal) return bestLethal.jutsu;
+        if (allowLethal && bestLethal) return bestLethal.jutsu;
 
         // 2. Sustain trigger — heal at 40% so a single nuke can't catch the
         // AI mid-heal. Previous 35% left zero buffer against a follow-up hit
@@ -3065,10 +3088,10 @@ export function Arena({
         if (pendingAiProfile?.masterAi || (opponentLevel ?? 1) >= 30) {
             return smartAiJutsuPick(availableAp);
         }
-        return [...enemyAiJutsus]
+        return applyEasyBurstHold([...enemyAiJutsus]
             .filter((jutsu) => jutsu.ap <= availableAp)
             .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
-            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range)
+            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range))
             .sort((a, b) => {
                 const tacticalScore = (jutsu: Jutsu) => {
                     let score = jutsu.effectPower;
