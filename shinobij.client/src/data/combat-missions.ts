@@ -54,18 +54,25 @@ export function combatMissionByKey(key: string): CombatMission | undefined {
 }
 
 // Re-leveling for combat-mission AIs (see relevelBuiltinAi). The foe is aligned
-// to the PLAYER's level (floored at the rank's min) with a small, rank-scaled
-// stat bonus — so a D-Rank Errand is a near-peer fight, not a fixed level-8 +30
-// enemy versus a level-3 player. The bonuses are gentler than the catalog
-// builtins' baked values (D used +30); the difficulty BANDS in lib/pve-difficulty
-// supply the easy/medium/hard scaling on top, so this stays "near player level".
+// to the PLAYER's level (floored at the rank's min) with a rank-scaled stat
+// bonus and an HP FLOOR, so a D-Rank Errand is a real fight at the player's
+// level — not a fixed level-8 +30 enemy, but also not a paper foe that gets
+// one-tapped. The HP floor matters because the shared damage curve is built for
+// late-game HP pools: at low levels a single player hit (~900) dwarfs a low
+// level's natural HP (~340), so without a floor the foe dies in one tap. The
+// floor only binds at low levels (above ~lvl 13 the natural HP already exceeds
+// it); higher ranks start high enough that it never binds. The difficulty BANDS
+// in lib/pve-difficulty supply the easy/medium/hard scaling on top.
 const MISSION_AI_RANK_STAT_BONUS: Record<string, number> = {
-    D: 0, C: 6, B: 12, A: 18, S: 24,
+    D: 20, C: 35, B: 55, A: 75, S: 90,
 };
+// Minimum HP a combat-mission foe has, so early-game foes survive a couple of
+// hits instead of being one-tapped by the flat ~900 low-level damage. Tunable.
+const MISSION_AI_HP_FLOOR = 1400;
 
-/** Target level + stat bonus for a combat mission's AI given the player's level. */
-export function missionAiLevelAndBonus(mission: CombatMission, playerLevel: number): { level: number; statBonus: number } {
+/** Target level, stat bonus and HP floor for a combat mission's AI given the player's level. */
+export function missionAiLevelAndBonus(mission: CombatMission, playerLevel: number): { level: number; statBonus: number; hp: number } {
     const lvl = Math.max(1, Math.floor(Number.isFinite(playerLevel) ? playerLevel : 1));
     const level = Math.max(mission.min, Math.min(MAX_LEVEL, lvl));
-    return { level, statBonus: MISSION_AI_RANK_STAT_BONUS[mission.rank] ?? 0 };
+    return { level, statBonus: MISSION_AI_RANK_STAT_BONUS[mission.rank] ?? 0, hp: MISSION_AI_HP_FLOOR };
 }
