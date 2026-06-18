@@ -10,15 +10,18 @@ That fix is the reason the no-heal rule and the Torch/Threat meters are now
 actually enforceable — which is what makes this redesign worth doing.
 
 ## Build status
-- ✅ **Phase 1A shipped** (commit `0742ea48`): Torch-as-clock (fights no longer
-  refill Torch) + fair death (entry currency snapshot → 50% claw-back on death,
-  keeping Key-loss but preserving XP/pets/uniques) + `hollowShards` currency
-  scaffold (field, per-save cap, combat-strip) + `lib/hollow-gate-run.ts`
-  (unit-tested). NEEDS AN OWNER PLAYTEST — the Torch drop/drain rates may want
-  tuning now that fights don't refill (see §9 Phase 4).
-- ⏳ **Next:** finish Phase 1's economy (wire depth-scaled `hollowShardDrop`
-  into chest / locked / boss), then Phase 2 (branching wings + tile changes),
-  Phase 3 (shard sinks + UI), Phase 4 (polish + balance).
+- ✅ **Phase 1 COMPLETE** — economy + feel foundation:
+  - `0742ea48` (1A): Torch-as-clock (fights no longer refill Torch) + fair death
+    (entry currency snapshot → 50% claw-back, keeps XP/pets/uniques, forfeits
+    Key) + `hollowShards` scaffold (field, per-save cap, combat-strip) +
+    unit-tested `lib/hollow-gate-run.ts`.
+  - `e67de6fd` (1B): depth-scaled Hollow Shard drops wired into chests (F1=3…F5=7),
+    sealed-door Ancient Chests (7…15), and the Warden (40), shown in logs/modals.
+  - NEEDS AN OWNER PLAYTEST — Torch drop/drain + shard drop rates are starting
+    values; tune once felt (all localized — easy to adjust).
+- ⏳ **Next:** Phase 2 (branching wings + `pet_battle`/`tile_game` tile removal +
+  Shard Vein tile), Phase 3 (shard sinks: in-run consumables + Shrine Attunement
+  tree + UI), Phase 4 (polish + balance).
 
 ---
 
