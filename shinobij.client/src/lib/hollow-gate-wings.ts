@@ -89,6 +89,39 @@ export function tagHollowGateWings(
     run.wingThemes = themes;
 }
 
+// Result of trying to step onto a cell in `targetWing`. The runtime blocks the
+// move when `blocked`, and otherwise applies `commitDetour` / `sealWings` to the
+// run. Rules (docs §8): the trial wing is always enterable and never seals;
+// entering a detour (treasure/beast) for the first time commits to it and seals
+// the OTHER detour; a sealed wing can't be entered. Non-wing floors never gate.
+export type WingStep = {
+    blocked: boolean;
+    message?: string;
+    patch?: Pick<HollowGateShrineRun, "committedDetour" | "sealedWings">;
+    committedTheme?: string;
+};
+
+export function wingEntryEffect(run: HollowGateShrineRun, targetWing: number | undefined): WingStep {
+    if (targetWing === undefined) return { blocked: false };       // hub / shared cell
+    const themes = run.wingThemes;
+    if (!themes) return { blocked: false };                        // legacy / BSP floor — no gating
+    if ((run.sealedWings ?? []).includes(targetWing)) {
+        return { blocked: true, message: "Chakra chains have sealed this passage — the path you did not take is closed to you now." };
+    }
+    if (themes[targetWing] === "trial") return { blocked: false }; // the descent path is always open
+    if (run.committedDetour == null) {
+        const sealWings = Object.keys(themes).map(Number)
+            .filter((k) => k !== targetWing && themes[k] !== "trial");
+        return {
+            blocked: false,
+            patch: { committedDetour: targetWing, sealedWings: [...(run.sealedWings ?? []), ...sealWings] },
+            committedTheme: themes[targetWing],
+        };
+    }
+    if (run.committedDetour === targetWing) return { blocked: false }; // re-entering your detour
+    return { blocked: true, message: "That wing has sealed behind your choice." };
+}
+
 export function generateHollowGateWingRun(floor: number, isFinalFloor: boolean): HollowGateShrineRun {
     const w = HOLLOW_GATE_SHRINE_W;
     const h = HOLLOW_GATE_SHRINE_H;
