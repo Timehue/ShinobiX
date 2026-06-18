@@ -28,9 +28,16 @@ actually enforceable — which is what makes this redesign worth doing.
   - `ba8d0c18` (2B-2): `wingEntryEffect()` movement gating — sealed wings blocked,
     first detour entry commits + seals the other, trial always open (no softlock).
     Visibility unchanged (room-flood already fogs unentered wings).
-- ⏳ **Next:** 2B-3 (wing UI — door theme labels/icons, first-hub explainer, HUD
-  with shard balance / torch bar / secured-vs-at-risk loot tally), then Phase 3
-  (shard sinks: in-run consumables + Shrine Attunement tree), Phase 4 (balance).
+- ✅ **Icon art**: 13 bespoke shrine icons generated (gpt-image-1) + published to
+  the live image store + pushed to main; Shard Vein atlas role wired.
+- ✅ **Phase 3A shipped** (`7cf07620`): in-run Hollow Shard consumables —
+  Reignite Torch, Skeleton Key, Hollow Ward, Diviner's Eye, Sanctify Loot —
+  via `lib/hollow-gate-shards` + `components/HollowGateShardBar`. Shards now have
+  a use. Second Wind is built + tested but flagged comingSoon (needs death-path
+  hooks → 3A-2).
+- ⏳ **Next:** 3A-2 (Second Wind revive across the 3 death paths), Phase 3B
+  (Shrine Attunement tree — permanent shard upgrades, server-validated), then
+  2B-3 polish (wing UI / HUD) + Phase 4 (balance).
 - ⚠️ **Strongly recommend an owner playtest now** — Phases 1+2 changed the loop
   substantially (torch economy, fair death, shards, wing structure). Validate the
   feel + tune the starting numbers before layering on UI/sinks.
