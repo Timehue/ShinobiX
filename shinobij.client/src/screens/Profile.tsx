@@ -8,6 +8,7 @@ import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { ProfessionRankBar } from "../screens/ProfessionRankBar";
+import { MasteryPanel } from "../components/MasteryPanel";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { capStat, xpNeeded } from "../lib/stats";
@@ -401,6 +402,7 @@ export function Profile({
                 <section className="profile-build-panel">
                     <h2>Profession</h2>
                     <ProfessionRankBar character={character} />
+                    <MasteryPanel character={character} updateCharacter={updateCharacter} />
                 </section>
             )}
 
