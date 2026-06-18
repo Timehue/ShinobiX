@@ -94,10 +94,17 @@ export function Inventory({
         { label: "Waist", equipmentSlot: "waist", accepts: "waist", className: "slot-waist" },
         { label: "Gloves", equipmentSlot: "gloves", accepts: "gloves", className: "slot-right-hand" },
         { label: "Legs", equipmentSlot: "legs", accepts: "legs", className: "slot-legs" },
-        { label: "Item", className: "slot-left-item-3" },
+        { label: "Potion", equipmentSlot: "potion", accepts: "potion", className: "slot-left-item-3" },
         { label: "Feet", equipmentSlot: "feet", accepts: "feet", className: "slot-feet" },
         { label: "Item", className: "slot-right-item-3" },
     ];
+
+    // Combat consumables (thrown / item / potion) are spent ON USE in battle,
+    // not on equip. Equipping one is a non-consuming SELECTION — it points the
+    // slot at an item id without draining the inventory stack (the stack is the
+    // ammo the battle screens decrement per use). All other gear keeps the
+    // classic "equip pulls one copy from the backpack" swap behaviour.
+    const consumableEquipSlots = new Set<EquipmentSlot>(["thrown", "item", "potion"]);
 
     function equippedIdForSlot(slot: EquipmentSlot) {
         const normalized = normalizeEquipmentSlot(slot);
@@ -121,10 +128,12 @@ export function Inventory({
         // (or get evicted by) the weapon on the shared "hand" slot.
         const slot = equipSlotForItem(item);
         const previousEquipped = equippedIdForSlot(slot);
-        // Pull one copy from the backpack (drains the counted stack for
-        // stackables like throwables); return any evicted item to it.
-        let next = removeItem(character, item.id, 1);
-        if (previousEquipped) next = addItem(next, previousEquipped, 1);
+        // Combat consumables: selecting one neither drains the stack nor evicts
+        // a previous pick back to it (nothing was consumed at equip). Other
+        // gear pulls one copy from the backpack and returns any evicted item.
+        const consumable = consumableEquipSlots.has(slot);
+        let next = consumable ? character : removeItem(character, item.id, 1);
+        if (!consumable && previousEquipped) next = addItem(next, previousEquipped, 1);
 
         updateCharacter({
             ...next,
@@ -142,8 +151,11 @@ export function Inventory({
         const equippedId = equippedIdForSlot(normalized);
         if (!equippedId) return;
 
+        // Consumable slots were a non-consuming selection — clearing one must
+        // NOT mint a copy back into the backpack (that would dupe the item).
+        const base = consumableEquipSlots.has(normalized) ? character : addItem(character, equippedId, 1);
         updateCharacter({
-            ...addItem(character, equippedId, 1),
+            ...base,
             equipment: {
                 ...character.equipment,
                 [normalized]: undefined,

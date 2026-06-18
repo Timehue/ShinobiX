@@ -37,6 +37,7 @@ import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
 import { relevelBuiltinAi } from "../lib/combat-ai";
 import { getAllItems, getItemById } from "../lib/items";
+import { countItem, removeItem } from "../lib/inventory";
 import { makeId } from "../lib/utils";
 import { useBoardScale } from "../lib/use-board-scale";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
@@ -240,13 +241,32 @@ export function Arena({
     const equippedJutsus = character.equippedJutsuIds
         .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
         .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines));
-    const combatItemSlots: EquipmentSlot[] = ["hand", "weapon", "thrown", "item"];
+    const combatItemSlots: EquipmentSlot[] = ["hand", "weapon", "thrown", "item", "potion"];
     const combatEquippedItems = Array.from(
         new Set(combatItemSlots.map((slot) => character.equipment[slot]).filter((id): id is string => Boolean(id)))
     )
         .map((id) => getItemById(allItems, id))
         .filter((item): item is GameItem => Boolean(item));
     const [battleStarted, setBattleStarted] = useState(false);
+    // Throwables/consumables/potions are now spent from inventory on each use
+    // (weapons in the "hand" slot stay reusable). `potionUsesThisBattle` caps the
+    // Rejuvenation Potion at POTION_USES_PER_BATTLE sips per fight; it resets in
+    // resetBattle / on persisted-battle restore.
+    const [potionUsesThisBattle, setPotionUsesThisBattle] = useState(0);
+    const POTION_USES_PER_BATTLE = 2;
+    const combatItemConsumed = (item: GameItem): boolean => {
+        const s = normalizeEquipmentSlot(item.slot);
+        return s === "thrown" || s === "item" || s === "potion";
+    };
+    // Can this equipped combat item still be used right now? Reusable gear → yes;
+    // a consumable needs ≥1 in inventory, and the potion also respects the
+    // per-battle sip cap.
+    const canUseCombatItem = (item: GameItem): boolean => {
+        if (!combatItemConsumed(item)) return true;
+        if (countItem(character, item.id) <= 0) return false;
+        if (normalizeEquipmentSlot(item.slot) === "potion" && potionUsesThisBattle >= POTION_USES_PER_BATTLE) return false;
+        return true;
+    };
 
     // ── Combat VFX (cosmetic only) ───────────────────────────────────────────
     // An elemental particle burst on each jutsu cast, drawn on a <canvas> that
@@ -721,7 +741,10 @@ export function Arena({
             adjustedApCost(30), // move / dash
             adjustedApCost(40), // basic attack
             ...equippedJutsus.map((j) => adjustedApCost(j.ap ?? 40)),
-            ...combatEquippedItems.map((item) => {
+            // Only items the player can still USE count — a thrown/consumable/
+            // potion that's out of stock (or a potion at its sip cap) must not
+            // keep the turn alive when no real action remains.
+            ...combatEquippedItems.filter(canUseCombatItem).map((item) => {
                 const slot = normalizeEquipmentSlot(item.slot);
                 const isWeapon = slot === "hand" || slot === "thrown";
                 // Mirrors the spendAp defaults: weapon/thrown 40, consumable 35.
@@ -1759,6 +1782,12 @@ export function Arena({
         const apCost = item.apCost ?? 40;
         const staminaCost = isThrown ? 8 : 10;
 
+        // Throwables are spent from inventory on each throw — block when empty.
+        if (isThrown && countItem(character, item.id) <= 0) {
+            setLog(`Out of ${item.name}.`);
+            return;
+        }
+
         if (distance(playerPos, enemyPos) > range) {
             setLog(`${item.name} needs range ${range}. Move closer or use a longer range option.`);
             return;
@@ -1920,7 +1949,9 @@ export function Arena({
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
         if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
-        updateCharacter({ ...character, stamina: Math.max(0, character.stamina - staminaCost) });
+        // Spend one thrown weapon from inventory on the throw (melee weapons aren't consumed).
+        const afterThrow = isThrown ? removeItem(character, item.id, 1) : character;
+        updateCharacter({ ...afterThrow, stamina: Math.max(0, afterThrow.stamina - staminaCost) });
 
         if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
 
@@ -1946,6 +1977,14 @@ export function Arena({
 
     function activateCombatItem(item: GameItem) {
         if (battleEnded) return;
+        // Consumables/potions are spent from inventory — refuse when out of stock
+        // (or, for the potion, once the per-battle sip cap is reached).
+        if (!canUseCombatItem(item)) {
+            setLog(countItem(character, item.id) <= 0
+                ? `Out of ${item.name}.`
+                : `${item.name} can only be used ${POTION_USES_PER_BATTLE}× per battle.`);
+            return;
+        }
         setPendingTargetJutsuId("");
         setSelectedActionId(undefined);
         setDashMode(false);
@@ -1960,20 +1999,26 @@ export function Arena({
         const offensiveBonus = (Number(item.bonuses.strength) || 0) + (Number(item.bonuses.bukijutsuOffense) || 0) + (Number(item.bonuses.taijutsuOffense) || 0) + (Number(item.bonuses.ninjutsuOffense) || 0) + (Number(item.bonuses.genjutsuOffense) || 0);
 
         const heal = Math.max(maxHpBonus > 0 ? Math.floor(maxHpBonus * 0.35) : 0, item.armorQuality ? Math.floor(character.maxHp * 0.06) : 0);
-        const chakraRestore = Math.max(0, Math.floor(maxChakraBonus * 0.35));
-        const staminaRestore = Math.max(0, Math.floor(maxStaminaBonus * 0.35));
+        // Flat potion restore (restoreChakra/restoreStamina) is added on top of
+        // the legacy 0.35×maxChakra-bonus path so existing consumables are
+        // unchanged; potions carry the flat amounts and no maxChakra bonus.
+        const chakraRestore = Math.max(0, Math.floor(maxChakraBonus * 0.35)) + (Number(item.restoreChakra) || 0);
+        const staminaRestore = Math.max(0, Math.floor(maxStaminaBonus * 0.35)) + (Number(item.restoreStamina) || 0);
         const shield = Math.max(0, Math.floor(defensiveBonus * 0.55));
         const focus = Math.max(0, Math.floor(offensiveBonus * 0.25));
 
         setPlayerHp((hp) => Math.min(character.maxHp, hp + heal));
         setPlayerShield((current) => current + shield + focus);
 
+        // Spend one copy from inventory on use (item & potion slots both consume).
+        const afterUse = removeItem(character, item.id, 1);
         updateCharacter({
-            ...character,
-            hp: Math.min(character.maxHp, character.hp + heal),
-            chakra: Math.min(character.maxChakra, character.chakra + chakraRestore),
-            stamina: Math.min(character.maxStamina, character.stamina + staminaRestore),
+            ...afterUse,
+            hp: Math.min(character.maxHp, afterUse.hp + heal),
+            chakra: Math.min(character.maxChakra, afterUse.chakra + chakraRestore),
+            stamina: Math.min(character.maxStamina, afterUse.stamina + staminaRestore),
         });
+        if (normalizeEquipmentSlot(item.slot) === "potion") setPotionUsesThisBattle((n) => n + 1);
 
         // weaponEffect overrides for support items (Smoke Bomb, Attack Pill, Defense Pill, etc.)
         const effectVal = item.weaponEffectValue ?? 0;
@@ -3818,6 +3863,7 @@ export function Arena({
         setBattleResult(null);
         setDashMode(false);
         setSelectedActionId(undefined);
+        setPotionUsesThisBattle(0);
         setSummonedPetId("");
         lastPetActionKeyRef.current = "";
         const initiative = firstActor ?? rollInitiative();
@@ -4253,6 +4299,7 @@ export function Arena({
                 rankedBattleActive={rankedBattleActive} clanWarPointsActive={clanWarPointsActive}
                 onRestore={(saved) => {
                     setBattleStarted(saved.battleStarted);
+                    setPotionUsesThisBattle(0);
                     setPlayerHp(saved.playerHp);
                     setEnemyHp(saved.enemyHp);
                     setEnemyChakra(saved.enemyChakra);
@@ -4705,12 +4752,18 @@ export function Arena({
                                     {combatEquippedItems.map((item) => {
                                         const slot = normalizeEquipmentSlot(item.slot);
                                         const isWeapon = slot === "hand" || slot === "thrown";
-                                        const icon = slot === "thrown" ? "🎯" : slot === "hand" ? "⚔" : "💼";
+                                        const icon = slot === "thrown" ? "🎯" : slot === "hand" ? "⚔" : slot === "potion" ? "🧪" : "💼";
                                         const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
                                         const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                        // Consumables (thrown/item/potion) show remaining supply and disable
+                                        // when out of stock — or, for the potion, at its per-battle sip cap.
+                                        const consumed = combatItemConsumed(item);
+                                        const owned = consumed ? countItem(character, item.id) : null;
+                                        const usable = canUseCombatItem(item);
+                                        const countSuffix = owned != null ? ` ×${owned}` : "";
                                         const actionText = isWeapon
-                                            ? `${itemAp} AP | R${weaponDisplayRange}`
-                                            : `${itemAp} AP | Use`;
+                                            ? `${itemAp} AP | R${weaponDisplayRange}${countSuffix}`
+                                            : `${itemAp} AP | Use${countSuffix}`;
                                         const isArmed = pendingTargetWeapon?.id === item.id;
 
                                         return (
@@ -4718,7 +4771,8 @@ export function Arena({
                                                 <button
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}`}
-                                                    title={isArmed ? `${item.name} armed — click ${opponentName} to fire` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
+                                                    title={isArmed ? `${item.name} armed — click ${opponentName} to fire` : !usable ? `${item.name} — none left this battle` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
+                                                    disabled={!usable}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();

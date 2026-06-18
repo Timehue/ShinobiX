@@ -266,6 +266,19 @@ export const starterItems: GameItem[] = [
         weaponCooldown: 5,
         bonuses: {},
     },
+    // -- Potions -----------------------------------------------------------------
+    {
+        id: "potion-rejuvenation",
+        name: "Rejuvenation Potion",
+        slot: "potion",
+        rarity: "rare",
+        cost: 1000,
+        description: "Quaff to restore 1000 chakra and 1000 stamina. 20 AP. Up to 2 per battle; each sip is consumed from your supply.",
+        apCost: 20,
+        restoreChakra: 1000,
+        restoreStamina: 1000,
+        bonuses: {},
+    },
     // -- Legendary armor sets (Grand Marketplace — fate shards) -------------------
     // Set 1: Void Sovereign — +1% damage given per piece (6% max)
     { id: "legendary-crown", name: "Void Sovereign's Crown", slot: "head", rarity: "legendary", cost: 150, description: "The crown of a void-touched warlord. Each piece of this set amplifies your strikes by 1%.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },

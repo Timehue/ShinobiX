@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { getAllItems } from "../lib/items";
+import { addItem } from "../lib/inventory";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
@@ -38,7 +39,7 @@ function ShopBase({
     }, [selectedItem]);
 
     const allItems = getAllItems(creatorItems);
-    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "accessory"];
+    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "potion", "accessory"];
     const armorShopSlots: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
     const shopItems = allItems.filter((item) => {
         const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
@@ -63,6 +64,7 @@ function ShopBase({
         { label: "Feet", slots: ["feet"] },
         { label: "Weapon / Hand", slots: ["hand", "weapon", "thrown"] },
         { label: "Aura / Accessory", slots: ["aura", "accessory", "item"] },
+        { label: "Potion", slots: ["potion"] },
     ];
 
     const rarityIcon: Record<string, string> = {
@@ -99,11 +101,11 @@ function ShopBase({
             ? { fateShards: character.fateShards - finalCost }
             : { ryo: character.ryo - finalCost };
 
-        updateCharacter({
-            ...character,
-            ...update,
-            inventory: [...character.inventory, item.id]
-        });
+        // addItem routes stackables (potions/throwables/consumables) into the
+        // counted itemStacks store and pushes uniques onto inventory[] — so a
+        // bought potion stacks immediately instead of piling up one inventory
+        // entry per copy (which would also pressure the 500-entry save cap).
+        updateCharacter(addItem({ ...character, ...update }, item.id, 1));
 
         setSelectedItem(null);
     }
