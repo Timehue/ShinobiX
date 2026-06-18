@@ -6,6 +6,7 @@ import { currentDateKey } from "../lib/utils";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { gainXp } from "../App";
 import { CardClashDuel } from "./CardClashDuel";
+import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
 
 export function SunscarFestival({
     character,
@@ -27,6 +28,41 @@ export function SunscarFestival({
     const [duelBet, setDuelBet] = useState(0);
     const kaelImage = "";
     const miraaImage = "";
+
+    // -- Black Market gamble (server-authoritative ryo sink) --
+    const [bmBusy, setBmBusy] = useState(false);
+    const [bmUsed, setBmUsed] = useState<number | null>(null);
+
+    async function pullBlackMarketGamble() {
+        if (bmBusy) return;
+        if (character.ryo < BLACK_MARKET_COST) {
+            setFestivalLog(`The Broker: "${BLACK_MARKET_COST.toLocaleString()} ryo buys a pull. Come back when your purse is heavier."`);
+            return;
+        }
+        if (!confirm(`Risk ${BLACK_MARKET_COST.toLocaleString()} ryo on the black market? Most pulls lose ryo — the house always wins.`)) return;
+        setBmBusy(true);
+        const res = await pullBlackMarket(character.name);
+        setBmBusy(false);
+        if (!res.ok || !res.reward) {
+            if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
+            setFestivalLog(`The Broker: ${res.error ?? "Not today."}`);
+            return;
+        }
+        const reward = res.reward;
+        // Server already debited the cost + credited the payout. Apply the same
+        // net delta locally so the autosave converges.
+        updateCharacter({
+            ...character,
+            ryo: character.ryo - (res.cost ?? BLACK_MARKET_COST) + reward.ryo,
+            fateShards: (character.fateShards ?? 0) + reward.fateShards,
+            boneCharms: (character.boneCharms ?? 0) + reward.boneCharms,
+            auraStones: (character.auraStones ?? 0) + reward.auraStones,
+            mythicSeals: (character.mythicSeals ?? 0) + reward.mythicSeals,
+        });
+        if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
+        const flourish = reward.tier === "jackpot" ? "💥 " : "";
+        setFestivalLog(`The Broker: ${flourish}${reward.label} — ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
+    }
 
     const symbols = ["🦂", "🪙", "👁️", "⚔️", "🌙", "⭐"];
 
@@ -200,6 +236,21 @@ export function SunscarFestival({
                     </p>
                     <p style={{ marginBottom: "0.5rem" }}>Challenge Miraa to <strong>Shinobi Card Clash</strong>. Bet ryo — winner takes double.</p>
                     <button onClick={() => setDuelPhase("bet")} style={{ marginTop: "0.5rem" }}>Challenge Miraa</button>
+                </section>
+
+                <section className="sunscar-card npc-card">
+                    <FestivalPortrait image="" icon="🎴" name="The Broker" />
+                    <h2>The Broker — Black Market</h2>
+                    <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
+                        "Everything's for sale beneath the dunes. Most walk away poorer. A rare few… don't."
+                    </p>
+                    <p style={{ marginBottom: "0.3rem" }}><strong>Cost:</strong> {BLACK_MARKET_COST.toLocaleString()} ryo per pull · up to {BLACK_MARKET_DAILY_CAP}/day</p>
+                    <p style={{ marginBottom: "0.5rem" }}><strong>Your Ryo:</strong> {character.ryo.toLocaleString()}{bmUsed !== null ? ` · ${bmUsed}/${BLACK_MARKET_DAILY_CAP} pulls today` : ""}</p>
+                    <button
+                        onClick={pullBlackMarketGamble}
+                        disabled={bmBusy || character.ryo < BLACK_MARKET_COST || (bmUsed !== null && bmUsed >= BLACK_MARKET_DAILY_CAP)}>
+                        {bmBusy ? "Dealing…" : "Buy a Black Market Pull"}
+                    </button>
                 </section>
 
                 <section className="sunscar-card">
