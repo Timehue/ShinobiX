@@ -21,7 +21,7 @@ const crypto_1 = __importDefault(require("crypto"));
 // the `x-admin-password` header. The first-time owner registers themselves by
 // supplying that header once; after that, the existing auth record blocks any
 // further registration anyway. Server reset also preserves their save + auth.
-// Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/App.tsx.
+// Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/constants/game.ts.
 exports.RESERVED_USERNAMES = new Set(['rill']);
 function isReservedUsername(name) {
     return exports.RESERVED_USERNAMES.has((0, _utils_js_1.safeName)(name));

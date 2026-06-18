@@ -38,7 +38,7 @@ async function handler(req, res) {
     if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'heartbeat', 90, 60_000, peekName)))
         return;
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
         const { name, sector, character, travelingUntil, inBattle } = body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
