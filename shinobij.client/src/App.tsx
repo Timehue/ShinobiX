@@ -726,6 +726,7 @@ import {
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
+import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 // Hollow Gate ASCII layouts + shrine dungeon generators moved to
 // ./lib/hollow-gate-dungeon — imported above.
 
@@ -6219,9 +6220,8 @@ export default function App() {
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
-        // Hollow Gate: a battle KO ends the run unless a Second Wind is armed —
-        // then it revives you (half HP) and the run continues. Otherwise claw
-        // back 50% of the haul, clear the run, and forfeit the Key.
+        // Battle KO: a Second Wind (if armed) revives you (half HP) and the run
+        // continues; else claw back the haul, clear the run, forfeit the Key.
         if (pending?.kind === "hollowGateShrine" && character && (character.hospitalized || character.hp <= 0)) {
             const deadRun = hollowGateRun;
             const wind = deadRun ? tryHollowGateSecondWind(deadRun, character) : null;
@@ -6234,7 +6234,7 @@ export default function App() {
                 setHollowGateEvent(null);
                 setHollowGateHiddenChamber(null);
                 setHollowGateLog([]);
-                setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun) : prev), hollowGateRun: null } : prev);
+                setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun, 1 - attunementLootRetention(prev)) : prev), hollowGateRun: null } : prev);
             }
         }
         setScreen(returnScreen);
@@ -6285,7 +6285,7 @@ export default function App() {
         // Counter is reset when lastDailyReset != today.
         const todayKey = currentDateKey();
         const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
-        const DAILY_HOLLOW_GATE_CAP = 2;
+        const DAILY_HOLLOW_GATE_CAP = 2 + attunementDailyBonus(character);
         if (runsToday >= DAILY_HOLLOW_GATE_CAP) {
             alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
             return;
@@ -6296,7 +6296,7 @@ export default function App() {
         // Consume exactly one Hollow Gate Key (drains the counted stack).
         const afterKey = removeItem(character, HOLLOW_GATE_KEY_ID, 1);
 
-        const run = { ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) };
+        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
         setHollowGateLog([
             "You press a Hollow Gate Key against the broken torii. The seal bends. You descend.",
@@ -6360,7 +6360,7 @@ export default function App() {
             setScreen("hollowGateShrine");
             return;
         }
-        const run = { ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) };
+        const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);
         setHollowGateRun(run);
         setHollowGateLog([
             "(Admin test) You step through the broken torii — no seal, no key. The Hollow Gate echoes greet you anyway.",
@@ -6963,7 +6963,7 @@ export default function App() {
                             label: "Descend Deeper",
                             tone: "primary",
                             onSelect: () => {
-                                const next = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                                const next = applyAttunementToRun(generateHollowGateShrineRun(hollowGateRun.floor + 1), character, false);
                                 setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
                                 setHollowGateEvent(null);
@@ -7312,7 +7312,7 @@ export default function App() {
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         setHollowGateLog([]);
-        setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun) : prev), hollowGateRun: null } : prev);
+        setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun, 1 - attunementLootRetention(prev)) : prev), hollowGateRun: null } : prev);
         setScreen("worldMap");
     }
     function onHollowGateBattleWin() {
@@ -7363,7 +7363,8 @@ export default function App() {
                 });
             } else {
                 // Legacy / defensive: boss on a non-final floor auto-advances.
-                const next = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                const nextGen = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                const next = character ? applyAttunementToRun(nextGen, character, false) : nextGen;
                 setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
             }
