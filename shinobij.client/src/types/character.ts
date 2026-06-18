@@ -243,6 +243,9 @@ export type Character = {
     petRankedRating?: number;
     petRankedWins?: number;
     petRankedLosses?: number;
+    // Ranked seasons: count of ranked seasons finished #1 (player OR pet ladder),
+    // stamped by the season-rollover job. Drives the "Season Champion" achievement.
+    rankedSeasonsWon?: number;
     clanContribMonth?: string;
     guardQueued?: boolean;
     hospitalized?: boolean;

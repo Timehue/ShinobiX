@@ -132,6 +132,7 @@ const choose_js_1 = __importDefault(require("./api/profession/choose.js"));
 const injured_villagers_js_1 = __importDefault(require("./api/player/injured-villagers.js"));
 // Weekly boss
 const weekly_boss_js_1 = __importDefault(require("./api/weekly-boss.js"));
+const ranked_season_js_1 = __importDefault(require("./api/ranked-season.js"));
 // Admin moderation
 const moderation_js_1 = __importDefault(require("./api/admin/moderation.js"));
 // Admin: durable battle-receipt lookup (support / reward-dispute debugging)
@@ -564,6 +565,7 @@ route('/profession/choose', choose_js_1.default);
 route('/player/injured-villagers', injured_villagers_js_1.default);
 // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
 route('/weekly-boss', weekly_boss_js_1.default);
+route('/ranked-season', ranked_season_js_1.default);
 // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
 route('/admin/moderation', moderation_js_1.default);
 // ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
