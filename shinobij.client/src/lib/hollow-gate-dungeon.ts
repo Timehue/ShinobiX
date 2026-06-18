@@ -11,6 +11,7 @@
  * existing combat-math.ts / bloodline.ts pattern.
  */
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
+import { generateHollowGateMazeRun } from "./hollow-gate-maze";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import { petTreatItems, petRarityOrder } from "../data/pet-config";
@@ -449,18 +450,21 @@ export function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
 
     // Random-maze dungeon (owner preference — the branching-wings generator in
-    // lib/hollow-gate-wings is kept but no longer the default). For more per-run
-    // variety, ~half the floors use a fresh procedural BSP maze and ~half use a
-    // shuffled hand-authored maze layout. The wing-aware UI/mechanics safely
-    // no-op on these floors (no wingThemes → no tint, door labels, or sealing).
-    if (Math.random() < 0.5) {
+    // lib/hollow-gate-wings is kept but no longer the default). For variety each
+    // floor rolls one of three styles: ~1/3 hand-authored maze layout, ~1/3 a
+    // recursive-backtracker maze (winding passages, loops, dead-end loot), ~1/3
+    // a fresh randomized BSP rooms-and-corridors floor. The wing-aware UI/
+    // mechanics no-op on these floors (no wingThemes → no tint/labels/sealing).
+    const roll = Math.random();
+    if (roll < 0.34) {
         const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
         for (const layoutSrc of shuffled) {
             const parsed = parseHollowGateLayout(layoutSrc);
             if (parsed) return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
         }
+    } else if (roll < 0.67) {
+        try { return generateHollowGateMazeRun(floor, isFinalFloor); } catch { /* fall through to BSP */ }
     }
-    // Procedural BSP maze — random rooms + corridors, fresh every run.
     return generateHollowGateShrineRunBSP(floor);
 }
 
@@ -472,9 +476,11 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
 
     // ── 1. BSP partition the grid into 5-7 rooms ──────────────────────────
     const rootNode: BSPRect = { x: 0, y: 0, w, h };
-    // 3-4 levels of splits on a 15×11 grid produce ~5-7 leaves.
-    const splitDepth = 3;
+    // Randomized per run for variety: depth 3 (~5-7 rooms) or 4 (more, smaller).
+    const splitDepth = 3 + (Math.random() < 0.5 ? 1 : 0);
     const minLeaf = 4; // each leaf is at least 4×4 so rooms fit comfortably
+    // Per-run corner-cut chance (breaks the all-rectangles look by a varying amount).
+    const cornerCut = 0.10 + Math.random() * 0.18;
     const leaves = bspSplit(rootNode, splitDepth, minLeaf);
     // Drop tiny leaves (BSP can over-split when grid is unbalanced).
     const usableLeaves = leaves.filter(l => l.w >= 4 && l.h >= 4);
@@ -512,7 +518,7 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
             [room.x + room.w - 1, room.y + room.h - 1],       // bottom-right
         ];
         for (const [cx, cy] of corners) {
-            if (Math.random() >= 0.15) continue;
+            if (Math.random() >= cornerCut) continue;
             if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
             const idx = cy * w + cx;
             if (terrain[idx] === "room_floor") {
@@ -534,7 +540,7 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
         bspCarveCorridor(terrain, w, bspRoomCenter(sortedRooms[i]), bspRoomCenter(sortedRooms[i + 1]));
     }
     // Add 1-2 extra random connections so the layout isn't a strict chain.
-    const extraConnections = 1 + Math.floor(Math.random() * 2);
+    const extraConnections = 1 + Math.floor(Math.random() * 3);   // 1-3 loops for maze-ier connectivity
     for (let i = 0; i < extraConnections && rooms.length >= 2; i += 1) {
         const a = rooms[Math.floor(Math.random() * rooms.length)];
         const b = rooms[Math.floor(Math.random() * rooms.length)];
@@ -861,11 +867,17 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
     }
 
     // Standing in a corridor (or undefined terrain on legacy runs).
-    // Flood-fill: walk in 4 directions through corridor cells until we hit
-    // a wall or a door. Doors themselves get added but don't propagate further.
+    // DISTANCE-CAPPED flood through corridor cells (stops at walls/doors). The
+    // cap matters for maze floors: corridors there form one big connected web,
+    // so an uncapped flood would reveal the whole floor. Capping it to
+    // MAX_CORRIDOR_SIGHT tiles gives a torch-flashlight reach down the passages;
+    // short BSP/layout corridors are well under the cap, so they're unaffected.
+    const MAX_CORRIDOR_SIGHT = 6;
+    const dist = new Map<number, number>([[playerIdx, 0]]);
     const queue: number[] = [playerIdx];
     while (queue.length > 0) {
         const idx = queue.shift()!;
+        const d = dist.get(idx) ?? 0;
         const x = idx % w;
         const y = Math.floor(idx / w);
         for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
@@ -883,11 +895,10 @@ export function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> 
             }
             if (nTile.terrain === "corridor_floor" || nTile.terrain == null) {
                 visible.add(nIdx);
-                queue.push(nIdx);
+                if (d + 1 < MAX_CORRIDOR_SIGHT) { dist.set(nIdx, d + 1); queue.push(nIdx); }
             }
-            // If we somehow reach a room_floor (legacy runs without doors
-            // between corridor and room), reveal one tile but don't flood
-            // the whole room from a corridor position.
+            // If we reach a room_floor (legacy runs without doors between
+            // corridor and room), reveal one tile but don't flood the room.
             if (nTile.terrain === "room_floor") {
                 visible.add(nIdx);
             }
