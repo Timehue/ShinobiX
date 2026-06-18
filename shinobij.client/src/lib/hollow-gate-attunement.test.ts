@@ -11,6 +11,9 @@ import {
     attunementDailyBonus,
     attunementLootRetention,
     applyAttunementToRun,
+    keyForgeUnlocked,
+    forgeHollowGateKey,
+    KEY_FORGE_COST,
 } from "./hollow-gate-attunement";
 
 const char = (over: Record<string, unknown> = {}): Character =>
@@ -28,9 +31,8 @@ test("buy deducts shards and increments rank; cost scales with rank", () => {
     assert.equal(attunementNextCost(c, "seasoned-delver"), 60); // rank 2 costs base*2
 });
 
-test("buy fails when maxed, broke, or coming soon", () => {
+test("buy fails when maxed or broke", () => {
     assert.equal(buyAttunement(char({ hollowShards: 5 }), "seasoned-delver").ok, false);   // broke
-    assert.equal(buyAttunement(char(), "key-forge").ok, false);                            // coming soon
     const maxed = char({ hollowGateAttunement: { cartographer: 1 } });
     assert.equal(attunementNextCost(maxed, "cartographer"), null);
     assert.equal(buyAttunement(maxed, "cartographer").ok, false);
@@ -65,4 +67,26 @@ test("applyAttunementToRun: later floors skip keys/ward but still reveal descent
     const out = applyAttunementToRun(run, c, false);
     assert.equal(out.keys, 1);                           // not re-granted
     assert.equal(out.tiles[0].revealed, true);           // boss/descent revealed
+});
+
+test("key forge: locked until attuned, then converts shards into a key", () => {
+    const locked = char({ inventory: [], itemStacks: [] });
+    assert.equal(keyForgeUnlocked(locked), false);
+    assert.equal(forgeHollowGateKey(locked).ok, false);
+
+    const unlocked = char({ hollowGateAttunement: { "key-forge": 1 }, hollowShards: 100, inventory: [], itemStacks: [] });
+    assert.equal(keyForgeUnlocked(unlocked), true);
+    const r = forgeHollowGateKey(unlocked);
+    assert.ok(r.ok);
+    if (r.ok) {
+        assert.equal(r.character.hollowShards, 100 - KEY_FORGE_COST);
+        // a key landed somewhere (inventory[] for uniques, itemStacks[] for stackables)
+        const added = (r.character.inventory?.length ?? 0) + (r.character.itemStacks?.length ?? 0);
+        assert.ok(added > 0, "a Hollow Gate Key was added to the character");
+    }
+});
+
+test("key forge: fails when shards are too few", () => {
+    const c = char({ hollowGateAttunement: { "key-forge": 1 }, hollowShards: 5, inventory: [], itemStacks: [] });
+    assert.equal(forgeHollowGateKey(c).ok, false);
 });
