@@ -17,7 +17,7 @@ test('masteryBudget: 0 below the wall, scales, caps at 10, healer uses 1.5x wall
 
 test('sanitizeMasterySpec clamps an over-budget forged spec', () => {
     // Forge everything; budget only 4.
-    const forged = { 'heal-cooldown': 3, 'heal-amount': 3, 'mass-triage': 1, 'heal-power': 3 };
+    const forged = { 'heal-cooldown': 3, 'heal-tireless': 3, 'mass-triage': 1, 'heal-xp': 3 };
     const out = sanitizeMasterySpec('healer', forged, 4);
     const spent = Object.entries(out).reduce((s, [id, r]) => s + r * (id === 'mass-triage' ? 2 : 1), 0);
     assert.ok(spent <= 4, `spent ${spent} > 4`);
@@ -39,8 +39,8 @@ test('sanitizeMasterySpec drops a capstone whose path gate is not met', () => {
 });
 
 test('sanitizeMasterySpec rejects unknown ids, bad profession, non-objects', () => {
-    assert.deepEqual(sanitizeMasterySpec('healer', { 'not-a-node': 5, 'heal-power': 2 }, 10), { 'heal-power': 2 });
-    assert.deepEqual(sanitizeMasterySpec('bogus', { 'heal-power': 2 }, 10), {});
+    assert.deepEqual(sanitizeMasterySpec('healer', { 'not-a-node': 5, 'heal-xp': 2 }, 10), { 'heal-xp': 2 });
+    assert.deepEqual(sanitizeMasterySpec('bogus', { 'heal-xp': 2 }, 10), {});
     assert.deepEqual(sanitizeMasterySpec('healer', null, 10), {});
 });
 
@@ -54,7 +54,7 @@ test('masteryBonus sums perRank × ranks for the matching effect key', () => {
     assert.equal(masteryBonus('petTamer', { 'exp-materials': 2 }, 'expMaterialPct'), 10);
     assert.equal(masteryBonus('vanguard', { 'seal-train-cost': 3 }, 'sealTrainCostPct'), 15);
     assert.equal(masteryBonus('vanguard', { 'seal-train-cost': 3 }, 'expRewardPct'), 0); // wrong key
-    assert.equal(masteryBonus('healer', {}, 'healPowerPct'), 0);
+    assert.equal(masteryBonus('healer', { 'heal-cooldown': 3 }, 'healCooldownPct'), 15);
     assert.equal(masteryBonus('bogus', { 'exp-rewards': 3 }, 'expRewardPct'), 0);
     // ranks beyond max don't over-count
     assert.equal(masteryBonus('petTamer', { 'exp-rewards': 99 }, 'expRewardPct'), 15);
