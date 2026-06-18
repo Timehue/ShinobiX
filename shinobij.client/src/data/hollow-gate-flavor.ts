@@ -51,6 +51,11 @@ export const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "The shrine offers a riddle disguised as a game. Cards float between you and the shadow opponent.",
         "Ancient seals form a 3×3 grid in the air. The mist asks for tiles — bet wrong and it bites.",
     ],
+    shard_vein: [
+        "A seam of violet crystal threads the shrine stone — Hollow Shards, half-buried and humming.",
+        "Glowing shards crust a cracked pillar, cold and faintly singing. They come loose with a touch.",
+        "Old chakra has crystallized in the wall here, a vein of Hollow Shards waiting to be pried free.",
+    ],
     shrine: [
         "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
         "A ritual circle pulses violet. The Hollow Gate echoes invite you inward.",
@@ -138,6 +143,7 @@ export function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "pet_event": return "🐾";
         case "pet_battle": return "🐺";
         case "tile_game": return "🀄";
+        case "shard_vein": return "💎";
         case "shrine": return "⛩";
         case "story": return "📜";
         case "boss": return "👹";
