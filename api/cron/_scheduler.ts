@@ -72,9 +72,9 @@ export function startSnapshotCron(): void {
         return;
     }
     if (_timeout || _interval) return;
-    // Initialise the ranked-season clock at boot so season 1 exists immediately
-    // (and a long-overdue rollover fires) rather than waiting for the next tick.
-    void runRankedSeasonRollover().catch(() => undefined);
+    // NOTE: ranked seasons do NOT auto-start — an admin starts them from the
+    // Admin Panel (/api/admin/ranked-season). The daily fire() still calls the
+    // rollover, which no-ops ('inactive') until a season has been started.
     const delay = msUntilNextTargetHour(Date.now());
     _timeout = setTimeout(() => {
         void fire();
