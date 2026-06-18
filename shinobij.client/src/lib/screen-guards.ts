@@ -94,6 +94,11 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return s.petBattleActive || s.pendingPetBattle;
         case "storyBoss":          // battle-only screen, no lobby
         case "tilecardsDuel":      // clan-war card duel, battle-only
+        case "hollowGateShrine":   // dungeon MAP: no retreat — exit only via the
+                                   // in-map Leave tile or death (both setScreen
+                                   // directly, bypassing the nav lock). Without
+                                   // this, players walked out → hospital → healed
+                                   // → resumed the run free, voiding the no-heal rule.
             return true;
         case "eventTiles":
         case "eventPetBattle":

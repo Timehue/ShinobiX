@@ -5,10 +5,14 @@
  *
  * Progress is measured by DIFFING existing lifetime counters against a per-week
  * baseline snapshot (see api/missions/weekly-board.ts) — so this needs NO new
- * action hooks: it reads counters the game already increments. The catalog
- * deliberately leans on server-authoritative counters (ranked wins, raids, AI
- * kills, missions, pet wins, Hollow Gate, exploration, tower) and avoids the
- * client-incremented PvP-kill counter.
+ * action hooks: it reads counters the game already increments. NOTE: not all of
+ * these counters are server-verified. Ranked wins, raids, and missions are
+ * settled/claimed server-side, but AI kills, pet wins, tiles explored, and
+ * hollowGateWardenKills are still CLIENT-incremented and only diffed here — a
+ * tampered save could inflate them. The real anti-abuse backstop is the per-save
+ * currency cap in api/save/[name].ts, which clamps the ryo / fate-shard payout
+ * regardless of counter tampering; the catalog only avoids the single most-abused
+ * client counter (PvP kills) outright.
  *
  * Pure data + helpers — unit-tested. The handler does the kv + claim.
  */

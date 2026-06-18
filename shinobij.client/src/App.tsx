@@ -5674,12 +5674,7 @@ export default function App() {
             alert("🏥 You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
             return;
         }
-        // Lock: the Hollow Gate forbids healing. You cannot reach healing screens
-        // mid-run — leave the shrine first (Leave Shrine button) to heal.
-        if (screen === "hollowGateShrine" && (nextScreen === "hospital" || nextScreen === "cafeteria")) {
-            alert("⛩ The Hollow Gate forbids healing. Leave the shrine first.");
-            return;
-        }
+        // (Hollow Gate "no retreat" lock now lives in isUnresolvedBattle.)
         // Set hospital entry time when arriving admitted
         if (nextScreen === "hospital" && character?.hospitalized) {
             setHospitalEntryTime(Date.now());
@@ -6987,7 +6982,9 @@ export default function App() {
                         {
                             label: "Refill Torch of Reiki",
                             onSelect: () => {
-                                setHollowGateRun({ ...hollowGateRun, torch: 10 });
+                                // Functional form preserves markResolved()'s
+                                // resolved:true (closure-spread re-armed this tile).
+                                setHollowGateRun(prev => prev ? { ...prev, torch: 10 } : prev);
                                 pushHollowGateLog("The Shrine Keeper rekindles the Torch of Reiki to full.");
                                 setHollowGateEvent(null);
                             },
@@ -6995,7 +6992,10 @@ export default function App() {
                         {
                             label: "Gift a Shrine Key",
                             onSelect: () => {
-                                setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
+                                // Functional form — see the Refill Torch note above:
+                                // the closure-spread form reverted markResolved()'s
+                                // resolved:true and let this tile be farmed for keys.
+                                setHollowGateRun(prev => prev ? { ...prev, keys: prev.keys + 1 } : prev);
                                 pushHollowGateLog("The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
                                 setHollowGateEvent(null);
                             },
