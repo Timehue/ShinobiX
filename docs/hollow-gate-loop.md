@@ -37,11 +37,13 @@ actually enforceable — which is what makes this redesign worth doing.
   three death paths (battle KO + trap tile + locked-door trap).
 - ✅ **Phase 3B shipped** (`9ab60710`): Shrine Attunement tree — permanent shard
   upgrades (Seasoned Delver, Reiki Reserves, Cartographer, Greedy Hands, Extra
-  Dive; Key Forge coming-soon) via `lib/hollow-gate-attunement` + a World Map
-  Enter/Attune menu. Server-clamped in api/save. Phase 3 complete — shards now
-  have both in-run and permanent sinks.
-- ⏳ **Remaining:** Key Forge (craft Keys from shards), 2B-3 polish (wing UI /
-  HUD / in-game wing tint), Phase 4 (balance pass). All optional/iterative.
+  Dive) via `lib/hollow-gate-attunement` + a World Map Enter/Attune menu.
+  Server-clamped in api/save.
+- ✅ **Key Forge shipped** (`65e0d9db`): the Attunement panel forges Hollow Gate
+  Keys from shards (60 each), closing the self-sustaining loop. Phase 3 fully
+  complete — no coming-soon items left.
+- ⏳ **Remaining (optional/iterative):** 2B-3 polish (wing UI / HUD / in-game
+  wing tint), Phase 4 (balance pass once playtested).
 - ⚠️ **Strongly recommend an owner playtest now** — Phases 1+2 changed the loop
   substantially (torch economy, fair death, shards, wing structure). Validate the
   feel + tune the starting numbers before layering on UI/sinks.
