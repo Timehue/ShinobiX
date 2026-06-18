@@ -14,6 +14,7 @@ import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petCons
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
 import { useWarLossDebuff } from "../lib/war-debuff";
+import { masteryBonus } from "../lib/profession-mastery";
 
 export function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
@@ -260,11 +261,13 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         if (Date.now() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
         }
-        // -10% pet training XP while the village is "demoralized" from a war loss.
-        const completedBase = collectPetTraining(selectedPet, warDebuff.xpMult);
+        // -10% pet training XP while the village is "demoralized" from a war loss,
+        // and +Mentor mastery bonus (PvE/utility). Combined into one XP multiplier.
+        const trainXpMult = warDebuff.xpMult * (1 + masteryBonus(character, "petTrainXpPct") / 100);
+        const completedBase = collectPetTraining(selectedPet, trainXpMult);
         const gains = petTrainingGains(selectedPet);
         const baseXp = selectedPet.training.type === "bond" ? gains.xp + Math.round(gains.xp * 0.35) : gains.xp;
-        const bonusXp = Math.max(0, Math.round((boostAmount(baseXp, petXpBonus) - baseXp) * warDebuff.xpMult));
+        const bonusXp = Math.max(0, Math.round((boostAmount(baseXp, petXpBonus) - baseXp) * trainXpMult));
         const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp) : completedBase;
         updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
         alert(`${selectedPet.name} completed ${selectedPet.training.type} training! Stats improved.${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
