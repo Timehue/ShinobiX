@@ -158,7 +158,7 @@ import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle } from "./lib/screen-guards";
 const AdminPanel = lazy(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { claimPendingWarCrates, damageSectorTerritory, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { claimPendingWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
 import { PetBattleAvatar } from "./components/PetBattleAvatar";
@@ -6173,7 +6173,7 @@ export default function App() {
         //   (1) The Kage has purchased the Hollow Gate upgrade for this village.
         //   (2) The player owns a Hollow Gate Key, which is consumed on entry.
         const village = loadVillageState(character.village);
-        if (!village.hollowGateUnlocked) {
+        if (!isHollowGateUnlocked(village)) {
             alert("The Hollow Gate seal is still bound. Your village Kage must purchase the Hollow Gate upgrade from the Town Hall before anyone can enter.");
             return;
         }
@@ -6223,7 +6223,7 @@ export default function App() {
     function adminHollowGateForceUnlock(unlock: boolean) {
         if (!character) return;
         const v = loadVillageState(character.village);
-        saveVillageState(character.village, normalizeVillageState(character.village, { ...v, hollowGateUnlocked: unlock }));
+        saveVillageState(character.village, normalizeVillageState(character.village, { ...v, hollowGateUnlockedUntil: unlock ? extendHollowGateUnlock(v.hollowGateUnlockedUntil) : 0 }));
     }
     function adminHollowGateResetIntro() {
         if (!character) return;
@@ -7713,7 +7713,7 @@ export default function App() {
                         onHollowGateGrantKey={adminHollowGateGrantKey}
                         sharedImages={sharedImages}
                         setSharedImages={setSharedImages}
-                        hollowGateVillageUnlocked={Boolean(loadVillageState(character.village).hollowGateUnlocked)}
+                        hollowGateVillageUnlocked={isHollowGateUnlocked(loadVillageState(character.village))}
                         onReloadImages={() => {
                             loadedCatsRef.current.clear();
                             clearImgCache();
