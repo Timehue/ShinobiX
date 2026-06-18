@@ -8,6 +8,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _clan_save_validate_js_1 = require("../_clan-save-validate.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
+const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _save_version_js_1 = require("./_save-version.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -247,6 +248,13 @@ function sanitizeCharacterSave(incoming, existing) {
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
         const inVal = Math.max(0, Number(char[key] ?? 0));
         char[key] = Math.min(inVal, exVal + maxGain);
+    }
+    // Profession mastery: clamp the allocation to the budget the player's mastery
+    // LEVEL allows (derived from profession XP past rank 10), legal node ranks, and
+    // satisfied capstone gates. Anti-tamper — a forged masterySpec can't grant
+    // unearned capstones or over-spend. PvE/utility effects only.
+    if (char.masterySpec !== undefined) {
+        char.masterySpec = (0, _profession_mastery_js_1.sanitizeMasterySpec)(char.profession, char.masterySpec, (0, _profession_mastery_js_1.masteryBudget)(char.profession, char.professionXp));
     }
     // Account creation timestamp — backfill if missing so anti-alt checks
     // have a stable reference. Existing characters get a "now" stamp the
