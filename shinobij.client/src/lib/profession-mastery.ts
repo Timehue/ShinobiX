@@ -93,7 +93,7 @@ export const MASTERY_TREES: Record<Profession, MasteryPath[]> = {
         { id: "expeditioner", name: "Expeditioner", nodes: [
             node("expeditioner", "exp-rewards", "Trailblazer", "+5% expedition rewards per rank.", "expRewardPct", 5),
             node("expeditioner", "exp-materials", "Forager", "+5% expedition materials per rank.", "expMaterialPct", 5),
-            capstone("expeditioner", "caravan-master", "Caravan Master", "Run two expeditions at once."),
+            capstone("expeditioner", "caravan-master", "Caravan Master", "+2 to your daily expedition reward cap."),
         ] },
         { id: "beast-handler", name: "Beast Handler", nodes: [
             node("beast-handler", "pet-damage", "Savagery", "+2% PvE pet damage per rank.", "petPveDamagePct", 2),
