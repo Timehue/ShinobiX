@@ -8165,6 +8165,7 @@ export default function App() {
                                                 : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
                                                 : tile.kind === "tile_game" ? "rgba(45,212,191,0.22)"   // tile-game teal
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
+                                                : tile.kind === "shard_vein" ? "rgba(167,139,250,0.24)"
                                                 : null;
                                             bg = contentTint
                                                 ? `linear-gradient(${contentTint}, ${contentTint}), ${terrainBase}`
@@ -8197,7 +8198,7 @@ export default function App() {
                                             if (k === "pet_event") return "pet";
                                             if (k === "pet_battle") return "petbattle";
                                             if (k === "tile_game") return "tilegame";
-                                            // No slot for "empty" / "wall" / "shrine_descend"-style edges
+                                            if (k === "shard_vein") return "shardvein";
                                             if (k === "empty" || k === "wall") return null;
                                             return k;
                                         }
