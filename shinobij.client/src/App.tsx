@@ -389,6 +389,7 @@ const UserView = lazy(() => import("./screens/UserView").then(m => ({ default: m
 import { BannerMobileTimers } from "./components/BannerMobileTimers";
 // Mobile-only persistent top status HUD (avatar + bars + Ryo/Shards).
 import { MobileStatusHUD } from "./components/MobileStatusHUD";
+import { HollowGateShardBar } from "./components/HollowGateShardBar";
 // Desktop left-rail profile card moved to ./components/LeftProfileCard.
 import { LeftProfileCard } from "./components/LeftProfileCard";
 // Static world-map side banner moved to ./components/SectorBanner.
@@ -7223,7 +7224,9 @@ export default function App() {
             const torchDrain = Math.random() < 0.33 ? 1 : 0;
             const nextTorch = Math.max(0, prev.torch - torchDrain);
             const threatMultiplier = nextTorch === 0 ? 2 : 1;
-            const nextThreat = Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
+            // Hollow Ward holds Threat still while its steps last (then it ticks down).
+            const warded = (prev.wardSteps ?? 0) > 0;
+            const nextThreat = warded ? prev.threat : Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
             // Fire the tile's event on every step onto an UNRESOLVED tile (gate on
             // `resolved` only, never on revealed — so Leave/descend/locked/boss
             // re-fire when re-entered; markResolved() still prevents double-grants).
@@ -7242,6 +7245,7 @@ export default function App() {
                 tiles,
                 threat: nextThreat,
                 torch: nextTorch,
+                wardSteps: Math.max(0, (prev.wardSteps ?? 0) - 1),
             };
         });
 
@@ -7949,7 +7953,9 @@ export default function App() {
                                 {(() => {
                                     // Room-flood visibility — compute the set of currently-lit
                                     // cells once per render. See computeHollowGateVisible().
-                                    const visibleSet = computeHollowGateVisible(run);
+                                    const visibleSet = run.diviner
+                                        ? new Set(run.tiles.map((_, i) => i))   // Diviner's Eye — whole floor lit
+                                        : computeHollowGateVisible(run);
                                     // Pull all admin-generated terrain textures once per render. Each is
                                     // optional — the renderer falls through to a CSS gradient if missing.
                                     const doorTexture = sharedImages["shrine:tile-door"];
@@ -8188,12 +8194,8 @@ export default function App() {
                                             || tile.kind === "elite"
                                             || tile.kind === "pet_event"
                                             || tile.kind === "pet_battle";
-                                        // Icon can be either:
-                                        //   - an atlas image (shrine:icon-<slot>) if the admin assigned one
-                                        //     via the Atlas Tile Picker — preferred whenever present
-                                        //   - the emoji fallback otherwise
-                                        // The slot id for a given tile.kind mirrors HOLLOW_GATE_ICON_SLOTS:
-                                        // mostly identical, except pet_event → "pet" and player → "you".
+                                        // Icon = atlas image (shrine:icon-<slot>) if assigned, else emoji.
+                                        // Slot id mirrors HOLLOW_GATE_ICON_SLOTS (a few kinds remap below).
                                         function iconSlotIdFor(k: HollowGateTileKind): string | null {
                                             if (k === "pet_event") return "pet";
                                             if (k === "pet_battle") return "petbattle";
@@ -8209,15 +8211,8 @@ export default function App() {
                                             : isSurpriseKind && !revealed ? false
                                             : true;
                                         const iconSlotId = isPlayer ? "you" : iconSlotIdFor(tile.kind);
-                                        // Variant-aware icon pick: tries shrine:icon-<role>-1..N first
-                                        // (so adjacent chests / monsters / traps show different sprites),
-                                        // falls back to legacy single-icon shrine:icon-<role>.
-                                        //
-                                        // Special case for the player tile: if no shrine:icon-you slot is
-                                        // assigned, fall back to the player's own avatar (character.avatarImage
-                                        // or sharedImages["avatar:<name>"]). This way the dungeon shows YOUR
-                                        // face by default instead of a generic ninja emoji. Admin can still
-                                        // override with an atlas tile assignment.
+                                        // Variant-aware icon pick (shrine:icon-<role>-1..N). Player tile
+                                        // falls back to the player's own avatar if no "you" slot is assigned.
                                         const playerAvatar = isPlayer
                                             ? (character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`])
                                             : undefined;
@@ -8396,6 +8391,8 @@ export default function App() {
                                     No retreat. Reach the<br/>Leave tile (⇩) or die.
                                 </div>
                             </div>
+
+                            <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} setCharacter={setCharacter} pushLog={pushHollowGateLog} />
 
                             {/* Event log */}
                             <div style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>
