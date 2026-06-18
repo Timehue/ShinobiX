@@ -21,13 +21,16 @@ export type HollowShardConsumable = {
     comingSoon?: boolean;  // logic + tests ready, but not yet surfaced in the UI
 };
 
+// NOTE: shard costs are balance knobs (Phase 4 first-cut values, pending
+// playtest). Cheap utilities (reignite/key) stay spammable; the strong
+// run-savers (ward/diviner/second-wind) cost more so they're deliberate.
 export const HOLLOW_SHARD_CONSUMABLES: HollowShardConsumable[] = [
     { id: "reignite", label: "Reignite Torch", cost: 6, icon: "flame", desc: "Refill the Torch of Reiki to full." },
     { id: "skeleton-key", label: "Skeleton Key", cost: 8, icon: "key", desc: "Gain a Shrine Key to open one sealed door." },
-    { id: "hollow-ward", label: "Hollow Ward", cost: 10, icon: "shield-half", desc: "Wipe Threat and hold it back for 6 steps." },
-    { id: "diviner-eye", label: "Diviner's Eye", cost: 12, icon: "eye", desc: "Reveal the entire floor.", once: true },
+    { id: "hollow-ward", label: "Hollow Ward", cost: 14, icon: "shield-half", desc: "Wipe Threat and hold it back for 6 steps." },
+    { id: "diviner-eye", label: "Diviner's Eye", cost: 16, icon: "eye", desc: "Reveal the entire floor.", once: true },
     { id: "sanctify", label: "Sanctify Loot", cost: 14, icon: "lock", desc: "Bank your haul so death can't claw it back." },
-    { id: "second-wind", label: "Second Wind", cost: 20, icon: "heart-plus", desc: "Hold a revive — survive your next death at half HP.", once: true },
+    { id: "second-wind", label: "Second Wind", cost: 30, icon: "heart-plus", desc: "Hold a revive — survive your next death at half HP.", once: true },
 ];
 
 export const HOLLOW_SHARD_WARD_STEPS = 6;
