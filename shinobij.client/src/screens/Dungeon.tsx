@@ -17,6 +17,7 @@ import { defaultVnPortrait, defaultVnScene } from "../lib/vn";
 import { currentDateKey } from "../lib/utils";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
+import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import {
     petTamerPveMultiplier,
     type CreatorEvent,
@@ -193,12 +194,12 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
         // Outcome + the local win counter key off the same `outcome` value.
         let outcome: "win" | "loss" | "draw";
         if (petDuelEngineEnabled()) {
-            const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character));
+            const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character));
             outcome = duel.result;
             setDuelNonce(nextDuelId);
             setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet, seed, id: nextDuelId });
         } else {
-            const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, seed, petTamerPveMultiplier(character));
+            const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character));
             outcome = battle.result;
             setBattleFrames(battle.frames);
             setBattleObstacles(battle.obstacles);
