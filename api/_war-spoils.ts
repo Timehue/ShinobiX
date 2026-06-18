@@ -28,7 +28,7 @@ export function computeSpoils(loserTreasury: SpoilsTreasury): Spoils {
     };
 }
 
-export type WarStanding = { wins: number; losses: number; lastResult?: "win" | "loss"; updatedAt: number };
+export type WarStanding = { wins: number; losses: number; lastResult?: "win" | "loss"; updatedAt: number; village?: string };
 
 /** Increment a village's win/loss record. */
 export function bumpStanding(rec: WarStanding | null | undefined, result: "win" | "loss", now: number): WarStanding {

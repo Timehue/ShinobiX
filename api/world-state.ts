@@ -396,7 +396,9 @@ async function bumpVillageStanding(village: string, result: 'win' | 'loss', now:
     const key = warStandingKey(village);
     await withKvLock(key, async () => {
         const rec = await kv.get<WarStanding>(key);
-        await kv.set(key, bumpStanding(rec, result, now));
+        // Stamp the display name onto the record — the key is only a slug, so the
+        // standings board can't recover it otherwise.
+        await kv.set(key, { ...bumpStanding(rec, result, now), village });
     }).catch(() => undefined);
 }
 
@@ -451,10 +453,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         let territories: SectorTerritory[];
         let warsRaw: VillageWar[];
+        let standingRows: WarStanding[];
         try {
-            [territories, warsRaw] = await Promise.all([
+            [territories, warsRaw, standingRows] = await Promise.all([
                 getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
                 getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
+                getByPrefix<WarStanding>(WAR_STANDING_PREFIX),
             ]);
         } catch (err) {
             // Storage is down — fail safe with an explicit degraded flag and a
@@ -501,8 +505,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // CDN caches this for 15 s so all players polling every 15 s share
         // one Supabase round-trip per window instead of one per player.
         // stale-while-revalidate=10 keeps the response instant while revalidating.
+        // Village W/L war records (self-describing — each row carries its village
+        // name). Only surface villages that have actually warred.
+        const standings = standingRows
+            .filter(s => s && s.village && (vnum(s.wins) + vnum(s.losses)) > 0)
+            .sort((a, b) => (vnum(b.wins) - vnum(b.losses)) - (vnum(a.wins) - vnum(a.losses)));
         res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
-        return res.status(200).json({ territories, wars });
+        return res.status(200).json({ territories, wars, standings });
     }
 
     if (req.method === 'POST') {
