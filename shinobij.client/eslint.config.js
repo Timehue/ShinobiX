@@ -25,10 +25,24 @@ export default defineConfig([
         caughtErrorsIgnorePattern: '^_',
         destructuredArrayIgnorePattern: '^_',
       }],
-      // App.tsx is intentionally a single-file game with components + helpers
-      // colocated. This rule is HMR-only ergonomics; downgrade so it's visible
-      // without blocking CI. Re-promote to 'error' if the file is ever split.
+      // react-refresh/only-export-components is HMR-only ergonomics (it never
+      // affects production behaviour). Kept as 'warn' globally so genuine
+      // violations in normal modules stay visible; scoped OFF below for the two
+      // files that export non-components by design.
       'react-refresh/only-export-components': 'warn',
+    },
+  },
+  {
+    // App.tsx is the legacy single-file game monolith in active drain: it must
+    // re-export many helpers/constants so the modules drained out of it can
+    // import them back (the documented drain pattern in CLAUDE.md). That trips
+    // the components-only rule ~70× with no real problem. petvfx.tsx is a
+    // standalone dev-only VFX harness page (petvfx.html), not in the player
+    // bundle. Turn the HMR rule off for just these two; remove the App.tsx entry
+    // once the drain is finished.
+    files: ['src/App.tsx', 'src/petvfx.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

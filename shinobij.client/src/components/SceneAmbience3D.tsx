@@ -12,7 +12,7 @@ import type { Biome } from "../types/core";
 
 const Scene = lazy(() => import("./SceneAmbience3DScene"));
 
-export function isSceneAmbience3DEnabled(): boolean {
+function isSceneAmbience3DEnabled(): boolean {
     if (typeof window === "undefined") return false;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
     try {

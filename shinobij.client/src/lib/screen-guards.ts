@@ -38,10 +38,14 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 // Screens that represent an in-progress fight. `arena` and `petArena` ALSO have
 // non-fight lobby states, so the runtime guard (isUnresolvedBattle) gates those
 // on an active-fight signal rather than on the screen alone.
+// NOTE: this set is currently unreferenced — the live no-retreat gate is
+// isUnresolvedBattle() below. Kept as documentation; now also lists the active
+// HollowGate shrine screen (hollowGateShrine) alongside the legacy tile seal so
+// it stays accurate if anything wires it up later.
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "petArena", "arena", "storyBoss", "weeklyBoss", "villageWar",
-    "hollowGateTiles", "endlessTower", "dungeon", "eventTiles", "eventPetBattle",
-    "tilecardsDuel",
+    "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
+    "eventPetBattle", "tilecardsDuel",
 ]);
 
 // True when an unresolved PvE/story fight is registered on the server lock

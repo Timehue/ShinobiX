@@ -135,7 +135,11 @@ function StoryBossPersister(props: {
             };
             localStorage.setItem(key, JSON.stringify(snap));
         } catch { /* quota — ignore */ }
-
+        // Snapshot intentionally re-saves only on material fight changes
+        // (active/HP/turn). ap/log/summonedPetId/storyProgress are read fresh at
+        // save time and are deliberately NOT triggers — adding them would write
+        // localStorage on every AP tick and log line. Behaviour is intentional.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [props.active, props.bossHp, props.playerHp, props.turn]);
     useEffect(() => {
         try {
@@ -147,7 +151,9 @@ function StoryBossPersister(props: {
             if (!(saved.bossHp > 0 && saved.playerHp > 0)) return;          // already resolved
             props.onRestore(saved);
         } catch { try { localStorage.removeItem(key); } catch { /* ignore */ } }
-
+        // Mount-once restore: intentionally runs a single time to rehydrate an
+        // in-progress fight. Re-running on prop changes would re-restore mid-fight.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     return null;
 }

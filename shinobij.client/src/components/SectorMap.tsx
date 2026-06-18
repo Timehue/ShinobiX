@@ -17,10 +17,8 @@
  */
 import type { CSSProperties } from "react";
 
-export function isSectorMapEnabled(): boolean {
-    if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("sectorMap.v1") !== "off"; } catch { return true; }
-}
+// isSectorMapEnabled moved to ./sector-map-flag so this file only exports
+// components (keeps react-refresh fast-refresh clean). Importers read it there.
 
 export function SectorMap({ image }: { image?: string }) {
     const style: CSSProperties = { backgroundImage: image ? `url(${image})` : undefined };

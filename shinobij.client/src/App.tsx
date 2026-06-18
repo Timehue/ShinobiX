@@ -256,6 +256,7 @@ import {
     DUNGEON_LEGENDARY_FRAGMENT_ID,
     VEIL_OF_THE_HOLLOW_ID,
     HOLLOW_GATE_KEY_ID,
+    HOLLOW_GATE_MAX_FLOOR,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
     PROTECTED_ADMIN_USERNAME,
@@ -693,12 +694,12 @@ export type PendingArenaStoryBattle =
 // Runtime-tunable from the admin panel.
 export let HOLLOW_GATE_THREAT_PER_STEP = 7;
 export let HOLLOW_GATE_THREAT_AMBUSH = 100;
-export let HOLLOW_GATE_MAX_FLOOR = 5;
+// HOLLOW_GATE_MAX_FLOOR moved to ./constants/game so ./lib/hollow-gate-dungeon
+// can read it without importing App (keeps the generator unit-testable).
 // Admin-tuned at runtime from screens/AdminPanel (an imported binding cannot be
-// reassigned cross-module, so the setters live here beside the lets).
+// reassigned cross-module, so the setters live beside the lets).
 export function setHollowGateThreatPerStep(v: number) { HOLLOW_GATE_THREAT_PER_STEP = v; }
 export function setHollowGateThreatAmbush(v: number) { HOLLOW_GATE_THREAT_AMBUSH = v; }
-export function setHollowGateMaxFloor(v: number) { HOLLOW_GATE_MAX_FLOOR = v; }
 
 // Hollow Gate intro pages + flavor + tile-icon helpers from
 // ./data/hollow-gate-flavor (imported for internal use). External callers
@@ -715,8 +716,8 @@ import {
 
 // Hollow Gate shrine dungeon generation (ASCII-layout parser, BSP fallback,
 // visibility, ancient-chest loot, encounter-pet roll) extracted to
-// ./lib/hollow-gate-dungeon. HOLLOW_GATE_MAX_FLOOR stays here (admin-tunable)
-// and is read by the generator via a live binding import.
+// ./lib/hollow-gate-dungeon. It reads HOLLOW_GATE_MAX_FLOOR from ./constants/game
+// (a live, admin-tunable binding) so the generator stays App-free + testable.
 import {
     generateHollowGateShrineRun,
     computeHollowGateVisible,
@@ -1495,9 +1496,9 @@ export function normalizeCharacter(parsed: Character): Character {
         guardQueued: parsed.guardQueued ?? false,
         hospitalized: parsed.hospitalized ?? false,
         villageUpgrades: normalizeVillageUpgrades(parsed.villageUpgrades),
-        // Clan member-passive snapshot + per-AI kill counts — explicitly carried
-        // through normalize (this function whitelists fields; unlisted ones are
-        // dropped on load) so they persist across save/load round-trips.
+        // Clan member-passive snapshot + per-AI kill counts — explicitly typed +
+        // validated here. (normalize spreads ...parsed first, so unlisted fields
+        // are preserved, not dropped; these just get an explicit shape check.)
         clanUpgradeLevels: (parsed.clanUpgradeLevels && typeof parsed.clanUpgradeLevels === "object" && !Array.isArray(parsed.clanUpgradeLevels)) ? parsed.clanUpgradeLevels : undefined,
         aiKills: (parsed.aiKills && typeof parsed.aiKills === "object" && !Array.isArray(parsed.aiKills)) ? parsed.aiKills : {},
         lastBankInterestAt: parsed.lastBankInterestAt ?? 0,
@@ -3657,14 +3658,17 @@ export default function App() {
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "arenaStory") {
-                            // Arena story fights (weekly boss / dungeon-AI / etc.) use
-                            // the arena's standard defeat = hospitalized; the server
-                            // applies it atomically. Any unclaimed fight reward is
-                            // simply not granted (the win path never ran).
+                            // Arena story fights hospitalize on defeat (server applies
+                            // it atomically). A HollowGate KO also claws back the haul +
+                            // clears the run (matching the live death path) so a lost-
+                            // snapshot refresh can't heal-and-resume the run for free.
                             try { localStorage.removeItem(arenaStoryCtxKey(normalized.name)); } catch { /* ignore */ }
                             setPendingArenaStoryBattle(null);
                             setTemporaryStoryAi(null);
-                            setCharacter({ ...normalized, hp: 0, hospitalized: true });
+                            const hgRun = normalized.hollowGateRun && !normalized.hollowGateRun.completed ? normalized.hollowGateRun : null;
+                            if (hgRun) { setHollowGateRun(null); setHollowGateEvent(null); setHollowGateHiddenChamber(null); setHollowGateLog([]); }
+                            const downed = hgRun ? { ...clawBackHollowGateLoot(normalized, hgRun, 1 - attunementLootRetention(normalized)), hollowGateRun: null } : normalized;
+                            setCharacter({ ...downed, hp: 0, hospitalized: true });
                             setHospitalEntryTime(Date.now());
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");

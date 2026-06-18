@@ -172,6 +172,10 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         press();
         const id = setInterval(press, 25_000);
         return () => { alive = false; clearInterval(id); };
+        // Interval keyed on the challenge IDENTITY (status + challenger), not the
+        // whole challenge object — which mutates every poll (obligationRemainingMs)
+        // and would otherwise restart the 25s interval on every tick. Intentional.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serverKage?.challenge?.status, serverKage?.challenge?.challenger, character.name, character.village]);
     useEffect(() => { if (tab !== "guard" && tab !== "status") return; fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) }).then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([])); }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
