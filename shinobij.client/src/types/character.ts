@@ -62,6 +62,10 @@ export type HollowGateTile = {
     // movement, no event fires. Sprinkled by the generator into ~12% of empty
     // room cells to break up the floor-texture monotony.
     decoration?: number;
+    // Branching-wings membership: which wing this cell belongs to (index into
+    // run.wingThemes). Hub/shared cells are undefined. Used by the runtime to
+    // seal off the detour you didn't pick. Absent on pre-wings saved runs.
+    wing?: number;
     revealed: boolean;
     resolved: boolean;
     flavor?: string;
@@ -90,6 +94,14 @@ export type HollowGateShrineRun = {
     // the player loses 50% of (current − entry) per currency; see
     // lib/hollow-gate-run. Absent on legacy in-progress runs → no claw-back.
     entryCurrencies?: Partial<Record<string, number>>;
+    // Branching wings (see lib/hollow-gate-wings + docs/hollow-gate-loop.md §8).
+    // wingThemes[k] is the theme of wing k ("treasure" | "beast" | "trial").
+    // Only the trial wing holds the descend/boss; entering one detour seals the
+    // other (sealedWings). committedDetour is the detour wing the player chose
+    // (null = none yet). Absent on pre-wings / BSP-fallback runs → no gating.
+    wingThemes?: Record<number, string>;
+    sealedWings?: number[];
+    committedDetour?: number | null;
 };
 
 // ── Endless Tower run state ───────────────────────────────────────────────
