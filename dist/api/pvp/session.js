@@ -5,6 +5,8 @@ exports.trimPvpLog = trimPvpLog;
 exports.sanitizeJutsuList = sanitizeJutsuList;
 exports.sanitizePvpItems = sanitizePvpItems;
 exports.stripNonCombatFields = stripNonCombatFields;
+exports.ownedItemCount = ownedItemCount;
+exports.sealItemCharges = sealItemCharges;
 exports.default = handler;
 const crypto_1 = require("crypto");
 const _storage_js_1 = require("../_storage.js");
@@ -184,6 +186,12 @@ function sanitizePvpItems(raw) {
             out.weaponRange = clampNumber(out.weaponRange, 0, 30, 1);
         if (out.apCost != null)
             out.apCost = clampNumber(out.apCost, 0, 200, 40);
+        // Flat potion restore (chakra/stamina) — clamp to the same 5000 cap
+        // the vitals merge uses so a tampered pvpItem can't over-restore.
+        if (out.restoreChakra != null)
+            out.restoreChakra = clampNumber(out.restoreChakra, 0, 5000, 0);
+        if (out.restoreStamina != null)
+            out.restoreStamina = clampNumber(out.restoreStamina, 0, 5000, 0);
         if (out.weaponEffectValue != null)
             out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
         // Tag list — same whitelist + cap (10) as sanitizeJutsuList.
@@ -488,6 +496,51 @@ function hydrateNpcCharacter(clientCharacter) {
     // supplied fields and we don't want any of the sensitive ones to land
     // in the session record either.
     return stripNonCombatFields(out);
+}
+// How many of an item id a save character owns across both stores (counted
+// itemStacks + legacy inventory[] copies). Mirrors the client lib/inventory
+// countItem so the sealed PvP consumable budget matches what the player holds.
+function ownedItemCount(char, id) {
+    if (!char)
+        return 0;
+    let n = 0;
+    const stacks = char.itemStacks;
+    if (Array.isArray(stacks)) {
+        for (const s of stacks) {
+            if (s && s.itemId === id)
+                n += Math.max(0, Math.floor(Number(s.count) || 0));
+        }
+    }
+    const inv = char.inventory;
+    if (Array.isArray(inv))
+        n += inv.filter((x) => x === id).length;
+    return n;
+}
+// Per-fight consumable cap for the Rejuvenation Potion (and any "potion" slot).
+const POTION_USES_PER_BATTLE = 2;
+// Seal the per-fight consumable budget from a fighter's equipped throwables,
+// combat items, and potion. `equipChar` supplies the equipment slot→id map
+// (equipment survives stripNonCombatFields); `invChar` is the RAW save (its
+// inventory/itemStacks are stripped off the fighter snapshot, so owned counts
+// must come from the save). For NPCs (no save) only the potion is sealed — at
+// the cap — so the AI can't infinitely chug it; its other consumables stay
+// unsealed (unlimited), preserving prior AI behaviour.
+function sealItemCharges(equipChar, invChar) {
+    const charges = {};
+    const equip = (equipChar.equipment ?? {});
+    for (const slot of ['thrown', 'item', 'potion']) {
+        const id = equip[slot];
+        if (typeof id !== 'string' || !id)
+            continue;
+        if (slot === 'potion') {
+            const owned = invChar ? ownedItemCount(invChar, id) : POTION_USES_PER_BATTLE;
+            charges[id] = Math.min(owned, POTION_USES_PER_BATTLE);
+        }
+        else if (invChar) {
+            charges[id] = ownedItemCount(invChar, id);
+        }
+    }
+    return charges;
 }
 function makeFighter(char, pos, useCurrentVitals) {
     const maxHp = Number(char.maxHp ?? 100);
@@ -800,6 +853,14 @@ async function handler(req, res) {
                 biome: normalizeBiome(biome),
                 weatherPositiveElement: normalizeElement(weatherPositiveElement),
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
+                // Seal each fighter's per-fight consumable budget from their save
+                // (potion capped). move.ts decrements on use; claim-rewards
+                // deducts itemsUsed from the save at settlement.
+                itemCharges: {
+                    p1: sealItemCharges(finalP1Character, p1Save?.character ?? null),
+                    p2: sealItemCharges(finalP2Character, p2Save?.character ?? null),
+                },
+                itemsUsed: { p1: {}, p2: {} },
                 ...rankedStamp,
                 ...baseRewardStamp,
             };

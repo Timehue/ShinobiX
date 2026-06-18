@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.sanitizeCharacterSave = sanitizeCharacterSave;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -64,7 +65,7 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'storyTraits', 'storyTitle',
     'weeklyBossKills', 'claimedWarCrateIds',
     'unlockedAchievements', 'achievementUnlockedAt',
-    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
     'endlessTowerRun', 'endlessTowerBestWave',
     'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
     'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
@@ -81,7 +82,7 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'dailyDonatedSeals', 'dailyDonationDate',
     'petEscortBonusReady', 'hunterRank',
     // Currencies — combat doesn't read them, only post-fight reward grants do.
-    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust',
+    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
     // Ranked stats are used elsewhere; only strip the rarely-needed ones.
     'rankedWins', 'rankedLosses',
     'createdAt', 'professionChosenAt',
@@ -124,6 +125,10 @@ const CURRENCY_CAPS = {
     auraDust: 100,
     mythicSeals: 50,
     honorSeals: 200,
+    // Hollow Gate-only currency. Generous per-save gain cap — well above the
+    // most a legit run can bank in one autosave cycle — since it's spent only
+    // inside the shrine, so a tampered pile has a small blast radius.
+    hollowShards: 200,
 };
 const MAX_STAT_GAIN = 500; // per individual stat per save cycle
 // Total stat-points (sum across all 12 stats) a single save can grant.
@@ -255,6 +260,29 @@ function sanitizeCharacterSave(incoming, existing) {
     // unearned capstones or over-spend. PvE/utility effects only.
     if (char.masterySpec !== undefined) {
         char.masterySpec = (0, _profession_mastery_js_1.sanitizeMasterySpec)(char.profession, char.masterySpec, (0, _profession_mastery_js_1.masteryBudget)(char.profession, char.professionXp));
+    }
+    // Hollow Gate Shrine Attunement: node ranks. Anti-tamper — clamp every rank
+    // to its catalog maxRank (mirrors ATTUNEMENT_NODES in
+    // shinobij.client/src/lib/hollow-gate-attunement.ts) and drop unknown node
+    // ids, so a forged save can't over-rank a node (e.g. Extra Dive past its +1
+    // daily run, or Seasoned Delver past its +2 starting keys). Keep this map in
+    // sync if a node's maxRank changes in the catalog.
+    if (char.hollowGateAttunement && typeof char.hollowGateAttunement === 'object') {
+        const HG_ATTUNEMENT_MAX_RANK = {
+            'seasoned-delver': 2, 'reiki-reserves': 2, 'cartographer': 1,
+            'greedy-hands': 3, 'extra-dive': 1, 'key-forge': 1,
+        };
+        const att = char.hollowGateAttunement;
+        const clamped = {};
+        for (const k of Object.keys(att)) {
+            const max = HG_ATTUNEMENT_MAX_RANK[k];
+            if (max === undefined)
+                continue; // unknown node — drop it
+            const v = Math.max(0, Math.min(max, Math.floor(Number(att[k]) || 0)));
+            if (v > 0)
+                clamped[k] = v;
+        }
+        char.hollowGateAttunement = clamped;
     }
     // Account creation timestamp — backfill if missing so anti-alt checks
     // have a stable reference. Existing characters get a "now" stamp the
@@ -462,6 +490,20 @@ function sanitizeCharacterSave(incoming, existing) {
                 continue;
             counts.set(itemId, Math.min(ITEM_STACK_MAX, (counts.get(itemId) ?? 0) + n));
         }
+        // Hollow Gate Keys are forged/crafted client-side (Key Forge 80 shards, or
+        // the Crafter recipe). Cap the per-save GAIN so a forged save can't mint a
+        // huge stack with no shard/material spend (a legit full run yields ~3). The
+        // 'hollow-gate-key' literal mirrors HOLLOW_GATE_KEY_ID in
+        // shinobij.client/src/constants/game.ts.
+        const HG_KEY_ID = 'hollow-gate-key';
+        const HG_KEY_PER_SAVE_GAIN = 10;
+        if (counts.has(HG_KEY_ID)) {
+            const exKeys = Array.isArray(exChar.itemStacks)
+                ? Math.max(0, Number(exChar.itemStacks
+                    .find(s => s?.itemId === HG_KEY_ID)?.count ?? 0))
+                : 0;
+            counts.set(HG_KEY_ID, Math.min(counts.get(HG_KEY_ID), exKeys + HG_KEY_PER_SAVE_GAIN));
+        }
         char.itemStacks = [...counts.entries()]
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
@@ -612,6 +654,22 @@ function sanitizeCharacterSave(incoming, existing) {
         if (run.wave != null)
             run.wave = Math.max(0, Math.min(ET_WAVE_CAP, Math.floor(Number(run.wave) || 0)));
     }
+    // ─── hollowGateRun shape bounds ───────────────────────────────────────────
+    // Defense-in-depth on the persisted run: bound an absurd floor/keys count so a
+    // forged save can't park nonsense run state (default max floor is 5; keys are
+    // small). We deliberately do NOT clamp entryCurrencies: it is the at-entry
+    // snapshot the death claw-back subtracts from, the claw-back is applied
+    // client-side by design (docs/hollow-gate-loop.md §9), and for SPENDABLE
+    // currencies (Hollow Shards, via in-run consumables / Sanctify) a legit entry
+    // can legitimately exceed the current balance — clamping it down to current
+    // would over-penalise an honest mid-run spend on a later reload-path death.
+    if (char.hollowGateRun && typeof char.hollowGateRun === 'object') {
+        const run = char.hollowGateRun;
+        if (run.floor != null)
+            run.floor = Math.max(0, Math.min(50, Math.floor(Number(run.floor) || 0)));
+        if (run.keys != null)
+            run.keys = Math.max(0, Math.min(99, Math.floor(Number(run.keys) || 0)));
+    }
     // ─── defeatedAiIds length cap ─────────────────────────────────────────────
     // Drives "AI Hunter" achievement variants. Hard cap so a forged save
     // can't push the array to enormous lengths and bloat KV.
@@ -660,6 +718,20 @@ function sanitizeCharacterSave(incoming, existing) {
             // been set by a legit prior pass through this same check).
             char[field] = exChar[field] ?? '';
         }
+    }
+    // Hollow Gate daily run cap (dailyHollowGateRuns) is gated client-side via
+    // lastDailyReset. Defense-in-depth: if the SERVER-stored save was last written
+    // today (exChar.lastDailyReset === SERVER_UTC_DATE), the run count can only go
+    // UP within the day — so a forged save can't reset it to 0 to farm extra runs.
+    // On a real new day exChar.lastDailyReset != today, the floor is 0, and the
+    // legit daily reset is untouched. (A determined tamper that ALSO backdates
+    // lastDailyReset resets all the player's other daily counters too, so it is
+    // self-limiting; a fully server-authoritative cap would need a dedicated
+    // server-stamped HG date field.)
+    if (exChar.lastDailyReset === SERVER_UTC_DATE) {
+        const floorRuns = Math.max(0, Math.floor(Number(exChar.dailyHollowGateRuns ?? 0)));
+        const incomingRuns = Math.max(0, Math.floor(Number(char.dailyHollowGateRuns ?? 0)));
+        char.dailyHollowGateRuns = Math.max(incomingRuns, floorRuns);
     }
     // Bank-interest claim window enforcement.
     //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses

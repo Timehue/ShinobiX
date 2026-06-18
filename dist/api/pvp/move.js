@@ -1238,6 +1238,34 @@ async function handler(req, res) {
             s = { ...s, lastMoveAt: Date.now(), consecAutoWait: nextConsec };
             return checkWinner(s);
         }
+        // Spend one charge of a consumable (thrown / item / potion) from the
+        // server-sealed budget (session.itemCharges). Returns ok=false when the
+        // supply is exhausted — which, for the potion, also enforces its per-fight
+        // cap since that cap IS the sealed starting charge. The patch updates
+        // itemCharges/itemsUsed for this role and is folded into the committed
+        // session via commit's `extra`. A legacy session with no sealed budget
+        // (or a melee weapon, never sealed) allows the action without tracking.
+        function spendItemCharge(itemId) {
+            const r = role;
+            const myCharges = session.itemCharges?.[r];
+            if (!myCharges || myCharges[itemId] === undefined)
+                return { ok: true, patch: {} };
+            const remaining = myCharges[itemId];
+            if (remaining <= 0)
+                return { ok: false, patch: {} };
+            const myUsed = session.itemsUsed?.[r] ?? {};
+            const patch = {
+                itemCharges: {
+                    ...(session.itemCharges ?? { p1: {}, p2: {} }),
+                    [r]: { ...myCharges, [itemId]: remaining - 1 },
+                },
+                itemsUsed: {
+                    ...(session.itemsUsed ?? { p1: {}, p2: {} }),
+                    [r]: { ...myUsed, [itemId]: (myUsed[itemId] ?? 0) + 1 },
+                },
+            };
+            return { ok: true, patch };
+        }
         let result;
         switch (action) {
             case 'wait': {
@@ -1549,6 +1577,15 @@ async function handler(req, res) {
                 if (distance(me.pos, opp.pos) > weapRange) {
                     return finish(await rejectWithLog(`${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`));
                 }
+                // Thrown weapons are spent from inventory on each throw; melee
+                // (hand) weapons are reusable and never sealed.
+                let wChargePatch = {};
+                if (normalizeEquipmentSlot(serverItem.slot) === 'thrown') {
+                    const wSpend = spendItemCharge(serverItem.id ?? '');
+                    if (!wSpend.ok)
+                        return finish(await rejectWithLog(`${me.name}: out of ${serverItem.name ?? 'that weapon'}.`));
+                    wChargePatch = wSpend.patch;
+                }
                 const wTags = [...(serverItem.weaponTags ?? [])];
                 if (serverItem.weaponEffect && !wTags.find(t => t.name === serverItem.weaponEffect)) {
                     wTags.push({ name: serverItem.weaponEffect, percent: serverItem.weaponEffectValue ?? 0 });
@@ -1573,7 +1610,7 @@ async function handler(req, res) {
                 const wWMult = weatherMultiplier(serverItem.weaponElement, weatherPositiveElement, weatherNegativeElement);
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome, session.round);
                 lines.push(...wr.lines);
-                result = commit(wr.self, wr.opponent, wApCost);
+                result = commit(wr.self, wr.opponent, wApCost, undefined, wChargePatch);
                 break;
             }
             case 'item': {
@@ -1585,6 +1622,26 @@ async function handler(req, res) {
                 const iApCost = serverItem.apCost ?? 35;
                 if (!canAct(iApCost))
                     return finish(withRejected(session, `Not enough AP or actions left for ${serverItem.name ?? 'that item'}.`));
+                // Spend from the sealed supply (the potion's 2/fight cap is the
+                // sealed starting charge, so this also enforces it).
+                const iSpend = spendItemCharge(serverItem.id ?? '');
+                if (!iSpend.ok)
+                    return finish(await rejectWithLog(`${me.name}: out of ${serverItem.name ?? 'that item'}.`));
+                // Restore-only potions (Rejuvenation Potion): refill chakra/stamina
+                // directly and skip the jutsu synth so they never heal HP via the
+                // default Heal tag.
+                const iRestoreCk = Math.max(0, Number(serverItem.restoreChakra) || 0);
+                const iRestoreSt = Math.max(0, Number(serverItem.restoreStamina) || 0);
+                if ((iRestoreCk > 0 || iRestoreSt > 0) && !serverItem.weaponEffect && !serverItem.weaponTags?.length) {
+                    const restoredMe = {
+                        ...me,
+                        chakra: Math.min(me.maxChakra, me.chakra + iRestoreCk),
+                        stamina: Math.min(me.maxStamina, me.stamina + iRestoreSt),
+                    };
+                    lines.push(`${me.name} uses ${serverItem.name ?? 'Potion'}: restores ${iRestoreCk} chakra and ${iRestoreSt} stamina.`);
+                    result = commit(restoredMe, null, iApCost, undefined, iSpend.patch);
+                    break;
+                }
                 const iTags = serverItem.weaponTags?.length
                     ? serverItem.weaponTags
                     : serverItem.weaponEffect
@@ -1610,7 +1667,7 @@ async function handler(req, res) {
                     ir.lines.push(`Smoke: ${irSelf.name} also deals ${ddgPct}% less damage for 1 round.`);
                 }
                 lines.push(...ir.lines);
-                result = commit(irSelf, ir.opponent, iApCost);
+                result = commit(irSelf, ir.opponent, iApCost, undefined, iSpend.patch);
                 break;
             }
             case 'flee': {
