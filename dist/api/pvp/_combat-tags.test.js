@@ -114,7 +114,7 @@ function jutsu(tags, overrides = {}) {
     });
 });
 (0, node_test_1.describe)('fixed-effect control jutsu deal STANDARD damage, not the EP-100 sentinel', () => {
-    (0, node_test_1.it)('a sanitized 60-AP Stun jutsu (legacy EP 100) deals standard ~1280, not ~3200, and still stuns', () => {
+    (0, node_test_1.it)('a sanitized 60-AP Stun jutsu (legacy EP 100) deals standard EP-40 damage, not the EP-100 sentinel, and still stuns', () => {
         // Replicates the live path: the loadout is sanitized at session-create,
         // THEN resolved in combat. The EP-100 sentinel is clamped to 40 first.
         const sanitized = (0, session_js_1.sanitizeJutsuList)([{
@@ -123,11 +123,14 @@ function jutsu(tags, overrides = {}) {
                 tags: [{ name: 'Stun' }],
             }])[0];
         // High starting HP so the standard hit (which isn't capped by maxHp on
-        // the way down) is fully observable.
+        // the way down) is fully observable. Cast at mastery 0 (empty jutsuMastery):
+        // EP 40 → epAtMax 50 → ×MASTERY_MIN_DAMAGE_FRAC(0.3) → scaledEp 15 → ×32 = 480.
+        // The EP-100 sentinel would instead give (100+10)×0.3×32 = 1056, so the
+        // clamp is what keeps this at 480.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const r = (0, move_js_1.applyJutsu)(fighter('A'), fighter('B', 3000), sanitized, 1, 'central', 1);
         const dealt = 3000 - r.opponent.hp;
-        node_assert_1.strict.equal(dealt, 1280, 'standard 60-AP damage (EP 40 × 32), NOT 3200 (EP 100 × 32)');
+        node_assert_1.strict.equal(dealt, 480, 'standard EP-40 damage at mastery 0, NOT the EP-100 sentinel (1056)');
         node_assert_1.strict.ok(r.opponent.statuses.some(s => s.name === 'Stun'), 'the control effect still applies');
     });
 });
