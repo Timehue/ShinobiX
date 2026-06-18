@@ -29,8 +29,11 @@ export type HollowGateTileKind =
     | "trap"
     | "chest"
     | "pet_event"
-    | "pet_battle" // Wild Hollow Beast — animal/pet-themed PvE combat encounter
-    | "tile_game"  // Shinobi Tile card-game encounter; loss costs 20% maxHp
+    | "pet_battle" // LEGACY: Hollow Beast walk-on tile — no longer placed (ambush
+                   // still spawns these); kind kept for saved-run compatibility.
+    | "tile_game"  // LEGACY: Card Clash walk-on tile — no longer placed (ambush
+                   // still spawns these); kind kept for saved-run compatibility.
+    | "shard_vein" // Findable Hollow Shard cache (depth-scaled payout).
     | "shrine"
     | "story"
     | "boss"

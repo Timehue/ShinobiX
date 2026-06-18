@@ -68,6 +68,8 @@ test("shard drops scale with depth and source", () => {
     assert.equal(hollowShardDrop(1, "lockedChest"), 7);
     assert.equal(hollowShardDrop(5, "lockedChest"), 15);
     assert.equal(hollowShardDrop(5, "boss"), 40);
+    assert.equal(hollowShardDrop(1, "shardVein"), 5);
+    assert.equal(hollowShardDrop(5, "shardVein"), 13);
     // deeper sources always pay at least as much
     assert.ok(hollowShardDrop(3, "lockedChest") > hollowShardDrop(3, "chest"));
 });
