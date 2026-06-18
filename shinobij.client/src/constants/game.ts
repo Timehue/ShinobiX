@@ -93,6 +93,16 @@ export function isProtectedAdminName(name: string | undefined | null): boolean {
 export const HOLLOW_GATE_SHRINE_W = 15;
 export const HOLLOW_GATE_SHRINE_H = 11;
 
+// How deep a shrine run goes before the Warden (boss) floor. Admin-tunable at
+// runtime via setHollowGateMaxFloor (the AdminPanel). Lives here — not in App.tsx
+// — so ./lib/hollow-gate-dungeon can read it without importing App (which would
+// drag the whole module graph + index.css and make the generator untestable). An
+// imported binding can't be reassigned cross-module, so the setter lives here
+// beside the let; importers (App, AdminPanel, the dungeon generator) see the live
+// value.
+export let HOLLOW_GATE_MAX_FLOOR = 5;
+export function setHollowGateMaxFloor(v: number) { HOLLOW_GATE_MAX_FLOOR = v; }
+
 // Exam gates: players cannot level past these thresholds without passing the corresponding exam.
 export const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
     { exam: "genin", level: 20, label: "Genin Exam" },

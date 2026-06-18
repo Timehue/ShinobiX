@@ -45,7 +45,6 @@ import {
     HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT,
     HOLLOW_GATE_KEY_DUNGEON_KEY_COST,
     HOLLOW_GATE_KEY_FATE_SHARD_COST,
-    HOLLOW_GATE_MAX_FLOOR,
     HOLLOW_GATE_THREAT_AMBUSH,
     HOLLOW_GATE_THREAT_PER_STEP,
     HOLLOW_GATE_TRAP_DMG_PCT,
@@ -53,7 +52,6 @@ import {
     setHollowGateBossFloorRewardMult,
     setHollowGateKeyDungeonKeyCost,
     setHollowGateKeyFateShardCost,
-    setHollowGateMaxFloor,
     setHollowGateThreatAmbush,
     setHollowGateThreatPerStep,
     setHollowGateTrapDmgPct,
@@ -72,6 +70,7 @@ import {
     type CreatorEvent,
     type VillageLeadershipImages,
 } from "../App";
+import { HOLLOW_GATE_MAX_FLOOR, setHollowGateMaxFloor } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 
 export function AdminPanel({
@@ -776,7 +775,7 @@ export function AdminPanel({
     const [rankedSeasonMsg, setRankedSeasonMsg] = useState("");
     const [rankedSeasonActive, setRankedSeasonActive] = useState<boolean | null>(null);
     const [rankedSeasonId, setRankedSeasonId] = useState<number | null>(null);
-    useEffect(() => { if (adminPw) void loadRankedSeasonStatus(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [adminPw]);
+    useEffect(() => { if (adminPw) void loadRankedSeasonStatus(); }, [adminPw]);
     const [kageResetVillage, setKageResetVillage] = useState(villages[0]);
     const [kageResetMsg, setKageResetMsg] = useState("");
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
@@ -2091,7 +2090,7 @@ export function AdminPanel({
                                     // Save the leadership images blob to game state
                                     saveVillageLeadershipImages(normalized);
                                     // Also trigger a full admin save
-                                    // eslint-disable-next-line react-hooks/refs -- ref read inside onClick handler, not during render
+                                    // ref read inside onClick handler, not during render — intentional
                                     await onSaveRef.current();
                                     setLeaderSaveStatus("Saved!");
                                 } catch {
@@ -4899,7 +4898,7 @@ export function AdminPanel({
                         }
                         asset.onSave?.(image);
                         setHollowGateAssetStatus(`✅ ${asset.name} saved.`);
-                        // eslint-disable-next-line react-hooks/refs -- ref read inside async handler, not during render
+                        // ref read inside async handler, not during render — intentional
                         try { await onSaveRef.current(); } catch { /* ignore if no account */ }
                     } catch (err) {
                         setHollowGateAssetStatus(`❌ ${asset.name} — ${err instanceof Error ? err.message : "failed"}`);
