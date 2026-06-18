@@ -9,6 +9,17 @@ heal-and-resume exploit were fixed in commit `1e3d656d` (no balance changes).
 That fix is the reason the no-heal rule and the Torch/Threat meters are now
 actually enforceable — which is what makes this redesign worth doing.
 
+## Build status
+- ✅ **Phase 1A shipped** (commit `0742ea48`): Torch-as-clock (fights no longer
+  refill Torch) + fair death (entry currency snapshot → 50% claw-back on death,
+  keeping Key-loss but preserving XP/pets/uniques) + `hollowShards` currency
+  scaffold (field, per-save cap, combat-strip) + `lib/hollow-gate-run.ts`
+  (unit-tested). NEEDS AN OWNER PLAYTEST — the Torch drop/drain rates may want
+  tuning now that fights don't refill (see §9 Phase 4).
+- ⏳ **Next:** finish Phase 1's economy (wire depth-scaled `hollowShardDrop`
+  into chest / locked / boss), then Phase 2 (branching wings + tile changes),
+  Phase 3 (shard sinks + UI), Phase 4 (polish + balance).
+
 ---
 
 ## 1. Current loop
