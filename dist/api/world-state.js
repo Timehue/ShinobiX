@@ -330,7 +330,9 @@ async function bumpVillageStanding(village, result, now) {
     const key = warStandingKey(village);
     await (0, _lock_js_1.withKvLock)(key, async () => {
         const rec = await _storage_js_1.kv.get(key);
-        await _storage_js_1.kv.set(key, (0, _war_spoils_js_1.bumpStanding)(rec, result, now));
+        // Stamp the display name onto the record — the key is only a slug, so the
+        // standings board can't recover it otherwise.
+        await _storage_js_1.kv.set(key, { ...(0, _war_spoils_js_1.bumpStanding)(rec, result, now), village });
     }).catch(() => undefined);
 }
 async function settleVillageWar(war, now) {
@@ -387,10 +389,12 @@ async function handler(req, res) {
     if (req.method === 'GET') {
         let territories;
         let warsRaw;
+        let standingRows;
         try {
-            [territories, warsRaw] = await Promise.all([
+            [territories, warsRaw, standingRows] = await Promise.all([
                 getByPrefix(TERRITORY_KEY_PREFIX),
                 getByPrefix(VILLAGE_WAR_KEY_PREFIX),
+                getByPrefix(WAR_STANDING_PREFIX),
             ]);
         }
         catch (err) {
@@ -440,8 +444,13 @@ async function handler(req, res) {
         // CDN caches this for 15 s so all players polling every 15 s share
         // one Supabase round-trip per window instead of one per player.
         // stale-while-revalidate=10 keeps the response instant while revalidating.
+        // Village W/L war records (self-describing — each row carries its village
+        // name). Only surface villages that have actually warred.
+        const standings = standingRows
+            .filter(s => s && s.village && (vnum(s.wins) + vnum(s.losses)) > 0)
+            .sort((a, b) => (vnum(b.wins) - vnum(b.losses)) - (vnum(a.wins) - vnum(a.losses)));
         res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
-        return res.status(200).json({ territories, wars });
+        return res.status(200).json({ territories, wars, standings });
     }
     if (req.method === 'POST') {
         // Require a logged-in player at minimum. We also gate territory and
