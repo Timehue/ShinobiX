@@ -20,16 +20,21 @@ function fighter(name, hp = 1000, statuses = [], extra = {}) {
     };
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// EP 90 is chosen so that at mastery 0 the steep ramp yields the SAME reference
+// base these pipeline assertions were written against: epAtMax = 90 + 10 = 100,
+// masteryFrac(0) = 0.3, scaledEp = 30 → 30 × 32 = 960. (Pre-ramp this was a plain
+// EP-30 jutsu; the fixture EP was bumped so the downstream shield/DR/siphon/amp
+// math — the actual subject of this characterization — stays pinned at 960.)
 function jutsu(tags, overrides = {}) {
     return {
         id: 't', name: 't', type: 'Ninjutsu', element: 'Fire',
-        ap: 60, range: 1, effectPower: 30, cooldown: 0,
+        ap: 60, range: 1, effectPower: 90, cooldown: 0,
         chakraCost: 0, staminaCost: 0, target: 'OPPONENT', method: 'SINGLE',
         tags, ...overrides,
     };
 }
 (0, node_test_1.describe)('applyJutsu characterization — base damage', () => {
-    (0, node_test_1.it)('plain EP-30 jutsu vs empty-stats fighter deals exactly 960', () => {
+    (0, node_test_1.it)('plain jutsu (960 reference base) vs empty-stats fighter deals exactly 960', () => {
         const r = (0, move_js_1.applyJutsu)(fighter('A'), fighter('B'), jutsu([]), 1, 'central', 1);
         node_assert_1.strict.equal(r.opponent.hp, 1000 - 960);
         node_assert_1.strict.equal(r.self.hp, 1000);
