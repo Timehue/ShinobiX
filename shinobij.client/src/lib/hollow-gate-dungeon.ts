@@ -6,18 +6,18 @@
  * picks encounter pets. Extracted verbatim from App.tsx with no behavior
  * change. The BSP + reachability primitives live in ./hollow-gate-bsp.
  *
- * HOLLOW_GATE_MAX_FLOOR is a live binding imported from ../App (runtime-tunable
- * from the admin panel) and read lazily inside the generator, mirroring the
- * existing combat-math.ts / bloodline.ts pattern.
+ * HOLLOW_GATE_MAX_FLOOR is a live binding imported from ../constants/game
+ * (runtime-tunable from the admin panel). Sourcing it there — not ../App — keeps
+ * this generator free of the App module graph (and its index.css) so it stays
+ * unit-testable (see hollow-gate-dungeon.test.ts).
  */
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
 import { generateHollowGateMazeRun } from "./hollow-gate-maze";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
-import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
+import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { petTreatItems, petRarityOrder } from "../data/pet-config";
 import { starterItems } from "../data/starter-items";
 import { cloneEncounterPet } from "./pet-balance";
-import { HOLLOW_GATE_MAX_FLOOR } from "../App";
 import type { HollowGateShrineRun, HollowGateTile, HollowGateTileKind, HollowGateTerrain } from "../types/character";
 import type { Pet, PetRarity } from "../types/pet";
 
