@@ -37,6 +37,7 @@ const clear_attack_js_1 = __importDefault(require("./api/player/clear-attack.js"
 const heal_js_1 = __importDefault(require("./api/player/heal.js"));
 const roster_js_1 = __importDefault(require("./api/player/roster.js"));
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
+const black_market_js_1 = __importDefault(require("./api/festival/black-market.js"));
 const session_js_1 = __importDefault(require("./api/pvp/session.js"));
 const move_js_1 = __importDefault(require("./api/pvp/move.js"));
 const images_js_1 = __importDefault(require("./api/images.js"));
@@ -414,6 +415,7 @@ route('/player/clear-attack', clear_attack_js_1.default);
 route('/player/heal', heal_js_1.default);
 route('/player/roster', roster_js_1.default);
 route('/player/trade', trade_js_1.default);
+route('/festival/black-market', black_market_js_1.default);
 // PvP
 route('/pvp/session', session_js_1.default);
 route('/pvp/move', move_js_1.default);
