@@ -7,6 +7,10 @@ import { effectiveCharacterXpGain } from "../lib/progression";
 import { gainXp } from "../App";
 import { CardClashDuel } from "./CardClashDuel";
 import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
+import festBg from "../assets/festival/fest-bg.webp";
+import kaelArt from "../assets/festival/fest-kael.webp";
+import miraaArt from "../assets/festival/fest-miraa.webp";
+import brokerArt from "../assets/festival/fest-broker.webp";
 
 export function SunscarFestival({
     character,
@@ -26,8 +30,8 @@ export function SunscarFestival({
     type DuelPhase = "idle" | "bet" | "playing";
     const [duelPhase, setDuelPhase] = useState<DuelPhase>("idle");
     const [duelBet, setDuelBet] = useState(0);
-    const kaelImage = "";
-    const miraaImage = "";
+    const kaelImage = kaelArt;
+    const miraaImage = miraaArt;
 
     // -- Black Market gamble (server-authoritative ryo sink) --
     const [bmBusy, setBmBusy] = useState(false);
@@ -193,7 +197,14 @@ export function SunscarFestival({
 
     return (
         <div className="sunscar-festival">
-            <div className="sunscar-hero">
+            <div
+                className="sunscar-hero"
+                style={{
+                    backgroundImage: `linear-gradient(rgba(10,8,20,0.55), rgba(10,8,20,0.78)), url(${festBg})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                }}
+            >
                 <h1>☀️ Sunscar Festival</h1>
                 <p>
                     Sector 35 — a permanent desert festival of lanterns, caravans,
@@ -239,7 +250,7 @@ export function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card npc-card">
-                    <FestivalPortrait image="" icon="🎴" name="The Broker" />
+                    <FestivalPortrait image={brokerArt} icon="🎴" name="The Broker" />
                     <h2>The Broker — Black Market</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
                         "Everything's for sale beneath the dunes. Most walk away poorer. A rare few… don't."
