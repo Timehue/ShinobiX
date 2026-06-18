@@ -113,9 +113,10 @@ export const hollowGateIntroPages: Array<{ title: string; imageKey: string; line
         title: "What Waits Below",
         imageKey: "shrine:intro-3",
         lines: [
-            "Five floors descend into the shrine. Each is colder than the last.",
-            "On the deepest floor, the Hollow Gate Warden waits — sealed there by hands long dust.",
-            "Bring back his fragment. Or bring back nothing.",
+            "Five floors descend into the shrine. Each floor forks into three wings — Treasure 🏆, Beast 🐺, and Trial ⚔. Only the Trial wing leads down; take one detour and the other seals behind you.",
+            "Your Torch of Reiki burns down as you wander and is not rekindled by battle — feed it at chests and shrines, or the dark will turn on you.",
+            "Hollow Shards torn from the depths buy shrine relics mid-run, or permanent attunements at the gate. Fall, and you keep only half your haul — unless a Second Wind carries you back.",
+            "On the deepest floor, the Hollow Gate Warden waits. Bring back his fragment. Or bring back nothing.",
         ],
     },
 ];

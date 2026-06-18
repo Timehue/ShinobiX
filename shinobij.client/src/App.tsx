@@ -723,8 +723,8 @@ import {
     rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
-import { wingEntryEffect } from "./lib/hollow-gate-wings";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, hollowGateClawBackPreview } from "./lib/hollow-gate-run";
+import { wingEntryEffect, wingThemeAt, WING_TINT, WING_GLYPH } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
 // Hollow Gate ASCII layouts + shrine dungeon generators moved to
@@ -7960,24 +7960,17 @@ export default function App() {
                                     <div style={{ fontSize: 13 }}>
                                         <span title="Shrine Keys">🔑 {run.keys}</span>
                                         <span style={{ marginLeft: 12 }} title="Torch of Reiki">🔥 {run.torch}/10</span>
+                                        <span style={{ marginLeft: 12 }} title="Banked Hollow Shards">💎 {character.hollowShards ?? 0}</span>
+                                        {(() => { const ar = hollowGateClawBackPreview(character, run); const rr = ar.ryo ?? 0; const rs = ar.hollowShards ?? 0; return (rr || rs) ? <span style={{ marginLeft: 12, color: "#fda4af" }} title="Lost if you die now — Sanctify Loot to protect it">⚠ {[rr ? `${rr} ryo` : "", rs ? `${rs}💎` : ""].filter(Boolean).join(" · ")} at risk</span> : null; })()}
                                     </div>
                                 </div>
                             </div>
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
-                                {/* Grid — three render states per tile:
-                                      • REVEALED (stepped on)             → full opacity, full color
-                                      • VISIBLE (within Manhattan dist 2) → content icon at ~55% opacity
-                                                                            so the player can preview
-                                                                            nearby tiles without walking
-                                      • FOG (everything else)             → dark cell, dim dot
-                                    Walls render as solid stone in any state so the dungeon geometry
-                                    is always readable. The "step on it for the surprise" feel is
-                                    preserved because the icons at low opacity tell you *what* is
-                                    near you, but stepping is still what fires the modal / battle. */}
+                                {/* Grid: room-flood visibility lights the room you're in; walls always
+                                    read as stone; surprise tiles stay disguised until stepped on. */}
                                 {(() => {
-                                    // Room-flood visibility — compute the set of currently-lit
-                                    // cells once per render. See computeHollowGateVisible().
+                                    // Room-flood visibility (whole floor when Diviner's Eye is active).
                                     const visibleSet = run.diviner
                                         ? new Set(run.tiles.map((_, i) => i))   // Diviner's Eye — whole floor lit
                                         : computeHollowGateVisible(run);
@@ -8147,6 +8140,9 @@ export default function App() {
                                         } else if (visible) {
                                             // Terrain base layer, then optional decoration sprite, then content tint.
                                             let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
+                                            // Wing color-coding: tint floors/doors by their wing (Treasure/Beast/Trial).
+                                            const wTheme = wingThemeAt(run, i);
+                                            if (wTheme && WING_TINT[wTheme]) terrainBase = `linear-gradient(${WING_TINT[wTheme]}, ${WING_TINT[wTheme]}), ${terrainBase}`;
                                             if (tile.decoration != null) {
                                                 const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
                                                 if (decoImg) {
@@ -8225,7 +8221,11 @@ export default function App() {
                                         let icon: string;
                                         if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
                                         else if (isPlayer) icon = "🥷";
-                                        else icon = hollowGateTileIconForKind(tile.kind);
+                                        else {
+                                            icon = hollowGateTileIconForKind(tile.kind);
+                                            // Label wing doors with their destination (🏆/🐺/⚔) for an informed choice.
+                                            if (tile.terrain === "door") { const dt = wingThemeAt(run, i); if (dt && WING_GLYPH[dt]) icon = WING_GLYPH[dt]; }
+                                        }
 
                                         // Opacity: player = full, visible cells = full so the lit
                                         // room reads clearly, anything else = dim fog dot.
