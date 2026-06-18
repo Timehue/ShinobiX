@@ -158,10 +158,21 @@ const PAIRS = [
         node_assert_1.strict.ok(!CLIENT_APP.includes('effectPower: scaled.scaledEffectPower'), 'Arena.tsx feeds pre-scaled EP into calculateDamage again — PvE damage diverges from PvP below max mastery');
     });
     // "Show current-level EP": the inspect display (scaleJutsuByLevel) must use
-    // the SAME formula combat actually uses (effectPower + level×0.2) so the EP a
-    // player sees equals the EP that lands. The old display formula
-    // (effectPower − (50−level)×0.2) under-reported the dealt EP by 10 per cast.
+    // the SAME mastery→EP ramp combat actually uses (epAtMax × masteryFrac, where
+    // masteryFrac ramps from MASTERY_MIN_DAMAGE_FRAC to 1.0) so the EP a player
+    // sees equals the EP that lands.
     (0, node_test_1.it)('display EP (scaleJutsuByLevel) matches the dealt-damage EP formula', () => {
-        node_assert_1.strict.match(CLIENT_SCALING, /scaledEffectPower\s*=\s*Math\.max\(\s*1\s*,\s*Math\.floor\(\s*jutsu\.effectPower\s*\+\s*level\s*\*\s*0\.2\s*\)\s*\)/, 'scaleJutsuByLevel.scaledEffectPower no longer equals rawEP + level×0.2 — displayed EP would diverge from dealt damage');
+        node_assert_1.strict.match(CLIENT_SCALING, /epAtMax\s*\*\s*masteryFrac/, 'display EP no longer uses the epAtMax × masteryFrac ramp — it would diverge from dealt damage');
+        node_assert_1.strict.match(CLIENT_SCALING, /MASTERY_MIN_DAMAGE_FRAC/, 'display EP no longer ramps from MASTERY_MIN_DAMAGE_FRAC');
+        node_assert_1.strict.match(CLIENT, /epAtMax\s*\*\s*masteryFrac/, 'dealt damage (combat-math) no longer uses the epAtMax × masteryFrac ramp');
+    });
+    // Mastery → damage ramp parity. The steep "untrained jutsu hit soft, ramp to
+    // 100% at max mastery" curve must use the SAME min-fraction and max-level on
+    // the server and client, or PvE and PvP damage diverge below max mastery.
+    (0, node_test_1.it)('MASTERY_MIN_DAMAGE_FRAC (server) === MASTERY_MIN_DAMAGE_FRAC (client constants/game.ts)', () => {
+        node_assert_1.strict.equal(num(SERVER, 'MASTERY_MIN_DAMAGE_FRAC'), num(CLIENT_GAME_CONSTS, 'MASTERY_MIN_DAMAGE_FRAC'), 'MASTERY_MIN_DAMAGE_FRAC diverged between server move.ts and client constants/game.ts');
+    });
+    (0, node_test_1.it)('JUTSU_MAX_LEVEL (server) === JUTSU_MAX_LEVEL (client constants/game.ts)', () => {
+        node_assert_1.strict.equal(num(SERVER, 'JUTSU_MAX_LEVEL'), num(CLIENT_GAME_CONSTS, 'JUTSU_MAX_LEVEL'), 'JUTSU_MAX_LEVEL diverged between server move.ts and client constants/game.ts — the mastery ramp denominators would differ');
     });
 });
