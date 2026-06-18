@@ -11,10 +11,11 @@ the original target and is retired; the handlers keep their Vercel-style shape.)
 
 Run from the repo root (`shinobix-api` package) unless noted.
 
-- `npm run build`: Build everything — `build:server` (`tsc -p tsconfig.cpanel.json` → `dist/`) then `build:client`.
+- `npm run build`: Build everything — `build:server` (`tsc -p tsconfig.cpanel.json` → `dist/`), then `build:client`, then `verify:dist`.
+- `npm run verify:dist`: Post-build sanity check (`node scripts/verify-dist.mjs`); part of `build`, runnable on its own. Fails the build if `dist/server.js` is missing/broken, so a bad compile can't be committed and shipped to cPanel.
 - `npm start`: Run the production server (`node app.js`) — the cPanel/Passenger entry point.
 - `npm run dev`: Run the server with `node --watch app.js`.
-- `npm test`: Run the API/unit tests (`node --import tsx --test` over the colocated `*.test.ts` files).
+- `npm test`: Run the API/unit tests (`node --import tsx --test` over the colocated `*.test.ts` files). Includes `server-routes.test.ts` (route-parity) and the client `App.size.test.ts` ratchet.
 
 Frontend (run inside `shinobij.client/`):
 
@@ -28,7 +29,10 @@ Frontend (run inside `shinobij.client/`):
   default export: `export default async function handler(req: VercelRequest, res: VercelResponse)`.
   Subfolders group features: `player/`, `pvp/`, `clan/` & `clans/`, `village/` &
   `village-guard/`, `missions/`, `pet/`, `jutsu/`, `bloodlines/`, `profession/`,
-  `ranked-queue/`, `admin/`, `cron/`, `save/`.
+  `arena/`, `bank/`, `battle/`, `festival/`, `admin/`, `cron/`, `save/`, and
+  `_realtime/` (presence/SSE helpers). Ranked lives in **root-level files**, not a
+  folder: `api/ranked-season.ts` + the `api/_ranked-*.ts` helpers (there is no
+  `api/ranked-queue/` directory).
 - **Underscore-prefixed files in `api/` are shared helpers, NOT routes** —
   `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
   `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
@@ -62,7 +66,10 @@ Frontend (run inside `shinobij.client/`):
 ## Deployment
 
 Two targets run the same Express server (`dist/server.js`), which serves the API
-**and** the React SPA on one port, plus the in-process daily snapshot cron:
+**and** the React SPA on one port, plus the in-process daily snapshot cron.
+**Railway is the current live/production host;** cPanel / Passenger is kept as a
+maintained, in-parity fallback (it is not serving live player traffic). Keep both
+working when changing handlers.
 
 - **Railway** (`railway.json` → `Dockerfile`) — `node dist/server.js`. The Docker
   build runs `npm run build` fresh (server + client), so it self-builds from

@@ -222,7 +222,7 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
     equipment: {},
 };
 
-function sanitizeCharacterSave(
+export function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
     existing: Record<string, unknown> | null,
 ): Record<string, unknown> {
@@ -276,13 +276,22 @@ function sanitizeCharacterSave(
     }
 
     // Hollow Gate Shrine Attunement: node ranks. Anti-tamper — clamp every rank
-    // to a non-negative integer ≤ 3 (the catalog's global max) so a forged save
-    // can't grant absurd attunement effects (extra daily runs / keys / etc.).
+    // to its catalog maxRank (mirrors ATTUNEMENT_NODES in
+    // shinobij.client/src/lib/hollow-gate-attunement.ts) and drop unknown node
+    // ids, so a forged save can't over-rank a node (e.g. Extra Dive past its +1
+    // daily run, or Seasoned Delver past its +2 starting keys). Keep this map in
+    // sync if a node's maxRank changes in the catalog.
     if (char.hollowGateAttunement && typeof char.hollowGateAttunement === 'object') {
+        const HG_ATTUNEMENT_MAX_RANK: Record<string, number> = {
+            'seasoned-delver': 2, 'reiki-reserves': 2, 'cartographer': 1,
+            'greedy-hands': 3, 'extra-dive': 1, 'key-forge': 1,
+        };
         const att = char.hollowGateAttunement as Record<string, unknown>;
         const clamped: Record<string, number> = {};
         for (const k of Object.keys(att)) {
-            const v = Math.max(0, Math.min(3, Math.floor(Number(att[k]) || 0)));
+            const max = HG_ATTUNEMENT_MAX_RANK[k];
+            if (max === undefined) continue; // unknown node — drop it
+            const v = Math.max(0, Math.min(max, Math.floor(Number(att[k]) || 0)));
             if (v > 0) clamped[k] = v;
         }
         char.hollowGateAttunement = clamped;
@@ -494,6 +503,20 @@ function sanitizeCharacterSave(
             if (n <= 0) continue;
             counts.set(itemId, Math.min(ITEM_STACK_MAX, (counts.get(itemId) ?? 0) + n));
         }
+        // Hollow Gate Keys are forged/crafted client-side (Key Forge 80 shards, or
+        // the Crafter recipe). Cap the per-save GAIN so a forged save can't mint a
+        // huge stack with no shard/material spend (a legit full run yields ~3). The
+        // 'hollow-gate-key' literal mirrors HOLLOW_GATE_KEY_ID in
+        // shinobij.client/src/constants/game.ts.
+        const HG_KEY_ID = 'hollow-gate-key';
+        const HG_KEY_PER_SAVE_GAIN = 10;
+        if (counts.has(HG_KEY_ID)) {
+            const exKeys = Array.isArray(exChar.itemStacks)
+                ? Math.max(0, Number((exChar.itemStacks as Array<Record<string, unknown>>)
+                    .find(s => s?.itemId === HG_KEY_ID)?.count ?? 0))
+                : 0;
+            counts.set(HG_KEY_ID, Math.min(counts.get(HG_KEY_ID)!, exKeys + HG_KEY_PER_SAVE_GAIN));
+        }
         char.itemStacks = [...counts.entries()]
             .slice(0, ITEM_STACK_KEY_CAP)
             .map(([itemId, count]) => ({ itemId, count }));
@@ -636,6 +659,21 @@ function sanitizeCharacterSave(
         if (run.bankedRyo != null) run.bankedRyo = Math.max(0, Math.min(ET_BANKED_RYO_CAP, Number(run.bankedRyo) || 0));
         if (run.bankedXp != null) run.bankedXp = Math.max(0, Math.min(ET_BANKED_XP_CAP, Number(run.bankedXp) || 0));
         if (run.wave != null) run.wave = Math.max(0, Math.min(ET_WAVE_CAP, Math.floor(Number(run.wave) || 0)));
+    }
+
+    // ─── hollowGateRun shape bounds ───────────────────────────────────────────
+    // Defense-in-depth on the persisted run: bound an absurd floor/keys count so a
+    // forged save can't park nonsense run state (default max floor is 5; keys are
+    // small). We deliberately do NOT clamp entryCurrencies: it is the at-entry
+    // snapshot the death claw-back subtracts from, the claw-back is applied
+    // client-side by design (docs/hollow-gate-loop.md §9), and for SPENDABLE
+    // currencies (Hollow Shards, via in-run consumables / Sanctify) a legit entry
+    // can legitimately exceed the current balance — clamping it down to current
+    // would over-penalise an honest mid-run spend on a later reload-path death.
+    if (char.hollowGateRun && typeof char.hollowGateRun === 'object') {
+        const run = char.hollowGateRun as Record<string, unknown>;
+        if (run.floor != null) run.floor = Math.max(0, Math.min(50, Math.floor(Number(run.floor) || 0)));
+        if (run.keys != null) run.keys = Math.max(0, Math.min(99, Math.floor(Number(run.keys) || 0)));
     }
 
     // ─── defeatedAiIds length cap ─────────────────────────────────────────────

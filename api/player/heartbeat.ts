@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!(await enforceRateLimitKv(req, res, 'heartbeat', 90, 60_000, peekName))) return;
 
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
         const { name, sector, character, travelingUntil, inBattle } = body as {
             name?: string;
             sector?: number;
