@@ -106,6 +106,7 @@ import clanPetEscortOfferHandler  from './api/clan/pet-escort/offer.js';
 import clanPetEscortCancelHandler from './api/clan/pet-escort/cancel.js';
 // Missions — daily + reporting
 import missionsDailyHandler          from './api/missions/daily.js';
+import missionsWeeklyBoardHandler    from './api/missions/weekly-board.js';
 import missionsReportRaidHandler     from './api/missions/report-raid.js';
 import missionsReportPvpWinHandler   from './api/missions/report-pvp-win.js';
 import missionsReportPetEventHandler from './api/missions/report-pet-event.js';
@@ -592,6 +593,7 @@ route('/clan/pet-escort/cancel', clanPetEscortCancelHandler);
 
 // ─── Missions: daily + reporting ───────────────────────────────────────────────
 route('/missions/daily',            missionsDailyHandler);
+route('/missions/weekly-board',     missionsWeeklyBoardHandler);
 route('/missions/report-raid',      missionsReportRaidHandler);
 route('/missions/report-pvp-win',   missionsReportPvpWinHandler);
 route('/missions/report-pet-event', missionsReportPetEventHandler);
