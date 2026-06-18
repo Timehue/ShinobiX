@@ -27,11 +27,15 @@ const PAY_SKIP_DISCHARGE_COST = 2500;
 // charged/required a flat 2500 — overcharging upgraded players and hard-blocking
 // anyone holding between the discounted price and 2500 ryo. Keep these constants
 // in sync with the client (village hospital perLevel 1%, max 50 levels; clan
-// Medical Wing 0.3%/level capped at 15%).
+// Medical Wing 0.3%/level capped at 15%; medics clan doctrine 5%). The doctrine
+// component was previously missing here, so the Hospital UI showed a medics-clan
+// discount the server never actually applied. Pinned by _cross-build-parity.test.
 const VILLAGE_HOSPITAL_MAX_LEVEL = 50;
 const VILLAGE_HOSPITAL_PCT_PER_LEVEL = 1;
 const CLAN_MEDICAL_WING_PCT_PER_LEVEL = 0.3;
 const CLAN_MEDICAL_WING_MAX_PCT = 15;
+// Mirror of DOCTRINE_HOSPITAL_DISCOUNT in shinobij.client/src/lib/clan-doctrines.ts.
+const DOCTRINE_HOSPITAL_DISCOUNT_PCT = 5;
 function hospitalDiscountPct(char) {
     const upgrades = (char.villageUpgrades ?? {});
     const hospLvl = Math.min(VILLAGE_HOSPITAL_MAX_LEVEL, Math.max(0, Math.floor(Number(upgrades.hospital ?? 0))));
@@ -39,7 +43,8 @@ function hospitalDiscountPct(char) {
     const clanLevels = (char.clanUpgradeLevels ?? {});
     const medLvl = Math.max(0, Math.floor(Number(clanLevels.medicalWing ?? 0)));
     const clanPct = Math.min(CLAN_MEDICAL_WING_MAX_PCT, CLAN_MEDICAL_WING_PCT_PER_LEVEL * medLvl);
-    return villagePct + clanPct;
+    const doctrinePct = char.clanDoctrine === 'medics' ? DOCTRINE_HOSPITAL_DISCOUNT_PCT : 0;
+    return villagePct + clanPct + doctrinePct;
 }
 // discountCost(PAY_SKIP_DISCHARGE_COST, pct), mirroring lib/village-upgrades.ts.
 function discountedDischargeCost(char) {

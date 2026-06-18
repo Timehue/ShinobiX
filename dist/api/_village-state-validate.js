@@ -5,8 +5,8 @@
 // Before this layer existed, the writer only checked that the caller's
 // `character.village` matched the URL village — any villager could ship
 // a wholesale blob with their name as `seatedKage`, 99M ryo in treasury,
-// fake "System" notice posts, themselves as ANBU, `hollowGateUnlocked:
-// true`, etc.
+// fake "System" notice posts, themselves as ANBU, a far-future
+// `hollowGateUnlockedUntil`, etc.
 //
 // This module returns an audited next-state by merging the incoming
 // blob with the existing one, accepting changes only where rules pass.
@@ -92,31 +92,39 @@ kageState) {
             next.anbuAppointees = incomingAnbu;
         }
     }
-    // ── hollowGateUnlocked ──────────────────────────────────────────
-    // false → true only by seatedKage / admin. true → false rejected
-    // unless admin (one-way unlock).
-    const wasUnlocked = prev.hollowGateUnlocked === true;
-    const wantsUnlocked = incoming.hollowGateUnlocked === true;
-    if (wantsUnlocked && !wasUnlocked) {
+    // ── hollowGateUnlockedUntil (30-day timed village unlock) ────────
+    // A seated Kage / admin may EXTEND the unlock window into the future
+    // (the client pays 10k Honor Seals per 30 days). Each write is CLAMPED
+    // to at most ~31 days beyond the later of {now, previous expiry}, so a
+    // tampered client can't buy a perpetual unlock in one write — stacking
+    // requires repeated legitimate purchases. LOWERING the expiry (an early
+    // re-lock) is admin-only; otherwise it's pinned to the previous value,
+    // which also makes the unlock immune to a stale client clobbering it
+    // back to "locked".
+    const HG_MAX_EXTENSION_MS = 31 * 24 * 60 * 60 * 1000;
+    const hgNow = Date.now();
+    const prevUntil = Math.max(0, num(prev.hollowGateUnlockedUntil, 0));
+    const inUntil = Math.max(0, num(incoming.hollowGateUnlockedUntil, prevUntil));
+    if (inUntil > prevUntil) {
         if (!callerIsSeatedKage) {
-            next.hollowGateUnlocked = wasUnlocked;
-            suppressed.push('hollowGateUnlocked → true (only seatedKage may unlock)');
+            next.hollowGateUnlockedUntil = prevUntil;
+            suppressed.push('hollowGateUnlockedUntil extend (only seatedKage may unlock)');
         }
         else {
-            next.hollowGateUnlocked = true;
+            next.hollowGateUnlockedUntil = Math.min(inUntil, Math.max(prevUntil, hgNow) + HG_MAX_EXTENSION_MS);
         }
     }
-    else if (!wantsUnlocked && wasUnlocked) {
+    else if (inUntil < prevUntil) {
         if (!ctx.isAdmin) {
-            next.hollowGateUnlocked = true;
-            suppressed.push('hollowGateUnlocked → false (admin only)');
+            next.hollowGateUnlockedUntil = prevUntil;
+            suppressed.push('hollowGateUnlockedUntil decrease (admin only)');
         }
         else {
-            next.hollowGateUnlocked = false;
+            next.hollowGateUnlockedUntil = inUntil;
         }
     }
     else {
-        next.hollowGateUnlocked = wantsUnlocked || wasUnlocked || false;
+        next.hollowGateUnlockedUntil = prevUntil;
     }
     // ── warLossDebuffUntil (demoralized debuff) ─────────────────────
     // Set ONLY by the server at war settlement (api/world-state.ts). The client
@@ -277,6 +285,34 @@ kageState) {
                 cleaned.push(post);
             }
             next.noticePosts = cleaned;
+        }
+    }
+    // ── Hollow Gate re-seal notice ──────────────────────────────────
+    // When the 30-day unlock has lapsed (and stays lapsed in this write),
+    // post a one-time System notice so villagers learn the shrine closed.
+    // Runs under withKvLock (single writer) and is deduped both by a
+    // per-expiry marker and a deterministic post id, so concurrent writers
+    // can't double-post. Fires lazily on the first village write after
+    // expiry — independent of who wrote it.
+    {
+        const noticedFor = num(prev.hollowGateExpiryNoticedFor, 0);
+        const nextUntil = num(next.hollowGateUnlockedUntil, 0);
+        if (prevUntil > 0 && prevUntil <= hgNow && nextUntil <= hgNow && noticedFor !== prevUntil) {
+            const post = {
+                id: `hg-reseal-${prevUntil}`,
+                type: 'general',
+                title: 'Hollow Gate Re-Sealed',
+                body: 'The Hollow Gate seal has re-bound. The shrine has faded from the World Map. A seated Kage must break the seal again to reopen it.',
+                author: 'System',
+                authorRole: 'System',
+                createdAt: hgNow,
+                pinned: false,
+            };
+            const existingPosts = Array.isArray(next.noticePosts) ? next.noticePosts : [];
+            if (!existingPosts.some((p) => String(p.id ?? '') === post.id)) {
+                next.noticePosts = [post, ...existingPosts].slice(0, MAX_NOTICE_POSTS);
+            }
+            next.hollowGateExpiryNoticedFor = prevUntil;
         }
     }
     // ── kageChallenges ──────────────────────────────────────────────
