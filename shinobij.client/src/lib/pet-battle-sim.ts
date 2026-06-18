@@ -707,7 +707,7 @@ function petElementLabel(mult: number): string {
     return "";
 }
 
-export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
+export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false) {
     // Apply each pet's equipped PVP gear (stat modifiers) before the fight.
     // Driven by each pet's own loadout, so a synced battle stays deterministic.
     const playerPet = applyPetPvpGear(playerPetIn);
@@ -758,7 +758,9 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     // pipeline and the KO check `fighter.hp <= 0` is never true,
     // looping the fight to the round cap with no resolution.
     const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: PET_SPAWN_1V1.player, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
+    // PvE-only Pet Tamer mastery: Toughened Hide boosts the player pet's starting
+    // HP; Alpha Bond grants one extra Endure (survive a lethal blow at 1 HP).
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: Math.round(safeHp(playerPet.hp) * playerHpMult),   pos: PET_SPAWN_1V1.player, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure + (playerReviveOnce ? 1 : 0), consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: PET_SPAWN_1V1.enemy, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
@@ -1864,6 +1866,8 @@ export function runPetArenaParty(
     opponentOwner: string,
     seed = Date.now(),
     playerDamageMult = 1,
+    playerHpMult = 1,
+    playerReviveOnce = false,
 ): PetPartyBattleResult {
     const summaryLogs: string[] = [];
     const logs: string[] = [];
@@ -1907,17 +1911,17 @@ export function runPetArenaParty(
     //   playerReserve = col 1, row 4 = 57
     //   enemyLead     = col 12, row 2 = 40
     //   enemyReserve  = col 12, row 4 = 68
-    function makeFighter(petIn: Pet, owner: string, pos: number): PetBattleFighter {
+    function makeFighter(petIn: Pet, owner: string, pos: number, hpMult = 1, reviveOnce = false): PetBattleFighter {
         // Apply the pet's equipped PVP gear (stat mods) + seed its reactive
         // battle-consumable charges from its own loadout — deterministic, so
         // synced 2v2 battles stay in sync.
         const pet = applyPetPvpGear(petIn);
         const ch = petConsumableCharges(pet);
-        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
+        return { owner, pet, hp: hpMult === 1 ? pet.hp : Math.round((Number(pet.hp) || 1) * hpMult), pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure + (reviveOnce ? 1 : 0), consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     }
     const fighters: Partial<Record<PartySlot, PetBattleFighter>> = {};
-    if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        PET_SPAWN_2V2.playerLead);
-    if (playerParty[1])   fighters.playerReserve = makeFighter(playerParty[1],   "You",        PET_SPAWN_2V2.playerReserve);
+    if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        PET_SPAWN_2V2.playerLead, playerHpMult, playerReviveOnce);
+    if (playerParty[1])   fighters.playerReserve = makeFighter(playerParty[1],   "You",        PET_SPAWN_2V2.playerReserve, playerHpMult, false);
     if (opponentParty[0]) fighters.enemyLead     = makeFighter(opponentParty[0], opponentOwner, PET_SPAWN_2V2.enemyLead);
     if (opponentParty[1]) fighters.enemyReserve  = makeFighter(opponentParty[1], opponentOwner, PET_SPAWN_2V2.enemyReserve);
 
