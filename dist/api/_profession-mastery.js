@@ -27,7 +27,7 @@ function nd(id, path, effectKey, perRank) { return { id, path, effectKey, perRan
 function cap(id, path) { return { id, path, capstone: true }; }
 const TREES = {
     healer: [
-        nd('heal-cooldown', 'triage', 'healCooldownPct', 5), nd('heal-tireless', 'triage', 'healCooldownPct', 5), cap('mass-triage', 'triage'),
+        nd('heal-cooldown', 'triage', 'healCooldownPct', 5), nd('heal-tireless', 'triage', 'healCooldownPct', 5), cap('chakra-conduit', 'triage'),
         nd('heal-xp', 'restoration', 'healXpPct', 6), nd('heal-discharge', 'restoration', 'healDischargePct', 6), cap('full-recovery', 'restoration'),
         nd('heal-support', 'outreach', 'healXpPct', 6), nd('heal-vigil', 'outreach', 'healCooldownPct', 5), cap('village-lifeline', 'outreach'),
     ],

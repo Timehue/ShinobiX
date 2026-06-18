@@ -289,6 +289,30 @@ async function handler(req, res) {
         if (raidAssist) {
             xpGained = Math.floor(xpGained * HEALER_RAID_ASSIST_MULT);
         }
+        // Healing costs the Healer chakra: 25% of the HP restored (10% with the
+        // Chakra Conduit capstone). Blocked if they can't pay. Deducted under the
+        // Healer's save lock; on failure we refund the cooldown reservation so a
+        // no-chakra attempt doesn't lock the Healer out of that target. Admins exempt.
+        const amountToHeal = Math.max(0, maxHp - curHp);
+        const chakraRate = (0, _profession_mastery_js_1.masteryHasCapstone)('healer', healerChar.masterySpec, 'chakra-conduit') ? 0.10 : 0.25;
+        const chakraCost = Math.ceil(amountToHeal * chakraRate);
+        if (!identity.admin && chakraCost > 0) {
+            const paid = await (0, _lock_js_1.withKvLock)(healerKey, async () => {
+                const fresh = await _storage_js_1.kv.get(healerKey);
+                const fChar = fresh?.character;
+                if (!fresh || !fChar)
+                    return { ok: false };
+                const have = Number(fChar.chakra ?? 0);
+                if (have < chakraCost)
+                    return { ok: false };
+                await _storage_js_1.kv.set(healerKey, (0, _utils_js_1.mergePreservingImages)({ ...fresh, character: { ...fChar, chakra: have - chakraCost } }, fresh));
+                return { ok: true };
+            });
+            if (!paid.ok) {
+                await _storage_js_1.kv.del(cooldownKey).catch(() => undefined);
+                return res.status(400).json({ error: `Not enough chakra — healing costs ${chakraCost} chakra.`, chakraCost });
+            }
+        }
         // Restore target under the save lock. The cross-heal write is just
         // as race-prone as the self-heal discharge above — a concurrent
         // auto-save of the target could wipe our hp/chakra/stamina/hosp
@@ -354,6 +378,7 @@ async function handler(req, res) {
             missionsCompleted,
             professionXp: finalXp,
             professionRank: finalRank,
+            chakraCost,
         });
     }
     catch (err) {

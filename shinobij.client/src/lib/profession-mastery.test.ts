@@ -48,9 +48,9 @@ test("canIncrement enforces max rank, budget, and the capstone gate", () => {
     // no points left (level 1, already spent 1)
     assert.equal(canIncrement(char("healer", HEALER_CAP + MASTERY_XP_PER_LEVEL, { "heal-tireless": 1 }), "heal-xp").ok, false);
     // capstone gate not met (only 3 in path, need 4)
-    assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3 }), "mass-triage").ok, false);
+    assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3 }), "chakra-conduit").ok, false);
     // capstone gate met (4 in path) + points available
-    assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3, "heal-tireless": 1 }), "mass-triage").ok, true);
+    assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3, "heal-tireless": 1 }), "chakra-conduit").ok, true);
 });
 
 test("incrementNode adds a legal rank, no-ops an illegal one", () => {
@@ -62,14 +62,14 @@ test("incrementNode adds a legal rank, no-ops an illegal one", () => {
 
 test("sanitizeSpec clamps to budget and drops ungated capstones (anti-tamper)", () => {
     // Forged spec: everything maxed + capstone, but budget is only 4.
-    const forged = { "heal-cooldown": 3, "heal-tireless": 3, "mass-triage": 1, "heal-xp": 3 };
+    const forged = { "heal-cooldown": 3, "heal-tireless": 3, "chakra-conduit": 1, "heal-xp": 3 };
     const cleaned = sanitizeSpec("healer", forged, 4);
     assert.ok(masterySpecTotal("healer", cleaned) <= 4);
-    assert.ok(!cleaned["mass-triage"]); // can't afford / gate after clamp
+    assert.ok(!cleaned["chakra-conduit"]); // can't afford / gate after clamp
 
     // Legal full path within budget 8 keeps the capstone.
-    const legal = sanitizeSpec("healer", { "heal-cooldown": 3, "heal-tireless": 3, "mass-triage": 1 }, 8);
-    assert.equal(legal["mass-triage"], 1);
+    const legal = sanitizeSpec("healer", { "heal-cooldown": 3, "heal-tireless": 3, "chakra-conduit": 1 }, 8);
+    assert.equal(legal["chakra-conduit"], 1);
 });
 
 test("masteryBonus sums perRank × ranks; capstones are boolean", () => {
@@ -86,7 +86,7 @@ function masterySpecTotal(profession: string, spec: Record<string, number>): num
     // capstones cost 2, nodes cost 1
     let t = 0;
     for (const [id, ranks] of Object.entries(spec)) {
-        t += (id.includes("master") || ["mass-triage", "full-recovery", "village-lifeline", "warmonger", "logistician", "ironclad", "caravan-master", "alpha-bond", "prodigy"].includes(id)) ? ranks * 2 : ranks * 1;
+        t += (id.includes("master") || ["chakra-conduit", "full-recovery", "village-lifeline", "warmonger", "logistician", "ironclad", "caravan-master", "alpha-bond", "prodigy"].includes(id)) ? ranks * 2 : ranks * 1;
     }
     return t;
 }
