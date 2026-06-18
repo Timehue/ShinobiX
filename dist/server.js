@@ -106,6 +106,7 @@ const offer_js_1 = __importDefault(require("./api/clan/pet-escort/offer.js"));
 const cancel_js_1 = __importDefault(require("./api/clan/pet-escort/cancel.js"));
 // Missions — daily + reporting
 const daily_js_1 = __importDefault(require("./api/missions/daily.js"));
+const weekly_board_js_1 = __importDefault(require("./api/missions/weekly-board.js"));
 const report_raid_js_1 = __importDefault(require("./api/missions/report-raid.js"));
 const report_pvp_win_js_1 = __importDefault(require("./api/missions/report-pvp-win.js"));
 const report_pet_event_js_1 = __importDefault(require("./api/missions/report-pet-event.js"));
@@ -537,6 +538,7 @@ route('/clan/pet-escort/offer', offer_js_1.default);
 route('/clan/pet-escort/cancel', cancel_js_1.default);
 // ─── Missions: daily + reporting ───────────────────────────────────────────────
 route('/missions/daily', daily_js_1.default);
+route('/missions/weekly-board', weekly_board_js_1.default);
 route('/missions/report-raid', report_raid_js_1.default);
 route('/missions/report-pvp-win', report_pvp_win_js_1.default);
 route('/missions/report-pet-event', report_pet_event_js_1.default);

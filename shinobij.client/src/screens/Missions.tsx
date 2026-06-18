@@ -6,6 +6,7 @@ import type { Screen } from "../types/core";
 import { DAILY_MISSION_LIMIT } from "../constants/game";
 import type { MissionRank } from "../constants/hunter";
 import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
+import { WeeklyBoard } from "../components/WeeklyBoard";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
@@ -111,7 +112,7 @@ export function Missions({
     const todayMissions = dailyMissionsCompleted(character);
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;
-    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field">(
+    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly">(
         hasProfession ? "profession" : "combat"
     );
 
@@ -172,11 +173,19 @@ export function Missions({
                 <button className={activeMissionTab === "field" ? "active" : ""} onClick={() => setActiveMissionTab("field")}>
                     📍 Field
                 </button>
+                <button className={activeMissionTab === "weekly" ? "active" : ""} onClick={() => setActiveMissionTab("weekly")}>
+                    🗓️ Weekly
+                </button>
             </div>
 
             {/* -- Profession tab -- */}
             {activeMissionTab === "profession" && hasProfession && (
                 <DailyProfessionMissions character={character} />
+            )}
+
+            {/* -- Weekly Board tab -- */}
+            {activeMissionTab === "weekly" && (
+                <WeeklyBoard character={character} updateCharacter={updateCharacter} />
             )}
 
             {/* -- Combat Missions tab -- */}
