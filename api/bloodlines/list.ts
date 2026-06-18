@@ -94,6 +94,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Return empty list rather than 500 so the bloodline gallery degrades
         // gracefully during transient DB outages instead of showing an error.
         console.error('[bloodlines/list]', String(err));
+        // Don't let the CDN cache this transient empty result — the gallery must
+        // recover the moment storage does (the success path sets a 60s edge cache).
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ bloodlines: [] });
     }
 }

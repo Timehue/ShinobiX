@@ -65,3 +65,27 @@ test('legit HollowGate save passes through unchanged', () => {
     const keys = (out.itemStacks as Array<{ itemId: string; count: number }>).find(s => s.itemId === 'hollow-gate-key');
     assert.equal(keys?.count, 3, 'legit key gain 1->3 within cap, untouched');
 });
+
+const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
+
+test('dailyHollowGateRuns: a forged reset to 0 within the same UTC day is floored to the server count', () => {
+    const out = sanitize(
+        { lastDailyReset: TODAY, dailyHollowGateRuns: 0 },   // forged: zero the counter to farm more runs
+        { lastDailyReset: TODAY, dailyHollowGateRuns: 2 },   // server-stored: already 2 runs today
+    );
+    assert.equal(out.dailyHollowGateRuns, 2, 'cannot drop below the server-recorded count for today');
+});
+
+test('dailyHollowGateRuns: legit same-day increment kept; genuine new-day reset untouched', () => {
+    const inc = sanitize(
+        { lastDailyReset: TODAY, dailyHollowGateRuns: 3 },
+        { lastDailyReset: TODAY, dailyHollowGateRuns: 2 },
+    );
+    assert.equal(inc.dailyHollowGateRuns, 3, 'legit increment 2->3 kept');
+    // existing save was last written on a prior day -> floor is 0, reset is allowed
+    const reset = sanitize(
+        { lastDailyReset: TODAY, dailyHollowGateRuns: 0 },
+        { lastDailyReset: '2000-01-01', dailyHollowGateRuns: 2 },
+    );
+    assert.equal(reset.dailyHollowGateRuns, 0, 'new-day reset is not clamped');
+});
