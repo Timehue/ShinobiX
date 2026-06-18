@@ -55,14 +55,15 @@ export function snapshotHollowGateCurrencies(character: Character): HollowGateCu
  * value. If the run has no snapshot (legacy in-progress runs saved before this
  * shipped), nothing is clawed back.
  */
-export function clawBackHollowGateLoot(character: Character, run: HollowGateShrineRun): Character {
+export function clawBackHollowGateLoot(character: Character, run: HollowGateShrineRun, lostFraction = 0.5): Character {
     const entry = run.entryCurrencies;
     if (!entry) return character;
+    const frac = Math.max(0, Math.min(1, lostFraction));
     const next: Record<string, unknown> = { ...(character as Record<string, unknown>) };
     for (const key of HOLLOW_GATE_CLAWBACK_KEYS) {
         const current = num(next[key]);
         const earned = Math.max(0, current - num(entry[key]));
-        const lost = Math.floor(earned * 0.5);
+        const lost = Math.floor(earned * frac);
         if (lost > 0) next[key] = current - lost;
     }
     return next as unknown as Character;

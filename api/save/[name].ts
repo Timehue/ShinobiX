@@ -63,7 +63,7 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'storyTraits', 'storyTitle',
     'weeklyBossKills', 'claimedWarCrateIds',
     'unlockedAchievements', 'achievementUnlockedAt',
-    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
     'endlessTowerRun', 'endlessTowerBestWave',
     'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
     'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
@@ -273,6 +273,19 @@ function sanitizeCharacterSave(
     // unearned capstones or over-spend. PvE/utility effects only.
     if (char.masterySpec !== undefined) {
         char.masterySpec = sanitizeMasterySpec(char.profession, char.masterySpec, masteryBudget(char.profession, char.professionXp));
+    }
+
+    // Hollow Gate Shrine Attunement: node ranks. Anti-tamper — clamp every rank
+    // to a non-negative integer ≤ 3 (the catalog's global max) so a forged save
+    // can't grant absurd attunement effects (extra daily runs / keys / etc.).
+    if (char.hollowGateAttunement && typeof char.hollowGateAttunement === 'object') {
+        const att = char.hollowGateAttunement as Record<string, unknown>;
+        const clamped: Record<string, number> = {};
+        for (const k of Object.keys(att)) {
+            const v = Math.max(0, Math.min(3, Math.floor(Number(att[k]) || 0)));
+            if (v > 0) clamped[k] = v;
+        }
+        char.hollowGateAttunement = clamped;
     }
 
     // Account creation timestamp — backfill if missing so anti-alt checks

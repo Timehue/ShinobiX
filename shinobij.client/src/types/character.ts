@@ -157,6 +157,9 @@ export type Character = {
     // consumables + the Shrine Attunement tree). Optional: absent on legacy
     // saves → treated as 0. See lib/hollow-gate-run + docs/hollow-gate-loop.md.
     hollowShards?: number;
+    // Shrine Attunement — permanent Hollow Gate upgrades bought with shards
+    // (nodeId → rank). Server-clamped in api/save. See lib/hollow-gate-attunement.
+    hollowGateAttunement?: Record<string, number>;
     hp: number;
     maxHp: number;
     chakra: number;
