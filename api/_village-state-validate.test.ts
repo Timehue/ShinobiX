@@ -97,3 +97,71 @@ describe('validateVillageStateWrite — currency lockdown (#17, step 1c)', () =>
         assert.equal((next.treasury as Record<string, number>).ryo, 1500);
     });
 });
+
+describe('validateVillageStateWrite — Hollow Gate 30-day timed unlock', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const kage = { seatedKage: 'rin' };               // matches `villager.callerName`
+    const notKage = { callerName: 'jin', isAdmin: false, village: 'Leaf' };
+
+    it('lets the seated Kage open the gate (~30 days, clamped)', async () => {
+        const want = Date.now() + 30 * DAY;
+        const { next, suppressed } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: want }, villager, kage);
+        const until = next.hollowGateUnlockedUntil as number;
+        assert.ok(until >= Date.now() + 29 * DAY && until <= Date.now() + 31 * DAY, `until=${until}`);
+        assert.equal(suppressed.some((s) => s.includes('hollowGateUnlockedUntil')), false);
+    });
+
+    it('clamps a tampered far-future expiry to ~31 days', async () => {
+        const want = Date.now() + 3650 * DAY; // ~10 years
+        const { next } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: want }, villager, kage);
+        assert.ok((next.hollowGateUnlockedUntil as number) <= Date.now() + 32 * DAY);
+    });
+
+    it('stacks another 30 days onto an already-active window (extend across writes)', async () => {
+        const prevUntil = Date.now() + 10 * DAY;
+        const prev = { hollowGateUnlockedUntil: prevUntil };
+        const { next } = await validateVillageStateWrite(prev, { hollowGateUnlockedUntil: prevUntil + 30 * DAY }, villager, kage);
+        const until = next.hollowGateUnlockedUntil as number;
+        assert.ok(until >= prevUntil + 29 * DAY && until <= prevUntil + 31 * DAY, `until=${until}`);
+    });
+
+    it('blocks a non-Kage from extending (pins to prev)', async () => {
+        const { next, suppressed } = await validateVillageStateWrite({}, { hollowGateUnlockedUntil: Date.now() + 30 * DAY }, notKage, kage);
+        assert.equal(next.hollowGateUnlockedUntil, 0);
+        assert.equal(suppressed.some((s) => s.includes('only seatedKage may unlock')), true);
+    });
+
+    it('pins an active unlock when a non-admin write tries to lower it (immune to stale clobber)', async () => {
+        const prevUntil = Date.now() + 20 * DAY;
+        const { next, suppressed } = await validateVillageStateWrite({ hollowGateUnlockedUntil: prevUntil }, { hollowGateUnlockedUntil: 0 }, villager, kage);
+        assert.equal(next.hollowGateUnlockedUntil, prevUntil);
+        assert.equal(suppressed.some((s) => s.includes('decrease (admin only)')), true);
+    });
+
+    it('lets an admin re-lock early (lower the expiry)', async () => {
+        const { next, suppressed } = await validateVillageStateWrite({ hollowGateUnlockedUntil: Date.now() + 20 * DAY }, { hollowGateUnlockedUntil: 0 }, admin, kage);
+        assert.equal(next.hollowGateUnlockedUntil, 0);
+        assert.equal(suppressed.some((s) => s.includes('decrease')), false);
+    });
+
+    it('posts a one-time re-seal notice once the window lapses, then dedupes', async () => {
+        const expired = Date.now() - 1000;
+        const prev = { hollowGateUnlockedUntil: expired };
+        const first = await validateVillageStateWrite(prev, { hollowGateUnlockedUntil: expired }, villager, null);
+        const posts1 = (first.next.noticePosts ?? []) as Array<Record<string, unknown>>;
+        assert.equal(posts1.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 1);
+        assert.equal(first.next.hollowGateExpiryNoticedFor, expired);
+
+        // A second write after the marker is set must not post a duplicate.
+        const second = await validateVillageStateWrite(first.next, { hollowGateUnlockedUntil: expired }, villager, null);
+        const posts2 = (second.next.noticePosts ?? []) as Array<Record<string, unknown>>;
+        assert.equal(posts2.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 1);
+    });
+
+    it('does not post a re-seal notice when the Kage re-opens on the same write', async () => {
+        const expired = Date.now() - 1000;
+        const { next } = await validateVillageStateWrite({ hollowGateUnlockedUntil: expired }, { hollowGateUnlockedUntil: Date.now() + 30 * DAY }, villager, kage);
+        const posts = (next.noticePosts ?? []) as Array<Record<string, unknown>>;
+        assert.equal(posts.filter((p) => String(p.id).startsWith('hg-reseal-')).length, 0);
+    });
+});

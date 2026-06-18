@@ -142,6 +142,17 @@ export function hydrateSharedGameState(data: {
             villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state as Partial<VillageState>);
         }
     }
+    // Re-apply any in-grace local Hollow Gate unlock bumps so a stale CDN-cached
+    // poll can't momentarily revert a just-purchased unlock back to "locked".
+    const hgNow = Date.now();
+    for (const key of Object.keys(localHollowGateUnlockBump)) {
+        const bump = localHollowGateUnlockBump[key];
+        if (hgNow - bump.at > HOLLOW_GATE_BUMP_GRACE_MS) { delete localHollowGateUnlockBump[key]; continue; }
+        const vs = villageStates[key];
+        if (vs && (vs.hollowGateUnlockedUntil ?? 0) < bump.until) {
+            villageStates[key] = { ...vs, hollowGateUnlockedUntil: bump.until };
+        }
+    }
     sharedVillageStateCache = villageStates;
     // Leadership portraits no longer ride the 5s frame (see refreshLeadershipImages
     // and api/game-state.ts ?images=1) — don't touch the cache here, or an absent
@@ -222,16 +233,50 @@ export type KageChallenge = {
     resolvedAt?: number;
     contributionRequired: number;
 };
-export type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; kageChallenges: KageChallenge[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlocked?: boolean; };
+export type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; kageChallenges: KageChallenge[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlockedUntil?: number; };
 function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] { const leadership = villageLeadership[village]; return (leadership?.pastWars ?? ["No recorded wars yet."]).map((war, index) => ({ opponent: war.replace(/^Won |^Lost |^Draw at /, ""), winner: war.startsWith("Won") ? village : war.startsWith("Lost") ? "Enemy Village" : "Draw", finalScore: index === 0 ? "112 - 88" : index === 1 ? "76 - 91" : "64 - 64", topDefender: leadership?.elders?.[index % 3] ?? "Village Guard", topAttacker: leadership?.kage ?? "Kage Council", mvpClan: index === 0 ? "Fated Reunion" : "Unclaimed", rewards: index === 0 ? "Village XP / guard medals" : "Archive record", date: index === 0 ? "Recent Season" : "Previous Season" })); }
-function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined, notices), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], kageChallenges: [], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlocked: false }; }
+function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined, notices), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], kageChallenges: [], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
-export function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, noticePosts: normalizeNoticePosts(state?.noticePosts, state?.noticePosts?.length ? [] : notices), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], kageChallenges: normalizeKageChallenges(village, state?.kageChallenges), dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlocked: Boolean(state?.hollowGateUnlocked ?? base.hollowGateUnlocked) }; }
+export function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, noticePosts: normalizeNoticePosts(state?.noticePosts, state?.noticePosts?.length ? [] : notices), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], kageChallenges: normalizeKageChallenges(village, state?.kageChallenges), dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlockedUntil: Math.max(0, Math.floor(Number(state?.hollowGateUnlockedUntil ?? base.hollowGateUnlockedUntil ?? 0))) || 0 }; }
 export function loadVillageState(village: string): VillageState { return sharedVillageStateCache[sharedVillageStateKey(village)] ?? defaultVillageState(village); }
+
+// ── Hollow Gate: 30-day timed village unlock ────────────────────────────
+// Replaces the old permanent `hollowGateUnlocked` boolean. The shrine is
+// "open" while its expiry timestamp is still in the future; once it lapses
+// the World Map shrine vanishes and a seated Kage must break the seal again.
+export const HOLLOW_GATE_UNLOCK_DAYS = 30;
+export const HOLLOW_GATE_UNLOCK_MS = HOLLOW_GATE_UNLOCK_DAYS * 24 * 60 * 60 * 1000;
+export function isHollowGateUnlocked(state: Pick<VillageState, "hollowGateUnlockedUntil"> | null | undefined, now: number = Date.now()): boolean {
+    return (state?.hollowGateUnlockedUntil ?? 0) > now;
+}
+// Whole days remaining on the unlock window (0 when closed). Rounds up so a
+// partial last day still reads as "1d left".
+export function hollowGateDaysLeft(state: Pick<VillageState, "hollowGateUnlockedUntil"> | null | undefined, now: number = Date.now()): number {
+    const until = state?.hollowGateUnlockedUntil ?? 0;
+    return until > now ? Math.max(1, Math.ceil((until - now) / (24 * 60 * 60 * 1000))) : 0;
+}
+// Re-buying while still active STACKS another 30 days onto the remaining
+// window (extend, never shorten); from expired/never it's 30 days from now.
+export function extendHollowGateUnlock(currentUntil: number | undefined, now: number = Date.now()): number {
+    return Math.max(now, currentUntil ?? 0) + HOLLOW_GATE_UNLOCK_MS;
+}
+// Optimistic-write guard. A just-purchased unlock is held locally for a
+// short grace window so a stale CDN-cached game-state poll can't clobber
+// it back to "locked" before the server's value propagates. The server is
+// monotonic for non-admins (never lowers the expiry), so after the grace
+// the server value wins (and an admin re-lock still takes effect).
+const HOLLOW_GATE_BUMP_GRACE_MS = 20_000;
+const localHollowGateUnlockBump: Record<string, { until: number; at: number }> = {};
+
 export function saveVillageState(village: string, state: VillageState) {
     const normalized = normalizeVillageState(village, state);
-    sharedVillageStateCache[sharedVillageStateKey(village)] = normalized;
+    const key = sharedVillageStateKey(village);
+    const prevUntil = sharedVillageStateCache[key]?.hollowGateUnlockedUntil ?? 0;
+    const nextUntil = normalized.hollowGateUnlockedUntil ?? 0;
+    if (nextUntil > prevUntil) localHollowGateUnlockBump[key] = { until: nextUntil, at: Date.now() };
+    else if (nextUntil < prevUntil) delete localHollowGateUnlockBump[key];
+    sharedVillageStateCache[key] = normalized;
     persistSharedGameState({ kind: "villageState", village, state: normalized });
 }
 export function isVillageAnbu(character: Character) {
