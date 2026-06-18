@@ -19,9 +19,21 @@ actually enforceable — which is what makes this redesign worth doing.
     sealed-door Ancient Chests (7…15), and the Warden (40), shown in logs/modals.
   - NEEDS AN OWNER PLAYTEST — Torch drop/drain + shard drop rates are starting
     values; tune once felt (all localized — easy to adjust).
-- ⏳ **Next:** Phase 2 (branching wings + `pet_battle`/`tile_game` tile removal +
-  Shard Vein tile), Phase 3 (shard sinks: in-run consumables + Shrine Attunement
-  tree + UI), Phase 4 (polish + balance).
+- ✅ **Phase 2A shipped** (`68b364d9`): retired `pet_battle`/`tile_game` walk-on
+  tiles (ambush still spawns those); added the **Shard Vein** tile (💎).
+- ✅ **Phase 2B shipped** — branching wings functional:
+  - `3aa466c8` (2B-1): `lib/hollow-gate-wings.ts` hub+wing generator (treasure /
+    beast / trial), guaranteed cut-vertex topology, wing tagging, self-checks +
+    legacy fallback. Now the PRIMARY floor type.
+  - `ba8d0c18` (2B-2): `wingEntryEffect()` movement gating — sealed wings blocked,
+    first detour entry commits + seals the other, trial always open (no softlock).
+    Visibility unchanged (room-flood already fogs unentered wings).
+- ⏳ **Next:** 2B-3 (wing UI — door theme labels/icons, first-hub explainer, HUD
+  with shard balance / torch bar / secured-vs-at-risk loot tally), then Phase 3
+  (shard sinks: in-run consumables + Shrine Attunement tree), Phase 4 (balance).
+- ⚠️ **Strongly recommend an owner playtest now** — Phases 1+2 changed the loop
+  substantially (torch economy, fair death, shards, wing structure). Validate the
+  feel + tune the starting numbers before layering on UI/sinks.
 
 ---
 
