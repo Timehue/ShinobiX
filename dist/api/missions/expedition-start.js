@@ -101,9 +101,12 @@ async function handler(req, res) {
         // payout in report-pet-event has its own locked claim cap — so the default
         // fall-through policy is right here (no failClosed): a rare over-mint
         // costs nothing, and we'd rather mint than 500 a launch under contention.
+        // Caravan Master capstone raises the daily reward cap by 2; mirror it on
+        // the mint cap so the extra tokens can actually be minted.
+        const caravanBonus = (0, _profession_mastery_js_1.masteryHasCapstone)(char?.profession, char?.masterySpec, 'caravan-master') ? 2 : 0;
         const capCheck = await (0, _lock_js_1.withKvLock)(dailyKey, async () => {
             const startedToday = Number((await _storage_js_1.kv.get(dailyKey)) ?? 0);
-            if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY) {
+            if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY + caravanBonus) {
                 return { capped: true };
             }
             await _storage_js_1.kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
