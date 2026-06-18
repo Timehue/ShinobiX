@@ -1,8 +1,8 @@
 # Hollow Gate Shrine — Gameplay Loop & Redesign (WORKING DRAFT)
 
-Status: **design refinement** — nothing here is built yet. This doc captures the
-current loop accurately and proposes a redesign. Open decisions are marked
-**[DECIDE]**. Update as we settle them.
+Status: **SHIPPED** — Phases 1, 2, 3 + icon art are all live on `main` (see Build
+status below). What remains is a balance-tuning pass once playtested. This doc
+captured the design and now records what was built + the tunable knobs (§Balance).
 
 Recent related work: the Shrine Keeper infinite-farm bug and the
 heal-and-resume exploit were fixed in commit `1e3d656d` (no balance changes).
@@ -371,3 +371,41 @@ Phases 1 → 2 → 3 → 4, each independently shippable. Phase 1 delivers the f
 win without the gen risk; Phase 2 is the big isolated rewrite; Phase 3 makes
 shards matter; Phase 4 is polish/tuning. Recommend a build/test/owner-look gate
 between each.
+
+---
+
+## 10. Balance knobs (Phase 4 — tunable, first-cut values pending playtest)
+
+Every Hollow Gate number lives in a named constant — tune from feel, no engine
+changes needed. None of the pre-existing combat reward / trap-damage / XP values
+were touched.
+
+**Run resources** (`App.tsx`, admin-tunable `let`s):
+- `HOLLOW_GATE_THREAT_PER_STEP` = 7 · `HOLLOW_GATE_THREAT_AMBUSH` = 100 ·
+  `HOLLOW_GATE_TRAP_DMG_PCT` = 0.33 · `HOLLOW_GATE_MAX_FLOOR` = 5.
+- Torch: starts 10, drains 1 at ~33%/step, +2/chest, full at shrines/Keeper,
+  +4 on descend. Fights no longer refill it (the clock). `DAILY_HOLLOW_GATE_CAP`
+  = 2 (+ Extra Dive attunement).
+
+**Shard income** (`lib/hollow-gate-run.ts` `hollowShardDrop`): chest 2+floor
+(F1=3…F5=7) · shardVein 3+2·floor (5…13) · lockedChest 5+2·floor (7…15) ·
+boss 15+5·floor (F5=40). A full 5-floor clear nets ~250 shards. (Generous on
+purpose for a new system — trim here first if the economy feels too fast.)
+
+**In-run consumable costs** (`lib/hollow-gate-shards.ts`): Reignite 6 · Skeleton
+Key 8 · Sanctify 14 · **Hollow Ward 14** · **Diviner's Eye 16** · **Second Wind
+30**. (Bolded ones were nudged up this pass — the strong run-savers should be
+deliberate.)
+
+**Attunement** (`lib/hollow-gate-attunement.ts`): node cost = `baseCost × (rank+1)`
+— Seasoned Delver 30 (×2) · Reiki Reserves 30 (×2) · Cartographer 40 (×1) ·
+Greedy Hands 45 (×3) · Extra Dive 120 (×1) · Key Forge 150 (×1). **Key Forge
+craft `KEY_FORGE_COST` = 80/key** (nudged from 60). Death loot retention =
+0.5 + 0.1·Greedy-Hands (cap 0.8).
+
+**Save caps** (`api/save/[name].ts`): `hollowShards` +200/save cycle;
+`hollowGateAttunement` ranks clamped 0–3 (anti-tamper).
+
+First-cut tuning rationale (this pass): kept income generous to reward depth;
+raised the strongest sinks (Ward / Diviner / Second Wind / Key Forge) so they're
+choices, not reflexes. All other values are starting points — adjust to feel.
