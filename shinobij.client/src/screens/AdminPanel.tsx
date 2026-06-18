@@ -772,6 +772,11 @@ export function AdminPanel({
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [pendingPlayerBloodlines, setPendingPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [serverResetMsg, setServerResetMsg] = useState("");
+    // Ranked seasons (admin start / force-rollover). Seasons do NOT auto-start.
+    const [rankedSeasonMsg, setRankedSeasonMsg] = useState("");
+    const [rankedSeasonActive, setRankedSeasonActive] = useState<boolean | null>(null);
+    const [rankedSeasonId, setRankedSeasonId] = useState<number | null>(null);
+    useEffect(() => { if (adminPw) void loadRankedSeasonStatus(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [adminPw]);
     const [kageResetVillage, setKageResetVillage] = useState(villages[0]);
     const [kageResetMsg, setKageResetMsg] = useState("");
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
@@ -1033,6 +1038,37 @@ export function AdminPanel({
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
             fetchAllKnownPlayers();
         } catch (e) { setPmMsg(`❌ Reset failed: ${String(e)}`); }
+    }
+
+    async function loadRankedSeasonStatus() {
+        try {
+            const res = await fetch('/api/admin/ranked-season', { headers: { 'x-admin-password': adminPw } });
+            const data = await res.json().catch(() => ({})) as { active?: boolean; current?: { id?: number } | null };
+            setRankedSeasonActive(!!data.active);
+            setRankedSeasonId(data.current?.id ?? null);
+        } catch { /* ignore */ }
+    }
+
+    async function rankedSeasonAction(action: 'start' | 'rollover') {
+        if (action === 'rollover' && !window.confirm('Force-end the current ranked season NOW? This rewards the top finishers, archives standings, soft-resets every rating, and starts the next season immediately.')) return;
+        setRankedSeasonMsg('⏳ Working…');
+        try {
+            const res = await fetch('/api/admin/ranked-season', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({ action }),
+            });
+            const data = await res.json().catch(() => ({})) as { ok?: boolean; action?: string; seasonId?: number; nextSeasonId?: number; playerChampion?: string; petChampion?: string; error?: string };
+            if (!res.ok || !data.ok) { setRankedSeasonMsg(`❌ ${data.error ?? 'Failed.'}`); return; }
+            if (data.action === 'initialized') setRankedSeasonMsg(`✅ Ranked Season ${data.seasonId} started.`);
+            else if (data.action === 'skipped') setRankedSeasonMsg('ℹ️ A ranked season is already active.');
+            else if (data.action === 'rolled-over') setRankedSeasonMsg(`✅ Season ${data.seasonId} ended (champion: ${data.playerChampion ?? '—'}, pet: ${data.petChampion ?? '—'}). Season ${data.nextSeasonId} started.`);
+            else if (data.action === 'inactive') setRankedSeasonMsg('ℹ️ No active season — start one first.');
+            else setRankedSeasonMsg(`✅ Done (${data.action}).`);
+            void loadRankedSeasonStatus();
+        } catch {
+            setRankedSeasonMsg('❌ Network error.');
+        }
     }
 
     async function serverReset() {
@@ -4561,6 +4597,33 @@ export function AdminPanel({
                                 >👑 Reset Kage to NPC</button>
                             </div>
                             {kageResetMsg && <p className="hint" style={{ color: kageResetMsg.startsWith("✅") ? "#4ade80" : kageResetMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{kageResetMsg}</p>}
+                        </section>
+
+                        {/* -- Ranked Seasons -- */}
+                        <section className="summary-box">
+                            <h4>🏆 Ranked Seasons</h4>
+                            <p className="hint">Ranked seasons do <strong>not</strong> auto-start. Start one to begin the monthly cycle; at season end the top 3 of each ladder are rewarded and ratings soft-reset. "Force rollover" ends the current season immediately.</p>
+                            <p className="hint" style={{ color: rankedSeasonActive ? "#4ade80" : "#fbbf24" }}>
+                                {rankedSeasonActive === null ? "Status unknown." : rankedSeasonActive ? `Active — Season ${rankedSeasonId ?? "?"}.` : "Not started."}
+                            </p>
+                            {!adminPw && (
+                                <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>⚠️ Session restored without password. Log out and back in to enable server actions.</p>
+                            )}
+                            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                                <button
+                                    style={{ padding: "8px 14px", background: adminPw && !rankedSeasonActive ? "#15803d" : "#374151", opacity: adminPw && !rankedSeasonActive ? 1 : 0.6 }}
+                                    onClick={() => rankedSeasonAction('start')}
+                                    disabled={!adminPw || rankedSeasonActive === true}
+                                >▶ Start Ranked Season</button>
+                                <button
+                                    style={{ padding: "8px 14px", background: adminPw && rankedSeasonActive ? "#b45309" : "#374151", opacity: adminPw && rankedSeasonActive ? 1 : 0.6 }}
+                                    onClick={() => rankedSeasonAction('rollover')}
+                                    disabled={!adminPw || !rankedSeasonActive}
+                                >⏭ Force Season Rollover Now</button>
+                            </div>
+                            {rankedSeasonMsg && (
+                                <p className="hint" style={{ marginTop: 8, color: rankedSeasonMsg.startsWith("✅") ? "#4ade80" : rankedSeasonMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{rankedSeasonMsg}</p>
+                            )}
                         </section>
 
                         {/* -- Full Server Reset -- */}

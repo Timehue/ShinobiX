@@ -46,6 +46,7 @@ const player_auth_js_1 = __importDefault(require("./api/player-auth.js"));
 const admin_auth_js_1 = __importDefault(require("./api/admin-auth.js"));
 const players_js_1 = __importDefault(require("./api/admin/players.js"));
 const server_reset_js_1 = __importDefault(require("./api/admin/server-reset.js"));
+const ranked_season_js_1 = __importDefault(require("./api/admin/ranked-season.js"));
 const list_js_1 = __importDefault(require("./api/clans/list.js"));
 const chat_js_1 = __importDefault(require("./api/village/chat.js"));
 const queue_js_1 = __importDefault(require("./api/village-guard/queue.js"));
@@ -132,7 +133,7 @@ const choose_js_1 = __importDefault(require("./api/profession/choose.js"));
 const injured_villagers_js_1 = __importDefault(require("./api/player/injured-villagers.js"));
 // Weekly boss
 const weekly_boss_js_1 = __importDefault(require("./api/weekly-boss.js"));
-const ranked_season_js_1 = __importDefault(require("./api/ranked-season.js"));
+const ranked_season_js_2 = __importDefault(require("./api/ranked-season.js"));
 // Admin moderation
 const moderation_js_1 = __importDefault(require("./api/admin/moderation.js"));
 // Admin: durable battle-receipt lookup (support / reward-dispute debugging)
@@ -433,6 +434,7 @@ route('/admin-auth', admin_auth_js_1.default);
 // Admin
 route('/admin/players', players_js_1.default);
 route('/admin/server-reset', server_reset_js_1.default);
+route('/admin/ranked-season', ranked_season_js_1.default);
 // Clans
 route('/clans/list', list_js_1.default);
 // Village
@@ -565,7 +567,7 @@ route('/profession/choose', choose_js_1.default);
 route('/player/injured-villagers', injured_villagers_js_1.default);
 // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
 route('/weekly-boss', weekly_boss_js_1.default);
-route('/ranked-season', ranked_season_js_1.default);
+route('/ranked-season', ranked_season_js_2.default);
 // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
 route('/admin/moderation', moderation_js_1.default);
 // ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
