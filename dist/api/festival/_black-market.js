@@ -41,5 +41,5 @@ function rollBlackMarket(rand) {
     if (r < 0.99) {
         return { ...EMPTY, tier: 'fortune', label: 'A desert fortune', ryo: randInt(rand, 55_000, 85_000) };
     }
-    return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 50_000, fateShards: 10, mythicSeals: 1 };
+    return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 50_000, fateShards: 25, boneCharms: 5, auraStones: 2 };
 }
