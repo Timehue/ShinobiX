@@ -40,8 +40,12 @@ actually enforceable — which is what makes this redesign worth doing.
   Dive) via `lib/hollow-gate-attunement` + a World Map Enter/Attune menu.
   Server-clamped in api/save.
 - ✅ **Key Forge shipped** (`65e0d9db`): the Attunement panel forges Hollow Gate
-  Keys from shards (60 each), closing the self-sustaining loop. Phase 3 fully
-  complete — no coming-soon items left.
+  Keys from shards (now 80 each), closing the self-sustaining loop.
+- ↩️ **Wings reverted to random maze** (`0b47ecfa`): per owner preference the
+  floors are random mazes again (~50/50 hand-authored layout / procedural BSP) —
+  NOT the fixed hub+3-wing structure. The wing generator (`hollow-gate-wings`) is
+  kept but off by default; the wing UI/mechanics no-op on maze floors. Everything
+  else in the redesign works unchanged on the maze.
 - ✅ **Phase 2B-3 shipped** (`2dc385f1`): wing readability + HUD polish — floors/
   doors tinted by wing, hub doors labelled with their destination glyph
   (🏆/🐺/⚔ — informed choice), HUD shows banked shards + a death "at-risk"
