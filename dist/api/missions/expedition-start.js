@@ -7,6 +7,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _profession_mastery_js_1 = require("../_profession-mastery.js");
 /*
  * /api/missions/expedition-start  — POST only
  *
@@ -114,6 +115,11 @@ async function handler(req, res) {
         const durationMinutes = EXP_DURATION_MINUTES[expType];
         const mintedAt = Date.now();
         const endsAt = mintedAt + durationMinutes * 60_000;
+        // Seal the Pet Tamer mastery reward multipliers (Expeditioner path) into
+        // the token so the redeemer can't tamper with them and they're fixed at
+        // launch-time spec. PvE currency only.
+        const expRewardMult = 1 + (0, _profession_mastery_js_1.masteryBonus)(char?.profession, char?.masterySpec, 'expRewardPct') / 100;
+        const expMaterialMult = 1 + (0, _profession_mastery_js_1.masteryBonus)(char?.profession, char?.masterySpec, 'expMaterialPct') / 100;
         const tokenId = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
         const tokenKey = `pet-exp-token:${playerName}:${tokenId}`;
         await _storage_js_1.kv.set(tokenKey, {
@@ -124,6 +130,8 @@ async function handler(req, res) {
             petLevel,
             mintedAt,
             endsAt,
+            expRewardMult,
+            expMaterialMult,
         }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
         return res.status(200).json({ ok: true, petTamer: true, token: tokenId, durationMinutes, endsAt });
     }
