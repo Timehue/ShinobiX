@@ -134,9 +134,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (Date.now() < Number(tokenData.endsAt ?? 0) - 60_000) {
                 return res.status(200).json({ ok: true, petTamer: true, reason: 'expedition-not-complete', ...NO_REWARD });
             }
-            // Atomic single-use consume — delete BEFORE granting so a retry or a
-            // racing duplicate report can't double-claim.
-            await kv.del(tokenKey).catch(() => undefined);
+            // Atomic single-use consume. kv.del resolves to the number of rows
+            // it actually removed, so of two racing reports sharing ONE token
+            // exactly one sees 1 — the loser sees 0 and earns nothing. The
+            // earlier get→del was a non-atomic check-then-act (both reads could
+            // see the token and both proceed). The pet-exp-token: key isn't
+            // disk-routed, so del hits the atomic base store.
+            const consumed = await kv.del(tokenKey).catch(() => 0);
+            if (!consumed) {
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+            }
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.

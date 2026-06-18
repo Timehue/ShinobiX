@@ -111,9 +111,40 @@ async function handler(req, res) {
             if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(403).json({ error: 'Raid token does not belong to this player.' });
             }
-            // Atomic consume — delete the token before granting rewards
-            // so a retry (or racing duplicate report) can't double-claim.
-            await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+            // Atomic single-use consume. kv.del resolves to the number of rows
+            // it actually removed (Postgres DELETE rowCount / Supabase exact
+            // count), so of two racing reports sharing ONE token exactly one
+            // sees 1 — the loser sees 0 and short-circuits here before any
+            // reward. The earlier get→del was a non-atomic check-then-act:
+            // both reads could see the token and both proceed. The raid-token:
+            // key isn't disk-routed, so del hits the atomic base store.
+            const consumed = await _storage_js_1.kv.del(tokenKey).catch(() => 0);
+            if (!consumed) {
+                return res.status(200).json({ ok: true, vanguard: true, reason: 'invalid-or-spent-token' });
+            }
+        }
+        // ── Require a validated raid credential (closes no-token fallback) ──
+        // Past this point a reward requires PROOF a raid happened: either a PvP
+        // battleId (cross-validated below) or an AI raidToken (minted by
+        // raid-start, atomically consumed above). A request with NEITHER used
+        // to fall through to the rate-limit-only reward path — re-opening the
+        // 60/day ceiling that the raid-start mint coupling (30/day) exists to
+        // close, and letting a Vanguard farm raid-mission progress with zero
+        // gameplay. Grant nothing instead. Returns 200 (not an error) so a
+        // stale client doesn't surface a hard failure — same zero-credit shape
+        // as the daily-cap path. Admins/test scripts stay exempt so they can
+        // replay freely. (A malformed/expired token already short-circuited
+        // above, so reaching here with raidToken set means it was consumed.)
+        if (!identity.admin && !battleId && !raidToken) {
+            return res.status(200).json({
+                ok: true,
+                vanguard: true,
+                reason: 'missing-raid-credential',
+                xpAwarded: 0,
+                missionsCompleted: [],
+                bonusRyo: 0,
+                bonusSeals: 0,
+            });
         }
         // ── PvP-raid cross-validation ─────────────────────────────────
         // When the client passes a battleId, treat this as a PvP-flavored
