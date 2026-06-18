@@ -315,6 +315,10 @@ function applyWarDecay(war, now = Date.now()) {
 // retry-looping after a KV hiccup. Draws / 14-day timeouts have no winner → skip.
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const WAR_STANDING_PREFIX = 'village:war-standing:';
+// Demoralized debuff: the losing village suffers reduced training gains for 3
+// days. Stamped on the loser's village-state at settlement; the client applies
+// it in Training/PetYard. KEEP IN SYNC with shinobij.client/src/lib/war-debuff.ts.
+const WAR_LOSS_DEBUFF_MS = 3 * 24 * 60 * 60 * 1000;
 function villageStateKey(village) {
     return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
@@ -351,7 +355,7 @@ async function settleVillageWar(war, now) {
             const lt = (loserState.treasury ?? {});
             const wt = (winnerState.treasury ?? {});
             const spoils = (0, _war_spoils_js_1.computeSpoils)({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
-            await _storage_js_1.kv.set(loserKey, { ...loserState, treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
+            await _storage_js_1.kv.set(loserKey, { ...loserState, warLossDebuffUntil: now + WAR_LOSS_DEBUFF_MS, treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
             await _storage_js_1.kv.set(winnerKey, { ...winnerState, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
             await _storage_js_1.kv.set(`audit:village-war-settle:${war.id}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
             return true;
