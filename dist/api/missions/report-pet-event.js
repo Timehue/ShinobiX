@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _progress_js_1 = require("./_progress.js");
+const _profession_mastery_js_1 = require("../_profession-mastery.js");
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
 // Expedition, x1.2 if petEscortBonusReady is consumed).
@@ -183,7 +184,9 @@ async function handler(req, res) {
                 const today = utcDateKey();
                 const sameDay = char.lastExpeditionClaimDate === today;
                 const claimedToday = sameDay ? Number(char.expeditionsClaimedToday ?? 0) : 0;
-                if (claimedToday >= MAX_EXPEDITIONS_PER_DAY) {
+                // Caravan Master mastery capstone: +2 to the daily expedition cap.
+                const dailyCap = MAX_EXPEDITIONS_PER_DAY + ((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', char.masterySpec, 'caravan-master') ? 2 : 0);
+                if (claimedToday >= dailyCap) {
                     dailyCapHit = true;
                     return;
                 }

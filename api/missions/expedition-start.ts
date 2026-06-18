@@ -5,7 +5,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { masteryBonus } from '../_profession-mastery.js';
+import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 
 /*
  * /api/missions/expedition-start  — POST only
@@ -101,9 +101,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // payout in report-pet-event has its own locked claim cap — so the default
         // fall-through policy is right here (no failClosed): a rare over-mint
         // costs nothing, and we'd rather mint than 500 a launch under contention.
+        // Caravan Master capstone raises the daily reward cap by 2; mirror it on
+        // the mint cap so the extra tokens can actually be minted.
+        const caravanBonus = masteryHasCapstone(char?.profession, char?.masterySpec, 'caravan-master') ? 2 : 0;
         const capCheck = await withKvLock(dailyKey, async () => {
             const startedToday = Number((await kv.get<number>(dailyKey)) ?? 0);
-            if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY) {
+            if (startedToday >= MAX_EXPEDITION_STARTS_PER_DAY + caravanBonus) {
                 return { capped: true as const };
             }
             await kv.set(dailyKey, startedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);

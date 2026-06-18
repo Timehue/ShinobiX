@@ -38,8 +38,8 @@ const HEAL_CAP = 49_275;
     strict_1.default.ok(!out['warmonger']);
 });
 (0, node_test_1.test)('sanitizeMasterySpec rejects unknown ids, bad profession, non-objects', () => {
-    strict_1.default.deepEqual((0, _profession_mastery_js_1.sanitizeMasterySpec)('healer', { 'not-a-node': 5, 'heal-power': 2 }, 10), { 'heal-power': 2 });
-    strict_1.default.deepEqual((0, _profession_mastery_js_1.sanitizeMasterySpec)('bogus', { 'heal-power': 2 }, 10), {});
+    strict_1.default.deepEqual((0, _profession_mastery_js_1.sanitizeMasterySpec)('healer', { 'not-a-node': 5, 'heal-xp': 2 }, 10), { 'heal-xp': 2 });
+    strict_1.default.deepEqual((0, _profession_mastery_js_1.sanitizeMasterySpec)('bogus', { 'heal-xp': 2 }, 10), {});
     strict_1.default.deepEqual((0, _profession_mastery_js_1.sanitizeMasterySpec)('healer', null, 10), {});
 });
 (0, node_test_1.test)('sanitizeMasterySpec caps node ranks at their max', () => {
