@@ -8,7 +8,7 @@ import type { Character } from "../types/character";
 import {
     MASTERY_TREES, masteryLevel, masteryPointsAvailable, masteryPointsSpent,
     pointsInPath, canIncrement, incrementNode, masteryHasCapstone,
-    MASTERY_RESPEC_COST, CAPSTONE_PATH_GATE, MASTERY_MAX_LEVEL,
+    activeMasteryEffects, MASTERY_RESPEC_COST, CAPSTONE_PATH_GATE, MASTERY_MAX_LEVEL,
 } from "../lib/profession-mastery";
 
 // One-line "what is this path" blurbs for the read-about-it flavor.
@@ -59,6 +59,19 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
             {level === 0 && spent === 0 && (
                 <p className="hint" style={{ color: "#94a3b8" }}>Reach rank 10 and keep earning profession XP to unlock your first mastery point.</p>
             )}
+
+            {(() => {
+                const active = activeMasteryEffects(character);
+                if (active.length === 0) return null;
+                return (
+                    <div className="summary-box" style={{ padding: 10, marginBottom: 4, borderColor: "rgba(250,204,21,0.4)" }}>
+                        <strong style={{ color: "#facc15" }}>Active bonuses</strong>
+                        <ul style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.5 }}>
+                            {active.map((a) => <li key={a}>{a}</li>)}
+                        </ul>
+                    </div>
+                );
+            })()}
 
             <div style={{ display: "grid", gap: 12 }}>
                 {paths.map((path) => {
