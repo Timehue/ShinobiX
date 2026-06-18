@@ -30,14 +30,18 @@ actually enforceable — which is what makes this redesign worth doing.
     Visibility unchanged (room-flood already fogs unentered wings).
 - ✅ **Icon art**: 13 bespoke shrine icons generated (gpt-image-1) + published to
   the live image store + pushed to main; Shard Vein atlas role wired.
-- ✅ **Phase 3A shipped** (`7cf07620`): in-run Hollow Shard consumables —
-  Reignite Torch, Skeleton Key, Hollow Ward, Diviner's Eye, Sanctify Loot —
-  via `lib/hollow-gate-shards` + `components/HollowGateShardBar`. Shards now have
-  a use. Second Wind is built + tested but flagged comingSoon (needs death-path
-  hooks → 3A-2).
-- ⏳ **Next:** 3A-2 (Second Wind revive across the 3 death paths), Phase 3B
-  (Shrine Attunement tree — permanent shard upgrades, server-validated), then
-  2B-3 polish (wing UI / HUD) + Phase 4 (balance).
+- ✅ **Phase 3A shipped** (`7cf07620`): in-run consumables — Reignite Torch,
+  Skeleton Key, Hollow Ward, Diviner's Eye, Sanctify Loot (`lib/hollow-gate-shards`
+  + `HollowGateShardBar`).
+- ✅ **Phase 3A-2 shipped** (`4cdbde77`): Second Wind revive wired across all
+  three death paths (battle KO + trap tile + locked-door trap).
+- ✅ **Phase 3B shipped** (`9ab60710`): Shrine Attunement tree — permanent shard
+  upgrades (Seasoned Delver, Reiki Reserves, Cartographer, Greedy Hands, Extra
+  Dive; Key Forge coming-soon) via `lib/hollow-gate-attunement` + a World Map
+  Enter/Attune menu. Server-clamped in api/save. Phase 3 complete — shards now
+  have both in-run and permanent sinks.
+- ⏳ **Remaining:** Key Forge (craft Keys from shards), 2B-3 polish (wing UI /
+  HUD / in-game wing tint), Phase 4 (balance pass). All optional/iterative.
 - ⚠️ **Strongly recommend an owner playtest now** — Phases 1+2 changed the loop
   substantially (torch economy, fair death, shards, wing structure). Validate the
   feel + tune the starting numbers before layering on UI/sinks.
