@@ -24,9 +24,7 @@ import { makeNoticePost, normalizeNoticePosts, noticeTypeLabel } from "../lib/cl
 import { readImageFile } from "../lib/shared-images";
 import { villageForOutskirtsSector, villages } from "../data/sectors";
 import { weatherEffects } from "../data/world";
-import {
-    ClanWarsPanel,
-} from "../App";
+import { ClanWarsPanel } from "../components/ClanWarsPanel";
 import { claimPendingWarCrates, clanOwnedTerritories, clanTerritoryStartingScore, clanTerritoryWarMultiplier, damageSectorTerritory, grantTerritoryScrolls, isVillageAnbu, loadAllSectorTerritories, loadSectorTerritory, removeTerritoryScrolls, saveSectorTerritory, sectorRaidDamageAmount, territoryScrollCount, villageOwnedTerritories, villageTerritoryWarSupply, weatherForSector, type TerritoryBuffStat } from "../lib/world-state";
 
 export function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; setScreen: (s: Screen) => void }) {
