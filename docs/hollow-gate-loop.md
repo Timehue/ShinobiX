@@ -42,10 +42,14 @@ actually enforceable — which is what makes this redesign worth doing.
 - ✅ **Key Forge shipped** (`65e0d9db`): the Attunement panel forges Hollow Gate
   Keys from shards (now 80 each), closing the self-sustaining loop.
 - ↩️ **Wings reverted to random maze** (`0b47ecfa`): per owner preference the
-  floors are random mazes again (~50/50 hand-authored layout / procedural BSP) —
-  NOT the fixed hub+3-wing structure. The wing generator (`hollow-gate-wings`) is
-  kept but off by default; the wing UI/mechanics no-op on maze floors. Everything
-  else in the redesign works unchanged on the maze.
+  floors are random again, NOT the fixed hub+3-wing structure. The wing
+  generator (`hollow-gate-wings`) is kept but off by default; the wing UI/
+  mechanics no-op on these floors. Everything else in the redesign works unchanged.
+- ✅ **Random maze carver + BSP variety** (`8481bd34`): each floor rolls ~1/3
+  hand-authored layout, ~1/3 a recursive-backtracker maze (`hollow-gate-maze`:
+  winding passages + ~14% loops + carved rooms + dead-end loot), ~1/3 a
+  randomized BSP floor (split depth 3-4, per-run corner-cut %, 1-3 loops).
+  Corridor vision is distance-capped (6) so the maze keeps its fog.
 - ✅ **Phase 2B-3 shipped** (`2dc385f1`): wing readability + HUD polish — floors/
   doors tinted by wing, hub doors labelled with their destination glyph
   (🏆/🐺/⚔ — informed choice), HUD shows banked shards + a death "at-risk"
