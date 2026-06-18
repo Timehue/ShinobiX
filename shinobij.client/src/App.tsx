@@ -2376,9 +2376,8 @@ export default function App() {
      
     }, [screen, hollowGateRun, hollowGateEvent, hollowGateHiddenChamber]);
 
-    // Persist the in-progress shrine run to the character so it survives refresh.
-    // We mirror the local hollowGateRun state into character.hollowGateRun whenever
-    // it changes while inside the shrine.
+    // Persist the in-progress shrine run to the character so it survives refresh:
+    // mirror local hollowGateRun into character.hollowGateRun whenever it changes inside the shrine.
     useEffect(() => {
         if (!character) return;
         if (screen !== "hollowGateShrine") return;
@@ -6220,8 +6219,7 @@ export default function App() {
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
-        // Battle KO: a Second Wind (if armed) revives you (half HP) and the run
-        // continues; else claw back the haul, clear the run, forfeit the Key.
+        // Battle KO: a Second Wind (if armed) revives at half HP and the run continues; else claw back the haul, clear the run, forfeit the Key.
         if (pending?.kind === "hollowGateShrine" && character && (character.hospitalized || character.hp <= 0)) {
             const deadRun = hollowGateRun;
             const wind = deadRun ? tryHollowGateSecondWind(deadRun, character) : null;
@@ -6235,6 +6233,8 @@ export default function App() {
                 setHollowGateHiddenChamber(null);
                 setHollowGateLog([]);
                 setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun, 1 - attunementLootRetention(prev)) : prev), hollowGateRun: null } : prev);
+                setScreen("hospital"); // run cleared → the shrine would render blank, so send the downed delver to the hospital, not the empty Gate
+                return;
             }
         }
         setScreen(returnScreen);
