@@ -123,3 +123,12 @@ export const genericPetArenaOpponents: PetArenaOpponent[] = [
         }, "Aggressive"),
     },
 ];
+
+// PvE detection: the built-in Pet Arena AI opponents (above). A battle counts as
+// PvE — and so eligible for Pet Tamer PvE mastery modifiers — only when the
+// opponent is one of these. Any real-player opponent (ranked / clan battle /
+// PvP challenge / casual-vs-player) is excluded, so mastery never touches PvP.
+const GENERIC_PET_OPPONENT_IDS = new Set(genericPetArenaOpponents.map((o) => o.pet.id));
+export function isGenericPetOpponent(pet: Pet | null | undefined): boolean {
+    return !!pet && GENERIC_PET_OPPONENT_IDS.has(pet.id);
+}
