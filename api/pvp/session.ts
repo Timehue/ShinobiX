@@ -79,6 +79,16 @@ export type PvpSession = {
     // claim-afk-win succeeds when opponent's count reaches 2 — i.e., they
     // let the 45s round timer run out twice in a row without doing anything.
     consecAutoWait?: { p1?: number; p2?: number };
+    // Server-sealed combat-consumable budget. `itemCharges` is the remaining
+    // uses per equipped item id for each fighter, sealed at create time from
+    // their save's owned count (the Rejuvenation Potion / any "potion" slot is
+    // additionally capped at POTION_USES_PER_BATTLE). move.ts decrements a
+    // charge on each throw / consumable / potion use and rejects at 0;
+    // `itemsUsed` tallies what was actually spent so claim-rewards can deduct it
+    // from the save inventory at settlement. Absent on legacy in-flight sessions
+    // (move.ts then treats every consumable as unlimited, the old behaviour).
+    itemCharges?: { p1: Record<string, number>; p2: Record<string, number> };
+    itemsUsed?: { p1: Record<string, number>; p2: Record<string, number> };
     // Environment snapshot captured at create time. /api/pvp/move reads
     // these from the session instead of trusting the request body — stops
     // clients from changing biome / weather between rounds.
@@ -277,6 +287,10 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             if (out.weaponEp != null)          out.weaponEp = clampNumber(out.weaponEp, 0, 600, 0);
             if (out.weaponRange != null)       out.weaponRange = clampNumber(out.weaponRange, 0, 30, 1);
             if (out.apCost != null)            out.apCost = clampNumber(out.apCost, 0, 200, 40);
+            // Flat potion restore (chakra/stamina) — clamp to the same 5000 cap
+            // the vitals merge uses so a tampered pvpItem can't over-restore.
+            if (out.restoreChakra != null)     out.restoreChakra  = clampNumber(out.restoreChakra,  0, 5000, 0);
+            if (out.restoreStamina != null)    out.restoreStamina = clampNumber(out.restoreStamina, 0, 5000, 0);
             if (out.weaponEffectValue != null) out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
             // Tag list — same whitelist + cap (10) as sanitizeJutsuList.
             if (out.weaponTags != null) {
@@ -571,6 +585,52 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     // supplied fields and we don't want any of the sensitive ones to land
     // in the session record either.
     return stripNonCombatFields(out);
+}
+
+// How many of an item id a save character owns across both stores (counted
+// itemStacks + legacy inventory[] copies). Mirrors the client lib/inventory
+// countItem so the sealed PvP consumable budget matches what the player holds.
+export function ownedItemCount(char: Record<string, unknown> | null | undefined, id: string): number {
+    if (!char) return 0;
+    let n = 0;
+    const stacks = char.itemStacks;
+    if (Array.isArray(stacks)) {
+        for (const s of stacks as Array<Record<string, unknown>>) {
+            if (s && s.itemId === id) n += Math.max(0, Math.floor(Number(s.count) || 0));
+        }
+    }
+    const inv = char.inventory;
+    if (Array.isArray(inv)) n += (inv as unknown[]).filter((x) => x === id).length;
+    return n;
+}
+
+// Per-fight consumable cap for the Rejuvenation Potion (and any "potion" slot).
+const POTION_USES_PER_BATTLE = 2;
+
+// Seal the per-fight consumable budget from a fighter's equipped throwables,
+// combat items, and potion. `equipChar` supplies the equipment slot→id map
+// (equipment survives stripNonCombatFields); `invChar` is the RAW save (its
+// inventory/itemStacks are stripped off the fighter snapshot, so owned counts
+// must come from the save). For NPCs (no save) only the potion is sealed — at
+// the cap — so the AI can't infinitely chug it; its other consumables stay
+// unsealed (unlimited), preserving prior AI behaviour.
+export function sealItemCharges(
+    equipChar: Record<string, unknown>,
+    invChar: Record<string, unknown> | null,
+): Record<string, number> {
+    const charges: Record<string, number> = {};
+    const equip = (equipChar.equipment ?? {}) as Record<string, unknown>;
+    for (const slot of ['thrown', 'item', 'potion'] as const) {
+        const id = equip[slot];
+        if (typeof id !== 'string' || !id) continue;
+        if (slot === 'potion') {
+            const owned = invChar ? ownedItemCount(invChar, id) : POTION_USES_PER_BATTLE;
+            charges[id] = Math.min(owned, POTION_USES_PER_BATTLE);
+        } else if (invChar) {
+            charges[id] = ownedItemCount(invChar, id);
+        }
+    }
+    return charges;
 }
 
 function makeFighter(char: Record<string, unknown>, pos: number, useCurrentVitals: boolean): PvpFighter {
@@ -912,6 +972,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 biome: normalizeBiome(biome),
                 weatherPositiveElement: normalizeElement(weatherPositiveElement),
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
+                // Seal each fighter's per-fight consumable budget from their save
+                // (potion capped). move.ts decrements on use; claim-rewards
+                // deducts itemsUsed from the save at settlement.
+                itemCharges: {
+                    p1: sealItemCharges(finalP1Character, (p1Save?.character as Record<string, unknown>) ?? null),
+                    p2: sealItemCharges(finalP2Character, (p2Save?.character as Record<string, unknown>) ?? null),
+                },
+                itemsUsed: { p1: {}, p2: {} },
                 ...rankedStamp,
                 ...baseRewardStamp,
             };

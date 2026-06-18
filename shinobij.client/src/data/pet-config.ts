@@ -126,6 +126,7 @@ export const stackableItemIds = new Set<string>([
     DUNGEON_LEGENDARY_RELIC_ID,
     "thrown-shuriken", "thrown-senbon", "thrown-serpent-dust",
     "item-smoke-bomb", "item-attack-pill", "item-defense-pill",
+    "potion-rejuvenation",
 ]);
 
 export function petFeedXpForItem(itemId?: string): number | undefined {
