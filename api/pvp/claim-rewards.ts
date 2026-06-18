@@ -60,6 +60,35 @@ async function withSavesLocked<T>(slugs: string[], fn: () => Promise<T>): Promis
     return run();
 }
 
+// Remove `used[id]` copies of each item from a save character — draining the
+// counted itemStacks first, then legacy inventory[] copies. Pure: returns a new
+// character. Backs the server-authoritative PvP consumable deduction below.
+export function deductUsedItems(char: Record<string, unknown>, used: Record<string, number>): Record<string, unknown> {
+    const stacks = Array.isArray(char.itemStacks)
+        ? (char.itemStacks as Array<Record<string, unknown>>).map((s) => ({ ...s }))
+        : [];
+    const inv = Array.isArray(char.inventory) ? [...(char.inventory as unknown[])] : [];
+    for (const [id, rawN] of Object.entries(used)) {
+        let n = Math.max(0, Math.floor(Number(rawN) || 0));
+        if (n <= 0) continue;
+        for (const s of stacks) {
+            if (n <= 0) break;
+            if (s.itemId !== id) continue;
+            const c = Math.max(0, Math.floor(Number(s.count) || 0));
+            const take = Math.min(c, n);
+            s.count = c - take;
+            n -= take;
+        }
+        while (n > 0) {
+            const idx = inv.indexOf(id);
+            if (idx < 0) break;
+            inv.splice(idx, 1);
+            n -= 1;
+        }
+    }
+    return { ...char, itemStacks: stacks.filter((s) => Math.floor(Number(s.count) || 0) > 0), inventory: inv };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -116,6 +145,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const key = claimKey(playerName, battleId);
+
+        // ── Server-authoritative PvP consumable deduction ───────────────────
+        // Remove the throwables / consumables / potions the SERVER recorded this
+        // fighter spending this fight (session.itemsUsed — sealed at create time
+        // and decremented per use in move.ts) from their own save. Runs for EVERY
+        // pvp fight (ranked AND casual), independent of the rating/base-reward
+        // block below, and is idempotent via a per-(player,battle) NX receipt so a
+        // claim retry can't double-deduct. Best-effort: a fighter who never claims
+        // keeps what they spent (the server-sealed cap already bounded their use).
+        const claimerRole: 'p1' | 'p2' | null =
+            playerName === safeName(session.p1?.name ?? '') ? 'p1'
+            : playerName === safeName(session.p2?.name ?? '') ? 'p2'
+            : null;
+        const usedByClaimer: Record<string, number> = (claimerRole && session.itemsUsed?.[claimerRole]) || {};
+        if (claimerRole && Object.keys(usedByClaimer).length > 0) {
+            try {
+                await withSavesLocked([playerName], async () => {
+                    const consumedKey = `pvp:items-consumed:${playerName}:${battleId}`;
+                    const placed = await kv.set(consumedKey, { ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
+                    if (!placed) return; // already deducted on a prior claim
+                    const saveKey = `save:${playerName}`;
+                    const record = await kv.get<Record<string, unknown>>(saveKey);
+                    const char = record?.character as Record<string, unknown> | undefined;
+                    if (!record || !char) return;
+                    const updated = deductUsedItems(char, usedByClaimer);
+                    await kv.set(saveKey, mergePreservingImages({ ...record, character: updated }, record));
+                });
+            } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
+        }
 
         // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
         // Two server-authoritative credits can apply to a claim:

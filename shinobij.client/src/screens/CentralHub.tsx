@@ -1012,6 +1012,9 @@ export function CentralHub({
                     { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-smoke-bomb"] }) },
                     { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-attack-pill"] }) },
                     { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (-15% damage received, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-defense-pill"] }) },
+                    // Potions — stack into itemStacks via addItem (not the inventory[]
+                    // push the older recipes use) so high counts don't pile up entries.
+                    { name: "Rejuvenation Potion ×1", cost: 250, desc: "1× Rejuvenation Potion (restore 1000 chakra + 1000 stamina in battle, 20 AP, up to 2/fight)", craft: (c: Character) => addItem(c, "potion-rejuvenation", 1) },
                     // PVE companion gear — epic/legendary-tier crafts. Each piece
                     // boosts the summoned pet in PvE and wears out after 20 summons.
                     ...petPveGear.map((gear) => ({

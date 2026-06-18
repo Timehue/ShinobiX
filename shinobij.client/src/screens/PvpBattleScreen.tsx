@@ -822,7 +822,14 @@ export function PvpBattleScreen({
     const activeGroundEffects = session.groundEffects ?? [];
     const pvpEquippedWeapons = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand"; });
     const pvpEquippedThrown = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "thrown"; });
-    const pvpEquippedConsumables = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "item"; });
+    const pvpEquippedConsumables = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "item" || s === "potion"; });
+    // Server-sealed per-fight charges for this fighter's throwables/consumables/
+    // potion (api/pvp/session.ts). null = not a tracked consumable (reusable gear
+    // or a legacy session) → always available; a number is the uses remaining.
+    // Read via a local cast so the App.tsx PvpSessionState type (at the App.size
+    // ratchet ceiling) needn't grow two fields for a display-only read.
+    const myItemCharges = (session as { itemCharges?: Record<'p1' | 'p2', Record<string, number>> }).itemCharges?.[role] ?? {};
+    const pvpItemChargesLeft = (id?: string): number | null => (id && id in myItemCharges) ? myItemCharges[id] : null;
     // pendingWeaponId is set by clicking either a hand weapon OR a thrown
     // weapon card (both call setPendingWeaponId). The lookup has to span
     // both lists or thrown items would have pendingWeapon === null,
@@ -855,9 +862,11 @@ export function PvpBattleScreen({
             ...pvpEquippedWeapons.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
             // Thrown weapons (slot 'thrown', AP 20) go through the same weapon
             // action — they were missing here, so the turn auto-passed with 20 AP
-            // left even though a 20-AP throwable was still usable.
-            ...pvpEquippedThrown.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
-            ...pvpEquippedConsumables.map(i => pvpAdjustedApCost(i.apCost ?? 35)),
+            // left even though a 20-AP throwable was still usable. Depleted
+            // consumables/throwables (0 sealed charges left) are excluded so an
+            // empty supply doesn't keep a dead turn alive.
+            ...pvpEquippedThrown.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 40)),
+            ...pvpEquippedConsumables.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 35)),
         ];
         return Math.min(...costs);
     }
@@ -1484,19 +1493,22 @@ export function PvpBattleScreen({
                                             const wRange = item.weaponRange ?? 4;
                                             const apCost = item.apCost ?? 40;
                                             const isArmed = pendingWeaponId === item.id;
+                                            const chargesLeft = pvpItemChargesLeft(item.id);
+                                            const depleted = chargesLeft != null && chargesLeft <= 0;
+                                            const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
                                             return (
                                                 <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}`} key={item.id}>
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
-                                                        title={`${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                        title={depleted ? `${item.name} — none left this battle` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
                                                         onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={submitting || myAp < apCost}>
+                                                        disabled={submitting || myAp < apCost || depleted}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}{countSuffix}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
@@ -1508,19 +1520,22 @@ export function PvpBattleScreen({
                                         {/* ── Consumable cards (red) ── */}
                                         {pvpEquippedConsumables.map(item => {
                                             const apCost = item.apCost ?? 35;
+                                            const chargesLeft = pvpItemChargesLeft(item.id);
+                                            const depleted = chargesLeft != null && chargesLeft <= 0;
+                                            const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
                                             return (
                                                 <div className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card" key={item.id}>
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}`}
-                                                        title={`${item.name} | ${apCost} AP | Use`}
+                                                        title={depleted ? `${item.name} — none left this battle` : `${item.name} | ${apCost} AP | Use`}
                                                         onClick={() => { setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                        disabled={submitting || myAp < apCost}>
+                                                        disabled={submitting || myAp < apCost || depleted}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | Use</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}</span>
                                                     </button>
                                                 </div>
                                             );
