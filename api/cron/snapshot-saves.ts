@@ -20,7 +20,7 @@ import { isFullAdmin, safeEqual } from '../_auth.js';
  * pick up the daily versions too — no UI change needed.
  *
  * Dedup: skip a player whose most-recent snapshot is younger than
- * SKIP_IF_RECENT_HOURS. The 03:00 UTC firing + a 20h skip window means we get
+ * SKIP_IF_RECENT_MS. The 03:00 UTC firing + a 20h skip window means we get
  * one snapshot per player per day regardless of retries / double-firings.
  *
  * Auth: this endpoint stays mounted for manual/admin triggering and still
