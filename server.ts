@@ -36,6 +36,7 @@ import clearAttackHandler from './api/player/clear-attack.js';
 import healHandler       from './api/player/heal.js';
 import rosterHandler     from './api/player/roster.js';
 import playerTradeHandler from './api/player/trade.js';
+import blackMarketHandler from './api/festival/black-market.js';
 import pvpSessionHandler from './api/pvp/session.js';
 import pvpMoveHandler    from './api/pvp/move.js';
 import imagesHandler     from './api/images.js';
@@ -442,6 +443,7 @@ route('/player/clear-attack', clearAttackHandler);
 route('/player/heal',         healHandler);
 route('/player/roster',       rosterHandler);
 route('/player/trade',        playerTradeHandler);
+route('/festival/black-market', blackMarketHandler);
 
 // PvP
 route('/pvp/session', pvpSessionHandler);
