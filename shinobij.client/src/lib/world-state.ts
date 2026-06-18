@@ -315,8 +315,15 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
     };
 }
 
+// Village win/loss war records, surfaced on the Hall of Legends "Village Wars"
+// tab. Self-describing (each row carries its village name) — populated by the
+// world-state GET, which reads village:war-standing:* and stamps the name.
+export type WarStandingRecord = { wins: number; losses: number; lastResult?: "win" | "loss"; updatedAt: number; village: string };
+let sharedWarStandingsCache: WarStandingRecord[] = [];
+export function loadWarStandings(): WarStandingRecord[] { return sharedWarStandingsCache; }
+
 let lastSharedWorldStateSnapshot = "";
-export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[] }): boolean {
+export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[]; standings?: Partial<WarStandingRecord>[] }): boolean {
     const territories: Record<number, SectorTerritory> = {};
     (data.territories ?? []).forEach(territory => {
         const sector = Math.floor(Number(territory?.sector ?? 0));
@@ -333,11 +340,16 @@ export function hydrateSharedWorldState(data: { territories?: Partial<SectorTerr
         wars[normalized.id] = normalized;
     });
     sharedVillageWarCache = wars;
+    sharedWarStandingsCache = Array.isArray(data.standings)
+        ? data.standings
+            .filter((s): s is WarStandingRecord => Boolean(s && s.village))
+            .map(s => ({ wins: Math.max(0, Math.floor(Number(s.wins ?? 0))), losses: Math.max(0, Math.floor(Number(s.losses ?? 0))), lastResult: s.lastResult, updatedAt: Number(s.updatedAt ?? 0), village: String(s.village) }))
+        : [];
     // Report whether anything actually changed so the poller can skip a wasted
     // full-app re-render when the server payload is identical (common in the
     // village / when idle). The cache still updates every poll, so any re-render
     // from another source (e.g. the heartbeat) reads current data.
-    const snapshot = JSON.stringify([sharedSectorTerritoryCache, sharedVillageWarCache]);
+    const snapshot = JSON.stringify([sharedSectorTerritoryCache, sharedVillageWarCache, sharedWarStandingsCache]);
     const changed = snapshot !== lastSharedWorldStateSnapshot;
     lastSharedWorldStateSnapshot = snapshot;
     return changed;
