@@ -80,7 +80,7 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'dailyDonatedSeals', 'dailyDonationDate',
     'petEscortBonusReady', 'hunterRank',
     // Currencies — combat doesn't read them, only post-fight reward grants do.
-    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust',
+    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
     // Ranked stats are used elsewhere; only strip the rarely-needed ones.
     'rankedWins', 'rankedLosses',
     'createdAt', 'professionChosenAt',
@@ -126,6 +126,10 @@ const CURRENCY_CAPS: Record<string, number> = {
     auraDust: 100,
     mythicSeals: 50,
     honorSeals: 200,
+    // Hollow Gate-only currency. Generous per-save gain cap — well above the
+    // most a legit run can bank in one autosave cycle — since it's spent only
+    // inside the shrine, so a tampered pile has a small blast radius.
+    hollowShards: 200,
 };
 const MAX_STAT_GAIN = 500;   // per individual stat per save cycle
 // Total stat-points (sum across all 12 stats) a single save can grant.

@@ -722,6 +722,7 @@ import {
     rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot } from "./lib/hollow-gate-run";
 // Hollow Gate ASCII layouts + shrine dungeon generators moved to
 // ./lib/hollow-gate-dungeon — imported above.
 
@@ -6215,19 +6216,17 @@ export default function App() {
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
-        // Hollow Gate: a battle KO ends the run, matching trap death (the intro
-        // promises "only the Leave tile or your own corpse carries you out").
-        // The arena defeat path has already set hp:0 / hospitalized:true before
-        // this runs, so that flag cleanly distinguishes a loss from a win-continue
-        // (a win leaves the character un-hospitalized with an advanced run). On a
-        // loss we clear the saved run + local shrine state so re-entry costs a new
-        // Hollow Gate Key instead of resuming for free.
+        // Hollow Gate: a battle KO ends the run. The arena defeat path already
+        // set hp:0 / hospitalized:true, so that flag distinguishes a loss from a
+        // win-continue. On a loss we claw back 50% of the run's haul, clear the
+        // saved run, and forfeit the Key (re-entry costs a new one).
         if (pending?.kind === "hollowGateShrine" && character && (character.hospitalized || character.hp <= 0)) {
+            const deadRun = hollowGateRun;   // claw back 50% of this run's haul
             setHollowGateRun(null);
             setHollowGateEvent(null);
             setHollowGateHiddenChamber(null);
             setHollowGateLog([]);
-            setCharacter({ ...character, hollowGateRun: null });
+            setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun) : prev), hollowGateRun: null } : prev);
         }
         setScreen(returnScreen);
     }
@@ -6288,7 +6287,7 @@ export default function App() {
         // Consume exactly one Hollow Gate Key (drains the counted stack).
         const afterKey = removeItem(character, HOLLOW_GATE_KEY_ID, 1);
 
-        const run = generateHollowGateShrineRun(1);
+        const run = { ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) };
         setHollowGateRun(run);
         setHollowGateLog([
             "You press a Hollow Gate Key against the broken torii. The seal bends. You descend.",
@@ -6352,7 +6351,7 @@ export default function App() {
             setScreen("hollowGateShrine");
             return;
         }
-        const run = generateHollowGateShrineRun(1);
+        const run = { ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) };
         setHollowGateRun(run);
         setHollowGateLog([
             "(Admin test) You step through the broken torii — no seal, no key. The Hollow Gate echoes greet you anyway.",
@@ -6417,7 +6416,7 @@ export default function App() {
                     };
                     pushHollowGateLog(`[Ambush — Hollow Beast] ${activePet.name} squares off against ${wild.name}.`);
                     // Threat / torch reset upfront (matches normal ambush behaviour).
-                    setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                    setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
                     setPendingPetBattleOpponent({
                         owner: "Hollow Gate",
                         pet: wild,
@@ -6437,7 +6436,7 @@ export default function App() {
             const ownedCardCount = character.tileCards?.length ?? 0;
             if (ownedCardCount >= 5) {
                 pushHollowGateLog("[Ambush — Tile Seal] A shadow opponent slams a stone table into the corridor.");
-                setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
                 setHollowGateTileGameActive(true);
                 setScreen("hollowGateTiles");
                 return;
@@ -6815,8 +6814,7 @@ export default function App() {
                 const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
                 const nextHp = Math.max(0, character.hp - dmg);
                 const willDie = nextHp <= 0;
-                // On death, match the existing death pipeline used by Arena loss:
-                //   updateCharacter({ ...character, hp: 0, hospitalized: true })
+                // On death, match the Arena-loss pipeline: hp:0 + hospitalized.
                 setCharacter({
                     ...character,
                     hp: willDie ? 0 : nextHp,
@@ -6833,7 +6831,7 @@ export default function App() {
                             tone: "danger",
                             onSelect: () => {
                                 setHollowGateEvent(null);
-                                leaveHollowGateShrine();
+                                leaveHollowGateShrine({ death: true });
                                 setScreen("hospital");
                             },
                         }],
@@ -6868,7 +6866,6 @@ export default function App() {
                 // Chests also refill the Torch of Reiki by 2.
                 const torchRefill = 2;
                 pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
-                // Patch-form: only touches keys/torch, never overwrites player position.
                 markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
                 setHollowGateEvent({
                     title: "Shrine Offering Chest",
@@ -6947,7 +6944,7 @@ export default function App() {
                             tone: "primary",
                             onSelect: () => {
                                 const next = generateHollowGateShrineRun(hollowGateRun.floor + 1);
-                                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4) });
+                                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
                                 setHollowGateEvent(null);
                             },
@@ -7101,7 +7098,7 @@ export default function App() {
                                     tone: "danger",
                                     onSelect: () => {
                                         setHollowGateEvent(null);
-                                        leaveHollowGateShrine();
+                                        leaveHollowGateShrine({ death: true });
                                         setScreen("hospital");
                                     },
                                 }],
@@ -7277,13 +7274,15 @@ export default function App() {
             setTimeout(() => triggerHollowGateAmbush(), 0);
         }
     }
-    function leaveHollowGateShrine() {
+    function leaveHollowGateShrine(opts?: { death?: boolean }) {
+        // Death exit claws back 50% of the run's haul; a voluntary exit keeps it
+        // all. Functional setCharacter so a stale closure can't revert hp:0.
+        const deadRun = opts?.death ? hollowGateRun : null;
         setHollowGateRun(null);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         setHollowGateLog([]);
-        // Clear the saved run on the character so future entries start fresh.
-        if (character) setCharacter({ ...character, hollowGateRun: null });
+        setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun) : prev), hollowGateRun: null } : prev);
         setScreen("worldMap");
     }
     function onHollowGateBattleWin() {
@@ -7296,10 +7295,9 @@ export default function App() {
             // had a boss tile on Floor 1-4; defensively we still handle it.)
             const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
             const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
-            // Every battle encounter resets both the threat meter (0) and the
-            // Torch of Reiki (10/10). The dungeon rewards survivors: clearing
-            // a fight earns you a fresh window before the next ambush builds.
-            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0, torch: 10 };
+            // Surviving a fight resets threat (a fresh window) but NOT the Torch
+            // — the Torch is the run clock, refilled only by chests/shrines/Keeper.
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
             setHollowGateRun(nextRun);
             pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
@@ -7336,19 +7334,19 @@ export default function App() {
             } else {
                 // Legacy / defensive: boss on a non-final floor auto-advances.
                 const next = generateHollowGateShrineRun(hollowGateRun.floor + 1);
-                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4) });
+                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4), entryCurrencies: hollowGateRun.entryCurrencies });
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
             }
         } else if (isAmbush) {
             // Ambush survived → full reset of both meters.
-            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
-            pushHollowGateLog("The ambush ends. Threat dissipates and the Torch of Reiki flares back to full.");
+            setHollowGateRun({ ...hollowGateRun, threat: 0 });
+            pushHollowGateLog("The ambush ends. Threat dissipates — but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it.");
         } else {
             // Regular battle / elite / pet_battle (themed-shinobi fallback)
             // — also full reset. The previous "threat -= 25" partial reset
             // made fights feel less rewarding than they should.
-            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
-            pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates and the Torch of Reiki flares back to full.");
+            setHollowGateRun({ ...hollowGateRun, threat: 0 });
+            pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates — the Torch of Reiki, though, keeps burning down.");
         }
     }
 
@@ -8872,9 +8870,9 @@ export default function App() {
                                     ryo: character.ryo + ryoGain,
                                     auraDust: (character.auraDust ?? 0) + auraDustGain,
                                 });
-                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust. Threat dissipates; Torch flares to full.`);
+                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust. Threat dissipates; the Torch keeps burning down.`);
                             }
-                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
                         }}
@@ -8888,7 +8886,7 @@ export default function App() {
                                 setCharacter({ ...character, hp: nextHp });
                                 pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max). Threat dissipates.`);
                             }
-                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
                         }}
