@@ -11,7 +11,6 @@
  * existing combat-math.ts / bloodline.ts pattern.
  */
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
-import { generateHollowGateWingRun } from "./hollow-gate-wings";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H } from "../constants/game";
 import { petTreatItems, petRarityOrder } from "../data/pet-config";
@@ -449,26 +448,19 @@ export function buildRunFromParsedLayout(
 export function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
 
-    // Branching-wings floor (Phase 2B) is the primary layout — a spawn hub that
-    // opens into treasure / beast / trial wings (only the trial descends). Its
-    // topology is fixed, so the reachability guard inside should never trip;
-    // if it somehow does, fall through to the legacy hand-authored layouts.
-    try {
-        return generateHollowGateWingRun(floor, isFinalFloor);
-    } catch {
-        // fall through to layouts / BSP
+    // Random-maze dungeon (owner preference — the branching-wings generator in
+    // lib/hollow-gate-wings is kept but no longer the default). For more per-run
+    // variety, ~half the floors use a fresh procedural BSP maze and ~half use a
+    // shuffled hand-authored maze layout. The wing-aware UI/mechanics safely
+    // no-op on these floors (no wingThemes → no tint, door labels, or sealing).
+    if (Math.random() < 0.5) {
+        const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
+        for (const layoutSrc of shuffled) {
+            const parsed = parseHollowGateLayout(layoutSrc);
+            if (parsed) return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
+        }
     }
-
-    // Hand-designed layouts (legacy). Shuffle order so consecutive floors rarely
-    // use the same one. Each is validated for reachability; bad layouts skipped.
-    const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
-    for (const layoutSrc of shuffled) {
-        const parsed = parseHollowGateLayout(layoutSrc);
-        if (!parsed) continue;
-        return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
-    }
-
-    // Fallback: procedural BSP. Always works, just less visually distinctive.
+    // Procedural BSP maze — random rooms + corridors, fresh every run.
     return generateHollowGateShrineRunBSP(floor);
 }
 
