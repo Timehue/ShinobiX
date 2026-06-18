@@ -366,6 +366,17 @@ async function settleVillageWar(war, now) {
             await bumpVillageStanding(winner, 'win', now);
             await bumpVillageStanding(loser, 'loss', now);
         }
+        // Reaching here means the war IS settled (we placed the marker now, or it
+        // already existed). Stamp the war record so the polled GET skips it from
+        // now on. Pure optimization — the NX marker above is the real once-only
+        // guard, so this is safe even if it races/fails (worst case: one more
+        // harmless no-op attempt next poll). Also flags pre-existing settled wars.
+        await (0, _lock_js_1.withKvLock)(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
+            const fresh = await _storage_js_1.kv.get(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
+            if (!fresh || fresh.settled)
+                return;
+            await _storage_js_1.kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, { ...fresh, settled: true });
+        }).catch(() => undefined);
     }
     catch { /* best-effort; the NX marker prevents a double-apply on any retry */ }
 }
@@ -434,7 +445,7 @@ async function handler(req, res) {
         // war that has ended with a winner — once each, via the NX marker inside
         // settleVillageWar — even wars that ended on the decay timer while offline.
         for (const w of wars) {
-            if (w.endedAt && w.winnerVillage)
+            if (w.endedAt && w.winnerVillage && !w.settled)
                 void settleVillageWar(w, now);
         }
         // Don't block the GET response on the persist — let writes run in
