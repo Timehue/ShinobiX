@@ -19,6 +19,7 @@ import { SectorScatter } from "../components/SectorScatter";
 import { SectorMap, isSectorMapEnabled } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
+import { HollowGateAttunement } from "../components/HollowGateAttunement";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
@@ -495,6 +496,8 @@ export function WorldMap({
         { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 50, y: 79, icon: "HG" },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
+    const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
+    const [showAttunement, setShowAttunement] = useState(false);   // Shrine Attunement panel
     const sectorPoints = [
         // ── Shadow / Moonshadow territory (1–20) — bottom-right quadrant ──
         { id: 1, x: 58, y: 50 }, { id: 2, x: 64, y: 49 }, { id: 3, x: 71, y: 49 }, { id: 4, x: 78, y: 50 }, { id: 5, x: 85, y: 53 },
@@ -542,7 +545,7 @@ export function WorldMap({
         // village-wide unlock OR a Hollow Gate Key (handled inside the entry
         // function — it shows its own prompts for missing unlock / daily cap).
         if (location.type === "hollowGate") {
-            onEnterHollowGate?.();
+            setHollowGateMenu(true);   // choose: enter the shrine, or attune (spend shards)
             return;
         }
         // Enemy village ? territory exploration page; own village & Central ? normal landmark
@@ -1723,6 +1726,20 @@ export function WorldMap({
 
     return (
         <div className="card">
+            {hollowGateMenu && (
+                <div onClick={() => setHollowGateMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
+                    <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 20, maxWidth: 380, width: "100%", textAlign: "center" }}>
+                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
+                        <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <button onClick={() => { setHollowGateMenu(false); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
+                            <button onClick={() => { setHollowGateMenu(false); setShowAttunement(true); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
+                            <button onClick={() => setHollowGateMenu(false)} style={{ padding: 6, borderRadius: 8, border: "1px solid #475569", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showAttunement && <HollowGateAttunement character={character} updateCharacter={updateCharacter} onClose={() => setShowAttunement(false)} />}
             {/* scroll wrapper keeps the map pannable on narrow mobile screens */}
             <div className="world-map-scroll">
             <div
