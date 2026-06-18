@@ -6,7 +6,7 @@
  * api/festival/_black-market.ts.
  */
 
-export const BLACK_MARKET_COST = 25_000;
+export const BLACK_MARKET_COST = 50_000;
 export const BLACK_MARKET_DAILY_CAP = 10;
 
 export type BlackMarketReward = {
