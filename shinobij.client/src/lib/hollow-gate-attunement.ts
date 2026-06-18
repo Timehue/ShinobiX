@@ -92,7 +92,7 @@ export function applyAttunementToRun(run: HollowGateShrineRun, character: Charac
 // ── Key Forge ────────────────────────────────────────────────────────────────
 // Once the Key Forge node is attuned, the player can convert Hollow Shards into
 // Hollow Gate Keys at the shrine — the self-sustaining entry loop.
-export const KEY_FORGE_COST = 60;
+export const KEY_FORGE_COST = 80;   // deliberate: ~3 keys / full run of shards
 export const keyForgeUnlocked = (c: Character) => attunementRank(c, "key-forge") > 0;
 
 export function forgeHollowGateKey(character: Character): BuyResult {
