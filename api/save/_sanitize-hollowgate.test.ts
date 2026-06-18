@@ -89,3 +89,26 @@ test('dailyHollowGateRuns: legit same-day increment kept; genuine new-day reset 
     );
     assert.equal(reset.dailyHollowGateRuns, 0, 'new-day reset is not clamped');
 });
+
+// ── Core anti-tamper clamps ─────────────────────────────────────────────────
+// The broadest reward surface in the repo — EVERY player save POST flows through
+// sanitizeCharacterSave. These lock the level/ryo/currency caps so a future
+// refactor that drops a floor or loosens a cap fails the build, not in prod.
+
+test('level: cannot regress below the existing level (anti-rollback)', () => {
+    assert.equal(sanitize({ level: 40 }, { level: 50 }).level, 50, 'a save reporting a lower level is floored to existing');
+});
+
+test('level: per-save gain capped at +5 and hard-capped at 100', () => {
+    assert.equal(sanitize({ level: 999 }, { level: 50 }).level, 55, 'gain capped to +MAX_LEVEL_GAIN (5)');
+    assert.equal(sanitize({ level: 999 }, { level: 98 }).level, 100, 'hard-capped at LEVEL_CAP (100)');
+});
+
+test('ryo: per-save gain capped at +1,000,000 over existing', () => {
+    assert.equal(sanitize({ ryo: 9_999_999 }, { ryo: 1000 }).ryo, 1_001_000, 'capped to exRyo + MAX_RYO_GAIN');
+});
+
+test('soft currencies: per-save gain capped (fateShards +50, honorSeals +200)', () => {
+    assert.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 60, 'fateShards capped to +50');
+    assert.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 205, 'honorSeals capped to +200');
+});
