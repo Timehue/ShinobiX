@@ -27,9 +27,9 @@ function nd(id: string, path: string, effectKey: string, perRank: number): NodeM
 function cap(id: string, path: string): NodeMeta { return { id, path, capstone: true }; }
 const TREES: Record<Prof, NodeMeta[]> = {
     healer: [
-        nd('heal-cooldown', 'triage', 'healCooldownPct', 5), nd('heal-amount', 'triage', 'healAmountPct', 5), cap('mass-triage', 'triage'),
-        nd('heal-power', 'restoration', 'healPowerPct', 4), nd('heal-cost', 'restoration', 'healCostPct', 5), cap('full-recovery', 'restoration'),
-        nd('heal-reach', 'outreach', 'healReach', 1), nd('heal-support', 'outreach', 'healPowerPct', 4), cap('village-lifeline', 'outreach'),
+        nd('heal-cooldown', 'triage', 'healCooldownPct', 5), nd('heal-tireless', 'triage', 'healCooldownPct', 5), cap('mass-triage', 'triage'),
+        nd('heal-xp', 'restoration', 'healXpPct', 6), nd('heal-discharge', 'restoration', 'healDischargePct', 6), cap('full-recovery', 'restoration'),
+        nd('heal-support', 'outreach', 'healXpPct', 6), nd('heal-vigil', 'outreach', 'healCooldownPct', 5), cap('village-lifeline', 'outreach'),
     ],
     vanguard: [
         nd('seal-gap', 'reaver', 'sealGapSoftenPct', 10), nd('seal-cap', 'reaver', 'sealDailyCapFlat', 5), cap('warmonger', 'reaver'),

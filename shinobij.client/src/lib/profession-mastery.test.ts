@@ -37,20 +37,20 @@ test("points spent / available track the spec and the budget", () => {
 });
 
 test("pointsInPath ignores capstones and other paths", () => {
-    const c = char("healer", HEALER_CAP + 6 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3, "heal-amount": 2, "heal-power": 1 });
-    assert.equal(pointsInPath(c, "triage"), 5);       // cooldown 3 + amount 2
-    assert.equal(pointsInPath(c, "restoration"), 1);  // power 1
+    const c = char("healer", HEALER_CAP + 6 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3, "heal-tireless": 2, "heal-xp": 1 });
+    assert.equal(pointsInPath(c, "triage"), 5);       // cooldown 3 + tireless 2
+    assert.equal(pointsInPath(c, "restoration"), 1);  // heal-xp 1
 });
 
 test("canIncrement enforces max rank, budget, and the capstone gate", () => {
     // maxed node
     assert.equal(canIncrement(char("healer", HEALER_CAP + 6 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3 }), "heal-cooldown").ok, false);
     // no points left (level 1, already spent 1)
-    assert.equal(canIncrement(char("healer", HEALER_CAP + MASTERY_XP_PER_LEVEL, { "heal-amount": 1 }), "heal-power").ok, false);
+    assert.equal(canIncrement(char("healer", HEALER_CAP + MASTERY_XP_PER_LEVEL, { "heal-tireless": 1 }), "heal-xp").ok, false);
     // capstone gate not met (only 3 in path, need 4)
     assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3 }), "mass-triage").ok, false);
     // capstone gate met (4 in path) + points available
-    assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3, "heal-amount": 1 }), "mass-triage").ok, true);
+    assert.equal(canIncrement(char("healer", HEALER_CAP + 9 * MASTERY_XP_PER_LEVEL, { "heal-cooldown": 3, "heal-tireless": 1 }), "mass-triage").ok, true);
 });
 
 test("incrementNode adds a legal rank, no-ops an illegal one", () => {
@@ -62,13 +62,13 @@ test("incrementNode adds a legal rank, no-ops an illegal one", () => {
 
 test("sanitizeSpec clamps to budget and drops ungated capstones (anti-tamper)", () => {
     // Forged spec: everything maxed + capstone, but budget is only 4.
-    const forged = { "heal-cooldown": 3, "heal-amount": 3, "mass-triage": 1, "heal-power": 3 };
+    const forged = { "heal-cooldown": 3, "heal-tireless": 3, "mass-triage": 1, "heal-xp": 3 };
     const cleaned = sanitizeSpec("healer", forged, 4);
     assert.ok(masterySpecTotal("healer", cleaned) <= 4);
     assert.ok(!cleaned["mass-triage"]); // can't afford / gate after clamp
 
     // Legal full path within budget 8 keeps the capstone.
-    const legal = sanitizeSpec("healer", { "heal-cooldown": 3, "heal-amount": 3, "mass-triage": 1 }, 8);
+    const legal = sanitizeSpec("healer", { "heal-cooldown": 3, "heal-tireless": 3, "mass-triage": 1 }, 8);
     assert.equal(legal["mass-triage"], 1);
 });
 

@@ -58,18 +58,18 @@ export const MASTERY_TREES: Record<Profession, MasteryPath[]> = {
     healer: [
         { id: "triage", name: "Triage", nodes: [
             node("triage", "heal-cooldown", "Field Triage", "-5% heal cooldown per rank.", "healCooldownPct", 5),
-            node("triage", "heal-amount", "Steady Hands", "+5% HP restored per heal per rank.", "healAmountPct", 5),
-            capstone("triage", "mass-triage", "Mass Triage", "Treat every injured villager in the hospital in one action."),
+            node("triage", "heal-tireless", "Tireless", "A further -5% heal cooldown per rank.", "healCooldownPct", 5),
+            capstone("triage", "mass-triage", "Mass Triage", "Treat every hospitalized villager in one action."),
         ] },
         { id: "restoration", name: "Restoration", nodes: [
-            node("restoration", "heal-power", "Mending Light", "+4% healing power per rank.", "healPowerPct", 4),
-            node("restoration", "heal-cost", "Clean Recovery", "-5% healing / discharge cost per rank.", "healCostPct", 5),
-            capstone("restoration", "full-recovery", "Full Recovery", "Your heal restores a patient to full HP."),
+            node("restoration", "heal-xp", "Diligent Care", "+6% heal XP per rank (faster Healer progression).", "healXpPct", 6),
+            node("restoration", "heal-discharge", "Quick Discharge", "-6% your own hospital timer per rank.", "healDischargePct", 6),
+            capstone("restoration", "full-recovery", "Full Recovery", "Removes the per-target heal cooldown — heal anyone, anytime."),
         ] },
         { id: "outreach", name: "Outreach", nodes: [
-            node("outreach", "heal-reach", "Wandering Medic", "Heal villagers from +1 neighboring sector per rank.", "healReach", 1),
-            node("outreach", "heal-support", "Triage Network", "+4% healing power while supporting the village per rank.", "healPowerPct", 4),
-            capstone("outreach", "village-lifeline", "Village Lifeline", "Heal injured villagers in the hospital no matter what sector they're in."),
+            node("outreach", "heal-support", "Wandering Medic", "+6% heal XP while supporting the village per rank.", "healXpPct", 6),
+            node("outreach", "heal-vigil", "Vigil", "-5% heal cooldown per rank.", "healCooldownPct", 5),
+            capstone("outreach", "village-lifeline", "Village Lifeline", "Heal injured villagers anywhere in the village, any sector."),
         ] },
     ],
     vanguard: [
@@ -216,10 +216,8 @@ export function sanitizeSpec(profession: Profession | undefined, rawSpec: unknow
 // resolved magnitude. Reductions show a minus sign.
 export const EFFECT_LABELS: Record<string, (v: number) => string> = {
     healCooldownPct: (v) => `−${v}% heal cooldown`,
-    healAmountPct: (v) => `+${v}% HP restored per heal`,
-    healPowerPct: (v) => `+${v}% healing power`,
-    healCostPct: (v) => `−${v}% healing / discharge cost`,
-    healReach: (v) => `+${v} sector heal reach`,
+    healXpPct: (v) => `+${v}% heal XP`,
+    healDischargePct: (v) => `−${v}% your hospital timer`,
     sealGapSoftenPct: (v) => `+${v}% seals kept vs higher-level targets`,
     sealDailyCapFlat: (v) => `+${v} daily Honor-Seal cap`,
     sealTrainCostPct: (v) => `−${v}% Honor-Seal cost of jutsu training`,

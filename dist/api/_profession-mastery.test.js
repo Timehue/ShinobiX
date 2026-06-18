@@ -19,7 +19,7 @@ const HEAL_CAP = 49_275;
 });
 (0, node_test_1.test)('sanitizeMasterySpec clamps an over-budget forged spec', () => {
     // Forge everything; budget only 4.
-    const forged = { 'heal-cooldown': 3, 'heal-amount': 3, 'mass-triage': 1, 'heal-power': 3 };
+    const forged = { 'heal-cooldown': 3, 'heal-tireless': 3, 'mass-triage': 1, 'heal-xp': 3 };
     const out = (0, _profession_mastery_js_1.sanitizeMasterySpec)('healer', forged, 4);
     const spent = Object.entries(out).reduce((s, [id, r]) => s + r * (id === 'mass-triage' ? 2 : 1), 0);
     strict_1.default.ok(spent <= 4, `spent ${spent} > 4`);
@@ -51,7 +51,7 @@ const HEAL_CAP = 49_275;
     strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('petTamer', { 'exp-materials': 2 }, 'expMaterialPct'), 10);
     strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('vanguard', { 'seal-train-cost': 3 }, 'sealTrainCostPct'), 15);
     strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('vanguard', { 'seal-train-cost': 3 }, 'expRewardPct'), 0); // wrong key
-    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('healer', {}, 'healPowerPct'), 0);
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('healer', { 'heal-cooldown': 3 }, 'healCooldownPct'), 15);
     strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('bogus', { 'exp-rewards': 3 }, 'expRewardPct'), 0);
     // ranks beyond max don't over-count
     strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('petTamer', { 'exp-rewards': 99 }, 'expRewardPct'), 15);
