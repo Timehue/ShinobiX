@@ -725,6 +725,7 @@ import {
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
 import { wingEntryEffect } from "./lib/hollow-gate-wings";
+import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 // Hollow Gate ASCII layouts + shrine dungeon generators moved to
 // ./lib/hollow-gate-dungeon — imported above.
 
@@ -6218,17 +6219,23 @@ export default function App() {
         setPendingArenaStoryBattle(null);
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
-        // Hollow Gate: a battle KO ends the run. The arena defeat path already
-        // set hp:0 / hospitalized:true, so that flag distinguishes a loss from a
-        // win-continue. On a loss we claw back 50% of the run's haul, clear the
-        // saved run, and forfeit the Key (re-entry costs a new one).
+        // Hollow Gate: a battle KO ends the run unless a Second Wind is armed —
+        // then it revives you (half HP) and the run continues. Otherwise claw
+        // back 50% of the haul, clear the run, and forfeit the Key.
         if (pending?.kind === "hollowGateShrine" && character && (character.hospitalized || character.hp <= 0)) {
-            const deadRun = hollowGateRun;   // claw back 50% of this run's haul
-            setHollowGateRun(null);
-            setHollowGateEvent(null);
-            setHollowGateHiddenChamber(null);
-            setHollowGateLog([]);
-            setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun) : prev), hollowGateRun: null } : prev);
+            const deadRun = hollowGateRun;
+            const wind = deadRun ? tryHollowGateSecondWind(deadRun, character) : null;
+            if (wind) {
+                setHollowGateRun(wind.run);
+                setCharacter({ ...wind.character, hollowGateRun: wind.run });
+                pushHollowGateLog(wind.log);
+            } else {
+                setHollowGateRun(null);
+                setHollowGateEvent(null);
+                setHollowGateHiddenChamber(null);
+                setHollowGateLog([]);
+                setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun) : prev), hollowGateRun: null } : prev);
+            }
         }
         setScreen(returnScreen);
     }
@@ -6809,6 +6816,15 @@ export default function App() {
                 const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
                 const nextHp = Math.max(0, character.hp - dmg);
                 const willDie = nextHp <= 0;
+                const trapWind = willDie && hollowGateRun?.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
+                if (trapWind) {
+                    setCharacter(trapWind.character);
+                    setHollowGateRun(prev => prev ? trapWind.run : prev);
+                    markResolved();
+                    pushHollowGateLog(`${flavor} The trap's killing blow lands — then ${trapWind.log}`);
+                    setHollowGateEvent({ title: "Second Wind", body: trapWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
+                    return;
+                }
                 // On death, match the Arena-loss pipeline: hp:0 + hospitalized.
                 setCharacter({
                     ...character,
@@ -7084,6 +7100,14 @@ export default function App() {
                         const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
                         const nextHp = Math.max(0, character.hp - dmg);
                         const willDie = nextHp <= 0;
+                        const doorWind = willDie && hollowGateRun?.secondWindArmed ? tryHollowGateSecondWind(hollowGateRun, character) : null;
+                        if (doorWind) {
+                            setCharacter(doorWind.character);
+                            setHollowGateRun(prev => prev ? doorWind.run : prev);
+                            pushHollowGateLog(`The cursed seal drains your last breath — then ${doorWind.log}`);
+                            setHollowGateEvent({ title: "Second Wind", body: doorWind.log, kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
+                            return;
+                        }
                         setCharacter({
                             ...character,
                             hp: willDie ? 0 : nextHp,
@@ -8105,23 +8129,14 @@ export default function App() {
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
                                         // Lit when the room-flood visibility set includes this index.
-                                        // (Replaces the old Manhattan-distance flashlight model.)
                                         const visible = visibleSet.has(i);
-                                        // Wall test prefers terrain (BSP runs) but falls back to kind for
-                                        // legacy saved runs that don't have terrain set.
+                                        // Wall test prefers terrain; falls back to kind for legacy runs.
                                         const wall = tile.terrain === "wall" || (tile.terrain == null && tile.kind === "wall");
                                         const terrainKind: HollowGateTerrain =
                                             tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
 
-                                        // Compose background by tile state. Walls and floors both
-                                        // pull from variant banks via bgForTerrain() — deterministic
-                                        // per-cell so the dungeon stops looking like a photocopier.
-                                        //
-                                        // Visibility model: ONLY currently-visible tiles render their
-                                        // terrain. Past-walked (`revealed`) tiles fall back to deep
-                                        // fog — the player should see their current room and nothing
-                                        // more. Walls outside the lit area go dark too so the room
-                                        // shape reads as a discrete pool of light.
+                                        // Background by tile state: only currently-visible tiles draw
+                                        // their terrain (via bgForTerrain variant banks); the rest = fog.
                                         const cellTheme = tileTheme(i);
                                         let bg: string;
                                         if (wall) {
@@ -8129,27 +8144,16 @@ export default function App() {
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
                                         } else if (visible) {
-                                            // Pick the terrain base layer (room / corridor / door),
-                                            // then overlay a decoration sprite if assigned, then a
-                                            // content-tint if this cell carries an event.
+                                            // Terrain base layer, then optional decoration sprite, then content tint.
                                             let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
-                                            // Overlay decoration sprite if the generator marked this cell.
-                                            // pickDecorationFor draws from the combined pool: themed decos
-                                            // first (for themed-room cohesion), then user picker slots, then
-                                            // the 4 atlas defaults. tile.decoration's stored 0-3 index is
-                                            // used as a hint so old saved runs keep deterministic decos.
                                             if (tile.decoration != null) {
                                                 const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
                                                 if (decoImg) {
                                                     terrainBase = `url(${decoImg}) center/80% no-repeat, ${terrainBase}`;
                                                 }
                                             }
-                                            // SURPRISE TILES — trap / battle / elite / pet_event — stay
-                                            // disguised as plain floor while only "visible". Their tint +
-                                            // icon ONLY appear after the player has actually stepped on
-                                            // them (revealed === true). This preserves the "did I just
-                                            // walk into a trap?" surprise even with the new room-flood
-                                            // visibility.
+                                            // Surprise tiles (trap/battle/elite/pet) stay disguised as
+                                            // floor until actually stepped on (revealed) — tint hidden.
                                             const isSurpriseKind = tile.kind === "trap"
                                                 || tile.kind === "battle"
                                                 || tile.kind === "elite"
@@ -8185,10 +8189,8 @@ export default function App() {
                                         // room) get the shadow detail — fog walls stay flat dark.
                                         const wallShadow = wall && visible ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
 
-                                        // Icon by state. Strict flashlight: only currently-visible
-                                        // tiles show their icon. Surprise tiles (trap/battle/elite/
-                                        // pet_event) further require `revealed` — they stay disguised
-                                        // as plain floor until the player has actually stepped on them.
+                                        // Icon shows only on visible tiles; surprise tiles also need
+                                        // `revealed` (stay disguised as floor until stepped on).
                                         const isSurpriseKind = tile.kind === "trap"
                                             || tile.kind === "battle"
                                             || tile.kind === "elite"
