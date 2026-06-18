@@ -12,7 +12,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BLACK_MARKET_DAILY_CAP = exports.BLACK_MARKET_COST = void 0;
 exports.rollBlackMarket = rollBlackMarket;
-exports.BLACK_MARKET_COST = 25_000; // ryo per pull
+exports.BLACK_MARKET_COST = 50_000; // ryo per pull
 exports.BLACK_MARKET_DAILY_CAP = 10;
 // Inclusive integer in [min, max] from a [0,1) rng.
 function randInt(rand, min, max) {
@@ -27,19 +27,19 @@ const EMPTY = { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals
 function rollBlackMarket(rand) {
     const r = rand();
     if (r < 0.50) {
-        return { ...EMPTY, tier: 'scraps', label: 'Scraps from the dust', ryo: randInt(rand, 4_000, 12_000) };
+        return { ...EMPTY, tier: 'scraps', label: 'Scraps from the dust', ryo: randInt(rand, 8_000, 24_000) };
     }
     if (r < 0.72) {
         return { ...EMPTY, tier: 'trinket', label: 'A smuggled trinket', fateShards: randInt(rand, 1, 3) };
     }
     if (r < 0.87) {
-        return { ...EMPTY, tier: 'haul', label: 'A tidy haul', ryo: randInt(rand, 22_000, 38_000) };
+        return { ...EMPTY, tier: 'haul', label: 'A tidy haul', ryo: randInt(rand, 44_000, 76_000) };
     }
     if (r < 0.95) {
         return { ...EMPTY, tier: 'relic', label: 'A relic cache', boneCharms: randInt(rand, 4, 8), auraStones: randInt(rand, 2, 4) };
     }
     if (r < 0.99) {
-        return { ...EMPTY, tier: 'fortune', label: 'A desert fortune', ryo: randInt(rand, 55_000, 85_000) };
+        return { ...EMPTY, tier: 'fortune', label: 'A desert fortune', ryo: randInt(rand, 110_000, 170_000) };
     }
-    return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 50_000, fateShards: 25, boneCharms: 5, auraStones: 2 };
+    return { ...EMPTY, tier: 'jackpot', label: 'THE BLACK SUN JACKPOT', ryo: 100_000, fateShards: 25, boneCharms: 5, auraStones: 2 };
 }
