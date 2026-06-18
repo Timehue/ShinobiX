@@ -20,6 +20,7 @@ exports.stopSnapshotCron = stopSnapshotCron;
  * DISABLE_SNAPSHOT_CRON=1 on secondaries to skip the redundant keyspace scan.
  */
 const snapshot_saves_js_1 = require("./snapshot-saves.js");
+const _ranked_season_js_1 = require("./_ranked-season.js");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
@@ -48,6 +49,21 @@ async function fire() {
     catch (err) {
         console.error('[cron-scheduler] snapshot run threw:', err.message);
     }
+    // Ranked-season rollover on the same daily tick. It self-checks the season
+    // clock and no-ops (`pending`) until the ~30-day window expires, so running
+    // it nightly just means the rollover fires within 24h of the month ending.
+    try {
+        const s = await (0, _ranked_season_js_1.runRankedSeasonRollover)();
+        if (s.action === 'rolled-over') {
+            console.log(`[cron-scheduler] ranked season ${s.seasonId} → ${s.nextSeasonId}: champion=${s.playerChampion ?? '—'} pet=${s.petChampion ?? '—'}, ${s.resetCount} reset, ${s.rewardedCount} rewarded.`);
+        }
+        else if (s.action === 'initialized') {
+            console.log(`[cron-scheduler] ranked season ${s.seasonId} initialised.`);
+        }
+    }
+    catch (err) {
+        console.error('[cron-scheduler] ranked-season rollover threw:', err.message);
+    }
 }
 /**
  * Start the daily 03:00-UTC snapshot. Idempotent. No-op when
@@ -61,6 +77,9 @@ function startSnapshotCron() {
     }
     if (_timeout || _interval)
         return;
+    // Initialise the ranked-season clock at boot so season 1 exists immediately
+    // (and a long-overdue rollover fires) rather than waiting for the next tick.
+    void (0, _ranked_season_js_1.runRankedSeasonRollover)().catch(() => undefined);
     const delay = msUntilNextTargetHour(Date.now());
     _timeout = setTimeout(() => {
         void fire();

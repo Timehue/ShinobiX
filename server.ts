@@ -132,6 +132,7 @@ import professionChooseHandler from './api/profession/choose.js';
 import injuredVillagersHandler from './api/player/injured-villagers.js';
 // Weekly boss
 import weeklyBossHandler from './api/weekly-boss.js';
+import rankedSeasonHandler from './api/ranked-season.js';
 // Admin moderation
 import moderationHandler from './api/admin/moderation.js';
 // Admin: durable battle-receipt lookup (support / reward-dispute debugging)
@@ -626,6 +627,7 @@ route('/player/injured-villagers', injuredVillagersHandler);
 
 // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
 route('/weekly-boss', weeklyBossHandler);
+route('/ranked-season', rankedSeasonHandler);
 
 // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
 route('/admin/moderation', moderationHandler);
