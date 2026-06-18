@@ -1,6 +1,34 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateHollowGateWingRun } from "./hollow-gate-wings";
+import { generateHollowGateWingRun, wingEntryEffect } from "./hollow-gate-wings";
+import type { HollowGateShrineRun } from "../types/character";
+
+const wingRun = (over: Partial<HollowGateShrineRun>): HollowGateShrineRun =>
+    ({ wingThemes: { 0: "treasure", 1: "beast", 2: "trial" }, sealedWings: [], committedDetour: null, ...over }) as HollowGateShrineRun;
+
+test("wingEntryEffect: first detour entry commits + seals the other detour", () => {
+    const e = wingEntryEffect(wingRun({}), 0);     // enter treasure
+    assert.equal(e.blocked, false);
+    assert.equal(e.committedTheme, "treasure");
+    assert.equal(e.patch?.committedDetour, 0);
+    assert.deepEqual(e.patch?.sealedWings, [1]);   // beast sealed, trial untouched
+});
+
+test("wingEntryEffect: trial always open and never seals; hub free", () => {
+    assert.deepEqual(wingEntryEffect(wingRun({}), 2), { blocked: false });
+    assert.equal(wingEntryEffect(wingRun({}), undefined).blocked, false);
+});
+
+test("wingEntryEffect: a sealed wing is blocked; committed detour re-enterable", () => {
+    const run = wingRun({ sealedWings: [1], committedDetour: 0 });
+    assert.equal(wingEntryEffect(run, 1).blocked, true);   // beast sealed
+    assert.equal(wingEntryEffect(run, 0).blocked, false);  // treasure (committed) ok
+    assert.equal(wingEntryEffect(run, 2).blocked, false);  // trial always
+});
+
+test("wingEntryEffect: non-wing (legacy) floor never gates", () => {
+    assert.equal(wingEntryEffect({} as HollowGateShrineRun, 0).blocked, false);
+});
 
 test("wing floor: hub + treasure/beast/trial; only trial descends; hub is a cut vertex", () => {
     // Content is rolled, so run several times — generateHollowGateWingRun throws
