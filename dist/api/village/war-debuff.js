@@ -1,0 +1,31 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
+/*
+ * /api/village/war-debuff — GET ?village=<name>
+ *
+ * Returns the village's active "demoralized" debuff expiry (set on the loser's
+ * village-state at war settlement, api/world-state.ts). 0 when none / expired.
+ * Read by Training.tsx + PetYard.tsx to apply the -10% training XP / +20% jutsu
+ * training time. Public + briefly cached (the value changes only at war-end).
+ */
+const VILLAGE_STATE_PREFIX = 'game:village-state:';
+function villageStateKey(village) {
+    return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res, req);
+    if (req.method === 'OPTIONS')
+        return res.status(200).end();
+    if (req.method !== 'GET')
+        return res.status(405).end();
+    const village = typeof req.query.village === 'string' ? req.query.village : '';
+    if (!village)
+        return res.status(400).json({ error: 'Missing village.' });
+    const state = await _storage_js_1.kv.get(villageStateKey(village));
+    const until = Number(state?.warLossDebuffUntil ?? 0) || 0;
+    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
+    return res.status(200).json({ warLossDebuffUntil: until > Date.now() ? until : 0 });
+}

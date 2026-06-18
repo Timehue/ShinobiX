@@ -56,6 +56,7 @@ import messagesHandler     from './api/messages.js';
 import perfBeaconHandler   from './api/perf-beacon.js';
 import kageHandler         from './api/village/kage.js';
 import kageChallengeHandler from './api/village/kage-challenge.js';
+import villageWarDebuffHandler from './api/village/war-debuff.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
@@ -488,6 +489,8 @@ route('/perf-beacon', perfBeaconHandler);
 route('/village/kage', kageHandler);
 // Village — server-authoritative Kage succession (declare/press/accept/resolve).
 route('/village/kage-challenge', kageChallengeHandler);
+// Village — losing-village "demoralized" training debuff lookup (read-only).
+route('/village/war-debuff', villageWarDebuffHandler);
 
 // Bloodlines
 route('/bloodlines/list', bloodlinesListHandler);

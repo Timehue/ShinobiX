@@ -151,6 +151,21 @@ export async function validateVillageStateWrite(
         next.hollowGateUnlocked = wantsUnlocked || wasUnlocked || false;
     }
 
+    // ── warLossDebuffUntil (demoralized debuff) ─────────────────────
+    // Set ONLY by the server at war settlement (api/world-state.ts). The client
+    // may never clear or shorten it — pin to the previous value if a write tries
+    // to lower it, so a losing village can't dodge its 3-day training debuff.
+    {
+        const prevUntil = Number(prev.warLossDebuffUntil ?? 0) || 0;
+        const inUntil = Number(incoming.warLossDebuffUntil ?? prevUntil) || 0;
+        if (!ctx.isAdmin && inUntil < prevUntil) {
+            next.warLossDebuffUntil = prevUntil;
+            suppressed.push('warLossDebuffUntil decrease (server-set only)');
+        } else {
+            next.warLossDebuffUntil = inUntil;
+        }
+    }
+
     // ── treasury ────────────────────────────────────────────────────
     // For each currency: positive deltas are bounded by per-call max;
     // negative deltas (withdrawals) require seatedKage.
