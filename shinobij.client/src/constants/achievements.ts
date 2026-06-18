@@ -53,6 +53,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "ranked-50",    name: "Iron Climber",    desc: "Win 50 ranked matches.",       category: "Ranked", icon: "🛡", check: c => (c.rankedWins ?? 0) >= 50 },
     { id: "ranked-1800",  name: "Tempered Steel",  desc: "Reach 1,800 ranked rating.",   category: "Ranked", icon: "⚜️", check: c => (c.rankedRating ?? 0) >= 1800 },
     { id: "ranked-2200",  name: "Apex Predator",   desc: "Reach 2,200 ranked rating.",   category: "Ranked", icon: "🦅", check: c => (c.rankedRating ?? 0) >= 2200 },
+    { id: "ranked-season-champ", name: "Season Champion", desc: "Finish #1 on a ranked ladder when the season ends.", category: "Ranked", icon: "👑", check: c => (c.rankedSeasonsWon ?? 0) >= 1 },
 
     // Missions
     { id: "mission-25",   name: "Errand Runner",     desc: "Complete 25 missions.",    category: "Missions", icon: "📜", check: c => (c.totalMissionsCompleted ?? 0) >= 25 },

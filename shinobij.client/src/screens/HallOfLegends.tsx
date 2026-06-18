@@ -50,6 +50,19 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         }).catch(() => {});
         return () => { alive = false; };
     }, [tab]);
+    // Ranked season clock + last season's champions (for the ranked tab header).
+    type SeasonArchiveRow = { name: string; village?: string; rating: number; rank: number };
+    type SeasonInfo = {
+        current: { id: number; startedAt: number; endsAt: number } | null;
+        lastSeason: { id: number; endedAt: number; player: SeasonArchiveRow[]; pet: SeasonArchiveRow[] } | null;
+    };
+    const [season, setSeason] = useState<SeasonInfo | null>(null);
+    useEffect(() => {
+        if (tab !== "ranked") return;
+        let alive = true;
+        fetch("/api/ranked-season").then(r => r.json()).then(data => { if (alive) setSeason(data as SeasonInfo); }).catch(() => {});
+        return () => { alive = false; };
+    }, [tab]);
     const [bounties, setBounties] = useState<BountyEntry[]>([]);
     const [bountyTarget, setBountyTarget] = useState("");
     const [bountyAmount, setBountyAmount] = useState(5000);
@@ -172,10 +185,42 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
             <div className="hol-board">
                 {tab === "ranked" && (
                     <>
-                        <p className="hol-board-label">Ranked Battle Rating (Elo)</p>
+                        {season?.current && (() => {
+                            const ms = Math.max(0, season.current.endsAt - Date.now());
+                            const d = Math.floor(ms / 86_400_000);
+                            const h = Math.floor((ms % 86_400_000) / 3_600_000);
+                            return (
+                                <div style={{ padding: "10px 14px", marginBottom: "0.8rem", borderRadius: 10, background: "rgba(120,53,15,0.35)", border: "1px solid rgba(250,204,21,0.5)" }}>
+                                    <strong style={{ color: "#facc15" }}>🏆 Ranked Season {season.current.id}</strong>
+                                    <span style={{ color: "#e7d9b0" }}> · {ms > 0 ? `ends in ${d}d ${h}h` : "ending soon"}</span>
+                                    <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.76rem" }}>At season end the top 3 of each ladder are rewarded (champion: Warforged Relic + aura stones) and ratings soft-reset toward 1000.</p>
+                                </div>
+                            );
+                        })()}
+                        <p className="hol-board-label">⚔ Ranked Battle Rating (Elo)</p>
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} />
                         ))}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🐾 Pet Ranked Rating (Elo)</p>
+                        {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
+                            <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} />
+                        ))}
+                        {season?.lastSeason && (() => {
+                            const champs = [
+                                season.lastSeason.player[0] ? { ...season.lastSeason.player[0], mode: "PvP" } : null,
+                                season.lastSeason.pet[0] ? { ...season.lastSeason.pet[0], mode: "Pet" } : null,
+                            ].filter(Boolean) as (SeasonArchiveRow & { mode: string })[];
+                            return (
+                                <>
+                                    <p className="hol-board-label" style={{ marginTop: "1rem" }}>👑 Season {season.lastSeason.id} Champions</p>
+                                    {champs.length === 0
+                                        ? <p className="hol-empty">No champions crowned last season.</p>
+                                        : champs.map((ch) => (
+                                            <Row key={ch.mode} rank={1} name={ch.name} value={`${ch.rating} Elo`} suffix={` · ${ch.mode}`} village={ch.village} />
+                                        ))}
+                                </>
+                            );
+                        })()}
                     </>
                 )}
                 {tab === "kills" && (
