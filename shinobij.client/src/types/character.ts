@@ -83,6 +83,10 @@ export type HollowGateShrineRun = {
     // Random seed baked into the run on creation. Used so the theme picker
     // gives different rooms different themes per-run.
     seed?: number;
+    // Clawback-eligible currency balances captured at run entry. On a run death
+    // the player loses 50% of (current − entry) per currency; see
+    // lib/hollow-gate-run. Absent on legacy in-progress runs → no claw-back.
+    entryCurrencies?: Partial<Record<string, number>>;
 };
 
 // ── Endless Tower run state ───────────────────────────────────────────────
@@ -127,6 +131,10 @@ export type Character = {
     auraDust: number;
     auraSphereLevel: number;
     fateShards: number;
+    // Hollow Gate-only currency (earned in the shrine, spent only on shrine
+    // consumables + the Shrine Attunement tree). Optional: absent on legacy
+    // saves → treated as 0. See lib/hollow-gate-run + docs/hollow-gate-loop.md.
+    hollowShards?: number;
     hp: number;
     maxHp: number;
     chakra: number;
