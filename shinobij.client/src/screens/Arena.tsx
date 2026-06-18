@@ -25,7 +25,8 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal } from "../lib/pve-difficulty";
+import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
+import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -550,8 +551,9 @@ export function Arena({
     // Every enemy→player hit in standard PvE passes through pveGuardedEnemyHit:
     // per-hit cap + per-turn cap + easy-band mercy floor (no sudden death). The
     // two refs track the player's HP at the START of the enemy's turn and the
-    // damage already dealt this turn (the enemy acts once per turn, then a player
-    // DoT tick resolves in finishEnemyAiAction — both counted). Non-standard PvE
+    // damage already dealt this turn (accumulated across the enemy's whole
+    // multi-action turn, then the player DoT tick in endEnemyTurn — all counted,
+    // so the per-turn cap bounds a chained turn, not just one hit). Non-standard PvE
     // (live PvP, endless, ranked) bypasses the guard entirely. See pve-difficulty.ts.
     const guardEnemyHit = (rawDamage: number): number => {
         if (!isStandardPve) return Math.max(0, Math.floor(Number.isFinite(rawDamage) ? rawDamage : 0));
@@ -660,6 +662,19 @@ export function Arena({
     const setLogRef        = useRef<(msg: string) => void>(() => {});
     const autoEndTurnRef   = useRef<() => void>(() => {});
     const enemyTurnRef     = useRef<() => void>(() => {});
+    // Multi-action enemy turn (Phase 0): the enemy now spends its full 100-AP
+    // budget across up to 5 actions instead of taking one and ending. These refs
+    // carry the turn's remaining budget across the scheduled per-action re-entry
+    // (enemyContinueRef, fired by setTimeout so each action reads FRESH committed
+    // state — the same latest-ref pattern enemyTurnRef uses). enemyTurnActiveRef
+    // guards against a double-begin (e.g. a re-fired effect) starting two loops.
+    const enemyContinueRef = useRef<() => void>(() => {});
+    const enemyTurnApRef       = useRef(100);
+    const enemyTurnActionsRef  = useRef(0);
+    const enemyTurnActiveRef   = useRef(false);
+    // Rolling memory of the player's recent actions (most-recent-last), feeding
+    // buildPlayerRead so the enemy can read playstyle (turtle / burst / kite).
+    const playerActionLogRef   = useRef<PlayerActionRecord[]>([]);
 
     const pendingPlayerStunApPenaltyRef = useRef(false);
     const lastPetActionKeyRef = useRef("");
@@ -1222,6 +1237,20 @@ export function Arena({
         // Reset the 45-second round timer on every successful action so the
         // player's clock doesn't expire while they're mid-combo.
         setRoundTimerKey((k) => k + 1);
+        // Record the action for the enemy AI's playstyle read (Phase 1 memory).
+        // Coarse classification — the enemy only needs the broad shape of what the
+        // player did, not the exact id. Capped to the last 8 entries.
+        const jutsuForAction = equippedJutsus.find((j) => j.id === actionId);
+        const itemForAction = combatEquippedItems.find((it) => it.id === actionId);
+        const itemSlot = itemForAction ? normalizeEquipmentSlot(itemForAction.slot) : undefined;
+        const isWeaponAction = itemSlot === "hand" || itemSlot === "thrown";
+        const actionKind = classifyPlayerAction(actionId, {
+            isSelfSupport: jutsuForAction ? isSelfSupportJutsu(jutsuForAction) : false,
+            isWeapon: isWeaponAction,
+            isItem: !!itemForAction && !isWeaponAction,
+            dealtDamage: jutsuForAction ? !isSelfSupportJutsu(jutsuForAction) && jutsuForAction.effectPower > 0 : undefined,
+        });
+        playerActionLogRef.current = [...playerActionLogRef.current.slice(-7), { kind: actionKind, turn }];
         return true;
     }
 
@@ -2871,6 +2900,13 @@ export function Arena({
         if (rule.condition === "distance_lower_than") return dist < rule.value;
         if (rule.condition === "distance_higher_than") return dist > rule.value;
         if (rule.condition === "hp_lower_than") return (enemyHp / enemyMaxHp) * 100 < rule.value;
+        // Player-reactive conditions (Phase 2) — read the player's live state so a
+        // rule can answer what the player is doing, not just the clock/distance.
+        if (rule.condition === "player_hp_lower_than") return (playerHp / Math.max(1, character.maxHp)) * 100 < rule.value;
+        if (rule.condition === "player_has_shield") return playerShield > 0;
+        if (rule.condition === "player_has_buff") return activeStatuses(playerStatuses).filter((s) => s.kind === "positive").length >= Math.max(1, rule.value);
+        if (rule.condition === "player_low_ap") return ap < (rule.value || 50);
+        if (rule.condition === "self_has_debuff") return activeStatuses(enemyStatuses).filter((s) => s.kind === "negative").length >= Math.max(1, rule.value);
         return false;
     }
 
@@ -3482,25 +3518,270 @@ export function Arena({
         return true;
     }
 
-    function finishEnemyAiAction() {
+    // ── Multi-action enemy turn (Phase 0) ──────────────────────────────────
+    // The enemy now spends its full 100-AP / 5-action budget instead of taking
+    // one action and ending. enemyTurn() does the once-per-turn start bookkeeping
+    // then takes the first action; afterEnemyAction schedules the next via
+    // enemyContinueRef (so each follow-up reads FRESH committed state); when the
+    // budget is spent, endEnemyTurn() runs the once-per-turn end bookkeeping and
+    // hands the turn back. AP costs / damage / tags are byte-identical to before
+    // — only the NUMBER and SEQUENCING of actions changed.
+
+    // Cheapest AP an enemy action could still cost this turn (mirrors the player's
+    // pveMinActionCost). Drives the auto-end: once the enemy can't afford even the
+    // cheapest move, the turn ends.
+    function enemyMinActionCost(): number {
+        const dist = distance(playerPos, enemyPos);
+        const costs: number[] = [dist <= 1 ? 40 : 30]; // basic strike (adjacent) or a 30-AP step to close
+        for (const j of enemyAiJutsus) {
+            if ((enemyJutsuCooldowns[j.id] ?? 0) > 0) continue;
+            if (j.target !== "SELF" && j.range > 0 && dist > j.range) continue;
+            costs.push(j.ap);
+        }
+        return Math.min(...costs);
+    }
+
+    // Reactive Clear (Phase 2): the enemy strips the player's positive effects,
+    // mirroring the player's clearEnemyPositiveEffects but in the other direction.
+    // Costs 60 AP and a 10-turn enemy cooldown (tracked in enemyJutsuCooldowns).
+    function enemyClearPlayerBuffs() {
+        if (activeStatuses(playerStatuses).some((s) => s.name === "Clear Prevent")) {
+            addCombatLog(`${character.name}'s Clear Prevent blocks ${opponentName}'s clear attempt.`, "clear", character.name);
+            setEnemyJutsuCooldowns((c) => ({ ...c, clear: 10 }));
+            return;
+        }
+        const removed = playerStatuses.filter((s) => s.kind === "positive").map((s) => s.name);
+        setPlayerStatuses((statuses) => statuses.filter((s) => s.kind !== "positive"));
+        setEnemyJutsuCooldowns((c) => ({ ...c, clear: 10 }));
+        setLog(`${opponentName} clears your buffs.`);
+        addCombatLog(`Clear: ${opponentName} removes ${character.name}'s positive effects${removed.length ? `: ${removed.join(", ")}` : "."}`, "clear", opponentName);
+    }
+
+    // Reactive Cleanse (Phase 2): the enemy sheds its own negative effects,
+    // mirroring the player's cleansePlayerNegativeEffects.
+    function enemyCleanseSelf() {
+        if (activeStatuses(enemyStatuses).some((s) => s.name === "Cleanse Prevent")) {
+            addCombatLog(`${opponentName}'s cleanse was prevented.`, "cleanse", opponentName);
+            setEnemyJutsuCooldowns((c) => ({ ...c, cleanse: 10 }));
+            return;
+        }
+        const removed = enemyStatuses.filter((s) => s.kind === "negative").map((s) => s.name);
+        setEnemyStatuses((statuses) => statuses.filter((s) => s.kind !== "negative"));
+        setEnemyJutsuCooldowns((c) => ({ ...c, cleanse: 10 }));
+        setLog(`${opponentName} cleanses itself.`);
+        addCombatLog(`Cleanse: ${opponentName} removes its negative effects${removed.length ? `: ${removed.join(", ")}` : "."}`, "cleanse", opponentName);
+    }
+
+    // One enemy basic action: step toward the player (30 AP) when out of range,
+    // else strike (40 AP). Honors the player's Absorb/Reflect/Recoil and the
+    // enemy's Lifesteal exactly as before; registers a player-Reflect win / a
+    // player KO. Does NOT run end-of-turn — endEnemyTurn does that once the whole
+    // turn is spent. Returns the AP spent (0 if it could do nothing).
+    function enemyBasicAttackOrMove(): number {
+        if (distance(playerPos, enemyPos) > 1) {
+            const next = nextStepToward(enemyPos, playerPos);
+            if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos) setEnemyPos(next);
+            setLog("Enemy moved closer across the grid.");
+            addCombatLog(`${opponentName} moves closer across the battlefield.`, "move", opponentName);
+            return 30;
+        }
+        const enemyBasicJutsu = makeJutsu("enemy-basic-strike", "Enemy Strike", "Taijutsu", 40, 1, 100, 0, 0, 0, [], "Earth");
+        let enemyDamage = calculateDamage(
+            enemyBasicJutsu,
+            enemyCombatStats,
+            characterCombatStats,
+            character.maxHp,
+            activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
+            playerArmorFactor,
+            1.0,
+            weatherDamageMultiplier(enemyBasicJutsu),
+            activeStatuses(enemyStatuses),
+            activeStatuses(playerStatuses),
+            pveAiMastery,
+        );
+        if (activeStatuses(enemyStatuses).some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal")) {
+            enemyDamage = Math.floor(enemyDamage * 0.85);
+        }
+        enemyDamage = guardEnemyHit(enemyDamage);
+        const blocked = Math.min(playerShield, enemyDamage);
+        const finalDamage = enemyDamage - blocked;
+        const statusAbsorbPct = sumActiveStatusPct(playerStatuses, "Absorb");
+        const itemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
+        const statusAbsorbed = statusAbsorbPct > 0 ? cappedPostDamage(finalDamage, statusAbsorbPct) : 0;
+        const absorbed = Math.min(finalDamage, itemAbsorbed + statusAbsorbed);
+        const statusReflectPct = sumActiveStatusPct(playerStatuses, "Reflect");
+        const statusReflected = statusReflectPct > 0 ? cappedPostDamage(finalDamage, statusReflectPct) : 0;
+        const itemReflected = equippedReflectPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
+
+        setPlayerShield((s) => Math.max(0, s - blocked));
+        setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDamage + absorbed)));
+        if (statusReflected > 0) {
+            setEnemyHp((hp) => Math.max(0, hp - statusReflected));
+            addCombatLog(`Reflect: ${opponentName} takes ${statusReflected} reflected damage.`, "reflect", character.name);
+        }
+        if (itemReflected > 0) {
+            setEnemyHp((hp) => Math.max(0, hp - itemReflected));
+            addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
+        }
+        const enemyDealtToPlayer = Math.max(0, finalDamage - absorbed);
+        const basicEnemyLsPct = sumActiveStatusPct(enemyStatuses, "Lifesteal");
+        if (basicEnemyLsPct > 0 && enemyDealtToPlayer > 0) {
+            const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLsPct));
+            if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
+        }
+        const basicEnemyRecoil = activeStatuses(enemyStatuses).find((s) => s.name === "Recoil");
+        const basicEnemyRecoilDmg = (basicEnemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, basicEnemyRecoil.percent ?? 30)) : 0;
+        if (basicEnemyRecoilDmg > 0) {
+            setEnemyHp((hp) => Math.max(0, hp - basicEnemyRecoilDmg));
+            addCombatLog(`Recoil: ${opponentName} takes ${basicEnemyRecoilDmg} recoil damage.`, "reflect", character.name);
+        }
+        if (enemyHp - statusReflected - itemReflected - basicEnemyRecoilDmg <= 0 && playerHp - finalDamage + absorbed > 0) {
+            winBattle();
+            return 40;
+        }
+        updateCharacter({ ...character, hp: Math.max(0, Math.min(character.maxHp, playerHp - finalDamage + absorbed)) });
+        if (playerHp - finalDamage + absorbed <= 0) {
+            setBattleEnded(true);
+            setBattleResult("loss");
+            setRaidBattleKind("none");
+            setLog(`${character.name} was defeated.`);
+            addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
+            if (rankedBattleActive) applyRankedLoss();
+            return 40;
+        }
+        setLog(`Enemy attacked for ${finalDamage}.`);
+        addCombatLog(`${opponentName} attacks ${character.name} for ${finalDamage} damage.${blocked ? ` Shield blocks ${blocked}.` : ""}${absorbed ? ` Absorb restores ${absorbed}.` : ""}`, "basicAttack", opponentName);
+        return 40;
+    }
+
+    // Pick + execute ONE enemy action. Reactive counter-play (Clear/Cleanse) is
+    // tried first, gated by band competence (pveAiCompetence) and the player read
+    // (buildPlayerRead) — standard PvE only, so PvP/ranked/endless are untouched.
+    // Then the existing rule engine, the opponentCharacter fallback, and finally
+    // a basic attack / step. Returns whether it acted and the AP it spent.
+    function enemyTakeAction(availableAp: number): { acted: boolean; apSpent: number } {
+        if (battleEnded) return { acted: false, apSpent: 0 };
+
+        if (isStandardPve) {
+            const comp = pveAiCompetence(opponentLevel, pendingAiProfile?.masterAi);
+            const read = buildPlayerRead({
+                turn,
+                hp: playerHp,
+                maxHp: character.maxHp,
+                ap,
+                shield: playerShield,
+                statuses: activeStatuses(playerStatuses),
+                recentActions: playerActionLogRef.current,
+            });
+            // Clear the player's buffs once they've stacked enough — or the moment
+            // they power up, if this band reads playstyle (hard/peer).
+            const clearThreshold = comp.readsBehavior && read.justPoweredUp ? 1 : comp.clearBuffThreshold;
+            if (Number.isFinite(clearThreshold) && read.meaningfulBuffCount >= clearThreshold && availableAp >= 60 && (enemyJutsuCooldowns["clear"] ?? 0) <= 0) {
+                enemyClearPlayerBuffs();
+                return { acted: true, apSpent: 60 };
+            }
+            // Shed our own debuffs when heavily afflicted.
+            if (Number.isFinite(comp.cleanseSelfThreshold) && availableAp >= 60 && (enemyJutsuCooldowns["cleanse"] ?? 0) <= 0) {
+                const selfDebuffs = activeStatuses(enemyStatuses).filter((s) => s.kind === "negative").length;
+                if (selfDebuffs >= comp.cleanseSelfThreshold) {
+                    enemyCleanseSelf();
+                    return { acted: true, apSpent: 60 };
+                }
+            }
+        }
+
+        if (pendingAiProfile) {
+            const matchedRules = pendingAiProfile.rules.filter(aiRuleMatches);
+            for (const rule of matchedRules) {
+                const specificJutsu = rule.jutsuId ? enemyAiJutsus.find((jutsu) => jutsu.id === rule.jutsuId) : undefined;
+                const chosenJutsu = rule.action === "use_specific_jutsu" ? specificJutsu : rule.action === "use_highest_power_jutsu" ? highestPowerAiJutsu(availableAp) : undefined;
+                if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, availableAp)) {
+                    return { acted: true, apSpent: chosenJutsu.ap };
+                }
+                if (rule.action === "clear_player_buffs" && isStandardPve && availableAp >= 60 && (enemyJutsuCooldowns["clear"] ?? 0) <= 0 && activeStatuses(playerStatuses).some((s) => s.kind === "positive")) {
+                    enemyClearPlayerBuffs();
+                    return { acted: true, apSpent: 60 };
+                }
+                if (rule.action === "cleanse_self" && isStandardPve && availableAp >= 60 && (enemyJutsuCooldowns["cleanse"] ?? 0) <= 0 && activeStatuses(enemyStatuses).some((s) => s.kind === "negative")) {
+                    enemyCleanseSelf();
+                    return { acted: true, apSpent: 60 };
+                }
+                if (rule.action === "defend") {
+                    const defJ = enemyAiJutsus.find((j) => isSelfSupportJutsu(j) && j.ap <= availableAp && (enemyJutsuCooldowns[j.id] ?? 0) <= 0 && (j.target === "SELF" || j.range <= 0 || distance(playerPos, enemyPos) <= j.range));
+                    if (defJ && enemyUseAiJutsu(defJ, availableAp)) return { acted: true, apSpent: defJ.ap };
+                }
+                if (rule.action === "move_towards_opponent" && distance(playerPos, enemyPos) > 1) {
+                    const next = nextStepToward(enemyPos, playerPos);
+                    if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
+                    setLog(`${opponentName} moves closer.`);
+                    addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
+                    return { acted: true, apSpent: 30 }; // a positioning step costs the move AP
+                }
+                if (rule.action === "use_basic_attack" && distance(playerPos, enemyPos) <= 1) {
+                    break;
+                }
+            }
+        }
+
+        if (opponentCharacter && enemyAiJutsus.length > 0) {
+            const chosenJutsu = highestPowerAiJutsu(availableAp);
+            if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, availableAp)) {
+                addCombatLog(`${opponentName} uses an equipped player jutsu.`, chosenJutsu.id, opponentName);
+                return { acted: true, apSpent: chosenJutsu.ap };
+            }
+            if (distance(playerPos, enemyPos) > 1) {
+                const next = nextStepToward(enemyPos, playerPos);
+                if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
+                setLog(`${opponentName} moves closer.`);
+                addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
+                return { acted: true, apSpent: 30 };
+            }
+        }
+
+        const apSpent = enemyBasicAttackOrMove();
+        return { acted: apSpent > 0, apSpent };
+    }
+
+    // After an action: debit the budget and either schedule the next action (so it
+    // reads fresh committed state via enemyContinueRef) or end the turn. A failed
+    // or zero-cost action ends the turn so the loop always makes progress.
+    function afterEnemyAction(res: { acted: boolean; apSpent: number }) {
+        if (battleEnded) { enemyTurnActiveRef.current = false; return; }
+        if (!res.acted || res.apSpent <= 0) { endEnemyTurn(); return; }
+        enemyTurnApRef.current = Math.max(0, enemyTurnApRef.current - res.apSpent);
+        enemyTurnActionsRef.current += 1;
+        setEnemyAp(enemyTurnApRef.current);
+        // 850ms between chained actions: lets React commit (so the next action
+        // reads fresh state) and gives the fight a readable beat.
+        window.setTimeout(() => enemyContinueRef.current(), 850);
+    }
+
+    // Scheduled continuation — runs in a fresh render so it sees committed state.
+    function enemyContinue() {
+        if (battleEnded) { enemyTurnActiveRef.current = false; return; }
+        if (!enemyTurnActiveRef.current) return;
+        if (enemyTurnActionsRef.current >= 5 || enemyTurnApRef.current < enemyMinActionCost()) {
+            endEnemyTurn();
+            return;
+        }
+        afterEnemyAction(enemyTakeAction(enemyTurnApRef.current));
+    }
+
+    // Once-per-turn end bookkeeping (was finishEnemyAiAction + the basic-attack
+    // tail, now unified). Player DoT ticks only for statuses ACTIVE this turn
+    // (activeRound <= turn), so a DoT applied earlier in THIS multi-action turn
+    // defers to next turn — reproducing the old commit-timing deferral now that
+    // end-of-turn runs in a post-commit closure.
+    function endEnemyTurn() {
+        enemyTurnActiveRef.current = false;
+        if (battleEnded) return;
         setEnemyStatuses((s) => tickStatuses(s));
         const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
         pendingPlayerStunApPenaltyRef.current = false;
-        // Tick player statuses inline so we can apply Wound/Poison/Drain to the
-        // POST-tick list — same ordering as api/pvp/move.ts endTurn (ticks the
-        // outgoing player, then DoTs the incoming player at turn start).
-        const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses));
-        // FUNCTIONAL set: a direct set from this stale snapshot would clobber any
-        // debuff the enemy JUST queued this turn via queueToPlayer (Poison/Drain/
-        // Ignition/Seal/Lag/Recoil) — those updates run first, then the direct set
-        // overwrote them, so they vanished. Ticking the live state preserves them.
-        // DoT damage still uses the pre-existing `tickedPlayerStatuses` above, so a
-        // just-applied (deferred) DoT correctly deals 0 damage this turn.
+        const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses).filter((s) => (s.activeRound ?? turn) <= turn));
+        // FUNCTIONAL set: ticks the LIVE committed state so debuffs queued this
+        // turn (Poison/Drain/Ignition/Seal/Lag/Recoil) are preserved and ticked.
         setPlayerStatuses((prev) => tickStatuses(withoutStun(prev)));
-        // Player DoT tick at start of next turn (PvE↔PvP parity). The server
-        // applies Wound/Poison/Drain to BOTH fighters; PvE used to apply DoTs
-        // only to the enemy, so a stacked Wound on the player did nothing.
-        // DR-mitigated via the same dotMitigationPVE used for the enemy side.
         const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), tickedPlayerStatuses);
         let pDotDamage = 0;
         let pDrainChakra = 0;
@@ -3551,11 +3832,12 @@ export function Arena({
 
     function enemyTurn() {
         if (battleEnded) return;
+        if (enemyTurnActiveRef.current) return; // a multi-action enemy turn is already resolving
         setActiveActor("enemy");
         setActionsThisTurn(0);
         // Snapshot HP at the start of the enemy's turn and reset the per-turn
         // damage accumulator — both feed the easy-band mercy floor / per-turn cap
-        // in guardEnemyHit (the enemy acts once, then a player DoT tick resolves).
+        // in guardEnemyHit, which now bounds the enemy's whole multi-action turn.
         enemyTurnStartHpRef.current = playerHp;
         enemyTurnDealtRef.current = 0;
         const enemyStunned = enemyStatuses.some((s) => s.name === "Stun");
@@ -3633,212 +3915,15 @@ export function Arena({
 
         if (enemyHp - dotDamage <= 0) return winBattle();
 
-        if (pendingAiProfile) {
-            const matchedRules = pendingAiProfile.rules.filter(aiRuleMatches);
-
-            for (const rule of matchedRules) {
-                const specificJutsu = rule.jutsuId ? enemyAiJutsus.find((jutsu) => jutsu.id === rule.jutsuId) : undefined;
-                const chosenJutsu = rule.action === "use_specific_jutsu" ? specificJutsu : rule.action === "use_highest_power_jutsu" ? highestPowerAiJutsu(enemyTurnAp) : undefined;
-
-                if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, enemyTurnAp)) {
-                    // No "follows AI Rule N" log line — internal AI bookkeeping
-                    // isn't combat information (player request: keep it out of
-                    // the battle log). enemyUseAiJutsu already logs the cast.
-                    finishEnemyAiAction();
-                    return;
-                }
-
-                if (rule.action === "move_towards_opponent" && distance(playerPos, enemyPos) > 1) {
-                    const next = nextStepToward(enemyPos, playerPos);
-                    if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
-                    setLog(`${opponentName} moves closer.`);
-                    addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
-                    finishEnemyAiAction();
-                    return;
-                }
-
-                if (rule.action === "use_basic_attack" && distance(playerPos, enemyPos) <= 1) {
-                    break;
-                }
-            }
-        }
-
-        if (opponentCharacter && enemyAiJutsus.length > 0) {
-            const chosenJutsu = highestPowerAiJutsu(enemyTurnAp);
-            if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, enemyTurnAp)) {
-                addCombatLog(`${opponentName} uses an equipped player jutsu.`, chosenJutsu.id, opponentName);
-                finishEnemyAiAction();
-                return;
-            }
-
-            if (distance(playerPos, enemyPos) > 1) {
-                const next = nextStepToward(enemyPos, playerPos);
-                if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
-                setLog(`${opponentName} moves closer.`);
-                addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
-                finishEnemyAiAction();
-                return;
-            }
-        }
-
-        const enemyBasicJutsu = makeJutsu("enemy-basic-strike", "Enemy Strike", "Taijutsu", 40, 1, 100, 0, 0, 0, [], "Earth");
-        let enemyDamage = calculateDamage(
-            enemyBasicJutsu,
-            enemyCombatStats,
-            characterCombatStats,
-            character.maxHp,
-            activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
-            playerArmorFactor,
-            1.0,
-            weatherDamageMultiplier(enemyBasicJutsu),
-            // ACTIVE only — every other calculateDamage call filters; this one
-            // was raw, letting a deferred amp boost the enemy's same-turn basic.
-            activeStatuses(enemyStatuses),
-            activeStatuses(playerStatuses),
-            pveAiMastery,
-        );
-
-        // Bloodline Seal still nips an extra 15% off — calculateDamage already
-        // folds DDG/DDT/IDT/Ignition via the soft-cap pools, so the old
-        // multiplicativeTagMultiplier stack is no longer needed here.
-        if (activeStatuses(enemyStatuses).some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal")) {
-            enemyDamage = Math.floor(enemyDamage * 0.85);
-        }
-        // Same guard as the jutsu path (per-hit + per-turn + mercy; no-op uncapped).
-        enemyDamage = guardEnemyHit(enemyDamage);
-
-        setEnemyAp(0);
-
-        // Tracks the player's HP after the basic attack so the end-of-turn DoT
-        // block below can stack on it and check KO correctly.
-        let playerHpAfterBasic = playerHp;
-        if (distance(playerPos, enemyPos) > 1) {
-            const next = nextStepToward(enemyPos, playerPos);
-
-            if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos) setEnemyPos(next);
-            setLog("Enemy moved closer across the grid.");
-            addCombatLog(`${opponentName} moves closer across the battlefield.`, "move", opponentName);
-        } else {
-            const blocked = Math.min(playerShield, enemyDamage);
-            const finalDamage = enemyDamage - blocked;
-            const statusAbsorbPct = sumActiveStatusPct(playerStatuses, "Absorb");
-            const itemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
-            const statusAbsorbed = statusAbsorbPct > 0 ? cappedPostDamage(finalDamage, statusAbsorbPct) : 0;
-            const absorbed = Math.min(finalDamage, itemAbsorbed + statusAbsorbed);
-            playerHpAfterBasic = Math.max(0, Math.min(character.maxHp, playerHp - finalDamage + absorbed));
-            const statusReflectPct = sumActiveStatusPct(playerStatuses, "Reflect");
-            const statusReflected = statusReflectPct > 0 ? cappedPostDamage(finalDamage, statusReflectPct) : 0;
-            const itemReflected = equippedReflectPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
-
-            setPlayerShield((s) => Math.max(0, s - blocked));
-            setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDamage + absorbed)));
-            if (statusReflected > 0) {
-                setEnemyHp((hp) => Math.max(0, hp - statusReflected));
-                addCombatLog(`Reflect: ${opponentName} takes ${statusReflected} reflected damage.`, "reflect", character.name);
-            }
-            if (itemReflected > 0) {
-                setEnemyHp((hp) => Math.max(0, hp - itemReflected));
-                addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
-            }
-            // Enemy Lifesteal: heal the enemy by a % of the damage it dealt this attack.
-            const enemyDealtToPlayer = Math.max(0, finalDamage - absorbed);
-            const basicEnemyLsPct = sumActiveStatusPct(enemyStatuses, "Lifesteal");
-            if (basicEnemyLsPct > 0 && enemyDealtToPlayer > 0) {
-                const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLsPct));
-                if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
-            }
-            // Enemy Recoil debuff: enemy hurts itself when it attacks (player-applied).
-            const basicEnemyRecoil = activeStatuses(enemyStatuses).find((s) => s.name === "Recoil");
-            const basicEnemyRecoilDmg = (basicEnemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, basicEnemyRecoil.percent ?? 30)) : 0;
-            if (basicEnemyRecoilDmg > 0) {
-                setEnemyHp((hp) => Math.max(0, hp - basicEnemyRecoilDmg));
-                addCombatLog(`Recoil: ${opponentName} takes ${basicEnemyRecoilDmg} recoil damage.`, "reflect", character.name);
-            }
-            // Player Reflect/Recoil can kill the enemy on its own turn — register the
-            // win now (only if the player survives the hit).
-            if (enemyHp - statusReflected - itemReflected - basicEnemyRecoilDmg <= 0 && playerHp - finalDamage + absorbed > 0) {
-                return winBattle();
-            }
-
-            updateCharacter({
-                ...character,
-                hp: Math.max(0, Math.min(character.maxHp, playerHp - finalDamage + absorbed)),
-            });
-
-            if (playerHp - finalDamage + absorbed <= 0) {
-                setBattleEnded(true);
-                setBattleResult("loss");
-                setRaidBattleKind("none");
-                setLog(`${character.name} was defeated.`);
-                addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
-                if (rankedBattleActive) applyRankedLoss();
-                return;
-            }
-
-            setLog(`Enemy attacked for ${finalDamage}.`);
-            addCombatLog(`${opponentName} attacks ${character.name} for ${finalDamage} damage.${blocked ? ` Shield blocks ${blocked}.` : ""}${absorbed ? ` Absorb restores ${absorbed}.` : ""}`, "basicAttack", opponentName);
-        }
-
-        // End-of-enemy-turn bookkeeping. Previously a basic-attack (or move) turn
-        // skipped the player's DoT ticks and Stun entirely — only the jutsu path
-        // applied them — so Poison/Wound/Drain and Stun did nothing here. Mirror
-        // finishEnemyAiAction. DoT uses a FUNCTIONAL setPlayerHp so it stacks on
-        // the basic-attack damage already applied; KO is checked against the known
-        // post-basic HP.
-        setEnemyStatuses((s) => tickStatuses(s));
-        const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
-        pendingPlayerStunApPenaltyRef.current = false;
-        const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses));
-        // FUNCTIONAL set: a direct set from this stale snapshot would clobber any
-        // debuff the enemy JUST queued this turn via queueToPlayer (Poison/Drain/
-        // Ignition/Seal/Lag/Recoil) — those updates run first, then the direct set
-        // overwrote them, so they vanished. Ticking the live state preserves them.
-        // DoT damage still uses the pre-existing `tickedPlayerStatuses` above, so a
-        // just-applied (deferred) DoT correctly deals 0 damage this turn.
-        setPlayerStatuses((prev) => tickStatuses(withoutStun(prev)));
-        const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), tickedPlayerStatuses);
-        let pDotDamage = 0;
-        let pDrainChakra = 0;
-        tickedPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
-            if (s.name === "Wound") pDotDamage += Math.floor((s.amount || 0) * playerDotMit);
-            if (s.name === "Drain") {
-                const amt = Math.floor((s.amount ?? 50) * playerDotMit);
-                pDotDamage += amt;
-                pDrainChakra += amt;
-            }
-            if (s.name === "Poison") {
-                const raw = s.amount ?? Math.floor(character.maxChakra * (s.percent ?? 6) / 100);
-                pDotDamage += Math.floor(raw * playerDotMit);
-            }
-        });
-        // DoT counts toward the enemy-turn budget (same mercy guard as the jutsu path).
-        pDotDamage = guardEnemyHit(pDotDamage);
-        if (pDotDamage > 0) {
-            const finalPlayerHp = Math.max(0, playerHpAfterBasic - pDotDamage);
-            setPlayerHp((hp) => Math.max(0, hp - pDotDamage));
-            const nextChakra = pDrainChakra > 0 ? Math.max(0, character.chakra - pDrainChakra) : character.chakra;
-            updateCharacter({ ...character, hp: finalPlayerHp, chakra: nextChakra });
-            const drainNote = pDrainChakra > 0 ? ` Drain also removes ${pDrainChakra} chakra.` : "";
-            addCombatLog(`Damage over time: ${character.name} takes ${pDotDamage} damage from active effects.${drainNote}`, "effects", character.name);
-            if (finalPlayerHp <= 0) {
-                setBattleEnded(true);
-                setBattleResult("loss");
-                setRaidBattleKind("none");
-                setLog(`${character.name} bleeds out from active effects.`);
-                addCombatLog(`${character.name} is defeated by damage over time.`, "defeat", opponentName);
-                if (rankedBattleActive) applyRankedLoss();
-                return;
-            }
-        }
-        reduceCooldowns();
-        setAp(playerStunned ? Math.max(0, 100 - STUN_AP_PENALTY) : 100);
-        setEnemyAp(100);
-        setActiveActor("player");
-        setActionsThisTurn(0);
-        setTurn((t) => t + 1);
-        if (playerStunned) {
-            addCombatLog(`Stun: ${character.name} starts their turn with ${STUN_AP_PENALTY} less AP.`, "stun", character.name);
-        }
+        // Start the multi-action turn. The first action runs synchronously (same
+        // closure as the start bookkeeping above — identical to the old single-
+        // action behaviour); afterEnemyAction schedules any follow-ups via
+        // enemyContinueRef so they read fresh committed state. enemyTurnActiveRef
+        // guards against a double-begin (e.g. waitTurn + the auto-resolve effect).
+        enemyTurnActiveRef.current = true;
+        enemyTurnApRef.current = enemyTurnAp;
+        enemyTurnActionsRef.current = 0;
+        afterEnemyAction(enemyTakeAction(enemyTurnAp));
     }
 
     function resetBattle(nextEnemyHp = enemyMaxHp, firstActor?: "player" | "enemy") {
@@ -3866,6 +3951,12 @@ export function Arena({
         setPotionUsesThisBattle(0);
         setSummonedPetId("");
         lastPetActionKeyRef.current = "";
+        // Reset the multi-action enemy-turn bookkeeping so a fresh fight never
+        // inherits a stale "turn in progress" flag or leftover budget/memory.
+        enemyTurnActiveRef.current = false;
+        enemyTurnApRef.current = 100;
+        enemyTurnActionsRef.current = 0;
+        playerActionLogRef.current = [];
         const initiative = firstActor ?? rollInitiative();
         setActiveActor(initiative);
         setActionsThisTurn(0);
@@ -3883,6 +3974,7 @@ export function Arena({
         waitTurn();
     };
     enemyTurnRef.current    = enemyTurn;
+    enemyContinueRef.current = enemyContinue;
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
