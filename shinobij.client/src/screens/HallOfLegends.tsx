@@ -10,7 +10,8 @@ import {
     PROFESSION_MAX_RANK,
     professionThresholds,
 } from "../App";
-import { loadArenaTournament } from "../lib/world-state";
+import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from "../lib/world-state";
+import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 
 type WeeklyBossLb = {
@@ -34,6 +35,18 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         let alive = true;
         fetch("/api/weekly-boss").then(r => r.json()).then(data => {
             if (alive) setWeeklyBoss(data.boss ?? null);
+        }).catch(() => {});
+        return () => { alive = false; };
+    }, [tab]);
+    // Village W/L war records. Seed from the polled world-state cache for an
+    // instant render, then refresh directly on tab open so it's current even if
+    // the global poller hasn't run yet.
+    const [warStandings, setWarStandings] = useState<WarStandingRecord[]>(() => loadWarStandings());
+    useEffect(() => {
+        if (tab !== "villageWars") return;
+        let alive = true;
+        fetch(WORLD_STATE_API).then(r => r.json()).then(data => {
+            if (alive && Array.isArray(data.standings)) setWarStandings(data.standings as WarStandingRecord[]);
         }).catch(() => {});
         return () => { alive = false; };
     }, [tab]);
@@ -249,6 +262,25 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
                             <Row key={`raid-${c.name}`} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
+                        {/* Per-village W/L record from the server (api/world-state
+                            standings). Ranked by win differential, then wins. */}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🏯 Village War Records</p>
+                        {(() => {
+                            const rows = [...warStandings]
+                                .filter(s => s && s.village && ((s.wins ?? 0) + (s.losses ?? 0)) > 0)
+                                .sort((a, b) => ((b.wins - b.losses) - (a.wins - a.losses)) || (b.wins - a.wins));
+                            return rows.length === 0
+                                ? <p className="hol-empty">No village war records yet.</p>
+                                : rows.map((s, i) => (
+                                    <Row
+                                        key={`standing-${s.village}`}
+                                        rank={i+1}
+                                        name={s.village}
+                                        value={`${s.wins}W – ${s.losses}L`}
+                                        suffix={s.lastResult ? (s.lastResult === "win" ? " · last: won" : " · last: lost") : ""}
+                                    />
+                                ));
+                        })()}
                     </>
                 )}
                 {tab === "weeklyBoss" && (
