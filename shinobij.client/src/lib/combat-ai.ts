@@ -35,60 +35,74 @@ function jutsusByIds(allJutsus: Jutsu[], ids: string[]) {
 }
 
 export function aiJutsuLoadout(loadoutId: AiLoadoutId, allJutsus: Jutsu[] = starterJutsus): Jutsu[] {
+    // Loadouts are tuned to the POST-rebalanceNonBloodlineJutsu catalog (see
+    // data/jutsu.ts), where every starter jutsu is either a 60-AP single-tag
+    // DAMAGE move (effectPower 36) or a 40-AP two-tag zero-damage UTILITY, and
+    // all carry a 7-turn cooldown. Because each move is on a long cooldown, an
+    // AI taking a full multi-action 100-AP turn needs SEVERAL 60-AP damage moves
+    // to keep attacking turn-over-turn, plus a 40-AP utility (one defensive) so a
+    // turn can read as "damage (60) + buff/debuff (40)". Each loadout therefore
+    // carries 3–4 damage moves + 1–2 utilities + Flicker (20 AP reposition), and
+    // includes at least one self-support / control / pressure tag so
+    // buildBasicCombatAiRules can author a full rule set. (Comments below give
+    // each id's real post-rebalance tag, not its literal definition.)
     const idsByLoadout: Record<AiLoadoutId, string[]> = {
         balanced: [
-            "starter-nin-lightning-1",
-            "starter-nin-wind-3",
-            "starter-nin-fire-2",
-            "starter-nin-water-3",
+            "starter-gen-lightning-2", // DDG    — 60 dmg, control
+            "starter-nin-fire-2",      // Poison — 60 dmg, pressure
+            "starter-buki-lightning-2",// Siphon — 60 dmg, pressure/sustain
+            "starter-tai-lightning-2", // Reflect— 60 dmg, self-support
+            "starter-nin-earth-1",     // Shield+IDT — 40 util, defensive + control
             "starter-universal-flicker",
         ],
         control: [
-            "starter-gen-lightning-2",
-            "starter-gen-earth-2",
-            "starter-gen-fire-3",
-            "starter-gen-water-1",
-            "starter-gen-wind-3",
+            "starter-gen-lightning-2", // DDG    — 60 dmg, control
+            "starter-gen-water-2",     // Poison — 60 dmg, pressure
+            "starter-gen-earth-2",     // Siphon — 60 dmg, pressure/sustain
+            "starter-nin-water-1",     // Lifesteal+IDT — 40 util, control
+            "starter-gen-fire-1",      // IncreaseHeal+DDT — 40 util, defensive
             "starter-universal-flicker",
         ],
         burst: [
-            "starter-nin-lightning-1",
-            "starter-buki-lightning-1",
-            "starter-nin-fire-2",
-            "starter-gen-fire-2",
-            "starter-tai-fire-3",
+            "starter-tai-water-2",     // IDG    — 60 dmg, self-amp
+            "starter-nin-lightning-2", // Wound  — 60 dmg, pressure
+            "starter-buki-fire-2",     // Wound  — 60 dmg, pressure
+            "starter-tai-fire-2",      // Drain  — 60 dmg, pressure
+            "starter-tai-earth-1",     // IDT+Ignition — 40 util, amp target
             "starter-universal-flicker",
         ],
         bruiser: [
-            "starter-tai-earth-1",
-            "starter-tai-lightning-2",
-            "starter-tai-water-2",
-            "starter-tai-water-3",
-            "starter-tai-fire-3",
+            "starter-tai-earth-2",     // Poison  — 60 dmg, pressure (melee)
+            "starter-tai-fire-2",      // Drain   — 60 dmg, pressure (melee)
+            "starter-tai-wind-2",      // Lifesteal — 60 dmg, sustain (melee)
+            "starter-tai-lightning-2", // Reflect — 60 dmg, self-support (melee)
+            "starter-tai-earth-1",     // IDT+Ignition — 40 util, control/pressure
+            "starter-tai-water-3",     // Reflect+Absorb — 40 util, defensive
             "starter-universal-flicker",
         ],
         defender: [
-            "starter-nin-water-3",
-            "starter-buki-water-3",
-            "starter-tai-lightning-3",
-            "starter-gen-water-2",
-            "starter-buki-lightning-1",
+            "starter-buki-water-1",    // Shield+DDT — 40 util, defensive
+            "starter-tai-water-3",     // Reflect+Absorb — 40 util, defensive
+            "starter-gen-fire-1",      // IncreaseHeal+DDT — 40 util, defensive
+            "starter-gen-lightning-2", // DDG    — 60 dmg, control (weaken attacker)
+            "starter-gen-water-2",     // Poison — 60 dmg, pressure (poke)
             "starter-universal-flicker",
         ],
         hunter: [
-            "starter-tai-earth-1",
-            "starter-buki-wind-1",
-            "starter-tai-water-2",
-            "starter-nin-earth-3",
+            "starter-buki-wind-2",     // Wound  — 60 dmg, pressure
+            "starter-nin-lightning-2", // Wound  — 60 dmg, pressure
+            "starter-tai-fire-2",      // Drain  — 60 dmg, pressure
+            "starter-nin-earth-2",     // Ignition — 60 dmg, pressure
+            "starter-buki-water-1",    // Shield+DDT — 40 util, beast hide
             "starter-universal-flicker",
         ],
         boss: [
-            "starter-nin-lightning-1",
-            "starter-gen-lightning-2",
-            "starter-nin-fire-2",
-            "starter-buki-water-2",
-            "starter-nin-water-3",
-            "starter-gen-fire-3",
+            "starter-gen-lightning-2", // DDG    — 60 dmg, control
+            "starter-nin-fire-2",      // Poison — 60 dmg, pressure
+            "starter-buki-water-2",    // Siphon — 60 dmg, pressure/sustain
+            "starter-tai-lightning-2", // Reflect— 60 dmg, self-support
+            "starter-nin-earth-1",     // Shield+IDT — 40 util, defensive + control
+            "starter-gen-fire-1",      // IncreaseHeal+DDT — 40 util, defensive
             "starter-universal-flicker",
         ],
     };
