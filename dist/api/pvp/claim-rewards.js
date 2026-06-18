@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.deductUsedItems = deductUsedItems;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -54,6 +55,38 @@ async function withSavesLocked(slugs, fn) {
         run = () => (0, _lock_js_1.withKvLock)(`save:${slug}`, next, { failClosed: true });
     }
     return run();
+}
+// Remove `used[id]` copies of each item from a save character — draining the
+// counted itemStacks first, then legacy inventory[] copies. Pure: returns a new
+// character. Backs the server-authoritative PvP consumable deduction below.
+function deductUsedItems(char, used) {
+    const stacks = Array.isArray(char.itemStacks)
+        ? char.itemStacks.map((s) => ({ ...s }))
+        : [];
+    const inv = Array.isArray(char.inventory) ? [...char.inventory] : [];
+    for (const [id, rawN] of Object.entries(used)) {
+        let n = Math.max(0, Math.floor(Number(rawN) || 0));
+        if (n <= 0)
+            continue;
+        for (const s of stacks) {
+            if (n <= 0)
+                break;
+            if (s.itemId !== id)
+                continue;
+            const c = Math.max(0, Math.floor(Number(s.count) || 0));
+            const take = Math.min(c, n);
+            s.count = c - take;
+            n -= take;
+        }
+        while (n > 0) {
+            const idx = inv.indexOf(id);
+            if (idx < 0)
+                break;
+            inv.splice(idx, 1);
+            n -= 1;
+        }
+    }
+    return { ...char, itemStacks: stacks.filter((s) => Math.floor(Number(s.count) || 0) > 0), inventory: inv };
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -111,6 +144,36 @@ async function handler(req, res) {
             });
         }
         const key = claimKey(playerName, battleId);
+        // ── Server-authoritative PvP consumable deduction ───────────────────
+        // Remove the throwables / consumables / potions the SERVER recorded this
+        // fighter spending this fight (session.itemsUsed — sealed at create time
+        // and decremented per use in move.ts) from their own save. Runs for EVERY
+        // pvp fight (ranked AND casual), independent of the rating/base-reward
+        // block below, and is idempotent via a per-(player,battle) NX receipt so a
+        // claim retry can't double-deduct. Best-effort: a fighter who never claims
+        // keeps what they spent (the server-sealed cap already bounded their use).
+        const claimerRole = playerName === (0, _utils_js_1.safeName)(session.p1?.name ?? '') ? 'p1'
+            : playerName === (0, _utils_js_1.safeName)(session.p2?.name ?? '') ? 'p2'
+                : null;
+        const usedByClaimer = (claimerRole && session.itemsUsed?.[claimerRole]) || {};
+        if (claimerRole && Object.keys(usedByClaimer).length > 0) {
+            try {
+                await withSavesLocked([playerName], async () => {
+                    const consumedKey = `pvp:items-consumed:${playerName}:${battleId}`;
+                    const placed = await _storage_js_1.kv.set(consumedKey, { ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
+                    if (!placed)
+                        return; // already deducted on a prior claim
+                    const saveKey = `save:${playerName}`;
+                    const record = await _storage_js_1.kv.get(saveKey);
+                    const char = record?.character;
+                    if (!record || !char)
+                        return;
+                    const updated = deductUsedItems(char, usedByClaimer);
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: updated }, record));
+                });
+            }
+            catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
+        }
         // ── Server-credited paths (audit #7 / Stage 3, + #8 two-sided settle) ──
         // Two server-authoritative credits can apply to a claim:
         //   • RANKED rating — when the session was stamped ranked at creation,
