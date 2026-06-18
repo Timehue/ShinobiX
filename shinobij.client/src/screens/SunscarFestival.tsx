@@ -6,7 +6,8 @@ import { currentDateKey } from "../lib/utils";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { gainXp } from "../App";
 import { CardClashDuel } from "./CardClashDuel";
-import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
+import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from "../lib/black-market";
+import { BlackMarketCrate } from "../components/BlackMarketCrate";
 import festBg from "../assets/festival/fest-bg.webp";
 import kaelArt from "../assets/festival/fest-kael.webp";
 import miraaArt from "../assets/festival/fest-miraa.webp";
@@ -36,6 +37,7 @@ export function SunscarFestival({
     // -- Black Market gamble (server-authoritative ryo sink) --
     const [bmBusy, setBmBusy] = useState(false);
     const [bmUsed, setBmUsed] = useState<number | null>(null);
+    const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
 
     async function pullBlackMarketGamble() {
         if (bmBusy) return;
@@ -64,6 +66,7 @@ export function SunscarFestival({
             mythicSeals: (character.mythicSeals ?? 0) + reward.mythicSeals,
         });
         if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
+        setBmReveal(reward); // tap-to-open crate reveal
         const flourish = reward.tier === "jackpot" ? "💥 " : "";
         setFestivalLog(`The Broker: ${flourish}${reward.label} — ${describeReward(reward)}. (${res.dailyUsed ?? "?"}/${res.dailyCap ?? BLACK_MARKET_DAILY_CAP} pulls today)`);
     }
@@ -197,6 +200,7 @@ export function SunscarFestival({
 
     return (
         <div className="sunscar-festival">
+            {bmReveal && <BlackMarketCrate reward={bmReveal} onClose={() => setBmReveal(null)} />}
             <div
                 className="sunscar-hero"
                 style={{
