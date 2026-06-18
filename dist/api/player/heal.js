@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
+const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _progress_js_1 = require("../missions/_progress.js");
 // Per-target cooldown is now rank-scaled via healerPerTargetCooldownMs(rank).
 // Baseline (rank 1) is 5 min; rank 10 is 1.5 min. See api/missions/_progress.ts.
@@ -112,7 +113,9 @@ async function handler(req, res) {
                     const xp = Number(targetChar.professionXp ?? 0);
                     const healerRank = (0, _progress_js_1.professionRankForXp)('healer', xp);
                     const fullTimer = HOSPITAL_DURATION_MS;
-                    const healerTimer = (0, _progress_js_1.healerHospitalTimerMs)(healerRank);
+                    // Mastery (Quick Discharge): shorten the Healer's own timer further.
+                    const dischargePct = Math.min(80, (0, _profession_mastery_js_1.masteryBonus)('healer', targetChar.masterySpec, 'healDischargePct'));
+                    const healerTimer = Math.round((0, _progress_js_1.healerHospitalTimerMs)(healerRank) * (1 - dischargePct / 100));
                     const healerEligibleAt = until - fullTimer + healerTimer;
                     if (Date.now() >= healerEligibleAt) {
                         // Healer rank-shortened timer is satisfied — let it discharge for free.
@@ -194,8 +197,11 @@ async function handler(req, res) {
         // never from the saved professionRank field (which a corrupted save
         // or admin edit could trivially set to 10).
         const healerRank = (0, _progress_js_1.professionRankForXp)('healer', Number(healerChar.professionXp ?? 0));
+        // Mastery capstone (Village Lifeline) also grants the world-wide / any-
+        // sector heal, even before the Rank-10 unlock.
+        const hasLifeline = (0, _profession_mastery_js_1.masteryHasCapstone)('healer', healerChar.masterySpec, 'village-lifeline');
         if (!identity.admin && !targetHospitalized) {
-            if (healerRank < _progress_js_1.HEALER_WORLDWIDE_RANK) {
+            if (healerRank < _progress_js_1.HEALER_WORLDWIDE_RANK && !hasLifeline) {
                 return res.status(400).json({ error: `Target is not hospitalized. World-wide healing unlocks at Rank ${_progress_js_1.HEALER_WORLDWIDE_RANK}.` });
             }
             if (!targetInjured) {
@@ -215,8 +221,12 @@ async function handler(req, res) {
         // exactly one of N racing healers wins the reservation; the others
         // see placed=false and get 429'd. Admins bypass the gate.
         const cooldownKey = `heal:lastHealedAt:${targetName}`;
-        const effectiveCooldownMs = (0, _progress_js_1.healerPerTargetCooldownMs)(healerRank);
-        if (!identity.admin) {
+        // Mastery: Field Triage / Tireless / Vigil reduce the per-target cooldown;
+        // Full Recovery removes it entirely (heal anyone, anytime).
+        const cdReductionPct = Math.min(80, (0, _profession_mastery_js_1.masteryBonus)('healer', healerChar.masterySpec, 'healCooldownPct'));
+        const hasFullRecovery = (0, _profession_mastery_js_1.masteryHasCapstone)('healer', healerChar.masterySpec, 'full-recovery');
+        const effectiveCooldownMs = hasFullRecovery ? 0 : Math.round((0, _progress_js_1.healerPerTargetCooldownMs)(healerRank) * (1 - cdReductionPct / 100));
+        if (!identity.admin && effectiveCooldownMs > 0) {
             const placed = await _storage_js_1.kv.set(cooldownKey, { at: Date.now(), by: actorName }, { nx: true, ex: Math.max(1, Math.ceil(effectiveCooldownMs / 1000)) });
             if (!placed) {
                 // Reservation lost — read the existing entry to compute the
@@ -258,6 +268,11 @@ async function handler(req, res) {
         const xpBonusPct = (0, _progress_js_1.healerHealXpBonusPct)(healerRank);
         if (xpBonusPct > 0) {
             xpGained = Math.floor(xpGained * (1 + xpBonusPct / 100));
+        }
+        // Mastery (Diligent Care / Wandering Medic): extra heal XP, faster progression.
+        const healXpMasteryPct = (0, _profession_mastery_js_1.masteryBonus)('healer', healerChar.masterySpec, 'healXpPct');
+        if (healXpMasteryPct > 0) {
+            xpGained = Math.floor(xpGained * (1 + healXpMasteryPct / 100));
         }
         // Healer raid-assist synergy: +50% XP if the target was hospitalized
         // within the last 10 minutes (proxy for "fresh from a fight").
