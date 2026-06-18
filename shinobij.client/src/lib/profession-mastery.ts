@@ -59,7 +59,7 @@ export const MASTERY_TREES: Record<Profession, MasteryPath[]> = {
         { id: "triage", name: "Triage", nodes: [
             node("triage", "heal-cooldown", "Field Triage", "-5% heal cooldown per rank.", "healCooldownPct", 5),
             node("triage", "heal-tireless", "Tireless", "A further -5% heal cooldown per rank.", "healCooldownPct", 5),
-            capstone("triage", "mass-triage", "Mass Triage", "Treat every hospitalized villager in one action."),
+            capstone("triage", "chakra-conduit", "Chakra Conduit", "Your heals cost 10% chakra of the HP restored, instead of 25%."),
         ] },
         { id: "restoration", name: "Restoration", nodes: [
             node("restoration", "heal-xp", "Diligent Care", "+6% heal XP per rank (faster Healer progression).", "healXpPct", 6),
