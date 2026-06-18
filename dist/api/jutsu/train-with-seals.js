@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _profession_mastery_js_1 = require("../_profession-mastery.js");
 // jutsuId must be a sane slug — lowercase letters/digits/dashes only, length-
 // bounded. Stops injection of weird KV keys or path-traversal-ish values.
 const JUTSU_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -28,14 +29,19 @@ const MAX_LEVEL = 40; // Seal path stops at 40 — 40→50 still requires PvP.
 // Vanguard Rank 8+ pays 90% of the listed cost (10% discount).
 const VANGUARD_RANK_FOR_DISCOUNT = 8;
 const VANGUARD_DISCOUNT_MULT = 0.9;
-function computeCost(fromLevel, profession, professionRank) {
-    const base = SEAL_COSTS_BY_FROM_LEVEL[fromLevel] ?? 0;
-    if (base === 0)
+function computeCost(fromLevel, profession, professionRank, masterySpec) {
+    let cost = SEAL_COSTS_BY_FROM_LEVEL[fromLevel] ?? 0;
+    if (cost === 0)
         return 0;
     if (profession === 'vanguard' && Number(professionRank ?? 0) >= VANGUARD_RANK_FOR_DISCOUNT) {
-        return Math.ceil(base * VANGUARD_DISCOUNT_MULT);
+        cost = cost * VANGUARD_DISCOUNT_MULT;
     }
-    return base;
+    // Vanguard mastery (Quartermaster → Efficient Forging): extra Seal discount,
+    // capped at the resolver's max. Stacks multiplicatively with the rank-8 cut.
+    const masteryPct = Math.min(50, (0, _profession_mastery_js_1.masteryBonus)(profession, masterySpec, 'sealTrainCostPct'));
+    if (masteryPct > 0)
+        cost = cost * (1 - masteryPct / 100);
+    return Math.max(1, Math.ceil(cost));
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -105,7 +111,7 @@ async function handler(req, res) {
             if (fromLevel >= MAX_LEVEL) {
                 return { status: 400, body: { error: `Levels ${MAX_LEVEL}+ still require PvP training.` } };
             }
-            const cost = computeCost(fromLevel, char.profession, char.professionRank);
+            const cost = computeCost(fromLevel, char.profession, char.professionRank, char.masterySpec);
             if (cost <= 0)
                 return { status: 400, body: { error: 'No cost defined for that level.' } };
             const balance = Number(char.honorSeals ?? 0);
