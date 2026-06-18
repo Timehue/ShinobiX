@@ -246,6 +246,11 @@ export type Character = {
     // Ranked seasons: count of ranked seasons finished #1 (player OR pet ladder),
     // stamped by the season-rollover job. Drives the "Season Champion" achievement.
     rankedSeasonsWon?: number;
+    // Profession mastery: points spent per mastery-tree node (nodeId → ranks).
+    // Mastery LEVEL (the point budget) is derived from profession XP earned past
+    // rank 10; this only records how the player has allocated those points.
+    // PvE/utility only — see lib/profession-mastery.ts. Validated server-side.
+    masterySpec?: Record<string, number>;
     clanContribMonth?: string;
     guardQueued?: boolean;
     hospitalized?: boolean;
