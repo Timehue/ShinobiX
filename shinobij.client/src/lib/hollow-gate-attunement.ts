@@ -7,6 +7,8 @@
  * Costs/values are tunable balance knobs.
  */
 import type { Character, HollowGateShrineRun } from "../types/character";
+import { addInventoryItems } from "./items";
+import { HOLLOW_GATE_KEY_ID } from "../constants/game";
 
 export type AttunementNode = {
     id: string;
@@ -23,7 +25,7 @@ export const ATTUNEMENT_NODES: AttunementNode[] = [
     { id: "cartographer", label: "Cartographer", desc: "The descent is revealed at the start of every floor.", baseCost: 40, maxRank: 1 },
     { id: "greedy-hands", label: "Greedy Hands", desc: "Keep +10% more of your haul when you die, per rank.", baseCost: 45, maxRank: 3 },
     { id: "extra-dive", label: "Extra Dive", desc: "Enter the shrine +1 more time per day.", baseCost: 120, maxRank: 1 },
-    { id: "key-forge", label: "Key Forge", desc: "Forge Hollow Gate Keys from shards at the shrine.", baseCost: 150, maxRank: 1, comingSoon: true },
+    { id: "key-forge", label: "Key Forge", desc: "Unlock forging Hollow Gate Keys from shards at the shrine.", baseCost: 150, maxRank: 1 },
 ];
 
 const byId = new Map(ATTUNEMENT_NODES.map((n) => [n.id, n]));
@@ -85,4 +87,17 @@ export function applyAttunementToRun(run: HollowGateShrineRun, character: Charac
         next = { ...next, tiles: next.tiles.map((t) => (t.kind === "descend" || t.kind === "boss") ? { ...t, revealed: true } : t) };
     }
     return next;
+}
+
+// ── Key Forge ────────────────────────────────────────────────────────────────
+// Once the Key Forge node is attuned, the player can convert Hollow Shards into
+// Hollow Gate Keys at the shrine — the self-sustaining entry loop.
+export const KEY_FORGE_COST = 60;
+export const keyForgeUnlocked = (c: Character) => attunementRank(c, "key-forge") > 0;
+
+export function forgeHollowGateKey(character: Character): BuyResult {
+    if (!keyForgeUnlocked(character)) return { ok: false, reason: "The Key Forge is not yet attuned." };
+    if ((character.hollowShards ?? 0) < KEY_FORGE_COST) return { ok: false, reason: "Not enough Hollow Shards." };
+    const spent: Character = { ...character, hollowShards: (character.hollowShards ?? 0) - KEY_FORGE_COST };
+    return { ok: true, character: addInventoryItems(spent, [HOLLOW_GATE_KEY_ID]) };
 }
