@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import {
     reportMissionEvent,
     awardProfessionXp,
@@ -121,7 +122,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const xp = Number(targetChar.professionXp ?? 0);
                     const healerRank = professionRankForXp('healer', xp);
                     const fullTimer = HOSPITAL_DURATION_MS;
-                    const healerTimer = healerHospitalTimerMs(healerRank);
+                    // Mastery (Quick Discharge): shorten the Healer's own timer further.
+                    const dischargePct = Math.min(80, masteryBonus('healer', targetChar.masterySpec, 'healDischargePct'));
+                    const healerTimer = Math.round(healerHospitalTimerMs(healerRank) * (1 - dischargePct / 100));
                     const healerEligibleAt = until - fullTimer + healerTimer;
                     if (Date.now() >= healerEligibleAt) {
                         // Healer rank-shortened timer is satisfied — let it discharge for free.
@@ -201,8 +204,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // never from the saved professionRank field (which a corrupted save
         // or admin edit could trivially set to 10).
         const healerRank = professionRankForXp('healer', Number(healerChar.professionXp ?? 0));
+        // Mastery capstone (Village Lifeline) also grants the world-wide / any-
+        // sector heal, even before the Rank-10 unlock.
+        const hasLifeline = masteryHasCapstone('healer', healerChar.masterySpec, 'village-lifeline');
         if (!identity.admin && !targetHospitalized) {
-            if (healerRank < HEALER_WORLDWIDE_RANK) {
+            if (healerRank < HEALER_WORLDWIDE_RANK && !hasLifeline) {
                 return res.status(400).json({ error: `Target is not hospitalized. World-wide healing unlocks at Rank ${HEALER_WORLDWIDE_RANK}.` });
             }
             if (!targetInjured) {
@@ -223,8 +229,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // exactly one of N racing healers wins the reservation; the others
         // see placed=false and get 429'd. Admins bypass the gate.
         const cooldownKey = `heal:lastHealedAt:${targetName}`;
-        const effectiveCooldownMs = healerPerTargetCooldownMs(healerRank);
-        if (!identity.admin) {
+        // Mastery: Field Triage / Tireless / Vigil reduce the per-target cooldown;
+        // Full Recovery removes it entirely (heal anyone, anytime).
+        const cdReductionPct = Math.min(80, masteryBonus('healer', healerChar.masterySpec, 'healCooldownPct'));
+        const hasFullRecovery = masteryHasCapstone('healer', healerChar.masterySpec, 'full-recovery');
+        const effectiveCooldownMs = hasFullRecovery ? 0 : Math.round(healerPerTargetCooldownMs(healerRank) * (1 - cdReductionPct / 100));
+        if (!identity.admin && effectiveCooldownMs > 0) {
             const placed = await kv.set(
                 cooldownKey,
                 { at: Date.now(), by: actorName },
@@ -273,6 +283,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const xpBonusPct = healerHealXpBonusPct(healerRank);
         if (xpBonusPct > 0) {
             xpGained = Math.floor(xpGained * (1 + xpBonusPct / 100));
+        }
+        // Mastery (Diligent Care / Wandering Medic): extra heal XP, faster progression.
+        const healXpMasteryPct = masteryBonus('healer', healerChar.masterySpec, 'healXpPct');
+        if (healXpMasteryPct > 0) {
+            xpGained = Math.floor(xpGained * (1 + healXpMasteryPct / 100));
         }
 
         // Healer raid-assist synergy: +50% XP if the target was hospitalized
