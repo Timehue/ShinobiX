@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
+import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
@@ -260,6 +261,14 @@ function sanitizeCharacterSave(
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
         const inVal = Math.max(0, Number(char[key] ?? 0));
         char[key] = Math.min(inVal, exVal + maxGain);
+    }
+
+    // Profession mastery: clamp the allocation to the budget the player's mastery
+    // LEVEL allows (derived from profession XP past rank 10), legal node ranks, and
+    // satisfied capstone gates. Anti-tamper — a forged masterySpec can't grant
+    // unearned capstones or over-spend. PvE/utility effects only.
+    if (char.masterySpec !== undefined) {
+        char.masterySpec = sanitizeMasterySpec(char.profession, char.masterySpec, masteryBudget(char.profession, char.professionXp));
     }
 
     // Account creation timestamp — backfill if missing so anti-alt checks
