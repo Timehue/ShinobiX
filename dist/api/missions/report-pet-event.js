@@ -118,6 +118,10 @@ async function handler(req, res) {
         // expedition event without a valid, matured token earns nothing (returns
         // 200 + a reason so the client mirrors the zero-reward result cleanly).
         const NO_REWARD = { expeditionXp: 0, ryoEarned: 0, foundBone: 0, foundAura: 0, foundFate: 0, missionsCompleted: [] };
+        // Pet Tamer mastery (Expeditioner path) reward multipliers, sealed into the
+        // token at launch (PvE currency only). Default 1 = no bonus.
+        let expRewardMult = 1;
+        let expMaterialMult = 1;
         if (event === 'expedition' || event === 'long-expedition') {
             const tokRaw = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
@@ -144,6 +148,9 @@ async function handler(req, res) {
             durationMinutes = Math.max(0, Math.min(MAX_EXPEDITION_MINUTES, Math.floor(Number(tokenData.durationMinutes ?? durationMinutes))));
             petLevel = Math.max(1, Math.min(100, Math.floor(Number(tokenData.petLevel ?? petLevel))));
             event = durationMinutes >= 240 ? 'long-expedition' : 'expedition';
+            // Capture the sealed mastery multipliers (clamped for safety).
+            expRewardMult = Math.max(1, Math.min(2, Number(tokenData.expRewardMult ?? 1)));
+            expMaterialMult = Math.max(1, Math.min(2, Number(tokenData.expMaterialMult ?? 1)));
         }
         // For expedition events, server computes Tamer XP AND the Ryo + drop
         // currencies (previously client-trusted). Pet stat/XP gains stay
@@ -190,10 +197,10 @@ async function handler(req, res) {
                     const tamerMult = petTamerExpeditionMultFromRank(rank, char.profession);
                     const firstBonus = isFirstToday ? 2 : 1;
                     const dropBonus = (tamerMult - 1) + (isFirstToday ? 0.5 : 0);
-                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus);
-                    foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) ? 1 : 0;
-                    foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
-                    foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
+                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus * expRewardMult);
+                    foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) * expMaterialMult ? 1 : 0;
+                    foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) * expMaterialMult ? 1 : 0;
+                    foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) * expMaterialMult ? 1 : 0;
                 }
                 // Stamp daily tracking + consume escort bonus + apply currencies.
                 const updated = {

@@ -22,22 +22,24 @@ const MASTERY_XP_PER_LEVEL = 15_000;
 // Pet Tamer) = 32850; Healer = ×1.5 = 49275. Mirrors constants/profession.ts.
 const RANK10_XP: Record<Prof, number> = { vanguard: 32_850, petTamer: 32_850, healer: 49_275 };
 
-type NodeMeta = { id: string; path: string; capstone?: boolean };
+type NodeMeta = { id: string; path: string; capstone?: boolean; effectKey?: string; perRank?: number };
+function nd(id: string, path: string, effectKey: string, perRank: number): NodeMeta { return { id, path, effectKey, perRank }; }
+function cap(id: string, path: string): NodeMeta { return { id, path, capstone: true }; }
 const TREES: Record<Prof, NodeMeta[]> = {
     healer: [
-        { id: 'heal-cooldown', path: 'triage' }, { id: 'heal-amount', path: 'triage' }, { id: 'mass-triage', path: 'triage', capstone: true },
-        { id: 'heal-power', path: 'restoration' }, { id: 'heal-cost', path: 'restoration' }, { id: 'full-recovery', path: 'restoration', capstone: true },
-        { id: 'heal-reach', path: 'outreach' }, { id: 'heal-support', path: 'outreach' }, { id: 'village-lifeline', path: 'outreach', capstone: true },
+        nd('heal-cooldown', 'triage', 'healCooldownPct', 5), nd('heal-amount', 'triage', 'healAmountPct', 5), cap('mass-triage', 'triage'),
+        nd('heal-power', 'restoration', 'healPowerPct', 4), nd('heal-cost', 'restoration', 'healCostPct', 5), cap('full-recovery', 'restoration'),
+        nd('heal-reach', 'outreach', 'healReach', 1), nd('heal-support', 'outreach', 'healPowerPct', 4), cap('village-lifeline', 'outreach'),
     ],
     vanguard: [
-        { id: 'seal-gap', path: 'reaver' }, { id: 'seal-cap', path: 'reaver' }, { id: 'warmonger', path: 'reaver', capstone: true },
-        { id: 'seal-train-cost', path: 'quartermaster' }, { id: 'seal-speedup', path: 'quartermaster' }, { id: 'logistician', path: 'quartermaster', capstone: true },
-        { id: 'stamina', path: 'warden' }, { id: 'ai-damage', path: 'warden' }, { id: 'ironclad', path: 'warden', capstone: true },
+        nd('seal-gap', 'reaver', 'sealGapSoftenPct', 10), nd('seal-cap', 'reaver', 'sealDailyCapFlat', 5), cap('warmonger', 'reaver'),
+        nd('seal-train-cost', 'quartermaster', 'sealTrainCostPct', 5), nd('seal-speedup', 'quartermaster', 'sealSpeedupCostPct', 5), cap('logistician', 'quartermaster'),
+        nd('stamina', 'warden', 'maxStaminaPct', 4), nd('ai-damage', 'warden', 'pveAiDamagePct', 3), cap('ironclad', 'warden'),
     ],
     petTamer: [
-        { id: 'exp-rewards', path: 'expeditioner' }, { id: 'exp-materials', path: 'expeditioner' }, { id: 'caravan-master', path: 'expeditioner', capstone: true },
-        { id: 'pet-damage', path: 'beast-handler' }, { id: 'pet-hp', path: 'beast-handler' }, { id: 'alpha-bond', path: 'beast-handler', capstone: true },
-        { id: 'train-time', path: 'trainer' }, { id: 'train-xp', path: 'trainer' }, { id: 'prodigy', path: 'trainer', capstone: true },
+        nd('exp-rewards', 'expeditioner', 'expRewardPct', 5), nd('exp-materials', 'expeditioner', 'expMaterialPct', 5), cap('caravan-master', 'expeditioner'),
+        nd('pet-damage', 'beast-handler', 'petPveDamagePct', 2), nd('pet-hp', 'beast-handler', 'petPveHpPct', 4), cap('alpha-bond', 'beast-handler'),
+        nd('train-time', 'trainer', 'petTrainTimePct', 5), nd('train-xp', 'trainer', 'petTrainXpPct', 6), cap('prodigy', 'trainer'),
     ],
 };
 
@@ -53,6 +55,29 @@ export function masteryBudget(profession: unknown, professionXp: unknown): numbe
     const over = num(professionXp) - RANK10_XP[profession];
     if (over <= 0) return 0;
     return Math.min(MASTERY_MAX_LEVEL, Math.floor(over / MASTERY_XP_PER_LEVEL));
+}
+
+/**
+ * Resolved magnitude for an effect key from a player's (already-sanitized) spec.
+ * Callers apply this PvE-only. Pass the character's profession + masterySpec.
+ */
+export function masteryBonus(profession: unknown, spec: unknown, effectKey: string): number {
+    if (!isProf(profession) || !spec || typeof spec !== 'object') return 0;
+    const s = spec as Record<string, unknown>;
+    let total = 0;
+    for (const n of TREES[profession]) {
+        if (n.effectKey !== effectKey || !n.perRank) continue;
+        total += Math.max(0, Math.min(maxRank(n), num(s[n.id]))) * n.perRank;
+    }
+    return total;
+}
+
+/** Is a capstone unlocked in this spec? */
+export function masteryHasCapstone(profession: unknown, spec: unknown, capstoneId: string): boolean {
+    if (!isProf(profession) || !spec || typeof spec !== 'object') return false;
+    const n = TREES[profession].find(m => m.id === capstoneId && m.capstone);
+    if (!n) return false;
+    return num((spec as Record<string, unknown>)[capstoneId]) >= 1;
 }
 
 /**
