@@ -122,6 +122,27 @@ export function wingEntryEffect(run: HollowGateShrineRun, targetWing: number | u
     return { blocked: true, message: "That wing has sealed behind your choice." };
 }
 
+// The wing theme a cell belongs to — its own wing, or (for a hub door / shared
+// cell) the wing a neighbouring corridor leads into. Lets the renderer color-
+// code wings and label the hub doors so the "pick a path" choice is informed.
+export function wingThemeAt(run: HollowGateShrineRun, idx: number): string | undefined {
+    const themes = run.wingThemes;
+    if (!themes) return undefined;
+    const t = run.tiles[idx];
+    if (t?.wing != null) return themes[t.wing];
+    const x = idx % run.width, y = Math.floor(idx / run.width);
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= run.width || ny >= run.height) continue;
+        const n = run.tiles[ny * run.width + nx];
+        if (n?.wing != null) return themes[n.wing];
+    }
+    return undefined;
+}
+
+export const WING_TINT: Record<string, string> = { treasure: "rgba(180,150,60,0.14)", beast: "rgba(190,70,70,0.14)", trial: "rgba(150,90,210,0.15)" };
+export const WING_GLYPH: Record<string, string> = { treasure: "🏆", beast: "🐺", trial: "⚔" };
+
 export function generateHollowGateWingRun(floor: number, isFinalFloor: boolean): HollowGateShrineRun {
     const w = HOLLOW_GATE_SHRINE_W;
     const h = HOLLOW_GATE_SHRINE_H;

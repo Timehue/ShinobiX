@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { generateHollowGateWingRun, wingEntryEffect } from "./hollow-gate-wings";
+import { generateHollowGateWingRun, wingEntryEffect, wingThemeAt } from "./hollow-gate-wings";
 import type { HollowGateShrineRun } from "../types/character";
 
 const wingRun = (over: Partial<HollowGateShrineRun>): HollowGateShrineRun =>
@@ -28,6 +28,15 @@ test("wingEntryEffect: a sealed wing is blocked; committed detour re-enterable",
 
 test("wingEntryEffect: non-wing (legacy) floor never gates", () => {
     assert.equal(wingEntryEffect({} as HollowGateShrineRun, 0).blocked, false);
+});
+
+test("wingThemeAt: own wing direct; hub door reads the wing it leads into", () => {
+    // [0]=hub, [1]=hub door (no wing), [2]=treasure wing cell
+    const run = { width: 3, height: 1, wingThemes: { 0: "treasure" }, tiles: [{}, {}, { wing: 0 }] } as unknown as HollowGateShrineRun;
+    assert.equal(wingThemeAt(run, 2), "treasure");   // direct
+    assert.equal(wingThemeAt(run, 1), "treasure");   // door → neighbour wing
+    assert.equal(wingThemeAt(run, 0), undefined);    // hub, no winged neighbour
+    assert.equal(wingThemeAt({ tiles: [] } as unknown as HollowGateShrineRun, 0), undefined); // legacy floor
 });
 
 test("wing floor: hub + treasure/beast/trial; only trial descends; hub is a cut vertex", () => {
