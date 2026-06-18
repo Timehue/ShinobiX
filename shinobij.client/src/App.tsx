@@ -159,6 +159,7 @@ import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle } from ".
 import { AdminPanel } from "./screens/AdminPanel";
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { claimPendingWarCrates, damageSectorTerritory, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
 import { PetBattleAvatar } from "./components/PetBattleAvatar";
 import { OnboardingCoach } from "./components/OnboardingCoach";
@@ -1150,13 +1151,12 @@ export const nonVanguardCharmSubstitute = bonusBoneCharmsForHonor;
 export const nonVanguardShardSubstitute = bonusFateShardsForHonor;
 
 // ── Profession combat bonuses ────────────────────────────────────────────
-// Pet Tamer PvE pet damage multiplier: +5% at unlock, +1.5% per rank, capped
-// at +20% at Rank 10. PvE only — never apply in PvP per docs/professions.md.
+// Pet Tamer PvE pet damage mult (+5% unlock, +1.5%/rank, +Savagery mastery); PvE only.
 export function petTamerPveMultiplier(character: Character | null | undefined): number {
     if (!character || character.profession !== "petTamer") return 1;
     const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
     // Unlock = +5%; rank 1 = +6.5%; rank 10 = +20%.
-    const bonusPct = 5 + rank * 1.5;
+    const bonusPct = 5 + rank * 1.5 + masteryBonus(character, "petPveDamagePct");
     return 1 + bonusPct / 100;
 }
 
@@ -1191,8 +1191,8 @@ function levelGapSealMultiplier(attackerLevel: number, opponentLevel: number): n
 export function petTamerTrainingSpeedPct(character: Character | null | undefined): number {
     if (!character || character.profession !== "petTamer") return 0;
     const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
-    // Unlock 10%; +1% per rank to 20% at rank 10.
-    return 10 + rank;
+    // Unlock 10%; +1%/rank to 20% at L10; +Drill Sergeant mastery (PvE/utility).
+    return 10 + rank + masteryBonus(character, "petTrainTimePct");
 }
 
 export function petTamerExpeditionMult(character: Character | null | undefined): number {
