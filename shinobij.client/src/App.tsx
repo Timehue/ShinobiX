@@ -4634,110 +4634,12 @@ export default function App() {
         if (names.length) ensureAvatarsCached(names);
     }, [liveSectorPlayers, playerRoster, sharedImages]);
 
-    // ── Hollow Gate Shrine — Kenney atlas auto-slicer ─────────────────────
-    // If /public/assets/dungeon/tilemap.png exists, slice 4 tiles from it
-    // via Canvas and inject them into sharedImages as fallback shrine textures.
-    // Admin-generated images (from the admin panel) ALWAYS win over these
-    // — we only fill keys that aren't already set. If the file is missing
-    // (404), the fetch fails silently and the CSS gradient fallback kicks in.
-    //
-    // To swap which tiles get sliced, edit the X/Y coords below. The tile is
-    // (col, row) in the atlas grid; tileSize is the pixel size of one cell.
-    // Default coords target the Kenney "Roguelike Caves & Dungeons" pack.
-    useEffect(() => {
-        // Kenney's "Roguelike Caves & Dungeons" atlas is 492×305 px = 29 cols
-        // × 18 rows of 16×16 tiles with a 1px gap between every tile (stride 17).
-        // Source pixel for (col, row) is (col * stride, row * stride).
-        //
-        // Each entry can be a single tile { x, y } or an array of variants. The
-        // renderer picks a variant per-cell via deterministic hash so the dungeon
-        // doesn't look like 165 photocopies of the same texture.
-        //
-        // Coords are best-guess starting points; if any specific tile looks wrong
-        // after the live deploy, just bump its x/y by 1-2 and rebuild.
-        // Coords picked by the user via the Atlas Tile Picker (admin panel).
-        // Variants intentionally empty — single tile per role until we tune more.
-        const KENNEY_ATLAS = {
-            tilemap: "/assets/dungeon/tilemap.png",
-            tileSize: 16,
-            gap: 1,
-            singles: [
-                { key: "shrine:tile-wall",           x: 8,  y: 2 },
-                { key: "shrine:tile-room-floor",     x: 9,  y: 7 },
-                { key: "shrine:tile-corridor-floor", x: 16, y: 16 },
-                { key: "shrine:tile-door",           x: 25, y: 15 },
-            ],
-            // Empty — annotated so TS doesn't infer `never[]` and break the
-            // group.tiles / group.keyPrefix reads in the loop below.
-            variants: [] as Array<{ keyPrefix: string; tiles: Array<{ x: number; y: number }> }>,
-            decorations: [
-                { key: "shrine:deco-0", x: 13, y: 17 },  // torch
-                { key: "shrine:deco-1", x: 14, y: 15 },  // barrel
-                { key: "shrine:deco-2", x: 2,  y: 1  },  // plant
-                { key: "shrine:deco-3", x: 2,  y: 2  },  // skull
-            ],
-        };
-
-        let cancelled = false;
-        const img = new Image();
-        img.onload = () => {
-            if (cancelled) return;
-            const ts = KENNEY_ATLAS.tileSize;
-            const stride = ts + KENNEY_ATLAS.gap;
-            const scale = 4;
-            const outSize = ts * scale;
-            function slice(x: number, y: number): string | null {
-                try {
-                    const canvas = document.createElement("canvas");
-                    canvas.width = outSize;
-                    canvas.height = outSize;
-                    const ctx = canvas.getContext("2d");
-                    if (!ctx) return null;
-                    ctx.imageSmoothingEnabled = false;
-                    ctx.drawImage(img, x * stride, y * stride, ts, ts, 0, 0, outSize, outSize);
-                    return canvas.toDataURL("image/png");
-                } catch (err) {
-                    console.warn("[Kenney atlas slice] failed", err);
-                    return null;
-                }
-            }
-            const slices: Record<string, string> = {};
-            // Single-tile keys (existing usage)
-            for (const cfg of KENNEY_ATLAS.singles) {
-                const url = slice(cfg.x, cfg.y);
-                if (url) slices[cfg.key] = url;
-            }
-            // Indexed variants
-            for (const group of KENNEY_ATLAS.variants) {
-                group.tiles.forEach((tile, idx) => {
-                    const url = slice(tile.x, tile.y);
-                    if (url) slices[`${group.keyPrefix}-${idx}`] = url;
-                });
-            }
-            // Decorations
-            for (const deco of KENNEY_ATLAS.decorations) {
-                const url = slice(deco.x, deco.y);
-                if (url) slices[deco.key] = url;
-            }
-            if (Object.keys(slices).length === 0) return;
-            // Atlas slices ALWAYS win for terrain + decoration keys. The user
-            // explicitly wants the Kenney atlas tiles for walls / floors /
-            // doors / decorations, not the per-tile AI-generated images.
-            // Popup-event art (chest / battle / boss / etc.) lives under
-            // different keys (shrine:chest, shrine:boss, …) so this overwrite
-            // never touches the user's generated event illustrations.
-            setSharedImages(prev => {
-                const next = { ...prev };
-                for (const [key, value] of Object.entries(slices)) {
-                    next[key] = value;
-                }
-                return next;
-            });
-        };
-        img.onerror = () => { /* no atlas drop-in — fine, CSS gradients show */ };
-        img.src = KENNEY_ATLAS.tilemap;
-        return () => { cancelled = true; };
-    }, []);
+    // ── Hollow Gate Shrine terrain ────────────────────────────────────────
+    // The dungeon's wall / floor / corridor / door textures are published AI
+    // art under shrine:tile-<role>-<variant> (+ per-theme shrine:icon-theme-*),
+    // loaded via loadCategory('shrine'). The old Kenney tilemap auto-slicer was
+    // retired when the torch-lit catacomb terrain set landed — it canvas-sliced
+    // the brown-brick pack over those keys and clobbered the published door.
 
     // Screen ? image categories map
     useEffect(() => {
