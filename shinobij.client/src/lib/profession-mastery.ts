@@ -212,6 +212,45 @@ export function sanitizeSpec(profession: Profession | undefined, rawSpec: unknow
     return out;
 }
 
+// Human labels for each effect key (for the "active bonuses" summary). v is the
+// resolved magnitude. Reductions show a minus sign.
+export const EFFECT_LABELS: Record<string, (v: number) => string> = {
+    healCooldownPct: (v) => `−${v}% heal cooldown`,
+    healAmountPct: (v) => `+${v}% HP restored per heal`,
+    healPowerPct: (v) => `+${v}% healing power`,
+    healCostPct: (v) => `−${v}% healing / discharge cost`,
+    healReach: (v) => `+${v} sector heal reach`,
+    sealGapSoftenPct: (v) => `+${v}% seals kept vs higher-level targets`,
+    sealDailyCapFlat: (v) => `+${v} daily Honor-Seal cap`,
+    sealTrainCostPct: (v) => `−${v}% Honor-Seal cost of jutsu training`,
+    sealSpeedupCostPct: (v) => `−${v}% Honor-Seal cost of speedups`,
+    maxStaminaPct: (v) => `+${v}% max stamina`,
+    pveAiDamagePct: (v) => `+${v}% damage vs AI (PvE)`,
+    expRewardPct: (v) => `+${v}% expedition rewards`,
+    expMaterialPct: (v) => `+${v}% expedition materials`,
+    petPveDamagePct: (v) => `+${v}% PvE pet damage`,
+    petPveHpPct: (v) => `+${v}% pet HP (PvE)`,
+    petTrainTimePct: (v) => `−${v}% pet training time`,
+    petTrainXpPct: (v) => `+${v}% pet training XP`,
+};
+
+/** Resolved, human-readable list of the player's active mastery bonuses. */
+export function activeMasteryEffects(character: Character | null | undefined): string[] {
+    if (!character?.profession) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const n of masteryNodes(character.profession)) {
+        if (n.capstone) {
+            if (masteryHasCapstone(character, n.id)) out.push(`★ ${n.name}`);
+            continue;
+        }
+        if (!n.effectKey || seen.has(n.effectKey)) continue;
+        const v = masteryBonus(character, n.effectKey);
+        if (v > 0) { seen.add(n.effectKey); out.push((EFFECT_LABELS[n.effectKey] ?? ((x: number) => `${n.name} ${x}`))(v)); }
+    }
+    return out;
+}
+
 // ── Effect resolvers (callers apply these PvE-only) ────────────────────────
 /** Summed magnitude for an effectKey across all invested nodes. */
 export function masteryBonus(character: Character | null | undefined, effectKey: string): number {
