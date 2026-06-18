@@ -13,6 +13,7 @@ import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { interpolateFlavor } from "../lib/battle-log-format";
+import { masteryHasCapstone } from "../lib/profession-mastery";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
@@ -2232,7 +2233,8 @@ export function Arena({
             honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
-            boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain),
+            // + Vanguard mastery (Ironclad): a chance at a Bone Charm per AI kill.
+            boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain) + (masteryHasCapstone(character, "ironclad") && Math.random() < 0.15 ? 1 : 0),
             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
             claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]

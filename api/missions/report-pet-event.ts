@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
+import { masteryHasCapstone } from '../_profession-mastery.js';
 
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
@@ -179,7 +180,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const today = utcDateKey();
                 const sameDay = char.lastExpeditionClaimDate === today;
                 const claimedToday = sameDay ? Number(char.expeditionsClaimedToday ?? 0) : 0;
-                if (claimedToday >= MAX_EXPEDITIONS_PER_DAY) {
+                // Caravan Master mastery capstone: +2 to the daily expedition cap.
+                const dailyCap = MAX_EXPEDITIONS_PER_DAY + (masteryHasCapstone('petTamer', char.masterySpec, 'caravan-master') ? 2 : 0);
+                if (claimedToday >= dailyCap) {
                     dailyCapHit = true;
                     return;
                 }
