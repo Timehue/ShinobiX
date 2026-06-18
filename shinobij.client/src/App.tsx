@@ -722,7 +722,7 @@ import {
     rollHollowGateAncientChest,
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
-import { snapshotHollowGateCurrencies, clawBackHollowGateLoot } from "./lib/hollow-gate-run";
+import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
 // Hollow Gate ASCII layouts + shrine dungeon generators moved to
 // ./lib/hollow-gate-dungeon — imported above.
 
@@ -6120,11 +6120,10 @@ export default function App() {
             const ryoReward = Math.floor((isBoss ? 2400 : isAmbush ? 900 : 380) * bossFloorMult);
             const auraDustReward = Math.floor((isBoss ? 30 : isAmbush ? 10 : 5) * bossFloorMult);
             const honorReward = Math.floor((isBoss ? 25 : 0) * bossFloorMult);
+            const bossShards = isBoss ? hollowShardDrop(runFloor, "boss") : 0;
             const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
-            // Boss always drops a Dungeon Legendary Fragment. No floor in the Hollow Gate
-            // forbids healing — but we DO restore HP on win to keep the run survivable
-            // (the boss is a major roadblock, not a death sentence). Non-boss wins
-            // still get a small HP refund.
+            // Boss drops a Dungeon Legendary Fragment + Hollow Shards; both boss
+            // and non-boss wins restore some HP (boss is a roadblock, not a death).
             let nextCharacter: Character = {
                 ...leveled,
                 ryo: leveled.ryo + ryoReward,
@@ -6132,6 +6131,7 @@ export default function App() {
                 honorSeals: (leveled.honorSeals ?? 0) + vanguardOnlyHonorSeals(leveled, honorReward),
                 boneCharms: (leveled.boneCharms ?? 0) + nonVanguardCharmSubstitute(leveled, honorReward),
                 fateShards: (leveled.fateShards ?? 0) + nonVanguardShardSubstitute(leveled, honorReward),
+                hollowShards: (leveled.hollowShards ?? 0) + bossShards,
                 hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
             };
             if (isBoss) {
@@ -6146,7 +6146,7 @@ export default function App() {
             setPendingAiProfileId("");
             onHollowGateBattleWin();
             return isBoss
-                ? `Hollow Gate Warden defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +1 Dungeon Legendary Fragment.`
+                ? `Hollow Gate Warden defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +${bossShards} Hollow Shards, +1 Dungeon Legendary Fragment.`
                 : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
         }
 
@@ -6855,6 +6855,7 @@ export default function App() {
                 const auraStoneGain = 1 + Math.floor(Math.random() * 10);  // 1..10
                 const boneCharmGain = 5 + Math.floor(Math.random() * 11);  // 5..15
                 const keyGain = Math.random() < 0.3 ? 1 : 0;
+                const shardGain = hollowShardDrop(hollowGateRun.floor, "chest");
                 const leveled = gainXp(character, xpGain);
                 setCharacter({
                     ...leveled,
@@ -6862,14 +6863,15 @@ export default function App() {
                     auraDust: (leveled.auraDust ?? 0) + auraDustGain,
                     auraStones: (leveled.auraStones ?? 0) + auraStoneGain,
                     boneCharms: (leveled.boneCharms ?? 0) + boneCharmGain,
+                    hollowShards: (leveled.hollowShards ?? 0) + shardGain,
                 });
                 // Chests also refill the Torch of Reiki by 2.
                 const torchRefill = 2;
-                pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
+                pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms, +${shardGain} Hollow Shards${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
                 markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
                 setHollowGateEvent({
                     title: "Shrine Offering Chest",
-                    body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms${keyGain ? "\n+1 Shrine Key" : ""}`,
+                    body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms\n+${shardGain} Hollow Shards${keyGain ? "\n+1 Shrine Key" : ""}`,
                     kind: "chest",
                     choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
                 });
@@ -7031,19 +7033,15 @@ export default function App() {
                 if (hollowGateRun.keys > 0) {
                     pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
                     markResolved({ keysDelta: -1 });
-                    // Sealed-door table:
-                    //   50%   — Ancient Chest (uses module-level roll)
-                    //   25%   — Trap (33% maxHP damage, lethal-capable)
-                    //   24%   — Rare pet encounter
-                    //    0.8% — Legendary pet encounter
-                    //    0.2% — Mythic pet encounter
+                    // Sealed-door table: 50% Ancient Chest, 25% Trap (lethal-capable),
+                    // 24% rare / 0.8% legendary / 0.2% mythic pet encounter.
                     const roll = Math.random();
                     if (roll < 0.50) {
                         // ANCIENT CHEST
                         const loot = rollHollowGateAncientChest(hollowGateRun.floor);
                         const leveled = gainXp(character, loot.xp);
-                        // Stack only items that are flagged stackable (most chest items
-                        // are unique gear); skip non-stackable items the player already has.
+                        const lockedShards = hollowShardDrop(hollowGateRun.floor, "lockedChest");
+                        // Stack only flagged-stackable items; skip non-stackable dups.
                         const shouldAddItem = loot.itemId && (
                             stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId)
                         );
@@ -7054,6 +7052,7 @@ export default function App() {
                             boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0),
                             auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0),
                             auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0),
+                            hollowShards: (leveled.hollowShards ?? 0) + lockedShards,
                             inventory: shouldAddItem && loot.itemId ? [...leveled.inventory, loot.itemId] : leveled.inventory,
                         };
                         setCharacter(next);
@@ -7069,6 +7068,7 @@ export default function App() {
                         if (loot.boneCharms) lootLines.push(`+${loot.boneCharms} Bone Charm`);
                         if (loot.auraStones) lootLines.push(`+${loot.auraStones} Aura Stone`);
                         if (loot.auraDust) lootLines.push(`+${loot.auraDust} Aura Dust`);
+                        lootLines.push(`+${lockedShards} Hollow Shards`);
                         pushHollowGateLog(`Ancient Chest opened. ${lootLines.join(", ")}.`);
                         setHollowGateEvent({
                             title: "Ancient Chest",
