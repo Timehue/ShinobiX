@@ -7,6 +7,7 @@ const _auth_js_1 = require("./_auth.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
 const _lock_js_1 = require("./_lock.js");
 const _territory_supply_js_1 = require("./_territory-supply.js");
+const _war_spoils_js_1 = require("./_war-spoils.js");
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const VILLAGE_WAR_HP_MAX = 5000;
@@ -305,6 +306,63 @@ function applyWarDecay(war, now = Date.now()) {
         changed: true,
     };
 }
+// ── Village-war losing penalty ──────────────────────────────────────────────
+// When a war ends WITH a winner, the winner village siphons a slice of the
+// loser's village treasury (api/_war-spoils.ts) and both villages' W/L standing
+// is bumped. Runs once per war via an NX `war:settled:<id>` marker placed inside
+// the village-state locks, so the lazy GET trigger (and wars that ended while
+// everyone was offline) settle exactly once — never double-applying, and never
+// retry-looping after a KV hiccup. Draws / 14-day timeouts have no winner → skip.
+const VILLAGE_STATE_PREFIX = 'game:village-state:';
+const WAR_STANDING_PREFIX = 'village:war-standing:';
+function villageStateKey(village) {
+    return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+function warStandingKey(village) {
+    return `${WAR_STANDING_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+function vnum(v) { const x = Number(v); return Number.isFinite(x) ? x : 0; }
+async function bumpVillageStanding(village, result, now) {
+    const key = warStandingKey(village);
+    await (0, _lock_js_1.withKvLock)(key, async () => {
+        const rec = await _storage_js_1.kv.get(key);
+        await _storage_js_1.kv.set(key, (0, _war_spoils_js_1.bumpStanding)(rec, result, now));
+    }).catch(() => undefined);
+}
+async function settleVillageWar(war, now) {
+    if (!war.endedAt || !war.winnerVillage)
+        return;
+    const winner = war.winnerVillage;
+    const loser = war.villages.find(v => v !== winner);
+    if (!loser)
+        return;
+    const winnerKey = villageStateKey(winner);
+    const loserKey = villageStateKey(loser);
+    // Lock both village-state rows in a stable (sorted) order so a concurrent
+    // donate/agenda credit can't be clobbered and two settles can't deadlock.
+    const [k1, k2] = [winnerKey, loserKey].sort();
+    try {
+        const didSettle = await (0, _lock_js_1.withKvLock)(k1, async () => (0, _lock_js_1.withKvLock)(k2, async () => {
+            const placed = await _storage_js_1.kv.set(`war:settled:${war.id}`, { ts: now, winner, loser }, { nx: true, ex: 90 * 24 * 60 * 60 });
+            if (!placed)
+                return false; // already settled by a concurrent/earlier call
+            const loserState = (await _storage_js_1.kv.get(loserKey)) ?? {};
+            const winnerState = (await _storage_js_1.kv.get(winnerKey)) ?? {};
+            const lt = (loserState.treasury ?? {});
+            const wt = (winnerState.treasury ?? {});
+            const spoils = (0, _war_spoils_js_1.computeSpoils)({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
+            await _storage_js_1.kv.set(loserKey, { ...loserState, treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
+            await _storage_js_1.kv.set(winnerKey, { ...winnerState, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
+            await _storage_js_1.kv.set(`audit:village-war-settle:${war.id}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+            return true;
+        }), { failClosed: true });
+        if (didSettle) {
+            await bumpVillageStanding(winner, 'win', now);
+            await bumpVillageStanding(loser, 'loss', now);
+        }
+    }
+    catch { /* best-effort; the NX marker prevents a double-apply on any retry */ }
+}
 // Throws on KV failure so the GET handler can distinguish "genuinely empty"
 // from "storage is down". Previously this swallowed errors and returned [],
 // which made territories/wars silently VANISH during a KV outage — the client
@@ -363,6 +421,13 @@ async function handler(req, res) {
                         await _storage_js_1.kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, redecayed);
                 }).catch(() => undefined));
             }
+        }
+        // Lazily apply the losing penalty (treasury spoils + W/L standing) to any
+        // war that has ended with a winner — once each, via the NX marker inside
+        // settleVillageWar — even wars that ended on the decay timer while offline.
+        for (const w of wars) {
+            if (w.endedAt && w.winnerVillage)
+                void settleVillageWar(w, now);
         }
         // Don't block the GET response on the persist — let writes run in
         // background. The response already shows the decayed state.
