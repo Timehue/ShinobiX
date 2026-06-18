@@ -102,6 +102,13 @@ export type HollowGateShrineRun = {
     wingThemes?: Record<number, string>;
     sealedWings?: number[];
     committedDetour?: number | null;
+    // Hollow Shard in-run consumables (Phase 3, see lib/hollow-gate-shards):
+    //   wardSteps      — remaining steps where Threat does not build (Hollow Ward)
+    //   diviner        — the floor map has been fully revealed (Diviner's Eye)
+    //   secondWindArmed — a Second Wind revive charge is held; auto-spent on death
+    wardSteps?: number;
+    diviner?: boolean;
+    secondWindArmed?: boolean;
 };
 
 // ── Endless Tower run state ───────────────────────────────────────────────
