@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { masteryBudget, sanitizeMasterySpec } from './_profession-mastery.js';
+import { masteryBudget, sanitizeMasterySpec, masteryBonus, masteryHasCapstone } from './_profession-mastery.js';
 
 const VAN_CAP = 32_850;
 const HEAL_CAP = 49_275;
@@ -47,4 +47,21 @@ test('sanitizeMasterySpec rejects unknown ids, bad profession, non-objects', () 
 test('sanitizeMasterySpec caps node ranks at their max', () => {
     const out = sanitizeMasterySpec('petTamer', { 'pet-damage': 99 }, 10);
     assert.equal(out['pet-damage'], 3);
+});
+
+test('masteryBonus sums perRank × ranks for the matching effect key', () => {
+    assert.equal(masteryBonus('petTamer', { 'exp-rewards': 3 }, 'expRewardPct'), 15); // 5×3
+    assert.equal(masteryBonus('petTamer', { 'exp-materials': 2 }, 'expMaterialPct'), 10);
+    assert.equal(masteryBonus('vanguard', { 'seal-train-cost': 3 }, 'sealTrainCostPct'), 15);
+    assert.equal(masteryBonus('vanguard', { 'seal-train-cost': 3 }, 'expRewardPct'), 0); // wrong key
+    assert.equal(masteryBonus('healer', {}, 'healPowerPct'), 0);
+    assert.equal(masteryBonus('bogus', { 'exp-rewards': 3 }, 'expRewardPct'), 0);
+    // ranks beyond max don't over-count
+    assert.equal(masteryBonus('petTamer', { 'exp-rewards': 99 }, 'expRewardPct'), 15);
+});
+
+test('masteryHasCapstone reflects the spec', () => {
+    assert.equal(masteryHasCapstone('petTamer', { 'caravan-master': 1 }, 'caravan-master'), true);
+    assert.equal(masteryHasCapstone('petTamer', {}, 'caravan-master'), false);
+    assert.equal(masteryHasCapstone('petTamer', { 'exp-rewards': 3 }, 'exp-rewards'), false); // not a capstone
 });

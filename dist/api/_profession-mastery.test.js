@@ -46,3 +46,18 @@ const HEAL_CAP = 49_275;
     const out = (0, _profession_mastery_js_1.sanitizeMasterySpec)('petTamer', { 'pet-damage': 99 }, 10);
     strict_1.default.equal(out['pet-damage'], 3);
 });
+(0, node_test_1.test)('masteryBonus sums perRank × ranks for the matching effect key', () => {
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('petTamer', { 'exp-rewards': 3 }, 'expRewardPct'), 15); // 5×3
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('petTamer', { 'exp-materials': 2 }, 'expMaterialPct'), 10);
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('vanguard', { 'seal-train-cost': 3 }, 'sealTrainCostPct'), 15);
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('vanguard', { 'seal-train-cost': 3 }, 'expRewardPct'), 0); // wrong key
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('healer', {}, 'healPowerPct'), 0);
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('bogus', { 'exp-rewards': 3 }, 'expRewardPct'), 0);
+    // ranks beyond max don't over-count
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryBonus)('petTamer', { 'exp-rewards': 99 }, 'expRewardPct'), 15);
+});
+(0, node_test_1.test)('masteryHasCapstone reflects the spec', () => {
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', { 'caravan-master': 1 }, 'caravan-master'), true);
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', {}, 'caravan-master'), false);
+    strict_1.default.equal((0, _profession_mastery_js_1.masteryHasCapstone)('petTamer', { 'exp-rewards': 3 }, 'exp-rewards'), false); // not a capstone
+});

@@ -5,6 +5,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { masteryBonus } from '../_profession-mastery.js';
 
 /*
  * /api/missions/expedition-start  — POST only
@@ -116,6 +117,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const mintedAt = Date.now();
         const endsAt = mintedAt + durationMinutes * 60_000;
 
+        // Seal the Pet Tamer mastery reward multipliers (Expeditioner path) into
+        // the token so the redeemer can't tamper with them and they're fixed at
+        // launch-time spec. PvE currency only.
+        const expRewardMult = 1 + masteryBonus(char?.profession, char?.masterySpec, 'expRewardPct') / 100;
+        const expMaterialMult = 1 + masteryBonus(char?.profession, char?.masterySpec, 'expMaterialPct') / 100;
+
         const tokenId = randomUUID().replace(/-/g, '');
         const tokenKey = `pet-exp-token:${playerName}:${tokenId}`;
         await kv.set(tokenKey, {
@@ -126,6 +133,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             petLevel,
             mintedAt,
             endsAt,
+            expRewardMult,
+            expMaterialMult,
         }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
 
         return res.status(200).json({ ok: true, petTamer: true, token: tokenId, durationMinutes, endsAt });
