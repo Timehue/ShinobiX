@@ -728,6 +728,21 @@ export function sanitizeCharacterSave(
         }
     }
 
+    // Hollow Gate daily run cap (dailyHollowGateRuns) is gated client-side via
+    // lastDailyReset. Defense-in-depth: if the SERVER-stored save was last written
+    // today (exChar.lastDailyReset === SERVER_UTC_DATE), the run count can only go
+    // UP within the day — so a forged save can't reset it to 0 to farm extra runs.
+    // On a real new day exChar.lastDailyReset != today, the floor is 0, and the
+    // legit daily reset is untouched. (A determined tamper that ALSO backdates
+    // lastDailyReset resets all the player's other daily counters too, so it is
+    // self-limiting; a fully server-authoritative cap would need a dedicated
+    // server-stamped HG date field.)
+    if (exChar.lastDailyReset === SERVER_UTC_DATE) {
+        const floorRuns = Math.max(0, Math.floor(Number(exChar.dailyHollowGateRuns ?? 0)));
+        const incomingRuns = Math.max(0, Math.floor(Number(char.dailyHollowGateRuns ?? 0)));
+        char.dailyHollowGateRuns = Math.max(incomingRuns, floorRuns);
+    }
+
     // Bank-interest claim window enforcement.
     //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
     //   Date.now() to gate the "claim interest" button — a player who
