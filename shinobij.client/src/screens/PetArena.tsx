@@ -24,6 +24,7 @@ import {
     type PetArenaFrame,
 } from "../App";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
+import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import tacticalArenaHero from "../assets/coliseum/tactical-arena-hero.webp";
@@ -504,13 +505,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             let partyOutcome: "win" | "loss" | "draw";
             let matchesWon: number;
             if (useDuel) {
-                const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, petTamerPveMultiplier(character));
+                const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
                 partyOutcome = duel.result;
                 matchesWon = duel.result === "win" ? 1 : 0;
                 setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
                 setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
             } else {
-                const party = runPetArenaParty([myLead, myReserve], [enemyLead, enemyReserve], opponent.owner, seed, petTamerPveMultiplier(character));
+                const party = runPetArenaParty([myLead, myReserve], [enemyLead, enemyReserve], opponent.owner, seed, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
                 partyOutcome = party.result;
                 matchesWon = party.matches.filter(m => m.result === "win").length;
                 // Concatenate match logs/frames into one continuous replay.
@@ -677,13 +678,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         let outcome: "win" | "loss" | "draw";
         let logs: string[];
         if (useDuel) {
-            const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, petTamerPveMultiplier(character));
+            const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
             outcome = duel.result;
             logs = [];
             setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
             setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
         } else {
-            const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, seed1v1, petTamerPveMultiplier(character));
+            const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, seed1v1, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
             outcome = battle.result;
             logs = battle.logs;
             setBattleLog(battle.logs);
