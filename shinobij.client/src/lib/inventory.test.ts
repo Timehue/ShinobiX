@@ -30,6 +30,17 @@ describe("inventory — classification", () => {
         assert.equal(isStackableId(SCROLL), true);
         assert.equal(isStackableId(GEAR), false);
     });
+
+    it("the Rejuvenation Potion stacks high and depletes one per use", () => {
+        // Stacks like other consumables (counted itemStacks, not one slot each).
+        assert.equal(isStackableId("potion-rejuvenation"), true);
+        let c = addItem(mk(), "potion-rejuvenation", 9);
+        assert.equal(countItem(c, "potion-rejuvenation"), 9);
+        // Two in-battle sips (the per-fight cap) each remove one from the supply.
+        c = removeItem(c, "potion-rejuvenation", 1);
+        c = removeItem(c, "potion-rejuvenation", 1);
+        assert.equal(countItem(c, "potion-rejuvenation"), 7);
+    });
 });
 
 describe("inventory — addItem routing", () => {

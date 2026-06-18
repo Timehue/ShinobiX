@@ -72,7 +72,7 @@ export type Jutsu = {
 
 export type EquipmentSlot =
     | "aura" | "hand" | "gloves" | "body" | "waist" | "legs" | "feet" | "head"
-    | "item" | "thrown" | "weapon" | "armor" | "accessory";
+    | "item" | "thrown" | "potion" | "weapon" | "armor" | "accessory";
 
 export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary" | "Mythic";
 
@@ -94,6 +94,13 @@ export type GameItem = {
     weaponEffectValue?: number;
     weaponEffectTarget?: "enemy" | "both"; // "both" = applies effect to both player and enemy (e.g. Smoke Bomb)
     apCost?: number; // override the default AP cost for this item in combat
+    // Flat in-battle restore (potions). Applied directly to the current
+    // chakra/stamina pool (clamped to max) when the item is USED — NOT a
+    // passive stat bonus, so equipping the item never inflates maxChakra/
+    // maxStamina. Distinct from bonuses.maxChakra (which the old 0.35×max
+    // consumable formula keyed off and which DOES raise the cap when worn).
+    restoreChakra?: number;
+    restoreStamina?: number;
     weaponTags?: Array<{ name: string; percent: number }>; // Named Weapon multi-tag support
     flavorText?: string; // Player-written flavor text on Named Weapons
     bonuses: Partial<Stats> & {
