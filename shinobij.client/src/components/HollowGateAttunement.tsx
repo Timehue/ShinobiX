@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import type { Character } from "../types/character";
-import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement } from "../lib/hollow-gate-attunement";
+import { ATTUNEMENT_NODES, attunementRank, attunementNextCost, buyAttunement, keyForgeUnlocked, forgeHollowGateKey, KEY_FORGE_COST } from "../lib/hollow-gate-attunement";
 
 type Props = { character: Character; updateCharacter: (c: Character) => void; onClose: () => void };
 
@@ -18,6 +18,13 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
         if (!r.ok) { setMsg(r.reason); return; }
         updateCharacter(r.character);
         setMsg("");
+    }
+
+    function forge() {
+        const r = forgeHollowGateKey(character);
+        if (!r.ok) { setMsg(r.reason); return; }
+        updateCharacter(r.character);
+        setMsg("Forged a Hollow Gate Key.");
     }
 
     return (
@@ -57,6 +64,21 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
                         </div>
                     );
                 })}
+                {keyForgeUnlocked(character) && (
+                    <button
+                        onClick={forge}
+                        disabled={shards < KEY_FORGE_COST}
+                        style={{
+                            marginTop: 4, width: "100%", padding: 9, borderRadius: 8, fontWeight: 600,
+                            cursor: shards >= KEY_FORGE_COST ? "pointer" : "default",
+                            background: shards >= KEY_FORGE_COST ? "linear-gradient(#7c5a1a,#4a3510)" : "#181527",
+                            border: `1px solid ${shards >= KEY_FORGE_COST ? "#f59e0b" : "#3a3450"}`,
+                            color: shards >= KEY_FORGE_COST ? "#fde68a" : "#6b6486",
+                        }}
+                    >
+                        🗝 Forge a Hollow Gate Key · {KEY_FORGE_COST}💎
+                    </button>
+                )}
             </div>
         </div>
     );
