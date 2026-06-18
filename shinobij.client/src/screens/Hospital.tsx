@@ -158,6 +158,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 ...character,
                 professionXp: finalXp,
                 professionRank: finalRank,
+                // Healing costs the Healer chakra (server-deducted); reflect it locally.
+                chakra: Math.max(0, (character.chakra ?? 0) - Number(data.chakraCost ?? 0)),
             });
             const rankedUp = finalRank > prevRank;
             const totalXp = xpGained + missionXp;

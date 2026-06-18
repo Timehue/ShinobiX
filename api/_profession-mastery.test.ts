@@ -17,11 +17,11 @@ test('masteryBudget: 0 below the wall, scales, caps at 10, healer uses 1.5x wall
 
 test('sanitizeMasterySpec clamps an over-budget forged spec', () => {
     // Forge everything; budget only 4.
-    const forged = { 'heal-cooldown': 3, 'heal-tireless': 3, 'mass-triage': 1, 'heal-xp': 3 };
+    const forged = { 'heal-cooldown': 3, 'heal-tireless': 3, 'chakra-conduit': 1, 'heal-xp': 3 };
     const out = sanitizeMasterySpec('healer', forged, 4);
-    const spent = Object.entries(out).reduce((s, [id, r]) => s + r * (id === 'mass-triage' ? 2 : 1), 0);
+    const spent = Object.entries(out).reduce((s, [id, r]) => s + r * (id === 'chakra-conduit' ? 2 : 1), 0);
     assert.ok(spent <= 4, `spent ${spent} > 4`);
-    assert.ok(!out['mass-triage'], 'ungated/over-budget capstone dropped');
+    assert.ok(!out['chakra-conduit'], 'ungated/over-budget capstone dropped');
 });
 
 test('sanitizeMasterySpec keeps a legal full path with capstone', () => {

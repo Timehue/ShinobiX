@@ -306,6 +306,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             xpGained = Math.floor(xpGained * HEALER_RAID_ASSIST_MULT);
         }
 
+        // Healing costs the Healer chakra: 25% of the HP restored (10% with the
+        // Chakra Conduit capstone). Blocked if they can't pay. Deducted under the
+        // Healer's save lock; on failure we refund the cooldown reservation so a
+        // no-chakra attempt doesn't lock the Healer out of that target. Admins exempt.
+        const amountToHeal = Math.max(0, maxHp - curHp);
+        const chakraRate = masteryHasCapstone('healer', healerChar.masterySpec, 'chakra-conduit') ? 0.10 : 0.25;
+        const chakraCost = Math.ceil(amountToHeal * chakraRate);
+        if (!identity.admin && chakraCost > 0) {
+            const paid = await withKvLock<{ ok: boolean }>(healerKey, async () => {
+                const fresh = await kv.get<Record<string, unknown>>(healerKey);
+                const fChar = fresh?.character as Record<string, unknown> | undefined;
+                if (!fresh || !fChar) return { ok: false };
+                const have = Number(fChar.chakra ?? 0);
+                if (have < chakraCost) return { ok: false };
+                await kv.set(healerKey, mergePreservingImages({ ...fresh, character: { ...fChar, chakra: have - chakraCost } }, fresh));
+                return { ok: true };
+            });
+            if (!paid.ok) {
+                await kv.del(cooldownKey).catch(() => undefined);
+                return res.status(400).json({ error: `Not enough chakra — healing costs ${chakraCost} chakra.`, chakraCost });
+            }
+        }
+
         // Restore target under the save lock. The cross-heal write is just
         // as race-prone as the self-heal discharge above — a concurrent
         // auto-save of the target could wipe our hp/chakra/stamina/hosp
@@ -375,6 +398,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             missionsCompleted,
             professionXp: finalXp,
             professionRank: finalRank,
+            chakraCost,
         });
     } catch (err) {
         console.error('[heal]', err);
