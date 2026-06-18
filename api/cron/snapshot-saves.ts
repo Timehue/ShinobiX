@@ -44,6 +44,32 @@ function snapshotKey(name: string, ts: number): string {
     return `${SNAPSHOT_PREFIX}${name}:${ts}`;
 }
 
+/**
+ * Bucket all snapshot keys (`save-snapshot:<name>:<ts>`) into the newest ts per
+ * player, in a single pass. This replaces a per-player kv.keys() scan inside the
+ * snapshot loop — an N+1 where every player triggered a full disk-overlay tree
+ * walk on cPanel. Pure + exported for testing.
+ *
+ * The ts is the segment after the LAST ':' and the name is everything before it,
+ * so a name that itself contains ':' buckets exactly as the old per-player
+ * pattern (`save-snapshot:<name>:*`) did. Malformed keys (no name, no/NaN ts) are
+ * ignored, matching the old Number.isFinite filter.
+ */
+export function newestSnapshotByPlayer(snapshotKeys: string[]): Map<string, number> {
+    const newest = new Map<string, number>();
+    for (const key of snapshotKeys) {
+        if (!key.startsWith(SNAPSHOT_PREFIX)) continue;
+        const rest = key.slice(SNAPSHOT_PREFIX.length);
+        const lastColon = rest.lastIndexOf(':');
+        if (lastColon < 1) continue;                       // need a non-empty name AND a ts segment
+        const name = rest.slice(0, lastColon);
+        const ts = Number(rest.slice(lastColon + 1));
+        if (!Number.isFinite(ts) || ts <= 0) continue;
+        if (ts > (newest.get(name) ?? 0)) newest.set(name, ts);
+    }
+    return newest;
+}
+
 function isVercelCron(req: VercelRequest): boolean {
     if (req.headers['x-vercel-cron']) return true;
     const auth = req.headers.authorization;
@@ -135,21 +161,27 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
         return !name.startsWith('Admin ') && name !== 'Rill';
     });
 
+    // Dedup source: ONE scan of all snapshot keys, bucketed to the newest ts per
+    // player — replacing a per-player kv.keys() inside the loop (an N+1 of full
+    // disk-overlay tree walks on cPanel). If this scan fails we fall back to NO
+    // dedup (snapshot everyone this run): a redundant snapshot is harmless, a
+    // missed one is not, so erring toward more backups is the safe direction.
+    let newestByPlayer = new Map<string, number>();
+    try {
+        newestByPlayer = newestSnapshotByPlayer(await kv.keys(`${SNAPSHOT_PREFIX}*`));
+    } catch (err) {
+        console.warn(`[cron/snapshot-saves] snapshot-key scan failed (${err instanceof Error ? err.message : String(err)}) — proceeding with no dedup (snapshot everyone this run).`);
+    }
+
     const result = await runBatches(playerSaveKeys, async (saveKey) => {
         const playerName = saveKey.slice(SAVE_PREFIX.length);
 
-        // Dedup against existing snapshots: if the player has a snapshot within
-        // the last SKIP_IF_RECENT_MS window, skip. This also makes a double run
-        // (e.g. Railway + cPanel both scheduling) a harmless no-op.
-        const existing = await kv.keys(`${SNAPSHOT_PREFIX}${playerName}:*`);
-        if (existing.length > 0) {
-            const newest = existing
-                .map(k => Number(k.slice(`${SNAPSHOT_PREFIX}${playerName}:`.length)))
-                .filter(n => Number.isFinite(n))
-                .reduce((a, b) => Math.max(a, b), 0);
-            if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
-                return { ok: false, skip: true };
-            }
+        // Dedup: skip if this player already has a snapshot within the last
+        // SKIP_IF_RECENT_MS window. Also makes a double run (e.g. two schedulers)
+        // a harmless no-op. Sourced from the single up-front scan above.
+        const newest = newestByPlayer.get(playerName) ?? 0;
+        if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
+            return { ok: false, skip: true };
         }
 
         const live = await kv.get<Record<string, unknown>>(saveKey);
