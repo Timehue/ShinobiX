@@ -137,6 +137,10 @@ type VillageWar = {
     capturedAt?: number;
     winnerVillage?: string;
     endedAt?: number;
+    // Optimization hint: set true once the losing penalty has been settled (the
+    // NX marker war:settled:<id> remains the real once-only guard). Lets the
+    // polled GET skip re-attempting settlement on already-settled wars.
+    settled?: boolean;
     // Server-stamped at war-create so every grant path uses the same
     // canonical ID. claimedWarCrateIds on each player save dedupes via
     // exact string equality, so a single ID = one crate per player per
@@ -430,6 +434,16 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
             await bumpVillageStanding(winner, 'win', now);
             await bumpVillageStanding(loser, 'loss', now);
         }
+        // Reaching here means the war IS settled (we placed the marker now, or it
+        // already existed). Stamp the war record so the polled GET skips it from
+        // now on. Pure optimization — the NX marker above is the real once-only
+        // guard, so this is safe even if it races/fails (worst case: one more
+        // harmless no-op attempt next poll). Also flags pre-existing settled wars.
+        await withKvLock(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
+            const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
+            if (!fresh || fresh.settled) return;
+            await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, { ...fresh, settled: true });
+        }).catch(() => undefined);
     } catch { /* best-effort; the NX marker prevents a double-apply on any retry */ }
 }
 
@@ -497,7 +511,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // war that has ended with a winner — once each, via the NX marker inside
         // settleVillageWar — even wars that ended on the decay timer while offline.
         for (const w of wars) {
-            if (w.endedAt && w.winnerVillage) void settleVillageWar(w, now);
+            if (w.endedAt && w.winnerVillage && !w.settled) void settleVillageWar(w, now);
         }
         // Don't block the GET response on the persist — let writes run in
         // background. The response already shows the decayed state.
