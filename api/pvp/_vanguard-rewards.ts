@@ -3,6 +3,7 @@ import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
+import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import type { PvpSession } from './session.js';
 
 // Pet escort: Vanguard with an active pet on a PvP win gets +5% Seals AND
@@ -131,14 +132,21 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         const sharesDevice = await hasRecentIpOrFpOverlap(winnerName, loserName);
         if (sharesDevice) return { granted: false, reason: 'same-device' };
 
-        // Level-gap rule.
+        // Level-gap rule. Mastery (Bloodletter) softens the penalty: recover a
+        // fraction of the seals the gap would have stripped.
+        const spec = winnerChar.masterySpec;
         const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));
         const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
         const gapMult = levelGapMult(Number(winnerChar.level ?? 1), Number(loserChar.level ?? 1));
-        let seals = Math.floor(baseSeals * gapMult);
+        const gapSoftenPct = Math.min(100, masteryBonus('vanguard', spec, 'sealGapSoftenPct'));
+        const effectiveGapMult = gapMult + (1 - gapMult) * (gapSoftenPct / 100);
+        let seals = Math.floor(baseSeals * effectiveGapMult);
+        // Warmonger capstone: a win always pays at least 1 Seal (still capped below).
+        const hasWarmonger = masteryHasCapstone('vanguard', spec, 'warmonger');
+        if (seals <= 0 && hasWarmonger && baseSeals > 0) seals = 1;
         if (seals <= 0) return { granted: false, reason: 'level-gap' };
 
-        // Daily + per-target caps.
+        // Daily + per-target caps. Mastery (Relentless) raises the daily cap.
         const today = todayKey();
         const dailyActive = winnerChar.vanguardDailyResetDate === today;
         const dailySoFar = dailyActive ? Number(winnerChar.dailyHonorSealsEarned ?? 0) : 0;
@@ -147,7 +155,8 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
             : {};
         const loserKey = loserSlug; // per-target daily cap keyed by canonical slug
         const targetSoFar = byTarget[loserKey] ?? 0;
-        seals = Math.min(seals, Math.max(0, DAILY_SEAL_CAP - dailySoFar));
+        const dailyCap = DAILY_SEAL_CAP + Math.min(15, masteryBonus('vanguard', spec, 'sealDailyCapFlat'));
+        seals = Math.min(seals, Math.max(0, dailyCap - dailySoFar));
         seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
         if (seals <= 0) return { granted: false, reason: 'capped' };
 
