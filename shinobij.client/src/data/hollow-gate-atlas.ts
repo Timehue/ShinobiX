@@ -52,6 +52,7 @@ export const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
     petbattle: { label: "Pet Battle", kind: "pet_battle", count: 3 },   // wild Hollow Beast encounters
     tilegame:  { label: "Tile Game", kind: "tile_game", count: 2 },     // Shinobi Tile card-game encounter
     npc:     { label: "Keeper",  kind: "npc",        count: 3 },
+    shardvein: { label: "Shard Vein", kind: "shard_vein", count: 2 },   // findable Hollow Shard cache
     descend: { label: "Descend", kind: "descend",    count: 1 },
     exit:    { label: "Leave",   kind: "exit",       count: 1 },
     locked:  { label: "Locked Door", kind: "locked", count: 2 },
