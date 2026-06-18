@@ -42,8 +42,13 @@ actually enforceable — which is what makes this redesign worth doing.
 - ✅ **Key Forge shipped** (`65e0d9db`): the Attunement panel forges Hollow Gate
   Keys from shards (60 each), closing the self-sustaining loop. Phase 3 fully
   complete — no coming-soon items left.
-- ⏳ **Remaining (optional/iterative):** 2B-3 polish (wing UI / HUD / in-game
-  wing tint), Phase 4 (balance pass once playtested).
+- ✅ **Phase 2B-3 shipped** (`2dc385f1`): wing readability + HUD polish — floors/
+  doors tinted by wing, hub doors labelled with their destination glyph
+  (🏆/🐺/⚔ — informed choice), HUD shows banked shards + a death "at-risk"
+  indicator, and the intro VN explains wings / torch / shards / death. New pure
+  `wingThemeAt` (tested).
+- ⏳ **Remaining (optional):** Phase 4 — a balance-tuning pass on the starting
+  constants once the loop has been playtested.
 - ⚠️ **Strongly recommend an owner playtest now** — Phases 1+2 changed the loop
   substantially (torch economy, fair death, shards, wing structure). Validate the
   feel + tune the starting numbers before layering on UI/sinks.
