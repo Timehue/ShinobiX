@@ -155,6 +155,7 @@ interface Fighter {
     x: number; y: number;
     faceX: number; faceY: number;
     hp: number; maxHp: number;
+    reviveLeft: number; // PvE-only Alpha Bond mastery: revives left (0 normally)
     atk: number; def: number;
     stamina: number;
     moveSpeed: number; dashSpeed: number;
@@ -176,9 +177,10 @@ interface Fighter {
     repositionLeft: number;                  // hit-and-reposition: hold neutral for a beat after attacking
 }
 
-function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number, atkMult = 1): Fighter {
+function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number, atkMult = 1, hpMult = 1, reviveOnce = false): Fighter {
     const speed = Math.max(0, pet.speed || 0);
-    const maxHp = Math.max(1, Math.round(pet.hp || 1));
+    // hpMult applies the PvE-only Toughened Hide mastery; enemies always pass 1.
+    const maxHp = Math.max(1, Math.round((pet.hp || 1) * hpMult));
     const trait = pet.trait;
     const moveSpeed = clamp(2.8 + speed * 0.018, 2.8, 6.2) / DUEL_TPS;   // deliberate traversal — they MOVE across the map, not teleport
     const abilities = (pet.jutsus || []).slice(0, 4).map(buildAbility);
@@ -195,6 +197,7 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         id: `${team}-${slot}`, team, slot, pet, element: pet.element,
         x, y, faceX: team === "player" ? 1 : -1, faceY: 0,
         hp: maxHp, maxHp,
+        reviveLeft: reviveOnce ? 1 : 0,
         // atkMult applies the PvE damage modifier (e.g. the Pet-Tamer profession
         // bonus); it's a pure scalar input so the sim stays deterministic in
         // (pets, seed, mult). Enemy fighters always pass 1 (no bonus).
@@ -858,6 +861,12 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
         for (const f of fighters) tickStatuses(f);
         separateAll(fighters);
         for (const f of fighters) {
+            // PvE-only Alpha Bond mastery: the lead pet revives once at 40% HP
+            // instead of dying. Deterministic — reviveLeft is a sealed input.
+            if (f.hp <= 0 && f.state !== "dead" && f.reviveLeft > 0) {
+                f.reviveLeft -= 1;
+                f.hp = Math.max(1, Math.round(f.maxHp * 0.4));
+            }
             if (f.hp <= 0 && f.state !== "dead") f.state = "dead";
             snapToWalkable(f);
             quantizeFighter(f);
@@ -891,12 +900,12 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
-export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1): DuelResult {
+export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false): DuelResult {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
     // band — to clash in the front-center of the arena.
     const fighters = [
-        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult),
+        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce),
         buildFighter(enemyPet, "enemy", 0, 10.2, 2.8),
     ];
     return simulate(fighters, seed);
@@ -908,13 +917,14 @@ export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDa
 export function runPetPartyDuel(
     playerLead: Pet, playerReserve: Pet | null,
     enemyLead: Pet, enemyReserve: Pet | null,
-    seed: number, playerDamageMult = 1,
+    seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
 ): DuelResult {
     // Two lane duels: the LEAD pair on the FRONT lane (map-space Blue[1]/Red[1]),
     // the RESERVE pair on the BACK lane (Blue[3]/Red[3]) — spread apart so the 2v2
     // reads as two duels, not a clump. Slot targeting pairs lead-v-lead, reserve-v-reserve.
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8, playerDamageMult)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult));
+    // Toughened Hide (hpMult) buffs both player pets; Alpha Bond (revive) only the lead.
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult, playerHpMult, false));
     fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8));
     if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0));
     return simulate(fighters, seed);

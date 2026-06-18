@@ -261,6 +261,16 @@ export function masteryBonus(character: Character | null | undefined, effectKey:
     }
     return total;
 }
+// Pet Tamer PvE-only combat helpers (passed into the pet sims at PvE call sites
+// only — never ranked, so ranked stays deterministic). Auto-gated: a non-petTamer
+// has no petTamer spec, so these resolve to no-op (1 / false).
+export function petPveHpMult(character: Character | null | undefined): number {
+    return 1 + masteryBonus(character, "petPveHpPct") / 100;
+}
+export function petAlphaBond(character: Character | null | undefined): boolean {
+    return masteryHasCapstone(character, "alpha-bond");
+}
+
 /** Is a capstone unlocked? */
 export function masteryHasCapstone(character: Character | null | undefined, capstoneId: string): boolean {
     if (!character?.profession) return false;
