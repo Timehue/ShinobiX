@@ -90,11 +90,13 @@ export function hollowGateClawBackPreview(character: Character, run: HollowGateS
  * Hollow-Gate-only currency spent on in-run consumables + the Shrine Attunement
  * tree (see docs/hollow-gate-loop.md §7). Tunable — these are starting values.
  */
-export function hollowShardDrop(floor: number, source: "chest" | "lockedChest" | "boss"): number {
+export function hollowShardDrop(floor: number, source: "chest" | "lockedChest" | "boss" | "shardVein"): number {
     const f = Math.max(1, Math.floor(floor));
     switch (source) {
         case "chest":
             return 2 + f;                 // F1=3 … F5=7
+        case "shardVein":
+            return 3 + f * 2;             // F1=5 … F5=13 (the dedicated shard source)
         case "lockedChest":
             return 5 + f * 2;             // F1=7 … F5=15
         case "boss":

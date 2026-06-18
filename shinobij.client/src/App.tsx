@@ -6746,16 +6746,9 @@ export default function App() {
                 // mythic-template stats can otherwise steamroll a standard
                 // player pet even at matched level.
                 const handicap = floor >= 4 ? 0.90 : 1.00;
-                // shrine:tile-hollow-beast is the admin-generated "wild pet"
-                // portrait. If set, override the wild pet's image so all
-                // Hollow Gate beast encounters share a consistent look.
-                // CRITICAL: also rewrite the pet id with an "hg-beast-" prefix
-                // so the PetArenaCard / PetBattleAvatar image-lookup chain
-                // (sharedImages['pet:<id>'] → sharedImages['pet:<base>'] →
-                // pet.image) doesn't accidentally hit a user-generated
-                // pet:mythic-2 (or similar) image and override our shrine
-                // portrait. The synthetic id has no template match, so the
-                // chain falls through to pet.image where we want it.
+                // Override the wild pet's image with the shrine beast portrait,
+                // and give it an "hg-beast-" id so the image-lookup chain falls
+                // through to pet.image instead of a user-generated pet template.
                 const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
                 const wild: Pet = {
                     ...wildBase,
@@ -6875,6 +6868,13 @@ export default function App() {
                     kind: "chest",
                     choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
                 });
+                return;
+            }
+            case "shard_vein": {
+                const gain = hollowShardDrop(hollowGateRun.floor, "shardVein");
+                setCharacter(prev => prev ? { ...prev, hollowShards: (prev.hollowShards ?? 0) + gain } : prev);
+                pushHollowGateLog(`${flavor} You pry ${gain} Hollow Shards loose.`);
+                markResolved();
                 return;
             }
             case "pet_event": {

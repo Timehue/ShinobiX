@@ -343,7 +343,8 @@ export function buildRunFromParsedLayout(
     const deadEndTrapsPlaced = placeTrapsAtDeadEnds(Math.ceil(trapCount * 0.67));
 
     placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
-    placeIn(["room_floor", "corridor_floor"], "pet_battle", 1 + Math.floor(floor / 2));   // Hollow Beast encounters
+    // pet_battle / tile_game walk-on tiles retired — those encounters now come
+    // only from the threat ambush. Their slots become Shard Veins (below).
     placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
     placeIn(["room_floor"], "chest", 3);
@@ -354,7 +355,7 @@ export function buildRunFromParsedLayout(
     // placeIn(["room_floor"], "pet_event", 1);  // removed
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
-    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
+    placeIn(["room_floor"], "shard_vein", 1 + Math.floor(floor / 2));   // Hollow Shard caches (F1=1 … F5=3)
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);
 
@@ -684,8 +685,6 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
 
     // Battles can be in rooms (guards) or corridors (ambushes).
     placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
-    // Hollow Beast encounters — wild pet-themed PvE; 1+floor/2 per floor.
-    placeIn(["room_floor", "corridor_floor"], "pet_battle", 1 + Math.floor(floor / 2));
     // Remaining traps fill anywhere walkable.
     placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     // Room-only content: feels like guarded loot / shrines.
@@ -698,7 +697,7 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
     // placeIn(["room_floor"], "pet_event", 1);  // removed
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
-    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
+    placeIn(["room_floor"], "shard_vein", 1 + Math.floor(floor / 2));   // Hollow Shard caches (F1=1 … F5=3)
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);    // Shrine Keeper — one per floor
 
