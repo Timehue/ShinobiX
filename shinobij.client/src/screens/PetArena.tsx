@@ -17,7 +17,7 @@ import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
 import { rankedDelta } from "../lib/progression";
 import { currentDateKey, makeId } from "../lib/utils";
-import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
+import { genericPetArenaOpponents, isGenericPetOpponent, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import {
     petTamerPveMultiplier,
     type DuelChallenge,
@@ -505,13 +505,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             let partyOutcome: "win" | "loss" | "draw";
             let matchesWon: number;
             if (useDuel) {
-                const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
+                // PvE mastery modifiers only vs AI (casual party). PvP party
+                // challenges (pvpParty) and any real-player fight get none.
+                const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
                 partyOutcome = duel.result;
                 matchesWon = duel.result === "win" ? 1 : 0;
                 setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
                 setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
             } else {
-                const party = runPetArenaParty([myLead, myReserve], [enemyLead, enemyReserve], opponent.owner, seed, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
+                const party = runPetArenaParty([myLead, myReserve], [enemyLead, enemyReserve], opponent.owner, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
                 partyOutcome = party.result;
                 matchesWon = party.matches.filter(m => m.result === "win").length;
                 // Concatenate match logs/frames into one continuous replay.
@@ -677,14 +679,17 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // same `outcome` value, so the swap is invisible to the reward path.
         let outcome: "win" | "loss" | "draw";
         let logs: string[];
+        // PvE mastery modifiers only vs a built-in AI opponent. Any real-player
+        // 1v1 (non-ranked challenge / clan) gets none.
+        const pveOpp = isGenericPetOpponent(opponent.pet);
         if (useDuel) {
-            const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
+            const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
             outcome = duel.result;
             logs = [];
             setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
             setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
         } else {
-            const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, seed1v1, petTamerPveMultiplier(character), opponent.ranked ? 1 : petPveHpMult(character), opponent.ranked ? false : petAlphaBond(character));
+            const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
             outcome = battle.result;
             logs = battle.logs;
             setBattleLog(battle.logs);
