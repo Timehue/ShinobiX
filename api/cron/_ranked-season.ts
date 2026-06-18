@@ -98,7 +98,8 @@ function num(v: unknown): number { const n = Number(v); return Number.isFinite(n
 
 export type SeasonRolloverResult = {
     ok: boolean;
-    action: 'initialized' | 'pending' | 'rolled-over' | 'skipped';
+    // 'inactive' = ranked seasons not started yet (admin must start them).
+    action: 'initialized' | 'pending' | 'rolled-over' | 'skipped' | 'inactive';
     seasonId?: number;
     nextSeasonId?: number;
     playerChampion?: string;
@@ -109,25 +110,54 @@ export type SeasonRolloverResult = {
 };
 
 /**
+ * Start ranked seasons (admin action). Initialises season 1 if no season exists
+ * yet; a no-op if one is already active. Ranked seasons do NOT auto-start — an
+ * admin kicks them off from the Admin Panel.
+ */
+export async function startRankedSeason(now: number = Date.now()): Promise<SeasonRolloverResult> {
+    const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
+    if (current) return { ok: true, action: 'skipped', seasonId: current.id };
+    const season: RankedSeason = { id: 1, startedAt: now, endsAt: now + SEASON_LENGTH_MS };
+    await kv.set(SEASON_CURRENT_KEY, season);
+    return { ok: true, action: 'initialized', seasonId: season.id };
+}
+
+/**
  * Run a season rollover IF the current window has ended. Safe to call on every
- * daily cron tick — it no-ops (`pending`) until the clock expires, and the
- * rollover lock + clock advance make a double-run a no-op too. On the very first
- * run it just initialises season 1.
+ * daily cron tick — it no-ops (`inactive` until an admin starts seasons,
+ * `pending` until the clock expires), and the rollover lock + clock advance make
+ * a double-run a no-op too. Does NOT auto-start a season.
  */
 export async function runRankedSeasonRollover(now: number = Date.now()): Promise<SeasonRolloverResult> {
     const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
-    if (!current) {
-        const season: RankedSeason = { id: 1, startedAt: now, endsAt: now + SEASON_LENGTH_MS };
-        await kv.set(SEASON_CURRENT_KEY, season);
-        return { ok: true, action: 'initialized', seasonId: season.id };
-    }
+    if (!current) return { ok: true, action: 'inactive' };
     if (now < current.endsAt) return { ok: true, action: 'pending', seasonId: current.id };
-
-    // Serialise rollover so two concurrent cron ticks can't double-reward.
     return withKvLock<SeasonRolloverResult>(SEASON_LOCK_KEY, async () => {
         const fresh = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
         if (!fresh || now < fresh.endsAt) return { ok: true, action: 'skipped', seasonId: fresh?.id };
+        return performRollover(fresh, now);
+    }, { failClosed: true }).catch((err): SeasonRolloverResult => ({ ok: false, action: 'skipped', error: err instanceof Error ? err.message : String(err) }));
+}
 
+/**
+ * Force a rollover NOW regardless of the clock (admin action) — ends the current
+ * season immediately (reward + archive + soft reset) and starts the next.
+ * `inactive` if seasons haven't been started.
+ */
+export async function forceRankedSeasonRollover(now: number = Date.now()): Promise<SeasonRolloverResult> {
+    const current = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
+    if (!current) return { ok: true, action: 'inactive' };
+    return withKvLock<SeasonRolloverResult>(SEASON_LOCK_KEY, async () => {
+        const fresh = await kv.get<RankedSeason>(SEASON_CURRENT_KEY);
+        if (!fresh) return { ok: true, action: 'inactive' };
+        return performRollover(fresh, now);
+    }, { failClosed: true }).catch((err): SeasonRolloverResult => ({ ok: false, action: 'skipped', error: err instanceof Error ? err.message : String(err) }));
+}
+
+/** The actual rollover: archive standings, reward podiums, soft-reset, advance.
+ *  Caller must hold SEASON_LOCK_KEY. */
+async function performRollover(fresh: RankedSeason, now: number): Promise<SeasonRolloverResult> {
+    {
         const saveKeys = await kv.keys(`${SAVE_PREFIX}*`);
         const playerKeys = saveKeys.filter((k) => {
             const name = k.slice(SAVE_PREFIX.length);
@@ -211,5 +241,5 @@ export async function runRankedSeasonRollover(now: number = Date.now()): Promise
             playerChampion: rewardPodium(playerLadder)[0]?.name, petChampion: rewardPodium(petLadder)[0]?.name,
             resetCount, rewardedCount,
         };
-    }, { failClosed: true }).catch((err): SeasonRolloverResult => ({ ok: false, action: 'skipped', error: err instanceof Error ? err.message : String(err) }));
+    }
 }

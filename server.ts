@@ -45,6 +45,7 @@ import playerAuthHandler from './api/player-auth.js';
 import adminAuthHandler  from './api/admin-auth.js';
 import adminPlayersHandler from './api/admin/players.js';
 import serverResetHandler from './api/admin/server-reset.js';
+import adminRankedSeasonHandler from './api/admin/ranked-season.js';
 import clansListHandler  from './api/clans/list.js';
 import chatHandler       from './api/village/chat.js';
 import guardQueueHandler from './api/village-guard/queue.js';
@@ -465,6 +466,7 @@ route('/admin-auth',  adminAuthHandler);
 // Admin
 route('/admin/players',      adminPlayersHandler);
 route('/admin/server-reset', serverResetHandler);
+route('/admin/ranked-season', adminRankedSeasonHandler);
 
 // Clans
 route('/clans/list', clansListHandler);
