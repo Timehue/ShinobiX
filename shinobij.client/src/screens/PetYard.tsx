@@ -13,9 +13,11 @@ import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness }
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
+import { useWarLossDebuff } from "../lib/war-debuff";
 
 export function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
+    const warDebuff = useWarLossDebuff(character.village);
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [expeditionType, setExpeditionType] = useState<PetExpeditionType>("scout");
@@ -258,10 +260,11 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         if (Date.now() < selectedPet.training.endsAt) {
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
         }
-        const completedBase = collectPetTraining(selectedPet);
+        // -10% pet training XP while the village is "demoralized" from a war loss.
+        const completedBase = collectPetTraining(selectedPet, warDebuff.xpMult);
         const gains = petTrainingGains(selectedPet);
         const baseXp = selectedPet.training.type === "bond" ? gains.xp + Math.round(gains.xp * 0.35) : gains.xp;
-        const bonusXp = Math.max(0, boostAmount(baseXp, petXpBonus) - baseXp);
+        const bonusXp = Math.max(0, Math.round((boostAmount(baseXp, petXpBonus) - baseXp) * warDebuff.xpMult));
         const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp) : completedBase;
         updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
         alert(`${selectedPet.name} completed ${selectedPet.training.type} training! Stats improved.${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);

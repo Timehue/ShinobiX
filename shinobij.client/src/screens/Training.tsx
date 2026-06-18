@@ -17,6 +17,7 @@ import { canEquipElementJutsu } from "../lib/bloodline";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
+import { useWarLossDebuff } from "../lib/war-debuff";
 import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP, MAX_STAT } from "../constants/game";
 import { gainXp, getAllJutsus, playerLensDiscipline, statPointsEarnedFromXp } from "../App";
 import type { Character } from "../types/character";
@@ -24,6 +25,8 @@ import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, Active
 
 export function Training({ character, updateCharacter, activeTraining, setActiveTraining }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
+    // -10% stat-training XP while the village is "demoralized" from a war loss.
+    const warDebuff = useWarLossDebuff(character.village);
     const STAT_LABELS: Record<string, { label: string; icon: string }> = {
         strength:         { label: "Strength",      icon: "💪" },
         speed:            { label: "Speed",          icon: "⚡" },
@@ -50,7 +53,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         { label: "8 Hours",    icon: "🌙", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 },
     ];
     const trainingXpBonus = getTrainingXpBonus(character);
-    function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(timer.xp, trainingXpBonus); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms, durationMs: timer.ms }); }
+    function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult)); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms, durationMs: timer.ms }); }
     // Cancel an in-progress stat training and keep the prorated reward — the XP
     // (and the stat points it yields) scaled by the fraction of time elapsed.
     // Runs the exact completion logic on the prorated XP so leveling, stat caps
@@ -117,7 +120,7 @@ export function Training({ character, updateCharacter, activeTraining, setActive
             <h3>Choose Timer</h3>
             <div className="location-grid">
                 {timers.map((timer) => {
-                    const boostedXp = boostAmount(timer.xp, trainingXpBonus);
+                    const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
                     const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
                     const earnedPoints = statPointsEarnedFromXp(character, boostedXp);
                     return (
@@ -306,6 +309,7 @@ export function JutsuTrainingHall({
     const lockedElementCount = allJutsus.length - availableJutsus.length;
     const [selectedJutsuId, setSelectedJutsuId] = useState(availableJutsus[0]?.id ?? "");
     const [now, setNow] = useState(Date.now());
+    const warDebuff = useWarLossDebuff(character.village);
     const jutsuTrainingBonus = getJutsuTrainingSpeedBonus(character) + getActiveAuraSphereBonuses(character).jutsuTrainingSpeedPercent + getActiveAuraSphereBonuses(character).jutsuXpPercent;
 
     useEffect(() => {
@@ -366,7 +370,8 @@ export function JutsuTrainingHall({
         if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
 
         const baseDuration = jutsuTrainingDuration(mastery.level);
-        const duration = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100)));
+        // +20% jutsu training time while the village is "demoralized" from a war loss.
+        const duration = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100) * warDebuff.jutsuTimeMult));
         updateCharacter({ ...character, ryo: character.ryo - cost });
         setActiveJutsuTraining({
             jutsuId: selectedJutsu.id,

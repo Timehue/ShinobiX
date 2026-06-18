@@ -663,14 +663,18 @@ export function applyPetTraitBonuses(pet: Pet, trait: PetTrait): Pet {
  * (which may trigger level-ups), and resets the active training slot.
  * Bond training also nudges happiness +5 and awards bonus XP.
  */
-export function collectPetTraining(pet: Pet): Pet {
+export function collectPetTraining(pet: Pet, xpMult: number = 1): Pet {
     if (!pet.training) return pet;
     const gains = petTrainingGains(pet);
+    // xpMult < 1 applies the village "demoralized" war-loss debuff (-10% pet
+    // training XP). Default 1 keeps every other caller unchanged.
+    const xp = Math.max(0, Math.round(gains.xp * xpMult));
+    const bondXp = Math.max(0, Math.round((gains.xp + Math.round(gains.xp * 0.35)) * xpMult));
     switch (pet.training.type) {
-        case "strength": return capPetStats(gainPetXp({ ...pet, attack: pet.attack + gains.attack, training: undefined }, gains.xp));
-        case "endurance": return capPetStats(gainPetXp({ ...pet, hp: pet.hp + gains.hp, defense: pet.defense + gains.defense, training: undefined }, gains.xp));
-        case "agility": return capPetStats(gainPetXp({ ...pet, speed: pet.speed + gains.speed, training: undefined }, gains.xp));
-        case "chakra": return capPetStats(gainPetXp({ ...pet, jutsus: pet.jutsus.map(j => ({ ...j, power: j.power > 0 ? j.power + gains.jutsuPower : j.power })), training: undefined }, gains.xp));
+        case "strength": return capPetStats(gainPetXp({ ...pet, attack: pet.attack + gains.attack, training: undefined }, xp));
+        case "endurance": return capPetStats(gainPetXp({ ...pet, hp: pet.hp + gains.hp, defense: pet.defense + gains.defense, training: undefined }, xp));
+        case "agility": return capPetStats(gainPetXp({ ...pet, speed: pet.speed + gains.speed, training: undefined }, xp));
+        case "chakra": return capPetStats(gainPetXp({ ...pet, jutsus: pet.jutsus.map(j => ({ ...j, power: j.power > 0 ? j.power + gains.jutsuPower : j.power })), training: undefined }, xp));
         case "bond": return capPetStats(gainPetXp(increasePetHappiness({
             ...pet,
             hp: pet.hp + gains.bondHp,
@@ -678,7 +682,7 @@ export function collectPetTraining(pet: Pet): Pet {
             defense: pet.defense + gains.bondStat,
             speed: pet.speed + gains.bondStat,
             training: undefined,
-        }, 5), gains.xp + Math.round(gains.xp * 0.35)));
+        }, 5), bondXp));
     }
 }
 
