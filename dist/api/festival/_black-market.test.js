@@ -41,8 +41,10 @@ function seeded(first, rest = 0.5) {
     strict_1.default.ok(relic.auraStones >= 2 && relic.auraStones <= 4);
     const jackpot = (0, _black_market_js_1.rollBlackMarket)(seeded(0.999));
     strict_1.default.equal(jackpot.ryo, 50_000);
-    strict_1.default.equal(jackpot.fateShards, 10);
-    strict_1.default.equal(jackpot.mythicSeals, 1);
+    strict_1.default.equal(jackpot.fateShards, 25);
+    strict_1.default.equal(jackpot.boneCharms, 5);
+    strict_1.default.equal(jackpot.auraStones, 2);
+    strict_1.default.equal(jackpot.mythicSeals, 0);
 });
 (0, node_test_1.test)('is a net ryo sink: expected ryo return is well under cost', () => {
     // Monte-Carlo with a simple LCG so the average is stable and deterministic.

@@ -39,8 +39,10 @@ test('payouts stay within their advertised ranges', () => {
 
     const jackpot = rollBlackMarket(seeded(0.999));
     assert.equal(jackpot.ryo, 50_000);
-    assert.equal(jackpot.fateShards, 10);
-    assert.equal(jackpot.mythicSeals, 1);
+    assert.equal(jackpot.fateShards, 25);
+    assert.equal(jackpot.boneCharms, 5);
+    assert.equal(jackpot.auraStones, 2);
+    assert.equal(jackpot.mythicSeals, 0);
 });
 
 test('is a net ryo sink: expected ryo return is well under cost', () => {
