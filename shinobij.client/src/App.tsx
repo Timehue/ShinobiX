@@ -723,6 +723,7 @@ import {
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop } from "./lib/hollow-gate-run";
+import { wingEntryEffect } from "./lib/hollow-gate-wings";
 // Hollow Gate ASCII layouts + shrine dungeon generators moved to
 // ./lib/hollow-gate-dungeon — imported above.
 
@@ -7184,12 +7185,12 @@ export default function App() {
         if (hollowGateEvent || hollowGateHiddenChamber) return;
         if (hollowGateIntroPage !== null) return;
 
-        // Use functional state update so rapid WASD presses queue correctly
-        // against the latest run state (the closure form lost presses if two
-        // happened within the same render tick — the second computed from the
-        // pre-move state and overwrote the first).
+        // Functional state update so rapid WASD presses queue against the latest
+        // run state (the closure form lost presses within a single render tick).
         let outcome: {
             wallBump: boolean;
+            blockMessage?: string;       // sealed-wing block reason (overrides the wall-bump log)
+            committedTheme?: string;     // wing theme just committed to (for the seal log)
             torchSputtered: boolean;
             justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
             ambushImmediate: boolean;
@@ -7208,6 +7209,14 @@ export default function App() {
                 outcome = { ...outcome, wallBump: true };
                 return prev;
             }
+            // Branching wings: block entry to a sealed wing; entering a detour
+            // commits to it (sealing the other). Trial/hub are always open.
+            const wingEff = wingEntryEffect(prev, tile.wing);
+            if (wingEff.blocked) {
+                outcome = { ...outcome, wallBump: true, blockMessage: wingEff.message };
+                return prev;
+            }
+            if (wingEff.committedTheme) outcome = { ...outcome, committedTheme: wingEff.committedTheme };
             const tiles = prev.tiles.slice();
             tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
             // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
@@ -7215,16 +7224,9 @@ export default function App() {
             const nextTorch = Math.max(0, prev.torch - torchDrain);
             const threatMultiplier = nextTorch === 0 ? 2 : 1;
             const nextThreat = Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
-            // Fire the tile's event on every step onto an UNRESOLVED tile. We gate
-            // ONLY on `resolved`, never on whether the tile was previously revealed.
-            // Tiles that intentionally never mark themselves resolved — Leave/exit,
-            // the descend staircase, a locked door reached without a key, and the
-            // boss — MUST re-fire their prompt when the player steps back onto them.
-            // The old `!wasRevealed` clause silently broke that: once a tile had
-            // been stepped on it went permanently inert, so (e.g.) returning to a
-            // locked door WITH a key did nothing, and the Leave tile could soft-lock
-            // a run after a single "Step Back". Every reward-granting tile calls
-            // markResolved(), so `resolved` alone still prevents any double-grant.
+            // Fire the tile's event on every step onto an UNRESOLVED tile (gate on
+            // `resolved` only, never on revealed — so Leave/descend/locked/boss
+            // re-fire when re-entered; markResolved() still prevents double-grants).
             const justResolved = !tile.resolved;
             outcome = {
                 ...outcome,
@@ -7234,6 +7236,7 @@ export default function App() {
             };
             return {
                 ...prev,
+                ...(wingEff.patch ?? {}),
                 playerX: nx,
                 playerY: ny,
                 tiles,
@@ -7244,8 +7247,11 @@ export default function App() {
 
         // ── Side effects ──────────────────────────────────────────────────
         if (outcome.wallBump) {
-            pushHollowGateLog("Solid shrine stone. You cannot pass.");
+            pushHollowGateLog(outcome.blockMessage ?? "Solid shrine stone. You cannot pass.");
             return;
+        }
+        if (outcome.committedTheme) {
+            pushHollowGateLog(`You commit to the ${outcome.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
         }
         if (outcome.torchSputtered) {
             pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
@@ -7258,16 +7264,12 @@ export default function App() {
                 "locked", "exit", "npc", "descend",
             ];
             const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
-            // Deferred via 0ms timeout to let the state commit. resolveHollowGateTile
-            // uses markResolved's functional-setState form internally so the player
-            // position is preserved (fixes the WASD teleport-back bug).
+            // Deferred via 0ms so state commits first (resolveHollowGateTile uses
+            // markResolved's functional form, preserving the player's position).
             setTimeout(() => {
                 resolveHollowGateTile(tile, nx, ny);
                 if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    // Ambush at max threat — weighted roll between shinobi /
-                    // pet / tile-game encounter (50 / 35 / 15). See
-                    // triggerHollowGateAmbush for the branching + fallbacks.
-                    triggerHollowGateAmbush();
+                    triggerHollowGateAmbush();   // ambush at max threat (see triggerHollowGateAmbush)
                 }
             }, 0);
         } else if (outcome.ambushImmediate) {
