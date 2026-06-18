@@ -27,7 +27,7 @@ export const HOLLOW_SHARD_CONSUMABLES: HollowShardConsumable[] = [
     { id: "hollow-ward", label: "Hollow Ward", cost: 10, icon: "shield-half", desc: "Wipe Threat and hold it back for 6 steps." },
     { id: "diviner-eye", label: "Diviner's Eye", cost: 12, icon: "eye", desc: "Reveal the entire floor.", once: true },
     { id: "sanctify", label: "Sanctify Loot", cost: 14, icon: "lock", desc: "Bank your haul so death can't claw it back." },
-    { id: "second-wind", label: "Second Wind", cost: 20, icon: "heart-plus", desc: "Hold a revive — survive your next death at half HP.", once: true, comingSoon: true },
+    { id: "second-wind", label: "Second Wind", cost: 20, icon: "heart-plus", desc: "Hold a revive — survive your next death at half HP.", once: true },
 ];
 
 export const HOLLOW_SHARD_WARD_STEPS = 6;
