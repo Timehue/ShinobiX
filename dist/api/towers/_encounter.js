@@ -15,6 +15,7 @@ exports.buildTowerEncounter = buildTowerEncounter;
 const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
 const _enemy_templates_js_1 = require("./_enemy-templates.js");
+const _floor_catalog_js_1 = require("./_floor-catalog.js");
 // ── Elemental pylons (5 elements; 3 chosen per run) ──────────────────────────
 const TOWER_ELEMENTS = ['Fire', 'Water', 'Earth', 'Lightning', 'Wind'];
 // Naruto-style counter cycle (Fire>Wind>Lightning>Earth>Water>Fire): a pylon boosts
@@ -36,6 +37,38 @@ function pickTowerElements(seed) {
         [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr.slice(0, 3);
+}
+// Columns reserved for the player squad (+ a protected npc) on the LEFT — feature
+// flowers never land here, so a unit never spawns inside a hazard/pylon/ward.
+const SPAWN_LEFT_COLS = 3;
+// Scatter each feature as a 7-hex FLOWER at a random interior centre: anywhere on the
+// board EXCEPT the left spawn band, never overlapping another feature or a reserved
+// tile (e.g. the reach-tile goal). Deterministic by seed (its own LCG stream), so the
+// settle recompute reproduces the exact layout. Overwrites the catalog's placeholder
+// tiles; a feature that can't be placed after many tries keeps its catalog tiles.
+function placeFeatureFlowers(features, w, h, seed, reserved) {
+    if (!features.length)
+        return;
+    const taken = new Set(reserved);
+    let s = (((seed >>> 0) ^ 0x9e3779b9) >>> 0) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+    for (const f of features) {
+        for (let attempt = 0; attempt < 400; attempt++) {
+            const cx = (SPAWN_LEFT_COLS + 2) + Math.floor(rnd() * Math.max(1, w - SPAWN_LEFT_COLS - 3)); // centre cols 5..w-2
+            const cy = 1 + Math.floor(rnd() * Math.max(1, h - 2)); // centre rows 1..h-2
+            const zone = (0, _floor_catalog_js_1.hexZone)(cx + cy * w, w, h);
+            if (zone.length < 7)
+                continue; // interior centres only (full flower)
+            if (zone.some(t => (t % w) <= SPAWN_LEFT_COLS))
+                continue; // keep clear of the player spawn band
+            if (zone.some(t => taken.has(t)))
+                continue; // no overlap with another feature / reserved
+            f.tiles = zone;
+            for (const t of zone)
+                taken.add(t);
+            break;
+        }
+    }
 }
 // Deterministic spawn placement: from a desired (col,row), scan outward (down rows,
 // then wrap to the next column) to the first FREE tile, so squad + enemies spread
@@ -106,7 +139,17 @@ function buildTowerEncounter(p) {
         pIdx++;
     }
     const W = map.width, H = map.height;
+    // Scatter the feature flowers across the board — anywhere EXCEPT the player spawn band,
+    // never overlapping each other / the goal / the protected npc. Then seed `used` with the
+    // feature tiles so no squad member, enemy, or boss ever spawns inside a flower.
+    const reserved = [...map.objectiveTiles];
+    if (typeof floor.npc?.pos === 'number')
+        reserved.push(floor.npc.pos);
+    placeFeatureFlowers(map.features ?? [], W, H, p.seed, reserved);
     const used = new Set();
+    for (const f of map.features ?? [])
+        for (const t of f.tiles)
+            used.add(t);
     const actors = [];
     // Squad in a 2-wide LEFT band, spaced every ~3 rows down the middle of the board.
     squad.forEach((m, i) => actors.push(squadActor(m, placeInBand(used, W, H, i % 2, 3 + i * 3))));

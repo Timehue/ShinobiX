@@ -28,12 +28,13 @@ const session: TowerSession = {
     towerId: "celestial", runId: "preview", floor: 2, seed: 1, partySize: 1,
     map: {
         width: W, height: H, biome: "forest", blockedTiles: [], hazardTiles: [], objectiveTiles: [],
+        // Spread, non-overlapping flowers (what the server's procedural placement produces).
         features: [
-            { kind: "pylon", tiles: zone(86), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
-            { kind: "pylon", tiles: zone(90), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
-            { kind: "pylon", tiles: zone(94), element: "Wind", weakenElement: "Fire", percent: 25, label: "Gale Pylon" },
-            { kind: "ward", tiles: zone(150), percent: 20, label: "Warded Stone" },
-            { kind: "hazard", tiles: zone(130), percent: 12, label: "Frost Spikes" },
+            { kind: "pylon", tiles: zone(66), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
+            { kind: "pylon", tiles: zone(74), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
+            { kind: "pylon", tiles: zone(128), element: "Wind", weakenElement: "Fire", percent: 25, label: "Gale Pylon" },
+            { kind: "ward", tiles: zone(156), percent: 20, label: "Warded Stone" },
+            { kind: "hazard", tiles: zone(210), percent: 12, label: "Frost Spikes" },
         ],
     },
     actors: [
