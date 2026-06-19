@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, type TowerFloorMeta, type TowerSession } from "../lib/towers-api";
+import spireBanner from "../assets/towers/spire.webp";
 
 // ─── Battle Towers Lobby ──────────────────────────────────────────────────────
-// Curated 4-player squad tower (lives beside the Endless climb in the Celestial
-// Tower). Pick a floor, assemble the squad, and enter the fullscreen fight. v1 is
-// solo + AI allies (async); allies are server-snapshotted from saves. onEnter hands
-// the started runId + session to the fight shell.
+// Curated squad tower (lives beside the Endless climb in the Celestial Tower).
+// Pick a floor and enter the fullscreen fight. onEnter hands the started runId +
+// session to the fight shell.
 const OBJECTIVE_LABEL: Record<string, string> = {
     "defeat-all": "Defeat all",
     "defeat-boss": "Defeat the boss",
@@ -17,6 +17,13 @@ const OBJECTIVE_LABEL: Record<string, string> = {
     "break-objective": "Break the objective",
     "survive": "Survive",
     "kill-adds-first": "Kill the adds first",
+};
+const BIOME: Record<string, { color: string; icon: string }> = {
+    forest: { color: "#4ade80", icon: "🌲" },
+    snow: { color: "#93c5fd", icon: "❄️" },
+    volcano: { color: "#fb7185", icon: "🌋" },
+    central: { color: "#cbd5e1", icon: "🏛️" },
+    shadow: { color: "#a78bfa", icon: "🌑" },
 };
 
 export function BattleTowersLobby({
@@ -60,71 +67,98 @@ export function BattleTowersLobby({
         }
     }
 
-    return (
-        <div className="card" style={{ maxWidth: 760, margin: "1rem auto", padding: "1.4rem" }}>
-            <h1 style={{ marginTop: 0 }}>⚔️ Battle Towers</h1>
-            <p style={{ color: "#94a3b8", marginTop: 0 }}>
-                Curated squad floors with objectives, gimmicks, and boss fights. Free to enter, unlimited
-                retries — the gate is tactics, not stamina. First-clear rewards are one-time; clear a floor
-                to climb the leaderboard.
-            </p>
+    const selFloor = floors.find(f => f.id === selected);
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", margin: "1rem 0" }}>
-                <div className="card" style={{ padding: "0.8rem" }}>
-                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Deepest floor</div>
-                    <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#facc15" }}>{bestFloor}</div>
-                </div>
-                <div className="card" style={{ padding: "0.8rem" }}>
-                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Tower rating</div>
-                    <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#a78bfa" }}>{rating.toLocaleString()}</div>
-                </div>
+    return (
+        <div style={{ maxWidth: 880, margin: "1rem auto", padding: "0 0.8rem 1.5rem", color: "#e2e8f0" }}>
+            {/* Hero banner */}
+            <div style={{
+                position: "relative", borderRadius: 14, overflow: "hidden", marginBottom: 14,
+                border: "1px solid #334155", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+                background: `linear-gradient(180deg, rgba(8,12,24,0.25) 0%, rgba(8,12,24,0.92) 100%), url(${spireBanner}) center 30%/cover no-repeat`,
+                minHeight: 168, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: "1.1rem 1.3rem",
+            }}>
+                <h1 style={{ margin: 0, fontSize: "2.1rem", letterSpacing: 0.5, textShadow: "0 3px 12px rgba(0,0,0,0.9)" }}>⚔️ Battle Towers</h1>
+                <p style={{ margin: "4px 0 0", color: "#cbd5e1", maxWidth: 620, fontSize: "0.9rem", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>
+                    Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
+                    Free to enter, unlimited retries; the gate is tactics, not stamina.
+                </p>
+            </div>
+
+            {/* Stat chips */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                <Stat label="Deepest floor" value={String(bestFloor)} color="#facc15" />
+                <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
+                <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="#4ade80" />
             </div>
 
             {loading && <p className="hint">Loading floors…</p>}
             {error && <p style={{ color: "#f87171" }}>{error}</p>}
 
             {!loading && floors.length > 0 && (
-                <div style={{ display: "grid", gap: "0.5rem", margin: "0.5rem 0 1rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10, marginBottom: 16 }}>
                     {floors.map(f => {
                         const isCleared = cleared.has(f.id);
                         const isSel = selected === f.id;
+                        const b = BIOME[f.biome] ?? { color: "#94a3b8", icon: "🗺️" };
                         return (
                             <button
                                 key={f.id}
                                 onClick={() => setSelected(f.id)}
                                 style={{
-                                    display: "flex", alignItems: "center", gap: 10, textAlign: "left",
-                                    padding: "0.6rem 0.8rem", borderRadius: 8,
-                                    border: `1px solid ${isSel ? "#60a5fa" : "#334155"}`,
-                                    background: isSel ? "#15233b" : "#0b1220", cursor: "pointer",
+                                    position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                                    padding: "0.7rem 0.8rem 0.7rem 0.9rem", borderRadius: 10, overflow: "hidden",
+                                    border: `1px solid ${isSel ? "#60a5fa" : "#293548"}`,
+                                    background: isSel ? "linear-gradient(180deg,#16263f,#0d1830)" : "linear-gradient(180deg,#0e1626,#0a111f)",
+                                    boxShadow: isSel ? "0 0 0 1px #60a5fa, 0 6px 18px rgba(37,99,235,0.25)" : "0 2px 8px rgba(0,0,0,0.4)",
+                                    cursor: "pointer", color: "#e2e8f0",
                                 }}
                             >
-                                <span style={{ fontWeight: 700, color: f.isBoss ? "#f87171" : "#e2e8f0", minWidth: 28 }}>F{f.id}</span>
-                                <span style={{ flex: 1 }}>
-                                    <strong>{f.name}</strong>
-                                    <span style={{ color: "#94a3b8", fontSize: "0.82rem" }}>
-                                        {" "}· {OBJECTIVE_LABEL[f.objective] ?? f.objective} · {f.biome}
-                                        {f.isBoss ? " · 👑 boss" : ""}{f.milestone ? " · ⭐ milestone" : ""}
+                                {/* biome color stripe */}
+                                <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: b.color }} />
+                                <span style={{ fontSize: 22, width: 34, textAlign: "center", flexShrink: 0 }}>{f.isBoss ? "👑" : b.icon}</span>
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <strong style={{ color: b.color, fontSize: "0.78rem", letterSpacing: 0.5 }}>F{f.id}</strong>
+                                        <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</strong>
+                                        {f.milestone && <span title="Milestone" style={{ fontSize: 13 }}>⭐</span>}
+                                    </span>
+                                    <span style={{ display: "block", color: "#94a3b8", fontSize: "0.78rem", marginTop: 2 }}>
+                                        {OBJECTIVE_LABEL[f.objective] ?? f.objective} · {f.biome}{f.isBoss ? " · boss" : ""}
                                     </span>
                                 </span>
-                                {isCleared && <span title="First-cleared" style={{ color: "#4ade80" }}>✓</span>}
+                                {isCleared && <span title="First-cleared" style={{ color: "#4ade80", fontWeight: 800, flexShrink: 0 }}>✓</span>}
                             </button>
                         );
                     })}
                 </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
+            {/* Enter / back */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <button
-                    style={{ padding: "0.8rem 1rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
+                    style={{
+                        flex: "1 1 240px", padding: "0.85rem 1rem", borderRadius: 10, fontWeight: 800, fontSize: "1rem",
+                        cursor: selected != null ? "pointer" : "not-allowed", color: "#dcfce7",
+                        background: "linear-gradient(180deg,#16803a,#0c5226)", border: "1px solid #4ade80",
+                        boxShadow: "0 4px 16px rgba(34,197,94,0.3)", opacity: selected == null || loading ? 0.5 : 1,
+                    }}
                     onClick={enterFloor}
                     disabled={selected == null || starting || loading}
                 >
-                    {starting ? "Entering…" : selected != null ? `▶ Enter Floor ${selected}` : "Select a floor"}
+                    {starting ? "Entering…" : selFloor ? `▶ Enter Floor ${selFloor.id} — ${selFloor.name}` : "Select a floor"}
                 </button>
+                <button className="back-btn" onClick={onBack}>× Back to Central</button>
             </div>
+        </div>
+    );
+}
 
-            <button className="back-btn" style={{ marginTop: "0.6rem" }} onClick={onBack}>× Back to Central</button>
+function Stat({ label, value, color }: { label: string; value: string; color: string }) {
+    return (
+        <div style={{ flex: "1 1 140px", padding: "0.7rem 0.9rem", borderRadius: 10, background: "linear-gradient(180deg,#0e1626,#0a111f)", border: "1px solid #293548" }}>
+            <div style={{ color: "#94a3b8", fontSize: "0.78rem" }}>{label}</div>
+            <div style={{ fontSize: "1.5rem", fontWeight: 800, color }}>{value}</div>
         </div>
     );
 }
