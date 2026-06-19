@@ -366,6 +366,15 @@ export type Character = {
     geninCeremonySeen?: boolean;
     endlessTowerRun?: EndlessTowerRun | null;
     endlessTowerBestWave?: number;
+    // ── Battle Towers (4-player curated squad tower) ──────────────────────────
+    // All additive/optional: legacy saves treat missing values as "never played".
+    // Live combat state lives in a dedicated KV session (tower:<runId>), NOT here;
+    // only durable, leak-safe progress persists on the save (no banked currency).
+    battleTowerBestFloor?: number;              // lifetime deepest floor cleared (monotonic; leaderboard)
+    battleTowerRating?: number;                 // all-time Floor Clear Score aggregate (server-authoritative)
+    battleTowerClearedFloors?: number[];        // floor ids first-cleared (permanent; one-time-reward gate)
+    battleTowerClaimedRewards?: string[];       // per-floor reward claim-gate keys
+    battleTowerAssistRewardsClaimed?: string[]; // borrowed-ally assist claim gates
 };
 
 // ── Player records ────────────────────────────────────────────────────────

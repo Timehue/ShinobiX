@@ -788,38 +788,8 @@ export function villagePageImage(villageName: string): string {
 // image-asset imports the data module shouldn't.
 // specialties + jutsuElements live in ./data/jutsu (imported above for internal
 // use; JutsuDropdownList imports them directly from ./data/jutsu).
-export const adminIconOptions: { value: string; label: string }[] = [
-    { value: "!", label: "! — Alert / Warning" },
-    { value: "?", label: "? — Unknown / Mystery" },
-    { value: "!!", label: "!! — Urgent / High Alert" },
-    { value: "AI", label: "AI — NPC Battle Encounter" },
-    { value: "BOSS", label: "BOSS — Boss Fight" },
-    { value: "RAID", label: "RAID — Raid Encounter" },
-    { value: "VN", label: "VN — Visual Novel / Story" },
-    { value: "XP", label: "XP — Experience Reward" },
-    { value: "RYO", label: "RYO — Ryo Currency Reward" },
-    { value: "SHOP", label: "SHOP — Market / Store" },
-    { value: "DOJO", label: "DOJO — Training Location" },
-    { value: "PET", label: "PET — Pet Encounter" },
-    { value: "CARD", label: "CARD — Card / Item Reward" },
-    { value: "BANK", label: "BANK — Bank / Vault" },
-    { value: "CLAN", label: "CLAN — Clan Territory" },
-    { value: "WAR", label: "WAR — War Zone" },
-    { value: "HUNT", label: "HUNT — Hunt Mission" },
-    { value: "CHEST", label: "CHEST — Treasure Chest" },
-    { value: "EVENT", label: "EVENT — Special Event" },
-    { value: "STORY", label: "STORY — Story Scene" },
-    { value: "FIRE", label: "FIRE — Fire / Volcano Biome" },
-    { value: "WATER", label: "WATER — Water / Coastal" },
-    { value: "WIND", label: "WIND — Wind / Storm Zone" },
-    { value: "EARTH", label: "EARTH — Earth / Cave" },
-    { value: "LIGHT", label: "LIGHT — Sacred / Holy Site" },
-    { value: "SHADOW", label: "SHADOW — Shadow / Dark Zone" },
-    { value: "SNOW", label: "SNOW — Snow / Ice Biome" },
-    { value: "LAVA", label: "LAVA — Lava / Magma Field" },
-    { value: "MOON", label: "MOON — Moon / Night Event" },
-    { value: "STAR", label: "STAR — Star / Legendary Site" },
-];
+// adminIconOptions moved to ./data/admin-icons; re-exported for existing importers.
+export { adminIconOptions } from "./data/admin-icons";
 // worldSectorOptions moved to ./data/sectors (imported at top).
 // starterBloodlines + starterBloodlineOffense + the starter jutsu/bloodline
 // catalog (starterJutsus, starterSavedBloodlines, nonBloodlineTagTable +
@@ -843,29 +813,9 @@ export { gainPetXp, collectPetTraining };
 // Pet element/special jutsu tables + balance/training/XP helpers all
 // moved to ./lib/pet-balance — imported above. See that file for the
 // element → effect mapping and the per-rarity special jutsu spec tables.
-// Shared timer hook so all components tick in sync. Prevents mobile and
-// desktop timers from drifting if their intervals initialize at different times.
-let sharedNowValue = Date.now();
-const sharedNowListeners: Set<() => void> = new Set();
-let sharedNowInterval: number | null = null;
-
-function startSharedNowTicker() {
-    if (sharedNowInterval) return; // already running
-    sharedNowInterval = window.setInterval(() => {
-        sharedNowValue = Date.now();
-        sharedNowListeners.forEach(cb => cb());
-    }, 1000);
-}
-
-export function useSharedNow(): void {
-    const [, setNow] = useState(sharedNowValue);
-    useEffect(() => {
-        startSharedNowTicker();
-        const callback = () => setNow(sharedNowValue);
-        sharedNowListeners.add(callback);
-        return () => { sharedNowListeners.delete(callback); };
-    }, []);
-}
+// useSharedNow + the shared-now ticker moved to ./lib/use-shared-now;
+// re-exported for existing importers (BannerMobileTimers, LeftProfileCard).
+export { useSharedNow } from "./lib/use-shared-now";
 
 // formatPetTimer moved to ./lib/utils.
 // Raw pet templates (./data/pet-pool) are scaled by the balancer; the 5 starter
@@ -1478,6 +1428,11 @@ export function normalizeCharacter(parsed: Character): Character {
         totalEndlessTowerWins: parsed.totalEndlessTowerWins ?? 0,
         endlessTowerBestWave: parsed.endlessTowerBestWave ?? 0,
         endlessTowerRun: parsed.endlessTowerRun ?? null,
+        battleTowerBestFloor: parsed.battleTowerBestFloor ?? 0,
+        battleTowerRating: parsed.battleTowerRating ?? 0,
+        battleTowerClearedFloors: Array.isArray(parsed.battleTowerClearedFloors) ? parsed.battleTowerClearedFloors : [],
+        battleTowerClaimedRewards: Array.isArray(parsed.battleTowerClaimedRewards) ? parsed.battleTowerClaimedRewards : [],
+        battleTowerAssistRewardsClaimed: Array.isArray(parsed.battleTowerAssistRewardsClaimed) ? parsed.battleTowerAssistRewardsClaimed : [],
         totalPetWins: parsed.totalPetWins ?? 0,
         defeatedAiIds: Array.isArray(parsed.defeatedAiIds) ? parsed.defeatedAiIds.filter(Boolean) : [],
         rankedRating: parsed.rankedRating ?? 1000,
@@ -1696,6 +1651,11 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         totalEndlessTowerWins: 0,
         endlessTowerBestWave: 0,
         endlessTowerRun: null,
+        battleTowerBestFloor: 0,
+        battleTowerRating: 0,
+        battleTowerClearedFloors: [],
+        battleTowerClaimedRewards: [],
+        battleTowerAssistRewardsClaimed: [],
         totalPetWins: 0,
         dailyAiKills: 0,
         dailyPetWins: 0,
