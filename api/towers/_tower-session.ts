@@ -103,6 +103,9 @@ export type TowerSession = {
     log: string[];
     createdAt: number;
     lastActionAt: number;
+    /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op
+     *  AFK auto-pass so a live run never deadlocks on an absent player. */
+    turnStartedAt?: number;
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────

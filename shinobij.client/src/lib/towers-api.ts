@@ -142,3 +142,11 @@ export async function fetchTowerState(runId: string, playerName: string): Promis
 export function settleTowerRun(runId: string, playerName: string): Promise<TowerSettleResponse> {
     return postJson('/api/towers/settle', { runId, playerName });
 }
+
+/** The active co-op run this player has been invited into (so an ally can join the host). */
+export async function fetchMyRun(playerName: string): Promise<{ runId: string; session: TowerSession } | null> {
+    const res = await fetch(`/api/towers/my-run?playerName=${encodeURIComponent(playerName)}`);
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({})) as { runId?: string | null; session?: TowerSession };
+    return data.runId && data.session ? { runId: data.runId, session: data.session } : null;
+}

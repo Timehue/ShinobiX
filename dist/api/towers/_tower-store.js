@@ -1,12 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
+exports.inviteKey = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
 exports.utcDateKey = utcDateKey;
 exports.bumpDailyStartCount = bumpDailyStartCount;
 exports.storeRunToken = storeRunToken;
 exports.consumeRunToken = consumeRunToken;
 exports.readSession = readSession;
 exports.writeSession = writeSession;
+exports.setTowerInvite = setTowerInvite;
+exports.getTowerInvite = getTowerInvite;
+exports.clearTowerInvite = clearTowerInvite;
 exports.settleFloorForMember = settleFloorForMember;
 exports.settleAssistForAlly = settleAssistForAlly;
 /*
@@ -94,6 +97,23 @@ async function readSession(runId, deps = {}) {
 async function writeSession(session, deps = {}) {
     const kv = deps.kv ?? _storage_js_1.kv;
     await kv.set((0, exports.sessionKey)(session.runId), session, { ex: exports.TOWER_SESSION_TTL });
+}
+// ─── Co-op invites — point an invited ally at the host's runId so they can join ──
+const inviteKey = (slug) => `tower-invite:${slug}`;
+exports.inviteKey = inviteKey;
+async function setTowerInvite(allySlug, runId, deps = {}) {
+    const kv = deps.kv ?? _storage_js_1.kv;
+    const now = deps.now ?? Date.now;
+    await kv.set((0, exports.inviteKey)(allySlug), { runId, ts: now() }, { ex: exports.TOWER_SESSION_TTL });
+}
+async function getTowerInvite(slug, deps = {}) {
+    const kv = deps.kv ?? _storage_js_1.kv;
+    const rec = await kv.get((0, exports.inviteKey)(slug));
+    return rec?.runId ?? null;
+}
+async function clearTowerInvite(slug, deps = {}) {
+    const kv = deps.kv ?? _storage_js_1.kv;
+    await kv.del((0, exports.inviteKey)(slug));
 }
 // ─── reward credit (server-authoritative) ────────────────────────────────────
 function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }

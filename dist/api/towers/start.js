@@ -12,6 +12,7 @@ const _encounter_js_1 = require("./_encounter.js");
 const _engine_js_1 = require("./_engine.js");
 const _sim_js_1 = require("./_sim.js");
 const _tower_store_js_1 = require("./_tower-store.js");
+const _tower_mp_js_1 = require("./_tower-mp.js");
 /*
  * POST /api/towers/start — begin a Battle Towers run.
  *
@@ -66,7 +67,7 @@ async function handler(req, res) {
                 id: `sq-${i}`,
                 name: String(char.name ?? slug),
                 ownerSlug: slug,
-                ai: slug !== hostName, // host is the live human; allies are AI snapshots
+                ai: false, // every squad member is a LIVE player; absent ones auto-pass (AFK)
                 character: (0, _seal_js_1.sealTowerFighter)(char),
             });
         }
@@ -74,10 +75,17 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'No valid squad members.' });
         const runId = `tower-${(0, node_crypto_1.randomUUID)().replace(/-/g, '')}`;
         const seed = identity.admin ? 12345 : (0, node_crypto_1.randomInt)(1, 0x7fffffff);
-        const session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId, seed, partySize: squad.length, now: Date.now() });
+        const now = Date.now();
+        const session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId, seed, partySize: squad.length, now });
         (0, _engine_js_1.startRound)(session);
-        (0, _engine_js_1.runAiUntilHuman)(session, floor, (0, _sim_js_1.makeRng)(seed)); // advance to the host's first turn (or auto-resolve)
+        (0, _engine_js_1.runAiUntilHuman)(session, floor, (0, _sim_js_1.makeRng)(seed)); // advance to the first human's turn (or auto-resolve)
+        (0, _tower_mp_js_1.stampTurnClock)(session, now); // start the AFK clock for whoever is up
         await (0, _tower_store_js_1.writeSession)(session);
+        // Invite each ally → point them at this runId so they can discover + join it.
+        for (const slug of memberSlugs) {
+            if (slug !== hostName)
+                await (0, _tower_store_js_1.setTowerInvite)(slug, runId).catch(() => undefined);
+        }
         return res.status(200).json({ runId, session });
     }
     catch (err) {

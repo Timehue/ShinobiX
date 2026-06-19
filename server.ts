@@ -71,6 +71,7 @@ import towersStartHandler  from './api/towers/start.js';
 import towersActionHandler from './api/towers/action.js';
 import towersStateHandler  from './api/towers/state.js';
 import towersSettleHandler from './api/towers/settle.js';
+import towersMyRunHandler  from './api/towers/my-run.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import battleLockHandler  from './api/battle/lock.js';
 import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
@@ -530,6 +531,7 @@ route('/towers/start', towersStartHandler);
 route('/towers/action', towersActionHandler);
 route('/towers/state', towersStateHandler);
 route('/towers/settle', towersSettleHandler);
+route('/towers/my-run', towersMyRunHandler);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).
