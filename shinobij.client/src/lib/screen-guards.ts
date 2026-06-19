@@ -31,6 +31,12 @@ export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     ...DEEP_LINKABLE_SCREENS,
     "arena", "battleArena", "arenaDistrict", "userHub",
+    // Battle Towers resumes from the SERVER session on refresh: the run lives in
+    // tower:<runId> and the screen re-fetches it by id (see hasActiveTowerFight +
+    // BattleTowers' resume effect). So it's safe to restore the screen — the fight
+    // is rehydrated from the server, not reconstructed from lost React state.
+    // (NOT in DEEP_LINKABLE_SCREENS — an in-fight URL shouldn't be shareable.)
+    "battleTowers",
 ]);
 
 // ─── Battle screens (navigation lock) ───────────────────────────────────────
@@ -48,14 +54,17 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "eventPetBattle", "tilecardsDuel", "battleTowers",
 ]);
 
-// Battle Towers has no server BattleLockKeeper (the run lives in tower:<runId>
-// and a refresh just drops back to Central with no penalty). The combined
-// BattleTowers screen sets this flag while a fight is on the board so the nav
-// lock blocks leaving mid-fight; the lobby state leaves it unset.
-const TOWER_FIGHT_FLAG = "shinobix:towerFightActive";
+// Battle Towers has no server BattleLockKeeper — the run lives in tower:<runId>
+// and a refresh RESUMES it (the screen is restorable and re-fetches the session
+// by id). The combined BattleTowers screen stores the active runId under this key
+// while a fight is on the board, so its presence doubles as the "in a fight"
+// signal the nav lock reads here; the lobby state leaves it unset. lib can't
+// import from screens, so BattleTowers keeps the same key string (TOWER_RUN_KEY)
+// — keep the two in sync.
+const TOWER_RUN_KEY = "shinobix:towerRunId";
 export function hasActiveTowerFight(): boolean {
     try {
-        return !!localStorage.getItem(TOWER_FIGHT_FLAG);
+        return !!localStorage.getItem(TOWER_RUN_KEY);
     } catch {
         return false;
     }
