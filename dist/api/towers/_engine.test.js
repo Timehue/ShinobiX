@@ -251,3 +251,60 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.equal(JSON.stringify(a), JSON.stringify(b));
     });
 });
+(0, node_test_1.describe)('Battle Towers boss mechanics (bulwark / regen / summon / enrage)', () => {
+    function attacker() {
+        return makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'me', character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 2500, taijutsuDefense: 2500 } } });
+    }
+    const bossFloor = makeFloor('defeat-boss', { id: 5 });
+    (0, node_test_1.it)('bulwark: boss takes HALF damage while a guard lives, full when it is alone', () => {
+        const hit = (guardHp) => {
+            const boss = makeActor('boss', 'enemy', 1, { hp: 1_000_000, maxHp: 1_000_000, character: { specialty: 'Taijutsu', stats: { taijutsuDefense: 200 }, mechanic: 'bulwark' } });
+            const guard = makeActor('en-1', 'enemy', 8, { hp: guardHp, maxHp: Math.max(1, guardHp), character: WEAK });
+            const s = makeSession([attacker(), boss, guard], { objectiveKind: 'defeat-boss', bossId: 'boss' });
+            (0, _engine_js_1.startRound)(s);
+            (0, _engine_js_1.applyAction)(s, bossFloor, { actorId: 'sq-1', type: 'attack', targetId: 'boss' }, (0, _sim_js_1.makeRng)(1));
+            return 1_000_000 - (0, _tower_session_js_1.getActor)(s, 'boss').hp;
+        };
+        const guarded = hit(100); // a guard is alive → bulwark halves it
+        const alone = hit(0); // guard already down → full damage
+        node_assert_1.strict.ok(guarded > 0 && alone > 0);
+        node_assert_1.strict.ok(Math.abs(guarded - Math.floor(alone * 0.5)) <= 1, `guarded≈half (${guarded} vs ${alone})`);
+    });
+    (0, node_test_1.it)('enrage: a stack ramps the boss outgoing damage ~+35%', () => {
+        const bossHit = (enrage) => {
+            const boss = makeActor('boss', 'enemy', 1, { character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 2500, taijutsuDefense: 2500 }, mechanic: 'enrage', enrage } });
+            const tgt = makeActor('sq-1', 'squad', 0, { hp: 1_000_000, maxHp: 1_000_000, character: WEAK });
+            const s = makeSession([tgt, boss], { objectiveKind: 'defeat-boss', bossId: 'boss' });
+            (0, _engine_js_1.startRound)(s);
+            (0, _engine_js_1.endTurn)(s, bossFloor); // advance to the boss's turn
+            (0, _engine_js_1.applyAction)(s, bossFloor, { actorId: 'boss', type: 'attack', targetId: 'sq-1' }, (0, _sim_js_1.makeRng)(1));
+            return 1_000_000 - (0, _tower_session_js_1.getActor)(s, 'sq-1').hp;
+        };
+        const base = bossHit(0);
+        const raged = bossHit(1);
+        node_assert_1.strict.ok(raged > base, 'enraged boss hits harder');
+        node_assert_1.strict.ok(Math.abs(raged - Math.floor(base * 1.35)) <= 1, `enrage≈+35% (${base} → ${raged})`);
+    });
+    (0, node_test_1.it)('summon: crossing a phase gate spawns reinforcements', () => {
+        const boss = makeActor('boss', 'enemy', 1, {
+            hp: 610, maxHp: 1000,
+            character: { specialty: 'Taijutsu', stats: { taijutsuDefense: 200 }, mechanic: 'summon', summonCount: 2, summonTemplate: { name: 'Add', specialty: 'Taijutsu', hp: 200, stats: {}, visual: 'bandit' } },
+        });
+        const s = makeSession([attacker(), boss], { objectiveKind: 'defeat-boss', bossId: 'boss', bossPhases: [60] });
+        (0, _engine_js_1.startRound)(s);
+        (0, _engine_js_1.applyAction)(s, bossFloor, { actorId: 'sq-1', type: 'attack', targetId: 'boss' }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'boss').hp < 600, 'boss dropped past the 60% gate');
+        const adds = s.actors.filter(a => a.id.startsWith('add-'));
+        node_assert_1.strict.ok(adds.length >= 1 && adds.every(a => a.side === 'enemy'), 'spawned enemy adds');
+    });
+    (0, node_test_1.it)('regen: the boss heals at round end', () => {
+        const boss = makeActor('boss', 'enemy', 1, { hp: 500, maxHp: 1000, character: { specialty: 'Taijutsu', stats: {}, mechanic: 'regen' } });
+        const s = makeSession([makeActor('sq-1', 'squad', 0, { character: WEAK }), makeActor('sq-2', 'squad', 8, { character: WEAK }), boss], { objectiveKind: 'defeat-boss', bossId: 'boss' });
+        (0, _engine_js_1.startRound)(s);
+        const r0 = s.round;
+        let guard = 0;
+        while (s.round === r0 && s.status === 'active' && guard++ < 20)
+            (0, _engine_js_1.endTurn)(s, bossFloor);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'boss').hp > 500, 'regen healed the boss at round end');
+    });
+});

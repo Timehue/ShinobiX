@@ -11,6 +11,7 @@ exports.validateCatalog = validateCatalog;
  * ids). Mirrors the api/missions/_mission-catalog validity pattern.
  */
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
+const BOSS_MECHANIC_SET = new Set(_floor_catalog_js_1.TOWER_BOSS_MECHANICS);
 const OBJECTIVE_SET = new Set(_floor_catalog_js_1.TOWER_OBJECTIVES);
 const BIOME_SET = new Set(_floor_catalog_js_1.TOWER_BIOMES);
 const FIELD_RULE_KINDS = new Set(['none', 'hazard', 'debuff', 'buff']);
@@ -82,6 +83,12 @@ function validateFloor(floor) {
         if (!Array.isArray(floor.boss.phases) || floor.boss.phases.some(p => typeof p !== 'number' || p <= 0 || p >= 100)) {
             errs.push(`${where}: boss.phases must be percentages in (0,100)`);
         }
+    }
+    if (floor.boss?.mechanic && !BOSS_MECHANIC_SET.has(floor.boss.mechanic)) {
+        errs.push(`${where}: boss.mechanic "${floor.boss.mechanic}" is not a known mechanic`);
+    }
+    if (floor.boss?.summonAiId != null && typeof floor.boss.summonAiId !== 'string') {
+        errs.push(`${where}: boss.summonAiId must be a string`);
     }
     if (_floor_catalog_js_1.OBJECTIVES_NEEDING_NPC.has(floor.objective)) {
         if (!floor.npc || typeof floor.npc.aiId !== 'string' || floor.npc.aiId.trim() === '') {

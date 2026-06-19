@@ -11,14 +11,17 @@ const _floor_validate_js_1 = require("./_floor-validate.js");
     });
     // Drift detector: a hand-maintained replica of catalog invariants, so an
     // accidental edit to the catalog data trips this test (mirrors _mission-catalog).
-    (0, node_test_1.it)('matches the expected v1 shape (drift detector)', () => {
-        node_assert_1.strict.equal(_floor_catalog_js_1.TOWER_FLOOR_COUNT, 5, 'v1 ships 5 seed floors');
-        node_assert_1.strict.deepEqual(_floor_catalog_js_1.FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5]);
-        node_assert_1.strict.deepEqual(_floor_catalog_js_1.FLOOR_CATALOG.map(f => f.objective), ['defeat-all', 'defeat-all', 'reach-tile', 'protect-npc', 'defeat-boss']);
-        // Floor 5 is the boss + milestone floor.
-        const f5 = (0, _floor_catalog_js_1.getFloor)(5);
-        node_assert_1.strict.ok(f5?.boss, 'floor 5 has a boss');
-        node_assert_1.strict.equal(f5?.firstClearReward.milestone, 'tower-floor-5');
+    (0, node_test_1.it)('matches the expected shape (drift detector)', () => {
+        node_assert_1.strict.equal(_floor_catalog_js_1.TOWER_FLOOR_COUNT, 10, 'ships 10 floors');
+        node_assert_1.strict.deepEqual(_floor_catalog_js_1.FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        node_assert_1.strict.deepEqual(_floor_catalog_js_1.FLOOR_CATALOG.map(f => f.objective), ['defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss', 'defeat-all', 'defeat-boss', 'kill-escort', 'defeat-boss', 'defeat-boss']);
+        node_assert_1.strict.equal((0, _floor_catalog_js_1.getFloor)(5)?.firstClearReward.milestone, 'tower-floor-5');
+        node_assert_1.strict.equal((0, _floor_catalog_js_1.getFloor)(10)?.firstClearReward.milestone, 'tower-floor-10');
+        // No reach-tile floor (too easy in this format).
+        node_assert_1.strict.ok(!_floor_catalog_js_1.FLOOR_CATALOG.some(f => f.objective === 'reach-tile'), 'no reach-tile floors');
+        // Each of the 4 boss floors has a DISTINCT signature mechanic.
+        const mechs = _floor_catalog_js_1.FLOOR_CATALOG.filter(f => f.boss).map(f => f.boss.mechanic);
+        node_assert_1.strict.deepEqual(mechs, ['bulwark', 'regen', 'summon', 'enrage']);
     });
     (0, node_test_1.it)('every map fits the board bounds and boss/npc/goal cross-fields hold', () => {
         for (const f of _floor_catalog_js_1.FLOOR_CATALOG) {
