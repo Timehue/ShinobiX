@@ -114,3 +114,35 @@ describe('Battle Towers per-run elements (3 of 5, seeded)', () => {
         for (const p of pylons) assert.ok(want.includes(p.element), `pylon element ${p.element} ∈ ${want.join(',')}`);
     });
 });
+
+describe('Battle Towers feature placement (non-overlapping, off the spawn band)', () => {
+    const SPAWN_LEFT_COLS = 3; // mirrors _encounter
+
+    it('features never overlap, avoid the player spawn band, and no actor spawns on one', () => {
+        for (const floor of FLOOR_CATALOG) {
+            for (const seed of [1, 55, 4242]) {
+                const session = buildTowerEncounter({ floor, squad: [strongMember('h')], runId: 'r', seed, partySize: 4, now: 1 });
+                const feats = session.map.features ?? [];
+                const W = session.map.width;
+
+                // (a) no two feature tiles collide
+                const seen = new Set<number>();
+                for (const f of feats) {
+                    for (const t of f.tiles) {
+                        assert.ok(!seen.has(t), `floor ${floor.id} seed ${seed}: feature overlap at ${t}`);
+                        seen.add(t);
+                        // (b) never in the player spawn band (left columns)
+                        assert.ok((t % W) > SPAWN_LEFT_COLS, `floor ${floor.id} seed ${seed}: feature in spawn band at col ${t % W}`);
+                        // and on-board
+                        assert.ok(t >= 0 && t < W * session.map.height, `floor ${floor.id}: feature tile ${t} off-board`);
+                    }
+                }
+
+                // (c) no actor stands on a feature tile at spawn
+                for (const a of session.actors) {
+                    assert.ok(!seen.has(a.pos), `floor ${floor.id} seed ${seed}: ${a.id} spawned on a feature (${a.pos})`);
+                }
+            }
+        }
+    });
+});
