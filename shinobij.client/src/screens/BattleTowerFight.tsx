@@ -28,6 +28,8 @@ import pylonWater from "../assets/towers/pylons/water.webp";
 import pylonEarth from "../assets/towers/pylons/earth.webp";
 import pylonLightning from "../assets/towers/pylons/lightning.webp";
 import pylonWind from "../assets/towers/pylons/wind.webp";
+import hazardSprite from "../assets/towers/pylons/hazard.webp";
+import wardSprite from "../assets/towers/pylons/ward.webp";
 
 // ─── Battle Tower Fight (fullscreen pop-out combat shell) ─────────────────────
 // Renders the server-authoritative tower:<runId> session as a top-down hex
@@ -54,6 +56,8 @@ const ENEMY_SPRITE: Record<string, string> = {
 const PYLON_SPRITE: Record<string, string> = {
     Fire: pylonFire, Water: pylonWater, Earth: pylonEarth, Lightning: pylonLightning, Wind: pylonWind,
 };
+// Ward / hazard flower sprites.
+const FEATURE_SPRITE: Record<string, string> = { ward: wardSprite, hazard: hazardSprite };
 const ENEMY_EMOJI: Record<string, string> = {
     bandit: "🥷", archer: "🏹", blocker: "🛡️", brute: "👹", acolyte: "🔮",
     warden: "🐲", ravager: "😈", genin: "🧑",
@@ -262,24 +266,23 @@ export function BattleTowerFight({
 
                                 {/* feature markers — one icon at a pylon flower's centre, one per
                                     tile for scattered hazards / single wards */}
-                                {(session.map.features ?? []).flatMap((feat, fi) => {
-                                    const iconTiles = feat.kind === "pylon" ? feat.tiles.slice(0, 1) : feat.tiles;
-                                    return iconTiles.map((pos, ti) => {
-                                        const { left, top } = towerHexPixel(pos, w);
-                                        const cx = left + HEX_W / 2, cy = top + HEX_H / 2;
-                                        const pylonImg = feat.kind === "pylon" ? PYLON_SPRITE[feat.element] : undefined;
-                                        if (pylonImg) {
-                                            const S = 36;
-                                            return <img key={`f-${fi}-${ti}`} src={pylonImg} alt={feat.label ?? "Pylon"} title={featureLabel(feat)}
-                                                style={{ position: "absolute", left: cx - S / 2, top: cy - S + 8, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.75))" }} />;
-                                        }
-                                        return (
-                                            <div key={`f-${fi}-${ti}`} title={featureLabel(feat)} aria-hidden
-                                                style={{ position: "absolute", left: cx - 11, top: cy - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
-                                                {featureIcon(feat)}
-                                            </div>
-                                        );
-                                    });
+                                {(session.map.features ?? []).map((feat, fi) => {
+                                    const center = feat.tiles[0];
+                                    if (center == null) return null;
+                                    const { left, top } = towerHexPixel(center, w);
+                                    const cx = left + HEX_W / 2, cy = top + HEX_H / 2;
+                                    const sprite = feat.kind === "pylon" ? PYLON_SPRITE[feat.element] : FEATURE_SPRITE[feat.kind];
+                                    if (sprite) {
+                                        const S = 38;
+                                        return <img key={`f-${fi}`} src={sprite} alt={feat.label ?? feat.kind} title={featureLabel(feat)}
+                                            style={{ position: "absolute", left: cx - S / 2, top: cy - S + 9, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.75))" }} />;
+                                    }
+                                    return (
+                                        <div key={`f-${fi}`} title={featureLabel(feat)} aria-hidden
+                                            style={{ position: "absolute", left: cx - 11, top: cy - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
+                                            {featureIcon(feat)}
+                                        </div>
+                                    );
                                 })}
 
                                 {/* actor orbs */}
