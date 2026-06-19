@@ -14,7 +14,7 @@
  * from the client.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PARTY_SCALE_FLOOR = exports.DEFAULT_PARTY_SIZE = exports.MAX_PARTY_SIZE = exports.MIN_PARTY_SIZE = exports.TOWER_FLOOR_COUNT = exports.FLOOR_CATALOG = exports.TOWER_BIOMES = exports.OBJECTIVES_NEEDING_GOAL = exports.OBJECTIVES_NEEDING_NPC = exports.OBJECTIVES_NEEDING_BOSS = exports.TOWER_OBJECTIVES = void 0;
+exports.PARTY_SCALE_FLOOR = exports.DEFAULT_PARTY_SIZE = exports.MAX_PARTY_SIZE = exports.MIN_PARTY_SIZE = exports.TOWER_FLOOR_COUNT = exports.FLOOR_CATALOG = exports.TOWER_BOSS_MECHANICS = exports.TOWER_BIOMES = exports.OBJECTIVES_NEEDING_GOAL = exports.OBJECTIVES_NEEDING_NPC = exports.OBJECTIVES_NEEDING_BOSS = exports.TOWER_OBJECTIVES = void 0;
 exports.hexZone = hexZone;
 exports.getFloor = getFloor;
 exports.getFloorBalanceFor = getFloorBalanceFor;
@@ -43,6 +43,11 @@ exports.OBJECTIVES_NEEDING_GOAL = new Set([
 ]);
 // Map biomes mirror the PvP session's valid biomes (api/pvp/session.ts).
 exports.TOWER_BIOMES = ['forest', 'snow', 'volcano', 'shadow', 'central'];
+// A boss's signature mechanic — what makes each fight distinct + tough. Resolved by
+// the engine deterministically: 'enrage' ramps the boss's damage at each phase gate;
+// 'summon' spawns reinforcements at each gate; 'regen' heals it every round; 'bulwark'
+// makes it take half damage while any of its guards still live (kill the adds first).
+exports.TOWER_BOSS_MECHANICS = ['enrage', 'summon', 'regen', 'bulwark'];
 // Hex geometry (mirrors _engine.towerNeighbors) for laying out feature ZONES in
 // the static catalog without depending on the engine module. Used by hexZone to
 // build a pylon's 7-hex "flower" (centre + the 6 touching tiles).
@@ -60,78 +65,102 @@ function catalogHexNeighbors(pos, w, h) {
 function hexZone(center, w, h) {
     return [center, ...catalogHexNeighbors(center, w, h)];
 }
-// ─── v1 seed floors (a roomy ~20×14 board — about double the old 14×10, with the
-// squad and enemies spread across spawn BANDS, not single edge columns) ──────
-// A coherent 1–5 slice with a boss + milestone at floor 5; extends toward the
-// 15-floor catalog sketched in plan §24. Tile index = y * width + x. Elemental
-// pylons are 7-hex flowers (hexZone); wards/hazards are precise tiles. Features
-// sit in the contested centre, clear of the squad/enemy/npc spawn bands.
+/** Valid PLACEHOLDER tiles for a catalog feature (a centred flower). The encounter
+ *  builder re-places every feature procedurally, so these positions are never used at
+ *  runtime — they only satisfy the validator's "non-empty, in-bounds tiles" check. */
+function ph(w, h) {
+    return hexZone(Math.floor(h / 2) * w + Math.floor(w / 2), w, h);
+}
+// ─── Seed catalog: 10 escalating floors on a roomy 20×14 board (22×16 / 24×16 for
+// bosses). Varied objectives + 4 boss floors, each boss with a DISTINCT mechanic
+// (bulwark / regen / summon / enrage). Features carry placeholder tiles (ph); the
+// encounter builder scatters them procedurally each run and assigns 3-of-5 pylon
+// elements. Milestones at floor 5 + floor 10.
+const pylon = (w, h) => ({ kind: 'pylon', tiles: ph(w, h), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' });
+const ward = (w, h, percent = 22) => ({ kind: 'ward', tiles: ph(w, h), percent, label: 'Warded Stone' });
+const hazard = (w, h, percent = 12) => ({ kind: 'hazard', tiles: ph(w, h), percent, label: 'Hazard' });
 exports.FLOOR_CATALOG = [
     {
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-bandit', count: 6 }],
-        // Two elemental-pylon flowers introduce the mechanic. Their ELEMENTS are
-        // assigned per-run from the tower's 3 random elements (see _encounter).
-        features: [
-            { kind: 'pylon', tiles: hexZone(86, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
-            { kind: 'pylon', tiles: hexZone(94, 20, 14), element: 'Water', weakenElement: 'Earth', percent: 25, label: 'Pylon' },
-        ],
+        features: [pylon(20, 14), pylon(20, 14)],
         firstClearReward: { ryo: 400, xp: 150 },
     },
     {
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
         enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
-        // Three elemental-pylon flowers (one per tower element) + a cover-ward flower.
-        features: [
-            { kind: 'pylon', tiles: hexZone(86, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
-            { kind: 'pylon', tiles: hexZone(90, 20, 14), element: 'Earth', weakenElement: 'Lightning', percent: 25, label: 'Pylon' },
-            { kind: 'pylon', tiles: hexZone(94, 20, 14), element: 'Wind', weakenElement: 'Fire', percent: 25, label: 'Pylon' },
-            { kind: 'ward', tiles: hexZone(150, 20, 14), percent: 20, label: 'Warded Stone' },
-        ],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 20)],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
     },
     {
-        id: 3, name: 'The Frozen Run', biome: 'snow', objective: 'reach-tile',
-        roundBudget: 7, map: { width: 20, height: 14 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
+        id: 3, name: 'Frozen Gauntlet', biome: 'snow', objective: 'defeat-all',
+        roundBudget: 9, map: { width: 20, height: 14 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
+        // Reworked off "reach the goal" (too easy here) into a hazard-strewn brawl.
         enemies: [{ aiId: 'grunt-blocker', count: 5 }, { aiId: 'grunt-archer', count: 3 }],
-        // Two frost-spike hazard flowers blocking the dash + one pylon to fight over.
-        features: [
-            { kind: 'hazard', tiles: hexZone(86, 20, 14), percent: 12, label: 'Frost Spikes' },
-            { kind: 'hazard', tiles: hexZone(94, 20, 14), percent: 12, label: 'Frost Spikes' },
-            { kind: 'pylon', tiles: hexZone(150, 20, 14), element: 'Water', weakenElement: 'Earth', percent: 25, label: 'Pylon' },
-        ],
-        goalTile: 279, // bottom-right corner of a 20×14 board
+        features: [pylon(20, 14), hazard(20, 14), hazard(20, 14)],
         firstClearReward: { ryo: 800, xp: 300 },
     },
     {
         id: 4, name: 'Hold the Line', biome: 'central', objective: 'protect-npc',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
         enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
-        npc: { aiId: 'npc-genin', pos: 123 },
-        // Two pylon flowers + a cover-ward flower to keep the genin alive.
-        features: [
-            { kind: 'pylon', tiles: hexZone(86, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
-            { kind: 'pylon', tiles: hexZone(94, 20, 14), element: 'Lightning', weakenElement: 'Wind', percent: 25, label: 'Pylon' },
-            { kind: 'ward', tiles: hexZone(150, 20, 14), percent: 25, label: 'Bulwark' },
-        ],
+        npc: { aiId: 'npc-genin' },
+        features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
     },
     {
         id: 5, name: 'Warden of the Spire', biome: 'volcano', objective: 'defeat-boss',
-        roundBudget: 12, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
-        // The boss plus a guard pack of adds; phase gates at 60% and 30% HP.
-        enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
-        boss: { aiId: 'boss-warden', phases: [60, 30] },
-        // Three pylon flowers + a cover-ward flower to break line from the boss.
-        features: [
-            { kind: 'pylon', tiles: hexZone(117, 22, 16), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
-            { kind: 'pylon', tiles: hexZone(121, 22, 16), element: 'Earth', weakenElement: 'Lightning', percent: 25, label: 'Pylon' },
-            { kind: 'pylon', tiles: hexZone(125, 22, 16), element: 'Wind', weakenElement: 'Fire', percent: 25, label: 'Pylon' },
-            { kind: 'ward', tiles: hexZone(209, 22, 16), percent: 25, label: 'Sheltered Rock' },
-        ],
+        roundBudget: 14, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        // BULWARK: the Warden shrugs off half its damage until its guards fall — kill the adds first.
+        enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
+        boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark' },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
+    },
+    {
+        id: 6, name: 'The Acolyte Coven', biome: 'shadow', objective: 'defeat-all',
+        roundBudget: 10, map: { width: 20, height: 14 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-acolyte', count: 4 }, { aiId: 'grunt-brute', count: 3 }],
+        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
+        firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
+    },
+    {
+        id: 7, name: 'The Hollow Revenant', biome: 'shadow', objective: 'defeat-boss',
+        roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'none' },
+        // REGEN: the Revenant heals every round — burst it down through the heal.
+        enemies: [{ aiId: 'grunt-acolyte', count: 3 }],
+        boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen' },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), ward(22, 16, 25)],
+        firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
+    },
+    {
+        id: 8, name: 'Escort the Vanguard', biome: 'central', objective: 'kill-escort',
+        roundBudget: 12, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
+        // Clear EVERY enemy while the ally survives.
+        enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
+        npc: { aiId: 'npc-genin' },
+        features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14)],
+        firstClearReward: { ryo: 1800, xp: 700, fateShards: 8 },
+    },
+    {
+        id: 9, name: 'Pit of Embers', biome: 'volcano', objective: 'defeat-boss',
+        roundBudget: 16, map: { width: 22, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        // SUMMON: the Ravager calls reinforcements at each phase — don't get swarmed.
+        enemies: [{ aiId: 'grunt-brute', count: 2 }],
+        boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2 },
+        features: [pylon(22, 16), pylon(22, 16), pylon(22, 16), hazard(22, 16), hazard(22, 16)],
+        firstClearReward: { ryo: 3000, xp: 1200, fateShards: 15 },
+    },
+    {
+        id: 10, name: 'The Spire Sovereign', biome: 'shadow', objective: 'defeat-boss',
+        roundBudget: 18, map: { width: 24, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        // ENRAGE: the Sovereign hits harder at every phase gate — race the clock.
+        enemies: [{ aiId: 'grunt-acolyte', count: 2 }, { aiId: 'grunt-brute', count: 2 }],
+        boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage' },
+        features: [pylon(24, 16), pylon(24, 16), pylon(24, 16), pylon(24, 16), ward(24, 16, 25), hazard(24, 16)],
+        firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
     },
 ];
 function getFloor(id) {

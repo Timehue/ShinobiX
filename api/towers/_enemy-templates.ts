@@ -55,6 +55,14 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
         name: 'Pit Ravager', specialty: 'Taijutsu', hp: 4800, visual: 'ravager', boss: true,
         stats: { taijutsuOffense: 1300, taijutsuDefense: 1000, strength: 500, speed: 260 },
     },
+    'boss-revenant': {
+        name: 'Hollow Revenant', specialty: 'Genjutsu', hp: 5200, visual: 'revenant', boss: true,
+        stats: { genjutsuOffense: 1300, genjutsuDefense: 1050, willpower: 500, intelligence: 350 },
+    },
+    'boss-sovereign': {
+        name: 'Spire Sovereign', specialty: 'Ninjutsu', hp: 6200, visual: 'sovereign', boss: true,
+        stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 550, speed: 350 },
+    },
     'npc-genin': {
         name: 'Allied Genin', specialty: 'Taijutsu', hp: 600, visual: 'genin',
         stats: { taijutsuOffense: 350, taijutsuDefense: 350 },

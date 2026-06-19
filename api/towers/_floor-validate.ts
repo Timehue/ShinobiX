@@ -9,11 +9,14 @@
 import {
     TOWER_OBJECTIVES,
     TOWER_BIOMES,
+    TOWER_BOSS_MECHANICS,
     OBJECTIVES_NEEDING_BOSS,
     OBJECTIVES_NEEDING_NPC,
     OBJECTIVES_NEEDING_GOAL,
     type TowerFloor,
 } from './_floor-catalog.js';
+
+const BOSS_MECHANIC_SET = new Set<string>(TOWER_BOSS_MECHANICS);
 
 const OBJECTIVE_SET = new Set<string>(TOWER_OBJECTIVES);
 const BIOME_SET = new Set<string>(TOWER_BIOMES);
@@ -80,6 +83,12 @@ export function validateFloor(floor: TowerFloor): string[] {
         if (!Array.isArray(floor.boss.phases) || floor.boss.phases.some(p => typeof p !== 'number' || p <= 0 || p >= 100)) {
             errs.push(`${where}: boss.phases must be percentages in (0,100)`);
         }
+    }
+    if (floor.boss?.mechanic && !BOSS_MECHANIC_SET.has(floor.boss.mechanic)) {
+        errs.push(`${where}: boss.mechanic "${floor.boss.mechanic}" is not a known mechanic`);
+    }
+    if (floor.boss?.summonAiId != null && typeof floor.boss.summonAiId !== 'string') {
+        errs.push(`${where}: boss.summonAiId must be a string`);
     }
     if (OBJECTIVES_NEEDING_NPC.has(floor.objective)) {
         if (!floor.npc || typeof floor.npc.aiId !== 'string' || floor.npc.aiId.trim() === '') {
