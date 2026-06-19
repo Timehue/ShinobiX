@@ -81,14 +81,20 @@ export function BattleTowerFight({
     const settledRef = useRef(false);
 
     const me = character.name;
+    // Server slugs are lowercased (safeName), so a squad actor's ownerSlug is the
+    // lowercase name — compare case-insensitively or it's NEVER our turn (the bug that
+    // froze the board on "enemies acting"). The API still takes the display name; the
+    // server lowercases it.
+    const meSlug = me.toLowerCase();
+    const ownedByMe = (slug: string | null) => !!slug && slug.toLowerCase() === meSlug;
     const w = session.map.width, h = session.map.height;
     const layer = useMemo(() => towerLayerSize(w, h), [w, h]);
     const { battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(layer.width, layer.height);
 
     const activeId = session.turnQueue[session.activeIndex];
     const activeActor = session.actors.find(a => a.id === activeId);
-    const myTurn = session.status === "active" && !!activeActor && activeActor.ai === false && activeActor.ownerSlug === me && activeActor.hp > 0;
-    const myActor = activeActor && activeActor.ownerSlug === me ? activeActor : null;
+    const myTurn = session.status === "active" && !!activeActor && activeActor.ai === false && ownedByMe(activeActor.ownerSlug) && activeActor.hp > 0;
+    const myActor = activeActor && ownedByMe(activeActor.ownerSlug) ? activeActor : null;
     const bossId = session.phaseState?.bossId;
 
     // Reconnect: if mounted without a fresh session (or to recover), pull the latest once.
@@ -165,7 +171,7 @@ export function BattleTowerFight({
     function avatarFor(a: TowerActor): string | null {
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // enemies/npc → their painted portrait by sprite key.
-        if (a.ownerSlug === me && character.avatarImage) return character.avatarImage;
+        if (ownedByMe(a.ownerSlug) && character.avatarImage) return character.avatarImage;
         const sealed = a.character?.avatarImage;
         if (typeof sealed === "string" && sealed) return sealed;
         const visual = String(a.character?.visual ?? "");
@@ -179,7 +185,9 @@ export function BattleTowerFight({
 
     const myJutsu: JutsuLike[] = Array.isArray(myActor?.character?.jutsu) ? (myActor!.character.jutsu as JutsuLike[]) : [];
     const objective = session.objectiveState.kind;
-    const squad = session.actors.filter(a => a.side === "squad");
+    // The squad rail also lists protect-target npcs (allies) so the player can watch
+    // the genin's HP on a protect floor.
+    const allies = session.actors.filter(a => a.side === "squad" || a.side === "npc");
     const enemies = session.actors.filter(a => a.side === "enemy");
     const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloor;
 
@@ -187,10 +195,10 @@ export function BattleTowerFight({
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: "linear-gradient(160deg,#070b16,#0b1326)" }}>
             <div style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "168px minmax(0,1fr) 196px", gap: 10, padding: 10, minHeight: "100dvh" }}>
 
-                {/* Squad rail */}
+                {/* Squad rail (+ protect-target allies) */}
                 <aside style={{ minWidth: 0 }}>
                     <h3 style={{ margin: "0 0 8px" }}>🛡 Squad</h3>
-                    {squad.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} />)}
+                    {allies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} />)}
                 </aside>
 
                 {/* Board */}
@@ -384,7 +392,7 @@ function featureLabel(feat: TowerFeature): string {
     return `${feat.label ?? "Hazard"}: ${feat.percent}% max HP if you end the round here`;
 }
 
-function ActorCard({ actor, highlight, avatar, emoji, boss }: { actor: TowerActor; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean }) {
+function ActorCard({ actor, highlight, avatar, emoji, boss, ally }: { actor: TowerActor; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean }) {
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
     const accent = actor.side === "squad" ? "#4ade80" : actor.side === "npc" ? "#facc15" : "#f87171";
@@ -395,7 +403,7 @@ function ActorCard({ actor, highlight, avatar, emoji, boss }: { actor: TowerActo
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", gap: 4 }}>
-                    <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boss ? "👑 " : ""}{actor.name}</strong>
+                    <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boss ? "👑 " : ally ? "🛡️ " : ""}{actor.name}{ally ? " (protect)" : ""}</strong>
                     <span style={{ color: "#94a3b8", flexShrink: 0 }}>{Math.max(0, actor.hp)}/{actor.maxHp}</span>
                 </div>
                 <div style={{ height: 5, background: "#0b1220", borderRadius: 3, marginTop: 3 }}>
