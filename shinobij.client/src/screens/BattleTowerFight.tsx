@@ -131,9 +131,17 @@ export function BattleTowerFight({
 
                 {/* Board */}
                 <main style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
                         <strong>Floor {session.floor} · {objective.replace(/-/g, " ")}</strong>
-                        <span style={{ color: "#94a3b8" }}>Round {session.round}{myTurn ? " · your turn" : ""}</span>
+                        <span style={{ color: "#94a3b8", flex: 1, textAlign: "right" }}>Round {session.round}{myTurn ? " · your turn" : ""}</span>
+                        {session.status === "active" && (
+                            // Free, penalty-free abandon — the run lives server-side and floors have
+                            // unlimited retries, so leaving just drops back to Central (no loss credited).
+                            <button
+                                style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: "#475569", color: "#cbd5e1" }}
+                                onClick={() => { if (window.confirm("Leave this floor? Your run won't be saved — floors have unlimited retries.")) onExit(); }}
+                            >Leave</button>
+                        )}
                     </div>
                     <div style={{ overflow: "auto", border: "1px solid #1e293b", borderRadius: 8, background: "rgba(0,0,0,0.25)", flex: 1 }}>
                         <div style={{ position: "relative", width: layer.width, height: layer.height, margin: "8px auto" }}>

@@ -21,10 +21,13 @@ import { readFileSync } from "node:fs";
 // published shrine:tile-* art) → 10,228 (drained ClanWarsPanel → components/ +
 // its now-orphaned imports) → 10,188 (drained adminIconOptions → data/admin-icons
 // + useSharedNow → lib/use-shared-now [−50], re-exported from App for back-compat;
-// then +10 for Battle Towers save-field normalize/create wiring — net −40 vs main).
+// then +10 for Battle Towers save-field normalize/create wiring — net −40 vs main)
+// → 10,132 (Battle Towers nav wiring +7, then drained the PvP-UI/leaderboard type
+// cluster → types/pvp-ui [−63], re-imported PvpSessionState + re-exported the
+// public ones for back-compat — net −56).
 // What remains is the App() core (~150 hooks) and its
 // module-level wiring — decompose via hooks, not moves.
-const MAX_LINES = 10_191;
+const MAX_LINES = 10_135;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
