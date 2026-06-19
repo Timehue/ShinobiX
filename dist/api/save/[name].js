@@ -67,6 +67,8 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'unlockedAchievements', 'achievementUnlockedAt',
     'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
     'endlessTowerRun', 'endlessTowerBestWave',
+    'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
+    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',
     'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
     'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
     'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
@@ -377,6 +379,12 @@ function sanitizeCharacterSave(incoming, existing) {
         // these caps stop a direct save POST from spoofing.
         totalPetWins: 30,
         totalEndlessTowerWins: 5,
+        // Battle Towers leaderboard stats — BOTH fully server-authoritative. Only
+        // api/towers/settle.ts writes them (bypassing this sanitizer), so maxDelta 0 pins
+        // each to the stored value and a tampered client save can neither raise nor lower
+        // them (bestFloor must be 0 too, else a client inflates the depth leaderboard +5/save).
+        battleTowerBestFloor: 0,
+        battleTowerRating: 0,
         totalTournamentsCompleted: 3,
         totalTilesExplored: 200,
         rankedWins: 20,
@@ -669,6 +677,17 @@ function sanitizeCharacterSave(incoming, existing) {
             run.floor = Math.max(0, Math.min(50, Math.floor(Number(run.floor) || 0)));
         if (run.keys != null)
             run.keys = Math.max(0, Math.min(99, Math.floor(Number(run.keys) || 0)));
+    }
+    // ─── Battle Towers progress array length caps ─────────────────────────────
+    // These are display/convenience ledgers — the real reward gating is
+    // server-side in api/towers/settle.ts (NX receipts + recompute), so a forged
+    // array can't actually claim rewards. Cap length so it can't bloat KV.
+    const BATTLE_TOWER_ARRAY_CAP = 500;
+    for (const f of ['battleTowerClearedFloors', 'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed']) {
+        const arr = char[f];
+        if (Array.isArray(arr) && arr.length > BATTLE_TOWER_ARRAY_CAP) {
+            char[f] = arr.slice(0, BATTLE_TOWER_ARRAY_CAP);
+        }
     }
     // ─── defeatedAiIds length cap ─────────────────────────────────────────────
     // Drives "AI Hunter" achievement variants. Hard cap so a forged save
