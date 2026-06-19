@@ -220,15 +220,19 @@ export function BattleTowerFight({
                                     );
                                 })}
 
-                                {/* feature markers */}
-                                {[...featureByTile.entries()].map(([pos, feat]) => {
-                                    const { left, top } = towerHexPixel(pos, w);
-                                    return (
-                                        <div key={`f-${pos}`} title={featureLabel(feat)} aria-hidden
-                                            style={{ position: "absolute", left: left + HEX_W / 2 - 11, top: top + HEX_H / 2 - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
-                                            {featureIcon(feat)}
-                                        </div>
-                                    );
+                                {/* feature markers — one icon at a pylon flower's centre, one per
+                                    tile for scattered hazards / single wards */}
+                                {(session.map.features ?? []).flatMap((feat, fi) => {
+                                    const iconTiles = feat.kind === "pylon" ? feat.tiles.slice(0, 1) : feat.tiles;
+                                    return iconTiles.map((pos, ti) => {
+                                        const { left, top } = towerHexPixel(pos, w);
+                                        return (
+                                            <div key={`f-${fi}-${ti}`} title={featureLabel(feat)} aria-hidden
+                                                style={{ position: "absolute", left: left + HEX_W / 2 - 11, top: top + HEX_H / 2 - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
+                                                {featureIcon(feat)}
+                                            </div>
+                                        );
+                                    });
                                 })}
 
                                 {/* actor orbs */}
@@ -334,25 +338,25 @@ function tileFill(
     feat: TowerFeature | undefined,
     s: { isMove: boolean; inJ: boolean; isGoal: boolean; isBlocked: boolean },
 ): { background: string; borderColor: string; boxShadow?: string } {
-    if (s.isMove) return { background: "rgba(74,222,128,0.30)", borderColor: "#4ade80", boxShadow: "inset 0 0 10px rgba(74,222,128,0.5)" };
-    if (s.inJ) return { background: "rgba(96,165,250,0.22)", borderColor: "#60a5fa" };
-    if (s.isBlocked) return { background: "rgba(100,116,139,0.55)", borderColor: "rgba(148,163,184,0.5)" };
+    // Top-lit → dark-bottom gradient gives each hex a raised, beveled 3D look.
+    const g = (top: string, bot: string) => `linear-gradient(180deg, ${top} 0%, ${bot} 100%)`;
+    if (s.isMove) return { background: g("rgba(134,239,172,0.66)", "rgba(20,83,45,0.6)"), borderColor: "#4ade80" };
+    if (s.inJ) return { background: g("rgba(147,197,253,0.6)", "rgba(29,78,216,0.52)"), borderColor: "#60a5fa" };
+    if (s.isBlocked) return { background: g("rgba(120,130,150,0.62)", "rgba(30,38,56,0.72)"), borderColor: "rgba(148,163,184,0.5)" };
     if (feat) {
         if (feat.kind === "pylon") {
             const fire = feat.element === "Fire" || feat.element === "Lightning";
             return fire
-                ? { background: "rgba(248,113,113,0.22)", borderColor: "rgba(251,146,60,0.85)" }
-                : { background: "rgba(56,189,248,0.22)", borderColor: "rgba(56,189,248,0.9)" };
+                ? { background: g("rgba(254,178,120,0.66)", "rgba(124,45,18,0.64)"), borderColor: "rgba(251,146,60,0.9)" }
+                : { background: g("rgba(125,211,252,0.66)", "rgba(7,76,120,0.64)"), borderColor: "rgba(56,189,248,0.95)" };
         }
-        if (feat.kind === "ward") return { background: "rgba(203,213,225,0.24)", borderColor: "rgba(226,232,240,0.8)" };
-        if (feat.kind === "hazard") return { background: "rgba(220,38,38,0.28)", borderColor: "rgba(248,113,113,0.85)" };
+        if (feat.kind === "ward") return { background: g("rgba(226,232,240,0.58)", "rgba(71,85,105,0.62)"), borderColor: "rgba(226,232,240,0.85)" };
+        if (feat.kind === "hazard") return { background: g("rgba(254,160,120,0.66)", "rgba(127,29,29,0.66)"), borderColor: "rgba(248,113,113,0.9)" };
     }
-    if (s.isGoal) return { background: "rgba(250,204,21,0.30)", borderColor: "#facc15" };
-    // Default tile: a clearly-visible translucent blue (the FILL is what reads as a
-    // hexagon — a CSS border on a clip-path traces the rect, not the hex shape — so
-    // the honeycomb comes from the fill + the gaps between cells, matching PvP). Still
-    // translucent enough to let the biome floor show through.
-    return { background: "linear-gradient(135deg, rgba(37,99,235,0.5), rgba(23,49,128,0.42))", borderColor: "rgba(125,211,252,0.5)" };
+    if (s.isGoal) return { background: g("rgba(253,224,71,0.6)", "rgba(133,77,14,0.6)"), borderColor: "#facc15" };
+    // Default raised blue tile: lit cyan top → dark navy base = a beveled 3D tile,
+    // still translucent enough to let the biome floor show through.
+    return { background: g("rgba(96,165,250,0.6)", "rgba(11,26,66,0.66)"), borderColor: "rgba(125,211,252,0.5)" };
 }
 function featureIcon(feat: TowerFeature): string {
     if (feat.kind === "pylon") return ELEMENT_ICON[feat.element] ?? "🔆";
