@@ -13,6 +13,7 @@
  * handler); they live here for TTL/AFK bookkeeping only, exactly like PvpSession.
  */
 import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
+import type { TowerFeature } from './_floor-catalog.js';
 
 export type TowerActorId = string;
 export type TowerSide = 'squad' | 'enemy' | 'npc';
@@ -43,9 +44,15 @@ export type TowerActor = {
 export type TowerMap = {
     width: number;
     height: number;
+    /** floor biome (drives the client's battlefield floor art); mirrors the floor catalog */
+    biome?: string;
     blockedTiles: number[];
     hazardTiles: number[];
     objectiveTiles: number[];
+    /** positional battlefield features (pylons/wards/hazards) — read by both the engine
+     *  (deterministic effects) and the client (rendering). Optional: floors without a
+     *  tactical layer omit it and every engine helper treats it as empty. */
+    features?: TowerFeature[];
 };
 
 export type TowerObjectiveState = {

@@ -128,6 +128,55 @@ function computeDamage(attacker, defender, jutsu, masteryLevel) {
     const effectiveDR = armorRawDR > 0 ? armorRawDR / (armorRawDR + exports.K_DR) : 0;
     return Math.max(0, Math.floor(baseDmg * (1 - effectiveDR)));
 }
+// ─── Positional battlefield features (deterministic; position-based) ─────────
+// A light tactical layer (a couple tiles per floor): pylons boost/weaken an
+// element for a unit attacking FROM the tile, wards reduce damage TAKEN on the
+// tile, hazards chip a unit standing on the tile at round end. All are pure
+// functions of position + the floor's feature list — no RNG, no wall-clock — so
+// the settle recompute reproduces them byte-for-byte. Floors without features
+// (map.features undefined/empty) pay nothing here.
+function mapFeatures(session) {
+    return session.map.features ?? [];
+}
+/** Element boost/weaken for an attacker standing on a pylon tile. 1 when none apply. */
+function pylonAttackMult(session, attacker, jutsu) {
+    const el = String(jutsu.element ?? 'None');
+    if (el === 'None' || !el)
+        return 1; // basic attacks + non-elemental jutsu ignore pylons
+    let mult = 1;
+    for (const f of mapFeatures(session)) {
+        if (f.kind !== 'pylon' || !f.tiles.includes(attacker.pos))
+            continue;
+        if (el === f.element)
+            mult *= 1 + f.percent / 100;
+        else if (el === f.weakenElement)
+            mult *= 1 - f.percent / 100;
+    }
+    return Math.max(0, mult);
+}
+/** Damage-taken reduction for a defender standing on a ward tile. 1 when none apply. */
+function wardDefendMult(session, target) {
+    let mult = 1;
+    for (const f of mapFeatures(session)) {
+        if (f.kind === 'ward' && f.tiles.includes(target.pos))
+            mult *= 1 - f.percent / 100;
+    }
+    return Math.max(0, mult);
+}
+/** Round-end chip to every living unit standing on a hazard tile. */
+function applyRoundHazards(session) {
+    for (const f of mapFeatures(session)) {
+        if (f.kind !== 'hazard')
+            continue;
+        for (const a of session.actors) {
+            if (a.hp <= 0 || !f.tiles.includes(a.pos))
+                continue;
+            const dmg = Math.max(1, Math.floor((a.maxHp * f.percent) / 100));
+            a.hp = Math.max(0, a.hp - dmg);
+            session.log.push(`${a.name} takes ${dmg} from ${f.label ?? 'the hazard'} (${a.hp}/${a.maxHp}).`);
+        }
+    }
+}
 // ─── Targeting / sides ───────────────────────────────────────────────────────
 function hostileSidesFor(side) {
     // Squad fights enemies; enemies fight squad + the protected npc.
@@ -333,7 +382,10 @@ function applyAction(session, floor, action, rng) {
     }
     if (!canAct(session, cost))
         return { applied: false, reason: 'cannot-act' };
-    const dmg = computeDamage(actor, target, jutsu, mastery);
+    // Positional features: pylon element boost/weaken from the attacker's tile, ward
+    // damage-reduction on the target's tile. Both default to 1 on featureless floors.
+    const envMult = pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target);
+    const dmg = Math.max(0, Math.floor(computeDamage(actor, target, jutsu, mastery) * envMult));
     target.hp = Math.max(0, target.hp - dmg);
     session.activeAp -= cost;
     session.actionsThisTurn += 1;
@@ -360,6 +412,7 @@ function endTurn(session, floor) {
     }
     // round complete
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
+    applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     checkTowerWinner(session, floor);
     if (session.status !== 'active')
         return;

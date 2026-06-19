@@ -95,6 +95,34 @@ export function validateFloor(floor: TowerFloor): string[] {
         }
     }
 
+    // Battlefield features (optional tactical layer): in-board tiles, sane percent,
+    // and pylons need an element pair. Keeps a malformed feature off the board.
+    if (floor.features != null) {
+        if (!Array.isArray(floor.features)) {
+            errs.push(`${where}: features must be an array`);
+        } else {
+            floor.features.forEach((f, i) => {
+                const w2 = `${where}: features[${i}]`;
+                const kind = (f as { kind?: string })?.kind;
+                if (!f || (kind !== 'pylon' && kind !== 'ward' && kind !== 'hazard')) {
+                    errs.push(`${w2}.kind invalid`);
+                    return;
+                }
+                if (!Array.isArray(f.tiles) || f.tiles.length === 0 ||
+                    f.tiles.some(t => !Number.isInteger(t) || t < 0 || t >= tiles)) {
+                    errs.push(`${w2}.tiles must be non-empty in-board indices`);
+                }
+                if (typeof f.percent !== 'number' || f.percent < 0 || f.percent > 100) {
+                    errs.push(`${w2}.percent out of [0,100]`);
+                }
+                if (f.kind === 'pylon') {
+                    if (typeof f.element !== 'string' || f.element.trim() === '') errs.push(`${w2}.element required for pylon`);
+                    if (typeof f.weakenElement !== 'string' || f.weakenElement.trim() === '') errs.push(`${w2}.weakenElement required for pylon`);
+                }
+            });
+        }
+    }
+
     // Reward shape
     const r = floor.firstClearReward;
     if (!r || typeof r !== 'object') {
