@@ -31,18 +31,21 @@ export type SquadMemberInput = {
     character: Record<string, unknown>;
 };
 
-const SQUAD_COL = 0;
-const NPC_COL = 1;
-
-// Deterministic spawn: squad on the left edge, npc one column in, enemies on the right
-// edge — rows fill top-down (wrapping by height). For v1 floors (≤ height actors per
-// side) there are no collisions; distinct columns keep sides apart on any width ≥ 3.
-function spawnTile(map: TowerMap, index: number, side: 'squad' | 'enemy' | 'npc'): number {
-    const w = map.width;
-    const h = map.height;
-    const row = index % h;
-    const col = side === 'squad' ? SQUAD_COL : side === 'npc' ? NPC_COL : w - 1;
-    return row * w + col;
+// Deterministic spawn placement: from a desired (col,row), scan outward (down rows,
+// then wrap to the next column) to the first FREE tile, so squad + enemies spread
+// across spawn BANDS and never collide. Pure + deterministic (no RNG / wall-clock).
+function placeInBand(used: Set<number>, w: number, h: number, col: number, row: number): number {
+    let c = Math.max(0, Math.min(w - 1, Math.floor(col)));
+    let r = Math.max(0, Math.min(h - 1, Math.floor(row)));
+    let tile = r * w + c;
+    let guard = 0;
+    while (used.has(tile) && guard++ < w * h) {
+        r += 1;
+        if (r >= h) { r = 0; c = (c + 1) % w; }
+        tile = r * w + c;
+    }
+    used.add(tile);
+    return tile;
 }
 
 function vitals(character: Record<string, unknown>, fallbackHp: number) {
@@ -96,14 +99,21 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         features: floor.features ? floor.features.map(f => ({ ...f, tiles: [...f.tiles] })) : [],
     };
 
+    const W = map.width, H = map.height;
+    const used = new Set<number>();
     const actors: TowerActor[] = [];
-    squad.forEach((m, i) => actors.push(squadActor(m, spawnTile(map, i, 'squad'))));
+    // Squad in a 2-wide LEFT band, spaced every ~3 rows down the middle of the board.
+    squad.forEach((m, i) => actors.push(squadActor(m, placeInBand(used, W, H, i % 2, 3 + i * 3))));
 
     let enemyIdx = 0;
     for (const pod of floor.enemies) {
         const tpl = getEnemyTemplate(pod.aiId);
         for (let k = 0; k < pod.count; k++) {
-            actors.push(templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnTile(map, enemyIdx, 'enemy')));
+            // Enemies scattered across a 3-deep RIGHT band, rows stepped by 5 (wraps) so
+            // they're spread vertically rather than stacked in one column.
+            const col = W - 1 - (enemyIdx % 3);
+            const row = 1 + (enemyIdx * 5) % (H - 1);
+            actors.push(templateActor(`en-${enemyIdx}`, 'enemy', tpl, placeInBand(used, W, H, col, row)));
             enemyIdx++;
         }
     }
@@ -113,14 +123,15 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        actors.push(templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), spawnTile(map, enemyIdx, 'enemy')));
+        // Boss anchors the centre-right so it reads as the centrepiece.
+        actors.push(templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), placeInBand(used, W, H, W - 2, Math.floor(H / 2))));
         enemyIdx++;
     }
 
     if (floor.npc) {
         const pos = typeof floor.npc.pos === 'number' && floor.npc.pos >= 0 && floor.npc.pos < map.width * map.height
             ? floor.npc.pos
-            : spawnTile(map, 0, 'npc');
+            : placeInBand(used, W, H, 2, Math.floor(H / 2));
         actors.push(templateActor('npc-0', 'npc', getEnemyTemplate(floor.npc.aiId), pos));
     }
 
