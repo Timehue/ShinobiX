@@ -42,41 +42,64 @@ exports.OBJECTIVES_NEEDING_GOAL = new Set([
 ]);
 // Map biomes mirror the PvP session's valid biomes (api/pvp/session.ts).
 exports.TOWER_BIOMES = ['forest', 'snow', 'volcano', 'shadow', 'central'];
-// ─── v1 seed floors (Decision 1 = A: a ~20×16 board) ─────────────────────────
+// ─── v1 seed floors (a tighter ~14×10 board — bigger than PvP's 12×10, dense
+// enough to read as a real skirmish instead of a sea of empty tiles) ─────────
 // A coherent 1–5 slice with a boss + milestone at floor 5; extends toward the
-// 15-floor catalog sketched in plan §24.
+// 15-floor catalog sketched in plan §24. Tile index = y * width + x. Features sit
+// in the contested centre (cols 3–9), clear of the squad/enemy/npc spawn columns.
 exports.FLOOR_CATALOG = [
     {
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
-        roundBudget: 8, map: { width: 20, height: 16 }, fieldRule: { kind: 'none' },
-        enemies: [{ aiId: 'grunt-bandit', count: 3 }],
+        roundBudget: 8, map: { width: 14, height: 10 }, fieldRule: { kind: 'none' },
+        enemies: [{ aiId: 'grunt-bandit', count: 5 }],
         firstClearReward: { ryo: 400, xp: 150 },
     },
     {
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
-        roundBudget: 8, map: { width: 20, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
-        enemies: [{ aiId: 'grunt-bandit', count: 2 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
+        roundBudget: 8, map: { width: 14, height: 10 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
+        enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
+        // Two opposing elemental pylons + a cover ward in the middle: stand your
+        // fire user on the Flame Pylon (61), your water user on the Tide Pylon (78).
+        features: [
+            { kind: 'pylon', tiles: [61], element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Flame Pylon' },
+            { kind: 'pylon', tiles: [78], element: 'Water', weakenElement: 'Fire', percent: 25, label: 'Tide Pylon' },
+            { kind: 'ward', tiles: [90], percent: 20, label: 'Warded Stone' },
+        ],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
     },
     {
         id: 3, name: 'The Frozen Run', biome: 'snow', objective: 'reach-tile',
-        roundBudget: 6, map: { width: 20, height: 16 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
-        enemies: [{ aiId: 'grunt-blocker', count: 4 }],
-        goalTile: 319, // bottom-right corner of a 20×16 board
+        roundBudget: 6, map: { width: 14, height: 10 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
+        enemies: [{ aiId: 'grunt-blocker', count: 4 }, { aiId: 'grunt-archer', count: 2 }],
+        // Frost-spike tiles strewn across the dash to the goal — don't end the round on one.
+        features: [
+            { kind: 'hazard', tiles: [48, 78, 105], percent: 12, label: 'Frost Spikes' },
+        ],
+        goalTile: 139, // bottom-right corner of a 14×10 board
         firstClearReward: { ryo: 800, xp: 300 },
     },
     {
         id: 4, name: 'Hold the Line', biome: 'central', objective: 'protect-npc',
-        roundBudget: 8, map: { width: 20, height: 16 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
-        enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
-        npc: { aiId: 'npc-genin', pos: 168 },
+        roundBudget: 8, map: { width: 14, height: 10 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
+        enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
+        npc: { aiId: 'npc-genin', pos: 73 },
+        // A cover ward beside the genin to help keep them alive.
+        features: [
+            { kind: 'ward', tiles: [74], percent: 25, label: 'Bulwark' },
+        ],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
     },
     {
         id: 5, name: 'Warden of the Spire', biome: 'volcano', objective: 'defeat-boss',
-        roundBudget: 10, map: { width: 20, height: 16 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
-        enemies: [{ aiId: 'grunt-bandit', count: 2 }],
-        boss: { aiId: 'boss-warden', phases: [50] },
+        roundBudget: 12, map: { width: 16, height: 11 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 10 },
+        // The boss plus a guard pack of adds; phase gates at 60% and 30% HP.
+        enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
+        boss: { aiId: 'boss-warden', phases: [60, 30] },
+        // Cover ward to break line from the boss; a Flame Pylon for fire builds.
+        features: [
+            { kind: 'ward', tiles: [85], percent: 25, label: 'Sheltered Rock' },
+            { kind: 'pylon', tiles: [88], element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Magma Vent' },
+        ],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
     },
 ];

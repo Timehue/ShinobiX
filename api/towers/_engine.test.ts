@@ -8,6 +8,7 @@ import {
     runAiUntilHuman,
     applyAction,
     startRound,
+    endTurn,
     checkTowerWinner,
     computeDamage,
     applyPartyScaling,
@@ -218,5 +219,77 @@ describe('Battle Towers engine (P1.A2)', () => {
             assert.equal(activeActor(s)?.ai, false, 'stops on a human turn');
             assert.equal(activeActor(s)?.id, 'sq-1');
         }
+    });
+});
+
+describe('Battle Towers environmental features (pylons / wards / hazards)', () => {
+    // A Fire-jutsu attacker on tile 0 vs a tanky enemy on tile 1 (adjacent). Returns the
+    // single-hit damage dealt, optionally with battlefield features in play.
+    const FIRE_CASTER = {
+        specialty: 'Ninjutsu',
+        stats: { ninjutsuOffense: 2500, ninjutsuDefense: 2500 },
+        jutsu: [{ id: 'fireball', element: 'Fire', type: 'Ninjutsu', effectPower: 40, ap: 40, range: 1 }],
+    };
+    function fireballDamage(features: TowerMap['features']): number {
+        const attacker = makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'me', character: FIRE_CASTER });
+        const enemy = makeActor('en-1', 'enemy', 1, { character: WEAK, hp: 100000, maxHp: 100000 });
+        const session = makeSession([attacker, enemy], { map: { ...MAP8, features } });
+        startRound(session);
+        const res = applyAction(session, makeFloor('defeat-all'),
+            { actorId: 'sq-1', type: 'jutsu', jutsuId: 'fireball', targetId: 'en-1' }, makeRng(1));
+        assert.ok(res.applied, 'fireball applied');
+        return 100000 - getActor(session, 'en-1')!.hp;
+    }
+
+    it('a Flame Pylon boosts the matching element and weakens the opposite', () => {
+        const base = fireballDamage([]);
+        const boosted = fireballDamage([{ kind: 'pylon', tiles: [0], element: 'Fire', weakenElement: 'Water', percent: 25 }]);
+        const weakened = fireballDamage([{ kind: 'pylon', tiles: [0], element: 'Water', weakenElement: 'Fire', percent: 25 }]);
+        assert.ok(boosted > base, 'Fire on a Fire pylon hits harder');
+        assert.ok(weakened < base, 'Fire on a Water pylon hits softer');
+        // ~+25% / ~-25% (allow ±1 for floor rounding)
+        assert.ok(Math.abs(boosted - Math.floor(base * 1.25)) <= 1, `boosted≈+25% (base ${base}, got ${boosted})`);
+        assert.ok(Math.abs(weakened - Math.floor(base * 0.75)) <= 1, `weakened≈-25% (base ${base}, got ${weakened})`);
+    });
+
+    it('a pylon does nothing unless the attacker stands on it', () => {
+        const base = fireballDamage([]);
+        const offPylon = fireballDamage([{ kind: 'pylon', tiles: [5], element: 'Fire', weakenElement: 'Water', percent: 25 }]);
+        assert.equal(offPylon, base, 'pylon on a different tile has no effect');
+    });
+
+    it('a ward reduces damage taken by a unit on its tile', () => {
+        const base = fireballDamage([]);
+        const warded = fireballDamage([{ kind: 'ward', tiles: [1], percent: 20 }]); // enemy stands on tile 1
+        assert.ok(warded < base, 'a warded target takes less');
+        assert.ok(Math.abs(warded - Math.floor(base * 0.8)) <= 1, `ward≈-20% (base ${base}, got ${warded})`);
+    });
+
+    it('a hazard chips a unit standing on it at round end', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { character: WEAK });   // on the hazard
+        const sq2 = makeActor('sq-2', 'squad', 8, { character: WEAK });
+        const en = makeActor('en-1', 'enemy', 63, { character: WEAK });  // far corner
+        const session = makeSession([sq, sq2, en], { map: { ...MAP8, features: [{ kind: 'hazard', tiles: [0], percent: 10 }] } });
+        startRound(session);
+        const floor = makeFloor('defeat-all');
+        const startHp = getActor(session, 'sq-1')!.hp;
+        const r0 = session.round;
+        let guard = 0;
+        while (session.round === r0 && session.status === 'active' && guard++ < 20) endTurn(session, floor);
+        const after = getActor(session, 'sq-1')!.hp;
+        assert.equal(after, startHp - Math.floor(startHp * 0.1), 'lost 10% maxHp to the hazard at round end');
+        assert.ok(getActor(session, 'sq-2')!.hp === startHp, 'a unit off the hazard is untouched');
+    });
+
+    it('features stay deterministic (settle recompute reproduces them byte-for-byte)', () => {
+        const features: TowerMap['features'] = [
+            { kind: 'pylon', tiles: [3], element: 'Fire', weakenElement: 'Water', percent: 25 },
+            { kind: 'ward', tiles: [10], percent: 20 },
+            { kind: 'hazard', tiles: [4], percent: 8 },
+        ];
+        const build = () => makeSession(frontline(), { map: { ...MAP8, features } });
+        const a = runTowerFloor(build(), makeFloor('defeat-all'), makeRng(777));
+        const b = runTowerFloor(build(), makeFloor('defeat-all'), makeRng(777));
+        assert.equal(JSON.stringify(a), JSON.stringify(b));
     });
 });
