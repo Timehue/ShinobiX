@@ -19,10 +19,11 @@ const MOCK = [
     F(10, "The Spire Sovereign", "shadow", "defeat-boss", true, "tower-floor-10"),
 ];
 const realFetch = window.fetch.bind(window);
+const json = (body: unknown) => Promise.resolve(new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } }));
 window.fetch = ((url: RequestInfo | URL, ...rest: unknown[]) => {
-    if (String(url).includes("/api/towers/floors")) {
-        return Promise.resolve(new Response(JSON.stringify({ floors: MOCK }), { headers: { "Content-Type": "application/json" } }));
-    }
+    const u = String(url);
+    if (u.includes("/api/towers/floors")) return json({ floors: MOCK });
+    if (u.includes("/api/player/friends")) return json({ following: ["Kazuto", "Mira", "Daichi", "Yuki"] });
     return realFetch(url, ...(rest as []));
 }) as typeof window.fetch;
 
