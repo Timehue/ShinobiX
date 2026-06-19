@@ -5,6 +5,7 @@ import { createTowerSession, getActor, activeActor, type TowerActor, type TowerS
 import type { TowerFloor } from './_floor-catalog.js';
 import {
     runTowerFloor,
+    runAiUntilHuman,
     applyAction,
     startRound,
     checkTowerWinner,
@@ -202,5 +203,20 @@ describe('Battle Towers engine (P1.A2)', () => {
         const once = getActor(s, 'en-1')!.maxHp;
         applyPartyScaling(s, floor); // second call must be a no-op
         assert.equal(getActor(s, 'en-1')!.maxHp, once);
+    });
+
+    it('runAiUntilHuman advances AI turns and stops at a live human (live driver)', () => {
+        const actors = [
+            makeActor('sq-0', 'squad', 0, { ai: true, character: STRONG }),   // AI ally
+            makeActor('sq-1', 'squad', 8, { ai: false, character: STRONG }),  // live human
+            makeActor('en-0', 'enemy', 1, { character: WEAK }),
+        ];
+        const s = makeSession(actors);
+        startRound(s);
+        runAiUntilHuman(s, makeFloor('defeat-all'), makeRng(1));
+        if (s.status === 'active') {
+            assert.equal(activeActor(s)?.ai, false, 'stops on a human turn');
+            assert.equal(activeActor(s)?.id, 'sq-1');
+        }
     });
 });
