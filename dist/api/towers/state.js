@@ -5,6 +5,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _tower_store_js_1 = require("./_tower-store.js");
+const _tower_mp_js_1 = require("./_tower-mp.js");
 /*
  * GET /api/towers/state?runId=...&playerName=... — reconnect / poll the live session.
  *
@@ -34,6 +35,10 @@ async function handler(req, res) {
         const isMember = identity.admin || session.actors.some(a => a.side === 'squad' && a.ownerSlug === callerSlug);
         if (!isMember)
             return res.status(403).json({ error: 'Not a member of this run.' });
+        // Co-op liveness: a poll auto-passes any AFK player blocking the queue, so a run
+        // never stalls on someone who walked away. Persist if it advanced.
+        if ((0, _tower_mp_js_1.autoPassAfkHumans)(session, Date.now()))
+            await (0, _tower_store_js_1.writeSession)(session).catch(() => undefined);
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ session });
     }

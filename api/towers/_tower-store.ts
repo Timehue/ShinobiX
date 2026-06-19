@@ -105,6 +105,23 @@ export async function writeSession(session: TowerSession, deps: StoreDeps = {}):
     await kv.set(sessionKey(session.runId), session, { ex: TOWER_SESSION_TTL });
 }
 
+// ─── Co-op invites — point an invited ally at the host's runId so they can join ──
+export const inviteKey = (slug: string) => `tower-invite:${slug}`;
+export async function setTowerInvite(allySlug: string, runId: string, deps: StoreDeps = {}): Promise<void> {
+    const kv = deps.kv ?? realKv;
+    const now = deps.now ?? Date.now;
+    await kv.set(inviteKey(allySlug), { runId, ts: now() }, { ex: TOWER_SESSION_TTL });
+}
+export async function getTowerInvite(slug: string, deps: StoreDeps = {}): Promise<string | null> {
+    const kv = deps.kv ?? realKv;
+    const rec = await kv.get<{ runId?: string }>(inviteKey(slug));
+    return rec?.runId ?? null;
+}
+export async function clearTowerInvite(slug: string, deps: StoreDeps = {}): Promise<void> {
+    const kv = deps.kv ?? realKv;
+    await kv.del(inviteKey(slug));
+}
+
 // ─── reward credit (server-authoritative) ────────────────────────────────────
 function num(v: unknown): number { const n = Number(v); return Number.isFinite(n) ? n : 0; }
 

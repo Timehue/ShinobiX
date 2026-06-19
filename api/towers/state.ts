@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession } from './_tower-store.js';
+import { readSession, writeSession } from './_tower-store.js';
+import { autoPassAfkHumans } from './_tower-mp.js';
 
 /*
  * GET /api/towers/state?runId=...&playerName=... — reconnect / poll the live session.
@@ -29,6 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const callerSlug = identity.admin ? null : identity.name;
         const isMember = identity.admin || session.actors.some(a => a.side === 'squad' && a.ownerSlug === callerSlug);
         if (!isMember) return res.status(403).json({ error: 'Not a member of this run.' });
+
+        // Co-op liveness: a poll auto-passes any AFK player blocking the queue, so a run
+        // never stalls on someone who walked away. Persist if it advanced.
+        if (autoPassAfkHumans(session, Date.now())) await writeSession(session).catch(() => undefined);
 
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ session });

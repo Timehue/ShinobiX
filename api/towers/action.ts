@@ -7,6 +7,7 @@ import { activeActor } from './_tower-session.js';
 import { applyAction, endTurn, runAiUntilHuman, type TowerAction } from './_engine.js';
 import { makeRng } from './_sim.js';
 import { readSession, writeSession } from './_tower-store.js';
+import { autoPassAfkHumans, stampTurnClock } from './_tower-mp.js';
 
 /*
  * POST /api/towers/action — submit ONE action for the human's actor on their turn.
@@ -34,11 +35,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!session) return res.status(404).json({ error: 'Run not found.' });
         if (session.status !== 'active') return res.status(200).json({ applied: false, reason: 'session-done', session });
 
+        const now = Date.now();
+        // Co-op: clear any AFK player(s) blocking the queue before we read whose turn it is.
+        const afkAdvanced = autoPassAfkHumans(session, now);
+
         const actor = activeActor(session);
-        if (!actor) return res.status(409).json({ error: 'No active actor.', session });
         const callerSlug = identity.admin ? null : identity.name;
-        const owns = identity.admin || (actor.ai === false && actor.hp > 0 && actor.ownerSlug === callerSlug);
-        if (!owns) return res.status(409).json({ error: 'Not your turn.', session });
+        const owns = !!actor && (identity.admin || (actor.ai === false && actor.hp > 0 && actor.ownerSlug === callerSlug));
+        if (!owns) {
+            if (afkAdvanced) await writeSession(session); // persist the AFK pass even if it's not our turn
+            return res.status(409).json({ error: 'Not your turn.', session });
+        }
 
         const floor = getFloor(session.floor);
         if (!floor) return res.status(500).json({ error: 'Floor missing.' });
@@ -60,6 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             endTurn(session, floor);
             runAiUntilHuman(session, floor, rng); // run allies + enemies until the human is up / done
         }
+        stampTurnClock(session, now); // (re)start the AFK clock for whoever is up now
         await writeSession(session);
         return res.status(200).json({ applied: true, session });
     } catch (err) {

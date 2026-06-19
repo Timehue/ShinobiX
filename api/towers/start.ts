@@ -9,7 +9,8 @@ import { sealTowerFighter } from './_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
 import { makeRng } from './_sim.js';
-import { writeSession, bumpDailyStartCount, MAX_TOWER_STARTS_PER_DAY } from './_tower-store.js';
+import { writeSession, setTowerInvite, bumpDailyStartCount, MAX_TOWER_STARTS_PER_DAY } from './_tower-store.js';
+import { stampTurnClock } from './_tower-mp.js';
 
 /*
  * POST /api/towers/start — begin a Battle Towers run.
@@ -62,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 id: `sq-${i}`,
                 name: String(char.name ?? slug),
                 ownerSlug: slug,
-                ai: slug !== hostName, // host is the live human; allies are AI snapshots
+                ai: false, // every squad member is a LIVE player; absent ones auto-pass (AFK)
                 character: sealTowerFighter(char),
             });
         }
@@ -70,10 +71,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runId = `tower-${randomUUID().replace(/-/g, '')}`;
         const seed = identity.admin ? 12345 : randomInt(1, 0x7fffffff);
-        const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now: Date.now() });
+        const now = Date.now();
+        const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now });
         startRound(session);
-        runAiUntilHuman(session, floor, makeRng(seed)); // advance to the host's first turn (or auto-resolve)
+        runAiUntilHuman(session, floor, makeRng(seed)); // advance to the first human's turn (or auto-resolve)
+        stampTurnClock(session, now);                   // start the AFK clock for whoever is up
         await writeSession(session);
+
+        // Invite each ally → point them at this runId so they can discover + join it.
+        for (const slug of memberSlugs) {
+            if (slug !== hostName) await setTowerInvite(slug, runId).catch(() => undefined);
+        }
 
         return res.status(200).json({ runId, session });
     } catch (err) {

@@ -9,6 +9,7 @@ const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
 const _sim_js_1 = require("./_sim.js");
 const _tower_store_js_1 = require("./_tower-store.js");
+const _tower_mp_js_1 = require("./_tower-mp.js");
 /*
  * POST /api/towers/action — submit ONE action for the human's actor on their turn.
  *
@@ -39,13 +40,17 @@ async function handler(req, res) {
             return res.status(404).json({ error: 'Run not found.' });
         if (session.status !== 'active')
             return res.status(200).json({ applied: false, reason: 'session-done', session });
+        const now = Date.now();
+        // Co-op: clear any AFK player(s) blocking the queue before we read whose turn it is.
+        const afkAdvanced = (0, _tower_mp_js_1.autoPassAfkHumans)(session, now);
         const actor = (0, _tower_session_js_1.activeActor)(session);
-        if (!actor)
-            return res.status(409).json({ error: 'No active actor.', session });
         const callerSlug = identity.admin ? null : identity.name;
-        const owns = identity.admin || (actor.ai === false && actor.hp > 0 && actor.ownerSlug === callerSlug);
-        if (!owns)
+        const owns = !!actor && (identity.admin || (actor.ai === false && actor.hp > 0 && actor.ownerSlug === callerSlug));
+        if (!owns) {
+            if (afkAdvanced)
+                await (0, _tower_store_js_1.writeSession)(session); // persist the AFK pass even if it's not our turn
             return res.status(409).json({ error: 'Not your turn.', session });
+        }
         const floor = (0, _floor_catalog_js_1.getFloor)(session.floor);
         if (!floor)
             return res.status(500).json({ error: 'Floor missing.' });
@@ -64,6 +69,7 @@ async function handler(req, res) {
             (0, _engine_js_1.endTurn)(session, floor);
             (0, _engine_js_1.runAiUntilHuman)(session, floor, rng); // run allies + enemies until the human is up / done
         }
+        (0, _tower_mp_js_1.stampTurnClock)(session, now); // (re)start the AFK clock for whoever is up now
         await (0, _tower_store_js_1.writeSession)(session);
         return res.status(200).json({ applied: true, session });
     }

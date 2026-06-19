@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, type TowerFloorMeta, type TowerSession } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession } from "../lib/towers-api";
 import { subscribeFollowing } from "../lib/friends";
 import spireBanner from "../assets/towers/spire.webp";
 
@@ -45,6 +45,7 @@ export function BattleTowersLobby({
     const [error, setError] = useState<string | null>(null);
     const [allies, setAllies] = useState<string[]>([]);
     const [following, setFollowing] = useState<string[]>([]);
+    const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
 
     const bestFloor = character.battleTowerBestFloor ?? 0;
     const rating = character.battleTowerRating ?? 0;
@@ -64,6 +65,16 @@ export function BattleTowersLobby({
 
     // Recruitable allies = the players you follow.
     useEffect(() => subscribeFollowing(me, setFollowing), [me]);
+
+    // Co-op: poll for an active run a host invited us into, so we can JOIN it. Re-checks
+    // every few seconds so the banner appears shortly after a friend starts the run.
+    useEffect(() => {
+        let alive = true;
+        const check = () => fetchMyRun(me).then(r => { if (alive) setPendingRun(r); }).catch(() => {});
+        check();
+        const id = setInterval(check, 4000);
+        return () => { alive = false; clearInterval(id); };
+    }, [me]);
 
     async function enterFloor() {
         if (selected == null || starting) return;
@@ -95,6 +106,19 @@ export function BattleTowersLobby({
                     Free to enter, unlimited retries; the gate is tactics, not stamina.
                 </p>
             </div>
+
+            {/* Co-op join banner — appears when a host has invited you into their run */}
+            {pendingRun && (
+                <button onClick={() => onEnter(pendingRun.runId, pendingRun.session)}
+                    style={{
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
+                        padding: "0.85rem", marginBottom: 14, borderRadius: 12, fontWeight: 800, fontSize: "0.98rem",
+                        cursor: "pointer", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)",
+                        border: "1px solid #60a5fa", boxShadow: "0 0 18px rgba(96,165,250,0.45)",
+                    }}>
+                    ⚔️ You've been called to a squad run — Floor {pendingRun.session.floor} · Join now ▶
+                </button>
+            )}
 
             {/* Stat chips */}
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
