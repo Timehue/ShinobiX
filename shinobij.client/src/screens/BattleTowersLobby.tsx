@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, type TowerFloorMeta, type TowerSession } from "../lib/towers-api";
+import { subscribeFollowing } from "../lib/friends";
 import spireBanner from "../assets/towers/spire.webp";
+
+const MAX_ALLIES = 3; // you + up to 3 = a 4-player squad
 
 // ─── Battle Towers Lobby ──────────────────────────────────────────────────────
 // Curated squad tower (lives beside the Endless climb in the Celestial Tower).
@@ -40,10 +43,15 @@ export function BattleTowersLobby({
     const [loading, setLoading] = useState(true);
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [allies, setAllies] = useState<string[]>([]);
+    const [following, setFollowing] = useState<string[]>([]);
 
     const bestFloor = character.battleTowerBestFloor ?? 0;
     const rating = character.battleTowerRating ?? 0;
     const cleared = new Set(character.battleTowerClearedFloors ?? []);
+    const me = character.name;
+    const availableAllies = following.filter(f =>
+        f.toLowerCase() !== me.toLowerCase() && !allies.some(a => a.toLowerCase() === f.toLowerCase()));
 
     useEffect(() => {
         let alive = true;
@@ -54,12 +62,15 @@ export function BattleTowersLobby({
         return () => { alive = false; };
     }, []);
 
+    // Recruitable allies = the players you follow.
+    useEffect(() => subscribeFollowing(me, setFollowing), [me]);
+
     async function enterFloor() {
         if (selected == null || starting) return;
         setStarting(true);
         setError(null);
         try {
-            const { runId, session } = await startTowerRun(character.name, selected, []);
+            const { runId, session } = await startTowerRun(me, selected, allies);
             onEnter(runId, session);
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
@@ -90,6 +101,29 @@ export function BattleTowersLobby({
                 <Stat label="Deepest floor" value={String(bestFloor)} color="#facc15" />
                 <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
                 <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="#4ade80" />
+            </div>
+
+            {/* Squad assembly */}
+            <div style={{ padding: "0.8rem 0.9rem", borderRadius: 12, border: "1px solid #293548", background: "linear-gradient(180deg,#0e1626,#0a111f)", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: "0.98rem" }}>🛡 Your Squad <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} allies</span></strong>
+                    <span style={{ color: "#64748b", fontSize: "0.76rem" }}>Allies join as AI-controlled snapshots of their characters</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <SquadChip name={me} you />
+                    {allies.map(a => <SquadChip key={a} name={a} onRemove={() => setAllies(allies.filter(x => x !== a))} />)}
+                    {allies.length < MAX_ALLIES && (
+                        availableAllies.length > 0
+                            ? (
+                                <select value="" onChange={e => { if (e.target.value) setAllies([...allies, e.target.value]); }}
+                                    style={{ padding: "0.45rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "#cbd5e1", border: "1px dashed #475569", cursor: "pointer", fontSize: "0.82rem" }}>
+                                    <option value="">+ Add ally…</option>
+                                    {availableAllies.map(f => <option key={f} value={f}>{f}</option>)}
+                                </select>
+                            )
+                            : allies.length === 0 && <span style={{ color: "#64748b", fontSize: "0.8rem" }}>Follow players from their profile to recruit them as allies.</span>
+                    )}
+                </div>
             </div>
 
             {loading && <p className="hint">Loading floors…</p>}
@@ -146,7 +180,7 @@ export function BattleTowersLobby({
                     onClick={enterFloor}
                     disabled={selected == null || starting || loading}
                 >
-                    {starting ? "Entering…" : selFloor ? `▶ Enter Floor ${selFloor.id} — ${selFloor.name}` : "Select a floor"}
+                    {starting ? "Entering…" : selFloor ? `▶ Enter Floor ${selFloor.id} — ${selFloor.name}${allies.length ? ` · ${allies.length + 1}-player squad` : ""}` : "Select a floor"}
                 </button>
                 <button className="back-btn" onClick={onBack}>× Back to Central</button>
             </div>
@@ -160,5 +194,21 @@ function Stat({ label, value, color }: { label: string; value: string; color: st
             <div style={{ color: "#94a3b8", fontSize: "0.78rem" }}>{label}</div>
             <div style={{ fontSize: "1.5rem", fontWeight: 800, color }}>{value}</div>
         </div>
+    );
+}
+
+function SquadChip({ name, you, onRemove }: { name: string; you?: boolean; onRemove?: () => void }) {
+    return (
+        <span style={{
+            display: "inline-flex", alignItems: "center", gap: 6, padding: "0.35rem 0.7rem", borderRadius: 20, fontSize: "0.84rem",
+            background: you ? "linear-gradient(180deg,#15301f,#0d2014)" : "linear-gradient(180deg,#142036,#0d1830)",
+            border: `1px solid ${you ? "#4ade80" : "#3b5278"}`, color: "#e2e8f0",
+        }}>
+            <span style={{ fontSize: 14 }}>{you ? "🥷" : "🤝"}</span>
+            <strong style={{ fontWeight: 700, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</strong>
+            {you
+                ? <span style={{ color: "#86efac", fontSize: "0.72rem" }}>you</span>
+                : onRemove && <button onClick={onRemove} title="Remove" style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>}
+        </span>
     );
 }
