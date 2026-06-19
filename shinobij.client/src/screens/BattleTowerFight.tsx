@@ -19,6 +19,13 @@ import acolyteSprite from "../assets/towers/enemies/acolyte.webp";
 import wardenSprite from "../assets/towers/enemies/warden.webp";
 import ravagerSprite from "../assets/towers/enemies/ravager.webp";
 import geninSprite from "../assets/towers/enemies/genin.webp";
+import revenantSprite from "../assets/towers/enemies/revenant.webp";
+import sovereignSprite from "../assets/towers/enemies/sovereign.webp";
+import pylonFire from "../assets/towers/pylons/fire.webp";
+import pylonWater from "../assets/towers/pylons/water.webp";
+import pylonEarth from "../assets/towers/pylons/earth.webp";
+import pylonLightning from "../assets/towers/pylons/lightning.webp";
+import pylonWind from "../assets/towers/pylons/wind.webp";
 
 // ─── Battle Tower Fight (fullscreen pop-out combat shell) ─────────────────────
 // Renders the server-authoritative tower:<runId> session as a top-down hex
@@ -39,6 +46,11 @@ const BOSS_ORB = 78;     // bosses render larger
 const ENEMY_SPRITE: Record<string, string> = {
     bandit: banditSprite, archer: archerSprite, blocker: blockerSprite, brute: bruteSprite,
     acolyte: acolyteSprite, warden: wardenSprite, ravager: ravagerSprite, genin: geninSprite,
+    revenant: revenantSprite, sovereign: sovereignSprite,
+};
+// Painted elemental-pylon sprites, by element (drawn on the flower centre).
+const PYLON_SPRITE: Record<string, string> = {
+    Fire: pylonFire, Water: pylonWater, Earth: pylonEarth, Lightning: pylonLightning, Wind: pylonWind,
 };
 const ENEMY_EMOJI: Record<string, string> = {
     bandit: "🥷", archer: "🏹", blocker: "🛡️", brute: "👹", acolyte: "🔮",
@@ -251,9 +263,16 @@ export function BattleTowerFight({
                                     const iconTiles = feat.kind === "pylon" ? feat.tiles.slice(0, 1) : feat.tiles;
                                     return iconTiles.map((pos, ti) => {
                                         const { left, top } = towerHexPixel(pos, w);
+                                        const cx = left + HEX_W / 2, cy = top + HEX_H / 2;
+                                        const pylonImg = feat.kind === "pylon" ? PYLON_SPRITE[feat.element] : undefined;
+                                        if (pylonImg) {
+                                            const S = 36;
+                                            return <img key={`f-${fi}-${ti}`} src={pylonImg} alt={feat.label ?? "Pylon"} title={featureLabel(feat)}
+                                                style={{ position: "absolute", left: cx - S / 2, top: cy - S + 8, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.75))" }} />;
+                                        }
                                         return (
                                             <div key={`f-${fi}-${ti}`} title={featureLabel(feat)} aria-hidden
-                                                style={{ position: "absolute", left: left + HEX_W / 2 - 11, top: top + HEX_H / 2 - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
+                                                style={{ position: "absolute", left: cx - 11, top: cy - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
                                                 {featureIcon(feat)}
                                             </div>
                                         );
