@@ -1203,3 +1203,50 @@ size ratchet green):
 **Next:** Phase 1 — `_tower-session.ts` (N-actor session, incl. `partySize`) + `_engine.ts` (port the
 5-phase resolver + N-actor scheduler + `targetId` + team win-check + party scaling) → `start`/`action`/
 `state`/`settle` endpoints → client lobby + fullscreen fight shell.
+
+---
+
+## 29. BUILT — implementation status (Phase 1, 2026-06-18) + the final wiring spec
+
+**Shipped + committed on this branch (17 commits, `npm test` 1239 passing, tsc + lint clean,
+security-reviewed):**
+- **Backend (complete):** `api/towers/` — `_sim` (seeded determinism), `_tower-session` (N-actor),
+  `_engine` (ported PvP damage, turn scheduler, win-check, party scaling, AI, live driver), `_encounter`
+  + `_enemy-templates`, `_seal`, `_tower-rewards`, `_tower-store` (idempotent, forgery-proof settlement —
+  a **critical unlimited-currency exploit was caught + fixed** in adversarial review), and the handlers
+  `floors`/`start`/`action`/`state`/`settle`, all registered in `server.ts`.
+- **Client (built):** `lib/tower-grid.ts` (board geometry, mirrors server, tested), `lib/towers-api.ts`
+  (typed API + session types), `screens/BattleTowersLobby.tsx`, `screens/BattleTowerFight.tsx`
+  (fullscreen shell), and generated art `src/assets/towers/{spire,chamber}.webp` (fal Flux).
+
+**REMAINING — the App.tsx navigation wiring** (the single piece that needs a live app to verify; it's the
+highest client-side regression risk + needs an App.tsx drain). Exact edits, each copying the proven
+`endlessTower` pattern:
+
+1. **Drain (~12 lines needed; App.tsx at 10,188 / MAX 10,191):** safest = move the tail type cluster
+   `App.tsx:10121-~10185` (`LbTab`, `TavernMessage`, `PvpStatusState`, `PvpFighterState`,
+   `PvpGroundEffectState`, `PvpSessionState`) → `types/pvp-ui.ts`, then `import type {…}` the private ones
+   back + `export type {…} from "./types/pvp-ui"` the exported ones (importers: HallOfLegends,
+   PvpBattleScreen, StartScreen, VillageTavern — unchanged via the re-export). Frees ~50 lines, zero
+   runtime risk. Then lower `MAX_LINES`. (Alt: extract `PetArenaBattlefield` 9288-10119 → `components/`,
+   re-export; resolve its imports via tsc.)
+2. **`screens/BattleTowers.tsx`** (recommended — keeps App.tsx to ~4 lines): a wrapper holding
+   `{runId,session}|null`; renders `<BattleTowersLobby onEnter={setRun} …/>` then
+   `<BattleTowerFight … onExit={()=>{setRun(null); onExit();}} />`. While a run is live it sets a
+   `localStorage` "tower fight active" flag for the nav-lock (avoid the server `BattleLockKeeper` → avoids
+   the §18-E destructive-boot path).
+3. **`types/core.ts`:** `Screen` union `+= "battleTowers"`.
+4. **`App.tsx` (~4 lines):** import `BattleTowers`; one render guard `{!activeTriggeredEvent && screen ===
+   "battleTowers" && character && <BattleTowers character={character} onExit={()=>setScreen("centralHub")}
+   />}`; add `"battleTowers"` to both `inBattleNow` arrays (`:2824`,`:2976`) + the `inBattleScreen` list
+   (`:2686`).
+5. **`lib/screen-guards.ts`:** `BATTLE_SCREENS += "battleTowers"`; `isUnresolvedBattle` →
+   `case "battleTowers": return hasActiveTowerFight();` (new localStorage-flag helper).
+6. **`screens/CentralHub.tsx`:** 2nd button in `celestial-panel-options` (`:785`) →
+   `setScreen("battleTowers")`, labelled "⚔️ Battle Towers (Squad)".
+7. **`index.css`:** add `.screen-battleTowers` to the mobile chrome-hide rules (`:19139`) +
+   `LeftProfileCard` exclusion (`App.tsx:7452`).
+
+**Acceptance:** tsc + lint + `npm test` + App.size ratchet green; then run: CentralHub → 🌌 Celestial
+Tower → Battle Towers → pick a floor → fight → clear → rewards. Rebuild + commit server `dist/` before
+merge to main.
