@@ -56,7 +56,16 @@ function ShopBase({
             && item.cost > 0;
     });
 
-    const slotGroups: { label: string; slots: EquipmentSlot[] }[] = [
+    // Combat consumables (the throwable pills + any potion) share one
+    // "Consumables" shop section even though they sit on different equip slots
+    // ("item" for the pills, "potion" for the Rejuvenation Potion). Identified by
+    // weaponEffect / restore fields so other "item"-slot entries (pet treats,
+    // crafting mats, evo stones, keys) stay out.
+    const isConsumable = (item: GameItem) => {
+        const s = normalizeEquipmentSlot(item.slot);
+        return s === "potion" || (s === "item" && (!!item.weaponEffect || item.restoreChakra != null || item.restoreStamina != null));
+    };
+    const slotGroups: { label: string; slots: EquipmentSlot[]; consumables?: boolean }[] = [
         { label: "Head", slots: ["head"] },
         { label: "Chest", slots: ["body", "armor"] },
         { label: "Waist", slots: ["waist"] },
@@ -64,7 +73,7 @@ function ShopBase({
         { label: "Feet", slots: ["feet"] },
         { label: "Weapon / Hand", slots: ["hand", "weapon", "thrown"] },
         { label: "Aura / Accessory", slots: ["aura", "accessory", "item"] },
-        { label: "Potion", slots: ["potion"] },
+        { label: "Consumables", slots: ["potion", "item"], consumables: true },
     ];
 
     const rarityIcon: Record<string, string> = {
@@ -136,7 +145,10 @@ function ShopBase({
             </p>
 
             {slotGroups.map((group) => {
-                const groupItems = shopItems.filter((item) => group.slots.includes(normalizeEquipmentSlot(item.slot)));
+                const groupItems = shopItems.filter((item) =>
+                    group.consumables
+                        ? isConsumable(item)
+                        : group.slots.includes(normalizeEquipmentSlot(item.slot)) && !isConsumable(item));
                 if (groupItems.length === 0) return null;
 
                 return (
@@ -175,7 +187,7 @@ function ShopBase({
                                             </small>
                                         )}
 
-                                        <small>{equipmentSlotLabel(item.slot)}</small>
+                                        <small>{isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
                                             ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
