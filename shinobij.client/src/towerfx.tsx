@@ -1,13 +1,13 @@
 // DEV-ONLY harness to eyeball the Battle Tower fight board without a server.
-// Mounts BattleTowerFight with a mock active session (squad + spread enemies +
-// boss + pylon FLOWERS / ward / hazard). Served at /towerfx.html by vite dev.
+// Served at /towerfx.html by vite dev. Mocks an active session: spread squad,
+// enemy FORMATION with the boss in back, pylon FLOWERS (varied elements), ward +
+// hazard flowers, on the new top-down arena floor.
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
 import type { TowerSession, TowerActor } from "./lib/towers-api";
 
 const W = 20, H = 14;
-// Local copy of the catalog's hexZone (centre + 6 touching tiles) for the mock.
 function neighbors(pos: number): number[] {
     const x = pos % W, y = Math.floor(pos / W);
     const even = x % 2 === 0;
@@ -29,32 +29,35 @@ const session: TowerSession = {
     map: {
         width: W, height: H, biome: "forest", blockedTiles: [], hazardTiles: [], objectiveTiles: [],
         features: [
-            { kind: "pylon", tiles: zone(107), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
-            { kind: "pylon", tiles: zone(172), element: "Water", weakenElement: "Fire", percent: 25, label: "Tide Pylon" },
-            { kind: "ward", tiles: [130], percent: 20, label: "Warded Stone" },
-            { kind: "hazard", tiles: [88], percent: 12, label: "Frost Spikes" },
+            { kind: "pylon", tiles: zone(86), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
+            { kind: "pylon", tiles: zone(90), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
+            { kind: "pylon", tiles: zone(94), element: "Wind", weakenElement: "Fire", percent: 25, label: "Gale Pylon" },
+            { kind: "ward", tiles: zone(150), percent: 20, label: "Warded Stone" },
+            { kind: "hazard", tiles: zone(130), percent: 12, label: "Frost Spikes" },
         ],
     },
     actors: [
         {
             id: "sq-0", side: "squad", name: "Rill", ownerSlug: "Rill", ai: false,
             hp: 8200, maxHp: 10000, chakra: 50, maxChakra: 50, stamina: 50, maxStamina: 50,
-            shield: 0, statuses: [], pos: 121,
+            shield: 0, statuses: [], pos: 123,
             character: { specialty: "Ninjutsu", stats: {}, jutsu: [{ id: "fireball", name: "Fireball", element: "Fire", type: "Ninjutsu", ap: 40, range: 2, effectPower: 40 }] },
         },
-        enemy("en-0", "bandit", "Bandit", 39),
-        enemy("en-1", "archer", "Archer", 98, 270, 270),
-        enemy("en-2", "brute", "Brute", 157, 570, 570),
-        enemy("en-3", "acolyte", "Acolyte", 199, 250, 250),
-        enemy("boss", "warden", "Spire Warden", 138, 2520, 2520),
-        enemy("en-4", "ravager", "Pit Ravager", 237, 2880, 2880),
+        // Formation: grunts in two ranks (cols 16-18), boss anchoring the back (col 19).
+        enemy("en-0", "bandit", "Bandit", 118),
+        enemy("en-1", "archer", "Archer", 117, 270, 270),
+        enemy("en-2", "brute", "Brute", 116, 570, 570),
+        enemy("en-3", "acolyte", "Acolyte", 198, 250, 250),
+        enemy("en-4", "bandit", "Bandit", 197),
+        enemy("en-5", "archer", "Archer", 196, 270, 270),
+        enemy("boss", "warden", "Spire Warden", 159, 2520, 2520),
     ],
-    turnQueue: ["sq-0", "en-0", "en-1", "en-2", "en-3", "boss", "en-4"],
+    turnQueue: ["sq-0", "en-0", "en-1", "en-2", "en-3", "en-4", "en-5", "boss"],
     activeIndex: 0, round: 1, activeAp: 100, actionsThisTurn: 0,
     objectiveState: { kind: "defeat-all", completed: false, failed: false },
     phaseState: { bossId: "boss", pendingPhases: [60, 30], triggeredPhases: [] },
     status: "active", winner: null,
-    log: ["The fight begins.", "A Spire Warden looms across the glade."],
+    log: ["The fight begins.", "A Spire Warden anchors the enemy formation."],
 };
 
 createRoot(document.getElementById("root")!).render(

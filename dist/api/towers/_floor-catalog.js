@@ -71,18 +71,24 @@ exports.FLOOR_CATALOG = [
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-bandit', count: 6 }],
+        // Two elemental-pylon flowers introduce the mechanic. Their ELEMENTS are
+        // assigned per-run from the tower's 3 random elements (see _encounter).
+        features: [
+            { kind: 'pylon', tiles: hexZone(86, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
+            { kind: 'pylon', tiles: hexZone(94, 20, 14), element: 'Water', weakenElement: 'Earth', percent: 25, label: 'Pylon' },
+        ],
         firstClearReward: { ryo: 400, xp: 150 },
     },
     {
         id: 2, name: 'Crossfire Glade', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'buff', tag: 'Increase Damage Given', percent: 15 },
         enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
-        // Two opposing elemental-pylon FLOWERS (7 hexes each) + a cover ward: stand your
-        // fire user anywhere on the Flame Pylon, your water user on the Tide Pylon.
+        // Three elemental-pylon flowers (one per tower element) + a cover-ward flower.
         features: [
-            { kind: 'pylon', tiles: hexZone(107, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Flame Pylon' },
-            { kind: 'pylon', tiles: hexZone(172, 20, 14), element: 'Water', weakenElement: 'Fire', percent: 25, label: 'Tide Pylon' },
-            { kind: 'ward', tiles: [130], percent: 20, label: 'Warded Stone' },
+            { kind: 'pylon', tiles: hexZone(86, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
+            { kind: 'pylon', tiles: hexZone(90, 20, 14), element: 'Earth', weakenElement: 'Lightning', percent: 25, label: 'Pylon' },
+            { kind: 'pylon', tiles: hexZone(94, 20, 14), element: 'Wind', weakenElement: 'Fire', percent: 25, label: 'Pylon' },
+            { kind: 'ward', tiles: hexZone(150, 20, 14), percent: 20, label: 'Warded Stone' },
         ],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
     },
@@ -90,9 +96,11 @@ exports.FLOOR_CATALOG = [
         id: 3, name: 'The Frozen Run', biome: 'snow', objective: 'reach-tile',
         roundBudget: 7, map: { width: 20, height: 14 }, fieldRule: { kind: 'hazard', tag: 'Drain', percent: 5 },
         enemies: [{ aiId: 'grunt-blocker', count: 5 }, { aiId: 'grunt-archer', count: 3 }],
-        // Frost-spike tiles strewn across the dash to the goal — don't end the round on one.
+        // Two frost-spike hazard flowers blocking the dash + one pylon to fight over.
         features: [
-            { kind: 'hazard', tiles: [88, 151, 209, 113], percent: 12, label: 'Frost Spikes' },
+            { kind: 'hazard', tiles: hexZone(86, 20, 14), percent: 12, label: 'Frost Spikes' },
+            { kind: 'hazard', tiles: hexZone(94, 20, 14), percent: 12, label: 'Frost Spikes' },
+            { kind: 'pylon', tiles: hexZone(150, 20, 14), element: 'Water', weakenElement: 'Earth', percent: 25, label: 'Pylon' },
         ],
         goalTile: 279, // bottom-right corner of a 20×14 board
         firstClearReward: { ryo: 800, xp: 300 },
@@ -102,9 +110,11 @@ exports.FLOOR_CATALOG = [
         roundBudget: 8, map: { width: 20, height: 14 }, fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
         enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 2, spawnRound: 2 }],
         npc: { aiId: 'npc-genin', pos: 123 },
-        // A cover ward beside the genin to help keep them alive.
+        // Two pylon flowers + a cover-ward flower to keep the genin alive.
         features: [
-            { kind: 'ward', tiles: [124], percent: 25, label: 'Bulwark' },
+            { kind: 'pylon', tiles: hexZone(86, 20, 14), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
+            { kind: 'pylon', tiles: hexZone(94, 20, 14), element: 'Lightning', weakenElement: 'Wind', percent: 25, label: 'Pylon' },
+            { kind: 'ward', tiles: hexZone(150, 20, 14), percent: 25, label: 'Bulwark' },
         ],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
     },
@@ -114,10 +124,12 @@ exports.FLOOR_CATALOG = [
         // The boss plus a guard pack of adds; phase gates at 60% and 30% HP.
         enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
         boss: { aiId: 'boss-warden', phases: [60, 30] },
-        // Cover ward to break line from the boss; a Magma Vent pylon flower for fire builds.
+        // Three pylon flowers + a cover-ward flower to break line from the boss.
         features: [
-            { kind: 'ward', tiles: [184], percent: 25, label: 'Sheltered Rock' },
-            { kind: 'pylon', tiles: hexZone(168, 22, 16), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Magma Vent' },
+            { kind: 'pylon', tiles: hexZone(117, 22, 16), element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Pylon' },
+            { kind: 'pylon', tiles: hexZone(121, 22, 16), element: 'Earth', weakenElement: 'Lightning', percent: 25, label: 'Pylon' },
+            { kind: 'pylon', tiles: hexZone(125, 22, 16), element: 'Wind', weakenElement: 'Fire', percent: 25, label: 'Pylon' },
+            { kind: 'ward', tiles: hexZone(209, 22, 16), percent: 25, label: 'Sheltered Rock' },
         ],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
     },
