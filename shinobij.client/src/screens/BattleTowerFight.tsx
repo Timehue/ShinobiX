@@ -8,9 +8,11 @@ import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
-import arenaFloor from "../assets/towers/arena-floor.webp";
+import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
 import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
+import arenaFloorCentral from "../assets/towers/arena-floor-central.webp";
+import arenaFloorShadow from "../assets/towers/arena-floor-shadow.webp";
 import banditSprite from "../assets/towers/enemies/bandit.webp";
 import archerSprite from "../assets/towers/enemies/archer.webp";
 import blockerSprite from "../assets/towers/enemies/blocker.webp";
@@ -58,9 +60,10 @@ const ENEMY_EMOJI: Record<string, string> = {
 };
 const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Earth: "🪨", Wind: "🌪️", Lightning: "⚡" };
 
-// New wide top-down battlefield floors, by biome (forest covers central/shadow too).
+// Wide top-down battlefield floors, one per biome (swap any file in
+// src/assets/towers/arena-floor-<biome>.webp to re-theme — see the image spec).
 const TOWER_FLOOR: Record<string, string> = {
-    forest: arenaFloor, central: arenaFloor, shadow: arenaFloor,
+    forest: arenaFloorForest, central: arenaFloorCentral, shadow: arenaFloorShadow,
     snow: arenaFloorSnow, volcano: arenaFloorVolcano,
 };
 
@@ -201,7 +204,7 @@ export function BattleTowerFight({
     // the genin's HP on a protect floor.
     const allies = session.actors.filter(a => a.side === "squad" || a.side === "npc");
     const enemies = session.actors.filter(a => a.side === "enemy");
-    const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloor;
+    const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloorForest;
 
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: "linear-gradient(160deg,#070b16,#0b1326)" }}>
