@@ -171,6 +171,71 @@ function applyRoundHazards(session: TowerSession): void {
     }
 }
 
+// ─── Boss mechanics (deterministic; tower-only) ──────────────────────────────
+// Each boss has a signature mechanic that makes the fight distinct + tough. These are
+// pure functions of the session state (no RNG / wall-clock), so settle reproduces them.
+/** Enrage stacks ramp the boss's OUTGOING damage (+35% per stack). */
+function attackerEnrageMult(attacker: TowerActor): number {
+    const e = Number(attacker.character.enrage ?? 0);
+    return e > 0 ? 1 + 0.35 * e : 1;
+}
+/** A 'bulwark' boss takes HALF the damage while any of its guards (other enemies) live. */
+function bulwarkMult(session: TowerSession, target: TowerActor): number {
+    if (String(target.character.mechanic ?? '') !== 'bulwark') return 1;
+    const guardsAlive = session.actors.some(a => a.side === 'enemy' && a.id !== target.id && a.hp > 0);
+    return guardsAlive ? 0.5 : 1;
+}
+/** Spawn the boss's reinforcements on free tiles around it (summon mechanic). */
+function summonAdds(session: TowerSession): void {
+    const id = session.phaseState.bossId;
+    const boss = id ? getActor(session, id) : undefined;
+    if (!boss) return;
+    const tpl = boss.character.summonTemplate as { name?: string; specialty?: string; hp?: number; stats?: Record<string, number>; visual?: string } | undefined;
+    if (!tpl) return;
+    const count = Math.max(1, Number(boss.character.summonCount ?? 2));
+    const w = session.map.width, h = session.map.height;
+    const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
+    const blocked = new Set(session.map.blockedTiles);
+    const scale = Math.max(0, Number(boss.character.towerDmgScale ?? 1)); // adds inherit the boss's party scaling
+    let n = session.actors.filter(a => a.id.startsWith('add-')).length;
+    let added = 0;
+    for (const tile of towerNeighbors(boss.pos, w, h)) {
+        if (added >= count) break;
+        if (occupied.has(tile) || blocked.has(tile)) continue;
+        const hp = Math.max(1, Math.round(Number(tpl.hp ?? 300) * (scale < 1 ? scale : 1)));
+        session.actors.push({
+            id: `add-${n++}`, side: 'enemy', name: tpl.name ?? 'Add', ownerSlug: null, ai: true,
+            hp, maxHp: hp, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+            shield: 0, statuses: [], cooldowns: {}, pos: tile,
+            character: { specialty: tpl.specialty ?? 'Taijutsu', stats: { ...(tpl.stats ?? {}) }, visual: tpl.visual ?? 'bandit', ...(scale < 1 ? { towerDmgScale: scale } : {}) },
+        });
+        occupied.add(tile);
+        added++;
+    }
+    if (added > 0) session.log.push(`${boss.name} summons ${added} reinforcement${added !== 1 ? 's' : ''}!`);
+}
+/** Fired when the boss crosses an HP-phase gate. */
+function applyBossPhaseMechanic(session: TowerSession, boss: TowerActor): void {
+    const m = String(boss.character.mechanic ?? '');
+    if (m === 'enrage') {
+        boss.character.enrage = Number(boss.character.enrage ?? 0) + 1;
+        session.log.push(`${boss.name} enrages — its blows hit harder!`);
+    } else if (m === 'summon') {
+        summonAdds(session);
+    }
+    // 'bulwark' is passive (damage reduction while guards live); 'regen' fires per round.
+}
+/** Per-round heal for a 'regen' boss (7% of max HP). */
+function applyBossRegen(session: TowerSession): void {
+    const id = session.phaseState.bossId;
+    const boss = id ? getActor(session, id) : undefined;
+    if (!boss || boss.hp <= 0 || String(boss.character.mechanic ?? '') !== 'regen') return;
+    const heal = Math.max(1, Math.floor(boss.maxHp * 0.07));
+    const before = boss.hp;
+    boss.hp = Math.min(boss.maxHp, boss.hp + heal);
+    if (boss.hp > before) session.log.push(`${boss.name} regenerates ${boss.hp - before} HP.`);
+}
+
 // ─── Targeting / sides ───────────────────────────────────────────────────────
 function hostileSidesFor(side: TowerSide): TowerSide[] {
     // Squad fights enemies; enemies fight squad + the protected npc.
@@ -307,6 +372,7 @@ function tickBossPhases(session: TowerSession): void {
         const t = session.phaseState.pendingPhases.shift()!;
         session.phaseState.triggeredPhases.push(t);
         session.log.push(`${boss.name} enters a new phase (${t}% HP).`);
+        applyBossPhaseMechanic(session, boss); // enrage / summon fire at each gate
     }
 }
 
@@ -361,7 +427,8 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
 
     // Positional features: pylon element boost/weaken from the attacker's tile, ward
     // damage-reduction on the target's tile. Both default to 1 on featureless floors.
-    const envMult = pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target);
+    const envMult = pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
+        * attackerEnrageMult(actor) * bulwarkMult(session, target);
     const dmg = Math.max(0, Math.floor(computeDamage(actor, target, jutsu, mastery) * envMult));
     target.hp = Math.max(0, target.hp - dmg);
     session.activeAp -= cost;
@@ -390,6 +457,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     // round complete
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
+    applyBossRegen(session);    // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
     if (session.status !== 'active') return;
     if (session.round >= MAX_ROUNDS) {

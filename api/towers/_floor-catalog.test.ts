@@ -11,17 +11,20 @@ describe('Battle Towers floor catalog', () => {
 
     // Drift detector: a hand-maintained replica of catalog invariants, so an
     // accidental edit to the catalog data trips this test (mirrors _mission-catalog).
-    it('matches the expected v1 shape (drift detector)', () => {
-        assert.equal(TOWER_FLOOR_COUNT, 5, 'v1 ships 5 seed floors');
-        assert.deepEqual(FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5]);
+    it('matches the expected shape (drift detector)', () => {
+        assert.equal(TOWER_FLOOR_COUNT, 10, 'ships 10 floors');
+        assert.deepEqual(FLOOR_CATALOG.map(f => f.id), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         assert.deepEqual(
             FLOOR_CATALOG.map(f => f.objective),
-            ['defeat-all', 'defeat-all', 'reach-tile', 'protect-npc', 'defeat-boss'],
+            ['defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss', 'defeat-all', 'defeat-boss', 'kill-escort', 'defeat-boss', 'defeat-boss'],
         );
-        // Floor 5 is the boss + milestone floor.
-        const f5 = getFloor(5);
-        assert.ok(f5?.boss, 'floor 5 has a boss');
-        assert.equal(f5?.firstClearReward.milestone, 'tower-floor-5');
+        assert.equal(getFloor(5)?.firstClearReward.milestone, 'tower-floor-5');
+        assert.equal(getFloor(10)?.firstClearReward.milestone, 'tower-floor-10');
+        // No reach-tile floor (too easy in this format).
+        assert.ok(!FLOOR_CATALOG.some(f => f.objective === 'reach-tile'), 'no reach-tile floors');
+        // Each of the 4 boss floors has a DISTINCT signature mechanic.
+        const mechs = FLOOR_CATALOG.filter(f => f.boss).map(f => f.boss!.mechanic);
+        assert.deepEqual(mechs, ['bulwark', 'regen', 'summon', 'enrage']);
     });
 
     it('every map fits the board bounds and boss/npc/goal cross-fields hold', () => {

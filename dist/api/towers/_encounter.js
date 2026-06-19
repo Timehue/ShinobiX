@@ -181,7 +181,17 @@ function buildTowerEncounter(p) {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        actors.push(templateActor('boss', 'enemy', (0, _enemy_templates_js_1.getEnemyTemplate)(floor.boss.aiId), bossTile));
+        const bossActor = templateActor('boss', 'enemy', (0, _enemy_templates_js_1.getEnemyTemplate)(floor.boss.aiId), bossTile);
+        // Attach the boss's signature mechanic (the engine resolves it deterministically).
+        if (floor.boss.mechanic) {
+            bossActor.character.mechanic = floor.boss.mechanic;
+            if (floor.boss.mechanic === 'summon') {
+                // Pre-resolve the add template so the engine can clone it without a lookup.
+                bossActor.character.summonTemplate = (0, _enemy_templates_js_1.getEnemyTemplate)(floor.boss.summonAiId ?? 'grunt-bandit');
+                bossActor.character.summonCount = Math.max(1, Math.min(4, Number(floor.boss.summonCount ?? 2)));
+            }
+        }
+        actors.push(bossActor);
     }
     if (floor.npc) {
         const pos = typeof floor.npc.pos === 'number' && floor.npc.pos >= 0 && floor.npc.pos < map.width * map.height
