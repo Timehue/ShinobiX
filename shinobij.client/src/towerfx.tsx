@@ -39,7 +39,7 @@ const session: TowerSession = {
     },
     actors: [
         {
-            id: "sq-0", side: "squad", name: "Rill", ownerSlug: "Rill", ai: false,
+            id: "sq-0", side: "squad", name: "Rill", ownerSlug: "rill", ai: false,
             hp: 8200, maxHp: 10000, chakra: 50, maxChakra: 50, stamina: 50, maxStamina: 50,
             shield: 0, statuses: [], pos: 123,
             character: { specialty: "Ninjutsu", stats: {}, jutsu: [{ id: "fireball", name: "Fireball", element: "Fire", type: "Ninjutsu", ap: 40, range: 2, effectPower: 40 }] },
@@ -52,6 +52,7 @@ const session: TowerSession = {
         enemy("en-4", "bandit", "Bandit", 197),
         enemy("en-5", "archer", "Archer", 196, 270, 270),
         enemy("boss", "warden", "Spire Warden", 159, 2520, 2520),
+        { id: "npc-0", side: "npc", name: "Allied Genin", ownerSlug: null, ai: true, hp: 430, maxHp: 600, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, shield: 0, statuses: [], pos: 84, character: { specialty: "Taijutsu", stats: {}, visual: "genin" } },
     ],
     turnQueue: ["sq-0", "en-0", "en-1", "en-2", "en-3", "en-4", "en-5", "boss"],
     activeIndex: 0, round: 1, activeAp: 100, actionsThisTurn: 0,
