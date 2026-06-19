@@ -391,11 +391,11 @@ export function sanitizeCharacterSave(
         // these caps stop a direct save POST from spoofing.
         totalPetWins: 30,
         totalEndlessTowerWins: 5,
-        // Battle Towers leaderboard stats. bestFloor grows ≤5/save (like the endless
-        // counter). The Floor Clear Score rating is FULLY server-authoritative — only
-        // api/towers/settle.ts writes it (bypassing this sanitizer), so maxDelta 0 pins
-        // it to the stored value and a tampered client save can never change it.
-        battleTowerBestFloor: 5,
+        // Battle Towers leaderboard stats — BOTH fully server-authoritative. Only
+        // api/towers/settle.ts writes them (bypassing this sanitizer), so maxDelta 0 pins
+        // each to the stored value and a tampered client save can neither raise nor lower
+        // them (bestFloor must be 0 too, else a client inflates the depth leaderboard +5/save).
+        battleTowerBestFloor: 0,
         battleTowerRating: 0,
         totalTournamentsCompleted: 3,
         totalTilesExplored: 200,
