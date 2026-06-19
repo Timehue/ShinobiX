@@ -122,6 +122,19 @@ export function BattleTowerFight({
         fetchTowerState(runId, me).then(setSession).catch(() => {});
     }, [runId, me, initialSession.status]);
 
+    // Live co-op: while it's NOT our turn, poll the server so we see allies'/enemies'
+    // moves and get notified the instant it's our turn. Our own actions update directly,
+    // and a poll also nudges the server's AFK auto-pass so an absent player never stalls
+    // the run. Solo runs poll between our turns too, which is cheap + harmless.
+    useEffect(() => {
+        if (session.status !== "active" || myTurn) return;
+        let alive = true;
+        const id = setInterval(() => {
+            fetchTowerState(runId, me).then(s => { if (alive) setSession(s); }).catch(() => {});
+        }, 2500);
+        return () => { alive = false; clearInterval(id); };
+    }, [session.status, myTurn, runId, me]);
+
     // Auto-settle once on a squad clear.
     useEffect(() => {
         if (session.status === "done" && session.winner === "squad" && !settledRef.current) {
