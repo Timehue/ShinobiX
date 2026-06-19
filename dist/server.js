@@ -67,6 +67,11 @@ const list_js_3 = __importDefault(require("./api/bloodlines/list.js"));
 const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
+const floors_js_1 = __importDefault(require("./api/towers/floors.js"));
+const start_js_1 = __importDefault(require("./api/towers/start.js"));
+const action_js_1 = __importDefault(require("./api/towers/action.js"));
+const state_js_1 = __importDefault(require("./api/towers/state.js"));
+const settle_js_1 = __importDefault(require("./api/towers/settle.js"));
 const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
 const lock_js_1 = __importDefault(require("./api/battle/lock.js"));
 const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.js"));
@@ -474,6 +479,13 @@ route('/admin/migrate-kv', migrate_kv_js_1.default);
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).
 route('/missions/raid-start', raid_start_js_1.default);
+// Battle Towers — 4-player squad tower (start / action / state / settle). Server-authoritative
+// deterministic engine + idempotent reward settlement; see api/towers/.
+route('/towers/floors', floors_js_1.default);
+route('/towers/start', start_js_1.default);
+route('/towers/action', action_js_1.default);
+route('/towers/state', state_js_1.default);
+route('/towers/settle', settle_js_1.default);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).

@@ -47,6 +47,9 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set([
     // Run-state for solo modes
     'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
     'endlessTowerRun', 'endlessTowerBestWave',
+    // Battle Towers: strip the display ledgers, but SURFACE battleTowerBestFloor +
+    // battleTowerRating (flat leaderboard stats, like rankedRating).
+    'battleTowerClearedFloors', 'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',
     'weeklyBossKills', 'claimedWarCrateIds',
     'unlockedAchievements', 'achievementUnlockedAt',
     'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
