@@ -68,7 +68,9 @@ function templateActor(
         id, side, name: tpl.name, ownerSlug, ai: true,
         hp: tpl.hp, maxHp: tpl.hp, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
         shield: 0, statuses: [], cooldowns: {}, pos,
-        character: { specialty: tpl.specialty, stats: { ...tpl.stats } },
+        // `visual` (sprite key) + `boss` are cosmetic-only hints the client renders; they
+        // never touch combat math. The boss is also tracked authoritatively via phaseState.
+        character: { specialty: tpl.specialty, stats: { ...tpl.stats }, visual: tpl.visual, ...(tpl.boss ? { boss: true } : {}) },
     };
 }
 
@@ -87,9 +89,11 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     const map: TowerMap = {
         width: floor.map.width,
         height: floor.map.height,
+        biome: floor.biome,
         blockedTiles: [],
         hazardTiles: [],
         objectiveTiles: typeof floor.goalTile === 'number' ? [floor.goalTile] : [],
+        features: floor.features ? floor.features.map(f => ({ ...f, tiles: [...f.tiles] })) : [],
     };
 
     const actors: TowerActor[] = [];
