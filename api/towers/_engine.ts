@@ -424,3 +424,24 @@ export function runTowerFloor(session: TowerSession, floor: TowerFloor, rng: () 
     checkTowerWinner(session, floor);
     return session;
 }
+
+// Live-mode driver: advance AI actors' turns until it is a HUMAN's turn (ai === false) or
+// the floor resolves. Used by api/towers/action.ts after a human submits a turn-ending
+// action, so the human only ever sees their own turns. Deterministic (seeded rng).
+export function runAiUntilHuman(session: TowerSession, floor: TowerFloor, rng: () => number): void {
+    if (session.turnQueue.length === 0) startRound(session);
+    const GUARD = (MAX_ROUNDS + 2) * (session.actors.length + 2) * (MAX_ACTIONS + 2) + 256;
+    let guard = 0;
+    while (session.status === 'active' && guard++ < GUARD) {
+        const actor = activeActor(session);
+        if (actor && actor.ai === false && actor.hp > 0) break; // a live human's turn — stop
+        if (!actor || actor.hp <= 0 || actor.side === 'npc') { endTurn(session, floor); continue; }
+        let safety = 0;
+        while (session.status === 'active' && safety++ <= MAX_ACTIONS) {
+            const a = pickAiAction(session, actor, rng);
+            if (a.type === 'wait') break;
+            if (!applyAction(session, floor, a, rng).applied) break;
+        }
+        if (session.status === 'active') endTurn(session, floor);
+    }
+}
