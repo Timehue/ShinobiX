@@ -60,6 +60,7 @@ export type Screen =
     | "hollowGateShrine"
     | "hollowGateTiles"
     | "endlessTower"
+    | "battleTowers"
     | "weeklyBoss"
     | "villageWar"
     | "tilecardsDuel"

@@ -45,8 +45,21 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "petArena", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
-    "eventPetBattle", "tilecardsDuel",
+    "eventPetBattle", "tilecardsDuel", "battleTowers",
 ]);
+
+// Battle Towers has no server BattleLockKeeper (the run lives in tower:<runId>
+// and a refresh just drops back to Central with no penalty). The combined
+// BattleTowers screen sets this flag while a fight is on the board so the nav
+// lock blocks leaving mid-fight; the lobby state leaves it unset.
+const TOWER_FIGHT_FLAG = "shinobix:towerFightActive";
+export function hasActiveTowerFight(): boolean {
+    try {
+        return !!localStorage.getItem(TOWER_FIGHT_FLAG);
+    } catch {
+        return false;
+    }
+}
 
 // True when an unresolved PvE/story fight is registered on the server lock
 // (BattleLockKeeper sets this only while a fight is actually in progress, and
@@ -111,6 +124,8 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return s.hollowGateTileGameActive;
         case "dungeon":
             return s.activeDungeonEvent;
+        case "battleTowers":       // squad tower: lobby is free, an on-board fight isn't
+            return hasActiveTowerFight();
         default:
             return false;
     }

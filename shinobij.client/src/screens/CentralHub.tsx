@@ -769,7 +769,7 @@ export function CentralHub({
                 <div className="celestial-panel-overlay" onClick={() => setShowCelestialPanel(false)}>
                     <div className="celestial-panel" onClick={e => e.stopPropagation()}>
                         <h2>🗼 Celestial Tower</h2>
-                        <p className="celestial-panel-sub">An endless climb against a parade of scaling opponents.</p>
+                        <p className="celestial-panel-sub">Two ways to climb: the endless gauntlet, or curated Battle Tower squad floors.</p>
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
                             <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
@@ -787,6 +787,11 @@ export function CentralHub({
                                 <span className="celestial-option-icon">🗼</span>
                                 <strong>Enter Celestial Tower</strong>
                                 <small>Fight until you fall. Banked ryo/XP lost on death — milestones survive.</small>
+                            </button>
+                            <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setScreen("battleTowers"); }}>
+                                <span className="celestial-option-icon">⚔️</span>
+                                <strong>Battle Towers</strong>
+                                <small>Curated squad floors — objectives, gimmicks, bosses. Free retries; first-clear rewards &amp; a leaderboard.</small>
                             </button>
                         </div>
                         <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>

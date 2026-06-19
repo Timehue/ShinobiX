@@ -19141,6 +19141,7 @@ button.combat-jutsu-button,
   .screen-arena .journey-banner,
   .screen-storyBoss .journey-banner,
   .screen-battleArena .journey-banner,
+  .screen-battleTowers .journey-banner,
   .screen-arenaDistrict .journey-banner {
     display: none !important;
   }
