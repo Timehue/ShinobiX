@@ -139,6 +139,7 @@ import { EXAM_LEVEL_GATES } from "./constants/game";
 const WorldMap = lazy(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
 const CentralHub = lazy(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
+const BattleTowers = lazy(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
 import { SunscarFestival } from "./screens/SunscarFestival";
 const PetArena = lazy(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
 import { type PetArenaOpponent } from "./data/pet-arena-opponents";
@@ -155,7 +156,7 @@ const PvpBattleScreen = lazy(() => import("./screens/PvpBattleScreen").then(m =>
 const Arena = lazy(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle } from "./lib/screen-guards";
+import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
 const AdminPanel = lazy(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { claimPendingWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
@@ -189,7 +190,6 @@ import {
 } from "./types/pet";
 import {
     type Stats,
-    type JutsuTag,
     type Jutsu,
     type EquipmentSlot,
     type ArmorQuality,
@@ -2047,7 +2047,7 @@ export default function App() {
 
     // Toggle body class during battle so CSS can hide the left sidebar
     useEffect(() => {
-        const isBattle = screen === "arena" || screen === "storyBoss" || screen === "pvpBattle";
+        const isBattle = screen === "arena" || screen === "storyBoss" || screen === "pvpBattle" || screen === "battleTowers";
         document.body.classList.toggle("in-battle", isBattle);
         return () => { document.body.classList.remove("in-battle"); };
     }, [screen]);
@@ -2647,7 +2647,7 @@ export default function App() {
             || screen === "storyBoss" || screen === "weeklyBoss" || screen === "villageWar"
             || screen === "hollowGateShrine" || screen === "hollowGateTiles"
             || screen === "endlessTower" || screen === "dungeon" || screen === "eventTiles"
-            || screen === "tilecardsDuel";
+            || screen === "tilecardsDuel" || screen === "battleTowers";
         if (inBattleScreen) return;
 
         const me = character.name.toLowerCase();
@@ -2781,7 +2781,8 @@ export default function App() {
             // a battle, and flagging them made every incoming challenge fail with
             // "Target is already in a battle." The live PvP fight runs on 'pvpBattle';
             // pet battles are local sims that a queued challenge doesn't interrupt.
-            const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '');
+            const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '')
+                || (screenRef.current === 'battleTowers' && hasActiveTowerFight()); // tower lobby stays challengeable; only an on-board fight flags in-battle
             // Upload only the display fields the roster surfaces, not the full
             // character blob — see presenceCharacter(). Gameplay/PvP paths read the
             // presence row's sector/inBattle/travel flags, not this character; combat
@@ -2933,7 +2934,8 @@ export default function App() {
         if (!character?.name) return;
         const char = characterRef.current;
         if (!char) return;
-        const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '');
+        const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '')
+            || (screenRef.current === 'battleTowers' && hasActiveTowerFight()); // see heartbeat note: lobby challengeable, on-board fight not
         // Place us immediately; the heartbeat (which fires now and on every sector
         // change) supersedes this frame with the authoritative travel/battle state.
         connectRealtime({
@@ -7342,6 +7344,7 @@ export default function App() {
                 screen !== "start" &&
                 screen !== "arena" &&
                 screen !== "storyBoss" &&
+                screen !== "battleTowers" &&
                 screen !== "pvpBattle" && (
                     <LeftProfileCard
                         character={character}
@@ -8777,6 +8780,9 @@ export default function App() {
                         onBack={() => setScreen("centralHub")}
                     />
                 )}
+                {!activeTriggeredEvent && screen === "battleTowers" && character && (
+                    <BattleTowers character={character} onExit={() => setScreen("centralHub")} />
+                )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WeeklyBossArena
                         character={character}
@@ -10118,71 +10124,8 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     );
 }
 
-export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions" | "bounties";
-
-
-export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
-
-
+// PvP-battle + leaderboard/tavern shared UI types moved to ./types/pvp-ui.
 // FestivalPortrait moved to ./components/Pills.
-
-type PvpStatusState = {
-    name: string;
-    rounds: number;
-    percent?: number;
-    amount?: number;
-    kind: "positive" | "negative";
-};
-
-type PvpFighterState = {
-    name: string;
-    hp: number;
-    maxHp: number;
-    chakra: number;
-    maxChakra: number;
-    stamina: number;
-    maxStamina: number;
-    shield: number;
-    statuses: PvpStatusState[];
-    character: Record<string, unknown>;
-    pos: number;
-};
-
-export type PvpGroundEffectState = {
-    id: string;
-    owner: "p1" | "p2";
-    name: string;
-    tiles: number[];
-    rounds: number;
-    tags: JutsuTag[];
-};
-
-export type PvpSessionState = {
-    battleId: string;
-    p1: PvpFighterState;
-    p2: PvpFighterState;
-    round: number;
-    activePlayer: "p1" | "p2";
-    ap: { p1: number; p2: number };
-    actionsThisTurn: number;
-    cooldowns: { p1: Record<string, number>; p2: Record<string, number> };
-    groundEffects?: PvpGroundEffectState[];
-    log: string[];
-    status: "active" | "done";
-    winner: "p1" | "p2" | "draw" | null;
-    fleedBy?: "p1" | "p2";
-    createdAt?: number;
-    lastMoveAt?: number;
-    consecAutoWait?: { p1?: number; p2?: number };
-    // Environment sealed at session-create time (api/pvp/session.ts). The server
-    // resolves terrain/weather damage modifiers from THESE, so the battle UI
-    // reads them too — display + preview match server math (ranked seals
-    // 'central' / no weather regardless of where the fighters are standing).
-    biome?: Biome;
-    weatherPositiveElement?: string;
-    weatherNegativeElement?: string;
-    // Response-only on a /api/pvp/move reply when the submitted action was
-    // rejected (never persisted / never on GET/SSE). The battle screen surfaces
-    // `reason` and keeps the player's pending selection so they can adjust.
-    rejected?: { applied: false; reason: string; serverRound: number; activePlayer: "p1" | "p2" };
-};
+import type { PvpSessionState } from "./types/pvp-ui";
+export type { LbTab, TavernMessage, PvpGroundEffectState } from "./types/pvp-ui";
+export type { PvpSessionState };
