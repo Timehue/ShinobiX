@@ -3157,6 +3157,21 @@ button {
     backdrop-filter: blur(1px);
 }
 
+/* ── Battle Towers hex tiles ──
+   Absolute-positioned tessellating hexes (same clip-path as the PvP board) on the
+   larger tower grid. A dedicated class so they DON'T inherit .hex-tile's 12-column
+   CSS-grid sizing + nth-child(24n) row offsets, which assume PvP's board width and
+   would scramble a wider tower board. Position + fill come inline from
+   towerHexPixel / tileFill. */
+.tower-hex-tile {
+    position: absolute;
+    clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    padding: 0;
+    transition: filter 0.1s ease;
+}
+    .tower-hex-tile:hover { filter: brightness(1.18); }
+
 .dual-ap-panel {
     display: grid;
     grid-template-columns: 1fr 1fr;

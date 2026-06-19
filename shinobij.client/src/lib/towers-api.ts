@@ -30,12 +30,21 @@ export type TowerActor = {
     character: Record<string, unknown>;
 };
 
+export type TowerFeature =
+    | { kind: 'pylon'; tiles: number[]; element: string; weakenElement: string; percent: number; label?: string }
+    | { kind: 'ward'; tiles: number[]; percent: number; label?: string }
+    | { kind: 'hazard'; tiles: number[]; percent: number; label?: string };
+
 export type TowerMap = {
     width: number;
     height: number;
+    /** floor biome — drives the battlefield floor art */
+    biome?: string;
     blockedTiles: number[];
     hazardTiles: number[];
     objectiveTiles: number[];
+    /** positional battlefield features (pylons/wards/hazards) — drawn on the board */
+    features?: TowerFeature[];
 };
 
 export type TowerObjectiveState = {
