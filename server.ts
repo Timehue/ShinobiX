@@ -66,6 +66,7 @@ import bloodlinesListHandler from './api/bloodlines/list.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import raidStartHandler   from './api/missions/raid-start.js';
+import towersFloorsHandler from './api/towers/floors.js';
 import towersStartHandler  from './api/towers/start.js';
 import towersActionHandler from './api/towers/action.js';
 import towersStateHandler  from './api/towers/state.js';
@@ -524,6 +525,7 @@ route('/admin/migrate-kv', migrateKvHandler);
 route('/missions/raid-start', raidStartHandler);
 // Battle Towers — 4-player squad tower (start / action / state / settle). Server-authoritative
 // deterministic engine + idempotent reward settlement; see api/towers/.
+route('/towers/floors', towersFloorsHandler);
 route('/towers/start', towersStartHandler);
 route('/towers/action', towersActionHandler);
 route('/towers/state', towersStateHandler);
