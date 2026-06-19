@@ -65,6 +65,8 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'unlockedAchievements', 'achievementUnlockedAt',
     'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
     'endlessTowerRun', 'endlessTowerBestWave',
+    'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
+    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',
     'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
     'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
     'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
@@ -389,6 +391,12 @@ export function sanitizeCharacterSave(
         // these caps stop a direct save POST from spoofing.
         totalPetWins: 30,
         totalEndlessTowerWins: 5,
+        // Battle Towers leaderboard stats. bestFloor grows ≤5/save (like the endless
+        // counter). The Floor Clear Score rating is FULLY server-authoritative — only
+        // api/towers/settle.ts writes it (bypassing this sanitizer), so maxDelta 0 pins
+        // it to the stored value and a tampered client save can never change it.
+        battleTowerBestFloor: 5,
+        battleTowerRating: 0,
         totalTournamentsCompleted: 3,
         totalTilesExplored: 200,
         rankedWins: 20,
@@ -674,6 +682,18 @@ export function sanitizeCharacterSave(
         const run = char.hollowGateRun as Record<string, unknown>;
         if (run.floor != null) run.floor = Math.max(0, Math.min(50, Math.floor(Number(run.floor) || 0)));
         if (run.keys != null) run.keys = Math.max(0, Math.min(99, Math.floor(Number(run.keys) || 0)));
+    }
+
+    // ─── Battle Towers progress array length caps ─────────────────────────────
+    // These are display/convenience ledgers — the real reward gating is
+    // server-side in api/towers/settle.ts (NX receipts + recompute), so a forged
+    // array can't actually claim rewards. Cap length so it can't bloat KV.
+    const BATTLE_TOWER_ARRAY_CAP = 500;
+    for (const f of ['battleTowerClearedFloors', 'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed']) {
+        const arr = (char as Record<string, unknown>)[f];
+        if (Array.isArray(arr) && arr.length > BATTLE_TOWER_ARRAY_CAP) {
+            (char as Record<string, unknown>)[f] = arr.slice(0, BATTLE_TOWER_ARRAY_CAP);
+        }
     }
 
     // ─── defeatedAiIds length cap ─────────────────────────────────────────────

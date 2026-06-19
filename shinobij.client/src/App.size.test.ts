@@ -19,9 +19,12 @@ import { readFileSync } from "node:fs";
 // → lib/jutsu-options, net of the profile Message/Challenge/Follow wiring)
 // → 10,353 (retired the Hollow Gate Kenney atlas auto-slicer — terrain is now
 // published shrine:tile-* art) → 10,228 (drained ClanWarsPanel → components/ +
-// its now-orphaned imports). What remains is the App() core (~150 hooks) and its
+// its now-orphaned imports) → 10,188 (drained adminIconOptions → data/admin-icons
+// + useSharedNow → lib/use-shared-now [−50], re-exported from App for back-compat;
+// then +10 for Battle Towers save-field normalize/create wiring — net −40 vs main).
+// What remains is the App() core (~150 hooks) and its
 // module-level wiring — decompose via hooks, not moves.
-const MAX_LINES = 10_231;
+const MAX_LINES = 10_191;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
