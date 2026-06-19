@@ -66,6 +66,10 @@ import bloodlinesListHandler from './api/bloodlines/list.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import raidStartHandler   from './api/missions/raid-start.js';
+import towersStartHandler  from './api/towers/start.js';
+import towersActionHandler from './api/towers/action.js';
+import towersStateHandler  from './api/towers/state.js';
+import towersSettleHandler from './api/towers/settle.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
 import battleLockHandler  from './api/battle/lock.js';
 import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
@@ -518,6 +522,12 @@ route('/admin/migrate-kv', migrateKvHandler);
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).
 route('/missions/raid-start', raidStartHandler);
+// Battle Towers — 4-player squad tower (start / action / state / settle). Server-authoritative
+// deterministic engine + idempotent reward settlement; see api/towers/.
+route('/towers/start', towersStartHandler);
+route('/towers/action', towersActionHandler);
+route('/towers/state', towersStateHandler);
+route('/towers/settle', towersSettleHandler);
 // Battle lock — server-side "in a PvE fight" marker (start/resolve/status) so a
 // refresh can't escape a battle; resume-only, pays/punishes nothing (see
 // api/battle/lock.ts).
