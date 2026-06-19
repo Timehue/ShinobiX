@@ -76,6 +76,25 @@ export type TowerActionResponse = { applied: boolean; reason?: string; session: 
 export type TowerSettleResult = { paid: boolean; reason?: string; score?: number };
 export type TowerSettleResponse = { runId: string; winner: TowerSession['winner']; results: Record<string, TowerSettleResult> };
 
+export type TowerFloorMeta = {
+    id: number;
+    name: string;
+    biome: string;
+    objective: string;
+    roundBudget: number;
+    isBoss: boolean;
+    milestone: string | null;
+    map: { width: number; height: number };
+};
+
+/** The public floor-catalog metadata for the lobby picker. */
+export async function fetchTowerFloors(): Promise<TowerFloorMeta[]> {
+    const res = await fetch('/api/towers/floors');
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    const data = await res.json() as { floors: TowerFloorMeta[] };
+    return data.floors;
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
     const res = await fetch(url, {
         method: 'POST',
