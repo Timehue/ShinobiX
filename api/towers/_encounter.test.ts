@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { makeRng } from './_sim.js';
-import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
+import { buildTowerEncounter, pickTowerElements, type SquadMemberInput } from './_encounter.js';
 import { runTowerFloor } from './_engine.js';
 import { getActor } from './_tower-session.js';
 import { FLOOR_CATALOG, type TowerFloor } from './_floor-catalog.js';
@@ -84,5 +84,33 @@ describe('Battle Towers encounter builder (P1.B)', () => {
             if (floor.boss) assert.ok(hasEnemyTemplate(floor.boss.aiId), `missing boss template "${floor.boss.aiId}" on floor ${floor.id}`);
             if (floor.npc) assert.ok(hasEnemyTemplate(floor.npc.aiId), `missing npc template "${floor.npc.aiId}" on floor ${floor.id}`);
         }
+    });
+});
+
+describe('Battle Towers per-run elements (3 of 5, seeded)', () => {
+    const VALID = new Set(['Fire', 'Water', 'Earth', 'Lightning', 'Wind']);
+
+    it('picks exactly 3 distinct valid elements', () => {
+        for (const seed of [1, 42, 9999, 0x7fffffff]) {
+            const els = pickTowerElements(seed);
+            assert.equal(els.length, 3, `seed ${seed}`);
+            assert.equal(new Set(els).size, 3, `seed ${seed}: distinct`);
+            for (const e of els) assert.ok(VALID.has(e), `seed ${seed}: ${e} valid`);
+        }
+    });
+
+    it('is deterministic per seed (settle recompute reproduces it)', () => {
+        assert.deepEqual(pickTowerElements(12345), pickTowerElements(12345));
+        // and varies across seeds (not a constant)
+        assert.notDeepEqual(pickTowerElements(1), pickTowerElements(4));
+    });
+
+    it('assigns the seeded elements to a floor\'s pylons (catalog elements are placeholders)', () => {
+        const floor = FLOOR_CATALOG.find(f => f.features?.some(x => x.kind === 'pylon'))!;
+        const session = buildTowerEncounter({ floor, squad: [strongMember('a')], runId: 'r', seed: 777, partySize: 4, now: 1 });
+        const want = pickTowerElements(777);
+        const pylons = (session.map.features ?? []).filter(f => f.kind === 'pylon') as Array<{ element: string }>;
+        assert.ok(pylons.length > 0);
+        for (const p of pylons) assert.ok(want.includes(p.element), `pylon element ${p.element} ∈ ${want.join(',')}`);
     });
 });

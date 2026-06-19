@@ -82,3 +82,29 @@ function build(floor, squad, over = {}) {
         }
     });
 });
+(0, node_test_1.describe)('Battle Towers per-run elements (3 of 5, seeded)', () => {
+    const VALID = new Set(['Fire', 'Water', 'Earth', 'Lightning', 'Wind']);
+    (0, node_test_1.it)('picks exactly 3 distinct valid elements', () => {
+        for (const seed of [1, 42, 9999, 0x7fffffff]) {
+            const els = (0, _encounter_js_1.pickTowerElements)(seed);
+            node_assert_1.strict.equal(els.length, 3, `seed ${seed}`);
+            node_assert_1.strict.equal(new Set(els).size, 3, `seed ${seed}: distinct`);
+            for (const e of els)
+                node_assert_1.strict.ok(VALID.has(e), `seed ${seed}: ${e} valid`);
+        }
+    });
+    (0, node_test_1.it)('is deterministic per seed (settle recompute reproduces it)', () => {
+        node_assert_1.strict.deepEqual((0, _encounter_js_1.pickTowerElements)(12345), (0, _encounter_js_1.pickTowerElements)(12345));
+        // and varies across seeds (not a constant)
+        node_assert_1.strict.notDeepEqual((0, _encounter_js_1.pickTowerElements)(1), (0, _encounter_js_1.pickTowerElements)(4));
+    });
+    (0, node_test_1.it)('assigns the seeded elements to a floor\'s pylons (catalog elements are placeholders)', () => {
+        const floor = _floor_catalog_js_1.FLOOR_CATALOG.find(f => f.features?.some(x => x.kind === 'pylon'));
+        const session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad: [strongMember('a')], runId: 'r', seed: 777, partySize: 4, now: 1 });
+        const want = (0, _encounter_js_1.pickTowerElements)(777);
+        const pylons = (session.map.features ?? []).filter(f => f.kind === 'pylon');
+        node_assert_1.strict.ok(pylons.length > 0);
+        for (const p of pylons)
+            node_assert_1.strict.ok(want.includes(p.element), `pylon element ${p.element} ∈ ${want.join(',')}`);
+    });
+});

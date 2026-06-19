@@ -31,6 +31,29 @@ export type SquadMemberInput = {
     character: Record<string, unknown>;
 };
 
+// ── Elemental pylons (5 elements; 3 chosen per run) ──────────────────────────
+const TOWER_ELEMENTS = ['Fire', 'Water', 'Earth', 'Lightning', 'Wind'] as const;
+// Naruto-style counter cycle (Fire>Wind>Lightning>Earth>Water>Fire): a pylon boosts
+// its element and weakens the one that BEATS it (so a counter-element on the pylon
+// is punished). Drives both the engine math and the pylon's displayed label.
+const ELEMENT_WEAKENS: Record<string, string> = {
+    Fire: 'Water', Wind: 'Fire', Lightning: 'Wind', Earth: 'Lightning', Water: 'Earth',
+};
+const ELEMENT_PYLON_LABEL: Record<string, string> = {
+    Fire: 'Flame Pylon', Water: 'Tide Pylon', Earth: 'Stone Pylon', Lightning: 'Storm Pylon', Wind: 'Gale Pylon',
+};
+/** Deterministically pick 3 of the 5 elements from the run seed (seeded Fisher–Yates). */
+export function pickTowerElements(seed: number): string[] {
+    const arr = [...TOWER_ELEMENTS] as string[];
+    let s = (seed >>> 0) || 1;
+    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+    }
+    return arr.slice(0, 3);
+}
+
 // Deterministic spawn placement: from a desired (col,row), scan outward (down rows,
 // then wrap to the next column) to the first FREE tile, so squad + enemies spread
 // across spawn BANDS and never collide. Pure + deterministic (no RNG / wall-clock).
@@ -99,33 +122,57 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         features: floor.features ? floor.features.map(f => ({ ...f, tiles: [...f.tiles] })) : [],
     };
 
+    // Per-run elements: assign the tower's 3 seeded elements round-robin to the pylon
+    // flowers (the catalog elements are placeholders). Deterministic by seed, so the
+    // settle recompute reproduces the same pylons.
+    const towerElements = pickTowerElements(p.seed);
+    let pIdx = 0;
+    for (const f of map.features ?? []) {
+        if (f.kind !== 'pylon') continue;
+        const el = towerElements[pIdx % towerElements.length]!;
+        f.element = el;
+        f.weakenElement = ELEMENT_WEAKENS[el] ?? 'Water';
+        f.label = ELEMENT_PYLON_LABEL[el] ?? 'Pylon';
+        pIdx++;
+    }
+
     const W = map.width, H = map.height;
     const used = new Set<number>();
     const actors: TowerActor[] = [];
     // Squad in a 2-wide LEFT band, spaced every ~3 rows down the middle of the board.
     squad.forEach((m, i) => actors.push(squadActor(m, placeInBand(used, W, H, i % 2, 3 + i * 3))));
 
+    // Enemies stand in a FORMATION: the boss anchors the back (right edge, centre row),
+    // and the grunts form centred ranks just in front of it. Reserve the boss tile first
+    // so the grunt block builds ahead of it.
+    let bossId: string | undefined;
+    let bossPhases: number[] | undefined;
+    let bossTile = -1;
+    if (floor.boss) bossTile = placeInBand(used, W, H, W - 1, Math.floor(H / 2));
+
+    const gruntCount = floor.enemies.reduce((s, pod) => s + pod.count, 0);
+    const ranks = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(gruntCount))));
+    const rowGap = H >= 14 ? 2 : 1;
+    const files = Math.max(1, Math.ceil(gruntCount / ranks));
+    const blockStart = Math.max(0, Math.floor((H - (files - 1) * rowGap) / 2));
+
     let enemyIdx = 0;
     for (const pod of floor.enemies) {
         const tpl = getEnemyTemplate(pod.aiId);
         for (let k = 0; k < pod.count; k++) {
-            // Enemies scattered across a 3-deep RIGHT band, rows stepped by 5 (wraps) so
-            // they're spread vertically rather than stacked in one column.
-            const col = W - 1 - (enemyIdx % 3);
-            const row = 1 + (enemyIdx * 5) % (H - 1);
+            const rank = enemyIdx % ranks;                 // 0 = front rank (closest to the squad)
+            const file = Math.floor(enemyIdx / ranks);
+            const col = (W - 2) - rank;                     // ranks step back toward the boss column
+            const row = blockStart + file * rowGap;
             actors.push(templateActor(`en-${enemyIdx}`, 'enemy', tpl, placeInBand(used, W, H, col, row)));
             enemyIdx++;
         }
     }
 
-    let bossId: string | undefined;
-    let bossPhases: number[] | undefined;
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        // Boss anchors the centre-right so it reads as the centrepiece.
-        actors.push(templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), placeInBand(used, W, H, W - 2, Math.floor(H / 2))));
-        enemyIdx++;
+        actors.push(templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), bossTile));
     }
 
     if (floor.npc) {

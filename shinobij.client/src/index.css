@@ -3168,12 +3168,13 @@ button {
     clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0% 50%);
     border: 1px solid rgba(148, 163, 184, 0.22);
     padding: 0;
-    /* drop-shadow follows the clipped hex (box-shadow would be clipped away), so each
-       tile casts a soft shadow → reads as a raised 3D tile. */
-    filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.45));
+    /* drop-shadow follows the clipped hex (box-shadow would be clipped away): a tight
+       dark outline delineates each hex against the terrain, and a soft down-shadow lifts
+       it → reads as a raised 3D tile with a visible edge. */
+    filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4));
     transition: filter 0.1s ease;
 }
-    .tower-hex-tile:hover { filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.45)) brightness(1.18); }
+    .tower-hex-tile:hover { filter: drop-shadow(0 0 1.4px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 1px rgba(0, 0, 0, 0.4)) brightness(1.2); }
 
 .dual-ap-panel {
     display: grid;

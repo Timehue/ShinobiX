@@ -8,6 +8,9 @@ import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
+import arenaFloor from "../assets/towers/arena-floor.webp";
+import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
+import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
 import banditSprite from "../assets/towers/enemies/bandit.webp";
 import archerSprite from "../assets/towers/enemies/archer.webp";
 import blockerSprite from "../assets/towers/enemies/blocker.webp";
@@ -42,6 +45,21 @@ const ENEMY_EMOJI: Record<string, string> = {
     warden: "🐲", ravager: "😈", genin: "🧑",
 };
 const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Earth: "🪨", Wind: "🌪️", Lightning: "⚡" };
+
+// New wide top-down battlefield floors, by biome (forest covers central/shadow too).
+const TOWER_FLOOR: Record<string, string> = {
+    forest: arenaFloor, central: arenaFloor, shadow: arenaFloor,
+    snow: arenaFloorSnow, volcano: arenaFloorVolcano,
+};
+
+// Per-element pylon-flower colours (top-lit → dark for the 3D bevel).
+const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> = {
+    Fire: { top: "rgba(254,178,120,0.66)", bot: "rgba(124,45,18,0.66)", border: "rgba(251,146,60,0.95)" },
+    Water: { top: "rgba(125,211,252,0.66)", bot: "rgba(7,76,120,0.66)", border: "rgba(56,189,248,0.95)" },
+    Earth: { top: "rgba(214,184,130,0.66)", bot: "rgba(87,57,24,0.66)", border: "rgba(202,138,72,0.95)" },
+    Lightning: { top: "rgba(253,230,138,0.7)", bot: "rgba(120,90,8,0.66)", border: "rgba(250,204,21,0.95)" },
+    Wind: { top: "rgba(167,243,208,0.64)", bot: "rgba(16,90,72,0.66)", border: "rgba(52,211,153,0.95)" },
+};
 
 export function BattleTowerFight({
     character,
@@ -163,8 +181,7 @@ export function BattleTowerFight({
     const objective = session.objectiveState.kind;
     const squad = session.actors.filter(a => a.side === "squad");
     const enemies = session.actors.filter(a => a.side === "enemy");
-    const biome = ["forest", "snow", "volcano", "shadow", "central"].includes(String(session.map.biome)) ? String(session.map.biome) : "central";
-    const biomeFloor = `/arena-${biome}-floor.webp`;
+    const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloor;
 
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: "linear-gradient(160deg,#070b16,#0b1326)" }}>
@@ -193,7 +210,7 @@ export function BattleTowerFight({
                     </div>
 
                     <div ref={battlefieldCallbackRef}
-                        style={{ flex: 1, minHeight: 420, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #334155", background: `linear-gradient(rgba(5,9,20,0.35),rgba(5,9,20,0.55)), url(${biomeFloor}) center/cover no-repeat` }}>
+                        style={{ flex: 1, minHeight: 420, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
                         <div style={{
                             position: "absolute",
                             left: `${Math.max(0, (boardContainerSize.w - layer.width * effectiveScale) / 2)}px`,
@@ -340,23 +357,21 @@ function tileFill(
 ): { background: string; borderColor: string; boxShadow?: string } {
     // Top-lit → dark-bottom gradient gives each hex a raised, beveled 3D look.
     const g = (top: string, bot: string) => `linear-gradient(180deg, ${top} 0%, ${bot} 100%)`;
-    if (s.isMove) return { background: g("rgba(134,239,172,0.66)", "rgba(20,83,45,0.6)"), borderColor: "#4ade80" };
-    if (s.inJ) return { background: g("rgba(147,197,253,0.6)", "rgba(29,78,216,0.52)"), borderColor: "#60a5fa" };
+    if (s.isMove) return { background: g("rgba(196,255,150,0.8)", "rgba(45,120,28,0.62)"), borderColor: "#bef264" };
+    if (s.inJ) return { background: g("rgba(147,197,253,0.62)", "rgba(29,78,216,0.55)"), borderColor: "#60a5fa" };
     if (s.isBlocked) return { background: g("rgba(120,130,150,0.62)", "rgba(30,38,56,0.72)"), borderColor: "rgba(148,163,184,0.5)" };
     if (feat) {
         if (feat.kind === "pylon") {
-            const fire = feat.element === "Fire" || feat.element === "Lightning";
-            return fire
-                ? { background: g("rgba(254,178,120,0.66)", "rgba(124,45,18,0.64)"), borderColor: "rgba(251,146,60,0.9)" }
-                : { background: g("rgba(125,211,252,0.66)", "rgba(7,76,120,0.64)"), borderColor: "rgba(56,189,248,0.95)" };
+            const c = PYLON_COLOR[feat.element] ?? PYLON_COLOR.Water!;
+            return { background: g(c.top, c.bot), borderColor: c.border };
         }
-        if (feat.kind === "ward") return { background: g("rgba(226,232,240,0.58)", "rgba(71,85,105,0.62)"), borderColor: "rgba(226,232,240,0.85)" };
-        if (feat.kind === "hazard") return { background: g("rgba(254,160,120,0.66)", "rgba(127,29,29,0.66)"), borderColor: "rgba(248,113,113,0.9)" };
+        if (feat.kind === "ward") return { background: g("rgba(226,232,240,0.6)", "rgba(71,85,105,0.64)"), borderColor: "rgba(226,232,240,0.9)" };
+        if (feat.kind === "hazard") return { background: g("rgba(254,160,120,0.68)", "rgba(127,29,29,0.68)"), borderColor: "rgba(248,113,113,0.95)" };
     }
-    if (s.isGoal) return { background: g("rgba(253,224,71,0.6)", "rgba(133,77,14,0.6)"), borderColor: "#facc15" };
-    // Default raised blue tile: lit cyan top → dark navy base = a beveled 3D tile,
-    // still translucent enough to let the biome floor show through.
-    return { background: g("rgba(96,165,250,0.6)", "rgba(11,26,66,0.66)"), borderColor: "rgba(125,211,252,0.5)" };
+    if (s.isGoal) return { background: g("rgba(253,224,71,0.62)", "rgba(133,77,14,0.62)"), borderColor: "#facc15" };
+    // Default tile: muted grass-green top → dark forest base, matching the arena floor.
+    // Translucent so the grass shows through; the dark hex outline (CSS) keeps it visible.
+    return { background: g("rgba(126,162,96,0.42)", "rgba(20,38,18,0.6)"), borderColor: "rgba(60,80,45,0.6)" };
 }
 function featureIcon(feat: TowerFeature): string {
     if (feat.kind === "pylon") return ELEMENT_ICON[feat.element] ?? "🔆";
