@@ -34,4 +34,21 @@ const _seal_js_1 = require("./_seal.js");
         const sealed = (0, _seal_js_1.sealTowerFighter)({ specialty: 'Hacking', stats: {} });
         node_assert_1.strict.equal(sealed.specialty, 'Taijutsu');
     });
+    (0, node_test_1.it)('RESOLVES the equipped loadout from equippedJutsuIds (the empty-jutsu-bar fix)', () => {
+        // A real save has NO `jutsu` array — only equippedJutsuIds. The old direct
+        // sanitizeJutsuList(saveChar.jutsu) produced an empty loadout (no castable jutsu).
+        const sealed = (0, _seal_js_1.sealTowerFighter)({ name: 'Hero', stats: {}, equippedJutsuIds: ['ashen-eyes-blood-gaze'] }, { character: { equippedJutsuIds: ['ashen-eyes-blood-gaze'] } });
+        const jutsu = sealed.jutsu;
+        node_assert_1.strict.ok(Array.isArray(jutsu) && jutsu.length === 1, 'equipped jutsu resolved from the catalog');
+        node_assert_1.strict.equal(jutsu[0].id, 'ashen-eyes-blood-gaze');
+        node_assert_1.strict.ok(jutsu[0].chakraCost > 0, 'catalog jutsu carries its real chakra cost');
+    });
+    (0, node_test_1.it)('seals a per-fight consumable budget capped by owned count', () => {
+        const charges = (0, _seal_js_1.sealTowerItemCharges)({
+            equipment: { thrown: 'shuriken', potion: 'rejuvenation-potion' },
+            itemStacks: [{ itemId: 'shuriken', count: 5 }, { itemId: 'rejuvenation-potion', count: 9 }],
+        });
+        node_assert_1.strict.equal(charges['shuriken'], 5, 'thrown weapon charges = owned count');
+        node_assert_1.strict.equal(charges['rejuvenation-potion'], 2, 'potion capped at 2/fight');
+    });
 });

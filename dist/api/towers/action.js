@@ -60,7 +60,9 @@ async function handler(req, res) {
         const action = type === 'move' ? { actorId: actor.id, type: 'move', tile: Math.floor(Number(body.tile)) }
             : type === 'attack' ? { actorId: actor.id, type: 'attack', targetId: String(body.targetId ?? '') }
                 : type === 'jutsu' ? { actorId: actor.id, type: 'jutsu', jutsuId: String(body.jutsuId ?? ''), targetId: String(body.targetId ?? '') }
-                    : { actorId: actor.id, type: 'wait' };
+                    : type === 'weapon' ? { actorId: actor.id, type: 'weapon', targetId: String(body.targetId ?? ''), itemId: body.itemId ? String(body.itemId) : undefined }
+                        : type === 'item' ? { actorId: actor.id, type: 'item', itemId: body.itemId ? String(body.itemId) : undefined }
+                            : { actorId: actor.id, type: 'wait' };
         const result = (0, _engine_js_1.applyAction)(session, floor, action, rng);
         if (!result.applied) {
             return res.status(200).json({ applied: false, reason: result.reason, session });

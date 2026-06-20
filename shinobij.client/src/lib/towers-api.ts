@@ -28,6 +28,10 @@ export type TowerActor = {
     statuses: TowerStatus[];
     pos: number;
     character: Record<string, unknown>;
+    /** per-fight consumable budget {itemId: charges} — sealed weapons/potions left to use */
+    itemCharges?: Record<string, number>;
+    /** active jutsu cooldowns {jutsuId: turns left} */
+    cooldowns?: Record<string, number>;
 };
 
 export type TowerFeature =
@@ -84,6 +88,8 @@ export type TowerActionInput =
     | { type: 'move'; tile: number }
     | { type: 'attack'; targetId: string }
     | { type: 'jutsu'; jutsuId: string; targetId: string }
+    | { type: 'weapon'; targetId: string; itemId?: string }
+    | { type: 'item'; itemId?: string }
     | { type: 'wait' };
 
 export type TowerActionResponse = { applied: boolean; reason?: string; session: TowerSession };
