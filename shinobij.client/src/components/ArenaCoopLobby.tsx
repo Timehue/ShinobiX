@@ -11,6 +11,7 @@ import { useState, useEffect, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
+import { petCardImage } from "../lib/pet-battle-anim";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 
 const PetArenaMatch = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
@@ -169,7 +170,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))", gap: "0.35rem" }}>
                                     {availablePets.map((pet) => {
                                         const sel = picks.includes(pet.id);
-                                        const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
+                                        const img = petCardImage(pet, sharedImages);
                                         return (
                                             <button key={pet.id} onClick={() => togglePick(pet.id)}
                                                 style={{ padding: "0.25rem", background: sel ? "#0e7490" : "#1e293b", border: sel ? "2px solid #22d3ee" : "2px solid transparent", borderRadius: 8, display: "grid", justifyItems: "center", gap: 2 }}>

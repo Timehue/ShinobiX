@@ -44,6 +44,7 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { PetParticleField } from "../lib/pet-vfx-particles";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { postPlayerChallengeNotice } from "../lib/player-api";
 import { boostAmount } from "../lib/village-upgrades";
@@ -4640,9 +4641,12 @@ export function Arena({
                                     const orbGlowClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
                                     return (
                                         <div key="pet-summon-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
-                                            {pet.image
-                                                ? <img className="tiny-map-avatar" src={pet.image} alt={petDisplayName(pet)} />
-                                                : <span style={{ fontSize: PET_ORB * 0.5 }}>🐾</span>}
+                                            {(() => {
+                                                const petImg = petCardImage(pet, sharedImages);
+                                                return petImg
+                                                    ? <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                                    : <span style={{ fontSize: PET_ORB * 0.5 }}>🐾</span>;
+                                            })()}
                                             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
                                         </div>
                                     );
