@@ -73,7 +73,12 @@ export type TowerSession = {
     status: 'active' | 'done';
     winner: TowerSide | 'draw' | null;
     log: string[];
+    /** wall-clock when the current human's turn began (co-op AFK countdown) */
+    turnStartedAt?: number;
 };
+
+/** Mirrors the server TURN_AFK_MS — how long a player has before their turn auto-passes. */
+export const TOWER_TURN_AFK_MS = 75_000;
 
 export type TowerActionInput =
     | { type: 'move'; tile: number }
