@@ -393,7 +393,10 @@ export function tickGroundEffects(effects: PvpGroundEffect[] | undefined): PvpGr
         .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
         .filter(effect => effect.rounds > 0);
 }
-function tickStatuses(f: PvpFighter, round: number): PvpFighter {
+// Exported so other server-authoritative combat modes (Battle Towers' N-actor engine)
+// can expire statuses with the IDENTICAL active-round / decrement semantics. Pure
+// function; exporting it changes zero PvP behaviour.
+export function tickStatuses(f: PvpFighter, round: number): PvpFighter {
     return {
         ...f,
         statuses: f.statuses
@@ -765,7 +768,9 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
 // v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
 // scaled by DR_DOT_SCALE so DoT can't be made fully invulnerable.
-function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFighter; lines: string[] } {
+// Exported so Battle Towers' engine can tick Wound/Poison/Drain with identical math.
+// Pure function; exporting it changes zero PvP behaviour.
+export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFighter; lines: string[] } {
     const lines: string[] = [];
     let f = { ...fighter };
     // Compute own DR pool against incoming DoT.

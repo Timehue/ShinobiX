@@ -118,15 +118,17 @@ function fireStarter(over = {}) {
         node_assert_1.strict.equal(evolved.attack, 126); // 120 + 6
         node_assert_1.strict.equal(evolved.moveRange, 4); // 3 + 1
     });
-    (0, node_test_1.it)('clamps evolved stats to the new rarity caps', () => {
-        // A pet trained near the standard ceiling stays under the rare caps.
+    (0, node_test_1.it)('adds the evolution delta with no cap clamp (HP/ATK/DEF/SPD are uncapped)', () => {
         const maxed = fireStarter({ level: 60, hp: 1700, attack: 260, defense: 210, speed: 190 });
         const evolved = (0, _evolution_js_1.evolvePet)(maxed, 1, (0, _evolution_js_1.evolutionLineFor)('starter-fire'));
-        node_assert_1.strict.equal(evolved.hp, 1750); // 1700+50 under rare cap 1900
-        node_assert_1.strict.equal(evolved.attack, 268); // 260+8 under rare cap 290
-        // Now push past the rare DEF cap (240).
+        node_assert_1.strict.equal(evolved.hp, 1750); // 1700 + 50
+        node_assert_1.strict.equal(evolved.attack, 268); // 260 + 8
+        node_assert_1.strict.equal(evolved.defense, 216); // 210 + 6
+        node_assert_1.strict.equal(evolved.speed, 196); // 190 + 6
+        // A stat that would have blown past the OLD rare cap (240) is no longer
+        // clamped — training/evolution stats add freely now.
         const overDef = fireStarter({ level: 60, defense: 238 });
         const e2 = (0, _evolution_js_1.evolvePet)(overDef, 1, (0, _evolution_js_1.evolutionLineFor)('starter-fire'));
-        node_assert_1.strict.equal(e2.defense, 240); // 238+6=244 clamped to 240
+        node_assert_1.strict.equal(e2.defense, 244); // 238 + 6, uncapped
     });
 });
