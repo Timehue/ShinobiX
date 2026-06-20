@@ -47,12 +47,15 @@ export const petTrainingDurationMultipliers: Record<number, number> = {
     [8 * 60 * 60 * 1000]: 14,
 };
 
+// Training shapes a pet's build by channeling its level-up stat growth (jutsu
+// power is no longer trainable — it stays a rarity-scaled, capped tier edge, so
+// there is intentionally no "Chakra" option). "chakra" remains in PetTrainingType
+// only so a saved in-progress chakra session still resolves (it grows balanced).
 export const petTrainingOptions: { type: PetTrainingType; label: string; desc: string }[] = [
-    { type: "strength", label: "Strength Training", desc: "Boosts attack and pet XP" },
-    { type: "endurance", label: "Endurance Training", desc: "Boosts HP, defense, and pet XP" },
-    { type: "agility", label: "Agility Training", desc: "Boosts speed and pet XP" },
-    { type: "chakra", label: "Chakra Training", desc: "Boosts jutsu power and pet XP" },
-    { type: "bond", label: "Bond Training", desc: "Balanced stat growth, XP, and happiness" },
+    { type: "strength", label: "Strength Training", desc: "Builds Attack as the pet levels" },
+    { type: "endurance", label: "Endurance Training", desc: "Builds HP and Defense as the pet levels" },
+    { type: "agility", label: "Agility Training", desc: "Builds Speed as the pet levels" },
+    { type: "bond", label: "Bond Training", desc: "Balanced growth across all stats, plus happiness" },
 ];
 
 // ── Expedition options + flavor stories ─────────────────────────────────
