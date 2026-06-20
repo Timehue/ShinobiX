@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import {
-    submitTowerAction, settleTowerRun, fetchTowerState,
+    submitTowerAction, settleTowerRun, fetchTowerState, TOWER_TURN_AFK_MS,
     type TowerSession, type TowerActor, type TowerSettleResponse, type TowerFeature,
 } from "../lib/towers-api";
+import gameBg from "../assets/background-image.webp";
 import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
@@ -116,6 +117,25 @@ export function BattleTowerFight({
     const myActor = activeActor && ownedByMe(activeActor.ownerSlug) ? activeActor : null;
     const bossId = session.phaseState?.bossId;
 
+    // Live clock for the co-op turn countdown.
+    const [nowTick, setNowTick] = useState(() => Date.now());
+    useEffect(() => {
+        if (session.status !== "active") return;
+        const id = setInterval(() => setNowTick(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, [session.status]);
+
+    // Whose turn is it? + the AFK countdown for a live player's turn.
+    const activeIsLiveHuman = !!activeActor && activeActor.ai === false && activeActor.side !== "enemy" && activeActor.hp > 0;
+    const afkRemaining = activeIsLiveHuman && session.turnStartedAt
+        ? Math.max(0, Math.ceil((TOWER_TURN_AFK_MS - (nowTick - session.turnStartedAt)) / 1000))
+        : null;
+    const turnLabel = session.status !== "active" || !activeActor ? ""
+        : myTurn ? "🟢 Your turn"
+        : activeActor.side === "enemy" ? "⚔️ Enemies acting…"
+        : activeActor.ai === false ? `⏳ ${activeActor.name}'s turn`
+        : `${activeActor.name} acting…`;
+
     // Reconnect: if mounted without a fresh session (or to recover), pull the latest once.
     useEffect(() => {
         if (initialSession.status === "active") return;
@@ -224,7 +244,7 @@ export function BattleTowerFight({
     const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloorForest;
 
     return (
-        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: "linear-gradient(160deg,#070b16,#0b1326)" }}>
+        <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
             <div style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "168px minmax(0,1fr) 196px", gap: 10, padding: 10, minHeight: "100dvh" }}>
 
                 {/* Squad rail (+ protect-target allies) */}
@@ -237,7 +257,17 @@ export function BattleTowerFight({
                 <main style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
                         <strong>Floor {session.floor} · {objective.replace(/-/g, " ")}</strong>
-                        <span style={{ color: "#94a3b8", flex: 1, textAlign: "right" }}>Round {session.round}{myTurn ? " · your turn" : ""}</span>
+                        <span style={{ color: "#94a3b8", flex: 1, textAlign: "right" }}>Round {session.round}</span>
+                        {turnLabel && (
+                            <span style={{
+                                display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 16, fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
+                                background: myTurn ? "linear-gradient(180deg,#16803a,#0c5226)" : "rgba(15,23,42,0.85)",
+                                border: `1px solid ${myTurn ? "#4ade80" : activeActor?.side === "enemy" ? "#f87171" : "#60a5fa"}`,
+                                color: myTurn ? "#dcfce7" : "#e2e8f0",
+                            }}>
+                                {turnLabel}{afkRemaining != null ? ` · ${afkRemaining}s` : ""}
+                            </span>
+                        )}
                         <input type="range" min={-0.4} max={1} step={0.05} value={userScaleOffset} title="Zoom"
                             onChange={e => setUserScaleOffset(Number(e.target.value))} style={{ width: 90 }} />
                         {session.status === "active" && (
@@ -362,7 +392,7 @@ export function BattleTowerFight({
                                 {reject && <span style={{ color: "#f87171", fontSize: "0.8rem" }}>⚠ {reject}</span>}
                             </div>
                         ) : (
-                            <p className="hint" style={{ margin: 0 }}>{session.status === "active" ? "Allies & enemies are acting…" : ""}</p>
+                            <p className="hint" style={{ margin: 0 }}>{session.status === "active" ? `${turnLabel || "Allies & enemies are acting…"}${afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}` : ""}</p>
                         )}
                     </div>
                 </main>
