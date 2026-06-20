@@ -56,14 +56,6 @@ export interface EvolutionLine {
     stages: Record<EvolveStage, EvolutionStageSpec>;
 }
 
-// Per-rarity stat ceilings — MIRROR of petStatCaps in
-// shinobij.client/src/data/pet-stats.ts. Evolved stats are clamped here so a
-// pet that trained near the standard ceiling can't blow past the new tier cap.
-const RARITY_CAPS: Record<EvolvedRarity, { hp: number; attack: number; defense: number; speed: number }> = {
-    rare: { hp: 1900, attack: 290, defense: 240, speed: 220 },
-    legendary: { hp: 2140, attack: 326, defense: 270, speed: 247 },
-};
-
 // Tier-gap deltas (rare-base − standard-base, then legendary-base − rare-base).
 // Identical across all 5 elements — only the names differ.
 const RARE_DELTA: StatDelta = { hp: 50, attack: 8, defense: 6, speed: 6, moveRange: 0 };
@@ -168,27 +160,28 @@ export function checkEvolve(pet: PetLike, inventory: string[]): EvolveCheck {
     return { ok: true, nextStage, spec, line: evoLine };
 }
 
-const clampStat = (value: number, cap: number): number => Math.max(1, Math.min(cap, Math.round(value)));
+const addStat = (value: number, delta: number): number => Math.max(1, Math.round(value + delta));
 
 /**
  * Pure evolution transform. Returns a NEW pet object with the next stage's
- * name/rarity/stage and the stat bump applied + clamped. id, element, xp,
- * happiness, loadout, jutsus and everything else are carried verbatim.
+ * name/rarity/stage and the stat bump ADDED (no cap clamp — HP/ATK/DEF/SPD are
+ * uncapped now that training builds them to the level-100 ceiling; evolving raises
+ * the rarity, which raises the jutsu-power cap, the higher tier's edge). id,
+ * element, xp, happiness, loadout, jutsus and everything else are carried verbatim.
  *
  * Callers must validate with `checkEvolve` first — this does no gating.
  */
 export function evolvePet<T extends PetLike>(pet: T, nextStage: EvolveStage, evoLine: EvolutionLine): T {
     const spec = evoLine.stages[nextStage];
-    const caps = RARITY_CAPS[spec.rarity];
     return {
         ...pet,
         name: spec.name,
         rarity: spec.rarity,
         evolutionStage: nextStage,
-        hp: clampStat((Number(pet.hp) || 0) + spec.delta.hp, caps.hp),
-        attack: clampStat((Number(pet.attack) || 0) + spec.delta.attack, caps.attack),
-        defense: clampStat((Number(pet.defense) || 0) + spec.delta.defense, caps.defense),
-        speed: clampStat((Number(pet.speed) || 0) + spec.delta.speed, caps.speed),
+        hp: addStat(Number(pet.hp) || 0, spec.delta.hp),
+        attack: addStat(Number(pet.attack) || 0, spec.delta.attack),
+        defense: addStat(Number(pet.defense) || 0, spec.delta.defense),
+        speed: addStat(Number(pet.speed) || 0, spec.delta.speed),
         moveRange: Math.max(2, Math.min(5, (Number(pet.moveRange) || 3) + spec.delta.moveRange)),
         unlockedForPve: true,
     } as T;

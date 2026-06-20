@@ -43,6 +43,7 @@ const RESPAWN_TICKS = ARENA_TPS * 7;         // 7 s respawn — a kill earns a r
 const PICKUP_RANGE = 1.4;                     // how close you must be to channel
 const BASE_SCORE_RANGE = 1.8;                 // carrier scores within this of its base
 const CARRIER_SLOW = 0.85;                    // −15% speed while carrying
+const SPEED_CRIT_DIVISOR = 600;               // ownSpeed/this → bonus crit; gives Speed a payoff past the move-speed cap
 
 // ── Roles ────────────────────────────────────────────────────────────────────
 export type ArenaRole = "defender" | "tracker" | "assassin" | "sage";
@@ -298,7 +299,10 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         x, y, faceX: team === "blue" ? 1 : -1, faceY: 0, baseX: sx, baseY: sy, seals,
         hp: maxHp, maxHp, atk: Math.max(1, (pet.attack || 60) * cfg.dmgMul), def: Math.max(0, (pet.defense || 30) * cfg.defMul),
         moveSpeed: clamp(2.6 + (pet.speed || 50) * 0.016, 2.6, 6.0) * cfg.spdMul / ARENA_TPS,
-        atkRange: cfg.atkRange, crit: cfg.crit, energy: 100, lives: 3,
+        // Movement saturates at the clamp above, but Speed keeps paying off as crit
+        // chance (role base + ownSpeed/divisor, capped) — so Speed matters in the
+        // arena too, and crit burst helps break tanky stalemates.
+        atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (pet.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
         shieldHp: 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
         path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null, decisionCd: 0,
