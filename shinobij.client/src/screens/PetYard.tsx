@@ -10,6 +10,7 @@ import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
 import { currentDateKey, formatPetTimer } from "../lib/utils";
 import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
@@ -574,7 +575,12 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                 {pet ? (
                                     <>
                                         <div className="pet-slot-avatar">
-                                            {pet.image ? <img src={pet.image} alt={pet.name} /> : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
+                                            {(() => {
+                                                const avatar = petCardImage(pet);
+                                                return avatar
+                                                    ? <img src={avatar} alt={pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                                    : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>;
+                                            })()}
                                         </div>
                                         <p className="pet-slot-name">{petDisplayName(pet)}</p>
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
@@ -607,12 +613,13 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
                                     // glow color it gives the pet in battle (prismatic cycles).
                                     const detailCollar = petCollarVisual(selectedPet.loadout?.collar);
                                     const detailGlowClass = detailCollar ? (detailCollar.prismatic ? " pet-collar-detail-prismatic" : " pet-collar-detail-glow") : "";
+                                    const detailImg = petCardImage(selectedPet);
                                     return (
                                         <div
                                             className={`pet-detail-avatar${detailGlowClass}`}
                                             style={detailCollar ? { ["--collar-glow" as string]: detailCollar.glow } : undefined}
                                         >
-                                            {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
+                                            {detailImg ? <img src={detailImg} alt={selectedPet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
                                             {detailCollar?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
                                         </div>
                                     );

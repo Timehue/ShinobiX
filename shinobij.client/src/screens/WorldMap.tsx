@@ -25,6 +25,7 @@ import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
@@ -951,7 +952,7 @@ export function WorldMap({
                     <div className={"vn-stage vn-biome-forest" + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                         <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
                         <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : character.name.slice(0, 2).toUpperCase()}</div>
-                        <div className="vn-character hero-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "🐾"}</div>
+                        <div className="vn-character hero-character">{(() => { const heroImg = petCardImage(activePetEncounter, sharedImages); return heroImg ? <img src={heroImg} alt={activePetEncounter.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "🐾"; })()}</div>
                         <div className="vn-scene-card">{page.scene || vn.vnScene || "Something moves through the undergrowth."}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -981,11 +982,14 @@ export function WorldMap({
                         DEF {activePetEncounter.defense} | SPD {activePetEncounter.speed}
                     </p>
 
-                    {activePetEncounter.image && (
-                        <div className="admin-jutsu-preview">
-                            <img src={activePetEncounter.image} alt={activePetEncounter.name} />
-                        </div>
-                    )}
+                    {(() => {
+                        const encImg = petCardImage(activePetEncounter, sharedImages);
+                        return encImg ? (
+                            <div className="admin-jutsu-preview">
+                                <img src={encImg} alt={activePetEncounter.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                            </div>
+                        ) : null;
+                    })()}
                 </div>
 
                 <div className="menu">

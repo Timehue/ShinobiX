@@ -7,6 +7,7 @@ import {
     petAvatarStateClass,
     extractPetMoveName,
     petBattleSprite,
+    petCardImage,
     petBattleLayers,
     petBattleSheet,
     petStripVariant,
@@ -48,6 +49,35 @@ test("petBattleSprite: an evolved starter prefers its stage art, else falls back
         petBattleSprite(evolved, { "petbody:starter-fire": "base-body.png" }).src,
         "base-body.png",
     );
+});
+
+// ── Static card image (non-battle UI: yard, pickers, starter select) ─────────
+
+test("petCardImage: a starter falls back to its idle pose (no inline image)", () => {
+    // Starters ship NO inline image but DO have a baked idle pose — this is the
+    // pet-yard bug fix: without the pose fallback the card shows name initials.
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp");
+});
+
+test("petCardImage: an inline image (e.g. evolved art) wins over the pose", () => {
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", image: "/pet-evos/starter-fire-r.webp" })), "/pet-evos/starter-fire-r.webp");
+});
+
+test("petCardImage: a published shared image wins over everything", () => {
+    assert.equal(petCardImage(mkPet({ id: "starter-fire" }), { "pet:starter-fire": "shared.png" }), "shared.png");
+});
+
+test("petCardImage: an evolved starter prefers its stage pose", () => {
+    // visualId starter-fire-r has an idle pose in the manifest.
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 })), "/pet-poses/starter-fire-r-idle.webp");
+});
+
+test("petCardImage: an encounter clone resolves the pose by variant-stripped base id", () => {
+    assert.equal(petCardImage(mkPet({ id: "standard-1-1700000000000" })), "/pet-poses/standard-1-idle.webp");
+});
+
+test("petCardImage: an id with no pose and no image → empty string (caller shows initials)", () => {
+    assert.equal(petCardImage(mkPet({ id: "no-such-pet-id" })), "");
 });
 
 test("petBattleLayers: all three bands present → returns the layer set", () => {

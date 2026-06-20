@@ -8,6 +8,7 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type ArenaTile } from "../lib/pet-tactics";
 import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { petDuelEngineEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
 import { derivePetRole, ROLE_META, type PetRole } from "../lib/pet-roles";
@@ -825,8 +826,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Shared by the cinematic battle view's pickers below — replaces the bare
     // <select> dropdowns so picking a pet is a tap on its art, not a text line.
     const petPickCard = (key: string, pet: Pet, sel: boolean, onClick: () => void, opts?: { owner?: string; dim?: boolean }) => {
-        const baseId = pet.id.replace(/-\d{10,}$/, "");
-        const img = pet.image || sharedImages[`pet:${pet.id}`] || sharedImages[`pet:${baseId}`] || "";
+        const img = petCardImage(pet, sharedImages);
         const { role } = pet.role && pet.subRole ? { role: pet.role } : derivePetRole(pet);
         const rm = ROLE_META[role];
         return (
@@ -1311,7 +1311,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                 {available.map((pet) => {
                                     const sel = picks.includes(pet.id);
                                     const order = picks.indexOf(pet.id);
-                                    const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
+                                    const img = petCardImage(pet, sharedImages);
                                     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);
                                     const rm = ROLE_META[role];
                                     const atMax = !sel && picks.length >= max;
