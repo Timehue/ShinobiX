@@ -156,6 +156,15 @@ function ambienceBiomeForSector(sector: number): Biome {
         default: return "central";
     }
 }
+
+// One-shot bridge for "return to the sector you were in" after an explore ambush.
+// exploreSector() sets this to the explored sector right before navigating into the
+// fight; the next WorldMap mount (the player returning via Arena's "Return to
+// Sector") consumes it to reopen that sector's detail view, then clears it. Module
+// scope so it survives WorldMap's unmount/remount during the battle. null = no
+// pending reopen (normal world-map entry stays on the overview).
+let reopenSectorOnReturn: number | null = null;
+
 export function WorldMap({
     setCurrentBiome,
     setScreen,
@@ -241,6 +250,26 @@ export function WorldMap({
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
+
+    // Returning from an explore ambush: reopen the sector detail the player was in
+    // (set by exploreSector before the fight). One-shot — consumed on this mount so
+    // a normal trip to the world map still opens on the overview.
+    useEffect(() => {
+        if (reopenSectorOnReturn !== null) {
+            setSelectedSector(reopenSectorOnReturn);
+            reopenSectorOnReturn = null;
+        }
+    }, []);
+
+    // Returning from an explore ambush: reopen the sector detail the player was in
+    // (set by exploreSector before the fight). One-shot — consumed on this mount so
+    // a normal trip to the world map still opens on the overview.
+    useEffect(() => {
+        if (reopenSectorOnReturn !== null) {
+            setSelectedSector(reopenSectorOnReturn);
+            reopenSectorOnReturn = null;
+        }
+    }, []);
 
     // ── Scout Network (clan upgrade) ──────────────────────────────────────
     // During the viewer clan's active clan war, surface enemy-clan members who
@@ -765,7 +794,12 @@ export function WorldMap({
             // Defer explore-mission credit until the ambush is WON (winBattle).
             // Losing/fleeing the ambush no longer counts the tile as explored.
             setPendingExploreSector(sector);
-            alert(`A hostile shinobi appears: ${randomAi.name}!`);
+            // Drop straight into the fight (the Arena pre-fight countdown names the
+            // attacker) — no interstitial popup. Remember the sector so the win's
+            // "Return to Sector" lands the player back here. Only real explorable
+            // sectors (1-60) reopen a detail view; territory/virtual sectors fall
+            // back to the world-map overview.
+            reopenSectorOnReturn = sector >= 1 && sector <= 60 ? sector : null;
             setPendingAiProfileId(randomAi.id);
             setScreen("arena");
             return;

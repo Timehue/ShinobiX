@@ -599,6 +599,11 @@ export function Arena({
         easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
+    // True only for an explore-ambush win. winBattle sets it (the exploreAmbushActive
+    // prop is cleared by onExploreAmbushWon in the same call, so we capture it here)
+    // and the victory overlay reads it to offer a single "Return to Sector" exit
+    // instead of Fight Again / Return to Village. Reset at each fight start.
+    const exploreAmbushWinRef = useRef(false);
     // Report arena-fight-in-progress up to App for the global navigation lock.
     // A fight is "in progress" once it has started and not yet ended; on resolve
     // (battleEnded flips true) or unmount we report false so the player can leave.
@@ -943,6 +948,8 @@ export function Arena({
         setLogRef.current(logMsg);
         setPrefightFirstActor(firstActor);
         setPrefightCountdown(3);
+        // Fresh fight — clear any prior explore-ambush win flag.
+        exploreAmbushWinRef.current = false;
     }
 
     function beginAiBattle() {
@@ -2329,7 +2336,10 @@ export function Arena({
         updateCharacter(missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(winCharacter) : winCharacter);
         if (exploreAmbushActive && raidBattleKind === "none") {
             // Explore-mission credit deferred from exploreSector — granted only
-            // now that the ambush was won.
+            // now that the ambush was won. Flag the win so the victory overlay
+            // offers a single "Return to Sector" exit (back to where the player
+            // was exploring) instead of Fight Again / Return to Village.
+            exploreAmbushWinRef.current = true;
             onExploreAmbushWon?.();
         }
         if (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") {
@@ -5135,6 +5145,10 @@ export function Arena({
                                         <button className="admin-button" onClick={onPendingStoryBattleContinue}>
                                             Continue Story
                                         </button>
+                                    </div>
+                                ) : exploreAmbushWinRef.current ? (
+                                    <div className="menu">
+                                        <button className="admin-button" onClick={() => setScreen("worldMap")}>Return to Sector</button>
                                     </div>
                                 ) : (
                                     <div className="menu">
