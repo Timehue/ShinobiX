@@ -16,6 +16,7 @@
 import type { Pet } from "../types/pet";
 import type { JutsuElement } from "../types/core";
 import { petVisualId } from "../data/pet-evolutions";
+import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
 import type {
     PetSpriteMode,
     PetVfxKey,
@@ -128,6 +129,44 @@ export function petBattleSprite(
         pet.image ||
         "";
     return { mode: "circleFallback", src: circle };
+}
+
+/**
+ * Resolve a STATIC display image for a pet OUTSIDE the battle renderer — the
+ * Pet Yard slots + detail panel, the starter picker, the befriend prompt, and
+ * the Pet-Arena pick cards. Resolution mirrors petBattleSprite (shared art wins
+ * over inline art), then — crucially — falls back to the baked idle POSE that
+ * every starter and wild pool pet ships at `/pet-poses/<id>-idle.webp`:
+ *   1. shared full-body (petbody:) / inline bodyImage
+ *   2. shared portrait (pet:) / inline image  (evolved starters set pet.image)
+ *   3. the idle pose for the stage visualId, then the variant-stripped base id
+ * Returns "" when nothing exists so callers fall back to initials/emoji.
+ *
+ * This is the piece that makes STARTERS appear in the yard: they carry no inline
+ * `image` and have no `pet:` shared image, but they DO have idle poses — without
+ * this fallback every non-battle pet card just renders the name initials. Pure
+ * (no clock / randomness): the pose path is derived only from the pet id/stage.
+ */
+export function petCardImage(
+    pet: Pet,
+    sharedImages: Record<string, string> = {},
+): string {
+    const baseId = petStripVariant(pet.id);
+    const visualId = petVisualId(pet);
+    const direct =
+        sharedImages[PET_BODY_PREFIX + visualId] ||
+        sharedImages[PET_BODY_PREFIX + pet.id] ||
+        sharedImages[PET_BODY_PREFIX + baseId] ||
+        pet.bodyImage ||
+        sharedImages[PET_IMG_PREFIX + visualId] ||
+        sharedImages[PET_IMG_PREFIX + pet.id] ||
+        sharedImages[PET_IMG_PREFIX + baseId] ||
+        pet.image ||
+        "";
+    if (direct) return direct;
+    if (POSED_PET_IDS.has(visualId)) return `/pet-poses/${visualId}-idle.webp`;
+    if (POSED_PET_IDS.has(baseId)) return `/pet-poses/${baseId}-idle.webp`;
+    return "";
 }
 
 /** Map a pet's chakra element to its VFX tint. */
