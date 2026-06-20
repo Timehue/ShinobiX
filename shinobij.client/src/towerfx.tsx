@@ -40,9 +40,22 @@ const session: TowerSession = {
     actors: [
         {
             id: "sq-0", side: "squad", name: "Rill", ownerSlug: "rill", ai: false,
-            hp: 8200, maxHp: 10000, chakra: 50, maxChakra: 50, stamina: 50, maxStamina: 50,
+            hp: 8200, maxHp: 10000, chakra: 220, maxChakra: 300, stamina: 180, maxStamina: 250,
             shield: 0, statuses: [], pos: 123,
-            character: { specialty: "Ninjutsu", stats: {}, jutsu: [{ id: "fireball", name: "Fireball", element: "Fire", type: "Ninjutsu", ap: 40, range: 2, effectPower: 40 }] },
+            cooldowns: { "raiton-spear": 1 },
+            itemCharges: { "kunai": 3, "rejuvenation-potion": 2 },
+            character: {
+                specialty: "Ninjutsu", stats: {},
+                jutsu: [
+                    { id: "fireball", name: "Great Fireball", element: "Fire", type: "Ninjutsu", ap: 60, range: 2, effectPower: 60, chakraCost: 100, staminaCost: 30 },
+                    { id: "raiton-spear", name: "Lightning Spear", element: "Lightning", type: "Ninjutsu", ap: 60, range: 3, effectPower: 70, chakraCost: 120, staminaCost: 40, cooldown: 2 },
+                ],
+                pvpItems: [
+                    { id: "kunai", name: "Kunai", slot: "thrown", weaponEp: 20, weaponRange: 4, apCost: 40 },
+                    { id: "rejuvenation-potion", name: "Rejuv. Potion", slot: "potion", restoreChakra: 80, restoreStamina: 60, apCost: 35 },
+                ],
+                equipment: { thrown: "kunai", potion: "rejuvenation-potion" },
+            },
         },
         // Formation: grunts in two ranks (cols 16-18), boss anchoring the back (col 19).
         enemy("en-0", "bandit", "Bandit", 118),

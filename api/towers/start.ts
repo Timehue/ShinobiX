@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { getFloor, MIN_PARTY_SIZE, MAX_PARTY_SIZE } from './_floor-catalog.js';
-import { sealTowerFighter } from './_seal.js';
+import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
 import { startRound, runAiUntilHuman } from './_engine.js';
 import { makeRng } from './_sim.js';
@@ -64,7 +64,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 name: String(char.name ?? slug),
                 ownerSlug: slug,
                 ai: false, // every squad member is a LIVE player; absent ones auto-pass (AFK)
-                character: sealTowerFighter(char),
+                // Seal from the FULL save record (rec) so the equipped jutsu loadout resolves
+                // from equippedJutsuIds + savedBloodlines/creatorJutsus (the save has no ready
+                // `jutsu` array) — identical to a PvP fighter. itemCharges caps consumables.
+                character: sealTowerFighter(char, rec),
+                itemCharges: sealTowerItemCharges(char),
             });
         }
         if (squad.length === 0) return res.status(400).json({ error: 'No valid squad members.' });

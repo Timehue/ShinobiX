@@ -39,6 +39,9 @@ export type TowerActor = {
     pos: number;
     /** sealed, sanitized combat snapshot (stats / jutsu / equipment) — like PvpFighter.character */
     character: Record<string, unknown>;
+    /** per-fight consumable budget {itemId: charges} sealed from the save (thrown/item/potion).
+     *  The engine spends against this deterministically; absent/empty for AI (no items). */
+    itemCharges?: Record<string, number>;
 };
 
 export type TowerMap = {

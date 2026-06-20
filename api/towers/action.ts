@@ -57,6 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             type === 'move' ? { actorId: actor.id, type: 'move', tile: Math.floor(Number(body.tile)) }
             : type === 'attack' ? { actorId: actor.id, type: 'attack', targetId: String(body.targetId ?? '') }
             : type === 'jutsu' ? { actorId: actor.id, type: 'jutsu', jutsuId: String(body.jutsuId ?? ''), targetId: String(body.targetId ?? '') }
+            : type === 'weapon' ? { actorId: actor.id, type: 'weapon', targetId: String(body.targetId ?? ''), itemId: body.itemId ? String(body.itemId) : undefined }
+            : type === 'item' ? { actorId: actor.id, type: 'item', itemId: body.itemId ? String(body.itemId) : undefined }
             : { actorId: actor.id, type: 'wait' };
 
         const result = applyAction(session, floor, action, rng);
