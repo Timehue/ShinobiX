@@ -2,7 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.applyGroundEffectToFighter = applyGroundEffectToFighter;
 exports.tickGroundEffects = tickGroundEffects;
+exports.tickStatuses = tickStatuses;
 exports.applyJutsu = applyJutsu;
+exports.applyDoTs = applyDoTs;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -356,6 +358,9 @@ function tickGroundEffects(effects) {
         .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
         .filter(effect => effect.rounds > 0);
 }
+// Exported so other server-authoritative combat modes (Battle Towers' N-actor engine)
+// can expire statuses with the IDENTICAL active-round / decrement semantics. Pure
+// function; exporting it changes zero PvP behaviour.
 function tickStatuses(f, round) {
     return {
         ...f,
@@ -903,6 +908,8 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
 // v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
 // scaled by DR_DOT_SCALE so DoT can't be made fully invulnerable.
+// Exported so Battle Towers' engine can tick Wound/Poison/Drain with identical math.
+// Pure function; exporting it changes zero PvP behaviour.
 function applyDoTs(fighter, round) {
     const lines = [];
     let f = { ...fighter };

@@ -25,7 +25,6 @@ const EVOLUTION = read('api', 'pet', '_evolution.ts');
 const EXPEDITION = read('api', 'missions', 'expedition-start.ts');
 const DOCTRINES = read('shinobij.client', 'src', 'lib', 'clan-doctrines.ts');
 const PROFESSION = read('shinobij.client', 'src', 'professionLogic.ts');
-const PETSTATS = read('shinobij.client', 'src', 'data', 'pet-stats.ts');
 const PETCONFIG = read('shinobij.client', 'src', 'data', 'pet-config.ts');
 function numArray(src, name) {
     const m = src.match(new RegExp(name + '\\s*=\\s*\\[([^\\]]*)\\]'));
@@ -47,26 +46,26 @@ function singleNum(src, name) {
         });
     }
 });
-(0, node_test_1.describe)('parity: pet evolution rarity caps (RARITY_CAPS ⇄ petStatCaps)', () => {
-    // Scope the tier search to AFTER the table declaration — pet-stats.ts has an
-    // unrelated earlier `rare: {` table that would otherwise match first.
-    function tierCaps(src, tableName, tier) {
-        const tableIdx = src.indexOf(tableName);
-        node_assert_1.strict.ok(tableIdx >= 0, `table ${tableName} not found`);
-        const m = src.slice(tableIdx).match(new RegExp(tier + ':\\s*\\{([^}]*)\\}'));
-        node_assert_1.strict.ok(m, `tier ${tier} not found in ${tableName}`);
+(0, node_test_1.describe)('parity: pet evolution stat deltas (_evolution.ts ⇄ pet-evolutions.ts)', () => {
+    // Evolution no longer clamps to per-tier caps (HP/ATK/DEF/SPD are uncapped now —
+    // training builds them up to the level-100 ceiling), so the mirrored data is the
+    // additive tier-gap deltas. Keep the server + client copies identical.
+    const PETEVO = read('shinobij.client', 'src', 'data', 'pet-evolutions.ts');
+    function objNums(src, name) {
+        const m = src.match(new RegExp(name + '[^{]*\\{([^}]*)\\}'));
+        node_assert_1.strict.ok(m, `object ${name} not found`);
         const out = {};
-        for (const f of m[1].matchAll(/(\w+):\s*(\d+)/g))
+        for (const f of m[1].matchAll(/(\w+):\s*(-?\d+)/g))
             out[f[1]] = Number(f[2]);
         return out;
     }
-    for (const tier of ['rare', 'legendary']) {
-        (0, node_test_1.it)(`${tier} hp/attack/defense/speed match`, () => {
-            const server = tierCaps(EVOLUTION, 'RARITY_CAPS', tier);
-            const client = tierCaps(PETSTATS, 'petStatCaps', tier);
-            for (const stat of ['hp', 'attack', 'defense', 'speed']) {
-                node_assert_1.strict.ok(server[stat] !== undefined, `server ${tier}.${stat} not parsed`);
-                node_assert_1.strict.equal(server[stat], client[stat], `${tier}.${stat} drifted`);
+    for (const name of ['RARE_DELTA', 'LEGENDARY_DELTA']) {
+        (0, node_test_1.it)(`${name} matches`, () => {
+            const server = objNums(EVOLUTION, name);
+            const client = objNums(PETEVO, name);
+            for (const stat of ['hp', 'attack', 'defense', 'speed', 'moveRange']) {
+                node_assert_1.strict.ok(server[stat] !== undefined, `server ${name}.${stat} not parsed`);
+                node_assert_1.strict.equal(server[stat], client[stat], `${name}.${stat} drifted — sync both evolution files`);
             }
         });
     }
