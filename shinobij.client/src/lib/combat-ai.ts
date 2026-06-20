@@ -318,7 +318,11 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
     const jutsuCount = step.levelReq >= 85 ? 6 : step.levelReq >= 50 ? 5 : 4;
     const selectedJutsus = (villageJutsus.length ? villageJutsus : starterJutsus).slice(0, jutsuCount);
     const statBonus = Math.max(25, Math.floor(step.bossDamage * 0.9));
-    const bossHp = Math.max(step.bossHp, aiHpForLevel(step.levelReq, step.kageFinale ? 0.50 : 0.30));
+    // The kage finale uses no toughness HP-floor so its lowered bossHp actually
+    // takes effect (a 0.50 floor pinned it back near ~22k regardless of the table).
+    // It still floors at aiHpForLevel(100, 0) ≈ 14,553 via normalizeAiProfile, and
+    // stays the hardest fight via the peer band, not via a bigger HP pool.
+    const bossHp = Math.max(step.bossHp, aiHpForLevel(step.levelReq, step.kageFinale ? 0 : 0.30));
     return makeBuiltinAi(
         step.aiProfileId ?? storyAiId(village, step.levelReq),
         step.bossName,
