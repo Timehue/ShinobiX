@@ -40,8 +40,9 @@ import wardSprite from "../assets/towers/pylons/ward.webp";
 // units render larger; pylon/ward/hazard tiles are drawn so the tactical layer is
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
 
-type Mode = "idle" | "move" | "attack" | "jutsu";
-type JutsuLike = { id?: string; name?: string; type?: string; ap?: number; range?: number; effectPower?: number };
+type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon";
+type JutsuLike = { id?: string; name?: string; type?: string; element?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number };
+type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number };
 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
 const BOSS_ORB = 78;     // bosses render larger
@@ -163,18 +164,36 @@ export function BattleTowerFight({
         }
     }, [session.status, session.winner, runId, me]);
 
+    // Equipped weapon + restore-potion from the sealed loadout (drive the weapon/item buttons).
+    const loadout = useMemo(() => {
+        const normSlot = (s?: string) => s === "weapon" ? "hand" : s === "armor" ? "body" : s === "accessory" ? "aura" : (s ?? "");
+        const items = (Array.isArray(myActor?.character?.pvpItems) ? myActor!.character.pvpItems : []) as ItemLike[];
+        const equippedIds = new Set(Object.values((myActor?.character?.equipment ?? {}) as Record<string, string | undefined>).filter(Boolean) as string[]);
+        const charges = (myActor?.itemCharges ?? {}) as Record<string, number>;
+        const weapon = items.find(it => it.id && equippedIds.has(it.id) && ["hand", "thrown"].includes(normSlot(it.slot))) ?? null;
+        const thrown = !!weapon && normSlot(weapon.slot) === "thrown";
+        const range = Math.max(1, Number(weapon?.weaponRange ?? (thrown ? 4 : 1)));
+        const weaponLeft = thrown && weapon?.id ? (charges[weapon.id] ?? 0) : Infinity;
+        const potion = items.find(it => it.id && equippedIds.has(it.id) && !["hand", "thrown"].includes(normSlot(it.slot)) && ((Number(it.restoreChakra) || 0) > 0 || (Number(it.restoreStamina) || 0) > 0)) ?? null;
+        const potionLeft = potion?.id ? (charges[potion.id] ?? 0) : 0;
+        return { weapon, thrown, range, weaponLeft, potion, potionLeft };
+    }, [myActor]);
+    const { weapon: myWeapon, thrown: weaponThrown, range: weaponRange, weaponLeft, potion: myPotion, potionLeft } = loadout;
+    const myChakra = myActor?.chakra ?? 0;
+    const myStamina = myActor?.stamina ?? 0;
+
     // Valid target/move sets for the current mode.
     const myPos = myActor?.pos ?? -1;
     const enemiesInRange = useMemo(() => {
         if (!myActor) return new Set<string>();
         const out = new Set<string>();
-        const range = mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : 1;
+        const range = mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== "enemy") continue;
             if (towerHexDistance(myPos, a.pos, w) <= range) out.add(a.id);
         }
         return out;
-    }, [myActor, mode, selJutsu, session.actors, myPos, w]);
+    }, [myActor, mode, selJutsu, weaponRange, session.actors, myPos, w]);
 
     const moveTiles = useMemo(() => {
         if (mode !== "move" || !myActor) return new Set<number>();
@@ -183,10 +202,13 @@ export function BattleTowerFight({
         return new Set(towerNeighbors(myPos, w, h).filter(t => !occupied.has(t) && !blocked.has(t)));
     }, [mode, myActor, session.actors, session.map.blockedTiles, myPos, w, h]);
 
+    // Reach highlight for a ranged action: jutsu range, or the equipped weapon's range.
     const jutsuRangeTiles = useMemo(() => {
-        if (mode !== "jutsu" || !myActor) return new Set<number>();
-        return towerTilesInRange(myPos, Math.max(1, Number(selJutsu?.range ?? 1)), w, h);
-    }, [mode, myActor, selJutsu, myPos, w, h]);
+        if (!myActor) return new Set<number>();
+        if (mode === "jutsu") return towerTilesInRange(myPos, Math.max(1, Number(selJutsu?.range ?? 1)), w, h);
+        if (mode === "weapon") return towerTilesInRange(myPos, weaponRange, w, h);
+        return new Set<number>();
+    }, [mode, myActor, selJutsu, weaponRange, myPos, w, h]);
 
     // First feature occupying each tile (for tinting + markers).
     const featureByTile = useMemo(() => {
@@ -216,6 +238,7 @@ export function BattleTowerFight({
         const occ = session.actors.find(a => a.hp > 0 && a.pos === tile);
         if (occ && occ.side === "enemy" && enemiesInRange.has(occ.id)) {
             if (mode === "attack") void send({ type: "attack", targetId: occ.id });
+            else if (mode === "weapon" && myWeapon?.id) void send({ type: "weapon", targetId: occ.id, itemId: myWeapon.id });
             else if (mode === "jutsu" && selJutsu?.id) void send({ type: "jutsu", jutsuId: selJutsu.id, targetId: occ.id });
         }
     }
@@ -249,7 +272,7 @@ export function BattleTowerFight({
 
                 {/* Squad rail (+ protect-target allies) */}
                 <aside style={{ minWidth: 0 }}>
-                    <h3 style={{ margin: "0 0 8px" }}>🛡 Squad</h3>
+                    <RailHeader icon="🛡" label="Squad" accent="#4ade80" />
                     {allies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} />)}
                 </aside>
 
@@ -292,7 +315,7 @@ export function BattleTowerFight({
                                 {Array.from({ length: w * h }, (_, pos) => {
                                     const { left, top } = towerHexPixel(pos, w);
                                     const isMove = moveTiles.has(pos);
-                                    const inJ = mode === "jutsu" && jutsuRangeTiles.has(pos);
+                                    const inJ = (mode === "jutsu" || mode === "weapon") && jutsuRangeTiles.has(pos);
                                     const isGoal = session.map.objectiveTiles.includes(pos);
                                     const isBlocked = session.map.blockedTiles.includes(pos);
                                     const feat = featureByTile.get(pos);
@@ -336,7 +359,7 @@ export function BattleTowerFight({
                                     const ox = left + HEX_W / 2 - size / 2;
                                     const oy = top + HEX_H * 0.85 - size;
                                     const row = Math.floor(a.pos / w);
-                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || (mode === "jutsu" && !!selJutsu));
+                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || (mode === "jutsu" && !!selJutsu));
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "#facc15" : "#fb7185";
@@ -373,37 +396,65 @@ export function BattleTowerFight({
                     </div>
 
                     {/* Action bar */}
-                    <div style={{ marginTop: 8, minHeight: 56 }}>
+                    <div style={{ marginTop: 8, minHeight: 62 }}>
                         {myTurn ? (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                <span style={{ color: "#facc15", fontWeight: 700 }}>{session.activeAp} AP</span>
-                                <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>{session.actionsThisTurn}/5</span>
-                                <ActBtn label="Move (30)" on={mode === "move"} onClick={() => setMode(m => m === "move" ? "idle" : "move")} disabled={busy} />
-                                <ActBtn label="Attack (40)" on={mode === "attack"} onClick={() => setMode(m => m === "attack" ? "idle" : "attack")} disabled={busy} />
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 10px", borderRadius: 10, background: "linear-gradient(180deg, rgba(15,23,42,0.88), rgba(10,16,30,0.92))", border: "1px solid #334155" }}>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, background: "#0b1220", border: "1px solid #334155" }}>
+                                    <strong style={{ color: "#facc15", fontSize: "1.05rem", lineHeight: 1 }}>{session.activeAp}</strong>
+                                    <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>AP</span>
+                                    <span style={{ color: "#475569" }}>·</span>
+                                    <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>{session.actionsThisTurn}/5 acts</span>
+                                    <span style={{ color: "#475569" }}>·</span>
+                                    <span title="Chakra" style={{ color: "#38bdf8", fontSize: "0.72rem", fontWeight: 700 }}>◆ {myChakra}</span>
+                                    <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.72rem", fontWeight: 700 }}>⬢ {myStamina}</span>
+                                </span>
+                                <ActBtn label="🏃 Move" sub="30 AP" on={mode === "move"} onClick={() => setMode(m => m === "move" ? "idle" : "move")} disabled={busy} />
+                                <ActBtn label="⚔️ Attack" sub="40 AP" on={mode === "attack"} onClick={() => setMode(m => m === "attack" ? "idle" : "attack")} disabled={busy} />
+                                {myWeapon && (
+                                    <ActBtn label={`🗡 ${myWeapon.name ?? "Weapon"}`} sub={`${myWeapon.apCost ?? 40} AP${weaponThrown ? ` ·×${weaponLeft}` : ""}`}
+                                        on={mode === "weapon"} onClick={() => setMode(m => m === "weapon" ? "idle" : "weapon")}
+                                        disabled={busy || (weaponThrown && weaponLeft <= 0)} />
+                                )}
+                                {myPotion && (
+                                    <ActBtn label={`🧪 ${myPotion.name ?? "Potion"}`} sub={`${myPotion.apCost ?? 35} AP ·×${potionLeft}`}
+                                        on={false} onClick={() => void send({ type: "item", itemId: myPotion.id })}
+                                        disabled={busy || potionLeft <= 0} />
+                                )}
                                 {myJutsu.length > 0 && (
                                     <select value={selJutsu?.id ?? ""} disabled={busy}
                                         onChange={e => { const j = myJutsu.find(x => x.id === e.target.value) ?? null; setSelJutsu(j); setMode(j ? "jutsu" : "idle"); }}
-                                        style={{ padding: "0.35rem", borderRadius: 6, background: "#0b1220", color: "#e2e8f0", border: "1px solid #334155" }}>
-                                        <option value="">Jutsu…</option>
-                                        {myJutsu.map(j => <option key={j.id} value={j.id}>{j.name ?? j.id} ({j.ap ?? 40} AP)</option>)}
+                                        style={{ padding: "0.5rem", borderRadius: 8, background: mode === "jutsu" ? "#15233b" : "#0b1220", color: "#e2e8f0", border: `1px solid ${mode === "jutsu" ? "#60a5fa" : "#334155"}`, fontWeight: 700 }}>
+                                        <option value="">✨ Jutsu…</option>
+                                        {myJutsu.map(j => {
+                                            const ck = Number(j.chakraCost ?? 0), st = Number(j.staminaCost ?? 0);
+                                            const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
+                                            const afford = myChakra >= ck && myStamina >= st && cd <= 0;
+                                            return <option key={j.id} value={j.id} disabled={!afford}>
+                                                {j.name ?? j.id} · {j.ap ?? 40}AP{ck ? ` · ${ck}◆` : ""}{cd > 0 ? ` · CD${cd}` : ""}
+                                            </option>;
+                                        })}
                                     </select>
                                 )}
-                                <ActBtn label="End turn" on={false} onClick={() => void send({ type: "wait" })} disabled={busy} />
-                                {reject && <span style={{ color: "#f87171", fontSize: "0.8rem" }}>⚠ {reject}</span>}
+                                <span style={{ flex: 1, minWidth: 4 }} />
+                                {reject && <span style={{ color: "#f87171", fontSize: "0.78rem" }}>⚠ {reject}</span>}
+                                <button onClick={() => void send({ type: "wait" })} disabled={busy}
+                                    style={{ padding: "0.55rem 1.1rem", borderRadius: 8, fontWeight: 800, cursor: busy ? "default" : "pointer", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)", border: "1px solid #60a5fa", opacity: busy ? 0.6 : 1 }}>
+                                    End turn ▶
+                                </button>
                             </div>
                         ) : (
-                            <p className="hint" style={{ margin: 0 }}>{session.status === "active" ? `${turnLabel || "Allies & enemies are acting…"}${afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}` : ""}</p>
+                            <p className="hint" style={{ margin: 0, padding: "10px 12px", borderRadius: 10, background: "rgba(15,23,42,0.7)", border: "1px solid #1e293b" }}>{session.status === "active" ? `${turnLabel || "Allies & enemies are acting…"}${afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}` : ""}</p>
                         )}
                     </div>
                 </main>
 
                 {/* Enemy + log rail */}
                 <aside style={{ minWidth: 0 }}>
-                    <h3 style={{ margin: "0 0 8px" }}>👹 Enemies</h3>
+                    <RailHeader icon="👹" label="Enemies" accent="#f87171" />
                     {enemies.map(a => <ActorCard key={a.id} actor={a} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} />)}
-                    <h4 style={{ margin: "12px 0 4px" }}>Log</h4>
-                    <div style={{ maxHeight: 200, overflow: "auto", fontSize: "0.74rem", color: "#cbd5e1", background: "rgba(0,0,0,0.3)", borderRadius: 6, padding: 6 }}>
-                        {session.log.slice(-30).map((line, i) => <div key={i}>{line}</div>)}
+                    <RailHeader icon="📜" label="Battle Log" accent="#94a3b8" mt={12} />
+                    <div style={{ maxHeight: 220, overflow: "auto", fontSize: "0.74rem", lineHeight: 1.45, color: "#cbd5e1", background: "rgba(2,6,18,0.55)", border: "1px solid #1e293b", borderRadius: 8, padding: "6px 8px" }}>
+                        {session.log.slice(-30).map((line, i) => <div key={i} style={{ padding: "1px 0", borderBottom: i < Math.min(29, session.log.length - 1) ? "1px solid rgba(30,41,59,0.5)" : undefined }}>{line}</div>)}
                     </div>
                 </aside>
             </div>
@@ -477,16 +528,48 @@ function ActorCard({ actor, highlight, avatar, emoji, boss, ally }: { actor: Tow
                 <div style={{ height: 5, background: "#0b1220", borderRadius: 3, marginTop: 3 }}>
                     <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: dead ? "#475569" : accent }} />
                 </div>
+                {actor.side === "squad" && (
+                    <div style={{ display: "flex", gap: 3, marginTop: 2 }}>
+                        <MiniBar val={actor.chakra} max={actor.maxChakra} color="#38bdf8" />
+                        <MiniBar val={actor.stamina} max={actor.maxStamina} color="#a3e635" />
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-function ActBtn({ label, on, onClick, disabled }: { label: string; on: boolean; onClick: () => void; disabled: boolean }) {
+/** Thin chakra / stamina bar under a squad card's HP bar. */
+function MiniBar({ val, max, color }: { val: number; max: number; color: string }) {
+    const pct = Math.max(0, Math.min(100, (val / Math.max(1, max)) * 100));
+    return (
+        <div style={{ flex: 1, height: 3, background: "#0b1220", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: color }} />
+        </div>
+    );
+}
+
+function ActBtn({ label, sub, on, onClick, disabled }: { label: string; sub?: string; on: boolean; onClick: () => void; disabled: boolean }) {
     return (
         <button onClick={onClick} disabled={disabled}
-            style={{ padding: "0.4rem 0.7rem", borderRadius: 6, fontWeight: 600, cursor: "pointer", border: `1px solid ${on ? "#60a5fa" : "#334155"}`, background: on ? "#15233b" : "#0b1220", color: "#e2e8f0" }}>
-            {label}
+            style={{
+                display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 70,
+                padding: "0.4rem 0.8rem", borderRadius: 8, fontWeight: 700, cursor: disabled ? "default" : "pointer",
+                border: `1px solid ${on ? "#60a5fa" : "#334155"}`, color: "#e2e8f0", opacity: disabled ? 0.6 : 1,
+                background: on ? "linear-gradient(180deg,#1d3a6b,#15233b)" : "linear-gradient(180deg,#131c2e,#0b1220)",
+                boxShadow: on ? "0 0 10px rgba(96,165,250,0.4)" : undefined,
+            }}>
+            <span>{label}</span>
+            {sub && <small style={{ color: "#94a3b8", fontSize: "0.64rem", fontWeight: 600 }}>{sub}</small>}
         </button>
+    );
+}
+
+function RailHeader({ icon, label, accent, mt }: { icon: string; label: string; accent: string; mt?: number }) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, margin: `${mt ?? 0}px 0 8px`, padding: "5px 8px", borderRadius: 7, background: "rgba(15,23,42,0.65)", borderLeft: `3px solid ${accent}` }}>
+            <span style={{ fontSize: 15 }}>{icon}</span>
+            <strong style={{ fontSize: "0.88rem", letterSpacing: 0.3 }}>{label}</strong>
+        </div>
     );
 }

@@ -29,6 +29,8 @@ export type SquadMemberInput = {
     /** AI-driven? false for the live human host; true for async/borrowed allies */
     ai: boolean;
     character: Record<string, unknown>;
+    /** sealed per-fight consumable budget {itemId: charges} (thrown/item/potion). */
+    itemCharges?: Record<string, number>;
 };
 
 // ── Elemental pylons (5 elements; 3 chosen per run) ──────────────────────────
@@ -113,6 +115,7 @@ function squadActor(m: SquadMemberInput, pos: number): TowerActor {
         id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerSlug, ai: m.ai,
         hp: maxHp, maxHp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
         shield: 0, statuses: [], cooldowns: {}, pos, character: m.character,
+        itemCharges: m.itemCharges ? { ...m.itemCharges } : {},
     };
 }
 

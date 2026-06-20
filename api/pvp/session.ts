@@ -475,7 +475,13 @@ function resolveEquippedLoadout(
 // Hydrate a fighter character from the authoritative save. The client payload
 // is only used as a fallback for fields the save lacks (e.g. computed
 // bloodlineMult on NPCs without a save).
-function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null): Record<string, unknown> {
+//
+// Exported so OTHER server-authoritative combat modes (e.g. Battle Towers' fighter
+// sealing in api/towers/_seal.ts) can produce a fighter character IDENTICAL to PvP's
+// — same resolved equipped loadout, mastery, armor passives, stat/vital clamps, and
+// non-combat strip — instead of hand-rolling a divergent snapshot. Pure read function;
+// exporting it changes zero PvP behaviour.
+export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null): Record<string, unknown> {
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
     // For derived fields the client computes, fall back to the client value

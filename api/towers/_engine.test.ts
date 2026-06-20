@@ -95,7 +95,7 @@ describe('Battle Towers engine (P1.A2)', () => {
         const att = makeActor('a', 'squad', 0, { character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 1000 } } });
         const defEqual = makeActor('d', 'enemy', 1, { character: { stats: { taijutsuDefense: 1000 } } });
         const defArmor = makeActor('d2', 'enemy', 1, { character: { stats: { taijutsuDefense: 1000 }, armorRawDR: 1.0 } });
-        const j = { effectPower: 10, type: 'Taijutsu', ap: 40 };
+        const j = { effectPower: 10, type: 'Taijutsu', ap: 60 }; // 60 AP = real damage jutsu (40 AP is the utility convention → 0 dmg)
         const base = computeDamage(att, defEqual, j, 50);
         const armored = computeDamage(att, defArmor, j, 50);
         assert.ok(base > 0);
@@ -166,7 +166,7 @@ describe('Battle Towers engine (P1.A2)', () => {
     });
 
     it('computeDamage scales with the offense/defense gap (pins statFactor / MAX_STAT)', () => {
-        const j = { effectPower: 10, type: 'Taijutsu', ap: 40 };
+        const j = { effectPower: 10, type: 'Taijutsu', ap: 60 }; // 60 AP = real damage jutsu (40 AP is the utility convention → 0 dmg)
         const att = makeActor('a', 'squad', 0, { character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 3000 } } });
         const lowDef = makeActor('d1', 'enemy', 1, { character: { stats: { taijutsuDefense: 0 } } });
         const eqDef = makeActor('d2', 'enemy', 1, { character: { stats: { taijutsuDefense: 3000 } } });
@@ -228,7 +228,7 @@ describe('Battle Towers environmental features (pylons / wards / hazards)', () =
     const FIRE_CASTER = {
         specialty: 'Ninjutsu',
         stats: { ninjutsuOffense: 2500, ninjutsuDefense: 2500 },
-        jutsu: [{ id: 'fireball', element: 'Fire', type: 'Ninjutsu', effectPower: 40, ap: 40, range: 1 }],
+        jutsu: [{ id: 'fireball', element: 'Fire', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 1 }],
     };
     function fireballDamage(features: TowerMap['features']): number {
         const attacker = makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'me', character: FIRE_CASTER });
@@ -350,5 +350,111 @@ describe('Battle Towers boss mechanics (bulwark / regen / summon / enrage)', () 
         const r0 = s.round; let guard = 0;
         while (s.round === r0 && s.status === 'active' && guard++ < 20) endTurn(s, bossFloor);
         assert.ok(getActor(s, 'boss')!.hp > 500, 'regen healed the boss at round end');
+    });
+});
+
+// ─── Real loadout: resource costs / cooldowns / weapons / consumables / terrain ───
+describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / items)', () => {
+    const floor = makeFloor('defeat-all');
+    // sq-1 (caster) adjacent to a high-HP dummy enemy that survives the fight.
+    function caster(jutsu: Record<string, unknown>[], over: Record<string, unknown> = {}) {
+        return makeActor('sq-1', 'squad', 0, { chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, character: { specialty: 'Ninjutsu', stats: { ninjutsuOffense: 2000 }, jutsu, ...over } });
+    }
+    const bigEnemy = () => makeActor('en-1', 'enemy', 1, { hp: 1_000_000, maxHp: 1_000_000, character: { stats: {} } });
+
+    it('a jutsu deducts its chakra + stamina cost', () => {
+        const sq = caster([{ id: 'fb', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 2, chakraCost: 30, staminaCost: 10 }]);
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'fb', targetId: 'en-1' }, makeRng(1));
+        assert.ok(r.applied);
+        assert.equal(getActor(s, 'sq-1')!.chakra, 70);
+        assert.equal(getActor(s, 'sq-1')!.stamina, 90);
+        assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'dealt real damage');
+    });
+
+    it('blocks a jutsu the actor cannot afford (chakra)', () => {
+        const sq = caster([{ id: 'fb', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 2, chakraCost: 30 }], {});
+        sq.chakra = 5;
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'fb', targetId: 'en-1' }, makeRng(1));
+        assert.equal(r.applied, false);
+        assert.equal(r.reason, 'no-chakra');
+    });
+
+    it('arms a cooldown on cast, blocks reuse, then ticks down on the next turn', () => {
+        const sq = caster([{ id: 'cdj', type: 'Ninjutsu', effectPower: 30, ap: 30, range: 2, cooldown: 2 }]);
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'cdj', targetId: 'en-1' }, makeRng(1)).applied);
+        assert.equal(getActor(s, 'sq-1')!.cooldowns['cdj'], 2, 'cooldown armed');
+        const again = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'cdj', targetId: 'en-1' }, makeRng(1));
+        assert.equal(again.reason, 'on-cooldown');
+        // sq-1's turn ends → enemy's "turn" → round rolls over → sq-1 up again (ticks its cd).
+        endTurn(s, floor); endTurn(s, floor);
+        assert.equal(activeActor(s)!.id, 'sq-1');
+        assert.equal(getActor(s, 'sq-1')!.cooldowns['cdj'], 1, 'cooldown ticked down a turn');
+    });
+
+    it('a 40-AP utility jutsu deals zero direct damage (tag layer deferred)', () => {
+        const sq = caster([{ id: 'buff', type: 'Ninjutsu', effectPower: 40, ap: 40, range: 2 }]);
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'buff', targetId: 'en-1' }, makeRng(1));
+        assert.ok(r.applied);
+        assert.equal(getActor(s, 'en-1')!.hp, 1_000_000, 'utility jutsu does no phantom damage');
+    });
+
+    it('an equipped weapon strikes for its weaponEp', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'sword', slot: 'hand', weaponEp: 30, weaponRange: 1, apCost: 40 }], equipment: { hand: 'sword' } } });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'sword' }, makeRng(1));
+        assert.ok(r.applied, 'weapon attack applied');
+        assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'weapon dealt damage');
+    });
+
+    it('a thrown weapon spends a charge and runs out', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            itemCharges: { kunai: 1 },
+            character: { specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 }, pvpItems: [{ id: 'kunai', slot: 'thrown', weaponEp: 20, weaponRange: 4, apCost: 40 }], equipment: { thrown: 'kunai' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1)).applied);
+        assert.equal(getActor(s, 'sq-1')!.itemCharges!['kunai'], 0, 'charge spent');
+        const out = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: 'kunai' }, makeRng(1));
+        assert.equal(out.reason, 'out-of-ammo');
+    });
+
+    it('a potion restores chakra/stamina and spends a charge', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            chakra: 10, maxChakra: 100, stamina: 50, maxStamina: 100, itemCharges: { pot: 2 },
+            character: { specialty: 'Ninjutsu', stats: {}, pvpItems: [{ id: 'pot', slot: 'potion', restoreChakra: 50, restoreStamina: 20, apCost: 35 }], equipment: { potion: 'pot' } },
+        });
+        const s = makeSession([sq, bigEnemy()]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pot' }, makeRng(1));
+        assert.ok(r.applied);
+        assert.equal(getActor(s, 'sq-1')!.chakra, 60);
+        assert.equal(getActor(s, 'sq-1')!.stamina, 70);
+        assert.equal(getActor(s, 'sq-1')!.itemCharges!['pot'], 1, 'one charge spent');
+    });
+
+    it('biome terrain gives the matching discipline +10%', () => {
+        const j = { id: 'tj', type: 'Taijutsu', effectPower: 40, ap: 60, range: 1 };
+        const hit = (biome: string) => {
+            const sq = makeActor('sq-1', 'squad', 0, { character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 1500 }, jutsu: [j] } });
+            const en = makeActor('en-1', 'enemy', 1, { hp: 1_000_000, maxHp: 1_000_000, character: { stats: {} } });
+            const s = makeSession([sq, en], { map: { ...MAP8, biome } });
+            startRound(s);
+            applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'tj', targetId: 'en-1' }, makeRng(1));
+            return 1_000_000 - getActor(s, 'en-1')!.hp;
+        };
+        const forest = hit('forest');   // Taijutsu match → 1.1×
+        const central = hit('central'); // no terrain bonus
+        assert.ok(forest > central, 'forest boosts Taijutsu');
+        assert.ok(Math.abs(forest - Math.floor(central * 1.1)) <= 2, `forest≈+10% (${central} → ${forest})`);
     });
 });
