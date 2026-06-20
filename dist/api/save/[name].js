@@ -470,6 +470,22 @@ function sanitizeCharacterSave(incoming, existing) {
         const kept = active ? [active, ...others.slice(0, PET_CAP - 1)] : others.slice(0, PET_CAP);
         char.pets = kept;
     }
+    // Pet stat ceiling: pet HP/ATK/DEF/SPD are uncapped client-side by design
+    // (training builds them up to the level-100 ceiling), so the only guard against
+    // a tampered save injecting absurd values into deterministic ranked/PvP is a
+    // generous server clamp. 100k is far above any legitimate level-100 build.
+    const PET_STAT_CEIL = 100_000;
+    if (Array.isArray(char.pets)) {
+        for (const p of char.pets) {
+            if (!p || typeof p !== 'object')
+                continue;
+            for (const k of ['hp', 'attack', 'defense', 'speed']) {
+                const v = Number(p[k]);
+                if (Number.isFinite(v))
+                    p[k] = Math.max(1, Math.min(PET_STAT_CEIL, Math.round(v)));
+            }
+        }
+    }
     // Inventory + tile-card collection size caps. A tampered client could
     // submit thousands of items, both bloating KV and inflating foreign-read
     // payloads. 500 is well above any realistic veteran's working inventory

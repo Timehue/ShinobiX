@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import {
     submitTowerAction, settleTowerRun, fetchTowerState, TOWER_TURN_AFK_MS,
-    type TowerSession, type TowerActor, type TowerSettleResponse, type TowerFeature,
+    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature,
 } from "../lib/towers-api";
 import gameBg from "../assets/background-image.webp";
 import {
@@ -41,7 +41,7 @@ import wardSprite from "../assets/towers/pylons/ward.webp";
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon";
-type JutsuLike = { id?: string; name?: string; type?: string; element?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number };
+type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number };
 type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number };
 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
@@ -422,7 +422,12 @@ export function BattleTowerFight({
                                 )}
                                 {myJutsu.length > 0 && (
                                     <select value={selJutsu?.id ?? ""} disabled={busy}
-                                        onChange={e => { const j = myJutsu.find(x => x.id === e.target.value) ?? null; setSelJutsu(j); setMode(j ? "jutsu" : "idle"); }}
+                                        onChange={e => {
+                                            const j = myJutsu.find(x => x.id === e.target.value) ?? null;
+                                            // Self-target jutsu (heals/buffs) cast on the caster immediately — no foe to pick.
+                                            if (j && j.target === "SELF" && myActor) { void send({ type: "jutsu", jutsuId: j.id!, targetId: myActor.id }); return; }
+                                            setSelJutsu(j); setMode(j ? "jutsu" : "idle");
+                                        }}
                                         style={{ padding: "0.5rem", borderRadius: 8, background: mode === "jutsu" ? "#15233b" : "#0b1220", color: "#e2e8f0", border: `1px solid ${mode === "jutsu" ? "#60a5fa" : "#334155"}`, fontWeight: 700 }}>
                                         <option value="">✨ Jutsu…</option>
                                         {myJutsu.map(j => {
@@ -534,8 +539,37 @@ function ActorCard({ actor, highlight, avatar, emoji, boss, ally }: { actor: Tow
                         <MiniBar val={actor.stamina} max={actor.maxStamina} color="#a3e635" />
                     </div>
                 )}
+                {actor.statuses.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginTop: 3 }}>
+                        {actor.statuses.slice(0, 8).map((st, i) => <StatusChip key={i} status={st} />)}
+                    </div>
+                )}
             </div>
         </div>
+    );
+}
+
+// Short, color-coded badge for a buff/debuff/DoT on an actor card (green = positive,
+// red = negative). Full name + percent/turns on hover.
+const STATUS_ABBR: Record<string, string> = {
+    "Increase Damage Given": "+DMG", "Decrease Damage Given": "−DMG",
+    "Increase Damage Taken": "+VULN", "Decrease Damage Taken": "−VULN",
+    "Increase Heal": "+HEAL", "Lifesteal": "LIFE", "Reflect": "RFLCT", "Absorb": "ABSRB",
+    "Poison": "PSN", "Wound": "BLEED", "Drain": "DRAIN", "Stun": "STUN", "Stunned": "STUN",
+    "Shield": "SHLD", "Barrier": "WALL", "Bloodline Seal": "BL-SEAL", "Elemental Seal": "EL-SEAL",
+    "Buff Prevent": "NO-BUFF", "Debuff Prevent": "WARD", "Recoil": "RECOIL", "Ignition": "IGNITE",
+};
+function StatusChip({ status }: { status: TowerStatus }) {
+    const positive = status.kind === "positive";
+    const label = STATUS_ABBR[status.name] ?? status.name.slice(0, 5).toUpperCase();
+    const detail = `${status.name}${status.percent ? ` ${status.percent}%` : ""}${status.rounds ? ` · ${status.rounds} turn${status.rounds !== 1 ? "s" : ""}` : ""}`;
+    return (
+        <span title={detail} style={{
+            fontSize: 8, fontWeight: 800, padding: "0 3px", borderRadius: 3, lineHeight: "12px", letterSpacing: 0.2,
+            color: positive ? "#bbf7d0" : "#fecaca",
+            background: positive ? "rgba(34,197,94,0.22)" : "rgba(239,68,68,0.22)",
+            border: `1px solid ${positive ? "rgba(34,197,94,0.5)" : "rgba(239,68,68,0.5)"}`,
+        }}>{label}</span>
     );
 }
 
