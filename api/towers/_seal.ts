@@ -1,55 +1,50 @@
 /*
  * Battle Towers — combat-snapshot sealing (Phase 1, P1.B).
  *
- * Turns a player's stored save character into a combat-safe TowerActor character: clamps
- * every formula-facing stat/vital to the game's hard caps, sanitizes the jutsu + pvpItems
- * loadout (reusing the EXPORTED PvP sanitizers), and strips all non-combat / economic
- * fields. Defense-in-depth: even though saves are server-stored, a borrowed ally's owner
- * can hand-edit their own save, so the snapshot is clamped before it's sealed into a run.
+ * Turns a player's stored SAVE into a combat-safe TowerActor character. This now
+ * delegates to the EXACT PvP hydrator (api/pvp/session.ts hydrateCharacterFromSave) so a
+ * tower fighter is sealed identically to a PvP fighter:
+ *   - the equipped jutsu loadout is RESOLVED from `equippedJutsuIds` against the jutsu
+ *     catalog + the save's own bloodlines/creator jutsu (the persisted Character has NO
+ *     ready-made `jutsu` array — it stores equipped IDs — so the old direct
+ *     `sanitizeJutsuList(saveChar.jutsu)` always produced an EMPTY loadout: the empty
+ *     jutsu-bar bug);
+ *   - jutsuMastery, the four named-armor passives (itemAbsorb/Reflect/LifeSteal/Shield),
+ *     bloodlineMult, armorFactor/armorRawDR, itemDamagePct, stats + vitals are all sealed
+ *     and clamped to the game's hard caps (defense-in-depth: a borrowed ally can edit
+ *     their own save);
+ *   - non-combat / economic fields are stripped.
  *
- * Per Decision 3 (zero PvP impact): the stat/vital clamps are PORTED from
- * api/pvp/session.ts (clampStatsObject / hydrateCharacterFromSave, which are private), and
- * only the already-exported sanitizers are imported — the live PvP path is untouched.
+ * Per Decision 3 (zero PvP impact): we REUSE the already-exported PvP helpers; the live
+ * PvP path is untouched. The full save record (not just `.character`) is required so the
+ * loadout resolver can reach savedBloodlines / creatorJutsus.
  */
-import { sanitizeJutsuList, sanitizePvpItems, stripNonCombatFields } from '../pvp/session.js';
-
-const MAX_STAT = 2500; // matches api/pvp/session.ts SESSION_MAX_STAT
-
-const STAT_FIELDS = [
-    'taijutsuOffense', 'taijutsuDefense', 'bukijutsuOffense', 'bukijutsuDefense',
-    'ninjutsuOffense', 'ninjutsuDefense', 'genjutsuOffense', 'genjutsuDefense',
-    'strength', 'speed', 'intelligence', 'willpower',
-] as const;
+import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 
 const SPECIALTIES = ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'];
 
-function clampNum(v: unknown, min: number, max: number, fallback: number): number {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(max, Math.max(min, n));
+/**
+ * Seal a stored save into a combat-safe tower fighter character.
+ * @param saveChar the save's `.character` object (stats / equippedJutsuIds / equipment / …)
+ * @param save     the FULL save record (carries savedBloodlines + creatorJutsus for loadout
+ *                 resolution); pass null only for synthetic/test characters.
+ */
+export function sealTowerFighter(saveChar: Record<string, unknown>, save: Record<string, unknown> | null = null): Record<string, unknown> {
+    // No client payload — the tower is server-authoritative; the save IS the source of truth.
+    const hydrated = hydrateCharacterFromSave(saveChar, {}, save);
+    // hydrate spreads the save's specialty verbatim; the engine defaults an invalid one at
+    // use, but clamp it here too so the sealed snapshot's contract stays clean.
+    const sp = String(hydrated.specialty ?? 'Taijutsu');
+    hydrated.specialty = SPECIALTIES.includes(sp) ? hydrated.specialty : 'Taijutsu';
+    return hydrated;
 }
 
-/** Seal a stored save character into a combat-safe snapshot for a tower run. */
-export function sealTowerFighter(saveChar: Record<string, unknown>): Record<string, unknown> {
-    const src = (saveChar.stats && typeof saveChar.stats === 'object') ? (saveChar.stats as Record<string, unknown>) : {};
-    const stats: Record<string, number> = {};
-    for (const f of STAT_FIELDS) stats[f] = clampNum(src[f], 0, MAX_STAT, 0);
-
-    const sealed: Record<string, unknown> = {
-        ...saveChar,
-        stats,
-        maxHp: clampNum(saveChar.maxHp, 1, 10000, 100),
-        maxChakra: clampNum(saveChar.maxChakra, 0, 5000, 50),
-        maxStamina: clampNum(saveChar.maxStamina, 0, 5000, 50),
-        bloodlineMult: clampNum(saveChar.bloodlineMult, 1, 3, 1),
-        armorFactor: clampNum(saveChar.armorFactor, 0.25, 1, 1),
-        armorRawDR: clampNum(saveChar.armorRawDR, 0, 1.5, 0),
-        itemDamagePct: clampNum(saveChar.itemDamagePct, 0, 200, 0),
-        jutsu: sanitizeJutsuList(saveChar.jutsu),
-        pvpItems: sanitizePvpItems(saveChar.pvpItems),
-        specialty: SPECIALTIES.includes(String(saveChar.specialty)) ? saveChar.specialty : 'Taijutsu',
-    };
-    // Strip currencies / inventory / journals / battleTower ledgers — the snapshot is sealed
-    // into a server session that the client polls; nothing economic should ride along.
-    return stripNonCombatFields(sealed);
+/**
+ * Seal the per-fight consumable budget (thrown / combat-item / potion charges) from the
+ * raw save character — reusing PvP's sealItemCharges. Reads the equipment slot→id map and
+ * caps each charge by how many the player actually owns (the potion's 2/fight cap is the
+ * sealed starting charge). The engine spends against this deterministically.
+ */
+export function sealTowerItemCharges(saveChar: Record<string, unknown>): Record<string, number> {
+    return sealItemCharges(saveChar, saveChar);
 }

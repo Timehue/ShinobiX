@@ -101,6 +101,7 @@ function squadActor(m, pos) {
         id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerSlug, ai: m.ai,
         hp: maxHp, maxHp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
         shield: 0, statuses: [], cooldowns: {}, pos, character: m.character,
+        itemCharges: m.itemCharges ? { ...m.itemCharges } : {},
     };
 }
 function templateActor(id, side, tpl, pos, ownerSlug = null) {

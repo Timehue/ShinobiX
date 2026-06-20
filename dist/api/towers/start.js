@@ -68,7 +68,11 @@ async function handler(req, res) {
                 name: String(char.name ?? slug),
                 ownerSlug: slug,
                 ai: false, // every squad member is a LIVE player; absent ones auto-pass (AFK)
-                character: (0, _seal_js_1.sealTowerFighter)(char),
+                // Seal from the FULL save record (rec) so the equipped jutsu loadout resolves
+                // from equippedJutsuIds + savedBloodlines/creatorJutsus (the save has no ready
+                // `jutsu` array) — identical to a PvP fighter. itemCharges caps consumables.
+                character: (0, _seal_js_1.sealTowerFighter)(char, rec),
+                itemCharges: (0, _seal_js_1.sealTowerItemCharges)(char),
             });
         }
         if (squad.length === 0)

@@ -107,7 +107,22 @@ function getDefense(stats, type) {
     return (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
 }
 function clampMastery(n) { return Math.max(0, Math.min(exports.JUTSU_MAX_LEVEL, Number(n) || 0)); }
+// Utility jutsu = zero DIRECT damage (status/buff/debuff only — its value is its tags).
+// Ported verbatim from api/pvp/move.ts isZeroDamageFortyApJutsu: prefer the explicit
+// `isUtility` flag, else the legacy 40-AP convention (synthesized weapon/item ids exempt).
+// NOTE: the tag layer is deferred (Phase 3) — so a utility jutsu currently lands no effect
+// in towers; this guard at least stops it dealing phantom damage.
+function isZeroDamageUtility(jutsu) {
+    if (jutsu.isUtility === true)
+        return true;
+    if (jutsu.isUtility === false)
+        return false;
+    const id = String(jutsu.id ?? '');
+    return jutsu.ap === 40 && id !== 'basic-attack' && !id.startsWith('item-');
+}
 function computeDamage(attacker, defender, jutsu, masteryLevel) {
+    if (isZeroDamageUtility(jutsu))
+        return 0;
     const ep = Number(jutsu.effectPower ?? 20);
     const epAtMax = ep + exports.JUTSU_MAX_LEVEL * 0.2;
     const masteryFrac = exports.MASTERY_MIN_DAMAGE_FRAC + (1 - exports.MASTERY_MIN_DAMAGE_FRAC) * (clampMastery(masteryLevel) / exports.JUTSU_MAX_LEVEL);
@@ -162,6 +177,18 @@ function wardDefendMult(session, target) {
             mult *= 1 - f.percent / 100;
     }
     return Math.max(0, mult);
+}
+/** Biome terrain affinity (+10% for the matching discipline) — faithful port of
+ *  api/pvp/move.ts terrainMultiplier, keyed on the floor's biome. A "world boost". */
+function terrainMult(session, jutsu) {
+    const type = String(jutsu.type ?? '');
+    switch (String(session.map.biome ?? '')) {
+        case 'forest': return type === 'Taijutsu' ? 1.1 : 1;
+        case 'snow': return type === 'Bukijutsu' ? 1.1 : 1;
+        case 'volcano': return type === 'Ninjutsu' ? 1.1 : 1;
+        case 'shadow': return type === 'Genjutsu' ? 1.1 : 1;
+        default: return 1;
+    }
 }
 /** Round-end chip to every living unit standing on a hazard tile. */
 function applyRoundHazards(session) {
@@ -290,6 +317,38 @@ function masteryFor(actor, jutsuId) {
     const hit = m.find(x => x && x.jutsuId === jutsuId);
     return hit ? clampMastery(hit.level ?? 0) : 0;
 }
+function normalizeSlot(slot) {
+    if (slot === 'weapon')
+        return 'hand';
+    if (slot === 'armor')
+        return 'body';
+    if (slot === 'accessory')
+        return 'aura';
+    return slot ?? '';
+}
+/** The actor's equipped item matching `itemId` (or the first equipped, if unspecified).
+ *  Mirrors api/pvp/move.ts equippedPvpItem: only items in an `equipment` slot count. */
+function equippedItem(actor, itemId) {
+    const items = actor.character.pvpItems ?? [];
+    const equipment = actor.character.equipment ?? {};
+    const equippedIds = new Set(Object.values(equipment).filter((id) => Boolean(id)));
+    return items.find(it => Boolean(it.id) && equippedIds.has(it.id) && (!itemId || it.id === itemId)) ?? null;
+}
+// Shared offensive resolution for attack / jutsu / weapon: applies positional + biome
+// multipliers, computes deterministic damage, deducts HP/AP/actions, logs, and advances
+// boss phases + the win-check. Resource (chakra/stamina) + cooldown bookkeeping is the
+// caller's job (it differs per action type).
+function resolveHit(session, floor, actor, target, jutsu, cost, mastery, label) {
+    const envMult = pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
+        * attackerEnrageMult(actor) * bulwarkMult(session, target) * terrainMult(session, jutsu);
+    const dmg = Math.max(0, Math.floor(computeDamage(actor, target, jutsu, mastery) * envMult));
+    target.hp = Math.max(0, target.hp - dmg);
+    session.activeAp -= cost;
+    session.actionsThisTurn += 1;
+    session.log.push(`${actor.name} ${label} ${target.name} for ${dmg} (${target.hp}/${target.maxHp}).`);
+    tickBossPhases(session);
+    checkTowerWinner(session, floor);
+}
 // ─── Turn scheduler (side-based rounds; interleaved boss-interrupt is Phase 3) ─
 function rebuildTurnQueue(session) {
     const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -303,8 +362,21 @@ function canAct(session, cost) {
 function isStunned(actor) {
     return actor.statuses.some(s => s.name === 'Stun' || s.name === 'Stunned');
 }
+/** Tick down an actor's jutsu cooldowns at the START of their turn (mirrors PvP's
+ *  per-caster tickCooldowns). Removes lapsed entries so the map stays small. */
+function tickCooldowns(actor) {
+    for (const k of Object.keys(actor.cooldowns)) {
+        const n = (actor.cooldowns[k] ?? 0) - 1;
+        if (n > 0)
+            actor.cooldowns[k] = n;
+        else
+            delete actor.cooldowns[k];
+    }
+}
 function refreshAp(session) {
     const actor = (0, _tower_session_js_1.activeActor)(session);
+    if (actor)
+        tickCooldowns(actor);
     if (actor && isStunned(actor)) {
         // Stun costs AP once and is CONSUMED at the start of the penalized turn (mirrors
         // api/pvp/move.ts:893-902) — never re-penalizing a lingering Stun every round.
@@ -427,6 +499,62 @@ function applyAction(session, floor, action, rng) {
         checkTowerWinner(session, floor);
         return { applied: true };
     }
+    // ── weapon: a hit from the equipped hand/thrown weapon (real weaponEp/range/AP) ──
+    if (action.type === 'weapon') {
+        const item = equippedItem(actor, action.itemId);
+        const slot = item ? normalizeSlot(item.slot) : '';
+        if (!item || !['hand', 'thrown'].includes(slot))
+            return { applied: false, reason: 'no-weapon' };
+        const wCost = Math.max(0, Number(item.apCost ?? exports.BASIC_ATTACK_AP));
+        if (!canAct(session, wCost))
+            return { applied: false, reason: 'cannot-act' };
+        const wTarget = (0, _tower_session_js_1.getActor)(session, action.targetId);
+        if (!wTarget || wTarget.hp <= 0)
+            return { applied: false, reason: 'no-target' };
+        if (!hostileSidesFor(actor.side).includes(wTarget.side))
+            return { applied: false, reason: 'friendly-fire' };
+        const wRange = Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1)));
+        if ((0, _aoe_js_1.hexDistance)(actor.pos, wTarget.pos, session.map.width) > wRange)
+            return { applied: false, reason: 'out-of-range' };
+        // Thrown weapons spend from the sealed charge budget; hand weapons are reusable.
+        if (slot === 'thrown') {
+            const have = actor.itemCharges?.[item.id] ?? 0;
+            if (have <= 0)
+                return { applied: false, reason: 'out-of-ammo' };
+            (actor.itemCharges ??= {})[item.id] = have - 1;
+        }
+        const weaponJutsu = {
+            id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
+            isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+        };
+        resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost, 0, 'strikes');
+        return { applied: true };
+    }
+    // ── item: a self-targeted consumable. v1 supports restore-potions (chakra/stamina);
+    // tag-effect consumables (smoke / Heal-tag potions) land with the deferred tag layer. ──
+    if (action.type === 'item') {
+        const item = equippedItem(actor, action.itemId);
+        const slot = item ? normalizeSlot(item.slot) : '';
+        if (!item || ['hand', 'thrown'].includes(slot))
+            return { applied: false, reason: 'no-item' };
+        const restoreCk = Math.max(0, Number(item.restoreChakra ?? 0));
+        const restoreSt = Math.max(0, Number(item.restoreStamina ?? 0));
+        if (restoreCk <= 0 && restoreSt <= 0)
+            return { applied: false, reason: 'unsupported-item' };
+        const iCost = Math.max(0, Number(item.apCost ?? 35));
+        if (!canAct(session, iCost))
+            return { applied: false, reason: 'cannot-act' };
+        const have = actor.itemCharges?.[item.id] ?? 0;
+        if (have <= 0)
+            return { applied: false, reason: 'out-of-item' };
+        (actor.itemCharges ??= {})[item.id] = have - 1;
+        actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
+        actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
+        session.activeAp -= iCost;
+        session.actionsThisTurn += 1;
+        session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+        return { applied: true };
+    }
     // attack / jutsu — need a living, hostile, in-range target
     const target = (0, _tower_session_js_1.getActor)(session, action.targetId);
     if (!target || target.hp <= 0)
@@ -437,7 +565,10 @@ function applyAction(session, floor, action, rng) {
     let jutsu;
     let cost;
     let mastery = 0;
+    let chakraCost = 0;
+    let staminaCost = 0;
     if (action.type === 'attack') {
+        // Basic attack stays resource-free (the always-available fallback; matches the AI's reliance on it).
         jutsu = { id: 'basic-attack', effectPower: 10, type: actorSpecialty(actor), ap: exports.BASIC_ATTACK_AP, range: 1 };
         cost = exports.BASIC_ATTACK_AP;
         if (dist > 1)
@@ -450,23 +581,30 @@ function applyAction(session, floor, action, rng) {
         jutsu = j;
         cost = Number(j.ap ?? 40);
         mastery = masteryFor(actor, action.jutsuId);
+        chakraCost = Math.max(0, Number(j.chakraCost ?? 0));
+        staminaCost = Math.max(0, Number(j.staminaCost ?? 0));
         const range = Math.max(1, Number(j.range ?? 1));
         if (dist > range)
             return { applied: false, reason: 'out-of-range' };
+        // Resource + cooldown gating (real costs from the catalog jutsu — matches PvP).
+        if ((actor.cooldowns[action.jutsuId] ?? 0) > 0)
+            return { applied: false, reason: 'on-cooldown' };
+        if (chakraCost > 0 && actor.chakra < chakraCost)
+            return { applied: false, reason: 'no-chakra' };
+        if (staminaCost > 0 && actor.stamina < staminaCost)
+            return { applied: false, reason: 'no-stamina' };
     }
     if (!canAct(session, cost))
         return { applied: false, reason: 'cannot-act' };
-    // Positional features: pylon element boost/weaken from the attacker's tile, ward
-    // damage-reduction on the target's tile. Both default to 1 on featureless floors.
-    const envMult = pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
-        * attackerEnrageMult(actor) * bulwarkMult(session, target);
-    const dmg = Math.max(0, Math.floor(computeDamage(actor, target, jutsu, mastery) * envMult));
-    target.hp = Math.max(0, target.hp - dmg);
-    session.activeAp -= cost;
-    session.actionsThisTurn += 1;
-    session.log.push(`${actor.name} hits ${target.name} for ${dmg} (${target.hp}/${target.maxHp}).`);
-    tickBossPhases(session);
-    checkTowerWinner(session, floor);
+    const label = action.type === 'attack' ? 'hits' : `casts ${jutsu.name ?? 'a jutsu'} on`;
+    resolveHit(session, floor, actor, target, jutsu, cost, mastery, label);
+    // Deduct chakra/stamina + arm the cooldown after a jutsu lands (basic attack is free).
+    if (action.type === 'jutsu') {
+        actor.chakra = Math.max(0, actor.chakra - chakraCost);
+        actor.stamina = Math.max(0, actor.stamina - staminaCost);
+        if (Number(jutsu.cooldown ?? 0) > 0)
+            actor.cooldowns[action.jutsuId] = Number(jutsu.cooldown);
+    }
     return { applied: true };
 }
 // ─── Turn advance ────────────────────────────────────────────────────────────
@@ -512,6 +650,11 @@ function bestAffordableJutsu(session, actor, dist) {
         .filter(j => j && typeof j.id === 'string')
         .filter(j => Math.max(1, Number(j.range ?? 1)) >= dist)
         .filter(j => canAct(session, Number(j.ap ?? 40)))
+        // affordable: not on cooldown, enough chakra + stamina (mirrors the human gates)
+        .filter(j => (actor.cooldowns[String(j.id)] ?? 0) <= 0)
+        .filter(j => actor.chakra >= Math.max(0, Number(j.chakraCost ?? 0)) && actor.stamina >= Math.max(0, Number(j.staminaCost ?? 0)))
+        // skip zero-damage utility jutsu — the tag layer that gives them value isn't ported yet
+        .filter(j => Number(j.effectPower ?? 0) > 0)
         // deterministic: highest effectPower, ties by id
         .sort((a, b) => (Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0)) || (String(a.id) < String(b.id) ? -1 : 1));
     return opts[0];
