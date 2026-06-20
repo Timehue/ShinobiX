@@ -87,6 +87,9 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
+        // Training builds stats through the level-ups it fuels, so a max-level pet
+        // can't grow further — block it here (and the preview shows "Maxed").
+        if (selectedPet.level >= selectedPet.maxLevel) return alert(`${petDisplayName(selectedPet)} is fully trained (Level ${selectedPet.maxLevel}).`);
         // Pet Tamer training-speed bonus shortens the wait but the durationMs
         // multiplier (which scales gains) stays at the picked tier so we
         // don't accidentally double-dip on payouts.
@@ -264,13 +267,17 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
         // -10% pet training XP while the village is "demoralized" from a war loss,
         // and +Mentor mastery bonus (PvE/utility). Combined into one XP multiplier.
         const trainXpMult = warDebuff.xpMult * (1 + masteryBonus(character, "petTrainXpPct") / 100);
+        const focus = selectedPet.training.type;
         const completedBase = collectPetTraining(selectedPet, trainXpMult);
         const gains = petTrainingGains(selectedPet);
-        const baseXp = selectedPet.training.type === "bond" ? gains.xp + Math.round(gains.xp * 0.35) : gains.xp;
+        const baseXp = focus === "bond" ? gains.xp + Math.round(gains.xp * 0.35) : gains.xp;
+        // Village pet-XP boost, applied with the SAME training focus so the bonus
+        // XP's level-ups build the same stat the session was training.
         const bonusXp = Math.max(0, Math.round((boostAmount(baseXp, petXpBonus) - baseXp) * trainXpMult));
-        const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp) : completedBase;
+        const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp, focus) : completedBase;
+        const leveledUp = completed.level > selectedPet.level;
         updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
-        alert(`${selectedPet.name} completed ${selectedPet.training.type} training! Stats improved.${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
+        alert(`${selectedPet.name} completed ${focus} training!${leveledUp ? ` Now Level ${completed.level}.` : ""}${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
         // Pet Tamer mission progress for "pet-train" — rate-limited server-side.
         if (character.profession === "petTamer") {
             fetch('/api/missions/report-pet-event', {

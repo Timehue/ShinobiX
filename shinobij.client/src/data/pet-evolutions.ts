@@ -59,12 +59,10 @@ export type EvolutionLine = {
     stages: Record<EvolveStage, EvolutionStageSpec>;
 };
 
-// MIRROR of api/pet/_evolution.ts — per-rarity stat ceilings (= petStatCaps in
-// pet-stats.ts) and the tier-gap deltas. Evolution adds the delta then clamps.
-const RARITY_CAPS: Record<"rare" | "legendary", { hp: number; attack: number; defense: number; speed: number }> = {
-    rare: { hp: 1900, attack: 290, defense: 240, speed: 220 },
-    legendary: { hp: 2140, attack: 326, defense: 270, speed: 247 },
-};
+// MIRROR of api/pet/_evolution.ts — the tier-gap stat deltas. Evolution ADDS the
+// delta with no cap clamp: HP/ATK/DEF/SPD are uncapped (training builds them up to
+// the level-100 ceiling), and evolving raises the rarity, which raises the
+// jutsu-power cap — the higher tier's edge.
 const RARE_DELTA: EvolutionStatDelta = { hp: 50, attack: 8, defense: 6, speed: 6, moveRange: 0 };
 const LEGENDARY_DELTA: EvolutionStatDelta = { hp: 46, attack: 6, defense: 4, speed: 5, moveRange: 1 };
 
@@ -147,7 +145,7 @@ export function nextEvolution(pet: Pick<Pet, "id" | "evolutionStage" | "rarity">
     return line.stages[(stage + 1) as EvolveStage];
 }
 
-const clampStat = (value: number, cap: number): number => Math.max(1, Math.min(cap, Math.round(value)));
+const addStat = (value: number, delta: number): number => Math.max(1, Math.round(value + delta));
 
 /**
  * Pure preview of the evolved pet. MIRRORS api/pet/_evolution.ts evolvePet — the
@@ -155,16 +153,15 @@ const clampStat = (value: number, cap: number): number => Math.max(1, Math.min(c
  */
 export function evolvePet(pet: Pet, nextStage: EvolveStage, line: EvolutionLine): Pet {
     const spec = line.stages[nextStage];
-    const caps = RARITY_CAPS[spec.rarity];
     return {
         ...pet,
         name: spec.name,
         rarity: spec.rarity,
         evolutionStage: nextStage,
-        hp: clampStat((pet.hp || 0) + spec.delta.hp, caps.hp),
-        attack: clampStat((pet.attack || 0) + spec.delta.attack, caps.attack),
-        defense: clampStat((pet.defense || 0) + spec.delta.defense, caps.defense),
-        speed: clampStat((pet.speed || 0) + spec.delta.speed, caps.speed),
+        hp: addStat(pet.hp || 0, spec.delta.hp),
+        attack: addStat(pet.attack || 0, spec.delta.attack),
+        defense: addStat(pet.defense || 0, spec.delta.defense),
+        speed: addStat(pet.speed || 0, spec.delta.speed),
         moveRange: Math.max(2, Math.min(5, (pet.moveRange || 3) + spec.delta.moveRange)),
         unlockedForPve: true,
     };

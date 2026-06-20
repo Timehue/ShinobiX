@@ -8,10 +8,13 @@ import {
     balanceBuiltInPetTemplate,
     mergePetJutsuSlots,
     applyAuthoredPetJutsus,
+    capPetStats,
+    gainPetXp,
+    PET_LEVEL_GROWTH,
     type PetTemplateArchetype,
 } from "./pet-balance";
 import { rawPetPool } from "../data/pet-pool";
-import { petStatCaps } from "../data/pet-stats";
+import { petStatCaps, balancedPetBaseStats } from "../data/pet-stats";
 
 // The Phase-12 archetype mechanics — the kinds the rarity budget caps.
 const NEW_MECH = new Set<PetJutsu["kind"]>(["wound", "mark", "slow", "haste", "taunt", "push", "pull"]);
@@ -278,4 +281,53 @@ test("authored merge is idempotent", () => {
     assert.deepEqual(twice.map(j => j.name), authored.map(j => j.name));
     assert.deepEqual(twice.map(j => j.kind), authored.map(j => j.kind));
     assert.deepEqual(twice.map(j => j.power), authored.map(j => j.power));
+});
+
+// ── Uncapped, base-anchored, level-gated training (training revamp) ────────
+
+const stdPet = (over: Partial<Pet> = {}): Pet => ({ ...byRarity("standard")[0], level: 1, xp: 0, maxLevel: 100, ...over });
+// XP needed to climb `n` levels from level 1 (petXpNeeded = max(100, level*100)).
+const xpForLevels = (n: number) => Array.from({ length: n }, (_, i) => Math.max(100, (i + 1) * 100)).reduce((a, b) => a + b, 0);
+
+test("capPetStats no longer ceilings HP/ATK/DEF/SPD but still caps jutsu power", () => {
+    const huge = capPetStats(stdPet({
+        hp: 99999, attack: 5000, defense: 4000, speed: 3000,
+        jutsus: byRarity("standard")[0].jutsus.map(j => ({ ...j, power: j.power > 0 ? 99999 : 0 })),
+    }));
+    assert.equal(huge.hp, 99999);
+    assert.equal(huge.attack, 5000);
+    assert.equal(huge.defense, 4000);
+    assert.equal(huge.speed, 3000);
+    const cap = petStatCaps.standard.jutsuPower;
+    for (const j of huge.jutsus) assert.ok(j.power <= cap, `jutsu ${j.name}: ${j.power} > ${cap}`);
+});
+
+test("gainPetXp channels base-anchored growth into the trained stat (strength → ATK only)", () => {
+    const pet = stdPet();
+    const out = gainPetXp(pet, xpForLevels(5), "strength"); // 5 level-ups, all → attack
+    assert.equal(out.level, 6);
+    const b = balancedPetBaseStats.standard;
+    assert.equal(out.attack - pet.attack, Math.round(b.attack * PET_LEVEL_GROWTH * 5));
+    assert.equal(out.hp - pet.hp, 0);        // strength doesn't grow the other stats
+    assert.equal(out.defense - pet.defense, 0);
+    assert.equal(out.speed - pet.speed, 0);
+});
+
+test("bond / untrained XP grows all four stats — rotation avoids rounding small stats to zero", () => {
+    const pet = stdPet();
+    const out = gainPetXp(pet, xpForLevels(4), "bond"); // reaches level 5: one level each to def/spd/hp/atk
+    const b = balancedPetBaseStats.standard;
+    assert.equal(out.hp - pet.hp, Math.round(b.hp * PET_LEVEL_GROWTH));
+    assert.equal(out.attack - pet.attack, Math.round(b.attack * PET_LEVEL_GROWTH));
+    assert.equal(out.defense - pet.defense, Math.round(b.defense * PET_LEVEL_GROWTH));
+    assert.equal(out.speed - pet.speed, Math.round(b.speed * PET_LEVEL_GROWTH));
+    assert.ok(out.attack - pet.attack >= 1, "small-base ATK still grows (no round-to-zero)");
+});
+
+test("a max-level pet gains no stats from further training XP (the level-100 ceiling)", () => {
+    const maxed = stdPet({ level: 100, xp: 0 });
+    const out = gainPetXp(maxed, xpForLevels(3), "strength");
+    assert.equal(out.level, 100);
+    assert.equal(out.attack, maxed.attack);
+    assert.equal(out.hp, maxed.hp);
 });

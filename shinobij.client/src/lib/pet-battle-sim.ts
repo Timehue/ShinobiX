@@ -599,12 +599,20 @@ function petBasicDamage(attacker: PetBattleFighter, defender: PetBattleFighter) 
 // (ranked) battles stay deterministic. ──────────────────────────────────────
 export const PET_CRIT_MULT = 1.85; // a crit hits for nearly double — big, visible spikes
 
-// Crit chance: a base rate, lifted by how much faster the attacker is than the
-// defender (quick pets find openings), and by the Aggressive trait. Capped.
+// How much raw SPEED converts to crit chance (ownSpeed / this). At base SPD it's
+// a small bump; a Speed-focused build climbs toward the cap. Gives Speed a payoff
+// that doesn't saturate (unlike arena movement) and adds burst that shortens
+// grindy DEF-tank fights — why Speed scales in BOTH battle modes.
+const PET_SPEED_CRIT_DIVISOR = 600;
+
+// Crit chance: a base rate, lifted by the attacker's raw Speed (a dedicated Speed
+// build crits often) AND by how much faster it is than the defender (quick pets
+// find openings), plus the Aggressive trait. Capped at 60%.
 function petCritChance(attacker: PetBattleFighter, defender: PetBattleFighter): number {
     const base = attacker.pet.trait === "Aggressive" ? 0.32 : 0.16;
+    const speedCrit = attacker.pet.speed / PET_SPEED_CRIT_DIVISOR;
     const speedEdge = Math.max(0, attacker.pet.speed - defender.pet.speed) / 1100;
-    return Math.min(0.5, base + speedEdge);
+    return Math.min(0.6, base + speedCrit + speedEdge);
 }
 
 // Innate evasion: a defender meaningfully faster than the attacker slips some
