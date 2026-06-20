@@ -3,7 +3,7 @@ import { petDisplayName } from "../lib/pet";
 import { ROLE_META, derivePetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
-import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
+import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass, petCardImage } from "../lib/pet-battle-anim";
 import type { PetVisualState } from "../types/pet-battle";
 
 export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
@@ -55,8 +55,7 @@ export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages =
 }
 
 export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: Pet; sharedImages?: Record<string, string> }) {
-    const petBaseId = pet.id.replace(/-\d{10,}$/, '');
-    const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
+    const img = petCardImage(pet, sharedImages);
     // Native combat role (backfilled on load; derive as a fallback). Shown as a
     // colored badge so a player can read a pet's role + sub-role at a glance.
     const { role, subRole } = pet.role && pet.subRole ? { role: pet.role, subRole: pet.subRole } : derivePetRole(pet);

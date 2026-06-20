@@ -13,6 +13,7 @@ import type { Character } from "../App";
 import type { Pet } from "../types/pet";
 import type { JutsuElement } from "../types/core";
 import { STARTER_PETS, type StarterPetOption } from "../data/starter-pets";
+import { petCardImage } from "../lib/pet-battle-anim";
 
 const ELEMENT_ICON: Record<JutsuElement, string> = {
     Fire: "🔥", Water: "💧", Wind: "🌬️", Lightning: "⚡", Earth: "🪨", None: "·",
@@ -64,7 +65,7 @@ export function StarterPetSelect({
         padding: "16px 16px max(16px, env(safe-area-inset-bottom, 16px))",
     };
 
-    const artFor = (o: StarterPetOption) => o.pet.image || sharedImages[`pet:${o.pet.id}`];
+    const artFor = (o: StarterPetOption) => petCardImage(o.pet, sharedImages);
 
     if (!started) {
         return (
