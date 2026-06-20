@@ -41,7 +41,7 @@ const session: TowerSession = {
         {
             id: "sq-0", side: "squad", name: "Rill", ownerSlug: "rill", ai: false,
             hp: 8200, maxHp: 10000, chakra: 220, maxChakra: 300, stamina: 180, maxStamina: 250,
-            shield: 0, statuses: [], pos: 123,
+            shield: 0, statuses: [{ name: "Increase Damage Given", rounds: 2, kind: "positive", percent: 30 }], pos: 123,
             cooldowns: { "raiton-spear": 1 },
             itemCharges: { "kunai": 3, "rejuvenation-potion": 2 },
             character: {
@@ -49,6 +49,8 @@ const session: TowerSession = {
                 jutsu: [
                     { id: "fireball", name: "Great Fireball", element: "Fire", type: "Ninjutsu", ap: 60, range: 2, effectPower: 60, chakraCost: 100, staminaCost: 30 },
                     { id: "raiton-spear", name: "Lightning Spear", element: "Lightning", type: "Ninjutsu", ap: 60, range: 3, effectPower: 70, chakraCost: 120, staminaCost: 40, cooldown: 2 },
+                    { id: "venom-fang", name: "Venom Fang", element: "Earth", type: "Ninjutsu", ap: 60, range: 2, effectPower: 45, chakraCost: 80, staminaCost: 20, tags: [{ name: "Poison", percent: 12 }] },
+                    { id: "inner-focus", name: "Inner Focus", type: "Ninjutsu", ap: 40, range: 0, target: "SELF", chakraCost: 40, tags: [{ name: "Heal" }, { name: "Decrease Damage Taken", percent: 25 }] },
                 ],
                 pvpItems: [
                     { id: "kunai", name: "Kunai", slot: "thrown", weaponEp: 20, weaponRange: 4, apCost: 40 },
@@ -65,7 +67,7 @@ const session: TowerSession = {
         enemy("en-4", "bandit", "Bandit", 197),
         enemy("en-5", "archer", "Archer", 196, 270, 270),
         enemy("boss", "warden", "Spire Warden", 159, 2520, 2520),
-        { id: "npc-0", side: "npc", name: "Allied Genin", ownerSlug: null, ai: true, hp: 430, maxHp: 600, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, shield: 0, statuses: [], pos: 84, character: { specialty: "Taijutsu", stats: {}, visual: "genin" } },
+        { id: "npc-0", side: "npc", name: "Allied Genin", ownerSlug: null, ai: true, hp: 430, maxHp: 600, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100, shield: 0, statuses: [{ name: "Poison", rounds: 2, kind: "negative", percent: 12 }], pos: 84, character: { specialty: "Taijutsu", stats: {}, visual: "genin" } },
     ],
     turnQueue: ["sq-0", "en-0", "en-1", "en-2", "en-3", "en-4", "en-5", "boss"],
     activeIndex: 0, round: 1, activeAp: 100, actionsThisTurn: 0,

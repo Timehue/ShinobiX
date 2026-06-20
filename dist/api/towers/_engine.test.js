@@ -406,3 +406,54 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok(Math.abs(forest - Math.floor(central * 1.1)) <= 2, `forest≈+10% (${central} → ${forest})`);
     });
 });
+// ─── Tag / status combat (reuses PvP applyJutsu + applyDoTs/tickStatuses) ─────
+(0, node_test_1.describe)('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)', () => {
+    const floor = makeFloor('defeat-all');
+    function caster(jutsu, over = {}) {
+        return makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, stamina: 300, maxStamina: 300, character: { specialty: 'Ninjutsu', stats: { ninjutsuOffense: 1500 }, jutsu }, ...over });
+    }
+    const bigEnemy = (over = {}) => makeActor('en-1', 'enemy', 1, { hp: 1_000_000, maxHp: 1_000_000, chakra: 1000, maxChakra: 1000, character: { stats: {} }, ...over });
+    const cast = (s, jutsuId, targetId = 'en-1') => (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId, targetId }, (0, _sim_js_1.makeRng)(1));
+    (0, node_test_1.it)('a Heal-tag jutsu heals the caster', () => {
+        const sq = caster([{ id: 'mend', name: 'Mend', type: 'Ninjutsu', ap: 40, range: 2, target: 'OPPONENT', tags: [{ name: 'Heal' }] }], { hp: 200, maxHp: 5000 });
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok(cast(s, 'mend').applied);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'sq-1').hp > 200, 'caster healed');
+    });
+    (0, node_test_1.it)('a self-target jutsu resolves on the caster (no foe needed)', () => {
+        const sq = caster([{ id: 'guard', name: 'Inner Guard', type: 'Ninjutsu', ap: 40, range: 0, target: 'SELF', tags: [{ name: 'Heal' }] }], { hp: 100, maxHp: 5000 });
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        // targetId is ignored for a SELF jutsu — it always resolves on the caster.
+        const r = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'guard', targetId: 'sq-1' }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.ok(r.applied);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'sq-1').hp > 100, 'self-heal applied');
+    });
+    (0, node_test_1.it)('a Stun-tag jutsu applies Stun to the enemy', () => {
+        const sq = caster([{ id: 'flash', name: 'Flash', type: 'Ninjutsu', ap: 40, range: 2, target: 'OPPONENT', tags: [{ name: 'Stun' }] }]);
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok(cast(s, 'flash').applied);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').statuses.some(st => st.name === 'Stun'), 'enemy is stunned');
+    });
+    (0, node_test_1.it)('an Increase-Damage-Given jutsu buffs the caster', () => {
+        const sq = caster([{ id: 'rage', name: 'Rage', type: 'Ninjutsu', ap: 40, range: 2, target: 'OPPONENT', tags: [{ name: 'Increase Damage Given', percent: 30 }] }]);
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok(cast(s, 'rage').applied);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'sq-1').statuses.some(st => st.name === 'Increase Damage Given'), 'caster gains the buff');
+    });
+    (0, node_test_1.it)('Poison bleeds the enemy over rounds (DoT ticks at round end)', () => {
+        const sq = caster([{ id: 'venom', name: 'Venom', type: 'Ninjutsu', ap: 40, range: 2, target: 'OPPONENT', tags: [{ name: 'Poison', percent: 10 }] }]);
+        const s = makeSession([sq, bigEnemy()]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok(cast(s, 'venom').applied);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').statuses.some(st => st.name === 'Poison'), 'enemy poisoned');
+        // Drive rounds: Poison defers one round (activeRound = round+1), then ticks at round end.
+        let guard = 0;
+        while (s.round < 3 && s.status === 'active' && guard++ < 60)
+            (0, _engine_js_1.endTurn)(s, floor);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'poison bled the enemy');
+    });
+});

@@ -34,6 +34,7 @@ exports.runAiUntilHuman = runAiUntilHuman;
  */
 const _sim_js_1 = require("./_sim.js");
 const _aoe_js_1 = require("../pvp/_aoe.js");
+const move_js_1 = require("../pvp/move.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
 const _tower_session_js_1 = require("./_tower-session.js");
 // ─── Constants (ported from api/pvp/move.ts, verified @ 586f0560) ────────────
@@ -178,18 +179,6 @@ function wardDefendMult(session, target) {
     }
     return Math.max(0, mult);
 }
-/** Biome terrain affinity (+10% for the matching discipline) — faithful port of
- *  api/pvp/move.ts terrainMultiplier, keyed on the floor's biome. A "world boost". */
-function terrainMult(session, jutsu) {
-    const type = String(jutsu.type ?? '');
-    switch (String(session.map.biome ?? '')) {
-        case 'forest': return type === 'Taijutsu' ? 1.1 : 1;
-        case 'snow': return type === 'Bukijutsu' ? 1.1 : 1;
-        case 'volcano': return type === 'Ninjutsu' ? 1.1 : 1;
-        case 'shadow': return type === 'Genjutsu' ? 1.1 : 1;
-        default: return 1;
-    }
-}
 /** Round-end chip to every living unit standing on a hazard tile. */
 function applyRoundHazards(session) {
     for (const f of mapFeatures(session)) {
@@ -310,13 +299,6 @@ function findJutsu(actor, jutsuId) {
         return undefined;
     return list.find(j => j && j.id === jutsuId);
 }
-function masteryFor(actor, jutsuId) {
-    const m = actor.character.jutsuMastery;
-    if (!Array.isArray(m))
-        return 0;
-    const hit = m.find(x => x && x.jutsuId === jutsuId);
-    return hit ? clampMastery(hit.level ?? 0) : 0;
-}
 function normalizeSlot(slot) {
     if (slot === 'weapon')
         return 'hand';
@@ -334,20 +316,75 @@ function equippedItem(actor, itemId) {
     const equippedIds = new Set(Object.values(equipment).filter((id) => Boolean(id)));
     return items.find(it => Boolean(it.id) && equippedIds.has(it.id) && (!itemId || it.id === itemId)) ?? null;
 }
-// Shared offensive resolution for attack / jutsu / weapon: applies positional + biome
-// multipliers, computes deterministic damage, deducts HP/AP/actions, logs, and advances
-// boss phases + the win-check. Resource (chakra/stamina) + cooldown bookkeeping is the
-// caller's job (it differs per action type).
-function resolveHit(session, floor, actor, target, jutsu, cost, mastery, label) {
-    const envMult = pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
-        * attackerEnrageMult(actor) * bulwarkMult(session, target) * terrainMult(session, jutsu);
-    const dmg = Math.max(0, Math.floor(computeDamage(actor, target, jutsu, mastery) * envMult));
-    target.hp = Math.max(0, target.hp - dmg);
+// ─── PvP-engine reuse: full tag/status combat via api/pvp/move.ts applyJutsu ──
+// A TowerActor is structurally a PvpFighter superset (same name/hp/chakra/stamina/
+// shield/statuses/character/pos, and the SAME PvpStatus shape). So instead of
+// re-implementing the intricate, load-bearing tag pipeline (Heal/Shield/Pierce/Stun/
+// Poison/Drain/Absorb/Reflect/Lifesteal/IDG/IDT/DDG/DDT/Wound/Recoil/…), the tower
+// adapts each attacker→target pair to PvpFighters and calls the EXACT PvP resolver.
+// applyJutsu is deterministic (no RNG / wall-clock) so the settle recompute still
+// reproduces a run byte-for-byte. Positional tower features (pylons/wards/enrage/
+// bulwark/party-scale) are folded into applyJutsu's `wMult`; terrain via its `biome`.
+function actorToFighter(a) {
+    return {
+        name: a.name, hp: a.hp, maxHp: a.maxHp, chakra: a.chakra, maxChakra: a.maxChakra,
+        stamina: a.stamina, maxStamina: a.maxStamina, shield: a.shield,
+        statuses: a.statuses.map(s => ({ ...s })), character: a.character, pos: a.pos,
+    };
+}
+function writeBackFighter(a, f) {
+    a.hp = Math.max(0, Math.min(a.maxHp, Math.floor(f.hp)));
+    a.chakra = Math.max(0, Math.floor(f.chakra));
+    a.stamina = Math.max(0, Math.floor(f.stamina));
+    a.shield = Math.max(0, Math.floor(f.shield));
+    a.statuses = f.statuses;
+    // pos is intentionally NOT written back: Push/Pull/Barrier in applyJutsu use the
+    // PvP grid, and the tower owns positioning — so those displacement tags are inert.
+}
+/** Resolve one jutsu/weapon/attack from `actor` onto `target` (target===actor for a
+ *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
+function runJutsu(session, actor, target, jutsu, wMult) {
+    const selfCast = actor.id === target.id;
+    const sf = actorToFighter(actor);
+    const of = selfCast ? actorToFighter(actor) : actorToFighter(target);
+    const res = (0, move_js_1.applyJutsu)(sf, of, jutsu, wMult, String(session.map.biome ?? 'central'), session.round);
+    writeBackFighter(actor, res.self);
+    if (!selfCast)
+        writeBackFighter(target, res.opponent);
+    session.log.push(...res.lines);
+}
+// Shared resolution for attack / jutsu / weapon (and self-cast jutsu). Folds the
+// positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
+// arg), then deducts AP/actions and advances boss phases + the win-check. Resource
+// (chakra/stamina) + cooldown bookkeeping is the caller's job (it differs per action).
+function resolveHit(session, floor, actor, target, jutsu, cost) {
+    const selfCast = actor.id === target.id;
+    const wMult = selfCast ? 1 : (pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
+        * attackerEnrageMult(actor) * bulwarkMult(session, target)
+        * Math.max(0, Number(actor.character.towerDmgScale ?? 1)));
+    const verb = jutsu.id === 'basic-attack' ? 'attacks'
+        : jutsu.id === 'weapon' ? `strikes with ${jutsu.name ?? 'a weapon'}`
+            : `uses ${jutsu.name ?? 'a jutsu'}`;
+    session.log.push(selfCast ? `${actor.name} ${verb}.` : `${actor.name} ${verb} → ${target.name}.`);
+    runJutsu(session, actor, target, jutsu, wMult);
     session.activeAp -= cost;
     session.actionsThisTurn += 1;
-    session.log.push(`${actor.name} ${label} ${target.name} for ${dmg} (${target.hp}/${target.maxHp}).`);
     tickBossPhases(session);
     checkTowerWinner(session, floor);
+}
+// Round-end: tick Wound/Poison/Drain DoTs and expire statuses for every living actor,
+// reusing the EXACT PvP helpers so timing/mitigation match the live game.
+function applyRoundStatusTicks(session) {
+    for (const a of session.actors) {
+        if (a.hp <= 0)
+            continue;
+        const dot = (0, move_js_1.applyDoTs)(actorToFighter(a), session.round);
+        a.hp = Math.max(0, Math.min(a.maxHp, Math.floor(dot.fighter.hp)));
+        a.chakra = Math.max(0, Math.floor(dot.fighter.chakra));
+        if (dot.lines.length)
+            session.log.push(...dot.lines);
+        a.statuses = (0, move_js_1.tickStatuses)(actorToFighter(a), session.round).statuses;
+    }
 }
 // ─── Turn scheduler (side-based rounds; interleaved boss-interrupt is Phase 3) ─
 function rebuildTurnQueue(session) {
@@ -359,8 +396,13 @@ function rebuildTurnQueue(session) {
 function canAct(session, cost) {
     return session.activeAp >= cost && session.actionsThisTurn < exports.MAX_ACTIONS;
 }
-function isStunned(actor) {
-    return actor.statuses.some(s => s.name === 'Stun' || s.name === 'Stunned');
+// Round-aware: a Stun applied THIS round (activeRound = round+1) defers to next turn,
+// matching PvP — so an earlier actor stunning a later one doesn't rob the same round.
+function isStunActive(s, round) {
+    return (s.name === 'Stun' || s.name === 'Stunned') && (s.activeRound === undefined || s.activeRound <= round);
+}
+function isStunned(actor, round) {
+    return actor.statuses.some(s => isStunActive(s, round));
 }
 /** Tick down an actor's jutsu cooldowns at the START of their turn (mirrors PvP's
  *  per-caster tickCooldowns). Removes lapsed entries so the map stays small. */
@@ -377,11 +419,11 @@ function refreshAp(session) {
     const actor = (0, _tower_session_js_1.activeActor)(session);
     if (actor)
         tickCooldowns(actor);
-    if (actor && isStunned(actor)) {
+    if (actor && isStunned(actor, session.round)) {
         // Stun costs AP once and is CONSUMED at the start of the penalized turn (mirrors
         // api/pvp/move.ts:893-902) — never re-penalizing a lingering Stun every round.
         session.activeAp = Math.max(0, exports.BASE_AP - exports.STUN_AP_PENALTY);
-        actor.statuses = actor.statuses.filter(s => s.name !== 'Stun' && s.name !== 'Stunned');
+        actor.statuses = actor.statuses.filter(s => !isStunActive(s, session.round));
     }
     else {
         session.activeAp = exports.BASE_AP;
@@ -526,9 +568,33 @@ function applyAction(session, floor, action, rng) {
         const weaponJutsu = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
             isUtility: false, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+            ...(Array.isArray(item.weaponTags) && item.weaponTags.length ? { tags: item.weaponTags } : {}),
         };
-        resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost, 0, 'strikes');
+        resolveHit(session, floor, actor, wTarget, weaponJutsu, wCost);
         return { applied: true };
+    }
+    // ── self-cast jutsu (target: SELF) — heals/buffs resolve on the caster, no foe needed ──
+    if (action.type === 'jutsu') {
+        const jSelf = findJutsu(actor, action.jutsuId);
+        if (jSelf && String(jSelf.target) === 'SELF') {
+            const cost = Number(jSelf.ap ?? 40);
+            const ck = Math.max(0, Number(jSelf.chakraCost ?? 0));
+            const st = Math.max(0, Number(jSelf.staminaCost ?? 0));
+            if ((actor.cooldowns[action.jutsuId] ?? 0) > 0)
+                return { applied: false, reason: 'on-cooldown' };
+            if (ck > 0 && actor.chakra < ck)
+                return { applied: false, reason: 'no-chakra' };
+            if (st > 0 && actor.stamina < st)
+                return { applied: false, reason: 'no-stamina' };
+            if (!canAct(session, cost))
+                return { applied: false, reason: 'cannot-act' };
+            resolveHit(session, floor, actor, actor, jSelf, cost);
+            actor.chakra = Math.max(0, actor.chakra - ck);
+            actor.stamina = Math.max(0, actor.stamina - st);
+            if (Number(jSelf.cooldown ?? 0) > 0)
+                actor.cooldowns[action.jutsuId] = Number(jSelf.cooldown);
+            return { applied: true };
+        }
     }
     // ── item: a self-targeted consumable. v1 supports restore-potions (chakra/stamina);
     // tag-effect consumables (smoke / Heal-tag potions) land with the deferred tag layer. ──
@@ -564,7 +630,6 @@ function applyAction(session, floor, action, rng) {
     const dist = (0, _aoe_js_1.hexDistance)(actor.pos, target.pos, session.map.width);
     let jutsu;
     let cost;
-    let mastery = 0;
     let chakraCost = 0;
     let staminaCost = 0;
     if (action.type === 'attack') {
@@ -580,7 +645,6 @@ function applyAction(session, floor, action, rng) {
             return { applied: false, reason: 'no-jutsu' };
         jutsu = j;
         cost = Number(j.ap ?? 40);
-        mastery = masteryFor(actor, action.jutsuId);
         chakraCost = Math.max(0, Number(j.chakraCost ?? 0));
         staminaCost = Math.max(0, Number(j.staminaCost ?? 0));
         const range = Math.max(1, Number(j.range ?? 1));
@@ -596,8 +660,7 @@ function applyAction(session, floor, action, rng) {
     }
     if (!canAct(session, cost))
         return { applied: false, reason: 'cannot-act' };
-    const label = action.type === 'attack' ? 'hits' : `casts ${jutsu.name ?? 'a jutsu'} on`;
-    resolveHit(session, floor, actor, target, jutsu, cost, mastery, label);
+    resolveHit(session, floor, actor, target, jutsu, cost);
     // Deduct chakra/stamina + arm the cooldown after a jutsu lands (basic attack is free).
     if (action.type === 'jutsu') {
         actor.chakra = Math.max(0, actor.chakra - chakraCost);
@@ -625,6 +688,7 @@ function endTurn(session, floor) {
     }
     // round complete
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
+    applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     applyBossRegen(session); // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
