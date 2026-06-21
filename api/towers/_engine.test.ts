@@ -514,3 +514,43 @@ describe('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)
         assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'poison bled the enemy');
     });
 });
+
+// ─── AOE jutsu + full consumables (heal/buff potions) ────────────────────────
+describe('Battle Towers AOE + consumables', () => {
+    const floor = makeFloor('defeat-all');
+
+    it('an AOE jutsu splashes the foes around the struck target', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { hp: 5000, maxHp: 5000, chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: { ninjutsuOffense: 1500 }, jutsu: [{ id: 'nova', name: 'Nova', type: 'Ninjutsu', ap: 60, range: 3, effectPower: 60, method: 'AOE_CIRCLE' }] } });
+        const e1 = makeActor('en-1', 'enemy', 1, { hp: 100_000, maxHp: 100_000, character: { stats: {} } });
+        const e2 = makeActor('en-2', 'enemy', 2, { hp: 100_000, maxHp: 100_000, character: { stats: {} } });
+        const s = makeSession([sq, e1, e2]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'nova', targetId: 'en-1' }, makeRng(1)).applied);
+        assert.ok(getActor(s, 'en-1')!.hp < 100_000, 'primary target hit');
+        assert.ok(getActor(s, 'en-2')!.hp < 100_000, 'adjacent foe caught in the blast');
+    });
+
+    it('a single-target jutsu does NOT splash neighbors', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { hp: 5000, maxHp: 5000, chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: { ninjutsuOffense: 1500 }, jutsu: [{ id: 'bolt', name: 'Bolt', type: 'Ninjutsu', ap: 60, range: 3, effectPower: 60, method: 'SINGLE' }] } });
+        const e1 = makeActor('en-1', 'enemy', 1, { hp: 100_000, maxHp: 100_000, character: { stats: {} } });
+        const e2 = makeActor('en-2', 'enemy', 2, { hp: 100_000, maxHp: 100_000, character: { stats: {} } });
+        const s = makeSession([sq, e1, e2]);
+        startRound(s);
+        applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'bolt', targetId: 'en-1' }, makeRng(1));
+        assert.equal(getActor(s, 'en-2')!.hp, 100_000, 'neighbor untouched by a single-target jutsu');
+    });
+
+    it('a Heal-tag potion (no restore values) heals the caster + spends a charge', () => {
+        const sq = makeActor('sq-1', 'squad', 0, {
+            hp: 200, maxHp: 5000, itemCharges: { 'heal-pot': 2 },
+            character: { specialty: 'Ninjutsu', stats: {}, jutsu: [], pvpItems: [{ id: 'heal-pot', name: 'Salve', slot: 'potion', weaponTags: [{ name: 'Heal' }], apCost: 35 }], equipment: { potion: 'heal-pot' } },
+        });
+        const en = makeActor('en-1', 'enemy', 1, { hp: 1_000_000, maxHp: 1_000_000, character: { stats: {} } });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'heal-pot' }, makeRng(1));
+        assert.ok(r.applied);
+        assert.ok(getActor(s, 'sq-1')!.hp > 200, 'heal potion healed the caster');
+        assert.equal(getActor(s, 'sq-1')!.itemCharges!['heal-pot'], 1, 'charge spent');
+    });
+});
