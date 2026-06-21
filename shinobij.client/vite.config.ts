@@ -443,6 +443,18 @@ export default defineConfig({
                     if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) {
                         return 'react-vendor';
                     }
+                    // Group the heavy 3D stack (three.js + three-stdlib + the
+                    // @react-three/* renderer + postprocessing) into ONE cacheable
+                    // vendor chunk. It's imported only by lazy 3D screens, so it
+                    // stays out of the initial bundle; a single shared chunk avoids
+                    // re-downloading three across screens and on every app-code deploy.
+                    if (
+                        id.includes('node_modules/three') ||
+                        id.includes('node_modules/@react-three/') ||
+                        id.includes('node_modules/postprocessing/')
+                    ) {
+                        return 'three-vendor';
+                    }
                     return undefined;
                 },
             },

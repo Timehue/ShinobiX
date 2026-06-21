@@ -197,6 +197,10 @@ function usePetSprite(pet: Pet, sharedImages: Record<string, string>, mirror = f
         return t;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [src, pet.id, pet.element, mirror]);
+    // Free the GPU texture when the source changes or the component unmounts.
+    // Each texture is a fresh per-instance TextureLoader/placeholder (THREE.Cache
+    // is off), so disposing here can never free a shared/aliased texture.
+    useEffect(() => () => { texture.dispose(); }, [texture]);
 
     const PLACEHOLDER_SCAN: SpriteScan = { bounds: { left: 0.18, right: 0.82, top: 0.12, bottom: 0.86 }, aspect: 512 / 640 };
     const [scan, setScan] = useState<SpriteScan>(src ? (_scanCache.get(src) ?? { bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }) : PLACEHOLDER_SCAN);
@@ -268,6 +272,19 @@ function usePetPoses(petId: string, mirror: boolean): PoseSet | null {
         for (const c of RUN_CATS) out[c] = runId ? mk(runId, c) : out.idle;
         return out;
     }, [id, runId, mirror]);
+    // Dispose pose textures on change/unmount. run-a/run-b may ALIAS `idle`
+    // (when no run cycle was generated), so dispose each UNIQUE texture once.
+    useEffect(() => {
+        if (!tex) return;
+        return () => {
+            const seen = new Set<THREE.Texture>();
+            for (const t of Object.values(tex)) {
+                if (seen.has(t)) continue;
+                seen.add(t);
+                t.dispose();
+            }
+        };
+    }, [tex]);
     const [scan, setScan] = useState<Record<PoseCat, SpriteScan> | null>(null);
     useEffect(() => {
         if (!id) return;
@@ -971,6 +988,8 @@ export function PetColiseum({
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
+    // Dispose the coliseum floor/backdrop textures when the match view unmounts.
+    useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
     const playerSprite = usePetSprite(playerPet, sharedImages);
     const enemySprite = usePetSprite(enemyPet, sharedImages, true);
     // Reserve sprites (2v2). Hooks must run unconditionally, so absent reserves
