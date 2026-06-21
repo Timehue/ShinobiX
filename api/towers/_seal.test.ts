@@ -50,6 +50,20 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         assert.ok((jutsu[0].chakraCost as number) > 0, 'catalog jutsu carries its real chakra cost');
     });
 
+    it('seals client-supplied pvpItems + equipment passives the save does NOT persist', () => {
+        // pvpItems + bloodlineMult/armor/itemDamagePct are computed client-side at fight time
+        // (the save lacks them) — the host sends them; the seal must fill + clamp them.
+        const sealed = sealTowerFighter(
+            { name: 'Hero', stats: {} },          // save character — no items / passives
+            { character: {} },                    // save record
+            { pvpItems: [{ id: 'kunai', name: 'Kunai', slot: 'thrown', weaponEp: 20 }], bloodlineMult: 2, armorRawDR: 0.8, itemDamagePct: 50 },
+        );
+        assert.equal(sealed.bloodlineMult, 2, 'client bloodlineMult sealed');
+        assert.equal(sealed.itemDamagePct, 50, 'client itemDamagePct sealed');
+        assert.ok((sealed.armorRawDR as number) > 0, 'client armorRawDR sealed');
+        assert.ok(Array.isArray(sealed.pvpItems) && (sealed.pvpItems as unknown[]).length === 1, 'client pvpItems sealed');
+    });
+
     it('seals a per-fight consumable budget capped by owned count', () => {
         const charges = sealTowerItemCharges({
             equipment: { thrown: 'shuriken', potion: 'rejuvenation-potion' },

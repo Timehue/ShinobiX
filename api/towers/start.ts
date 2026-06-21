@@ -37,6 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const floor = getFloor(Math.floor(Number(body.floor)));
         if (!floor) return res.status(400).json({ error: 'Unknown floor.' });
 
+        // The host's client-computed combat extras the SAVE doesn't persist (pvpItems +
+        // equipment-derived passives). Sealed (clamped) into the host fighter only — borrowed
+        // allies seal from their own save (jutsu + stats; their derived passives default).
+        const hostLoadout = (body.hostLoadout && typeof body.hostLoadout === 'object') ? body.hostLoadout as Record<string, unknown> : {};
+
         // Borrowed allies (friends/clan/public) → AI snapshots. De-dupe + cap the party.
         const allyNames: string[] = Array.isArray(body.allies) ? body.allies.map((a: unknown) => safeName(String(a))).filter(Boolean) : [];
         const memberSlugs = [...new Set([hostName, ...allyNames])].slice(0, MAX_PARTY_SIZE);
@@ -66,8 +71,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ai: false, // every squad member is a LIVE player; absent ones auto-pass (AFK)
                 // Seal from the FULL save record (rec) so the equipped jutsu loadout resolves
                 // from equippedJutsuIds + savedBloodlines/creatorJutsus (the save has no ready
-                // `jutsu` array) — identical to a PvP fighter. itemCharges caps consumables.
-                character: sealTowerFighter(char, rec),
+                // `jutsu` array) — identical to a PvP fighter. The host also supplies the
+                // client-computed pvpItems + passives. itemCharges caps consumables.
+                character: sealTowerFighter(char, rec, slug === hostName ? hostLoadout : {}),
                 itemCharges: sealTowerItemCharges(char),
             });
         }

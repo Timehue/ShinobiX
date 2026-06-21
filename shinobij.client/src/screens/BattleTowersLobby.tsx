@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
 import { subscribeFollowing } from "../lib/friends";
 import spireBanner from "../assets/towers/spire.webp";
 
@@ -32,10 +32,12 @@ const BIOME: Record<string, { color: string; icon: string }> = {
 
 export function BattleTowersLobby({
     character,
+    hostLoadout,
     onEnter,
     onBack,
 }: {
     character: Character;
+    hostLoadout?: TowerHostLoadout;
     onEnter: (runId: string, session: TowerSession) => void;
     onBack: () => void;
 }) {
@@ -46,7 +48,18 @@ export function BattleTowersLobby({
     const [error, setError] = useState<string | null>(null);
     const [allies, setAllies] = useState<string[]>([]);
     const [following, setFollowing] = useState<string[]>([]);
+    const [inviteName, setInviteName] = useState("");
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
+
+    // Invite any player by name (the server validates the save exists; unknown names are
+    // skipped). Deduped case-insensitively against yourself + the existing squad.
+    function addAlly(name: string) {
+        const n = name.trim();
+        const key = n.toLowerCase();
+        if (!n || key === me.toLowerCase() || allies.some(a => a.toLowerCase() === key) || allies.length >= MAX_ALLIES) return;
+        setAllies([...allies, n]);
+        setInviteName("");
+    }
 
     const bestFloor = character.battleTowerBestFloor ?? 0;
     const rating = character.battleTowerRating ?? 0;
@@ -82,7 +95,7 @@ export function BattleTowersLobby({
         setStarting(true);
         setError(null);
         try {
-            const { runId, session } = await startTowerRun(me, selected, allies);
+            const { runId, session } = await startTowerRun(me, selected, allies, hostLoadout);
             onEnter(runId, session);
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
@@ -132,21 +145,31 @@ export function BattleTowersLobby({
             <div style={{ padding: "0.8rem 0.9rem", borderRadius: 12, border: "1px solid #293548", background: "linear-gradient(180deg,#0e1626,#0a111f)", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                     <strong style={{ fontSize: "0.98rem" }}>🛡 Your Squad <span style={{ color: "#94a3b8", fontWeight: 400, fontSize: "0.8rem" }}>· you + up to {MAX_ALLIES} allies</span></strong>
-                    <span style={{ color: "#64748b", fontSize: "0.76rem" }}>Allies join as AI-controlled snapshots of their characters</span>
+                    <span style={{ color: "#64748b", fontSize: "0.76rem" }}>Invited players get a “join” prompt and fight live alongside you</span>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                     <SquadChip name={me} you />
                     {allies.map(a => <SquadChip key={a} name={a} onRemove={() => setAllies(allies.filter(x => x !== a))} />)}
                     {allies.length < MAX_ALLIES && (
-                        availableAllies.length > 0
-                            ? (
-                                <select value="" onChange={e => { if (e.target.value) setAllies([...allies, e.target.value]); }}
-                                    style={{ padding: "0.45rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "#cbd5e1", border: "1px dashed #475569", cursor: "pointer", fontSize: "0.82rem" }}>
-                                    <option value="">+ Add ally…</option>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {/* Invite ANY player by name */}
+                            <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addAlly(inviteName); } }}
+                                placeholder="Invite player by name…" maxLength={24}
+                                style={{ padding: "0.4rem 0.7rem", borderRadius: 20, background: "#0b1220", color: "#e2e8f0", border: "1px solid #475569", fontSize: "0.82rem", width: 170 }} />
+                            <button onClick={() => addAlly(inviteName)} disabled={!inviteName.trim()}
+                                style={{ padding: "0.4rem 0.8rem", borderRadius: 20, fontWeight: 700, fontSize: "0.8rem", cursor: inviteName.trim() ? "pointer" : "default", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)", border: "1px solid #3b5278", opacity: inviteName.trim() ? 1 : 0.5 }}>
+                                + Invite
+                            </button>
+                            {/* Quick-add from players you follow */}
+                            {availableAllies.length > 0 && (
+                                <select value="" onChange={e => { if (e.target.value) addAlly(e.target.value); }}
+                                    style={{ padding: "0.4rem 0.6rem", borderRadius: 20, background: "#0b1220", color: "#cbd5e1", border: "1px dashed #475569", cursor: "pointer", fontSize: "0.82rem" }}>
+                                    <option value="">+ From follows…</option>
                                     {availableAllies.map(f => <option key={f} value={f}>{f}</option>)}
                                 </select>
-                            )
-                            : allies.length === 0 && <span style={{ color: "#64748b", fontSize: "0.8rem" }}>Follow players from their profile to recruit them as allies.</span>
+                            )}
+                        </span>
                     )}
                 </div>
             </div>

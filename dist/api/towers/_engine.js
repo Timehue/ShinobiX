@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MASTERY_MIN_DAMAGE_FRAC = exports.JUTSU_MAX_LEVEL = exports.K_DR = exports.BASIC_ATTACK_AP = exports.MOVE_AP = exports.STUN_AP_PENALTY = exports.MAX_ROUNDS = exports.MAX_ACTIONS = exports.BASE_AP = void 0;
+exports.MASTERY_MIN_DAMAGE_FRAC = exports.JUTSU_MAX_LEVEL = exports.K_DR = exports.CLEANSE_CD = exports.CLEANSE_AP = exports.CLEAR_CD = exports.CLEAR_AP = exports.HEAL_PCT = exports.HEAL_CD = exports.HEAL_CHAKRA = exports.HEAL_AP = exports.DASH_RANGE = exports.DASH_AP = exports.BASIC_ATTACK_AP = exports.MOVE_AP = exports.STUN_AP_PENALTY = exports.MAX_ROUNDS = exports.MAX_ACTIONS = exports.BASE_AP = void 0;
 exports.towerNeighbors = towerNeighbors;
 exports.computeDamage = computeDamage;
 exports.startRound = startRound;
@@ -45,6 +45,17 @@ exports.MAX_ROUNDS = 25;
 exports.STUN_AP_PENALTY = 40;
 exports.MOVE_AP = 30;
 exports.BASIC_ATTACK_AP = 40;
+// Basic actions ported from PvP move.ts (heal / clear / cleanse / dash).
+exports.DASH_AP = 30;
+exports.DASH_RANGE = 3;
+exports.HEAL_AP = 60;
+exports.HEAL_CHAKRA = 10;
+exports.HEAL_CD = 5;
+exports.HEAL_PCT = 0.1;
+exports.CLEAR_AP = 60;
+exports.CLEAR_CD = 10;
+exports.CLEANSE_AP = 60;
+exports.CLEANSE_CD = 10;
 exports.K_DR = 0.5;
 exports.JUTSU_MAX_LEVEL = 50;
 exports.MASTERY_MIN_DAMAGE_FRAC = 0.3;
@@ -500,6 +511,11 @@ function isStunActive(s, round) {
 function isStunned(actor, round) {
     return actor.statuses.some(s => isStunActive(s, round));
 }
+/** True when the actor has an ACTIVE status of the given name (activeRound-aware, so a
+ *  Prevent applied this turn doesn't block until next round — mirrors PvP hasStatus). */
+function hasActiveStatus(actor, name, round) {
+    return actor.statuses.some(s => s.name === name && (s.activeRound === undefined || s.activeRound <= round));
+}
 /** Tick down an actor's jutsu cooldowns at the START of their turn (mirrors PvP's
  *  per-caster tickCooldowns). Removes lapsed entries so the map stays small. */
 function tickCooldowns(actor) {
@@ -635,6 +651,85 @@ function applyAction(session, floor, action, rng) {
             session.objectiveState.reachedGoal = true;
         }
         checkTowerWinner(session, floor);
+        return { applied: true };
+    }
+    // ── dash: relocate up to DASH_RANGE hexes to an open tile (PvP basic action) ──
+    if (action.type === 'dash') {
+        if (!canAct(session, exports.DASH_AP))
+            return { applied: false, reason: 'cannot-act' };
+        const w = session.map.width;
+        const d = (0, _aoe_js_1.hexDistance)(actor.pos, action.tile, w);
+        if (d < 1 || d > exports.DASH_RANGE)
+            return { applied: false, reason: 'out-of-range' };
+        if (isTileBlocked(session, action.tile, actor.id))
+            return { applied: false, reason: 'blocked' };
+        actor.pos = action.tile;
+        session.activeAp -= exports.DASH_AP;
+        session.actionsThisTurn += 1;
+        if (actor.side === 'squad' && floor.objective === 'reach-tile' && typeof floor.goalTile === 'number' && actor.pos === floor.goalTile) {
+            session.objectiveState.reachedGoal = true;
+        }
+        checkTowerWinner(session, floor);
+        return { applied: true };
+    }
+    // ── heal: restore HEAL_PCT of max HP for chakra (PvP basic action; on cooldown) ──
+    if (action.type === 'heal') {
+        if ((actor.cooldowns['basicHeal'] ?? 0) > 0)
+            return { applied: false, reason: 'on-cooldown' };
+        if (actor.chakra < exports.HEAL_CHAKRA)
+            return { applied: false, reason: 'no-chakra' };
+        if (!canAct(session, exports.HEAL_AP))
+            return { applied: false, reason: 'cannot-act' };
+        const healAmt = Math.max(1, Math.floor(actor.maxHp * exports.HEAL_PCT));
+        actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
+        actor.chakra = Math.max(0, actor.chakra - exports.HEAL_CHAKRA);
+        actor.cooldowns['basicHeal'] = exports.HEAL_CD;
+        session.activeAp -= exports.HEAL_AP;
+        session.actionsThisTurn += 1;
+        session.log.push(`${actor.name} uses Basic Heal, restoring ${healAmt} HP.`);
+        return { applied: true };
+    }
+    // ── cleanse: strip the actor's own negative statuses (debuffs / DoTs) ──
+    if (action.type === 'cleanse') {
+        if ((actor.cooldowns['cleanse'] ?? 0) > 0)
+            return { applied: false, reason: 'on-cooldown' };
+        if (!canAct(session, exports.CLEANSE_AP))
+            return { applied: false, reason: 'cannot-act' };
+        if (hasActiveStatus(actor, 'Cleanse Prevent', session.round)) {
+            session.log.push(`${actor.name}'s Cleanse Prevent blocks the cleanse.`);
+        }
+        else {
+            const removed = actor.statuses.filter(s => s.kind === 'negative').map(s => s.name);
+            actor.statuses = actor.statuses.filter(s => s.kind !== 'negative');
+            session.log.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${actor.name}.`);
+        }
+        actor.cooldowns['cleanse'] = exports.CLEANSE_CD;
+        session.activeAp -= exports.CLEANSE_AP;
+        session.actionsThisTurn += 1;
+        return { applied: true };
+    }
+    // ── clear: strip a hostile target's positive statuses (buffs) ──
+    if (action.type === 'clear') {
+        if ((actor.cooldowns['clear'] ?? 0) > 0)
+            return { applied: false, reason: 'on-cooldown' };
+        if (!canAct(session, exports.CLEAR_AP))
+            return { applied: false, reason: 'cannot-act' };
+        const cTarget = (0, _tower_session_js_1.getActor)(session, action.targetId);
+        if (!cTarget || cTarget.hp <= 0)
+            return { applied: false, reason: 'no-target' };
+        if (!hostileSidesFor(actor.side).includes(cTarget.side))
+            return { applied: false, reason: 'friendly-fire' };
+        if (hasActiveStatus(cTarget, 'Clear Prevent', session.round)) {
+            session.log.push(`${cTarget.name}'s Clear Prevent blocks the clear.`);
+        }
+        else {
+            const removed = cTarget.statuses.filter(s => s.kind === 'positive').map(s => s.name);
+            cTarget.statuses = cTarget.statuses.filter(s => s.kind !== 'positive');
+            session.log.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${cTarget.name}.`);
+        }
+        actor.cooldowns['clear'] = exports.CLEAR_CD;
+        session.activeAp -= exports.CLEAR_AP;
+        session.actionsThisTurn += 1;
         return { applied: true };
     }
     // ── weapon: a hit from the equipped hand/thrown weapon (real weaponEp/range/AP) ──

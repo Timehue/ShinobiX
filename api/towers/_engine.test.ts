@@ -592,3 +592,44 @@ describe('Battle Towers AOE + consumables', () => {
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'empty', tile: 3 }, makeRng(1)).reason, 'no-ground-tags');
     });
 });
+
+// ─── Basic actions: heal / cleanse / clear / dash (ported from PvP) ───────────
+describe('Battle Towers basic actions', () => {
+    const floor = makeFloor('defeat-all');
+
+    it('heal restores 10% max HP, costs chakra, goes on cooldown', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { hp: 1000, maxHp: 5000, chakra: 100, maxChakra: 100, character: { specialty: 'Ninjutsu', stats: {} } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { character: WEAK })]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'heal' }, makeRng(1)).applied);
+        assert.equal(getActor(s, 'sq-1')!.hp, 1500);
+        assert.equal(getActor(s, 'sq-1')!.chakra, 90);
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'heal' }, makeRng(1)).reason, 'on-cooldown');
+    });
+
+    it('cleanse strips the actor\'s own debuffs but keeps buffs', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { statuses: [{ name: 'Poison', rounds: 2, kind: 'negative' }, { name: 'Increase Damage Given', rounds: 2, kind: 'positive' }], character: { specialty: 'Ninjutsu', stats: {} } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { character: WEAK })]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'cleanse' }, makeRng(1)).applied);
+        const st = getActor(s, 'sq-1')!.statuses;
+        assert.ok(!st.some(x => x.kind === 'negative'), 'debuffs gone');
+        assert.ok(st.some(x => x.name === 'Increase Damage Given'), 'buffs kept');
+    });
+
+    it('clear strips a hostile target\'s buffs', () => {
+        const en = makeActor('en-1', 'enemy', 1, { statuses: [{ name: 'Reflect', rounds: 2, kind: 'positive' }], character: WEAK });
+        const s = makeSession([makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }), en]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'clear', targetId: 'en-1' }, makeRng(1)).applied);
+        assert.ok(!getActor(s, 'en-1')!.statuses.some(x => x.kind === 'positive'), 'enemy buffs cleared');
+    });
+
+    it('dash relocates up to 3 hexes and rejects farther', () => {
+        const s = makeSession([makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }), makeActor('en-1', 'enemy', 30, { character: WEAK })]);
+        startRound(s);
+        assert.ok(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 3 }, makeRng(1)).applied);
+        assert.equal(getActor(s, 'sq-1')!.pos, 3);
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'dash', tile: 60 }, makeRng(1)).reason, 'out-of-range');
+    });
+});
