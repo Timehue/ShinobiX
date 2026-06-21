@@ -54,6 +54,14 @@ const _seal_js_1 = require("./_seal.js");
         node_assert_1.strict.ok(sealed.armorRawDR > 0, 'client armorRawDR sealed');
         node_assert_1.strict.ok(Array.isArray(sealed.pvpItems) && sealed.pvpItems.length === 1, 'client pvpItems sealed');
     });
+    (0, node_test_1.it)('clampTowerLoadout clamps tampered passives + sanitizes pvpItems (present fields only)', () => {
+        const out = (0, _seal_js_1.clampTowerLoadout)({ bloodlineMult: 99, armorRawDR: 9, itemDamagePct: 9999, pvpItems: [{ id: 'x', name: 'X', slot: 'hand', weaponEp: 999999 }] });
+        node_assert_1.strict.equal(out.bloodlineMult, 3);
+        node_assert_1.strict.equal(out.armorRawDR, 1.5);
+        node_assert_1.strict.equal(out.itemDamagePct, 200);
+        node_assert_1.strict.ok(Array.isArray(out.pvpItems));
+        node_assert_1.strict.ok(!('armorFactor' in out), 'absent input fields stay absent (merge-safe)');
+    });
     (0, node_test_1.it)('seals a per-fight consumable budget capped by owned count', () => {
         const charges = (0, _seal_js_1.sealTowerItemCharges)({
             equipment: { thrown: 'shuriken', potion: 'rejuvenation-potion' },
