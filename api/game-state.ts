@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
@@ -67,17 +68,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
 
-            // CDN caches this response for 20s so N players polling every 30s share
-            // one KV hit per cache window instead of N individual hits.
-            // stale-while-revalidate=10 keeps the response snappy while the next fetch runs.
-            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
-            return res.status(200).json({
+            // CDN caches this response for 8s (s-maxage=8) so N players polling every
+            // ~5s share ~one KV hit per cache window instead of N individual hits;
+            // stale-while-revalidate=5 serves the slightly-stale frame for up to 5s
+            // more while the next origin fetch runs. The content-hash ETag lets the
+            // CDN (and origin) skip re-sending an unchanged body via a 304.
+            const payload = {
                 villageStates,
                 arenaTournament: arenaTournament ?? null,
                 arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                 clanPetBattles,
                 weeklyBossAiId: weeklyBossAiId ?? null,
-            });
+            };
+            const etag = `W/"${createHash('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
+            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
+            res.setHeader('ETag', etag);
+            if (req.headers['if-none-match'] === etag) {
+                return res.status(304).end();
+            }
+            return res.status(200).json(payload);
         } catch (err) {
             console.error('[game-state]', err);
             return res.status(500).json({ error: 'Internal server error.' });
