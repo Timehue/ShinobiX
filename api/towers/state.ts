@@ -2,8 +2,9 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, writeSession } from './_tower-store.js';
+import { readSession, writeSession, sessionKey } from './_tower-store.js';
 import { autoPassAfkHumans } from './_tower-mp.js';
+import { withKvLock } from '../_lock.js';
 
 /*
  * GET /api/towers/state?runId=...&playerName=... — reconnect / poll the live session.
@@ -32,8 +33,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!isMember) return res.status(403).json({ error: 'Not a member of this run.' });
 
         // Co-op liveness: a poll auto-passes any AFK player blocking the queue, so a run
-        // never stalls on someone who walked away. Persist if it advanced.
-        if (autoPassAfkHumans(session, Date.now())) await writeSession(session).catch(() => undefined);
+        // never stalls on someone who walked away. The local `session` reflects the pass
+        // for THIS response; do the durable write under the session lock (re-reading fresh)
+        // so it can't clobber a concurrent /action turn write. Only locks when it actually
+        // advances, so ordinary polls stay lock-free.
+        if (autoPassAfkHumans(session, Date.now())) {
+            await withKvLock(sessionKey(runId), async () => {
+                const fresh = await readSession(runId);
+                if (fresh && fresh.status === 'active' && autoPassAfkHumans(fresh, Date.now())) {
+                    await writeSession(fresh);
+                }
+            }).catch(() => undefined);
+        }
 
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ session });
