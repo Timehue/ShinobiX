@@ -50,15 +50,20 @@
 .profile-mobile-tabs,
 .inventory-tabs {
     display: flex;
+    overflow-x: auto;          /* scroll instead of clipping a tab off-screen on narrow viewports */
+    scrollbar-width: none;     /* clean swipeable strip — no visible bar */
     gap: 4px !important;
     background: rgba(0,0,0,0.3) !important;
     border: 1px solid var(--bsv2-gold-faint) !important;
     border-radius: 6px !important;
     padding: 4px !important;
 }
+.profile-mobile-tabs::-webkit-scrollbar,
+.inventory-tabs::-webkit-scrollbar { display: none; }
 .profile-mobile-tabs button,
 .inventory-tabs button {
-    flex: 1;
+    flex: 1 0 auto;            /* fill width on desktop, never shrink below content (no clipping) */
+    white-space: nowrap;
     background: transparent !important;
     border: 1px solid transparent !important;
     color: rgba(196,162,90,0.65) !important;
