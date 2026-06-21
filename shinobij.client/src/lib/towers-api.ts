@@ -164,6 +164,18 @@ export function startTowerRun(hostName: string, floor: number, allies: string[] 
     return postJson('/api/towers/start', { hostName, floor, allies, hostLoadout });
 }
 
+/** Equip the caller's own fighter with their client-computed loadout (pvpItems + passives the
+ *  save doesn't persist) — called on entering a run so a joining ally is fully geared like the
+ *  host. Best-effort: a failure just means fighting without the bonuses, never a hard error. */
+export async function joinTowerRun(runId: string, playerName: string, loadout: TowerHostLoadout): Promise<TowerSession | null> {
+    try {
+        const data = await postJson<{ session?: TowerSession }>('/api/towers/join', { runId, playerName, loadout });
+        return data.session ?? null;
+    } catch {
+        return null;
+    }
+}
+
 /** Submit one action for the human's actor on their turn. */
 export function submitTowerAction(runId: string, playerName: string, action: TowerActionInput): Promise<TowerActionResponse> {
     return postJson('/api/towers/action', { runId, playerName, ...action });

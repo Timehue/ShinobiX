@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.clampTowerLoadout = clampTowerLoadout;
 exports.sealTowerFighter = sealTowerFighter;
 exports.sealTowerItemCharges = sealTowerItemCharges;
 /*
@@ -25,6 +26,38 @@ exports.sealTowerItemCharges = sealTowerItemCharges;
  */
 const session_js_1 = require("../pvp/session.js");
 const SPECIALTIES = ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'];
+function clampN(v, min, max, fb) {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fb;
+}
+/**
+ * Clamp just the client-computed combat extras (pvpItems + equipment passives) a JOINING
+ * squad member supplies — to the SAME bounds hydrateCharacterFromSave uses — so they can be
+ * merged onto an already-sealed actor mid-run (api/towers/join.ts) without touching the
+ * server-authoritative stats / jutsu / vitals / itemCharges. Only present fields are returned.
+ */
+function clampTowerLoadout(loadout) {
+    const out = {};
+    if (loadout.pvpItems !== undefined)
+        out.pvpItems = (0, session_js_1.sanitizePvpItems)(loadout.pvpItems);
+    if (loadout.bloodlineMult !== undefined)
+        out.bloodlineMult = clampN(loadout.bloodlineMult, 1, 3, 1);
+    if (loadout.armorFactor !== undefined)
+        out.armorFactor = clampN(loadout.armorFactor, 0.25, 1, 1);
+    if (loadout.armorRawDR !== undefined)
+        out.armorRawDR = clampN(loadout.armorRawDR, 0, 1.5, 0);
+    if (loadout.itemDamagePct !== undefined)
+        out.itemDamagePct = clampN(loadout.itemDamagePct, 0, 200, 0);
+    if (loadout.itemAbsorbPct !== undefined)
+        out.itemAbsorbPct = clampN(loadout.itemAbsorbPct, 0, 100, 0);
+    if (loadout.itemReflectPct !== undefined)
+        out.itemReflectPct = clampN(loadout.itemReflectPct, 0, 100, 0);
+    if (loadout.itemLifeStealPct !== undefined)
+        out.itemLifeStealPct = clampN(loadout.itemLifeStealPct, 0, 100, 0);
+    if (loadout.itemShield !== undefined)
+        out.itemShield = clampN(loadout.itemShield, 0, 5000, 0);
+    return out;
+}
 /**
  * Seal a stored save into a combat-safe tower fighter character.
  * @param saveChar the save's `.character` object (stats / equippedJutsuIds / equipment / …)
