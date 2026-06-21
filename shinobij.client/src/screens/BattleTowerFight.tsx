@@ -84,11 +84,13 @@ const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> 
 
 export function BattleTowerFight({
     character,
+    sharedImages,
     runId,
     initialSession,
     onExit,
 }: {
     character: Character;
+    sharedImages?: Record<string, string>;
     runId: string;
     initialSession: TowerSession;
     onExit: () => void;
@@ -259,6 +261,17 @@ export function BattleTowerFight({
     }
 
     const myJutsu: JutsuLike[] = Array.isArray(myActor?.character?.jutsu) ? (myActor!.character.jutsu as JutsuLike[]) : [];
+    // Painted card art — same source as the main combat UI (jutsu.image, else the shared
+    // image cache keyed by `jutsu:<id>` / `item:<id>`).
+    const jutsuArt = (j: JutsuLike) => (typeof (j as { image?: string }).image === "string" && (j as { image?: string }).image) || sharedImages?.[`jutsu:${j.id}`] || "";
+    const itemArt = (it: ItemLike) => sharedImages?.[`item:${it.id}`] || "";
+    // Clicking a jutsu card arms it (then click a foe on the board); a SELF jutsu fires at once.
+    function armJutsuCard(j: JutsuLike) {
+        if (busy) return;
+        if (j.target === "SELF" && myActor) { void send({ type: "jutsu", jutsuId: j.id!, targetId: myActor.id }); return; }
+        setSelJutsu(prev => prev?.id === j.id ? null : j);
+        setMode(prev => (prev === "jutsu" && selJutsu?.id === j.id) ? "idle" : "jutsu");
+    }
     const objective = session.objectiveState.kind;
     // The squad rail also lists protect-target npcs (allies) so the player can watch
     // the genin's HP on a protect floor.
@@ -395,60 +408,92 @@ export function BattleTowerFight({
                         </div>
                     </div>
 
-                    {/* Action bar */}
-                    <div style={{ marginTop: 8, minHeight: 62 }}>
-                        {myTurn ? (
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "8px 10px", borderRadius: 10, background: "linear-gradient(180deg, rgba(15,23,42,0.88), rgba(10,16,30,0.92))", border: "1px solid #334155" }}>
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, background: "#0b1220", border: "1px solid #334155" }}>
-                                    <strong style={{ color: "#facc15", fontSize: "1.05rem", lineHeight: 1 }}>{session.activeAp}</strong>
-                                    <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>AP</span>
-                                    <span style={{ color: "#475569" }}>·</span>
-                                    <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>{session.actionsThisTurn}/5 acts</span>
-                                    <span style={{ color: "#475569" }}>·</span>
-                                    <span title="Chakra" style={{ color: "#38bdf8", fontSize: "0.72rem", fontWeight: 700 }}>◆ {myChakra}</span>
-                                    <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.72rem", fontWeight: 700 }}>⬢ {myStamina}</span>
-                                </span>
-                                <ActBtn label="🏃 Move" sub="30 AP" on={mode === "move"} onClick={() => setMode(m => m === "move" ? "idle" : "move")} disabled={busy} />
-                                <ActBtn label="⚔️ Attack" sub="40 AP" on={mode === "attack"} onClick={() => setMode(m => m === "attack" ? "idle" : "attack")} disabled={busy} />
-                                {myWeapon && (
-                                    <ActBtn label={`🗡 ${myWeapon.name ?? "Weapon"}`} sub={`${myWeapon.apCost ?? 40} AP${weaponThrown ? ` ·×${weaponLeft}` : ""}`}
-                                        on={mode === "weapon"} onClick={() => setMode(m => m === "weapon" ? "idle" : "weapon")}
-                                        disabled={busy || (weaponThrown && weaponLeft <= 0)} />
-                                )}
-                                {myPotion && (
-                                    <ActBtn label={`🧪 ${myPotion.name ?? "Potion"}`} sub={`${myPotion.apCost ?? 35} AP ·×${potionLeft}`}
-                                        on={false} onClick={() => void send({ type: "item", itemId: myPotion.id })}
-                                        disabled={busy || potionLeft <= 0} />
-                                )}
-                                {myJutsu.length > 0 && (
-                                    <select value={selJutsu?.id ?? ""} disabled={busy}
-                                        onChange={e => {
-                                            const j = myJutsu.find(x => x.id === e.target.value) ?? null;
-                                            // Self-target jutsu (heals/buffs) cast on the caster immediately — no foe to pick.
-                                            if (j && j.target === "SELF" && myActor) { void send({ type: "jutsu", jutsuId: j.id!, targetId: myActor.id }); return; }
-                                            setSelJutsu(j); setMode(j ? "jutsu" : "idle");
-                                        }}
-                                        style={{ padding: "0.5rem", borderRadius: 8, background: mode === "jutsu" ? "#15233b" : "#0b1220", color: "#e2e8f0", border: `1px solid ${mode === "jutsu" ? "#60a5fa" : "#334155"}`, fontWeight: 700 }}>
-                                        <option value="">✨ Jutsu…</option>
-                                        {myJutsu.map(j => {
-                                            const ck = Number(j.chakraCost ?? 0), st = Number(j.staminaCost ?? 0);
-                                            const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
-                                            const afford = myChakra >= ck && myStamina >= st && cd <= 0;
-                                            return <option key={j.id} value={j.id} disabled={!afford}>
-                                                {j.name ?? j.id} · {j.ap ?? 40}AP{ck ? ` · ${ck}◆` : ""}{cd > 0 ? ` · CD${cd}` : ""}
-                                            </option>;
-                                        })}
-                                    </select>
-                                )}
-                                <span style={{ flex: 1, minWidth: 4 }} />
-                                {reject && <span style={{ color: "#f87171", fontSize: "0.78rem" }}>⚠ {reject}</span>}
-                                <button onClick={() => void send({ type: "wait" })} disabled={busy}
-                                    style={{ padding: "0.55rem 1.1rem", borderRadius: 8, fontWeight: 800, cursor: busy ? "default" : "pointer", color: "#dbeafe", background: "linear-gradient(180deg,#1e3a8a,#172554)", border: "1px solid #60a5fa", opacity: busy ? 0.6 : 1 }}>
-                                    End turn ▶
-                                </button>
+                    {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
+                    <div style={{ marginTop: 8 }}>
+                        {/* AP / chakra / stamina readout + turn status */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#0b1220", border: "1px solid #334155" }}>
+                                <strong style={{ color: "#facc15", fontSize: "1rem", lineHeight: 1 }}>{session.activeAp}</strong>
+                                <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>AP</span>
+                                <span style={{ color: "#475569" }}>·</span>
+                                <span style={{ color: "#94a3b8", fontSize: "0.68rem" }}>{session.actionsThisTurn}/5</span>
+                                <span style={{ color: "#475569" }}>·</span>
+                                <span title="Chakra" style={{ color: "#38bdf8", fontSize: "0.7rem", fontWeight: 700 }}>◆ {myChakra}</span>
+                                <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.7rem", fontWeight: 700 }}>⬢ {myStamina}</span>
+                            </span>
+                            {reject && <span style={{ color: "#f87171", fontSize: "0.78rem" }}>⚠ {reject}</span>}
+                            {!myTurn && session.status === "active" && (
+                                <span className="hint" style={{ fontSize: "0.78rem", color: "#94a3b8", margin: 0 }}>{turnLabel || "Allies & enemies are acting…"}{afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}</span>
+                            )}
+                        </div>
+
+                        {/* Command bar */}
+                        <div className="basic-action-bar shinobi-command-bar" style={myTurn ? undefined : { opacity: 0.5, pointerEvents: "none" }}>
+                            <button className={mode === "attack" ? "selected-action" : ""}
+                                onClick={() => setMode(m => m === "attack" ? "idle" : "attack")}
+                                disabled={busy || session.activeAp < 40}>
+                                <span>Attack</span><small>40 AP | R1</small>
+                            </button>
+                            <button className={mode === "move" ? "selected-action" : ""}
+                                onClick={() => setMode(m => m === "move" ? "idle" : "move")}
+                                disabled={busy || session.activeAp < 30}>
+                                <span>Move</span><small>30 AP / tile</small>
+                            </button>
+                            <button onClick={() => void send({ type: "wait" })} disabled={busy}>
+                                <span>End Turn</span><small>Pass</small>
+                            </button>
+                        </div>
+
+                        {/* Jutsu / weapon / consumable cards */}
+                        {(myJutsu.length > 0 || myWeapon || myPotion) && (
+                            <div className="jutsu-layout-card combat-jutsu-bar" style={{ marginTop: 8 }}>
+                                <div className="combat-equipped-jutsu-grid" style={myTurn ? undefined : { opacity: 0.5, pointerEvents: "none" }}>
+                                    {myJutsu.map(j => {
+                                        const ck = Number(j.chakraCost ?? 0), st = Number(j.staminaCost ?? 0);
+                                        const cd = Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0);
+                                        const armed = mode === "jutsu" && selJutsu?.id === j.id;
+                                        const afford = session.activeAp >= Number(j.ap ?? 40) && myChakra >= ck && myStamina >= st && cd <= 0;
+                                        const art = jutsuArt(j);
+                                        return (
+                                            <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}`}>
+                                                <button type="button"
+                                                    className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
+                                                    title={`${j.name ?? j.id} | ${j.ap ?? 40} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
+                                                    onClick={() => armJutsuCard(j)} disabled={busy || !afford}>
+                                                    <span className="combat-jutsu-thumb">{art ? <img src={art} alt={j.name ?? ""} /> : <strong>✨</strong>}</span>
+                                                    <span className="combat-jutsu-name">{j.name ?? j.id}</span>
+                                                    <span className="combat-jutsu-info">{j.ap ?? 40} AP | R{j.range ?? 1} | CD {cd}</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    {myWeapon && (
+                                        <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${mode === "weapon" ? " selected-action" : ""}`}>
+                                            <button type="button"
+                                                className={`combat-jutsu-button combat-item-button${mode === "weapon" ? " selected-action" : ""}`}
+                                                title={`${myWeapon.name ?? "Weapon"} | ${myWeapon.apCost ?? 40} AP | R${weaponRange}`}
+                                                onClick={() => setMode(m => m === "weapon" ? "idle" : "weapon")}
+                                                disabled={busy || (weaponThrown && weaponLeft <= 0) || session.activeAp < (myWeapon.apCost ?? 40)}>
+                                                <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(myWeapon) ? <img src={itemArt(myWeapon)} alt={myWeapon.name ?? ""} /> : <strong>🗡</strong>}</span>
+                                                <span className="combat-jutsu-name">{myWeapon.name ?? "Weapon"}</span>
+                                                <span className="combat-jutsu-info">{myWeapon.apCost ?? 40} AP | R{weaponRange}{weaponThrown ? ` | ×${weaponLeft}` : ""}</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                    {myPotion && (
+                                        <div className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
+                                            <button type="button" className="combat-jutsu-button combat-item-button"
+                                                title={`${myPotion.name ?? "Potion"} | ${myPotion.apCost ?? 35} AP | Use`}
+                                                onClick={() => void send({ type: "item", itemId: myPotion.id })}
+                                                disabled={busy || potionLeft <= 0 || session.activeAp < (myPotion.apCost ?? 35)}>
+                                                <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(myPotion) ? <img src={itemArt(myPotion)} alt={myPotion.name ?? ""} /> : <strong>🧪</strong>}</span>
+                                                <span className="combat-jutsu-name">{myPotion.name ?? "Potion"}</span>
+                                                <span className="combat-jutsu-info">{myPotion.apCost ?? 35} AP | Use ×{potionLeft}</span>
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        ) : (
-                            <p className="hint" style={{ margin: 0, padding: "10px 12px", borderRadius: 10, background: "rgba(15,23,42,0.7)", border: "1px solid #1e293b" }}>{session.status === "active" ? `${turnLabel || "Allies & enemies are acting…"}${afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}` : ""}</p>
                         )}
                     </div>
                 </main>
@@ -580,22 +625,6 @@ function MiniBar({ val, max, color }: { val: number; max: number; color: string 
         <div style={{ flex: 1, height: 3, background: "#0b1220", borderRadius: 2, overflow: "hidden" }}>
             <div style={{ width: `${pct}%`, height: "100%", background: color }} />
         </div>
-    );
-}
-
-function ActBtn({ label, sub, on, onClick, disabled }: { label: string; sub?: string; on: boolean; onClick: () => void; disabled: boolean }) {
-    return (
-        <button onClick={onClick} disabled={disabled}
-            style={{
-                display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 70,
-                padding: "0.4rem 0.8rem", borderRadius: 8, fontWeight: 700, cursor: disabled ? "default" : "pointer",
-                border: `1px solid ${on ? "#60a5fa" : "#334155"}`, color: "#e2e8f0", opacity: disabled ? 0.6 : 1,
-                background: on ? "linear-gradient(180deg,#1d3a6b,#15233b)" : "linear-gradient(180deg,#131c2e,#0b1220)",
-                boxShadow: on ? "0 0 10px rgba(96,165,250,0.4)" : undefined,
-            }}>
-            <span>{label}</span>
-            {sub && <small style={{ color: "#94a3b8", fontSize: "0.64rem", fontWeight: 600 }}>{sub}</small>}
-        </button>
     );
 }
 
