@@ -14,6 +14,8 @@ import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { masteryHasCapstone } from "../lib/profession-mastery";
+import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
+import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
@@ -4164,19 +4166,7 @@ export function Arena({
                         {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
 
                         <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
-
-                        <h3>🐾 Ranked Pet Battles (1v1)</h3>
-                        <p>Pet Rating: <strong>{character.petRankedRating ?? 1000}</strong> Elo | Wins {character.petRankedWins ?? 0} | Losses {character.petRankedLosses ?? 0}</p>
-                        <p className="hint">Queues you against another player's pet of similar rating. Outcome is decided by a shared deterministic simulation, so both sides agree on the winner.</p>
-                        <p>Pets in queue: <strong>{petRankedQueueSize}</strong></p>
-                        <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
-                            {petRankedQueueActive ? (
-                                <button className="danger-button" onClick={leavePetRankedQueue}>Leave Pet Queue</button>
-                            ) : (
-                                <button onClick={joinPetRankedQueue}>Queue Up for Ranked Pet</button>
-                            )}
-                        </div>
-                        {petRankedQueueActive && <p className="hint">Searching for a pet opponent...</p>}
+                        <p className="hint">🐾 Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Coliseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
                     </section>
                 )}
 
@@ -4268,36 +4258,26 @@ export function Arena({
 
                 {activeArenaTab === "petBattles" && (
                     <section className="summary-box">
-                        <h3>Pet Battles</h3>
-                        <p className="hint">Search players with pets, send a pet battle challenge, or open the pet arena directly.</p>
-                        <label>Search Player Name</label>
-                        <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                        {petChallengeSearch.trim() && (
-                            <div className="jutsu-list">
-                                {petChallengeOpponents.length === 0 ? (
-                                    <>
-                                        <p className="hint">No roster match. Send a pet challenge directly.</p>
-                                        <button onClick={() => {
-                                            const name = petChallengeSearch.trim();
-                                            if (!name || name === character.name) return;
-                                            const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                            challengePlayer(stub, "clanWarPet", 25);
-                                        }}>Challenge "{petChallengeSearch.trim()}" to a Pet Battle</button>
-                                    </>
-                                ) : petChallengeOpponents.map((player) => (
-                                    <div className="summary-box" key={`pet-challenge-${player.name}`}>
-                                        <strong>{player.name}</strong>
-                                        <p>Level {player.level} | Pets {player.character.pets.length}</p>
-                                        <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Send Pet Challenge</button>
+                        <h3>🐾 Pet Battles</h3>
+                        <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you — or jump into the casual pet arena.</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
+                            {[
+                                { mode: "coliseum" as const, img: coliseumLadderImg, emoji: "🏆", title: "Pet Coliseum", sub: "1v1 ranked ladder" },
+                                { mode: "tactical" as const, img: tacticalLadderImg, emoji: "🛡", title: "Pet Tactical", sub: "4v4 ranked ladder" },
+                            ].map((c) => (
+                                <button key={c.mode} type="button"
+                                    onClick={() => { sessionStorage.setItem("petLadder.mode", c.mode); setScreen("petLadder"); }}
+                                    style={{ position: "relative", padding: 0, border: "1px solid rgba(244,196,81,.3)", borderRadius: 14, overflow: "hidden", cursor: "pointer", textAlign: "left", height: 132, background: "#11141f" }}>
+                                    <img src={c.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .85 }} />
+                                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(8,10,18,.05), rgba(8,10,18,.85))" }} />
+                                    <div style={{ position: "absolute", left: 14, right: 14, bottom: 12 }}>
+                                        <div style={{ fontSize: 19, fontWeight: 800, color: "#f7d98a", textShadow: "0 2px 8px #000" }}>{c.emoji} {c.title}</div>
+                                        <div style={{ fontSize: 12.5, color: "rgba(231,237,247,.9)", textShadow: "0 1px 5px #000" }}>{c.sub} · climb the global rankings</div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                        <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
-                        <div className="menu" style={{ marginTop: 8 }}>
-                            <button onClick={() => { sessionStorage.setItem("petLadder.mode", "coliseum"); setScreen("petLadder"); }}>🏆 Pet Coliseum — Ranked Ladder</button>
-                            <button onClick={() => { sessionStorage.setItem("petLadder.mode", "tactical"); setScreen("petLadder"); }}>🛡 Pet Tactical — Ranked Ladder (4v4)</button>
+                                </button>
+                            ))}
                         </div>
+                        <button onClick={() => setScreen("petArena")}>🎮 Open Casual Pet Arena</button>
                     </section>
                 )}
             </div>
