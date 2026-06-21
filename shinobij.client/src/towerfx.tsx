@@ -43,20 +43,22 @@ const session: TowerSession = {
             hp: 8200, maxHp: 10000, chakra: 220, maxChakra: 300, stamina: 180, maxStamina: 250,
             shield: 0, statuses: [{ name: "Increase Damage Given", rounds: 2, kind: "positive", percent: 30 }], pos: 123,
             cooldowns: { "raiton-spear": 1 },
-            itemCharges: { "kunai": 3, "rejuvenation-potion": 2 },
+            itemCharges: { "kunai": 3, "rejuvenation-potion": 2, "smoke-bomb": 1 },
             character: {
                 specialty: "Ninjutsu", stats: {},
                 jutsu: [
-                    { id: "fireball", name: "Great Fireball", element: "Fire", type: "Ninjutsu", ap: 60, range: 2, effectPower: 60, chakraCost: 100, staminaCost: 30 },
+                    { id: "fireball", name: "Great Fireball", element: "Fire", type: "Ninjutsu", ap: 60, range: 2, effectPower: 60, chakraCost: 100, staminaCost: 30, method: "AOE_CIRCLE" },
                     { id: "raiton-spear", name: "Lightning Spear", element: "Lightning", type: "Ninjutsu", ap: 60, range: 3, effectPower: 70, chakraCost: 120, staminaCost: 40, cooldown: 2 },
                     { id: "venom-fang", name: "Venom Fang", element: "Earth", type: "Ninjutsu", ap: 60, range: 2, effectPower: 45, chakraCost: 80, staminaCost: 20, tags: [{ name: "Poison", percent: 12 }] },
                     { id: "inner-focus", name: "Inner Focus", type: "Ninjutsu", ap: 40, range: 0, target: "SELF", chakraCost: 40, tags: [{ name: "Heal" }, { name: "Decrease Damage Taken", percent: 25 }] },
                 ],
                 pvpItems: [
+                    { id: "katana", name: "Katana", slot: "hand", weaponEp: 35, weaponRange: 1, apCost: 40 },
                     { id: "kunai", name: "Kunai", slot: "thrown", weaponEp: 20, weaponRange: 4, apCost: 40 },
                     { id: "rejuvenation-potion", name: "Rejuv. Potion", slot: "potion", restoreChakra: 80, restoreStamina: 60, apCost: 35 },
+                    { id: "smoke-bomb", name: "Smoke Bomb", slot: "item", weaponEffect: "Decrease Damage Taken", weaponEffectValue: 25, apCost: 35 },
                 ],
-                equipment: { thrown: "kunai", potion: "rejuvenation-potion" },
+                equipment: { hand: "katana", thrown: "kunai", potion: "rejuvenation-potion", item: "smoke-bomb" },
             },
         },
         // Formation: grunts in two ranks (cols 16-18), boss anchoring the back (col 19).
