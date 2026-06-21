@@ -144,7 +144,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
 
             {err && <div className="pl-err">⚠ {err}</div>}
 
-            {/* Your standing */}
+            {/* Your standing (full width) */}
             <div className="pl-panel pl-standing">
                 <div className="pl-rank-big">
                     <div className="pl-rank-num">{you?.rank ? `#${you.rank}` : "—"}</div>
@@ -181,46 +181,73 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 </div>
             )}
 
-            {/* Set defense */}
-            <div className="pl-panel">
-                <h3 className="pl-h">🛡 Your defense{mode === "tactical" ? " team" : ""}</h3>
-                <p className="pl-sub">
-                    {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline." : "Pick the pet that defends your rank while you're away."} Stats &amp; PvP items count.
-                </p>
-                {available.length < teamSize
-                    ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (none on expeditions) to set a defense.</div>
-                    : <>
-                        <div className="pet-pick-grid">
-                            {available.map((pet) => {
-                                const sel = picks.includes(pet.id);
-                                const order = picks.indexOf(pet.id);
-                                const { role } = pet.role ? { role: pet.role } : derivePetRole(pet);
-                                const rm = ROLE_META[role];
-                                const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
-                                const gear = gearLabel(pet);
-                                return (
-                                    <button key={pet.id} type="button" className={`pet-pick${sel ? " selected" : ""}`} onClick={() => togglePick(pet.id)} title={gear ?? petDisplayName(pet)}>
-                                        {sel && teamSize > 1 && <span className="pet-pick-order">{order + 1}</span>}
-                                        {img ? <img className="pet-pick-img" src={img} alt="" /> : <div className="pet-pick-img placeholder" />}
-                                        <span className="pet-pick-name">{petDisplayName(pet)}</span>
-                                        {rm && <span className="pet-pick-role" style={{ color: rm.color }}>{rm.label}</span>}
-                                        <span className="pet-pick-meta">Lv {pet.level} · {pet.hp}hp {pet.attack}atk{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</span>
-                                        {gear && <span style={{ fontSize: 10, color: "#ffd86b", display: "block", marginTop: 2 }}>⚙ {gear}</span>}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <button className="pl-btn pl-btn-gold" style={{ marginTop: 12 }} onClick={saveDefense} disabled={busy || picks.length !== teamSize}>
-                            {you?.hasDefense ? "Update defense" : "Set defense"} ({picks.length}/{teamSize})
-                        </button>
-                    </>}
-            </div>
+            {/* Two columns: defense + challenge (left) | the ladder (right) */}
+            <div className="pl-cols">
+                <div>
+                    {/* Set defense */}
+                    <div className="pl-panel">
+                        <h3 className="pl-h">🛡 Your defense{mode === "tactical" ? " team" : ""}</h3>
+                        <p className="pl-sub">
+                            {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline." : "Pick the pet that defends your rank while you're away."} Stats &amp; PvP items count.
+                        </p>
+                        {available.length < teamSize
+                            ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (none on expeditions) to set a defense.</div>
+                            : <>
+                                <div className="pl-pet-grid">
+                                    {available.map((pet) => {
+                                        const sel = picks.includes(pet.id);
+                                        const order = picks.indexOf(pet.id);
+                                        const { role } = pet.role ? { role: pet.role } : derivePetRole(pet);
+                                        const rm = ROLE_META[role];
+                                        const img = pet.image || sharedImages[`pet:${pet.id}`] || "";
+                                        const gear = gearLabel(pet);
+                                        return (
+                                            <button key={pet.id} type="button" className={`pl-pet${sel ? " sel" : ""}`} onClick={() => togglePick(pet.id)} title={gear ?? petDisplayName(pet)}>
+                                                {sel && teamSize > 1 && <span className="pl-pet-order">{order + 1}</span>}
+                                                {sel && teamSize === 1 && <span className="pl-pet-check">✓</span>}
+                                                {img ? <img className="pl-pet-img" src={img} alt="" /> : <div className="pl-pet-img" />}
+                                                <div className="pl-pet-body">
+                                                    <div className="pl-pet-name">{petDisplayName(pet)}</div>
+                                                    {rm && <div className="pl-pet-role" style={{ color: rm.color }}>{rm.label}</div>}
+                                                    <div className="pl-pet-stat">Lv {pet.level} · {pet.hp}hp · {pet.attack}atk{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</div>
+                                                    {gear && <div className="pl-pet-gear">⚙ {gear}</div>}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button className="pl-btn pl-btn-gold" style={{ marginTop: 12 }} onClick={saveDefense} disabled={busy || picks.length !== teamSize}>
+                                    {you?.hasDefense ? "Update defense" : "Set defense"} ({picks.length}/{teamSize})
+                                </button>
+                            </>}
+                    </div>
 
-            {/* Challenge */}
-            <div className="pl-panel">
-                <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}>⚔ Challenge for rank</button>
-                {!you?.hasDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Set a defense first to enter the ladder.</p>}
-                {you?.hasDefense && (you?.challengesLeft ?? 0) <= 0 && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>You're out of challenges today — back tomorrow.</p>}
+                    {/* Challenge */}
+                    <div className="pl-panel">
+                        <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}>⚔ Challenge for rank</button>
+                        {!you?.hasDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Set a defense first to enter the ladder.</p>}
+                        {you?.hasDefense && (you?.challengesLeft ?? 0) <= 0 && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>You're out of challenges today — back tomorrow.</p>}
+                    </div>
+                </div>
+
+                {/* Ladder list */}
+                <div className="pl-panel">
+                    <h3 className="pl-h">🪜 The ladder{view ? ` · ${view.total} ranked` : ""}</h3>
+                    {!view ? <div className="pl-empty">Loading…</div>
+                        : view.ladder.length === 0 ? <div className="pl-empty">No one is ranked yet — set a defense and beat the AI to claim the first rung!</div>
+                            : <div className="pl-list">
+                                {view.ladder.map((e) => (
+                                    <div key={e.slug} className={`pl-row${e.slug === character.name ? " is-you" : ""}`}>
+                                        <RankBadge rank={e.rank} />
+                                        <div className="pl-row-main">
+                                            <div className="pl-row-name">{e.name}{e.village ? <span className="pl-row-vil"> · {e.village}</span> : null}</div>
+                                            {summaryChips(e.summary)}
+                                        </div>
+                                        <div className="pl-row-rec">{e.record.wins}W {e.record.losses}L<br />🛡 {e.record.defended}</div>
+                                    </div>
+                                ))}
+                            </div>}
+                </div>
             </div>
 
             {offer && (
@@ -244,25 +271,6 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                     </div>
                 </div>
             )}
-
-            {/* Ladder list */}
-            <div className="pl-panel">
-                <h3 className="pl-h">🪜 The ladder{view ? ` · ${view.total} ranked` : ""}</h3>
-                {!view ? <div className="pl-empty">Loading…</div>
-                    : view.ladder.length === 0 ? <div className="pl-empty">No one is ranked yet — set a defense and beat the AI to claim the first rung!</div>
-                        : <div className="pl-list">
-                            {view.ladder.map((e) => (
-                                <div key={e.slug} className={`pl-row${e.slug === character.name ? " is-you" : ""}`}>
-                                    <RankBadge rank={e.rank} />
-                                    <div className="pl-row-main">
-                                        <div className="pl-row-name">{e.name}{e.village ? <span className="pl-row-vil"> · {e.village}</span> : null}</div>
-                                        {summaryChips(e.summary)}
-                                    </div>
-                                    <div className="pl-row-rec">{e.record.wins}W {e.record.losses}L<br />🛡 {e.record.defended}</div>
-                                </div>
-                            ))}
-                        </div>}
-            </div>
         </div>
     );
 }
