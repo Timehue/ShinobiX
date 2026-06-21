@@ -131,6 +131,7 @@ import petBattleResultHandler from './api/pet/battle-result.js';
 import petRankedStartHandler from './api/pet/ranked-start.js';
 import petEvolveHandler from './api/pet/evolve.js';
 import arenaLobbyHandler from './api/arena/lobby.js';
+import petLadderHandler from './api/pet-ladder/ladder.js';
 // Jutsu
 import jutsuSpeedupHandler       from './api/jutsu/speedup.js';
 import jutsuTrainWithSealsHandler from './api/jutsu/train-with-seals.js';
@@ -632,6 +633,9 @@ route('/pet/evolve',        petEvolveHandler);
 
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', arenaLobbyHandler);
+
+// ─── Global Pet Ladders (Coliseum 1v1 + Tactical 4v4, offline defense) ───────────
+route('/pet-ladder', petLadderHandler);
 
 // ─── Jutsu training ────────────────────────────────────────────────────────────
 route('/jutsu/speedup',         jutsuSpeedupHandler);

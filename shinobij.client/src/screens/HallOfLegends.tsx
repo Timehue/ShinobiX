@@ -57,6 +57,18 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         lastSeason: { id: number; endedAt: number; player: SeasonArchiveRow[]; pet: SeasonArchiveRow[] } | null;
     };
     const [season, setSeason] = useState<SeasonInfo | null>(null);
+    // Global Pet Ladder Top-10 boards (Coliseum 1v1 + Tactical 4v4 positional ladders).
+    type PetLadderRow = { rank: number; name: string; village?: string; record: { wins: number; losses: number; defended: number; defeated: number } };
+    const [petLadders, setPetLadders] = useState<{ coliseum: PetLadderRow[]; tactical: PetLadderRow[] } | null>(null);
+    useEffect(() => {
+        if (tab !== "ranked") return;
+        let alive = true;
+        const grab = (mode: string) => fetch(`/api/pet-ladder?mode=${mode}&top=10`).then(r => r.ok ? r.json() : { ladder: [] }).catch(() => ({ ladder: [] }));
+        Promise.all([grab("coliseum"), grab("tactical")]).then(([c, t]) => {
+            if (alive) setPetLadders({ coliseum: (c.ladder ?? []) as PetLadderRow[], tactical: (t.ladder ?? []) as PetLadderRow[] });
+        });
+        return () => { alive = false; };
+    }, [tab]);
     useEffect(() => {
         if (tab !== "ranked") return;
         let alive = true;
@@ -205,6 +217,14 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
                             <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} />
                         ))}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🏆 Pet Coliseum Ladder — Top 10</p>
+                        {petLadders?.coliseum.length
+                            ? petLadders.coliseum.map((e) => <Row key={`plc-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
+                            : <p className="hol-empty">No challengers ranked yet.</p>}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🛡 Pet Tactical Ladder — Top 10</p>
+                        {petLadders?.tactical.length
+                            ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
+                            : <p className="hol-empty">No squads ranked yet.</p>}
                         {season?.lastSeason && (() => {
                             const champs = [
                                 season.lastSeason.player[0] ? { ...season.lastSeason.player[0], mode: "PvP" } : null,
