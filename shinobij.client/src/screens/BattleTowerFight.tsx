@@ -40,7 +40,7 @@ import wardSprite from "../assets/towers/pylons/ward.webp";
 // units render larger; pylon/ward/hazard tiles are drawn so the tactical layer is
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
 
-type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon";
+type Mode = "idle" | "move" | "dash" | "attack" | "jutsu" | "weapon" | "clear";
 type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number };
 type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number };
 
@@ -189,6 +189,9 @@ export function BattleTowerFight({
     const { weapons: myWeapons, consumables: myConsumables } = loadout;
     const myChakra = myActor?.chakra ?? 0;
     const myStamina = myActor?.stamina ?? 0;
+    const healCd = Number(myActor?.cooldowns?.basicHeal ?? 0);
+    const clearCd = Number(myActor?.cooldowns?.clear ?? 0);
+    const cleanseCd = Number(myActor?.cooldowns?.cleanse ?? 0);
     // The weapon currently armed for targeting (when in weapon mode).
     const armedWeapon = mode === "weapon" ? myWeapons.find(w => w.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
@@ -198,7 +201,8 @@ export function BattleTowerFight({
     const enemiesInRange = useMemo(() => {
         if (!myActor) return new Set<string>();
         const out = new Set<string>();
-        const range = mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
+        // Clear has no range (strips buffs from any foe); jutsu/weapon use their reach; else melee.
+        const range = mode === "clear" ? Infinity : mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== "enemy") continue;
             if (towerHexDistance(myPos, a.pos, w) <= range) out.add(a.id);
@@ -211,6 +215,14 @@ export function BattleTowerFight({
         const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
         const blocked = new Set(session.map.blockedTiles);
         return new Set(towerNeighbors(myPos, w, h).filter(t => !occupied.has(t) && !blocked.has(t)));
+    }, [mode, myActor, session.actors, session.map.blockedTiles, myPos, w, h]);
+
+    // Dash: any open, unoccupied tile within 3 hexes.
+    const dashTiles = useMemo(() => {
+        if (mode !== "dash" || !myActor) return new Set<number>();
+        const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
+        const blocked = new Set(session.map.blockedTiles);
+        return new Set([...towerTilesInRange(myPos, 3, w, h)].filter(t => t !== myPos && !occupied.has(t) && !blocked.has(t)));
     }, [mode, myActor, session.actors, session.map.blockedTiles, myPos, w, h]);
 
     // Reach highlight for a ranged action: jutsu range, or the equipped weapon's range.
@@ -246,6 +258,7 @@ export function BattleTowerFight({
     function onTileClick(tile: number) {
         if (!myTurn || busy) return;
         if (mode === "move" && moveTiles.has(tile)) { void send({ type: "move", tile }); return; }
+        if (mode === "dash" && dashTiles.has(tile)) { void send({ type: "dash", tile }); return; }
         // Ground-target jutsu → place the zone on a non-blocked tile in range (occupied or not).
         if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && jutsuRangeTiles.has(tile) && !session.map.blockedTiles.includes(tile)) {
             void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
@@ -254,6 +267,7 @@ export function BattleTowerFight({
         if (occ && occ.side === "enemy" && enemiesInRange.has(occ.id)) {
             if (mode === "attack") void send({ type: "attack", targetId: occ.id });
             else if (mode === "weapon" && selWeaponId) void send({ type: "weapon", targetId: occ.id, itemId: selWeaponId });
+            else if (mode === "clear") void send({ type: "clear", targetId: occ.id });
             else if (mode === "jutsu" && selJutsu?.id) void send({ type: "jutsu", jutsuId: selJutsu.id, targetId: occ.id });
         }
     }
@@ -305,8 +319,10 @@ export function BattleTowerFight({
     // What to do with the currently-armed action (esp. ground jutsu, which need a tile).
     const targetingHint = !myTurn ? "" :
         mode === "move" ? "Click an adjacent tile to move." :
+        mode === "dash" ? "Click a highlighted tile to dash (up to 3 hexes)." :
         mode === "attack" ? "Click an enemy in range to attack." :
         mode === "weapon" ? "Click an enemy in range." :
+        mode === "clear" ? "Click any enemy to strip its buffs." :
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 
@@ -359,7 +375,7 @@ export function BattleTowerFight({
                                 {/* hex tiles */}
                                 {Array.from({ length: w * h }, (_, pos) => {
                                     const { left, top } = towerHexPixel(pos, w);
-                                    const isMove = moveTiles.has(pos);
+                                    const isMove = moveTiles.has(pos) || dashTiles.has(pos);
                                     const inJ = (mode === "jutsu" || mode === "weapon") && jutsuRangeTiles.has(pos);
                                     const isGoal = session.map.objectiveTiles.includes(pos);
                                     const isBlocked = session.map.blockedTiles.includes(pos);
@@ -416,7 +432,7 @@ export function BattleTowerFight({
                                     const ox = left + HEX_W / 2 - size / 2;
                                     const oy = top + HEX_H * 0.85 - size;
                                     const row = Math.floor(a.pos / w);
-                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || (mode === "jutsu" && !!selJutsu));
+                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !!selJutsu));
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "#facc15" : "#fb7185";
@@ -483,6 +499,24 @@ export function BattleTowerFight({
                                 onClick={() => setMode(m => m === "move" ? "idle" : "move")}
                                 disabled={busy || session.activeAp < 30}>
                                 <span>Move</span><small>30 AP / tile</small>
+                            </button>
+                            <button className={mode === "dash" ? "selected-action" : ""}
+                                onClick={() => setMode(m => m === "dash" ? "idle" : "dash")}
+                                disabled={busy || session.activeAp < 30}>
+                                <span>Dash</span><small>3 tiles | 30 AP</small>
+                            </button>
+                            <button onClick={() => void send({ type: "heal" })}
+                                disabled={busy || healCd > 0 || myChakra < 10 || session.activeAp < 60}>
+                                <span>Heal</span><small>60 AP | 10◆ | CD {healCd}</small>
+                            </button>
+                            <button className={mode === "clear" ? "selected-action" : ""}
+                                onClick={() => setMode(m => m === "clear" ? "idle" : "clear")}
+                                disabled={busy || clearCd > 0 || session.activeAp < 60}>
+                                <span>Clear</span><small>60 AP | CD {clearCd}</small>
+                            </button>
+                            <button onClick={() => void send({ type: "cleanse" })}
+                                disabled={busy || cleanseCd > 0 || session.activeAp < 60}>
+                                <span>Cleanse</span><small>60 AP | CD {cleanseCd}</small>
                             </button>
                             <button onClick={() => void send({ type: "wait" })} disabled={busy}>
                                 <span>End Turn</span><small>Pass</small>
