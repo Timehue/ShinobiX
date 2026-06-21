@@ -241,23 +241,28 @@ const rankOf = (order: LadderEntry[], slug: string): number => order.findIndex((
  * maps an AI index → its light summary. `aiPick` chooses the AI fill order (handler
  * passes a rotating/random start so rerolls vary; not result-authoritative).
  */
-export function buildOffer(order: LadderEntry[], challenger: string, aiSummary: (i: number) => OfferOpponent, aiStart: number): OfferOpponent[] {
+export function buildOffer(order: LadderEntry[], challenger: string, aiSummary: (i: number) => OfferOpponent, aiStart: number, excludeId?: string): OfferOpponent[] {
     const my = rankOf(order, challenger);
     const effIdx = my < 0 ? order.length : my;                  // unranked sits just below the lowest human
     const offer: OfferOpponent[] = [];
     for (let i = effIdx - 1; i >= 0 && offer.length < OFFER_SIZE; i--) {
         if (effIdx - i > CLIMB_BAND) break;                     // outside the climb band
         const e = order[i];
-        if (e.slug === challenger) continue;
+        if (e.slug === challenger || e.slug === excludeId) continue;   // skip self + the just-fought opponent (no back-to-back rematch)
         offer.push({ kind: "player", id: e.slug, name: e.name, village: e.village, rank: i + 1, summary: e.summary });
     }
-    for (let k = 0; offer.length < OFFER_SIZE && k < AI_SEED_COUNT; k++) offer.push(aiSummary((aiStart + k) % AI_SEED_COUNT));
+    for (let k = 0; offer.length < OFFER_SIZE && k < AI_SEED_COUNT; k++) {
+        const idx = (aiStart + k) % AI_SEED_COUNT;
+        if (`ai:${idx}` === excludeId) continue;                       // don't immediately re-offer the just-fought AI either
+        offer.push(aiSummary(idx));
+    }
     return offer;
 }
 
 /** Is `target` a legal challenge for `challenger`? AI is always legal; a human must be
  *  ranked above and within the climb band (server enforces — can't snipe rank 1). */
-export function canChallenge(order: LadderEntry[], challenger: string, targetId: string): boolean {
+export function canChallenge(order: LadderEntry[], challenger: string, targetId: string, excludeId?: string): boolean {
+    if (excludeId && targetId === excludeId) return false;            // no back-to-back rematch of the same opponent
     if (isAiId(targetId)) return aiIndexOf(targetId) >= 0 && aiIndexOf(targetId) < AI_SEED_COUNT;
     const my = rankOf(order, challenger);
     const tgt = rankOf(order, targetId);
