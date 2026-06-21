@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -1189,8 +1190,11 @@ export function CentralHub({
                                 <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
                             </div>
 
-                            {weaponInfoItem && (
-                                <div className="modal-overlay" onClick={() => setWeaponInfoItem(null)}>
+                            {weaponInfoItem && createPortal((
+                                // Portaled to <body> + z-index above the fixed side rails
+                                // (999999) so the modal isn't rendered beneath / clickable
+                                // through them; mirrors the GameAlert escape-the-rails fix.
+                                <div className="modal-overlay" style={{ zIndex: 1000001 }} onClick={() => setWeaponInfoItem(null)}>
                                     <div className="modal-box weapon-info-modal" onClick={e => e.stopPropagation()}>
                                         <button className="modal-close-btn" aria-label="Close" onClick={() => setWeaponInfoItem(null)}>✕</button>
                                         {(sharedImages['item:' + weaponInfoItem.id] || weaponInfoItem.image) && (
@@ -1218,7 +1222,7 @@ export function CentralHub({
                                         )}
                                     </div>
                                 </div>
-                            )}
+                            ), document.body)}
                             <div className="crafter-recipe-grid">
                                 {craftableWeapons.map((item) => {
                                     const costPts = weaponCraftPoints(item);
