@@ -29,6 +29,7 @@ import {
     type ClashSideKey,
     type ClashPlay,
 } from './_card-clash-engine.js';
+import { canonicalClashStats, buildCreatorBaseMap } from './_card-catalog.js';
 
 // POST /api/clan/war/tilecards
 //
@@ -97,17 +98,30 @@ function freshSide(name: string, clan: string, defaultDeck: ClashCard[]): ClashS
 
 // Verify every distinct card id in the submitted deck is actually owned by the
 // player (mirrors the old tile-duel ownership check — IDs are the trust anchor).
-async function verifyDeckOwnership(deck: ClashCard[], playerName: string): Promise<boolean> {
-    if (!playerName) return false;
-    const save = await kv.get<Record<string, unknown>>(`save:${playerName.toLowerCase()}`);
+// Verify deck ownership AND canonicalize every card's stats from the server's
+// source of truth (built-in table + creator base stats), so deck strength is
+// tied to the cards the player actually owns — not the client-submitted
+// cost/power/element/rarity/ability (audit #8). Returns the CANONICAL deck (ids
+// kept, stats overridden). Admins bypass the ownership gate but still get
+// canonical stats. An unknown id (neither built-in nor a creator card) is
+// rejected for non-admins by the ownership check.
+async function resolveOwnedDeck(
+    deck: ClashCard[], playerName: string, isAdmin: boolean,
+): Promise<{ ok: true; deck: ClashCard[] } | { ok: false }> {
+    const save = playerName ? await kv.get<Record<string, unknown>>(`save:${playerName.toLowerCase()}`) : null;
     const char = (save?.character ?? null) as Record<string, unknown> | null;
-    if (!char) return false;
-    const owned = Array.isArray(char.tileCards) ? (char.tileCards as unknown[]) : [];
+    if (!isAdmin && !char) return { ok: false };
+    const owned = Array.isArray(char?.tileCards) ? (char!.tileCards as unknown[]) : [];
     const ownedIds = new Set<string>(owned.map((v) => String(v)));
-    for (const id of deckCardIds(deck)) {
-        if (!ownedIds.has(id)) return false;
+    const creatorBase = buildCreatorBaseMap((save as Record<string, unknown> | null)?.creatorCards);
+    const out: ClashCard[] = [];
+    for (const card of deck) {
+        if (!isAdmin && !ownedIds.has(card.id)) return { ok: false };
+        const canon = canonicalClashStats(card.id, creatorBase);
+        // Override the client-submitted stats with the canonical ones; keep id.
+        out.push(canon ? { ...card, ...canon } : card);
     }
-    return true;
+    return { ok: true, deck: out };
 }
 
 function translateWinner(session: CwClashSession, ch: { fromClan: string }, winner: ClashSideKey | 'draw'): ChallengeResult {
@@ -294,12 +308,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const validated = validateSubmittedDeck(body?.defaultDeck);
                 if (!validated.ok) return { status: 400 as const, body: { error: `Invalid default deck: ${validated.error}` } };
-                if (!identity.admin && !(await verifyDeckOwnership(validated.deck, me))) {
-                    return { status: 403 as const, body: { error: 'Default deck contains cards you do not own.' } };
-                }
+                const resolvedJoin = await resolveOwnedDeck(validated.deck, me, identity.admin);
+                if (!resolvedJoin.ok) return { status: 403 as const, body: { error: 'Default deck contains cards you do not own.' } };
 
                 const now = Date.now();
-                const newSide = freshSide(me, myClan, validated.deck);
+                const newSide = freshSide(me, myClan, resolvedJoin.deck);
 
                 if (!existing) {
                     const session: CwClashSession = {
@@ -342,13 +355,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing.status !== 'picking') return { status: 409 as const, body: { error: 'Deck-picking phase is closed.' } };
                 const validated = validateSubmittedDeck(body?.deck);
                 if (!validated.ok) return { status: 400 as const, body: { error: `Invalid deck: ${validated.error}` } };
-                if (!identity.admin && !(await verifyDeckOwnership(validated.deck, me))) {
-                    return { status: 403 as const, body: { error: 'Deck contains cards you do not own.' } };
-                }
+                const resolvedDeck = await resolveOwnedDeck(validated.deck, me, identity.admin);
+                if (!resolvedDeck.ok) return { status: 403 as const, body: { error: 'Deck contains cards you do not own.' } };
 
                 const now = Date.now();
                 const target = mySide === 'p1' ? existing.p1 : existing.p2!;
-                const updatedSide: ClashSide = { ...target, deck: validated.deck, ready: true };
+                const updatedSide: ClashSide = { ...target, deck: resolvedDeck.deck, ready: true };
                 let next: CwClashSession = {
                     ...existing,
                     p1: mySide === 'p1' ? updatedSide : existing.p1,
