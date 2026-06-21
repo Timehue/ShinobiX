@@ -54,6 +54,10 @@ export function snapshotHollowGateCurrencies(character: Character): HollowGateCu
  * push the claw-back negative, and a balance can never drop below its entry
  * value. If the run has no snapshot (legacy in-progress runs saved before this
  * shipped), nothing is clawed back.
+ *
+ * NOT a security control — this is client-side pacing/fairness UX, so a tampered
+ * client can skip it. The real anti-cheat boundary is the per-save currency
+ * gain caps in api/save/[name].ts (hollowShards et al.), which hold server-side.
  */
 export function clawBackHollowGateLoot(character: Character, run: HollowGateShrineRun, lostFraction = 0.5): Character {
     const entry = run.entryCurrencies;
