@@ -45,6 +45,7 @@ export type Screen =
     | "sunscarFestival"
     | "centralHub"
     | "petArena"
+    | "petLadder"
     | "pets"
     | "shinobiTiles"
     | "eventPetBattle"

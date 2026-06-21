@@ -142,6 +142,7 @@ const CentralHub = lazy(() => import("./screens/CentralHub").then(m => ({ defaul
 const BattleTowers = lazy(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
 import { SunscarFestival } from "./screens/SunscarFestival";
 const PetArena = lazy(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
+const PetLadder = lazy(() => import("./screens/PetLadder").then(m => ({ default: m.PetLadder })));
 import { type PetArenaOpponent } from "./data/pet-arena-opponents";
 const PetYard = lazy(() => import("./screens/PetYard").then(m => ({ default: m.PetYard })));
 import { ClanWarTileCardDuel } from "./screens/ClanWarTileCardDuel";
@@ -8702,6 +8703,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => setPendingArenaResponse(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} />}
+                {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
                     const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);

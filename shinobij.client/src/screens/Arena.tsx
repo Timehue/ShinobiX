@@ -4294,6 +4294,10 @@ export function Arena({
                             </div>
                         )}
                         <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
+                        <div className="menu" style={{ marginTop: 8 }}>
+                            <button onClick={() => { sessionStorage.setItem("petLadder.mode", "coliseum"); setScreen("petLadder"); }}>🏆 Pet Coliseum — Ranked Ladder</button>
+                            <button onClick={() => { sessionStorage.setItem("petLadder.mode", "tactical"); setScreen("petLadder"); }}>🛡 Pet Tactical — Ranked Ladder (4v4)</button>
+                        </div>
                     </section>
                 )}
             </div>
