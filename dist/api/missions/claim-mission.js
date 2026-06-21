@@ -140,6 +140,23 @@ async function handler(req, res) {
                 completion = 'total';
                 academyTrialClaimed = true;
             }
+            // Per-mission idempotency for field/hunt claims: each built-in
+            // field/hunt mission is claimable at most once per UTC day (matches
+            // the UI's one-card-per-mission model). The daily cap alone doesn't
+            // stop a client re-POSTing the single highest-value mission id up to
+            // the cap, and the explore/raid prerequisite is only client-tracked,
+            // so without this the best mission is re-claimable N times/day (audit
+            // #2). The NX reserve lives inside the save lock so it settles
+            // atomically with the payout, and fails OPEN (a KV hiccup never denies
+            // a legit claim). Combat (pendingCombatMissionClaims, consumed on
+            // claim) and academy-trial (academyTrialClaimed latch) are already
+            // single-use, so only field/hunt need this.
+            if (missionType === 'field' || missionType === 'hunt') {
+                const claimKey = `missions:field-claimed:${playerName}:${missionId}:${todayKey}`;
+                const placed = await _storage_js_1.kv.set(claimKey, '1', { nx: true, ex: 26 * 60 * 60 }).catch(() => 'OK');
+                if (placed === null)
+                    return { applied: false, reason: 'already-claimed-today' };
+            }
             // ── Compute server-authoritative amounts ────────────────────────
             const xpBoosted = (0, _mission_catalog_js_1.boostAmount)(baseXp, bonusPct);
             const ryoBoosted = (0, _mission_catalog_js_1.boostAmount)(baseRyo, bonusPct);

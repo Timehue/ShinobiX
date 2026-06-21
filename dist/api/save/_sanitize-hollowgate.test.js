@@ -77,3 +77,56 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.equal(sanitize({ fateShards: 9999 }, { fateShards: 10 }).fateShards, 60, 'fateShards capped to +50');
     strict_1.default.equal(sanitize({ honorSeals: 9999 }, { honorSeals: 5 }).honorSeals, 205, 'honorSeals capped to +200');
 });
+// ── audit #1: mission/hunt daily-cap flooring + reset monotonicity + academy latch ──
+// claim-mission writes ryo + premium currency under the save lock (bypassing the
+// per-save ryo/currency caps), so the daily counter is the ONLY payout bound. These
+// lock it server-side the way dailyHollowGateRuns already is.
+(0, node_test_1.test)('dailyMissionsCompleted: a forged reset to 0 within the same UTC day is floored to the server count', () => {
+    const out = sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 0 }, // forged: zero the counter to re-claim
+    { lastDailyReset: TODAY, dailyMissionsCompleted: 12 });
+    strict_1.default.equal(out.dailyMissionsCompleted, 12, 'cannot drop below the server mission count for today');
+});
+(0, node_test_1.test)('dailyMissionsCompleted: legit same-day increment kept; genuine new-day reset untouched', () => {
+    strict_1.default.equal(sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 5 }, { lastDailyReset: TODAY, dailyMissionsCompleted: 4 }).dailyMissionsCompleted, 5, 'legit increment 4->5 kept');
+    strict_1.default.equal(sanitize({ lastDailyReset: TODAY, dailyMissionsCompleted: 0 }, { lastDailyReset: '2000-01-01', dailyMissionsCompleted: 19 }).dailyMissionsCompleted, 0, 'new-day reset (stored stamp is a prior day) is not clamped');
+});
+(0, node_test_1.test)('dailyHuntsCompleted: floored to the server count within the same UTC day (own lastHuntReset key)', () => {
+    strict_1.default.equal(sanitize({ lastHuntReset: TODAY, dailyHuntsCompleted: 0 }, { lastHuntReset: TODAY, dailyHuntsCompleted: 8 }).dailyHuntsCompleted, 8, 'cannot drop below the server hunt count for today');
+});
+(0, node_test_1.test)('lastDailyReset/lastHuntReset: a backdated stamp is reverted (monotonic-forward), defeating the counter-reset vector', () => {
+    const out = sanitize({ lastDailyReset: '2000-01-01', dailyMissionsCompleted: 0, lastHuntReset: '2000-01-01', dailyHuntsCompleted: 0 }, { lastDailyReset: TODAY, dailyMissionsCompleted: 15, lastHuntReset: TODAY, dailyHuntsCompleted: 9 });
+    strict_1.default.equal(out.lastDailyReset, TODAY, 'backdated lastDailyReset reverted to stored');
+    strict_1.default.equal(out.lastHuntReset, TODAY, 'backdated lastHuntReset reverted to stored');
+    strict_1.default.equal(out.dailyMissionsCompleted, 15, 'mission counter still floored after backdate attempt');
+    strict_1.default.equal(out.dailyHuntsCompleted, 9, 'hunt counter still floored after backdate attempt');
+});
+(0, node_test_1.test)('academyTrialClaimed: latched true — a forged save cannot un-claim the one-time onboarding reward', () => {
+    strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: true }).academyTrialClaimed, true, 'cannot revert to false');
+    strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
+});
+(0, node_test_1.test)('hollowGateWardenKills: per-save gain clamped to +3 (audit #10 — weekly-board counter)', () => {
+    strict_1.default.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 7, 'capped to existing + 3');
+});
+// ── audit #3 / #14: bloodline jutsu effectPower clamped to the legit ceiling (50), AP floored at 40 ──
+// Legit bloodline effectPower is always {0, 40, 50} (lib/bloodline-templates.ts:87)
+// and AP is 40/60/80 — so the clamp neutralizes a forged ~4x nuke while leaving every
+// honest bloodline untouched.
+(0, node_test_1.test)('savedBloodlines: a forged jutsu effectPower 200 / ap 1 is clamped to 50 / 40', () => {
+    const out = sanitize({ savedBloodlines: [{ rank: 'A Rank', jutsus: [{ id: 'bl-1', effectPower: 200, ap: 1 }] }] }, {});
+    const j = out.savedBloodlines[0].jutsus[0];
+    strict_1.default.equal(j.effectPower, 50, 'effectPower clamped to the legit nuke ceiling 50');
+    strict_1.default.equal(j.ap, 40, 'ap floored to 40');
+});
+(0, node_test_1.test)('savedBloodlines: legit jutsu (nuke 50@60, standard 40@60, utility 0@40, 40@80) pass through unchanged', () => {
+    const out = sanitize({ savedBloodlines: [{ rank: 'S Rank', jutsus: [
+                    { id: 'n', effectPower: 50, ap: 60 },
+                    { id: 's', effectPower: 40, ap: 60 },
+                    { id: 'u', effectPower: 0, ap: 40 },
+                    { id: 'big', effectPower: 40, ap: 80 },
+                ] }] }, {});
+    const js = out.savedBloodlines[0].jutsus;
+    strict_1.default.deepEqual([js[0].effectPower, js[0].ap], [50, 60], 'nuke untouched');
+    strict_1.default.deepEqual([js[1].effectPower, js[1].ap], [40, 60], 'standard untouched');
+    strict_1.default.deepEqual([js[2].effectPower, js[2].ap], [0, 40], 'utility untouched');
+    strict_1.default.deepEqual([js[3].effectPower, js[3].ap], [40, 80], '80-AP jutsu untouched (not nerfed)');
+});
