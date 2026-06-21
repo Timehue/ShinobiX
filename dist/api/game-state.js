@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
+const node_crypto_1 = require("node:crypto");
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
@@ -62,17 +63,25 @@ async function handler(req, res) {
                     }
                 });
             }
-            // CDN caches this response for 20s so N players polling every 30s share
-            // one KV hit per cache window instead of N individual hits.
-            // stale-while-revalidate=10 keeps the response snappy while the next fetch runs.
-            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
-            return res.status(200).json({
+            // CDN caches this response for 8s (s-maxage=8) so N players polling every
+            // ~5s share ~one KV hit per cache window instead of N individual hits;
+            // stale-while-revalidate=5 serves the slightly-stale frame for up to 5s
+            // more while the next origin fetch runs. The content-hash ETag lets the
+            // CDN (and origin) skip re-sending an unchanged body via a 304.
+            const payload = {
                 villageStates,
                 arenaTournament: arenaTournament ?? null,
                 arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                 clanPetBattles,
                 weeklyBossAiId: weeklyBossAiId ?? null,
-            });
+            };
+            const etag = `W/"${(0, node_crypto_1.createHash)('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
+            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
+            res.setHeader('ETag', etag);
+            if (req.headers['if-none-match'] === etag) {
+                return res.status(304).end();
+            }
+            return res.status(200).json(payload);
         }
         catch (err) {
             console.error('[game-state]', err);
