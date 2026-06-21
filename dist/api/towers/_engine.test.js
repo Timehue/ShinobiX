@@ -184,6 +184,16 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
             node_assert_1.strict.equal((0, _tower_session_js_1.activeActor)(s)?.id, 'sq-1');
         }
     });
+    (0, node_test_1.it)('runAiUntilHuman never leaves an all-AI run stuck active (timeout safety net)', () => {
+        // No live human → the driver must reach a terminal state, never freeze on an active board.
+        const s = makeSession([
+            makeActor('sq-1', 'squad', 0, { ai: true, character: WEAK }),
+            makeActor('en-1', 'enemy', 1, { character: STRONG }),
+        ]);
+        (0, _engine_js_1.startRound)(s);
+        (0, _engine_js_1.runAiUntilHuman)(s, makeFloor('defeat-all'), (0, _sim_js_1.makeRng)(3));
+        node_assert_1.strict.equal(s.status, 'done', 'an all-AI run always resolves');
+    });
 });
 (0, node_test_1.describe)('Battle Towers environmental features (pylons / wards / hazards)', () => {
     // A Fire-jutsu attacker on tile 0 vs a tanky enemy on tile 1 (adjacent). Returns the
