@@ -130,3 +130,26 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.deepEqual([js[2].effectPower, js[2].ap], [0, 40], 'utility untouched');
     strict_1.default.deepEqual([js[3].effectPower, js[3].ap], [40, 80], '80-AP jutsu untouched (not nerfed)');
 });
+// ── audit #16: bloodline name/lore + jutsu name/battleDescription go through text moderation ──
+(0, node_test_1.test)('savedBloodlines: name/lore + jutsu name/battleDescription run through the text sanitizer + length caps', () => {
+    const out = sanitize({ savedBloodlines: [{ rank: 'B Rank',
+                name: 'X'.repeat(200), lore: 'Y'.repeat(900),
+                jutsus: [{ id: 'j', name: 'Z'.repeat(200), battleDescription: 'W'.repeat(900) }] }] }, {});
+    const bl = out.savedBloodlines[0];
+    strict_1.default.ok(bl.name.length <= 80, 'bloodline name capped to storyName limit (80)');
+    strict_1.default.ok(bl.lore.length <= 600, 'bloodline lore capped to description limit (600)');
+    strict_1.default.ok(bl.jutsus[0].name.length <= 80, 'jutsu name capped');
+    strict_1.default.ok(bl.jutsus[0].battleDescription.length <= 600, 'jutsu battleDescription capped');
+});
+(0, node_test_1.test)('savedBloodlines: a clean short bloodline name/lore is preserved verbatim', () => {
+    const out = sanitize({ savedBloodlines: [{ rank: 'A Rank', name: 'Crimson Veil', lore: 'An old desert clan technique.', jutsus: [] }] }, {});
+    const bl = out.savedBloodlines[0];
+    strict_1.default.equal(bl.name, 'Crimson Veil', 'clean name untouched');
+    strict_1.default.equal(bl.lore, 'An old desert clan technique.', 'clean lore untouched');
+});
+// ── audit #17: bankRyo clamped to a depositable ceiling (can't conjure bank principal) ──
+(0, node_test_1.test)('bankRyo: forged inflation clamped to exBank + exRyo + MAX_RYO_GAIN; legit deposits untouched', () => {
+    strict_1.default.equal(sanitize({ bankRyo: 999_000_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 1_005_000, 'conjured bankRyo clamped to the depositable ceiling');
+    strict_1.default.equal(sanitize({ bankRyo: 5_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 5_000, 'legit full deposit of held ryo untouched');
+    strict_1.default.equal(sanitize({ bankRyo: 10_000_000, ryo: 0 }, { bankRyo: 10_000_000, ryo: 0 }).bankRyo, 10_000_000, 'standing bank balance untouched');
+});

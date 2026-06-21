@@ -100,22 +100,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // claimed level matches that opponent's actual save. Players who
         // omit opponentName (legacy clients, AI duels with no named foe)
         // fall back to the level-cap rule below.
+        // The opponent's level is trusted ONLY when we can AUTHENTICATE it
+        // against their real save. In every other case — no opponent named, OR a
+        // named opponent whose save doesn't exist — the claimed level is clamped
+        // to myLevel + 10. This closes the hole (audit #5) where supplying a
+        // non-existent opponentName took the `if` branch but found no oppChar, so
+        // BOTH the actual-level correction and the myLevel+10 clamp were skipped,
+        // letting a level-1 player claim opponentLevel 100 for the full
+        // 500-ryo-per-win formula (× the 100/day cap = 50k ryo/day for no battles).
         let opponentLevel = opponentLevelRaw;
+        let verifiedLevel: number | null = null;
         if (opponentNameRaw && opponentNameRaw !== playerName) {
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentNameRaw}`);
             const oppChar = (oppSave?.character ?? null) as Record<string, unknown> | null;
             if (oppChar) {
-                const actualLevel = Math.max(1, Math.min(100, Math.floor(Number(oppChar.level ?? 1))));
-                // Use the actual saved level — even if the client claimed
-                // higher. This silently corrects the claim rather than
-                // erroring (so the player still gets a valid reward).
-                opponentLevel = actualLevel;
+                verifiedLevel = Math.max(1, Math.min(100, Math.floor(Number(oppChar.level ?? 1))));
             }
+        }
+        if (verifiedLevel != null) {
+            // Authenticated opponent — use their real level even if the client
+            // claimed higher (silent correction; the player still gets a reward).
+            opponentLevel = verifiedLevel;
         } else if (!identity.admin) {
-            // No opponent name supplied — clamp claimed level to
-            // playerLevel + 10 so the unnamed-opponent path can't exploit
-            // the formula. Look up the player's own actual level (not the
-            // value in the request body, which we don't trust here).
+            // Opponent level could NOT be authenticated — clamp the claim to the
+            // player's own level + 10, read from their real save (not the body).
             const meSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const meChar = (meSave?.character ?? null) as Record<string, unknown> | null;
             const myLevel = Math.max(1, Math.min(100, Math.floor(Number(meChar?.level ?? 1))));
