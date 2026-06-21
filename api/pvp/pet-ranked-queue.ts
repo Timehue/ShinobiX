@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 // NOTE: pet ranked is NOT gated by the player-side ranked-match-token system.
 // The pet ladder settles via api/pet/battle-result.ts, which requires its OWN
@@ -62,6 +63,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && identity.name !== safeName(name)) {
                 return res.status(403).json({ error: 'Cannot queue as another player.' });
             }
+
+            // Throttle join/leave/poll per identity (keyed on name, not raw IP, so
+            // two players behind one NAT aren't starved). Mirrors ranked-queue.ts —
+            // without this, spam serializes on the shared QUEUE_KEY lock and degrades
+            // matchmaking latency for everyone. ~60/min covers the ~2-3s poll cadence.
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-ranked-queue', 60, 60_000, identity.name))) return;
 
             // Pre-derive server-side level/elo for the join path before
             // entering the lock so the lock body stays fast.

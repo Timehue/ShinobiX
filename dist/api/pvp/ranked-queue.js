@@ -4,6 +4,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _ranked_match_token_js_1 = require("../_ranked-match-token.js");
 const presence_gating_js_1 = require("../_realtime/presence-gating.js");
@@ -51,6 +52,13 @@ async function handler(req, res) {
             if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(name)) {
                 return res.status(403).json({ error: 'Cannot queue as another player.' });
             }
+            // Throttle join/leave/poll per identity (keyed on name, not raw IP, so
+            // two players behind one NAT aren't starved). Every other PvP write path
+            // is rate-limited; without this, spam serializes on the shared QUEUE_KEY
+            // lock and degrades matchmaking latency for everyone. ~60/min comfortably
+            // covers the client's ~2-3s poll cadence with headroom.
+            if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'ranked-queue', 60, 60_000, identity.name)))
+                return;
             // Pre-derive server-side level/elo for the join path before
             // entering the lock so the lock body stays fast.
             let serverLevel = 1;
