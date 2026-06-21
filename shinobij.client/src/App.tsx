@@ -2166,8 +2166,8 @@ export default function App() {
         async function refreshSharedGameState() {
             try {
                 const owner = characterRef.current?.name ?? currentAccountName;
-                setSharedGameStateOwnerName(owner);
-                const response = await fetch(`${GAME_STATE_API}${owner ? `?ownerName=${encodeURIComponent(owner)}` : ""}`, { cache: "no-store" });
+                setSharedGameStateOwnerName(owner); // seeds the POST (pendingClanPetBattle) owner; NOT sent as a GET query (would fragment the CDN cache key)
+                const response = await fetch(GAME_STATE_API, { cache: "no-store" });
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;

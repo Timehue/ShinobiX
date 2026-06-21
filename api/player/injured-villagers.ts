@@ -58,7 +58,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // villages' player data through this endpoint.
         const keys = await kv.keys('save:*');
         const playerKeys = keys.filter(k => !k.startsWith('save:clan-') && !k.startsWith('save:admin'));
-        if (playerKeys.length === 0) return res.status(200).json({ injured: [] });
+        if (playerKeys.length === 0) {
+            res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
+            return res.status(200).json({ injured: [] });
+        }
 
         const records = await kv.mget(...playerKeys);
         const injured: InjuredEntry[] = [];
@@ -87,6 +90,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         injured.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+        // Short shared CDN cache to collapse repeated Healer polls of this
+        // full-save scan. Set only on the 200 path so a 500 is never cached.
+        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
         return res.status(200).json({ injured });
     } catch (err) {
         console.error('[player/injured-villagers]', err);
