@@ -1,6 +1,7 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
+import { visiblePoll } from "../lib/poll";
 import {
     type Character,
     type PlayerRecord,
@@ -40,8 +41,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             } catch { /* ignore */ }
         }
         void fetchInjured();
-        const id = setInterval(fetchInjured, 20_000);
-        return () => { cancelled = true; clearInterval(id); };
+        const stop = visiblePoll(fetchInjured, 20_000);
+        return () => { cancelled = true; stop(); };
     }, [hasWorldwideVision, character.name]);
 
     useEffect(() => {

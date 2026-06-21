@@ -1,6 +1,7 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character } from "../App";
 
 type LogEntry = {
@@ -66,8 +67,7 @@ export function ClanSealPool({
     useEffect(() => {
         void fetchPool();
         void fetchEscorters();
-        const id = setInterval(() => { void fetchPool(); void fetchEscorters(); }, 30_000);
-        return () => clearInterval(id);
+        return visiblePoll(() => { void fetchPool(); void fetchEscorters(); }, 30_000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.clan]);
 

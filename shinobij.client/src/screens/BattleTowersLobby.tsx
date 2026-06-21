@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession } from "../lib/towers-api";
 import { subscribeFollowing } from "../lib/friends";
@@ -72,8 +73,8 @@ export function BattleTowersLobby({
         let alive = true;
         const check = () => fetchMyRun(me).then(r => { if (alive) setPendingRun(r); }).catch(() => {});
         check();
-        const id = setInterval(check, 4000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(check, 4000);
+        return () => { alive = false; stop(); };
     }, [me]);
 
     async function enterFloor() {
