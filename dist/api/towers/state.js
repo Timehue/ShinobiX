@@ -6,6 +6,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _tower_store_js_1 = require("./_tower-store.js");
 const _tower_mp_js_1 = require("./_tower-mp.js");
+const _lock_js_1 = require("../_lock.js");
 /*
  * GET /api/towers/state?runId=...&playerName=... — reconnect / poll the live session.
  *
@@ -36,9 +37,18 @@ async function handler(req, res) {
         if (!isMember)
             return res.status(403).json({ error: 'Not a member of this run.' });
         // Co-op liveness: a poll auto-passes any AFK player blocking the queue, so a run
-        // never stalls on someone who walked away. Persist if it advanced.
-        if ((0, _tower_mp_js_1.autoPassAfkHumans)(session, Date.now()))
-            await (0, _tower_store_js_1.writeSession)(session).catch(() => undefined);
+        // never stalls on someone who walked away. The local `session` reflects the pass
+        // for THIS response; do the durable write under the session lock (re-reading fresh)
+        // so it can't clobber a concurrent /action turn write. Only locks when it actually
+        // advances, so ordinary polls stay lock-free.
+        if ((0, _tower_mp_js_1.autoPassAfkHumans)(session, Date.now())) {
+            await (0, _lock_js_1.withKvLock)((0, _tower_store_js_1.sessionKey)(runId), async () => {
+                const fresh = await (0, _tower_store_js_1.readSession)(runId);
+                if (fresh && fresh.status === 'active' && (0, _tower_mp_js_1.autoPassAfkHumans)(fresh, Date.now())) {
+                    await (0, _tower_store_js_1.writeSession)(fresh);
+                }
+            }).catch(() => undefined);
+        }
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ session });
     }
