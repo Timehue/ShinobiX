@@ -2497,10 +2497,13 @@ function ArenaCamera({ result, clock, stageRef, shake }: { result: ArenaResult; 
 
 export type PetArenaMatchProps = {
     blue: ArenaSlot[]; red: ArenaSlot[]; seed: number;
+    /** PvP-ladder replay: equip both teams' PVP gear + consumables so the cinematic
+     *  matches the server's item-aware resolution. Default off → casual unchanged. */
+    applyItems?: boolean;
     sharedImages?: Record<string, string>; onExit: () => void;
 };
-export function PetArenaMatch({ blue, red, seed, sharedImages = {}, onExit }: PetArenaMatchProps) {
-    const result = useMemo(() => runPetArenaMatch(blue, red, seed), [blue, red, seed]);
+export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit }: PetArenaMatchProps) {
+    const result = useMemo(() => runPetArenaMatch(blue, red, seed, applyItems), [blue, red, seed, applyItems]);
     const roster = useMemo(() => [
         ...blue.map((s, i) => ({ id: `blue-${i}`, pet: s.pet })),
         ...red.map((s, i) => ({ id: `red-${i}`, pet: s.pet })),

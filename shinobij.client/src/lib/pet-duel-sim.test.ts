@@ -228,3 +228,50 @@ test("fights resolve — most default matchups end in a KO before the 30s cap", 
     }).length;
     assert.ok(koed >= FAIR_SEEDS.length * 0.6, `only ${koed}/${FAIR_SEEDS.length} matches KO'd before the cap — damage too low?`);
 });
+
+// ── PvP-ladder items (applyItems flag — PVP gear stat-mods/procs + consumables) ──
+// The ladder runs BOTH sides' equipped gear + consumables through the engine; casual/
+// PvE leave applyItems off. Guards: determinism with items, back-compat (a loadout is
+// inert when items are off), gear is actually applied, and a consumable changes a fight.
+
+test("items: same seed + same loadout is byte-identical", () => {
+    for (const seed of SEEDS) {
+        const mk = () => runPetDuel(
+            makePet({ id: "a", loadout: { pvp: "pvp-spiked-war-harness", consumable: "consum-thornmail-oil" } }),
+            makePet({ id: "b", loadout: { pvp: "pvp-aegis-pendant" } }),
+            seed, 1, 1, false, true,
+        );
+        assert.deepEqual(mk(), mk(), `items seed ${seed} diverged`);
+    }
+});
+
+test("items off: an equipped loadout has zero effect (back-compat)", () => {
+    for (const seed of SEEDS) {
+        const geared = runPetDuel(makePet({ id: "a", loadout: { pvp: "pvp-arena-champion-regalia", consumable: "consum-second-wind" } }), makePet({ id: "b" }), seed);
+        const bare = runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), seed);
+        assert.deepEqual(geared, bare, `loadout leaked into the items-off path (seed ${seed})`);
+    }
+});
+
+test("items: a start-shield gear opens the fight with a shield on its wearer only", () => {
+    const r = runPetDuel(makePet({ id: "a", loadout: { pvp: "pvp-aegis-pendant" } }), makePet({ id: "b" }), 7, 1, 1, false, true);
+    const t0 = r.snapshots[0].actors;
+    assert.ok(t0.find((a) => a.team === "player")!.statuses.includes("shield"), "wearer should open with a gear shield");
+    assert.ok(!t0.find((a) => a.team === "enemy")!.statuses.includes("shield"), "the un-geared foe should not");
+});
+
+test("items: equipping gear changes the deterministic fight", () => {
+    const geared = runPetDuel(makePet({ id: "a", loadout: { pvp: "pvp-berserkers-muzzle" } }), makePet({ id: "b" }), 7, 1, 1, false, true);
+    const bare = runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), 7, 1, 1, false, true);
+    assert.notDeepEqual(geared, bare, "equipping attack gear should change the fight");
+});
+
+test("items: an endure consumable delays an otherwise-lethal blow", () => {
+    const weak = (cons?: string) => makePet({ id: "a", hp: 80, attack: 8, defense: 0, speed: 40, jutsus: [], ...(cons ? { loadout: { consumable: cons } } : {}) });
+    const strong = makePet({ id: "b", hp: 1400, attack: 320, defense: 0, speed: 80, jutsus: [] });
+    const base = runPetDuel(weak(), strong, 7, 1, 1, false, true);
+    const endured = runPetDuel(weak("consum-second-wind"), strong, 7, 1, 1, false, true);
+    assert.equal(base.result, "loss");
+    assert.equal(endured.result, "loss");
+    assert.ok(endured.ticks > base.ticks, `endure should delay death (base=${base.ticks}, endure=${endured.ticks})`);
+});

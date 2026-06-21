@@ -28,6 +28,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Pet, PetJutsu } from "../types/pet";
 import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask";
+import {
+    applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
+    petGearLastStandMult, petGearDotOnHit, petGearLifestealHeal,
+    PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
+} from "../data/pet-config";
 
 export const DUEL_TPS = 30;                 // sim ticks per second
 const MAX_TICKS = DUEL_TPS * 30;            // 30s hard cap
@@ -175,15 +180,28 @@ interface Fighter {
     moveDx: number; moveDy: number;          // stored dir for dash/dodge
     targetId: string | null;
     repositionLeft: number;                  // hit-and-reposition: hold neutral for a beat after attacking
+    // PvP-ladder item state (all inert when itemsOn=false → casual/PvE unchanged).
+    itemsOn: boolean;
+    cDodge: number;                          // reactive: negate this many incoming hits
+    cMitigatePct: number;                    // reactive: next hit −this% (single use)
+    cEndure: number;                         // reactive: survive one lethal blow at 1 HP
+    cThornsPct: number;                      // reactive: reflect this% of the next hit (single use)
+    cLifelinePct: number;                    // reactive: first drop below threshold heals this% maxHp
+    cCleanse: number;                        // reactive: purge all DoT/control once
 }
 
-function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number, atkMult = 1, hpMult = 1, reviveOnce = false): Fighter {
-    const speed = Math.max(0, pet.speed || 0);
+function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: number, y: number, atkMult = 1, hpMult = 1, reviveOnce = false, applyItems = false): Fighter {
+    // PvP-ladder items: when applyItems is on, fold the equipped PVP gear's passive
+    // stat mods into the fighter (deterministic, same applyPetPvpGear the round
+    // engine uses), seed its gear start-shield, and load its reactive consumable
+    // charges. Casual/PvE call sites leave applyItems off → byte-identical to before.
+    const gp = applyItems ? applyPetPvpGear(pet) : pet;
+    const speed = Math.max(0, gp.speed || 0);
     // hpMult applies the PvE-only Toughened Hide mastery; enemies always pass 1.
-    const maxHp = Math.max(1, Math.round((pet.hp || 1) * hpMult));
-    const trait = pet.trait;
+    const maxHp = Math.max(1, Math.round((gp.hp || 1) * hpMult));
+    const trait = gp.trait;
     const moveSpeed = clamp(2.8 + speed * 0.018, 2.8, 6.2) / DUEL_TPS;   // deliberate traversal — they MOVE across the map, not teleport
-    const abilities = (pet.jutsus || []).slice(0, 4).map(buildAbility);
+    const abilities = (gp.jutsus || []).slice(0, 4).map(buildAbility);
     const hasMelee = abilities.some((a) => a.cls === "melee");
     const hasRanged = abilities.some((a) => a.cls === "ranged");
     const tanky = trait === "Guardian" || abilities.some((a) => a.kind === "shield" || a.kind === "barrier" || a.kind === "absorb" || a.kind === "taunt");
@@ -193,16 +211,19 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
     // dash in for melee abilities, instead of gluing themselves to the foe.
     const skirmisher = hasRanged;
     const neutralRange = role === "ranged" ? 5.2 : role === "tank" ? 2.5 : skirmisher ? 4.0 : 3.0;
+    const statuses = emptyStatuses();
+    const ch = applyItems ? petConsumableCharges(gp) : null;
+    if (applyItems) statuses.shieldHp = petGearStartShield(gp);
     return {
-        id: `${team}-${slot}`, team, slot, pet, element: pet.element,
+        id: `${team}-${slot}`, team, slot, pet: gp, element: gp.element,
         x, y, faceX: team === "player" ? 1 : -1, faceY: 0,
         hp: maxHp, maxHp,
         reviveLeft: reviveOnce ? 1 : 0,
         // atkMult applies the PvE damage modifier (e.g. the Pet-Tamer profession
         // bonus); it's a pure scalar input so the sim stays deterministic in
         // (pets, seed, mult). Enemy fighters always pass 1 (no bonus).
-        atk: Math.max(0, (pet.attack || 0) * atkMult),
-        def: Math.max(0, pet.defense || 0),
+        atk: Math.max(0, (gp.attack || 0) * atkMult),
+        def: Math.max(0, gp.defense || 0),
         stamina: STAM_MAX,
         moveSpeed, dashSpeed: moveSpeed * 3.2,
         reach: BASIC_REACH,
@@ -221,8 +242,15 @@ function buildFighter(pet: Pet, team: "player" | "enemy", slot: number, x: numbe
         basicRanged: skirmisher,
         abilities,
         pendingIdx: -2, pendingTargetId: null,
-        statuses: emptyStatuses(),
+        statuses,
         moveDx: 0, moveDy: 0, targetId: null, repositionLeft: 0,
+        itemsOn: applyItems,
+        cDodge: ch ? ch.dodge : 0,
+        cMitigatePct: ch ? ch.mitigate : 0,
+        cEndure: ch ? ch.endure : 0,
+        cThornsPct: ch ? ch.thorns : 0,
+        cLifelinePct: ch ? ch.lifeline : 0,
+        cCleanse: ch ? ch.cleanse : 0,
     };
 }
 
@@ -328,27 +356,72 @@ function teamAlive(fighters: Fighter[], team: "player" | "enemy"): boolean {
 function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => number, t: number, events: DuelEvent[], viaProjectile: boolean) {
     if (tgt.hp <= 0) return;
     const crit = rng() < att.critChance;
+
+    // DODGE consumable fully negates the incoming hit (no damage / on-hit /
+    // knockback). Checked first so nothing else applies.
+    if (tgt.itemsOn && tgt.cDodge > 0) {
+        tgt.cDodge -= 1;
+        events.push({ t, type: "dodge", side: tgt.team, actorId: tgt.id });
+        return;
+    }
+
     const powerScale = ab ? ab.power / 100 : 1;
     const buff = att.statuses.buffLeft > 0 ? 1 + att.statuses.buffMag : 1;
     let mult = elementMult(att.element, tgt.element) * (crit ? 1.6 : 1) * Math.max(0.3, buff);
     if (tgt.statuses.marked) { mult *= 1.4; tgt.statuses.marked = false; }
+    // PVP gear: attacker's execute bonus vs a low-HP foe.
+    if (att.itemsOn) mult *= petGearExecuteMult(att.pet, tgt.hp, tgt.maxHp);
     const mitigation = clamp(1 - tgt.def * 0.0012, 0.35, 1);
     const base = att.atk * DMG_SCALE * powerScale;
     let dmg = Math.max(1, Math.round(base * mult * mitigation));
+    // PVP gear: defender's last-stand reduction while low; then the Smoke-Pellet
+    // mitigate consumable (single use).
+    if (tgt.itemsOn) {
+        dmg = Math.max(1, Math.round(dmg * petGearLastStandMult(tgt.pet, tgt.hp, tgt.maxHp)));
+        if (tgt.cMitigatePct > 0) { dmg = Math.max(1, Math.round(dmg * (1 - tgt.cMitigatePct / 100))); tgt.cMitigatePct = 0; }
+    }
     // Shield soak.
     if (tgt.statuses.shieldHp > 0) {
         const soak = Math.min(tgt.statuses.shieldHp, dmg);
         tgt.statuses.shieldHp = quant(tgt.statuses.shieldHp - soak);
         dmg -= soak;
     }
+    // ENDURE consumable: survive one otherwise-lethal blow at 1 HP.
+    if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }
     tgt.hp -= dmg;
     events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage" });
 
     // On-hit effects by ability kind.
     if (ab) applyOnHit(att, tgt, ab);
 
-    // Lifesteal heal.
+    // Lifesteal heal (ability).
     if (ab && ab.kind === "lifesteal") att.hp = Math.min(att.maxHp, att.hp + Math.round(dmg * 0.5));
+
+    // PVP gear / consumable reactions tied to the blow that just landed.
+    if (dmg > 0) {
+        // THORNS consumable: reflect a % of the damage back at the attacker (once).
+        if (tgt.itemsOn && tgt.cThornsPct > 0 && att.hp > 0) {
+            const reflect = Math.max(1, Math.round(dmg * tgt.cThornsPct / 100));
+            att.hp -= reflect; tgt.cThornsPct = 0;
+            events.push({ t, type: "hit", side: tgt.team, actorId: tgt.id, targetId: att.id, dmg: reflect, element: tgt.element, kind: "damage" });
+        }
+        // Attacker PVP gear procs on a BASIC hit (ab === null): poison DoT + lifesteal.
+        if (att.itemsOn && !ab) {
+            const dot = petGearDotOnHit(att.pet);
+            if (dot) {
+                tgt.statuses.burnLeft = Math.max(tgt.statuses.burnLeft, Math.round(DUEL_TPS * dot.rounds * 0.8));
+                tgt.statuses.burnDmg = Math.max(tgt.statuses.burnDmg, dot.damage);
+            }
+            const heal = petGearLifestealHeal(att.pet, dmg);
+            if (heal > 0) att.hp = Math.min(att.maxHp, att.hp + heal);
+        }
+        // LIFELINE consumable: the first drop below the threshold heals % of max HP.
+        if (tgt.itemsOn && tgt.cLifelinePct > 0 && tgt.hp > 0 && (tgt.hp / tgt.maxHp) * 100 < PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
+            const heal = Math.max(1, Math.round(tgt.maxHp * tgt.cLifelinePct / 100));
+            tgt.hp = Math.min(tgt.maxHp, tgt.hp + heal); tgt.cLifelinePct = 0;
+            events.push({ t, type: "heal", side: tgt.team, actorId: tgt.id, targetId: tgt.id, dmg: heal });
+        }
+    }
 
     // Knockback + interrupt — big enough to visibly reset the spacing after a
     // melee blow (projectiles shove lighter; push doubles it).
@@ -769,6 +842,12 @@ function stepProjectiles(fighters: Fighter[], projectiles: Projectile[], rng: ()
 
 function tickStatuses(f: Fighter) {
     const s = f.statuses;
+    // CLEANSE consumable: the first tick the fighter is under any DoT/control,
+    // purge it all (single use).
+    if (f.itemsOn && f.cCleanse > 0 && (s.burnLeft > 0 || s.stunLeft > 0 || s.slowLeft > 0 || s.rootLeft > 0)) {
+        s.burnLeft = 0; s.burnDmg = 0; s.halfHeal = false; s.stunLeft = 0; s.slowLeft = 0; s.rootLeft = 0;
+        f.cCleanse = 0;
+    }
     // Burn DoT ticks every ~0.4s. (taunt is honored only while the taunter
     // lives — see pickTarget — so it needs no explicit timer here.)
     if (s.burnLeft > 0) {
@@ -900,13 +979,14 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
-export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false): DuelResult {
+export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false): DuelResult {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
     // band — to clash in the front-center of the arena.
+    // applyItems (PvP ladder) equips BOTH pets' PVP gear + consumables symmetrically.
     const fighters = [
-        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce),
-        buildFighter(enemyPet, "enemy", 0, 10.2, 2.8),
+        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems),
+        buildFighter(enemyPet, "enemy", 0, 10.2, 2.8, 1, 1, false, applyItems),
     ];
     return simulate(fighters, seed);
 }
@@ -917,15 +997,16 @@ export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDa
 export function runPetPartyDuel(
     playerLead: Pet, playerReserve: Pet | null,
     enemyLead: Pet, enemyReserve: Pet | null,
-    seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false,
+    seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false,
 ): DuelResult {
     // Two lane duels: the LEAD pair on the FRONT lane (map-space Blue[1]/Red[1]),
     // the RESERVE pair on the BACK lane (Blue[3]/Red[3]) — spread apart so the 2v2
     // reads as two duels, not a clump. Slot targeting pairs lead-v-lead, reserve-v-reserve.
     // Toughened Hide (hpMult) buffs both player pets; Alpha Bond (revive) only the lead.
-    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce)];
-    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult, playerHpMult, false));
-    fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8));
-    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0));
+    // applyItems (PvP ladder) equips every pet's PVP gear + consumables symmetrically.
+    const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems)];
+    if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult, playerHpMult, false, applyItems));
+    fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8, 1, 1, false, applyItems));
+    if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0, 1, 1, false, applyItems));
     return simulate(fighters, seed);
 }

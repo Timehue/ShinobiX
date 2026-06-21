@@ -16,6 +16,11 @@
  */
 import type { Pet } from "../types/pet";
 import { FULL_MASK, FULL_COLS, FULL_ROWS } from "./pet-arena-fullmask";
+import {
+    applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
+    petGearLastStandMult, petGearDotOnHit, petGearLifestealHeal,
+    PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
+} from "../data/pet-config";
 
 export const ARENA_TPS = 30;
 export const MAX_SECONDS = 300;          // 5-min safety cap (tactical fights run ~2–4 min)
@@ -274,6 +279,9 @@ interface AF {
     aiTargetId: string | null;                          // last committed target — decision hysteresis (anti-flip-flop)
     plan: Plan | null;                                  // current decision (recomputed every DECISION_TICKS, reused between → deliberate)
     decisionCd: number;                                 // ticks until the next full re-decide
+    // PvP-ladder item state (all inert when itemsOn=false → casual/preview unchanged).
+    itemsOn: boolean;
+    cDodge: number; cMitigatePct: number; cEndure: number; cThornsPct: number; cLifelinePct: number; cCleanse: number;
 }
 // The two spawn seals per team (arena corners), snapped to a path tile. 2v2 puts
 // one pet on each seal; 4v4 puts two pets (a "player" pair) on each seal.
@@ -287,25 +295,34 @@ const SEALS: Record<"blue" | "red", [number, number][]> = {
     blue: [snapPoint(-10.3, -5.6), snapPoint(-12.4, 2.5)],
     red: [snapPoint(9.5, -5.0), snapPoint(11.7, 2.5)],
 };
-function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: number, count: number): AF {
+function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: number, count: number, applyItems = false): AF {
     const cfg = ROLE_CFG[role];
+    // PvP-ladder items: fold the equipped PVP gear's passive stat mods into the pet
+    // BEFORE the role multipliers (deterministic), then seed its gear start-shield and
+    // reactive consumable charges. applyItems off → byte-identical to before.
+    const gp = applyItems ? applyPetPvpGear(pet) : pet;
     const seals = SEALS[team];
     const sealIdx = count <= 2 ? Math.min(slot, 1) : (slot < 2 ? 0 : 1);
     const [sx, sy] = seals[sealIdx];
     const [x, y] = snapMain(sx, sy + (count <= 2 ? 0 : slot % 2 ? 0.9 : -0.9));
-    const maxHp = Math.max(1, Math.round((pet.hp || 600) * cfg.hpMul * TTK_HP_MUL));
+    const maxHp = Math.max(1, Math.round((gp.hp || 600) * cfg.hpMul * TTK_HP_MUL));
+    const ch = applyItems ? petConsumableCharges(gp) : null;
     return {
-        id: `${team}-${slot}`, team, slot, role, pet, element: pet.element,
+        id: `${team}-${slot}`, team, slot, role, pet: gp, element: gp.element,
         x, y, faceX: team === "blue" ? 1 : -1, faceY: 0, baseX: sx, baseY: sy, seals,
-        hp: maxHp, maxHp, atk: Math.max(1, (pet.attack || 60) * cfg.dmgMul), def: Math.max(0, (pet.defense || 30) * cfg.defMul),
-        moveSpeed: clamp(2.6 + (pet.speed || 50) * 0.016, 2.6, 6.0) * cfg.spdMul / ARENA_TPS,
+        hp: maxHp, maxHp, atk: Math.max(1, (gp.attack || 60) * cfg.dmgMul), def: Math.max(0, (gp.defense || 30) * cfg.defMul),
+        moveSpeed: clamp(2.6 + (gp.speed || 50) * 0.016, 2.6, 6.0) * cfg.spdMul / ARENA_TPS,
         // Movement saturates at the clamp above, but Speed keeps paying off as crit
         // chance (role base + ownSpeed/divisor, capped) — so Speed matters in the
-        // arena too, and crit burst helps break tanky stalemates.
-        atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (pet.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
+        // arena too, and crit burst helps break tanky stalemates. Uses the gear-scaled
+        // speed (gp) so +SPD PvP gear also lifts crit; casual (gp===pet) is unchanged.
+        atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (gp.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
-        shieldHp: 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
+        shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
         path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null, decisionCd: 0,
+        itemsOn: applyItems,
+        cDodge: ch ? ch.dodge : 0, cMitigatePct: ch ? ch.mitigate : 0, cEndure: ch ? ch.endure : 0,
+        cThornsPct: ch ? ch.thorns : 0, cLifelinePct: ch ? ch.lifeline : 0, cCleanse: ch ? ch.cleanse : 0,
     };
 }
 const alive = (f: AF) => f.lives > 0 && f.state !== "dead" && f.state !== "respawning";
@@ -345,10 +362,40 @@ export interface ArenaSlot { pet: Pet; role: ArenaRole; }
 // ── Combat ───────────────────────────────────────────────────────────────────
 function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number, events: ArenaEvent[], ability = false) {
     const crit = rng() < src.crit;
-    let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * (crit ? 1.8 : 1) * (tgt.markLeft > 0 ? 1.25 : 1)));
+    // DODGE consumable fully negates the incoming hit (no damage, no procs).
+    if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; return; }
+    let mult = (crit ? 1.8 : 1) * (tgt.markLeft > 0 ? 1.25 : 1);
+    if (src.itemsOn) mult *= petGearExecuteMult(src.pet, tgt.hp, tgt.maxHp);   // gear execute vs low-HP foe
+    let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * mult));
+    if (tgt.itemsOn) {
+        dmg = Math.max(1, Math.round(dmg * petGearLastStandMult(tgt.pet, tgt.hp, tgt.maxHp)));   // gear last-stand while low
+        if (tgt.cMitigatePct > 0) { dmg = Math.max(1, Math.round(dmg * (1 - tgt.cMitigatePct / 100))); tgt.cMitigatePct = 0; }   // smoke-pellet
+    }
     if (tgt.shieldHp > 0) { const absorbed = Math.min(tgt.shieldHp, dmg); tgt.shieldHp -= absorbed; dmg -= absorbed; }
+    if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }   // survive one lethal blow
     tgt.hp -= dmg;
     events.push({ t, type: "hit", targetId: tgt.id, actorId: src.id, dmg, crit, element: src.element, ability });
+    if (dmg > 0) {
+        // THORNS consumable: reflect a % of the damage back at the attacker (once).
+        if (tgt.itemsOn && tgt.cThornsPct > 0 && src.hp > 0) {
+            const reflect = Math.max(1, Math.round(dmg * tgt.cThornsPct / 100));
+            src.hp -= reflect; tgt.cThornsPct = 0;
+            events.push({ t, type: "hit", targetId: src.id, actorId: tgt.id, dmg: reflect, crit: false, element: tgt.element, ability: false });
+        }
+        // Attacker gear procs on a BASIC hit (ability === false): poison DoT + lifesteal.
+        if (src.itemsOn && !ability) {
+            const dot = petGearDotOnHit(src.pet);
+            if (dot) { tgt.dotLeft = Math.max(tgt.dotLeft, Math.round(ARENA_TPS * 0.5 * dot.rounds)); tgt.dotDmg = Math.max(tgt.dotDmg, dot.damage); }
+            const heal = petGearLifestealHeal(src.pet, dmg);
+            if (heal > 0) src.hp = Math.min(src.maxHp, src.hp + heal);
+        }
+        // LIFELINE consumable: the first drop below the threshold heals % of max HP.
+        if (tgt.itemsOn && tgt.cLifelinePct > 0 && tgt.hp > 0 && (tgt.hp / tgt.maxHp) * 100 < PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
+            const heal = Math.max(1, Math.round(tgt.maxHp * tgt.cLifelinePct / 100));
+            tgt.hp = Math.min(tgt.maxHp, tgt.hp + heal); tgt.cLifelinePct = 0;
+            events.push({ t, type: "heal", targetId: tgt.id, actorId: tgt.id, amount: heal });
+        }
+    }
 }
 
 // ── AI: pick a goal + target by role × objective context ─────────────────────
@@ -898,6 +945,10 @@ function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: 
 // team processed second would react to the first team's same-tick moves — a
 // second-mover edge that, with reactive AI, snowballs into a lopsided win rate.
 function tickDecide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }, squad: Squad) {
+    // CLEANSE consumable: the first tick under any DoT/control, purge it all (once).
+    if (f.itemsOn && f.cCleanse > 0 && (f.dotLeft > 0 || f.slowLeft > 0 || f.markLeft > 0 || f.tauntLeft > 0)) {
+        f.dotLeft = 0; f.dotDmg = 0; f.slowLeft = 0; f.markLeft = 0; f.tauntLeft = 0; f.tauntBy = null; f.cCleanse = 0;
+    }
     if (f.attackCd > 0) f.attackCd--; if (f.abilityCd > 0) f.abilityCd--;
     if (f.slowLeft > 0) f.slowLeft--; if (f.markLeft > 0) f.markLeft--; if (f.tauntLeft > 0) f.tauntLeft--; else f.tauntBy = null;
     if (f.energy < 100) f.energy = Math.min(100, f.energy + 18 / ARENA_TPS);
@@ -986,12 +1037,13 @@ function snap(t: number, fs: AF[], scroll: Scroll, score: { blue: number; red: n
 }
 
 /** Run a full deterministic match. `blue`/`red` are role-assigned rosters (2 or 4 each). */
-export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: number): ArenaResult {
+export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: number, applyItems = false): ArenaResult {
     const rng = makeRng(seed);
     const nB = blue.length, nR = red.length;
+    // applyItems (PvP ladder) equips every pet's PVP gear + consumables symmetrically.
     const fs: AF[] = [
-        ...blue.map((s, i) => buildFighter(s.pet, "blue", s.role, i, nB)),
-        ...red.map((s, i) => buildFighter(s.pet, "red", s.role, i, nR)),
+        ...blue.map((s, i) => buildFighter(s.pet, "blue", s.role, i, nB, applyItems)),
+        ...red.map((s, i) => buildFighter(s.pet, "red", s.role, i, nR, applyItems)),
     ];
     const center = ARENA_CENTER;   // on the painted center paw (measured off the art)
     const sepX = new Array(fs.length).fill(0), sepY = new Array(fs.length).fill(0);   // per-tick body-separation accumulators (reused; see the declump pass)

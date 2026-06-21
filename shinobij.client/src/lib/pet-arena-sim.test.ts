@@ -172,3 +172,34 @@ test("R1 — the blackboard never turtles a near-even match into a stalemate", (
     }
     assert.ok(capped <= seeds.length * 0.35, `${capped}/${seeds.length} matches hit the time cap — the AI is over-defending`);
 });
+
+// ── PvP-ladder items (applyItems flag — PVP gear stat-mods/procs + consumables) ──
+// The ladder equips both teams' gear + consumables; casual/preview leave applyItems off.
+test("items: deterministic with gear + consumables equipped", () => {
+    for (const seed of SEEDS) {
+        const blue = roster(COMP, { loadout: { pvp: "pvp-spiked-war-harness", consumable: "consum-second-wind" } });
+        const red = roster(COMP, { loadout: { pvp: "pvp-ironhide-barding" } });
+        assert.deepEqual(runPetArenaMatch(blue, red, seed, true), runPetArenaMatch(blue, red, seed, true), `items seed ${seed} diverged`);
+    }
+});
+
+test("items off: an equipped loadout has zero effect (back-compat)", () => {
+    for (const seed of SEEDS) {
+        const geared = runPetArenaMatch(roster(COMP, { loadout: { pvp: "pvp-arena-champion-regalia" } }), roster(COMP), seed);
+        const bare = runPetArenaMatch(roster(COMP), roster(COMP), seed);
+        assert.deepEqual(geared, bare, `loadout leaked into the items-off path (seed ${seed})`);
+    }
+});
+
+test("items: a start-shield gear opens the match with a shield on its wearers only", () => {
+    const r = runPetArenaMatch(roster(COMP, { loadout: { pvp: "pvp-aegis-pendant" } }), roster(COMP), 7, true);
+    const t0 = r.snapshots[0].actors;
+    assert.ok(t0.filter((a) => a.team === "blue").every((a) => a.statuses.includes("shield")), "geared blue team should open shielded");
+    assert.ok(t0.filter((a) => a.team === "red").every((a) => !a.statuses.includes("shield")), "the un-geared red team should not");
+});
+
+test("items: equipping gear changes the deterministic match", () => {
+    const withGear = runPetArenaMatch(roster(COMP, { loadout: { pvp: "pvp-berserkers-muzzle" } }), roster(COMP), 7, true);
+    const without = runPetArenaMatch(roster(COMP), roster(COMP), 7, true);
+    assert.notDeepEqual(withGear, without, "equipping attack gear should change the match");
+});

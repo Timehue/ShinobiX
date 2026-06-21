@@ -1,0 +1,2 @@
+gen-bg.mjs --id coliseum-ladder-hero --provider fal (flux/dev, landscape_4_3)
+a grand sunlit shinobi tournament colosseum of carved golden stone, a lone champion's dais at the center of a 1v1 duel pit, tiered stone seating draped with victory banners, drifting dust motes and dramatic god-rays, epic and triumphant
