@@ -58,6 +58,19 @@ test('validateSubmittedDeck enforces size, bounds, copy + legendary limits', () 
     assert.equal(validateSubmittedDeck(legs).ok, false);
 });
 
+test('validateSubmittedDeck rejects cheap-but-overpowered cards (cost→power ceiling, audit #8)', () => {
+    const withFirst = (over: Partial<ClashCard>) => deckOf(12).map((c, i) => ({ ...c, id: `u${i}`, ...(i === 0 ? over : {}) }));
+    // Forged: an owned weak common submitted as a 1-cost / 2-cost monster.
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 1, power: 12 })).ok, false, 'cost 1 power 12 rejected');
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 1, power: 4 })).ok, false, 'cost 1 power 4 rejected');
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 2, power: 12 })).ok, false, 'cost 2 power 12 rejected');
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 2, power: 7 })).ok, false, 'cost 2 power 7 rejected');
+    // Legit values at each ceiling pass unchanged (behavior-preserving).
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 1, power: 3 })).ok, true, 'cost 1 power 3 ok');
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 2, power: 6 })).ok, true, 'cost 2 power 6 ok');
+    assert.equal(validateSubmittedDeck(withFirst({ cost: 3, power: 12, rarity: 'epic' })).ok, true, 'cost 3 power 12 still allowed (no catalog to tighten)');
+});
+
 test('clashCopyLimit: common/rare 2, epic/legendary 1', () => {
     assert.equal(clashCopyLimit('common'), 2);
     assert.equal(clashCopyLimit('rare'), 2);
