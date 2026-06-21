@@ -20,7 +20,7 @@
  * (these currently resolve as "all enemies dead"; the v1 catalog ships none of them).
  */
 import { EP_MULTIPLIER, statFactor } from './_sim.js';
-import { hexDistance } from '../pvp/_aoe.js';
+import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
 import { applyJutsu, applyDoTs, tickStatuses } from '../pvp/move.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor } from './_floor-catalog.js';
@@ -58,14 +58,15 @@ export type ActionResult = { applied: boolean; reason?: string };
 type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
-    cooldown?: number; isUtility?: boolean;
+    cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
 };
 // Equipped weapon / consumable shape (subset of PvP's PvpItem — the sealed loadout
 // carries these). `slot` drives weapon (hand/thrown) vs consumable (item/potion).
 type PvpItemLike = {
     id?: string; name?: string; slot?: string;
     weaponEp?: number; weaponElement?: string; weaponRange?: number; apCost?: number;
-    weaponTags?: unknown[]; restoreChakra?: number; restoreStamina?: number;
+    weaponTags?: unknown[]; weaponEffect?: string; weaponEffectValue?: number;
+    restoreChakra?: number; restoreStamina?: number;
 };
 
 // ─── Hex geometry (generalized to arbitrary width/height; mirrors move.ts) ───
@@ -345,6 +346,32 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
     if (!selfCast) writeBackFighter(target, res.opponent);
     session.log.push(...res.lines);
 }
+// Area radius for an AOE / ground / displacement jutsu (0 = single-target). Bloodline/
+// creator jutsu carry these methods; the built-in catalog is all SINGLE. Ground-target
+// + Move jutsu resolve as an area burst centred on the struck foe (the tower owns
+// positioning, so the zone is applied immediately rather than placed on a tile).
+function jutsuAreaRadius(jutsu: JutsuLike): number {
+    const m = String(jutsu.method ?? 'SINGLE');
+    if (m === 'AOE_SPIRAL') return 2;
+    if (m === 'AOE_CIRCLE' || m === 'INSTANT_EFFECT' || m === 'AOE_LINE') return 1;
+    if (String(jutsu.target ?? '') === 'EMPTY_GROUND') return 1;
+    if (Array.isArray(jutsu.tags) && (jutsu.tags as Array<{ name?: string }>).some(t => t?.name === 'Move')) return 1;
+    return 0;
+}
+/** Splash an AOE jutsu to every OTHER hostile in the blast (opponent-effects only, so the
+ *  caster's heal/buff isn't re-applied per victim). Returns the names caught. */
+function applyAoeSplash(session: TowerSession, actor: TowerActor, primary: TowerActor, jutsu: JutsuLike, wMult: number, radius: number): string[] {
+    const area = new Set(filledDiskTiles(primary.pos, radius, session.map.width, session.map.height));
+    const caught: string[] = [];
+    const biome = String(session.map.biome ?? 'central');
+    for (const e of session.actors) {
+        if (e.id === primary.id || e.hp <= 0 || !hostileSidesFor(actor.side).includes(e.side) || !area.has(e.pos)) continue;
+        const res = applyJutsu(actorToFighter(actor), actorToFighter(e), jutsu as Parameters<typeof applyJutsu>[2], wMult, biome, session.round);
+        writeBackFighter(e, res.opponent); // only the victim — caster effects already applied on the primary
+        caught.push(e.name);
+    }
+    return caught;
+}
 // Shared resolution for attack / jutsu / weapon (and self-cast jutsu). Folds the
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
@@ -364,6 +391,12 @@ function resolveHit(
         : `uses ${jutsu.name ?? 'a jutsu'}`;
     session.log.push(selfCast ? `${actor.name} ${verb}.` : `${actor.name} ${verb} → ${target.name}.`);
     runJutsu(session, actor, target, jutsu, wMult);
+    // AOE / ground / Move jutsu also strike the other hostiles in the blast radius.
+    const radius = selfCast ? 0 : jutsuAreaRadius(jutsu);
+    if (radius > 0) {
+        const caught = applyAoeSplash(session, actor, target, jutsu, wMult, radius);
+        if (caught.length) session.log.push(`The blast also catches ${caught.join(', ')}.`);
+    }
     session.activeAp -= cost;
     session.actionsThisTurn += 1;
     tickBossPhases(session);
@@ -570,25 +603,42 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         }
     }
 
-    // ── item: a self-targeted consumable. v1 supports restore-potions (chakra/stamina);
-    // tag-effect consumables (smoke / Heal-tag potions) land with the deferred tag layer. ──
+    // ── item: a self-targeted consumable (potion / combat item). Restore-only potions
+    // refill chakra/stamina directly; everything else (Heal potions, self-buffs, smoke)
+    // synthesizes a SELF jutsu and resolves through the PvP engine. Mirrors move.ts. ──
     if (action.type === 'item') {
         const item = equippedItem(actor, action.itemId);
         const slot = item ? normalizeSlot(item.slot) : '';
         if (!item || ['hand', 'thrown'].includes(slot)) return { applied: false, reason: 'no-item' };
-        const restoreCk = Math.max(0, Number(item.restoreChakra ?? 0));
-        const restoreSt = Math.max(0, Number(item.restoreStamina ?? 0));
-        if (restoreCk <= 0 && restoreSt <= 0) return { applied: false, reason: 'unsupported-item' };
         const iCost = Math.max(0, Number(item.apCost ?? 35));
         if (!canAct(session, iCost)) return { applied: false, reason: 'cannot-act' };
         const have = actor.itemCharges?.[item.id!] ?? 0;
         if (have <= 0) return { applied: false, reason: 'out-of-item' };
+        const restoreCk = Math.max(0, Number(item.restoreChakra ?? 0));
+        const restoreSt = Math.max(0, Number(item.restoreStamina ?? 0));
+        const itemTags: Array<{ name: string; percent?: number }> | null =
+            Array.isArray(item.weaponTags) && item.weaponTags.length ? item.weaponTags as Array<{ name: string; percent?: number }>
+            : item.weaponEffect ? [{ name: item.weaponEffect, percent: Number(item.weaponEffectValue ?? 0) }]
+            : null;
         (actor.itemCharges ??= {})[item.id!] = have - 1;
-        actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
-        actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
+        if ((restoreCk > 0 || restoreSt > 0) && !itemTags) {
+            // Pure restore potion — refill directly (skip the synth so it never heals HP via a default Heal tag).
+            actor.chakra = Math.min(actor.maxChakra, actor.chakra + restoreCk);
+            actor.stamina = Math.min(actor.maxStamina, actor.stamina + restoreSt);
+            session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+        } else {
+            // Heal / self-buff consumable → self-cast jutsu (id 'item-' exempts the 40-AP utility rule).
+            const itemJutsu: JutsuLike = {
+                id: `item-${item.id}`, name: item.name ?? 'Item', type: 'Ninjutsu', target: 'SELF',
+                effectPower: Number(item.weaponEp ?? 10), ap: iCost, range: 0,
+                tags: (itemTags ?? [{ name: 'Heal' }]) as unknown[],
+            };
+            session.log.push(`${actor.name} uses ${item.name ?? 'an item'}.`);
+            runJutsu(session, actor, actor, itemJutsu, 1);
+        }
         session.activeAp -= iCost;
         session.actionsThisTurn += 1;
-        session.log.push(`${actor.name} uses ${item.name ?? 'a potion'} — restores ${restoreCk} chakra, ${restoreSt} stamina.`);
+        checkTowerWinner(session, floor);
         return { applied: true };
     }
 

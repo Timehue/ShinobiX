@@ -98,6 +98,7 @@ export function BattleTowerFight({
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
+    const [selWeaponId, setSelWeaponId] = useState<string>("");
     const [busy, setBusy] = useState(false);
     const [reject, setReject] = useState<string | null>(null);
     const [settle, setSettle] = useState<TowerSettleResponse | null>(null);
@@ -166,23 +167,31 @@ export function BattleTowerFight({
         }
     }, [session.status, session.winner, runId, me]);
 
-    // Equipped weapon + restore-potion from the sealed loadout (drive the weapon/item buttons).
+    // Full equipped kit (weapons + consumables) from the sealed loadout → cards.
     const loadout = useMemo(() => {
         const normSlot = (s?: string) => s === "weapon" ? "hand" : s === "armor" ? "body" : s === "accessory" ? "aura" : (s ?? "");
         const items = (Array.isArray(myActor?.character?.pvpItems) ? myActor!.character.pvpItems : []) as ItemLike[];
         const equippedIds = new Set(Object.values((myActor?.character?.equipment ?? {}) as Record<string, string | undefined>).filter(Boolean) as string[]);
         const charges = (myActor?.itemCharges ?? {}) as Record<string, number>;
-        const weapon = items.find(it => it.id && equippedIds.has(it.id) && ["hand", "thrown"].includes(normSlot(it.slot))) ?? null;
-        const thrown = !!weapon && normSlot(weapon.slot) === "thrown";
-        const range = Math.max(1, Number(weapon?.weaponRange ?? (thrown ? 4 : 1)));
-        const weaponLeft = thrown && weapon?.id ? (charges[weapon.id] ?? 0) : Infinity;
-        const potion = items.find(it => it.id && equippedIds.has(it.id) && !["hand", "thrown"].includes(normSlot(it.slot)) && ((Number(it.restoreChakra) || 0) > 0 || (Number(it.restoreStamina) || 0) > 0)) ?? null;
-        const potionLeft = potion?.id ? (charges[potion.id] ?? 0) : 0;
-        return { weapon, thrown, range, weaponLeft, potion, potionLeft };
+        const equipped = items.filter(it => it.id && equippedIds.has(it.id));
+        const weapons = equipped
+            .filter(it => ["hand", "thrown"].includes(normSlot(it.slot)))
+            .map(it => {
+                const thrown = normSlot(it.slot) === "thrown";
+                return { item: it, thrown, range: Math.max(1, Number(it.weaponRange ?? (thrown ? 4 : 1))), left: thrown ? (charges[it.id!] ?? 0) : Infinity };
+            });
+        // Consumables = equipped non-weapon, non-armor slots (potion + combat item).
+        const consumables = equipped
+            .filter(it => !["hand", "thrown", "body", "aura"].includes(normSlot(it.slot)))
+            .map(it => ({ item: it, left: charges[it.id!] ?? 0 }));
+        return { weapons, consumables };
     }, [myActor]);
-    const { weapon: myWeapon, thrown: weaponThrown, range: weaponRange, weaponLeft, potion: myPotion, potionLeft } = loadout;
+    const { weapons: myWeapons, consumables: myConsumables } = loadout;
     const myChakra = myActor?.chakra ?? 0;
     const myStamina = myActor?.stamina ?? 0;
+    // The weapon currently armed for targeting (when in weapon mode).
+    const armedWeapon = mode === "weapon" ? myWeapons.find(w => w.item.id === selWeaponId) : undefined;
+    const weaponRange = armedWeapon?.range ?? 1;
 
     // Valid target/move sets for the current mode.
     const myPos = myActor?.pos ?? -1;
@@ -240,7 +249,7 @@ export function BattleTowerFight({
         const occ = session.actors.find(a => a.hp > 0 && a.pos === tile);
         if (occ && occ.side === "enemy" && enemiesInRange.has(occ.id)) {
             if (mode === "attack") void send({ type: "attack", targetId: occ.id });
-            else if (mode === "weapon" && myWeapon?.id) void send({ type: "weapon", targetId: occ.id, itemId: myWeapon.id });
+            else if (mode === "weapon" && selWeaponId) void send({ type: "weapon", targetId: occ.id, itemId: selWeaponId });
             else if (mode === "jutsu" && selJutsu?.id) void send({ type: "jutsu", jutsuId: selJutsu.id, targetId: occ.id });
         }
     }
@@ -445,7 +454,7 @@ export function BattleTowerFight({
                         </div>
 
                         {/* Jutsu / weapon / consumable cards */}
-                        {(myJutsu.length > 0 || myWeapon || myPotion) && (
+                        {(myJutsu.length > 0 || myWeapons.length > 0 || myConsumables.length > 0) && (
                             <div className="jutsu-layout-card combat-jutsu-bar" style={{ marginTop: 8 }}>
                                 <div className="combat-equipped-jutsu-grid" style={myTurn ? undefined : { opacity: 0.5, pointerEvents: "none" }}>
                                     {myJutsu.map(j => {
@@ -467,31 +476,41 @@ export function BattleTowerFight({
                                             </div>
                                         );
                                     })}
-                                    {myWeapon && (
-                                        <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${mode === "weapon" ? " selected-action" : ""}`}>
-                                            <button type="button"
-                                                className={`combat-jutsu-button combat-item-button${mode === "weapon" ? " selected-action" : ""}`}
-                                                title={`${myWeapon.name ?? "Weapon"} | ${myWeapon.apCost ?? 40} AP | R${weaponRange}`}
-                                                onClick={() => setMode(m => m === "weapon" ? "idle" : "weapon")}
-                                                disabled={busy || (weaponThrown && weaponLeft <= 0) || session.activeAp < (myWeapon.apCost ?? 40)}>
-                                                <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(myWeapon) ? <img src={itemArt(myWeapon)} alt={myWeapon.name ?? ""} /> : <strong>🗡</strong>}</span>
-                                                <span className="combat-jutsu-name">{myWeapon.name ?? "Weapon"}</span>
-                                                <span className="combat-jutsu-info">{myWeapon.apCost ?? 40} AP | R{weaponRange}{weaponThrown ? ` | ×${weaponLeft}` : ""}</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                    {myPotion && (
-                                        <div className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
-                                            <button type="button" className="combat-jutsu-button combat-item-button"
-                                                title={`${myPotion.name ?? "Potion"} | ${myPotion.apCost ?? 35} AP | Use`}
-                                                onClick={() => void send({ type: "item", itemId: myPotion.id })}
-                                                disabled={busy || potionLeft <= 0 || session.activeAp < (myPotion.apCost ?? 35)}>
-                                                <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(myPotion) ? <img src={itemArt(myPotion)} alt={myPotion.name ?? ""} /> : <strong>🧪</strong>}</span>
-                                                <span className="combat-jutsu-name">{myPotion.name ?? "Potion"}</span>
-                                                <span className="combat-jutsu-info">{myPotion.apCost ?? 35} AP | Use ×{potionLeft}</span>
-                                            </button>
-                                        </div>
-                                    )}
+                                    {/* Weapon cards (green) — hand reusable, thrown spends a charge */}
+                                    {myWeapons.map(({ item: wp, thrown, range, left }) => {
+                                        const armed = mode === "weapon" && selWeaponId === wp.id;
+                                        const ap = Number(wp.apCost ?? 40);
+                                        const out = thrown && left <= 0;
+                                        return (
+                                            <div key={wp.id} className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${armed ? " selected-action" : ""}`}>
+                                                <button type="button"
+                                                    className={`combat-jutsu-button combat-item-button${armed ? " selected-action" : ""}`}
+                                                    title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}`}
+                                                    onClick={() => { setSelJutsu(null); setSelWeaponId(prev => prev === wp.id ? "" : (wp.id ?? "")); setMode(m => (m === "weapon" && selWeaponId === wp.id) ? "idle" : "weapon"); }}
+                                                    disabled={busy || out || session.activeAp < ap}>
+                                                    <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(wp) ? <img src={itemArt(wp)} alt={wp.name ?? ""} /> : <strong>🗡</strong>}</span>
+                                                    <span className="combat-jutsu-name">{wp.name ?? "Weapon"}</span>
+                                                    <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""}</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                    {/* Consumable cards (red) — potions / combat items, used on self */}
+                                    {myConsumables.map(({ item: cs, left }) => {
+                                        const ap = Number(cs.apCost ?? 35);
+                                        return (
+                                            <div key={cs.id} className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
+                                                <button type="button" className="combat-jutsu-button combat-item-button"
+                                                    title={`${cs.name ?? "Item"} | ${ap} AP | Use`}
+                                                    onClick={() => void send({ type: "item", itemId: cs.id })}
+                                                    disabled={busy || left <= 0 || session.activeAp < ap}>
+                                                    <span className="combat-jutsu-thumb combat-item-thumb">{itemArt(cs) ? <img src={itemArt(cs)} alt={cs.name ?? ""} /> : <strong>🧪</strong>}</span>
+                                                    <span className="combat-jutsu-name">{cs.name ?? "Item"}</span>
+                                                    <span className="combat-jutsu-info">{ap} AP | Use ×{left}</span>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}
