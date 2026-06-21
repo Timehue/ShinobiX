@@ -312,7 +312,7 @@ export function BattleTowerFight({
 
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
-            <div style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "168px minmax(0,1fr) 196px", gap: 10, padding: 10, minHeight: "100dvh" }}>
+            <div className="tower-fight-grid">
 
                 {/* Squad rail (+ protect-target allies) */}
                 <aside style={{ minWidth: 0 }}>
@@ -347,8 +347,8 @@ export function BattleTowerFight({
                         )}
                     </div>
 
-                    <div ref={battlefieldCallbackRef}
-                        style={{ flex: 1, minHeight: 420, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
+                    <div ref={battlefieldCallbackRef} className="tower-board-area"
+                        style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
                         <div style={{
                             position: "absolute",
                             left: `${Math.max(0, (boardContainerSize.w - layer.width * effectiveScale) / 2)}px`,

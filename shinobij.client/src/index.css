@@ -3178,6 +3178,30 @@ button {
 /* Persistent ground-effect zone overlay — a gentle breathing pulse so the lasting hazard reads as active. */
 @keyframes towerZonePulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 0.95; } }
 
+/* Battle Tower fight layout: squad rail | board | enemy+log rail on desktop. */
+.tower-fight-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 168px minmax(0, 1fr) 196px;
+    gap: 10px;
+    padding: 10px;
+    min-height: 100dvh;
+}
+.tower-board-area { min-height: 420px; }
+/* Phones / narrow tablets: board spans the top full-width; the two rails drop below as a
+   compact 2-column row so the hex board gets the whole width instead of ~100px. */
+@media (max-width: 760px) {
+    .tower-fight-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        padding: 6px;
+    }
+    .tower-fight-grid > main { grid-column: 1 / -1; order: -1; }
+    .tower-fight-grid > aside { font-size: 0.9em; }
+    .tower-board-area { min-height: 300px; }
+}
+
 .dual-ap-panel {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -12224,19 +12248,26 @@ textarea {
 
     .shinobi-command-bar,
     .basic-action-bar {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 4px !important;
-        padding: 4px !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 3px !important;
+        padding: 3px !important;
     }
 
-    /* Tighten command-bar buttons on phones — base styles target a
-       roomier landscape size and waste vertical space when stacked. */
+    /* Tighten command-bar buttons on phones — base styles target a roomier landscape size
+       and waste vertical space when stacked. Compact height + font + tame the wide uppercase
+       tracking so PvP / PvE / Tower action bars don't dominate the screen on mobile. */
     .arena-fullscreen .shinobi-command-bar button,
     .arena-fullscreen .basic-action-bar button {
-        min-height: 40px !important;
-        padding: 4px 6px !important;
-        font-size: 12px !important;
+        min-height: 32px !important;
+        padding: 2px 3px !important;
+        font-size: 10px !important;
+        letter-spacing: 0.04em !important;
+        gap: 0 !important;
     }
+    .arena-fullscreen .shinobi-command-bar button span,
+    .arena-fullscreen .basic-action-bar button span { font-size: 10px !important; }
+    .arena-fullscreen .shinobi-command-bar button small,
+    .arena-fullscreen .basic-action-bar button small { font-size: 8px !important; letter-spacing: 0 !important; }
 
     /* Jutsu layout card already scrolls internally — keep it small
        so the player can see the hex board without scrolling the page. */
@@ -19526,7 +19557,7 @@ button.combat-jutsu-button,
     .arena-fullscreen .basic-action-bar,
     .arena-fullscreen .shinobi-command-bar {
         display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
         max-height: none !important;
         overflow: visible !important;
     }
