@@ -1192,7 +1192,7 @@ export function CentralHub({
                             {weaponInfoItem && (
                                 <div className="modal-overlay" onClick={() => setWeaponInfoItem(null)}>
                                     <div className="modal-box weapon-info-modal" onClick={e => e.stopPropagation()}>
-                                        <button className="modal-close-btn" onClick={() => setWeaponInfoItem(null)}>✕</button>
+                                        <button className="modal-close-btn" aria-label="Close" onClick={() => setWeaponInfoItem(null)}>✕</button>
                                         {(sharedImages['item:' + weaponInfoItem.id] || weaponInfoItem.image) && (
                                             <img
                                                 src={sharedImages['item:' + weaponInfoItem.id] || weaponInfoItem.image}

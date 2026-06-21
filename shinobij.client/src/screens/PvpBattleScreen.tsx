@@ -615,7 +615,10 @@ export function PvpBattleScreen({
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
     const [battleChatMessages, setBattleChatMessages] = useState<BattleChatMsg[]>([]);
     const [battleChatInput, setBattleChatInput] = useState("");
-    const [battleChatVisible, setBattleChatVisible] = useState(true);
+    // Below lg (1180px) the chat renders as a fixed 220px overlay that covers
+    // ~60% of a phone screen over the combat HUD, so start it COLLAPSED there;
+    // on desktop (in-grid column) start it open. Players can still toggle it.
+    const [battleChatVisible, setBattleChatVisible] = useState(() => typeof window !== "undefined" ? window.innerWidth >= 1180 : true);
     const battleChatRef = useRef<HTMLDivElement>(null);
 
     /* Poll battle chat every 3s (paused when tab hidden) */

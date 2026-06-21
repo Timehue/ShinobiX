@@ -75,7 +75,7 @@ export const MobileNav = memo(function MobileNav({
                 <div className="mobile-menu-overlay">
                     <div className="mobile-menu-header">
                         <span className="mobile-menu-title">🥷 SHINOBI MENU</span>
-                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>✕</button>
+                        <button className="mobile-menu-close" aria-label="Close menu" onClick={() => setOpen(false)}>✕</button>
                     </div>
 
                     <div className="mobile-char-card">
