@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";
-import { fetchTowerState, type TowerSession } from "../lib/towers-api";
+import { fetchTowerState, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
 
 // ─── Battle Towers (combined lobby ↔ fight, refresh-resumable) ─────────────────
 // One screen wrapping the lobby and the fullscreen fight, so App.tsx only wires a
@@ -39,7 +39,7 @@ function clearRunKey() {
 // "couldn't resume" and fall to the (penalty-free) lobby.
 const RESUME_TIMEOUT_MS = 12_000;
 
-export function BattleTowers({ character, sharedImages, onExit }: { character: Character; sharedImages?: Record<string, string>; onExit: () => void }) {
+export function BattleTowers({ character, sharedImages, hostLoadout, onExit }: { character: Character; sharedImages?: Record<string, string>; hostLoadout?: TowerHostLoadout; onExit: () => void }) {
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
     const [view, setView] = useState<View>(() => {
@@ -112,6 +112,7 @@ export function BattleTowers({ character, sharedImages, onExit }: { character: C
     return (
         <BattleTowersLobby
             character={character}
+            hostLoadout={hostLoadout}
             onEnter={(runId, session) => setView({ phase: "fight", runId, session })}
             onBack={onExit}
         />

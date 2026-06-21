@@ -30,10 +30,16 @@ const SPECIALTIES = ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'];
  * @param saveChar the save's `.character` object (stats / equippedJutsuIds / equipment / …)
  * @param save     the FULL save record (carries savedBloodlines + creatorJutsus for loadout
  *                 resolution); pass null only for synthetic/test characters.
+ * @param clientChar OPTIONAL client-computed combat fields the SAVE does not persist —
+ *                 `pvpItems` (equipped weapons/consumables) + the equipment-derived passives
+ *                 (bloodlineMult / armorFactor / armorRawDR / itemDamagePct / item*Pct /
+ *                 itemShield). These are built client-side at fight time exactly like PvP
+ *                 (getPvpItemLoadout / getCharacterArmorFactor / …), so the host sends them.
+ *                 hydrateCharacterFromSave prefers the save and only falls back to these for
+ *                 the missing fields, then CLAMPS every one — same trust model as a PvP fighter.
  */
-function sealTowerFighter(saveChar, save = null) {
-    // No client payload — the tower is server-authoritative; the save IS the source of truth.
-    const hydrated = (0, session_js_1.hydrateCharacterFromSave)(saveChar, {}, save);
+function sealTowerFighter(saveChar, save = null, clientChar = {}) {
+    const hydrated = (0, session_js_1.hydrateCharacterFromSave)(saveChar, clientChar, save);
     // hydrate spreads the save's specialty verbatim; the engine defaults an invalid one at
     // use, but clamp it here too so the sealed snapshot's contract stays clean.
     const sp = String(hydrated.specialty ?? 'Taijutsu');

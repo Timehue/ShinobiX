@@ -43,6 +43,17 @@ const _seal_js_1 = require("./_seal.js");
         node_assert_1.strict.equal(jutsu[0].id, 'ashen-eyes-blood-gaze');
         node_assert_1.strict.ok(jutsu[0].chakraCost > 0, 'catalog jutsu carries its real chakra cost');
     });
+    (0, node_test_1.it)('seals client-supplied pvpItems + equipment passives the save does NOT persist', () => {
+        // pvpItems + bloodlineMult/armor/itemDamagePct are computed client-side at fight time
+        // (the save lacks them) — the host sends them; the seal must fill + clamp them.
+        const sealed = (0, _seal_js_1.sealTowerFighter)({ name: 'Hero', stats: {} }, // save character — no items / passives
+        { character: {} }, // save record
+        { pvpItems: [{ id: 'kunai', name: 'Kunai', slot: 'thrown', weaponEp: 20 }], bloodlineMult: 2, armorRawDR: 0.8, itemDamagePct: 50 });
+        node_assert_1.strict.equal(sealed.bloodlineMult, 2, 'client bloodlineMult sealed');
+        node_assert_1.strict.equal(sealed.itemDamagePct, 50, 'client itemDamagePct sealed');
+        node_assert_1.strict.ok(sealed.armorRawDR > 0, 'client armorRawDR sealed');
+        node_assert_1.strict.ok(Array.isArray(sealed.pvpItems) && sealed.pvpItems.length === 1, 'client pvpItems sealed');
+    });
     (0, node_test_1.it)('seals a per-fight consumable budget capped by owned count', () => {
         const charges = (0, _seal_js_1.sealTowerItemCharges)({
             equipment: { thrown: 'shuriken', potion: 'rejuvenation-potion' },
