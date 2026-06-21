@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
@@ -111,8 +112,8 @@ export function CentralHub({
         // lag the actual state by up to a minute (previously 60s, which
         // meant winners could sit on a stale "at war" banner for a full
         // poll cycle after victory).
-        const id = setInterval(fetchWar, 15_000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(fetchWar, 15_000);
+        return () => { alive = false; stop(); };
     }, [character.village]);
 
     // Named Weapon forge state

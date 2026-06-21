@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character, ServerPlayerSummary } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { NoticePostType } from "../types/clan";
@@ -118,8 +119,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             });
         };
         refreshVillageState();
-        const id = setInterval(refreshVillageState, 10000);
-        return () => clearInterval(id);
+        return visiblePoll(refreshVillageState, 10000);
     }, [character.village]);
     useEffect(() => saveVillageState(character.village, state), [character.village, state]);
     // Poll authoritative kage state (seat + active challenge) so every player
@@ -143,8 +143,8 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             })
             .catch(() => {});
         fetchKage();
-        const id = setInterval(fetchKage, 12_000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(fetchKage, 12_000);
+        return () => { alive = false; stop(); };
     }, [character.village]);
     // Challenger drives the overlap "accept obligation" clock: while their
     // challenge is pending, press the server every ~25s. The server only burns
@@ -170,8 +170,8 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             })
             .catch(() => {});
         press();
-        const id = setInterval(press, 25_000);
-        return () => { alive = false; clearInterval(id); };
+        const stop = visiblePoll(press, 25_000);
+        return () => { alive = false; stop(); };
         // Interval keyed on the challenge IDENTITY (status + challenger), not the
         // whole challenge object — which mutates every poll (obligationRemainingMs)
         // and would otherwise restart the 25s interval on every tick. Intentional.

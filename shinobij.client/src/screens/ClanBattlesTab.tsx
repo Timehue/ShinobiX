@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";
 import { ClanWarManual } from "../components/ClanWarManual";
@@ -28,8 +29,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     }, []);
     useEffect(() => {
         void refresh();
-        const id = setInterval(refresh, 15_000);
-        return () => clearInterval(id);
+        return visiblePoll(refresh, 15_000);
     }, [refresh]);
 
     const myClan = (character.clan ?? "").trim();

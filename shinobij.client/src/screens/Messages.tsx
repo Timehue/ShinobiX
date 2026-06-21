@@ -6,6 +6,7 @@
  * fine here. Single-pane (inbox OR conversation) so it works on mobile.
  */
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
 
@@ -56,8 +57,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     useEffect(() => { if (active) void loadThread(active); }, [active, loadThread]);
     // Poll inbox + the open thread while the screen is mounted.
     useEffect(() => {
-        const id = window.setInterval(() => { void loadInbox(); if (active) void loadThread(active); }, 8000);
-        return () => window.clearInterval(id);
+        return visiblePoll(() => { void loadInbox(); if (active) void loadThread(active); }, 8000);
     }, [active, loadInbox, loadThread]);
     useEffect(() => { if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight; }, [thread]);
 

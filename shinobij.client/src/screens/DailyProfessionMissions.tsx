@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character, Profession } from "../App";
 
 type DailyMission = {
@@ -89,8 +90,8 @@ export function DailyProfessionMissions({ character }: { character: Character })
         void fetchMissions();
         // Re-poll every 30s so progress from server-side hooks (heal, kill)
         // shows up without requiring a full screen refresh.
-        const id = setInterval(() => void fetchMissions(), 30_000);
-        return () => { cancelled = true; clearInterval(id); };
+        const stop = visiblePoll(() => void fetchMissions(), 30_000);
+        return () => { cancelled = true; stop(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.profession, character.name]);
 

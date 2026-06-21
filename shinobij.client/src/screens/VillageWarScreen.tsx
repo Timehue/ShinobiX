@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import { TERRITORY_HP_MAX, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
 import { currentDateKey } from "../lib/utils";
@@ -55,7 +56,7 @@ export function VillageWarScreen({
         }
     }, []);
 
-    useEffect(() => { void refresh(); const id = setInterval(refresh, 15000); return () => clearInterval(id); }, [refresh]);
+    useEffect(() => { void refresh(); return visiblePoll(refresh, 15000); }, [refresh]);
 
     const myVillage = (character.village ?? "").trim();
     const activeWar = wars.find(w => !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage));
