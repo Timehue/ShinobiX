@@ -61,7 +61,7 @@ const BEGINNER: Guide = {
             blocks: [
                 { type: "list", items: [
                     "Equip your jutsu — you already know your bloodline's techniques.",
-                    "Run a D-rank Mission at the Mission Hall for easy XP and ryo.",
+                    "Run the E-rank Drill at the Mission Hall — a near-guaranteed win for easy XP and ryo while you learn the ropes.",
                     "Win a fight in the Battle Arena (vs. AI) to level up fast.",
                     "Train a stat at the Training Grounds.",
                     "Hit Level 2 and claim your free Element Awakening at the Awakening Stone.",
@@ -137,7 +137,7 @@ const BEGINNER: Guide = {
             heading: "8 · Missions & Hunts — your daily bread",
             blocks: [
                 { type: "list", items: [
-                    "Missions (Mission Hall) come in ranks D → C → B → A → S. Up to 20 per day. Your main source of XP and ryo.",
+                    "Missions (Mission Hall) come in ranks E → D → C → B → A → S — start with the E-rank Drill (a guaranteed-win trainer for levels 1-5). Up to 20 per day. Your main source of XP and ryo.",
                     "Hunts (Hunter Guild) are a separate pool of 20 per day — beast contracts that rank you up and drop rare materials.",
                     "Story Hall has story missions for lore and rewards.",
                 ] },
