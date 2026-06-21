@@ -239,7 +239,7 @@ export function BattleTowerFight({
             setReject(String((e as Error)?.message ?? e));
         } finally {
             setBusy(false);
-            setMode("idle"); setSelJutsu(null);
+            setMode("idle"); setSelJutsu(null); setSelWeaponId("");
         }
     }
 
@@ -292,6 +292,24 @@ export function BattleTowerFight({
     const enemies = session.actors.filter(a => a.side === "enemy");
     const biomeFloor = TOWER_FLOOR[String(session.map.biome)] ?? arenaFloorForest;
 
+    // Objective progress readout (so the player can see how close they are to win/lose).
+    const enemiesAlive = enemies.filter(e => e.hp > 0).length;
+    const npcActor = session.actors.find(a => a.side === "npc");
+    const bossActor = bossId ? session.actors.find(a => a.id === bossId) : undefined;
+    const hpPct = (a: TowerActor) => Math.max(0, Math.round((a.hp / Math.max(1, a.maxHp)) * 100));
+    const objectiveProgress =
+        objective === "defeat-boss" && bossActor ? `Boss ${hpPct(bossActor)}% HP`
+        : (objective === "protect-npc" || objective === "kill-escort") && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% · ${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`
+        : objective === "reach-tile" ? (session.objectiveState.reachedGoal ? "Goal reached" : "Reach the goal tile")
+        : `${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`;
+    // What to do with the currently-armed action (esp. ground jutsu, which need a tile).
+    const targetingHint = !myTurn ? "" :
+        mode === "move" ? "Click an adjacent tile to move." :
+        mode === "attack" ? "Click an enemy in range to attack." :
+        mode === "weapon" ? "Click an enemy in range." :
+        mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
+        mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
+
     return (
         <div className="arena-fullscreen screen-battleTowerFight" style={{ position: "relative", minHeight: "100dvh", color: "#e2e8f0", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${gameBg}) center/cover fixed` }}>
             <div style={{ position: "relative", zIndex: 1, display: "grid", gridTemplateColumns: "168px minmax(0,1fr) 196px", gap: 10, padding: 10, minHeight: "100dvh" }}>
@@ -306,6 +324,7 @@ export function BattleTowerFight({
                 <main style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
                         <strong>Floor {session.floor} · {objective.replace(/-/g, " ")}</strong>
+                        <span title="Objective progress" style={{ color: "#fcd34d", fontSize: "0.8rem", fontWeight: 700, whiteSpace: "nowrap" }}>🎯 {objectiveProgress}</span>
                         <span style={{ color: "#94a3b8", flex: 1, textAlign: "right" }}>Round {session.round}</span>
                         {turnLabel && (
                             <span style={{
@@ -447,6 +466,7 @@ export function BattleTowerFight({
                                 <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.7rem", fontWeight: 700 }}>⬢ {myStamina}</span>
                             </span>
                             {reject && <span style={{ color: "#f87171", fontSize: "0.78rem" }}>⚠ {reject}</span>}
+                            {!reject && targetingHint && <span style={{ color: "#7dd3fc", fontSize: "0.78rem", fontWeight: 600 }}>👉 {targetingHint}</span>}
                             {!myTurn && session.status === "active" && (
                                 <span className="hint" style={{ fontSize: "0.78rem", color: "#94a3b8", margin: 0 }}>{turnLabel || "Allies & enemies are acting…"}{afkRemaining != null ? ` · auto-passes in ${afkRemaining}s` : ""}</span>
                             )}
