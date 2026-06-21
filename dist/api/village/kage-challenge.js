@@ -191,6 +191,23 @@ async function handler(req, res) {
                 const challenge = state.challenge;
                 if (!challenge)
                     return { status: 409, body: { error: 'There is no active challenge to settle.' } };
+                // The seat may only change hands through the OFFICIAL accepted
+                // duel — not any unrelated win against the Kage. Without this, a
+                // challenger could satisfy resolve with a casual / ranked / sector
+                // duel they happened to win in the last 24h while the challenge
+                // was never accepted, bypassing the "Kage must accept or forfeit"
+                // obligation (audit #11). An un-accepted challenge is settled via
+                // the press/forfeit clock, never via resolve.
+                if (challenge.status !== 'accepted') {
+                    return { status: 409, body: { error: 'The Kage has not accepted this challenge — it settles via the forfeit clock, not an unrelated duel.' } };
+                }
+                // Defence-in-depth: when accept sealed the official duel's id, the
+                // submitted duel MUST be that exact session. Skipped only for
+                // legacy challenges that recorded no battleId at accept time
+                // (the status==='accepted' gate above still applies to those).
+                if (challenge.battleId && battleId !== challenge.battleId) {
+                    return { status: 409, body: { error: 'That duel is not the accepted Kage duel.' } };
+                }
                 const seat = (0, _utils_js_1.safeName)(state.seatedKage ?? '');
                 const challenger = (0, _utils_js_1.safeName)(challenge.challenger);
                 const fighters = new Set([(0, _utils_js_1.safeName)(session.p1.name), (0, _utils_js_1.safeName)(session.p2.name)]);
