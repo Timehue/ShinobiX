@@ -141,7 +141,7 @@ test("chooseOwnedLadderPets: validates ownership + preserves loadout", () => {
 test("snapshotLadderPet: clamps junk + keeps only known loadout slots", () => {
     const s = snapshotLadderPet({ id: "p", name: "P", hp: -5, attack: 1e9, defense: "x", speed: 50, element: "Fire", loadout: { pvp: "g", collar: "c", consumable: "k" }, jutsus: [{ name: "S", kind: "damage", power: 99, cooldown: 1 }] });
     assert.equal(s.hp, 1);                       // clamped up from -5
-    assert.equal(s.attack, 100000);              // clamped down
+    assert.equal(s.attack, 320);                 // clamped to the standard-rarity attack ceiling (base 40 * 8) — was a flat 100000
     assert.equal(s.defense, 30);                 // junk → default
     assert.equal(s.loadout?.pvp, "g");
     assert.equal(s.loadout?.consumable, "k");

@@ -126,7 +126,7 @@ const aiSummary = (i) => ({ kind: "ai", id: `ai:${i}`, name: `AI${i}`, rank: nul
 (0, node_test_1.test)("snapshotLadderPet: clamps junk + keeps only known loadout slots", () => {
     const s = (0, _core_js_1.snapshotLadderPet)({ id: "p", name: "P", hp: -5, attack: 1e9, defense: "x", speed: 50, element: "Fire", loadout: { pvp: "g", collar: "c", consumable: "k" }, jutsus: [{ name: "S", kind: "damage", power: 99, cooldown: 1 }] });
     strict_1.default.equal(s.hp, 1); // clamped up from -5
-    strict_1.default.equal(s.attack, 100000); // clamped down
+    strict_1.default.equal(s.attack, 320); // clamped to the standard-rarity attack ceiling (base 40 * 8) — was a flat 100000
     strict_1.default.equal(s.defense, 30); // junk → default
     strict_1.default.equal(s.loadout?.pvp, "g");
     strict_1.default.equal(s.loadout?.consumable, "k");
