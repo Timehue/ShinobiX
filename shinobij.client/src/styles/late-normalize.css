@@ -1,0 +1,62 @@
+/* =============================================================================
+   Late normalization layer — imported LAST (after index.css + all skins) so it
+   wins the cascade for equal-specificity selectors. Purpose: unify the look of
+   cross-cutting controls that were implemented per-screen with drifting styles
+   (close buttons, back buttons, empty text). Markup is untouched — these only
+   re-skin existing class names to the token-based system, so there is zero
+   behaviour/JSX risk. Per-feature ACCENT identity (themed tabs etc.) is left
+   intact on purpose; this only normalizes the generic chrome.
+   ========================================================================== */
+
+/* ---- Close buttons: one consistent circular ✕ across all modals/popups ---- */
+.modal-close-btn,
+.item-popup-close,
+.mobile-menu-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--text-dim);
+  background: rgba(148, 163, 184, .08);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  transition: color .12s ease, background .12s ease, border-color .12s ease;
+}
+.modal-close-btn:hover,
+.item-popup-close:hover,
+.mobile-menu-close:hover {
+  color: var(--text);
+  background: rgba(248, 113, 113, .16);
+  border-color: rgba(248, 113, 113, .5);
+}
+
+/* ---- Back buttons: one consistent treatment across screens ---------------- */
+.back-btn,
+.back-to-hub-btn,
+.pl-back {
+  color: var(--text-dim);
+  background: rgba(148, 163, 184, .06);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-weight: var(--fw-medium);
+  transition: color .12s ease, background .12s ease, border-color .12s ease;
+}
+.back-btn:hover,
+.back-to-hub-btn:hover,
+.pl-back:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: rgba(148, 163, 184, .12);
+}
+
+/* ---- Empty / placeholder text: consistent muted, centered style ----------- */
+.council-empty,
+.start-leaderboard-empty {
+  color: var(--text-dim);
+  font-style: italic;
+  text-align: center;
+}

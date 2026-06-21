@@ -1,3 +1,5 @@
+@import "./styles/tokens.css";
+@import "./styles/ui.css";
 @import "./styles/battle-skin.css";
 @import "./styles/profile-skin.css";
 @import "./styles/training-skin.css";
@@ -312,12 +314,12 @@ h2 {
 }
 
 h3 {
-    color: #93c5fd;
+    color: var(--blue-300);
 }
 
 .subtitle,
 .hint {
-    color: #94a3b8;
+    color: var(--text-dim);
 }
 
 .creator-card {
@@ -4857,21 +4859,12 @@ button {
 }
 /* ===== Visual polish pass ===== */
 
-:root {
-    --ink: #08111f;
-    --panel: rgba(10, 18, 33, .92);
-    --panel-2: rgba(20, 31, 50, .94);
-    --line: rgba(148, 163, 184, .26);
-    --gold: #f7c948;
-    --gold-2: #f59e0b;
-    --cyan: #38bdf8;
-    --red: #b91c1c;
-    --paper: #f8ead2;
-}
+/* Core design tokens (--ink, --panel, --gold, --cyan, --red, --paper, …) now
+   live in styles/tokens.css, imported first as the single source of truth. */
 
 body {
-    color: #edf6ff;
-    font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+    color: var(--text);
+    font-family: var(--font-body);
     background: radial-gradient(circle at 14% 8%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 82% 2%, rgba(247, 201, 72, .15), transparent 24%), radial-gradient(circle at 60% 92%, rgba(185, 28, 28, .12), transparent 28%), linear-gradient(135deg, #07101d, #0f1b2d 46%, #120712);
 }
 
@@ -4915,7 +4908,7 @@ h2 {
 
 button {
     border-color: rgba(250, 204, 21, .28);
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(#244aa0, #142761);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 3px 0 rgba(2, 6, 23, .92), 0 10px 18px rgba(0,0,0,.18);
 }
@@ -22717,7 +22710,7 @@ select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible,
 [role="button"]:focus-visible {
-    outline: 2px solid #facc15;
+    outline: 2px solid var(--gold);
     outline-offset: 2px;
 }
 
