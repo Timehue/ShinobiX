@@ -634,7 +634,11 @@ export function PvpBattleScreen({
         };
         poll();
         const iv = setInterval(poll, 3000);
-        return () => { active = false; clearInterval(iv); };
+        // Catch up immediately when the tab is refocused (the poll early-returns
+        // while hidden, so without this the chat is stale for up to one interval).
+        const onVisible = () => { if (document.visibilityState !== "hidden") poll(); };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => { active = false; clearInterval(iv); document.removeEventListener("visibilitychange", onVisible); };
     }, [battleId]);
 
     /* Auto-scroll chat */
@@ -679,8 +683,35 @@ export function PvpBattleScreen({
         };
         poll();
         const iv = setInterval(poll, 5000);
-        return () => { active = false; clearInterval(iv); };
+        const onVisible = () => { if (document.visibilityState !== "hidden") poll(); };
+        document.addEventListener("visibilitychange", onVisible);
+        return () => { active = false; clearInterval(iv); document.removeEventListener("visibilitychange", onVisible); };
     }, [battleId]);
+
+    /* Spectator presence heartbeat. The server prunes any spectator whose last
+       ping is older than 30s (STALE_MS), so without a re-ping the "Watching:"
+       list silently empties mid-fight and refresh-restored spectators never
+       appear at all (the Arena board POSTs 'join' only once, on entry). Re-POST
+       'join' on mount + every 20s WHILE watching, paused while hidden so a
+       backgrounded tab doesn't keep a phantom watcher alive. Mirrors the Arena
+       join exactly; if the POST isn't authed it's a harmless swallowed no-op. */
+    const amSpectatorLive = !!session
+        && character.name.trim().toLowerCase() !== session.p1.name.trim().toLowerCase()
+        && character.name.trim().toLowerCase() !== session.p2.name.trim().toLowerCase();
+    useEffect(() => {
+        if (!battleId || !amSpectatorLive) return;
+        const beat = () => {
+            if (document.visibilityState === "hidden") return;
+            fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, action: "join" }),
+            }).catch(() => {});
+        };
+        beat();
+        const iv = setInterval(beat, 20_000);
+        return () => clearInterval(iv);
+    }, [battleId, amSpectatorLive, character.name]);
 
     // Avatar travel tween — must run unconditionally (above the early return) to
     // keep hook order stable. -1 while the session is still loading.
