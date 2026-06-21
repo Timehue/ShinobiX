@@ -261,9 +261,15 @@ export function makeBuiltinAi(
     loadoutId: AiLoadoutId = aiLoadoutFromJutsus(jutsus)
 ): CreatorAi {
     const selectedJutsus = (jutsus.length ? jutsus : aiJutsuLoadout(loadoutId, starterJutsus)).map(normalizeJutsu);
-    const toughness = id.startsWith("hunt-ai-")
-        ? level >= 70 ? 0.35 : 0.18
-        : 0;
+    // The Worldstorm Dragon (peer-band L92) is opt-in apex content, but 0.35
+    // toughness floored its HP near ~18k, making it a kage-style unwinnable grind.
+    // Drop it to 0.18 so its lowered hpOverride (16k) actually lands. Other hunt
+    // bosses keep 0.35; their HP is set by hpOverride above that floor anyway.
+    const toughness = id === "hunt-ai-worldstorm-dragon"
+        ? 0.18
+        : id.startsWith("hunt-ai-")
+            ? level >= 70 ? 0.35 : 0.18
+            : 0;
     const armorRawDR = aiRawDamageReductionForLevel(level, toughness);
     return normalizeAiProfile({
         id,
@@ -355,14 +361,17 @@ export const builtinAis: CreatorAi[] = [
     makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "🐉", 65, "Volcano Territory", aiJutsuLoadout("boss"), 150, 12000, "boss"),
     makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🐍", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 13000, "control"),
     makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "👺", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 18000, "boss"),
-    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐲", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 20000, "boss"),
+    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐲", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 16000, "boss"),
     // -- Hollow Gate Shrine boss ---------------------------------------------
     // The Hollow Gate Warden is the deepest seal of the shrine. It is flagged
     // isBossAi so the shrine boss-tile picker selects it, and is built at a high
     // base level — the runtime AI selection in startHollowGateBattle rebases
     // its name and level to within ±15 of the player's level on use.
     ((): CreatorAi => {
-        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 22000, "boss");
+        // Base HP is multiplied by the run's floor (up to 1.4× on Floor 5), so a
+        // 22k base hit ~30.8k at the deepest floor — an unwinnable peer-band grind.
+        // 13k base keeps the floor-scaling feel but tops out ~18.2k on Floor 5.
+        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 13000, "boss");
         return { ...base, isBossAi: true };
     })(),
 ];
