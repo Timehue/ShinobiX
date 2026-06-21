@@ -1,0 +1,113 @@
+/* Pet Ladder — ranked Coliseum + Tactical. Self-contained, namespaced .pl-* so it
+ * never collides with the global stylesheet. Dark glass + coliseum-gold accent. */
+
+.pl-screen { max-width: 960px; margin: 0 auto; padding: 0 12px 48px; color: #e8edf6; }
+.pl-back {
+  background: none; border: 1px solid rgba(255,255,255,.14); color: #cdd6e6;
+  border-radius: 8px; padding: 6px 13px; font-size: 13px; margin: 10px 0; cursor: pointer; transition: .15s;
+}
+.pl-back:hover { border-color: rgba(244,196,81,.55); color: #f4c451; }
+
+/* ── Hero banner ──────────────────────────────────────────────────────────── */
+.pl-hero {
+  position: relative; border-radius: 16px; overflow: hidden; margin-bottom: 14px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.55), inset 0 0 0 1px rgba(244,196,81,.18);
+}
+.pl-hero img { width: 100%; height: 172px; object-fit: cover; display: block; transform: scale(1.03); }
+.pl-hero::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(8,10,18,.12) 0%, rgba(8,10,18,.5) 52%, rgba(8,10,18,.93) 100%);
+}
+.pl-hero-body { position: absolute; left: 20px; right: 20px; bottom: 15px; z-index: 1; }
+.pl-hero-title { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: .3px; color: #f7d98a; text-shadow: 0 2px 12px rgba(0,0,0,.85); }
+.pl-hero-sub { margin-top: 3px; font-size: 13px; color: rgba(231,237,247,.85); text-shadow: 0 1px 6px rgba(0,0,0,.9); }
+.pl-hero-badge {
+  position: absolute; top: 13px; right: 15px; z-index: 1; background: rgba(8,10,18,.55);
+  border: 1px solid rgba(244,196,81,.4); color: #f4c451; font-size: 11px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase; padding: 4px 11px; border-radius: 999px; backdrop-filter: blur(4px);
+}
+
+/* ── Segmented mode tabs ──────────────────────────────────────────────────── */
+.pl-tabs { display: flex; gap: 6px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 5px; margin-bottom: 16px; }
+.pl-tab { flex: 1; padding: 9px 10px; border: none; background: none; color: rgba(231,237,247,.6); font-weight: 700; font-size: 14px; border-radius: 8px; cursor: pointer; transition: .15s; }
+.pl-tab:hover { color: #e8edf6; }
+.pl-tab.is-active { background: linear-gradient(180deg, #f7d98a, #e0a106); color: #2a1c00; box-shadow: 0 3px 12px rgba(224,161,6,.35); }
+
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+.pl-panel { background: rgba(16,20,32,.62); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; backdrop-filter: blur(6px); }
+.pl-h { margin: 0 0 8px; font-size: 15px; font-weight: 800; letter-spacing: .3px; color: #f0e6cf; }
+.pl-sub { margin: 0 0 10px; font-size: 12.5px; color: rgba(231,237,247,.6); line-height: 1.45; }
+.pl-err { background: rgba(224,85,107,.14); border: 1px solid rgba(224,85,107,.4); color: #ffb3bf; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; }
+.pl-empty { color: rgba(231,237,247,.6); font-size: 13px; padding: 6px 2px; }
+
+/* ── Standing strip ───────────────────────────────────────────────────────── */
+.pl-standing { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.pl-rank-big {
+  display: flex; flex-direction: column; align-items: center; min-width: 96px; padding: 11px 16px; border-radius: 12px;
+  background: radial-gradient(120% 130% at 50% 0%, rgba(244,196,81,.18), rgba(244,196,81,0));
+  border: 1px solid rgba(244,196,81,.28);
+}
+.pl-rank-num { font-size: 34px; font-weight: 900; color: #f7d98a; line-height: 1; }
+.pl-rank-lbl { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(231,237,247,.55); margin-top: 4px; }
+.pl-stats { display: flex; gap: 9px; flex: 1; flex-wrap: wrap; min-width: 180px; }
+.pl-stat { background: rgba(255,255,255,.04); border-radius: 9px; padding: 7px 13px; min-width: 60px; }
+.pl-stat-n { font-size: 18px; font-weight: 800; }
+.pl-stat-l { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: rgba(231,237,247,.5); }
+.pl-charges { text-align: center; padding: 4px 8px; }
+.pl-charges-n { font-size: 26px; font-weight: 900; color: #f4c451; line-height: 1; }
+.pl-charges-l { font-size: 11px; color: rgba(231,237,247,.6); }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.pl-btn { font-weight: 700; border-radius: 10px; padding: 9px 18px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: #e8edf6; cursor: pointer; transition: .15s; }
+.pl-btn:hover:not(:disabled) { border-color: rgba(244,196,81,.45); background: rgba(255,255,255,.09); }
+.pl-btn:disabled { opacity: .45; cursor: not-allowed; }
+.pl-btn-gold { background: linear-gradient(180deg, #f7d98a, #e0a106); color: #2a1c00; border: none; font-weight: 800; box-shadow: 0 4px 16px rgba(224,161,6,.3); }
+.pl-btn-gold:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
+.pl-cta { font-size: 16px; padding: 13px 24px; width: 100%; }
+.pl-hint-inline { margin-left: 10px; font-size: 12px; color: rgba(231,237,247,.6); }
+
+/* ── Ladder list ──────────────────────────────────────────────────────────── */
+.pl-list { display: flex; flex-direction: column; gap: 4px; }
+.pl-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid transparent; border-left: 3px solid transparent; transition: .12s; }
+.pl-row:hover { background: rgba(255,255,255,.05); }
+.pl-row.is-you { background: rgba(244,196,81,.1); border-left-color: #f4c451; }
+.pl-row-main { flex: 1; min-width: 0; }
+.pl-row-name { font-weight: 700; }
+.pl-row-vil { opacity: .55; font-size: 12px; }
+.pl-row-rec { font-size: 11px; color: rgba(231,237,247,.55); text-align: right; white-space: nowrap; line-height: 1.5; }
+.pl-medal { width: 40px; height: 40px; flex: none; display: grid; place-items: center; font-weight: 900; font-size: 16px; color: #2a1c00; border-radius: 50%; }
+.pl-medal.plain { color: rgba(231,237,247,.85); background: none; }
+
+/* ── Pet summary chips ────────────────────────────────────────────────────── */
+.pl-chips { display: inline-flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.pl-chip { font-size: 12px; }
+.pl-chip .dim { opacity: .55; }
+
+/* ── Offer modal ──────────────────────────────────────────────────────────── */
+.pl-modal-bg { position: fixed; inset: 0; background: rgba(4,6,12,.72); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
+.pl-modal { background: linear-gradient(180deg, rgba(22,26,40,.98), rgba(13,16,27,.98)); border: 1px solid rgba(244,196,81,.22); border-radius: 16px; padding: 20px; max-width: 760px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,.65); }
+.pl-offer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.pl-opp { text-align: left; padding: 13px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); cursor: pointer; transition: .15s; color: #e8edf6; }
+.pl-opp:hover:not(:disabled) { border-color: rgba(244,196,81,.5); background: rgba(244,196,81,.08); transform: translateY(-2px); }
+.pl-opp:disabled { opacity: .55; cursor: progress; }
+.pl-opp-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pl-opp-name { font-weight: 800; font-size: 15px; }
+.pl-opp-rank { font-size: 11px; font-weight: 700; color: #f4c451; white-space: nowrap; }
+.pl-opp-ai { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: rgba(231,237,247,.5); }
+.pl-opp-vil { font-size: 11px; opacity: .6; margin-top: 1px; }
+
+/* ── Notification + outcome banners ───────────────────────────────────────── */
+.pl-notify { background: rgba(244,196,81,.1); border: 1px solid rgba(244,196,81,.28); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.pl-notify-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.pl-notify-row { font-size: 13px; color: rgba(231,237,247,.9); }
+.pl-link { background: none; border: none; color: #f4c451; font-size: 12px; cursor: pointer; padding: 2px 4px; }
+.pl-outcome { border-radius: 12px; padding: 11px 16px; margin-bottom: 14px; font-weight: 800; font-size: 15px; }
+.pl-outcome.win { background: rgba(70,209,138,.14); border: 1px solid rgba(70,209,138,.4); color: #8ff0bf; }
+.pl-outcome.loss { background: rgba(224,85,107,.14); border: 1px solid rgba(224,85,107,.4); color: #ffb3bf; }
+
+@media (max-width: 560px) {
+  .pl-hero img { height: 132px; }
+  .pl-hero-title { font-size: 22px; }
+  .pl-standing { gap: 12px; }
+  .pl-rank-num { font-size: 28px; }
+}
