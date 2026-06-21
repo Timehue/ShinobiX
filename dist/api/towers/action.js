@@ -59,7 +59,7 @@ async function handler(req, res) {
         // Build the action server-side with actorId = the verified active actor (no client spoof).
         const action = type === 'move' ? { actorId: actor.id, type: 'move', tile: Math.floor(Number(body.tile)) }
             : type === 'attack' ? { actorId: actor.id, type: 'attack', targetId: String(body.targetId ?? '') }
-                : type === 'jutsu' ? { actorId: actor.id, type: 'jutsu', jutsuId: String(body.jutsuId ?? ''), targetId: String(body.targetId ?? '') }
+                : type === 'jutsu' ? { actorId: actor.id, type: 'jutsu', jutsuId: String(body.jutsuId ?? ''), targetId: body.targetId !== undefined ? String(body.targetId) : undefined, tile: body.tile !== undefined ? Math.floor(Number(body.tile)) : undefined }
                     : type === 'weapon' ? { actorId: actor.id, type: 'weapon', targetId: String(body.targetId ?? ''), itemId: body.itemId ? String(body.itemId) : undefined }
                         : type === 'item' ? { actorId: actor.id, type: 'item', itemId: body.itemId ? String(body.itemId) : undefined }
                             : { actorId: actor.id, type: 'wait' };

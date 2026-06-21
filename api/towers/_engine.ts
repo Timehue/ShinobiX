@@ -21,8 +21,9 @@
  */
 import { EP_MULTIPLIER, statFactor } from './_sim.js';
 import { hexDistance, filledDiskTiles } from '../pvp/_aoe.js';
-import { applyJutsu, applyDoTs, tickStatuses } from '../pvp/move.js';
-import type { PvpFighter } from '../pvp/session.js';
+import { applyJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects } from '../pvp/move.js';
+import { GROUND_EFFECT_TAGS, canonicalTagName } from '../pvp/_tags.js';
+import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
 import { partyScaleFactor, scaleEnemyStat, getFloorBalanceFor, type TowerFloor } from './_floor-catalog.js';
 import {
     type TowerSession,
@@ -48,7 +49,7 @@ export const MASTERY_MIN_DAMAGE_FRAC = 0.3;
 export type TowerAction =
     | { actorId: string; type: 'move'; tile: number; token?: string }
     | { actorId: string; type: 'attack'; targetId: string; token?: string }
-    | { actorId: string; type: 'jutsu'; jutsuId: string; targetId: string; token?: string }
+    | { actorId: string; type: 'jutsu'; jutsuId: string; targetId?: string; tile?: number; token?: string }
     | { actorId: string; type: 'weapon'; targetId: string; itemId?: string; token?: string }
     | { actorId: string; type: 'item'; itemId?: string; token?: string }
     | { actorId: string; type: 'wait'; token?: string };
@@ -372,6 +373,59 @@ function applyAoeSplash(session: TowerSession, actor: TowerActor, primary: Tower
     }
     return caught;
 }
+
+// ─── Persistent ground-effect zones (EMPTY_GROUND jutsu placed on a tile) ─────
+// A faithful tower port of PvP's ground zones: a tile-targeted jutsu lays a 2-round
+// zone carrying its ground-eligible tags (Decrease Damage Given / Recoil / Poison);
+// any HOSTILE standing in the zone re-suffers the tags each round (reusing the EXACT
+// PvP applyGroundEffectToFighter), then the zone ticks down. Deterministic (no RNG/
+// clock — the id is derived from round + caster + jutsu so settle reproduces it).
+function towerGroundTags(tags: unknown): Array<{ name: string; percent?: number }> {
+    if (!Array.isArray(tags)) return [];
+    return (tags as Array<{ name?: string; percent?: number }>)
+        .filter(t => t && typeof t.name === 'string')
+        .map(t => ({ ...t, name: canonicalTagName(t.name!) }))
+        .filter(t => GROUND_EFFECT_TAGS.has(t.name));
+}
+function groundZoneTiles(center: number, w: number, h: number): number[] {
+    return [center, ...towerNeighbors(center, w, h)];
+}
+/** Living actors a zone affects — the HOSTILES of the side that cast it (squad→'p1'). */
+function groundZoneTargets(session: TowerSession, effect: PvpGroundEffect): TowerActor[] {
+    const victimSides: TowerSide[] = effect.owner === 'p1' ? ['enemy'] : ['squad', 'npc'];
+    return session.actors.filter(a => a.hp > 0 && victimSides.includes(a.side));
+}
+function applyZoneToUnits(session: TowerSession, effect: PvpGroundEffect): void {
+    for (const a of groundZoneTargets(session, effect)) {
+        if (!effect.tiles.includes(a.pos)) continue;
+        const r = applyGroundEffectToFighter(actorToFighter(a), effect, session.round);
+        a.statuses = r.fighter.statuses;
+        if (r.lines.length) session.log.push(...r.lines);
+    }
+}
+/** Place a ground zone at `tile` from a ground-target (EMPTY_GROUND) jutsu, and bite anyone
+ *  already standing in it. Returns false if the jutsu carries no ground-eligible tags. */
+function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string, jutsu: JutsuLike, tile: number): boolean {
+    const tags = towerGroundTags(jutsu.tags);
+    if (!tags.length) return false;
+    const effect: PvpGroundEffect = {
+        id: `gz-${session.round}-${actor.id}-${jutsuId}`,
+        owner: actor.side === 'squad' ? 'p1' : 'p2',
+        name: jutsu.name ?? 'Ground Effect',
+        tiles: groundZoneTiles(tile, session.map.width, session.map.height),
+        rounds: 2,
+        tags,
+    };
+    session.groundEffects = [...(session.groundEffects ?? []), effect];
+    session.log.push(`${actor.name} lays ${effect.name} across ${effect.tiles.length} tiles for 2 rounds.`);
+    applyZoneToUnits(session, effect);
+    return true;
+}
+/** Round-end: re-apply every live zone to units standing in it, then expire spent zones. */
+function applyRoundGroundEffects(session: TowerSession): void {
+    for (const effect of session.groundEffects ?? []) applyZoneToUnits(session, effect);
+    session.groundEffects = tickGroundEffects(session.groundEffects);
+}
 // Shared resolution for attack / jutsu / weapon (and self-cast jutsu). Folds the
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
@@ -603,6 +657,34 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
         }
     }
 
+    // ── ground-target jutsu (target: EMPTY_GROUND) — place a persistent zone on a tile ──
+    if (action.type === 'jutsu' && action.tile !== undefined) {
+        const jg = findJutsu(actor, action.jutsuId);
+        if (jg && String((jg as { target?: string }).target) === 'EMPTY_GROUND') {
+            const tile = Math.floor(action.tile);
+            if (tile < 0 || tile >= session.map.width * session.map.height) return { applied: false, reason: 'bad-tile' };
+            if (session.map.blockedTiles.includes(tile)) return { applied: false, reason: 'blocked' };
+            const range = Math.max(1, Number(jg.range ?? 1));
+            if (hexDistance(actor.pos, tile, session.map.width) > range) return { applied: false, reason: 'out-of-range' };
+            const cost = Number(jg.ap ?? 40);
+            const ck = Math.max(0, Number(jg.chakraCost ?? 0));
+            const st = Math.max(0, Number(jg.staminaCost ?? 0));
+            if ((actor.cooldowns[action.jutsuId] ?? 0) > 0) return { applied: false, reason: 'on-cooldown' };
+            if (ck > 0 && actor.chakra < ck) return { applied: false, reason: 'no-chakra' };
+            if (st > 0 && actor.stamina < st) return { applied: false, reason: 'no-stamina' };
+            if (!canAct(session, cost)) return { applied: false, reason: 'cannot-act' };
+            if (!layGroundZone(session, actor, action.jutsuId, jg, tile)) return { applied: false, reason: 'no-ground-tags' };
+            actor.chakra = Math.max(0, actor.chakra - ck);
+            actor.stamina = Math.max(0, actor.stamina - st);
+            if (Number(jg.cooldown ?? 0) > 0) actor.cooldowns[action.jutsuId] = Number(jg.cooldown);
+            session.activeAp -= cost;
+            session.actionsThisTurn += 1;
+            tickBossPhases(session);
+            checkTowerWinner(session, floor);
+            return { applied: true };
+        }
+    }
+
     // ── item: a self-targeted consumable (potion / combat item). Restore-only potions
     // refill chakra/stamina directly; everything else (Heal potions, self-buffs, smoke)
     // synthesizes a SELF jutsu and resolves through the PvP engine. Mirrors move.ts. ──
@@ -643,7 +725,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     }
 
     // attack / jutsu — need a living, hostile, in-range target
-    const target = getActor(session, action.targetId);
+    const target = getActor(session, action.targetId ?? '');
     if (!target || target.hp <= 0) return { applied: false, reason: 'no-target' };
     if (!hostileSidesFor(actor.side).includes(target.side)) return { applied: false, reason: 'friendly-fire' };
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
@@ -699,6 +781,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     }
     // round complete
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
+    applyRoundGroundEffects(session); // re-apply persistent ground zones to units standing in them, then tick
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end
     applyBossRegen(session);    // a 'regen' boss heals each round
@@ -727,8 +810,8 @@ function bestAffordableJutsu(session: TowerSession, actor: TowerActor, dist: num
         // affordable: not on cooldown, enough chakra + stamina (mirrors the human gates)
         .filter(j => (actor.cooldowns[String(j.id)] ?? 0) <= 0)
         .filter(j => actor.chakra >= Math.max(0, Number(j.chakraCost ?? 0)) && actor.stamina >= Math.max(0, Number(j.staminaCost ?? 0)))
-        // skip zero-damage utility jutsu — the tag layer that gives them value isn't ported yet
-        .filter(j => Number(j.effectPower ?? 0) > 0)
+        // skip zero-damage utility + ground-placed jutsu — the AI casts straightforward damage
+        .filter(j => Number(j.effectPower ?? 0) > 0 && String((j as { target?: string }).target ?? '') !== 'EMPTY_GROUND')
         // deterministic: highest effectPower, ties by id
         .sort((a, b) => (Number(b.effectPower ?? 0) - Number(a.effectPower ?? 0)) || (String(a.id) < String(b.id) ? -1 : 1));
     return opts[0];
