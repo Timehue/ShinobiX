@@ -22,6 +22,7 @@
         "dist",
         "scripts",
         "node_modules",
-        ".vs"
+        ".vs",
+        "api/clan/war/_card-catalog.test.ts"
     ]
 }
