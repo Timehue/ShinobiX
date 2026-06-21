@@ -5655,7 +5655,11 @@ export default function App() {
     function startDungeonAiFight() {
         if (!character || !activeDungeonEvent) return;
         const level = [50, 75, 100][Math.floor(Math.random() * 3)];
-        const toughness = level === 100 ? 0.55 : level === 75 ? 0.42 : 0.30;
+        // L100 dungeon warden is peer-band (uncapped burst); 0.55 toughness pushed
+        // it to ~22.7k HP — a kage-style unwinnable grind. 0.15 lands it ~16.8k
+        // (armor barely moves — it's near the DR clamp at L100). L75/L50 are
+        // hard-band and stay as-is.
+        const toughness = level === 100 ? 0.15 : level === 75 ? 0.42 : 0.30;
         const statBoost = level === 100 ? 230 : level === 75 ? 175 : 130;
         const dungeonJutsus = starterJutsus
             .filter((jutsu) => jutsu.ap >= 40)
