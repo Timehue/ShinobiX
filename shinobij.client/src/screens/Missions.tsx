@@ -108,7 +108,7 @@ export function Missions({
     }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
-    const rankColor: Record<string, string> = { "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
+    const rankColor: Record<string, string> = { "E Rank": "#14b8a6", "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
     const todayMissions = dailyMissionsCompleted(character);
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;

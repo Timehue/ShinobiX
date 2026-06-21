@@ -343,6 +343,14 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
 export const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
 
 export const builtinAis: CreatorAi[] = [
+    // E-Rank Drill foe — the onboarding "guaranteed win" for level 1-5 players.
+    // A deliberately gentle, NO-SUSTAIN kit (two plain damage-over-time moves +
+    // reposition; no heal / shield / stun) so it can't out-last a learning
+    // player. In a mission it re-levels to the player (floored at the E-Rank min
+    // of 1) with statBonus 0 and a low HP floor (see data/combat-missions.ts),
+    // and the easy-band onboarding guards (lib/pve-difficulty.pveGuardedEnemyHit:
+    // per-hit/turn caps + a low-level mercy floor) keep the fight unloseable.
+    makeBuiltinAi("builtin-ai-academy-sparring", "Academy Sparring Partner", "🥋", 3, "Academy Training Grounds", starterJutsus.filter((jutsu) => ["starter-nin-lightning-2", "starter-nin-fire-2", "starter-universal-flicker"].includes(jutsu.id)), 0, undefined, "balanced"),
     makeBuiltinAi("builtin-ai-mist-sentinel", "Mist Sentinel", "MS", 8, "Stormveil Patrol", aiJutsuLoadout("defender"), 30, undefined, "defender"),
     makeBuiltinAi("builtin-ai-ember-duelist", "Ember Duelist", "ED", 18, "Ashen Leaf Duelist", aiJutsuLoadout("burst"), 50, undefined, "burst"),
     makeBuiltinAi("builtin-ai-exam-proctor", "Exam Proctor", "EP", 25, "Central Exam Hall", aiJutsuLoadout("balanced"), 62, undefined, "balanced"),

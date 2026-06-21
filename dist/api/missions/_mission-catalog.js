@@ -47,8 +47,9 @@ exports.CURRENCY_KEYS = [
 ];
 // ── COMBAT_MISSIONS — mirror of data/combat-missions.ts ─────────────────────
 exports.COMBAT_MISSIONS = [
-    { key: 'combat-d-errand', min: 1, xp: 25, ryo: 20, territoryScrolls: 1, aiProfileId: 'builtin-ai-mist-sentinel' },
-    { key: 'combat-c-patrol', min: 10, xp: 75, ryo: 60, territoryScrolls: 1, aiProfileId: 'builtin-ai-ember-duelist' },
+    { key: 'combat-e-drill', min: 1, xp: 15, ryo: 10, territoryScrolls: 1, aiProfileId: 'builtin-ai-academy-sparring' },
+    { key: 'combat-d-errand', min: 5, xp: 25, ryo: 20, territoryScrolls: 1, aiProfileId: 'builtin-ai-mist-sentinel' },
+    { key: 'combat-c-patrol', min: 15, xp: 75, ryo: 60, territoryScrolls: 1, aiProfileId: 'builtin-ai-ember-duelist' },
     { key: 'combat-b-escort', min: 30, xp: 150, ryo: 125, territoryScrolls: 1, aiProfileId: 'builtin-ai-frost-sealer' },
     { key: 'combat-a-hunt', min: 50, xp: 300, ryo: 250, territoryScrolls: 1, aiProfileId: 'builtin-ai-shadow-weaver' },
     { key: 'combat-s-crisis', min: 70, xp: 700, ryo: 600, territoryScrolls: 1, aiProfileId: 'builtin-ai-central-champion' },
