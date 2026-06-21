@@ -22689,3 +22689,20 @@ html[data-vp="xxl"] .banner-mobile-timers {
     .world-biome-glow, .world-poi-glow, .world-poi-smoke { animation: none; }
     .world-poi-smoke { opacity: 0; }
 }
+
+/* ─── a11y: keyboard focus visibility ──────────────────────────────────────────
+   Give keyboard users a clear focus ring on interactive controls. :focus-visible
+   matches ONLY keyboard navigation, so mouse/touch focus stays clean (no ring on
+   click/tap). Placed at EOF so it wins the cascade over element-level
+   `outline:none` rules. A few class-scoped `.x:focus { outline:none }` inputs
+   out-specify this and would still need per-class :focus-visible rules. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid #facc15;
+    outline-offset: 2px;
+}
