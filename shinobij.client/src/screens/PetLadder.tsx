@@ -12,7 +12,7 @@ import {
     type Mode, type LadderView, type OfferOpponent, type ChallengeResult, type PetLite,
     fetchLadder, setLadderDefense, getLadderOffer, challengeLadder, clearLadderNotify, toClientPet,
 } from "../lib/pet-ladder-client";
-import coliseumHero from "../assets/ladder/coliseum-hero.webp";
+import coliseumHero from "../assets/coliseum/coliseum-bg.webp";   // the real in-battle coliseum (matches the Coliseum duel backdrop)
 import tacticalHero from "../assets/ladder/tactical-hero.webp";
 
 /*
