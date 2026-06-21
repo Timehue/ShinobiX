@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
+import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
@@ -48,8 +49,7 @@ export function WeeklyBossArena({
 
     useEffect(() => {
         void refresh();
-        const id = setInterval(refresh, 15000);
-        return () => clearInterval(id);
+        return visiblePoll(refresh, 15000);
     }, [refresh]);
 
     // Resolve the picked boss AI so the arena page can show its art.
