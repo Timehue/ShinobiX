@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { petStatCeil } from '../_pet-stat-ceil.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
@@ -486,17 +487,18 @@ export function sanitizeCharacterSave(
         char.pets = kept;
     }
 
-    // Pet stat ceiling: pet HP/ATK/DEF/SPD are uncapped client-side by design
-    // (training builds them up to the level-100 ceiling), so the only guard against
-    // a tampered save injecting absurd values into deterministic ranked/PvP is a
-    // generous server clamp. 100k is far above any legitimate level-100 build.
-    const PET_STAT_CEIL = 100_000;
+    // Pet stat ceiling: HP/ATK/DEF/SPD are uncapped client-side by design (training
+    // builds them to the level-100 ceiling ≈ base*4.96), so the only guard against a
+    // tampered save injecting absurd values into the deterministic ranked pet ladder
+    // is a server clamp. Per-rarity at base*8 (~1.6x the legit all-in max) — well
+    // above any legit build (native or evolved), far below the old flat 100k that
+    // let a ~300x pet through. See _pet-stat-ceil.ts.
     if (Array.isArray(char.pets)) {
         for (const p of char.pets as Array<Record<string, unknown>>) {
             if (!p || typeof p !== 'object') continue;
             for (const k of ['hp', 'attack', 'defense', 'speed'] as const) {
                 const v = Number(p[k]);
-                if (Number.isFinite(v)) p[k] = Math.max(1, Math.min(PET_STAT_CEIL, Math.round(v)));
+                if (Number.isFinite(v)) p[k] = Math.max(1, Math.min(petStatCeil(p.rarity, k), Math.round(v)));
             }
         }
     }
