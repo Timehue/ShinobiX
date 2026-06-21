@@ -1,0 +1,2 @@
+gen-bg.mjs --id tactical-ladder-hero --provider fal (flux/dev, landscape_4_3)
+a sprawling shinobi tactical war-arena seen from a high overlook, a four-team battlefield of stone bridges and capture banners around a central objective, command tents and war drums at the corners, dramatic stormy light breaking through clouds, grand 4v4 squad battleground

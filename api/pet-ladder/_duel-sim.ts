@@ -26,13 +26,19 @@
 // only persisted Pet fields (hp/attack/defense/speed/element/trait/jutsus) → zero
 // save impact. Balance numbers here are PLACEHOLDERS to be tuned in Phase D.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { Pet, PetJutsu } from "../types/pet";
-import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask";
+// ── SERVER PORT of shinobij.client/src/lib/pet-duel-sim.ts ────────────────────
+// The cPanel server build excludes shinobij.client, so the pet ladder runs its OWN
+// copy of the deterministic duel engine to authoritatively resolve challenges. KEEP
+// IN SYNC with the client file verbatim — the ONLY differences are the three import
+// lines below (local server modules + Node16 `.js` extensions). A divergence would
+// make the server's recorded winner disagree with the client's cinematic.
+import type { Pet, PetJutsu } from "./_pet-types.js";
+import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./_walkmask.js";
 import {
     applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
     petGearLastStandMult, petGearDotOnHit, petGearLifestealHeal,
     PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
-} from "../data/pet-config";
+} from "./_pet-gear.js";
 
 export const DUEL_TPS = 30;                 // sim ticks per second
 const MAX_TICKS = DUEL_TPS * 30;            // 30s hard cap

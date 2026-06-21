@@ -14,13 +14,18 @@
  *
  * PREVIEW-ONLY (behind a flag). The renderer plays the snapshot stream.
  */
-import type { Pet } from "../types/pet";
-import { FULL_MASK, FULL_COLS, FULL_ROWS } from "./pet-arena-fullmask";
+// ── SERVER PORT of shinobij.client/src/lib/pet-arena-sim.ts ───────────────────
+// The cPanel server build excludes shinobij.client, so the pet ladder runs its OWN
+// copy of the deterministic tactical engine to authoritatively resolve 4v4 challenges.
+// KEEP IN SYNC with the client file verbatim — only the three import lines below differ
+// (local server modules + Node16 `.js` extensions).
+import type { Pet } from "./_pet-types.js";
+import { FULL_MASK, FULL_COLS, FULL_ROWS } from "./_fullmask.js";
 import {
     applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
     petGearLastStandMult, petGearDotOnHit, petGearLifestealHeal,
     PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
-} from "../data/pet-config";
+} from "./_pet-gear.js";
 
 export const ARENA_TPS = 30;
 export const MAX_SECONDS = 300;          // 5-min safety cap (tactical fights run ~2–4 min)
@@ -313,9 +318,8 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         hp: maxHp, maxHp, atk: Math.max(1, (gp.attack || 60) * cfg.dmgMul), def: Math.max(0, (gp.defense || 30) * cfg.defMul),
         moveSpeed: clamp(2.6 + (gp.speed || 50) * 0.016, 2.6, 6.0) * cfg.spdMul / ARENA_TPS,
         // Movement saturates at the clamp above, but Speed keeps paying off as crit
-        // chance (role base + ownSpeed/divisor, capped) — so Speed matters in the
-        // arena too, and crit burst helps break tanky stalemates. Uses the gear-scaled
-        // speed (gp) so +SPD PvP gear also lifts crit; casual (gp===pet) is unchanged.
+        // chance (role base + ownSpeed/divisor, capped) — KEEP IN SYNC with the client
+        // pet-arena-sim.ts. Uses gear-scaled speed (gp) so +SPD PvP gear also lifts crit.
         atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (gp.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
         shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
