@@ -659,7 +659,7 @@ function applyAction(session, floor, action, rng) {
             const have = actor.itemCharges?.[item.id] ?? 0;
             if (have <= 0)
                 return { applied: false, reason: 'out-of-ammo' };
-            (actor.itemCharges ??= {})[item.id] = have - 1;
+            (actor.itemCharges ??= {})[item.id] = Math.max(0, have - 1);
         }
         const weaponJutsu = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
@@ -910,6 +910,19 @@ function applyPartyScaling(session, floor) {
         a.character.towerDmgScale = factor;
     }
 }
+// Safety net for the auto-run drivers: if the guard ever trips with the session still
+// 'active' (should be unreachable — endTurn always advances and MAX_ROUNDS resolves), the
+// turn queue is wedged. Force a timeout loss so a LIVE run can never freeze on an active,
+// unrecoverable board (deterministic; no RNG/clock).
+function forceTimeoutResolve(session, floor) {
+    checkTowerWinner(session, floor);
+    if (session.status === 'active') {
+        session.status = 'done';
+        session.winner = 'enemy';
+        session.objectiveState.failed = true;
+        session.log.push('Floor resolution stalled — floor failed.');
+    }
+}
 // ─── Deterministic auto-run (async resolution + settle recompute) ────────────
 // Drives every actor via the AI policy to a terminal state. Used when the whole floor
 // is AI-resolved (async squads) and by settle.ts to recompute the clear from the seed.
@@ -936,7 +949,7 @@ function runTowerFloor(session, floor, rng) {
         if (session.status === 'active')
             endTurn(session, floor);
     }
-    checkTowerWinner(session, floor);
+    forceTimeoutResolve(session, floor); // no human stop here → any remaining 'active' is a stall
     return session;
 }
 // Live-mode driver: advance AI actors' turns until it is a HUMAN's turn (ai === false) or
@@ -947,10 +960,13 @@ function runAiUntilHuman(session, floor, rng) {
         startRound(session);
     const GUARD = (exports.MAX_ROUNDS + 2) * (session.actors.length + 2) * (exports.MAX_ACTIONS + 2) + 256;
     let guard = 0;
+    let stoppedAtHuman = false;
     while (session.status === 'active' && guard++ < GUARD) {
         const actor = (0, _tower_session_js_1.activeActor)(session);
-        if (actor && actor.ai === false && actor.hp > 0)
-            break; // a live human's turn — stop
+        if (actor && actor.ai === false && actor.hp > 0) {
+            stoppedAtHuman = true;
+            break;
+        } // a live human's turn — stop
         if (!actor || actor.hp <= 0 || actor.side === 'npc') {
             endTurn(session, floor);
             continue;
@@ -966,4 +982,7 @@ function runAiUntilHuman(session, floor, rng) {
         if (session.status === 'active')
             endTurn(session, floor);
     }
+    // Still active but we did NOT stop at a live human → the guard tripped on a wedged queue.
+    if (session.status === 'active' && !stoppedAtHuman)
+        forceTimeoutResolve(session, floor);
 }

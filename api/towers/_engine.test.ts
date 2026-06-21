@@ -220,6 +220,17 @@ describe('Battle Towers engine (P1.A2)', () => {
             assert.equal(activeActor(s)?.id, 'sq-1');
         }
     });
+
+    it('runAiUntilHuman never leaves an all-AI run stuck active (timeout safety net)', () => {
+        // No live human → the driver must reach a terminal state, never freeze on an active board.
+        const s = makeSession([
+            makeActor('sq-1', 'squad', 0, { ai: true, character: WEAK }),
+            makeActor('en-1', 'enemy', 1, { character: STRONG }),
+        ]);
+        startRound(s);
+        runAiUntilHuman(s, makeFloor('defeat-all'), makeRng(3));
+        assert.equal(s.status, 'done', 'an all-AI run always resolves');
+    });
 });
 
 describe('Battle Towers environmental features (pylons / wards / hazards)', () => {
