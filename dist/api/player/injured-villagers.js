@@ -49,8 +49,10 @@ async function handler(req, res) {
         // villages' player data through this endpoint.
         const keys = await _storage_js_1.kv.keys('save:*');
         const playerKeys = keys.filter(k => !k.startsWith('save:clan-') && !k.startsWith('save:admin'));
-        if (playerKeys.length === 0)
+        if (playerKeys.length === 0) {
+            res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
             return res.status(200).json({ injured: [] });
+        }
         const records = await _storage_js_1.kv.mget(...playerKeys);
         const injured = [];
         for (const r of records) {
@@ -83,6 +85,9 @@ async function handler(req, res) {
             });
         }
         injured.sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
+        // Short shared CDN cache to collapse repeated Healer polls of this
+        // full-save scan. Set only on the 200 path so a 500 is never cached.
+        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
         return res.status(200).json({ injured });
     }
     catch (err) {
