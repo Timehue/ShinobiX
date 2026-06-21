@@ -51,6 +51,7 @@ const session: TowerSession = {
                     { id: "raiton-spear", name: "Lightning Spear", element: "Lightning", type: "Ninjutsu", ap: 60, range: 3, effectPower: 70, chakraCost: 120, staminaCost: 40, cooldown: 2 },
                     { id: "venom-fang", name: "Venom Fang", element: "Earth", type: "Ninjutsu", ap: 60, range: 2, effectPower: 45, chakraCost: 80, staminaCost: 20, tags: [{ name: "Poison", percent: 12 }] },
                     { id: "inner-focus", name: "Inner Focus", type: "Ninjutsu", ap: 40, range: 0, target: "SELF", chakraCost: 40, tags: [{ name: "Heal" }, { name: "Decrease Damage Taken", percent: 25 }] },
+                    { id: "poison-mire", name: "Poison Mire", element: "Earth", type: "Ninjutsu", ap: 60, range: 4, target: "EMPTY_GROUND", chakraCost: 60, tags: [{ name: "Poison", percent: 12 }] },
                 ],
                 pvpItems: [
                     { id: "katana", name: "Katana", slot: "hand", weaponEp: 35, weaponRange: 1, apCost: 40 },
@@ -76,7 +77,10 @@ const session: TowerSession = {
     objectiveState: { kind: "defeat-all", completed: false, failed: false },
     phaseState: { bossId: "boss", pendingPhases: [60, 30], triggeredPhases: [] },
     status: "active", winner: null,
-    log: ["The fight begins.", "A Spire Warden anchors the enemy formation."],
+    groundEffects: [
+        { id: "gz-demo", owner: "p1", name: "Poison Mire", rounds: 2, tiles: [140, 141, 142, 160, 161, 162], tags: [{ name: "Poison", percent: 12 }] },
+    ],
+    log: ["The fight begins.", "A Spire Warden anchors the enemy formation.", "Rill lays Poison Mire across 7 tiles for 2 rounds."],
 };
 
 createRoot(document.getElementById("root")!).render(

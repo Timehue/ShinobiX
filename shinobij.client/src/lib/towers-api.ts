@@ -59,6 +59,16 @@ export type TowerObjectiveState = {
     failed: boolean;
 };
 
+/** A persistent ground-effect zone (from a tile-placed EMPTY_GROUND jutsu). */
+export type TowerGroundEffect = {
+    id: string;
+    owner: string;
+    name: string;
+    tiles: number[];
+    rounds: number;
+    tags: Array<{ name: string; percent?: number }>;
+};
+
 export type TowerSession = {
     towerId: string;
     runId: string;
@@ -77,6 +87,8 @@ export type TowerSession = {
     status: 'active' | 'done';
     winner: TowerSide | 'draw' | null;
     log: string[];
+    /** active persistent ground-effect zones (drawn on the board) */
+    groundEffects?: TowerGroundEffect[];
     /** wall-clock when the current human's turn began (co-op AFK countdown) */
     turnStartedAt?: number;
 };
@@ -87,7 +99,7 @@ export const TOWER_TURN_AFK_MS = 75_000;
 export type TowerActionInput =
     | { type: 'move'; tile: number }
     | { type: 'attack'; targetId: string }
-    | { type: 'jutsu'; jutsuId: string; targetId: string }
+    | { type: 'jutsu'; jutsuId: string; targetId?: string; tile?: number }
     | { type: 'weapon'; targetId: string; itemId?: string }
     | { type: 'item'; itemId?: string }
     | { type: 'wait' };

@@ -246,6 +246,10 @@ export function BattleTowerFight({
     function onTileClick(tile: number) {
         if (!myTurn || busy) return;
         if (mode === "move" && moveTiles.has(tile)) { void send({ type: "move", tile }); return; }
+        // Ground-target jutsu → place the zone on a non-blocked tile in range (occupied or not).
+        if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && jutsuRangeTiles.has(tile) && !session.map.blockedTiles.includes(tile)) {
+            void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
+        }
         const occ = session.actors.find(a => a.hp > 0 && a.pos === tile);
         if (occ && occ.side === "enemy" && enemiesInRange.has(occ.id)) {
             if (mode === "attack") void send({ type: "attack", targetId: occ.id });
@@ -351,6 +355,18 @@ export function BattleTowerFight({
                                             }} />
                                     );
                                 })}
+
+                                {/* persistent ground-effect zones (tile-placed jutsu) */}
+                                {(session.groundEffects ?? []).flatMap((z, zi) => z.tiles.map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    const tag = z.tags?.[0]?.name;
+                                    // toxic-green Poison / red Recoil / purple debuff — saturated + outlined so the
+                                    // zone reads clearly over the floor and pylon tints.
+                                    const fill = tag === "Poison" ? "rgba(190,242,100,0.5)" : tag === "Recoil" ? "rgba(248,113,113,0.5)" : "rgba(192,132,252,0.5)";
+                                    const edge = tag === "Poison" ? "rgba(132,204,22,0.95)" : tag === "Recoil" ? "rgba(239,68,68,0.95)" : "rgba(168,85,247,0.95)";
+                                    return <div key={`z-${zi}-${t}`} className="tower-hex-tile" title={`${z.name} — ${z.rounds} round${z.rounds !== 1 ? "s" : ""} left`}
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: fill, filter: `drop-shadow(0 0 2px ${edge})`, zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
+                                }))}
 
                                 {/* feature markers — one icon at a pylon flower's centre, one per
                                     tile for scattered hazards / single wards */}
