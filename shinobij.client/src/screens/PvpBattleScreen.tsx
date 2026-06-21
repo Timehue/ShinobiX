@@ -179,6 +179,10 @@ export function PvpBattleScreen({
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
     const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
+    // Live HP-delta floating numbers (RTX-1): make an opponent's offense legible
+    // in real time instead of only as a silently-dropping HP bar.
+    const [pvpHitFx, setPvpHitFx] = useState<PvpHitFx[]>([]);
+    const previousPvpHpRef = useRef<{ p1: number; p2: number } | null>(null);
 
     // Grid helpers — exact match to arena
     function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
@@ -423,6 +427,30 @@ export function PvpBattleScreen({
         }, 620);
         return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
+
+    // Float a damage (red) / heal (green) number over a fighter whenever their HP
+    // changes between session updates. Mirrors the motion-FX diff above: a per-HP
+    // ref dedups so each transition fires exactly once, the list is capped and
+    // auto-expired. Purely additive overlay — touches no combat logic.
+    useEffect(() => {
+        if (!session) return;
+        const previous = previousPvpHpRef.current;
+        const current = { p1: session.p1.hp, p2: session.p2.hp };
+        if (!previous) { previousPvpHpRef.current = current; return; }
+        const nextFx: PvpHitFx[] = [];
+        (["p1", "p2"] as const).forEach((f) => {
+            const delta = current[f] - previous[f];
+            if (delta === 0) return;
+            nextFx.push({ id: `${f}-hp-${Date.now()}-${current[f]}`, fighter: f, amount: Math.abs(delta), kind: delta < 0 ? "damage" : "heal" });
+        });
+        previousPvpHpRef.current = current;
+        if (!nextFx.length) return;
+        setPvpHitFx((existing) => [...existing, ...nextFx].slice(-8));
+        const timeout = window.setTimeout(() => {
+            setPvpHitFx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
+        }, 1100);
+        return () => window.clearTimeout(timeout);
+    }, [session?.p1.hp, session?.p2.hp]);
 
     // Prefight countdown — fires once when the session first loads
     // (skipped for spectators, who join mid-fight). Shows the "VS"
@@ -1308,6 +1336,20 @@ export function PvpBattleScreen({
                                     );
                                 })}
 
+                                {pvpHitFx.map((fx) => {
+                                    const center = pvpTileCenter(fx.fighter === "p1" ? session.p1.pos : session.p2.pos);
+                                    return (
+                                        <span
+                                            key={fx.id}
+                                            className={`pvp-hit-fx pvp-hit-${fx.kind}`}
+                                            style={{ left: `${center.x}px`, top: `${Math.max(center.y - ORB / 2, 16)}px` }}
+                                            aria-hidden="true"
+                                        >
+                                            {fx.kind === "damage" ? "−" : "+"}{fx.amount}
+                                        </span>
+                                    );
+                                })}
+
                                 {Array.from({ length: gridHeight }).map((_, row) =>
                                     Array.from({ length: gridWidth }).map((_, col) => {
                                         const i = row * gridWidth + col;
@@ -1730,4 +1772,11 @@ type PvpMotionFx = {
     fighter: "p1" | "p2";
     from: number;
     to: number;
+};
+
+type PvpHitFx = {
+    id: string;
+    fighter: "p1" | "p2";
+    amount: number;
+    kind: "damage" | "heal";
 };
