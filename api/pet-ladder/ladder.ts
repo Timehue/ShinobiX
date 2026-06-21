@@ -35,9 +35,11 @@ const orderKey = (mode: Mode) => `petladder:${mode}`;
 const defKey = (mode: Mode, slug: string) => `petladder:${mode}:def:${safeName(slug)}`;
 const notifyKey = (slug: string) => `petladder:notify:${safeName(slug)}`;
 const dailyKey = (mode: Mode, slug: string, day: string) => `petladder:${mode}:daily:${safeName(slug)}:${day}`;
+const lastKey = (mode: Mode, slug: string) => `petladder:${mode}:last:${safeName(slug)}`;   // last opponent fought → no back-to-back rematch
 const dayStamp = () => new Date().toISOString().slice(0, 10);   // UTC yyyy-mm-dd
 const MAX_LIST = 200;
 const NOTIFY_TTL = 7 * 24 * 3600;
+const LAST_TTL = 48 * 3600;
 
 type LadderNotify = { from: string; mode: Mode; won: boolean; at: number };
 
@@ -138,8 +140,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const myDef = await kv.get<DefenseDoc>(defKey(mode, me));
             if (!myDef) return res.status(400).json({ error: 'Set your defense first.' });
             const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
+            const lastTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;   // exclude the opponent just fought
             const aiStart = crypto.randomInt(0, AI_SEED_COUNT);
-            return res.status(200).json({ offer: buildOffer(order, me, (i) => aiOfferSummary(mode, i), aiStart) });
+            return res.status(200).json({ offer: buildOffer(order, me, (i) => aiOfferSummary(mode, i), aiStart, lastTarget) });
         }
 
         // ── Challenge (server-authoritative resolution + rank swap) ────────────
@@ -150,7 +153,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!myDef) return res.status(400).json({ error: 'Set your defense first.' });
 
             const order0 = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
-            if (!canChallenge(order0, me, targetId)) return res.status(409).json({ error: 'That opponent is not available to challenge.' });
+            const lastTarget = (await kv.get<string>(lastKey(mode, me))) ?? undefined;
+            if (lastTarget && targetId === lastTarget) return res.status(409).json({ error: 'You just challenged this opponent — pick someone else.' });
+            if (!canChallenge(order0, me, targetId, lastTarget)) return res.status(409).json({ error: 'That opponent is not available to challenge.' });
 
             // Consume one of the day's challenges only once the target is valid.
             const used = await kv.incr(dailyKey(mode, me, dayStamp()), { ex: 36 * 3600 });
@@ -188,6 +193,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await appendNotify(notifySlug, { from: myDef.name, mode, won, at: now });
                 kickPlayer(notifySlug, 'challenge');
             }
+
+            // Remember this opponent so the next offer/challenge can't immediately repeat it.
+            await kv.set(lastKey(mode, me), targetId, { ex: LAST_TTL });
 
             // Sealed replay for the client cinematic (deterministic from seed + rosters).
             const replay = mode === 'tactical'

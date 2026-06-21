@@ -74,6 +74,24 @@ test("canChallenge: above + within band; AI always legal", () => {
     assert.ok(CLIMB_BAND === 10);
 });
 
+test("buildOffer: excludes the just-fought opponent (no back-to-back), AI backfills to 3", () => {
+    const order = ["a", "b", "c", "d", "e", "f"].map(entry);          // ranks 1..6
+    const off = buildOffer(order, "d", aiSummary, 0, "c");            // d (rank 4) just fought c (rank 3)
+    assert.ok(!off.some((o) => o.id === "c"), "the just-fought opponent must not be re-offered");
+    assert.equal(off.length, OFFER_SIZE);
+    assert.deepEqual(off.filter((o) => o.kind === "player").map((o) => o.id), ["b", "a"]);   // next two humans, then AI fill
+    const offAi = buildOffer([], "z", aiSummary, 0, "ai:0");          // a just-fought AI isn't re-offered either
+    assert.ok(!offAi.some((o) => o.id === "ai:0"));
+    assert.equal(offAi.length, OFFER_SIZE);
+});
+
+test("canChallenge: rejects the just-fought opponent (excludeId)", () => {
+    const order = ["a", "b", "c"].map(entry);
+    assert.equal(canChallenge(order, "c", "b", "b"), false);          // just fought b → no immediate rematch
+    assert.equal(canChallenge(order, "c", "a", "b"), true);           // a different valid target is fine
+    assert.equal(canChallenge(order, "c", "ai:0", "ai:0"), false);    // same rule for a just-fought AI
+});
+
 // ── rank swaps ────────────────────────────────────────────────────────────────
 test("applyChallenge: beating a human above takes their rank", () => {
     const order = ["a", "b", "c", "d", "e"].map(entry);
