@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sanitizeCharacterSave = sanitizeCharacterSave;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
+const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
 const _utils_js_1 = require("../_utils.js");
 const player_auth_js_1 = require("../player-auth.js");
 const _auth_js_1 = require("../_auth.js");
@@ -470,11 +471,12 @@ function sanitizeCharacterSave(incoming, existing) {
         const kept = active ? [active, ...others.slice(0, PET_CAP - 1)] : others.slice(0, PET_CAP);
         char.pets = kept;
     }
-    // Pet stat ceiling: pet HP/ATK/DEF/SPD are uncapped client-side by design
-    // (training builds them up to the level-100 ceiling), so the only guard against
-    // a tampered save injecting absurd values into deterministic ranked/PvP is a
-    // generous server clamp. 100k is far above any legitimate level-100 build.
-    const PET_STAT_CEIL = 100_000;
+    // Pet stat ceiling: HP/ATK/DEF/SPD are uncapped client-side by design (training
+    // builds them to the level-100 ceiling ≈ base*4.96), so the only guard against a
+    // tampered save injecting absurd values into the deterministic ranked pet ladder
+    // is a server clamp. Per-rarity at base*8 (~1.6x the legit all-in max) — well
+    // above any legit build (native or evolved), far below the old flat 100k that
+    // let a ~300x pet through. See _pet-stat-ceil.ts.
     if (Array.isArray(char.pets)) {
         for (const p of char.pets) {
             if (!p || typeof p !== 'object')
@@ -482,7 +484,7 @@ function sanitizeCharacterSave(incoming, existing) {
             for (const k of ['hp', 'attack', 'defense', 'speed']) {
                 const v = Number(p[k]);
                 if (Number.isFinite(v))
-                    p[k] = Math.max(1, Math.min(PET_STAT_CEIL, Math.round(v)));
+                    p[k] = Math.max(1, Math.min((0, _pet_stat_ceil_js_1.petStatCeil)(p.rarity, k), Math.round(v)));
             }
         }
     }

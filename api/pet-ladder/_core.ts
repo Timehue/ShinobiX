@@ -19,6 +19,7 @@
  *     replay, never the source of truth.
  */
 
+import { petStatCeil } from "../_pet-stat-ceil.js";
 import { runPetDuel } from "./_duel-sim.js";
 import { runPetArenaMatch, type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
 import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetTrait } from "./_pet-types.js";
@@ -100,15 +101,16 @@ export function snapshotLadderPet(raw: Record<string, unknown>): LadderPet {
     const pvp = typeof loadoutRaw.pvp === "string" ? loadoutRaw.pvp : undefined;
     const consumable = typeof loadoutRaw.consumable === "string" ? loadoutRaw.consumable : undefined;
     const jutsus = Array.isArray(raw.jutsus) ? raw.jutsus.slice(0, 4).map((j) => snapshotJutsu((j ?? {}) as Record<string, unknown>)) : [];
+    const rarity = String(raw.rarity ?? "standard");
     return {
         id: String(raw.id ?? ""),
         name: String(raw.name ?? "Pet").slice(0, 40),
-        rarity: String(raw.rarity ?? "standard"),
+        rarity,
         level: clampStat(raw.level, 1, 100, 1),
-        hp: clampStat(raw.hp, 1, 100000, 600),
-        attack: clampStat(raw.attack, 1, 100000, 60),
-        defense: clampStat(raw.defense, 0, 100000, 30),
-        speed: clampStat(raw.speed, 1, 100000, 50),
+        hp: clampStat(raw.hp, 1, petStatCeil(rarity, "hp"), 600),
+        attack: clampStat(raw.attack, 1, petStatCeil(rarity, "attack"), 60),
+        defense: clampStat(raw.defense, 0, petStatCeil(rarity, "defense"), 30),
+        speed: clampStat(raw.speed, 1, petStatCeil(rarity, "speed"), 50),
         element: String(raw.element ?? "Fire"),
         trait: typeof raw.trait === "string" ? raw.trait : undefined,
         role: ARENA_ROLES.has(raw.role as ArenaRole) ? (raw.role as ArenaRole) : undefined,
