@@ -9,8 +9,9 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { xpNeeded } from "../App";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
@@ -35,6 +36,17 @@ export const MobileNav = memo(function MobileNav({
 }) {
     const [open, setOpen] = useState(false);
     const isAdminAccount = isProtectedAdminName(character.name);
+
+    // Treat the slide-up menu as a modal dialog: lock the body scroll behind it
+    // and close on Escape (mirrors the GameAlert pattern). Initial focus moves
+    // to the close button via autoFocus below.
+    useBodyScrollLock(open);
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [open]);
 
     const xpPct = character.level >= MAX_LEVEL
         ? 100
@@ -72,10 +84,10 @@ export const MobileNav = memo(function MobileNav({
             </nav>
 
             {open && (
-                <div className="mobile-menu-overlay">
+                <div className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">
                     <div className="mobile-menu-header">
                         <span className="mobile-menu-title">🥷 SHINOBI MENU</span>
-                        <button className="mobile-menu-close" aria-label="Close menu" onClick={() => setOpen(false)}>✕</button>
+                        <button className="mobile-menu-close" aria-label="Close menu" autoFocus onClick={() => setOpen(false)}>✕</button>
                     </div>
 
                     <div className="mobile-char-card">
