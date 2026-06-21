@@ -251,6 +251,21 @@ function sanitizeCharacterSave(incoming, existing) {
     const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
     const inRyo = Math.max(0, Number(char.ryo ?? 0));
     char.ryo = Math.min(inRyo, exRyo + MAX_RYO_GAIN);
+    // Bank balance: bankRyo is a client-written field (deposit/withdraw happen
+    // client-side; there is no server bank-move endpoint). A forged save could set
+    // it to anything, inflating wealth + the leaderboard and earning interest on
+    // unearned principal (audit #17). Bank interest is server-credited under lock
+    // (api/bank/claim-interest, capped at a 10M principal) and so never flows
+    // through this POST, so the only client-legit way bankRyo GROWS via a save is
+    // a deposit of held ryo. Cap the upper bound to what the player could actually
+    // have deposited — prior bankRyo + prior wallet ryo + one cycle's ryo gain —
+    // which never touches a legit deposit. Withdrawals (bankRyo shrinking) are
+    // unaffected; the ryo gain cap above already meters draining bank to wallet.
+    if (char.bankRyo != null) {
+        const exBank = Math.max(0, Number(exChar.bankRyo ?? 0));
+        const bankCeil = exBank + exRyo + MAX_RYO_GAIN;
+        char.bankRyo = Math.max(0, Math.min(Number(char.bankRyo) || 0, bankCeil));
+    }
     // Soft currencies: same gain-cap pattern.
     for (const [key, maxGain] of Object.entries(CURRENCY_CAPS)) {
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
@@ -638,6 +653,14 @@ function sanitizeCharacterSave(incoming, existing) {
             // doesn't rely on it but clamp anyway so leaderboards/UI don't
             // see absurd values.
             out.totalPoints = Math.max(0, Math.min(20, Number(out.totalPoints ?? 0) || 0));
+            // Bloodline name + lore are free-form, player-authored, and shown
+            // publicly in the bloodline gallery (the name also appears in PvP
+            // battle-log flavor). They bypassed the moderation customTitle gets,
+            // so run them through the same sanitizer + length caps (audit #16).
+            if (typeof out.name === 'string')
+                out.name = (0, _text_moderation_js_1.sanitizeUserText)(out.name, _text_moderation_js_1.TEXT_LIMITS.storyName);
+            if (typeof out.lore === 'string')
+                out.lore = (0, _text_moderation_js_1.sanitizeUserText)(out.lore, _text_moderation_js_1.TEXT_LIMITS.description);
             // Jutsus list — cap count + clamp per-jutsu numerics.
             const rawJutsus = Array.isArray(out.jutsus) ? out.jutsus : [];
             out.jutsus = rawJutsus.slice(0, JUTSU_PER_BLOODLINE_CAP).map((j) => {
@@ -673,6 +696,13 @@ function sanitizeCharacterSave(incoming, existing) {
                 if (jOut.range != null) {
                     jOut.range = Math.max(0, Math.min(30, Number(jOut.range) || 1));
                 }
+                // Player-authored jutsu name + battleDescription are shown in the
+                // gallery and the PvP battle log (api/pvp/move.ts) — moderate them
+                // the same way as the bloodline name/lore above (audit #16).
+                if (typeof jOut.name === 'string')
+                    jOut.name = (0, _text_moderation_js_1.sanitizeUserText)(jOut.name, _text_moderation_js_1.TEXT_LIMITS.storyName);
+                if (typeof jOut.battleDescription === 'string')
+                    jOut.battleDescription = (0, _text_moderation_js_1.sanitizeUserText)(jOut.battleDescription, _text_moderation_js_1.TEXT_LIMITS.description);
                 return jOut;
             });
             return out;
