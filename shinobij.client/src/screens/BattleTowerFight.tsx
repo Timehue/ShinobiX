@@ -166,6 +166,9 @@ export function BattleTowerFight({
         if (session.status !== "active" || myTurn) return;
         let alive = true;
         const id = setInterval(() => {
+            // Skip while the tab is backgrounded — no point fetching/re-rendering
+            // a fight nobody's watching; it resumes on the next tick after refocus.
+            if (document.visibilityState === "hidden") return;
             fetchTowerState(runId, me).then(s => { if (alive) setSession(s); }).catch(() => {});
         }, 2500);
         return () => { alive = false; clearInterval(id); };

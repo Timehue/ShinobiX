@@ -6,6 +6,7 @@ import type { Character } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { BattleLogLine } from "../components/BattleLogLine";
+import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
@@ -151,7 +152,6 @@ export function PvpBattleScreen({
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
     // Auto-fit board scale + manual zoom — shared hook (see lib/use-board-scale).
     const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
-    const [pvpRoundTimer, setPvpRoundTimer] = useState(45);
     const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
     // When the round timer hits 0 we queue an auto-wait. If the player has
     // an action in flight at that moment (submitting === true), the wait
@@ -555,26 +555,17 @@ export function PvpBattleScreen({
         }
     }, [session?.activePlayer, pvpMyAp]);  
 
-    // Per-turn round timer — auto-passes turn at 0
+    // Per-turn round timer — auto-passes turn at 0. The countdown itself now
+    // lives in <CombatRoundTimer> (rendered below) so its 1s tick re-renders
+    // only that small element instead of the whole ~120-tile board — the board
+    // rebuild every second was the main cause of mobile combat stutter. This
+    // effect just clears any queued auto-wait at the start of each of my turns /
+    // after I act, exactly as the old timer effect did on every reset.
     const pvpIsMyTurn = session?.activePlayer === role;
     const pvpDone = session?.status === "done";
     useEffect(() => {
-        if (!session || pvpDone || pvpPrefightCountdown !== null) { setPvpRoundTimer(45); setPvpPendingAutoWait(false); return; }
-        if (!pvpIsMyTurn) { setPvpRoundTimer(45); setPvpPendingAutoWait(false); return; }
-        let secs = 45;
-        setPvpRoundTimer(45);
         setPvpPendingAutoWait(false);
-        const iv = setInterval(() => {
-            secs -= 1;
-            setPvpRoundTimer(secs);
-            // Timer hit 0 — queue the auto-wait. The actual submit happens in
-            // the pendingAutoWait effect below so it can wait for an in-flight
-            // action to complete first (avoids the "turn never ends because
-            // wait got dropped while submitting" race).
-            if (secs <= 0) { clearInterval(iv); setPvpPendingAutoWait(true); }
-        }, 1000);
-        return () => clearInterval(iv);
-    }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]);  
+    }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]);
 
     // Auto-wait queue — fires the wait action whenever the queue is set AND
     // no other action is currently in flight. Re-checks on every submitting
@@ -1217,12 +1208,11 @@ export function PvpBattleScreen({
                             <small>{myAp}/100 | {isMyTurn ? `Active: ${session.actionsThisTurn}/5` : "Waiting"}</small>
                         </div>
                         {isMyTurn && !done ? (
-                            <div className={`round-timer-display${pvpRoundTimer <= 10 ? " round-timer-urgent" : ""}`}>
-                                <div className="round-timer-ring" style={{ "--rt-pct": `${(pvpRoundTimer / 45) * 100}%` } as React.CSSProperties}>
-                                    <span className="round-timer-num">{pvpRoundTimer}</span>
-                                </div>
-                                <small>Turn timer</small>
-                            </div>
+                            <CombatRoundTimer
+                                active={isMyTurn && !done && pvpPrefightCountdown === null}
+                                resetSignal={pvpRoundTimerKey}
+                                onExpire={() => setPvpPendingAutoWait(true)}
+                            />
                         ) : (
                             <div className="round-timer-display round-timer-inactive">
                                 <div className="round-timer-ring">
