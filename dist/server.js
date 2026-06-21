@@ -182,9 +182,23 @@ if (process.env.SENTRY_DSN) {
 }
 // ─── App setup ───────────────────────────────────────────────────────────────
 const app = (0, express_1.default)();
-// Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
-app.use(express_1.default.json({ limit: '50mb' }));
-app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
+// JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,
+// player actions); only the image-pipe and admin-import routes legitimately POST
+// multi-MB base64 payloads. Cap the default at 5 MB to shrink the synchronous
+// parse / memory-pressure surface on the hot gameplay/poll routes — a malicious
+// 50 MB body to e.g. /api/pvp/move can no longer force a 50 MB buffer+parse — and
+// grant the 50 MB ceiling only to the routes that need it. Player saves are
+// <=1 MB-gated in api/save/[name].ts and the leadership-portrait POST to
+// /api/game-state both fit the 5 MB default with room to spare.
+const jsonBig = express_1.default.json({ limit: '50mb' });
+const jsonDefault = express_1.default.json({ limit: '5mb' });
+const BIG_BODY_RE = /(?:^|\/)(?:images|img|generate-image|kv-proxy|admin)(?:\/|$)/;
+app.use((req, res, next) => {
+    if (BIG_BODY_RE.test(req.path))
+        return jsonBig(req, res, next);
+    return jsonDefault(req, res, next);
+});
+app.use(express_1.default.urlencoded({ extended: true, limit: '5mb' }));
 // Global CORS — restrict to known origins so a malicious site can't initiate
 // authenticated requests from a visitor's browser. The origin predicate is
 // imported from api/_utils.ts (single source of truth) so this middleware and
