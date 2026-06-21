@@ -106,6 +106,19 @@ function validateSubmittedDeck(raw) {
             return { ok: false, error: 'Card cost out of bounds (1-6).' };
         if (!Number.isInteger(power) || power < 1 || power > 12)
             return { ok: false, error: 'Card power out of bounds (1-12).' };
+        // Power is bounded by COST: both derive from the card's average stat
+        // (client deriveCardClashCard). A cheap card therefore can NEVER be
+        // high-power — cost 1 ⇒ a common with avg<24 ⇒ power≤3; cost 2 ⇒ a common
+        // (avg<32) or rare (avg<45) ⇒ power≤6 (epic/legendary can't be cost ≤2).
+        // These ceilings come from the cost BANDS themselves (not the catalog), so
+        // they never reject a legit card — built-in or creator — yet they close the
+        // worst forgery the flat 1-12 bound allowed: an owned weak common submitted
+        // as a 1-cost 12-power card (audit #8). cost≥3 keeps the 1-12 bound: it
+        // can't be tightened without the per-card canonical stats, which live only
+        // in the client bundle (a full id→stats mirror is the complete fix).
+        const maxPowerForCost = cost === 1 ? 3 : cost === 2 ? 6 : 12;
+        if (power > maxPowerForCost)
+            return { ok: false, error: `Card power ${power} is too high for cost ${cost}.` };
         counts[id] = (counts[id] ?? 0) + 1;
         if (counts[id] > clashCopyLimit(rarity))
             return { ok: false, error: 'Too many copies of a card for its rarity.' };
