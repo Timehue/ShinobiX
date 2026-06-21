@@ -1,0 +1,280 @@
+/* =============================================================================
+   ShinobiX shared UI primitives — styles for src/components/ui/*.
+   All values reference design tokens (styles/tokens.css). These classes are
+   the canonical, reusable building blocks that replace the per-screen sprawl
+   of bespoke buttons / modals / tabs / close & back buttons / empty & loading
+   states. Class names are namespaced `ui-` so they never collide with the
+   legacy screen-specific styles.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- Button --- */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  font-family: var(--font-body);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: filter .12s ease, box-shadow .12s ease, transform .04s ease;
+}
+.ui-btn:active { transform: translateY(1px); }
+.ui-btn:disabled,
+.ui-btn[aria-disabled="true"] {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(.3);
+}
+
+/* sizes */
+.ui-btn--sm { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs); }
+.ui-btn--md { padding: var(--sp-2) var(--sp-4); font-size: var(--fs-base); }
+.ui-btn--lg { padding: var(--sp-3) var(--sp-6); font-size: var(--fs-md); }
+.ui-btn--block { display: flex; width: 100%; }
+
+/* variants */
+.ui-btn--primary {
+  color: var(--text-on-accent);
+  border-color: rgba(250, 204, 21, .55);
+  background: linear-gradient(180deg, var(--gold-400), var(--gold-600));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), var(--shadow-sm);
+}
+.ui-btn--primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
+
+.ui-btn--secondary {
+  color: var(--text);
+  border-color: rgba(250, 204, 21, .28);
+  background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(#244aa0, #142761);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), var(--shadow-sm);
+}
+.ui-btn--secondary:hover:not(:disabled) { filter: brightness(1.12) saturate(1.08); }
+
+.ui-btn--danger {
+  color: #fff;
+  border-color: rgba(248, 113, 113, .4);
+  background: linear-gradient(180deg, var(--red-500), var(--red-700));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), var(--shadow-sm);
+}
+.ui-btn--danger:hover:not(:disabled) { filter: brightness(1.1); }
+
+.ui-btn--ghost {
+  color: var(--text-dim);
+  border-color: var(--border);
+  background: rgba(148,163,184,.06);
+}
+.ui-btn--ghost:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); background: rgba(148,163,184,.12); }
+
+.ui-btn--success {
+  color: #fff;
+  border-color: rgba(74, 222, 128, .4);
+  background: linear-gradient(180deg, var(--green-500), var(--green-600));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), var(--shadow-sm);
+}
+.ui-btn--success:hover:not(:disabled) { filter: brightness(1.1); }
+
+.ui-btn--info {
+  color: #06202e;
+  border-color: rgba(56, 189, 248, .45);
+  background: linear-gradient(180deg, var(--cyan-400), var(--cyan-500));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), var(--shadow-sm);
+}
+.ui-btn--info:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* ---------------------------------------------- Close & Back buttons ------- */
+.ui-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--text-dim);
+  background: rgba(148,163,184,.08);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: color .12s ease, background .12s ease, border-color .12s ease;
+}
+.ui-close-btn:hover { color: var(--text); background: rgba(248,113,113,.16); border-color: rgba(248,113,113,.5); }
+
+.ui-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-dim);
+  background: rgba(148,163,184,.06);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: color .12s ease, background .12s ease, border-color .12s ease;
+}
+.ui-back-btn:hover { color: var(--text); border-color: var(--border-strong); background: rgba(148,163,184,.12); }
+.ui-back-btn::before { content: "\2190"; font-size: 1.05em; line-height: 1; }
+
+/* ---------------------------------------------------------------- Modal ---- */
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: rgba(2, 6, 23, .72);
+  backdrop-filter: blur(3px);
+  animation: ui-fade-in .14s ease;
+}
+.ui-modal-card {
+  position: relative;
+  width: 100%;
+  max-height: calc(100dvh - var(--sp-12));
+  overflow-y: auto;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), transparent 120px), linear-gradient(135deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  animation: ui-pop-in .16s cubic-bezier(.2,.9,.3,1.2);
+}
+.ui-modal-card--sm { max-width: 360px; }
+.ui-modal-card--md { max-width: 540px; }
+.ui-modal-card--lg { max-width: 820px; }
+.ui-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border);
+}
+.ui-modal-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--gold);
+}
+.ui-modal-body { padding: var(--sp-5); }
+
+@keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-pop-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* ----------------------------------------------------------------- Tabs ---- */
+.ui-tabs {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-4);
+}
+.ui-tab {
+  appearance: none;
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  cursor: pointer;
+  transition: color .12s ease, background .12s ease, border-color .12s ease;
+}
+.ui-tab:hover { color: var(--text); background: rgba(148,163,184,.08); }
+.ui-tab--active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  background: rgba(250,204,21,.08);
+}
+
+/* ----------------------------------------------- Empty & Loading states ---- */
+.ui-empty,
+.ui-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-10) var(--sp-5);
+  text-align: center;
+  color: var(--text-dim);
+}
+.ui-empty-icon { font-size: 32px; opacity: .7; line-height: 1; }
+.ui-empty-title { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-bold); color: var(--text); }
+.ui-empty-msg { margin: 0; font-size: var(--fs-sm); max-width: 42ch; }
+
+.ui-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(148,163,184,.25);
+  border-top-color: var(--gold);
+  border-radius: var(--r-full);
+  animation: spin 0.8s linear infinite;
+}
+
+/* -------------------------------------------------------- Section header --- */
+.ui-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+}
+.ui-section-header h2,
+.ui-section-header h3 { margin: 0; border: none; padding: 0; }
+.ui-section-header .ui-section-spacer { flex: 1; }
+
+/* -------------------------------------------------------- Pill / Badge ----- */
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: rgba(148,163,184,.1);
+}
+.ui-pill--gold   { color: var(--gold);     border-color: rgba(250,204,21,.4);  background: rgba(250,204,21,.12); }
+.ui-pill--green  { color: var(--green-400); border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.12); }
+.ui-pill--red    { color: var(--red-400);  border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.12); }
+.ui-pill--blue   { color: var(--blue-400); border-color: rgba(96,165,250,.4);  background: rgba(96,165,250,.12); }
+.ui-pill--purple { color: var(--purple-400); border-color: rgba(192,132,252,.4); background: rgba(192,132,252,.12); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal-backdrop,
+  .ui-modal-card { animation: none; }
+  .ui-spinner { animation-duration: 1.6s; }
+}
+
+/* ----------------------------------------------------- Global polish ------- */
+/* Consistent themed scrollbars instead of the default OS bars in panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--slate-600) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--slate-600);
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--slate-500); background-clip: padding-box; }
+
+/* Branded text selection. */
+::selection { background: rgba(250, 204, 21, .3); color: var(--text); }
+
