@@ -45,13 +45,22 @@ function mergePreservingImages(incoming, existing) {
     // intentional deletions), but per-item recurse so embedded images and
     // nested objects merge cleanly with the matching existing entry.
     if (Array.isArray(incoming)) {
+        const existingArray = Array.isArray(existing) ? existing : [];
+        // Index existing items by id ONCE (first occurrence wins, matching the
+        // previous .find() semantics) instead of an O(n) .find() per incoming
+        // item — avoids O(n*m) on large id-bearing arrays (defeatedAiIds,
+        // jutsuMastery, inventory). Items without an id fall back to positional
+        // pairing, exactly as before.
+        const existingById = new Map();
+        for (const c of existingArray) {
+            const cid = recordId(c);
+            if (cid && !existingById.has(cid))
+                existingById.set(cid, c);
+        }
         return incoming.map((item, index) => {
-            const existingArray = Array.isArray(existing) ? existing : [];
             const itemId = recordId(item);
-            const existingById = itemId
-                ? existingArray.find((c) => recordId(c) === itemId)
-                : undefined;
-            return mergePreservingImages(item, existingById ?? existingArray[index]);
+            const match = itemId ? existingById.get(itemId) : undefined;
+            return mergePreservingImages(item, match ?? existingArray[index]);
         });
     }
     if (!incoming || typeof incoming !== 'object')
