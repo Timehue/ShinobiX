@@ -131,6 +131,7 @@ const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js")
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
 const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
 const lobby_js_1 = __importDefault(require("./api/arena/lobby.js"));
+const ladder_js_1 = __importDefault(require("./api/pet-ladder/ladder.js"));
 // Jutsu
 const speedup_js_1 = __importDefault(require("./api/jutsu/speedup.js"));
 const train_with_seals_js_1 = __importDefault(require("./api/jutsu/train-with-seals.js"));
@@ -588,6 +589,8 @@ route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);
+// ─── Global Pet Ladders (Coliseum 1v1 + Tactical 4v4, offline defense) ───────────
+route('/pet-ladder', ladder_js_1.default);
 // ─── Jutsu training ────────────────────────────────────────────────────────────
 route('/jutsu/speedup', speedup_js_1.default);
 route('/jutsu/train-with-seals', train_with_seals_js_1.default);
