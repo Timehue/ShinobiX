@@ -843,6 +843,18 @@ async function handler(req, res) {
                 const s = Number(rewardSector);
                 baseRewardStamp = { baseRewards: true, rewardSector: Number.isFinite(s) ? Math.floor(s) : 0 };
             }
+            // Ranked fights are fought on NEUTRAL ground. A session creator could
+            // otherwise seal a biome/weather that boosts their own school/element
+            // (+10% terrain dmg per matching cast, plus a weather edge) for the whole
+            // ranked match — a persistent ladder advantage that bypasses the
+            // element-of-the-day fairness goal. Mirror the client's ranked-neutral
+            // rule (shinobij.client/src/lib/pvp-session.ts) on the server so a
+            // tampered client holding a valid match token can't pick favorable
+            // terrain. Casual fights keep the client-chosen environment.
+            const isRankedSession = rankedStamp.ranked === true;
+            const sealedBiome = isRankedSession ? 'central' : normalizeBiome(biome);
+            const sealedWeatherPos = isRankedSession ? '' : normalizeElement(weatherPositiveElement);
+            const sealedWeatherNeg = isRankedSession ? '' : normalizeElement(weatherNegativeElement);
             const session = {
                 battleId,
                 p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
@@ -859,9 +871,9 @@ async function handler(req, res) {
                 lastMoveAt: Date.now(),
                 // Snapshot environment so /api/pvp/move can't be tricked into
                 // applying a different biome / weather mid-fight.
-                biome: normalizeBiome(biome),
-                weatherPositiveElement: normalizeElement(weatherPositiveElement),
-                weatherNegativeElement: normalizeElement(weatherNegativeElement),
+                biome: sealedBiome,
+                weatherPositiveElement: sealedWeatherPos,
+                weatherNegativeElement: sealedWeatherNeg,
                 // Seal each fighter's per-fight consumable budget from their save
                 // (potion capped). move.ts decrements on use; claim-rewards
                 // deducts itemsUsed from the save at settlement.
