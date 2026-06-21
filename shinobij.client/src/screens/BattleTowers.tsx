@@ -39,7 +39,7 @@ function clearRunKey() {
 // "couldn't resume" and fall to the (penalty-free) lobby.
 const RESUME_TIMEOUT_MS = 12_000;
 
-export function BattleTowers({ character, onExit }: { character: Character; onExit: () => void }) {
+export function BattleTowers({ character, sharedImages, onExit }: { character: Character; sharedImages?: Record<string, string>; onExit: () => void }) {
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
     const [view, setView] = useState<View>(() => {
@@ -99,6 +99,7 @@ export function BattleTowers({ character, onExit }: { character: Character; onEx
         return (
             <BattleTowerFight
                 character={character}
+                sharedImages={sharedImages}
                 runId={view.runId}
                 initialSession={view.session}
                 // Clear the runId synchronously here: the parent's onExit unmounts this

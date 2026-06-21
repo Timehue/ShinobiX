@@ -8785,7 +8785,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} onExit={() => setScreen("centralHub")} />
+                    <BattleTowers character={character} sharedImages={sharedImages} onExit={() => setScreen("centralHub")} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WeeklyBossArena
