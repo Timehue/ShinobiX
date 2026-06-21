@@ -553,4 +553,31 @@ describe('Battle Towers AOE + consumables', () => {
         assert.ok(getActor(s, 'sq-1')!.hp > 200, 'heal potion healed the caster');
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['heal-pot'], 1, 'charge spent');
     });
+
+    it('a ground-target jutsu places a persistent zone that poisons units standing in it', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { hp: 5000, maxHp: 5000, chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{ id: 'mire', name: 'Poison Mire', type: 'Ninjutsu', ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }] }] } });
+        const en = makeActor('en-1', 'enemy', 3, { hp: 1_000_000, maxHp: 1_000_000, chakra: 1000, maxChakra: 1000, character: { stats: {} } });
+        const s = makeSession([sq, en]);
+        startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'mire', tile: 3 }, makeRng(1));
+        assert.ok(r.applied, 'ground jutsu placed at the tile');
+        assert.equal((s.groundEffects ?? []).length, 1, 'a persistent zone was created');
+        assert.ok(getActor(s, 'en-1')!.statuses.some(st => st.name === 'Poison'), 'a unit standing in the zone is poisoned on cast');
+        // Drive rounds: the zone re-applies + the poison bleeds, then the zone expires.
+        let guard = 0;
+        while (s.round < 3 && s.status === 'active' && guard++ < 60) endTurn(s, floor);
+        assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'the zone bled the enemy');
+        assert.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
+    });
+
+    it('rejects a ground jutsu out of range / with no ground-eligible tags', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [
+            { id: 'far', name: 'Far Mire', type: 'Ninjutsu', ap: 60, range: 2, target: 'EMPTY_GROUND', tags: [{ name: 'Poison' }] },
+            { id: 'empty', name: 'Empty Field', type: 'Ninjutsu', ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Heal' }] },
+        ] } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
+        startRound(s);
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'far', tile: 60 }, makeRng(1)).reason, 'out-of-range');
+        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'empty', tile: 3 }, makeRng(1)).reason, 'no-ground-tags');
+    });
 });

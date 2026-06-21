@@ -492,4 +492,30 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'sq-1').hp > 200, 'heal potion healed the caster');
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges['heal-pot'], 1, 'charge spent');
     });
+    (0, node_test_1.it)('a ground-target jutsu places a persistent zone that poisons units standing in it', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { hp: 5000, maxHp: 5000, chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [{ id: 'mire', name: 'Poison Mire', type: 'Ninjutsu', ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Poison', percent: 10 }] }] } });
+        const en = makeActor('en-1', 'enemy', 3, { hp: 1_000_000, maxHp: 1_000_000, chakra: 1000, maxChakra: 1000, character: { stats: {} } });
+        const s = makeSession([sq, en]);
+        (0, _engine_js_1.startRound)(s);
+        const r = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'mire', tile: 3 }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.ok(r.applied, 'ground jutsu placed at the tile');
+        node_assert_1.strict.equal((s.groundEffects ?? []).length, 1, 'a persistent zone was created');
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').statuses.some(st => st.name === 'Poison'), 'a unit standing in the zone is poisoned on cast');
+        // Drive rounds: the zone re-applies + the poison bleeds, then the zone expires.
+        let guard = 0;
+        while (s.round < 3 && s.status === 'active' && guard++ < 60)
+            (0, _engine_js_1.endTurn)(s, floor);
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'the zone bled the enemy');
+        node_assert_1.strict.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
+    });
+    (0, node_test_1.it)('rejects a ground jutsu out of range / with no ground-eligible tags', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [
+                    { id: 'far', name: 'Far Mire', type: 'Ninjutsu', ap: 60, range: 2, target: 'EMPTY_GROUND', tags: [{ name: 'Poison' }] },
+                    { id: 'empty', name: 'Empty Field', type: 'Ninjutsu', ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Heal' }] },
+                ] } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'far', tile: 60 }, (0, _sim_js_1.makeRng)(1)).reason, 'out-of-range');
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'empty', tile: 3 }, (0, _sim_js_1.makeRng)(1)).reason, 'no-ground-tags');
+    });
 });
