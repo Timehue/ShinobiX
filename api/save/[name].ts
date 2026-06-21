@@ -400,6 +400,12 @@ export function sanitizeCharacterSave(
         battleTowerRating: 0,
         totalTournamentsCompleted: 3,
         totalTilesExplored: 200,
+        // Hollow Gate Warden (F5 boss) kills — client-incremented and read by the
+        // weekly board (wk-gate-*). Was the one weekly-board counter with no
+        // per-save clamp, so a tampered save could pad it to auto-complete the
+        // weekly Hollow Gate mission (audit #10). The daily run cap (~2-4 dives)
+        // bounds legit warden kills well under 3/save.
+        hollowGateWardenKills: 3,
         rankedWins: 20,
         rankedLosses: 20,
         // Village-war mission counter (drives the "War Veteran" achievement
@@ -646,11 +652,21 @@ export function sanitizeCharacterSave(
                 if (!j || typeof j !== 'object') return j;
                 const jOut: Record<string, unknown> = { ...j };
                 if (jOut.effectPower != null) {
-                    jOut.effectPower = Math.max(0, Math.min(200, Number(jOut.effectPower) || 0));
+                    // Bloodline jutsu effectPower is ALWAYS one of {0 (40-AP
+                    // utility), 40 (standard 60-AP), 50 (the single Nuke)} — see
+                    // BloodlineMaker / lib/bloodline-templates.ts:87. The old
+                    // [0,200] clamp let a forged save POST inject a ~4x-damage
+                    // "nuke" (effectPower 200) that the PvP engine applies as raw
+                    // base damage (audit #3). Clamp to the legit ceiling of 50:
+                    // no honest bloodline jutsu exceeds it, so this is behavior-
+                    // preserving for real players and neutralizes the injection.
+                    jOut.effectPower = Math.max(0, Math.min(50, Number(jOut.effectPower) || 0));
                 }
                 if (jOut.ap != null) {
-                    // AP values in bloodline jutsus are 40 / 60 / 80 normally.
-                    jOut.ap = Math.max(20, Math.min(200, Number(jOut.ap) || 40));
+                    // Legit bloodline jutsu AP is 40 / 60 / 80 — never below 40.
+                    // Floor at 40 (was 20) so a forged ap:1 can't make the nuke
+                    // castable ~5x/turn (audit #14); the upper bound is unchanged.
+                    jOut.ap = Math.max(40, Math.min(200, Number(jOut.ap) || 40));
                 }
                 if (jOut.cooldown != null) {
                     jOut.cooldown = Math.max(0, Math.min(50, Number(jOut.cooldown) || 0));
@@ -779,6 +795,45 @@ export function sanitizeCharacterSave(
         const incomingRuns = Math.max(0, Math.floor(Number(char.dailyHollowGateRuns ?? 0)));
         char.dailyHollowGateRuns = Math.max(incomingRuns, floorRuns);
     }
+
+    // Daily-reset stamps (lastDailyReset / lastHuntReset) gate the per-day
+    // mission / hunt / AI-kill / fate-spin counters. They only ever ADVANCE — a
+    // real day roll moves them forward. A tampered save that BACKDATES one resets
+    // every daily counter it gates (re-opening the claim-mission daily cap [audit
+    // #1] and, via lastDailyReset, the Hollow Gate run cap [audit #7]). Force them
+    // monotonic-forward: an incoming date older than the stored one is reverted to
+    // the stored value, so the backdate can't persist. A forward move to a newer
+    // date (the legit midnight reset) is untouched, as is the first-ever set.
+    for (const field of ['lastDailyReset', 'lastHuntReset'] as const) {
+        const stored = typeof exChar[field] === 'string' ? (exChar[field] as string) : '';
+        const incoming = typeof char[field] === 'string' ? (char[field] as string) : '';
+        if (stored && incoming && incoming < stored) char[field] = stored;
+    }
+
+    // Daily mission / hunt completion counters are the ONLY thing bounding the
+    // server-authoritative claim-mission payouts (api/missions/claim-mission.ts),
+    // which write ryo + premium currency directly under the save lock — bypassing
+    // this endpoint's per-save ryo/currency caps. So if the client could zero
+    // these mid-day it could re-claim the highest-value missions unbounded (audit
+    // #1). Floor them at the server-stored value within the same UTC day
+    // (monotonic-up, exactly like dailyHollowGateRuns above); the legit midnight
+    // reset is preserved because on a real new day exChar's stamp != today, so
+    // the floor is skipped and the counter is free to drop to 0.
+    if (exChar.lastDailyReset === SERVER_UTC_DATE) {
+        const floorM = Math.max(0, Math.floor(Number(exChar.dailyMissionsCompleted ?? 0)));
+        const inM = Math.max(0, Math.floor(Number(char.dailyMissionsCompleted ?? 0)));
+        char.dailyMissionsCompleted = Math.max(inM, floorM);
+    }
+    if (exChar.lastHuntReset === SERVER_UTC_DATE) {
+        const floorH = Math.max(0, Math.floor(Number(exChar.dailyHuntsCompleted ?? 0)));
+        const inH = Math.max(0, Math.floor(Number(char.dailyHuntsCompleted ?? 0)));
+        char.dailyHuntsCompleted = Math.max(inH, floorH);
+    }
+
+    // academy-trial is a one-time onboarding claim (claim-mission academy-trial
+    // path, off the daily cap). Latch it: once the server-stored save has it
+    // claimed, a forged save can't flip it back to false to re-claim. (audit #1)
+    if (exChar.academyTrialClaimed === true) char.academyTrialClaimed = true;
 
     // Bank-interest claim window enforcement.
     //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
