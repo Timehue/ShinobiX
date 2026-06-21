@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import {
-    submitTowerAction, settleTowerRun, fetchTowerState, TOWER_TURN_AFK_MS,
-    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature,
+    submitTowerAction, settleTowerRun, fetchTowerState, joinTowerRun, TOWER_TURN_AFK_MS,
+    type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature, type TowerHostLoadout,
 } from "../lib/towers-api";
 import gameBg from "../assets/background-image.webp";
 import {
@@ -85,12 +85,14 @@ const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> 
 export function BattleTowerFight({
     character,
     sharedImages,
+    hostLoadout,
     runId,
     initialSession,
     onExit,
 }: {
     character: Character;
     sharedImages?: Record<string, string>;
+    hostLoadout?: TowerHostLoadout;
     runId: string;
     initialSession: TowerSession;
     onExit: () => void;
@@ -145,6 +147,16 @@ export function BattleTowerFight({
         if (initialSession.status === "active") return;
         fetchTowerState(runId, me).then(setSession).catch(() => {});
     }, [runId, me, initialSession.status]);
+
+    // On entering a run, gear MY own fighter with my client-computed loadout (pvpItems +
+    // equipment passives the save doesn't persist) — so a JOINING ally is equipped like the
+    // host (whose loadout was sealed at /start). Idempotent server-side; runs once on mount.
+    useEffect(() => {
+        if (!hostLoadout) return;
+        let alive = true;
+        joinTowerRun(runId, me, hostLoadout).then(s => { if (alive && s) setSession(s); });
+        return () => { alive = false; };
+    }, [runId, me, hostLoadout]);
 
     // Live co-op: while it's NOT our turn, poll the server so we see allies'/enemies'
     // moves and get notified the instant it's our turn. Our own actions update directly,

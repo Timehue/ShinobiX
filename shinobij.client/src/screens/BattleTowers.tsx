@@ -100,6 +100,7 @@ export function BattleTowers({ character, sharedImages, hostLoadout, onExit }: {
             <BattleTowerFight
                 character={character}
                 sharedImages={sharedImages}
+                hostLoadout={hostLoadout}
                 runId={view.runId}
                 initialSession={view.session}
                 // Clear the runId synchronously here: the parent's onExit unmounts this

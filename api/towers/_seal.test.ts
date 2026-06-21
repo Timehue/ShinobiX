@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sealTowerFighter, sealTowerItemCharges } from './_seal.js';
+import { sealTowerFighter, sealTowerItemCharges, clampTowerLoadout } from './_seal.js';
 
 describe('Battle Towers fighter sealing (P1.B)', () => {
     it('clamps tampered stats + vitals to the hard caps', () => {
@@ -62,6 +62,15 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         assert.equal(sealed.itemDamagePct, 50, 'client itemDamagePct sealed');
         assert.ok((sealed.armorRawDR as number) > 0, 'client armorRawDR sealed');
         assert.ok(Array.isArray(sealed.pvpItems) && (sealed.pvpItems as unknown[]).length === 1, 'client pvpItems sealed');
+    });
+
+    it('clampTowerLoadout clamps tampered passives + sanitizes pvpItems (present fields only)', () => {
+        const out = clampTowerLoadout({ bloodlineMult: 99, armorRawDR: 9, itemDamagePct: 9999, pvpItems: [{ id: 'x', name: 'X', slot: 'hand', weaponEp: 999999 }] });
+        assert.equal(out.bloodlineMult, 3);
+        assert.equal(out.armorRawDR, 1.5);
+        assert.equal(out.itemDamagePct, 200);
+        assert.ok(Array.isArray(out.pvpItems));
+        assert.ok(!('armorFactor' in out), 'absent input fields stay absent (merge-safe)');
     });
 
     it('seals a per-fight consumable budget capped by owned count', () => {
