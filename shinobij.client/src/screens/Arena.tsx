@@ -12,6 +12,7 @@ import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
+import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
@@ -363,7 +364,6 @@ export function Arena({
 
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [petChallengeSearch, setPetChallengeSearch] = useState("");
     const [activeArenaTab, setActiveArenaTab] = useState<"clanWar" | "tournaments" | "ranked" | "spectate" | "spar" | "petBattles">("ranked");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
@@ -445,75 +445,6 @@ export function Arena({
     function leaveRankedQueue() {
         setRankedQueueActive(false);
         fetch("/api/pvp/ranked-queue", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: character.name, action: "leave" }),
-        }).catch(() => {});
-    }
-
-    /* ── Pet ranked queue (account-level pet ladder) ── */
-    // Mirror of the player ranked queue above, but hits pet-ranked-queue and
-    // sends a "rankedPet" challenge on match. Elo flows from petRankedRating.
-    // Ratings for the actual Elo deltas travel through the challenge handshake
-    // (challengerPetRating / responderPetRating), not this stub.
-    const [petRankedQueueActive, setPetRankedQueueActive] = useState(false);
-    const [petRankedQueueSize, setPetRankedQueueSize] = useState(0);
-    useEffect(() => {
-        if (!petRankedQueueActive) return;
-        let active = true;
-        const poll = () => {
-            if (document.visibilityState === "hidden") return;
-            fetch("/api/pvp/pet-ranked-queue", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: character.name, level: character.level, elo: character.petRankedRating ?? 1000, action: "poll" }),
-            })
-                .then(r => r.json())
-                .then(data => {
-                    if (!active) return;
-                    setPetRankedQueueSize(data.queueSize ?? 0);
-                    if (data.match) {
-                        // #10: only the deterministic initiator sends the challenge;
-                        // the other waits for it. `initiator` absent (old server) →
-                        // default true, preserving the prior behavior.
-                        setPetRankedQueueActive(false);
-                        if (data.match.initiator !== false) {
-                            const opName = data.match.opponent;
-                            const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, petRankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                            challengePlayer(stub, "rankedPet");
-                        }
-                    }
-                    if (!data.inQueue) {
-                        setPetRankedQueueActive(false);
-                    }
-                })
-                .catch(() => {});
-        };
-        poll();
-        const iv = setInterval(poll, 3000);
-        return () => { active = false; clearInterval(iv); };
-    }, [petRankedQueueActive]);
-
-    function joinPetRankedQueue() {
-        const availablePet = character.pets.find(pet => !isPetOnExpedition(pet));
-        if (!availablePet) {
-            alert("You need a pet that isn't on an expedition before queueing for ranked pet battles.");
-            return;
-        }
-        setPetRankedQueueActive(true);
-        fetch("/api/pvp/pet-ranked-queue", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: character.name, level: character.level, elo: character.petRankedRating ?? 1000, action: "join" }),
-        })
-            .then(r => r.json())
-            .then(data => setPetRankedQueueSize(data.queueSize ?? 0))
-            .catch(() => {});
-    }
-
-    function leavePetRankedQueue() {
-        setPetRankedQueueActive(false);
-        fetch("/api/pvp/pet-ranked-queue", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: character.name, action: "leave" }),
@@ -659,10 +590,11 @@ export function Arena({
     const [prefightCountdown, setPrefightCountdown] = useState<number | null>(null);
     const [prefightFirstActor, setPrefightFirstActor] = useState<"player" | "enemy" | null>(null);
 
-    // Per-turn round timer (45 s). Resets each time it becomes the player's turn.
-    const [roundTimer, setRoundTimer] = useState<number>(45);
-    // Incrementing this key causes the round-timer effect to restart the 45-second window
-    // (used when the player takes an action to keep their time from expiring mid-combo).
+    // Per-turn round timer (45 s). The countdown lives in <CombatRoundTimer>
+    // (rendered below) so its 1s tick re-renders only that element, not the
+    // whole hex board. Incrementing this key restarts the 45-second window
+    // (used when the player takes an action to keep their time from expiring
+    // mid-combo) and resetting on turn change is handled by the component.
     const [roundTimerKey, setRoundTimerKey] = useState(0);
 
     // Stable refs so timer callbacks always call the latest version of arena functions.
@@ -680,6 +612,11 @@ export function Arena({
     const enemyTurnApRef       = useRef(100);
     const enemyTurnActionsRef  = useRef(0);
     const enemyTurnActiveRef   = useRef(false);
+    // Tracks the pending 850ms continuation timer so it can be cancelled on
+    // unmount — otherwise an orphaned enemy-turn setTimeout chain keeps firing
+    // setState into a torn-down screen (navigate away / refresh-restore mid
+    // enemy turn), a leak that compounds on mobile.
+    const enemyTurnTimerRef    = useRef<number | null>(null);
     // Rolling memory of the player's recent actions (most-recent-last), feeding
     // buildPlayerRead so the enemy can read playstyle (turtle / burst / kite).
     const playerActionLogRef   = useRef<PlayerActionRecord[]>([]);
@@ -872,25 +809,10 @@ export function Arena({
     }, [prefightCountdown]);
 
     // -- 45-second round timer ------------------------------------------------
-    // Resets each time it becomes the player's turn OR the player takes an action
-    // (roundTimerKey bump in spendAp). When it hits 0, auto-passes the turn.
-    useEffect(() => {
-        if (!battleStarted || battleEnded || prefightCountdown !== null || activeActor !== "player") {
-            setRoundTimer(45);
-            return;
-        }
-        let secs = 45;
-        setRoundTimer(45);
-        const interval = setInterval(() => {
-            secs -= 1;
-            setRoundTimer(secs);
-            if (secs <= 0) {
-                clearInterval(interval);
-                autoEndTurnRef.current();
-            }
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [battleStarted, battleEnded, activeActor, prefightCountdown, roundTimerKey]);
+    // The countdown now lives in the isolated <CombatRoundTimer> rendered below
+    // (so its 1s tick doesn't re-render the board). It resets each time it
+    // becomes the player's turn OR the player takes an action (roundTimerKey
+    // bump in spendAp), and calls autoEndTurnRef on expiry to auto-pass the turn.
 
     // -- Auto-resolve enemy turn -----------------------------------------------
     // When it becomes the enemy's turn, fire their action automatically after a
@@ -915,6 +837,18 @@ export function Arena({
     useEffect(() => {
         if (battleEnded) onMissionBattleResolved?.();
     }, [battleEnded]);
+
+    // On unmount, cancel any in-flight enemy-turn continuation so the recursive
+    // 850ms setTimeout chain can't keep running (firing setState into a dead
+    // component) after the player leaves the fight. Prevents a leaked, board-
+    // thrashing background loop that compounds across re-entries on mobile.
+    useEffect(() => () => {
+        if (enemyTurnTimerRef.current !== null) {
+            window.clearTimeout(enemyTurnTimerRef.current);
+            enemyTurnTimerRef.current = null;
+        }
+        enemyTurnActiveRef.current = false;
+    }, []);
 
     useEffect(() => {
         if (lobbyMode === "arenaDistrict") return;
@@ -3765,8 +3699,12 @@ export function Arena({
         enemyTurnActionsRef.current += 1;
         setEnemyAp(enemyTurnApRef.current);
         // 850ms between chained actions: lets React commit (so the next action
-        // reads fresh state) and gives the fight a readable beat.
-        window.setTimeout(() => enemyContinueRef.current(), 850);
+        // reads fresh state) and gives the fight a readable beat. Tracked so an
+        // unmount can cancel the chain (see the cleanup effect).
+        enemyTurnTimerRef.current = window.setTimeout(() => {
+            enemyTurnTimerRef.current = null;
+            enemyContinueRef.current();
+        }, 850);
     }
 
     // Scheduled continuation — runs in a fresh render so it sees committed state.
@@ -3991,9 +3929,6 @@ export function Arena({
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
-        const petChallengeOpponents = petChallengeSearch.trim() ? playerRoster
-            .filter((player) => playerSearchMatches(player, petChallengeSearch))
-            .filter((player) => player.character.pets.length > 0) : [];
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
                 .map((member) => playerRoster.find((player) => player.name === member.name))
@@ -4511,14 +4446,14 @@ export function Arena({
                             <small>{ap}/100 | {activeActor === "player" ? `Active: ${actionsThisTurn}/5 actions` : "Waiting"}</small>
                         </div>
 
-                        {/* Round timer — shown in the middle column when it's the player's turn */}
+                        {/* Round timer — shown in the middle column when it's the player's
+                            turn. Isolated component so its 1s tick doesn't re-render the board. */}
                         {activeActor === "player" && battleStarted && !battleEnded && (
-                            <div className={`round-timer-display${roundTimer <= 10 ? " round-timer-urgent" : ""}`}>
-                                <div className="round-timer-ring" style={{ "--rt-pct": `${(roundTimer / 45) * 100}%` } as React.CSSProperties}>
-                                    <span className="round-timer-num">{roundTimer}</span>
-                                </div>
-                                <small>Turn timer</small>
-                            </div>
+                            <CombatRoundTimer
+                                active={activeActor === "player" && battleStarted && !battleEnded && prefightCountdown === null}
+                                resetSignal={roundTimerKey}
+                                onExpire={() => autoEndTurnRef.current()}
+                            />
                         )}
                         {(activeActor !== "player" || !battleStarted || battleEnded) && (
                             <div className="round-timer-display round-timer-inactive">

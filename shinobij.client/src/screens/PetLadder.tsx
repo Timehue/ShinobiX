@@ -77,8 +77,8 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         try { setErr(null); setView(await fetchLadder(name, mode)); } catch (e) { setErr((e as Error).message); }
     }, [name, mode]);
 
-    useEffect(() => { void refresh(); }, [refresh]);
-    useEffect(() => { setPicks(available.slice(0, teamSize).map((p) => p.id)); setOffer(null); setOutcome(null); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void refresh(); }, [refresh]); // eslint-disable-line react-hooks/set-state-in-effect
+    useEffect(() => { setPicks(available.slice(0, teamSize).map((p) => p.id)); setOffer(null); setOutcome(null); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
 
     const togglePick = (id: string) => {
         if (teamSize === 1) { setPicks([id]); return; }
