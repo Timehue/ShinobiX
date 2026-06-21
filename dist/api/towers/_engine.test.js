@@ -529,3 +529,39 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'empty', tile: 3 }, (0, _sim_js_1.makeRng)(1)).reason, 'no-ground-tags');
     });
 });
+// ─── Basic actions: heal / cleanse / clear / dash (ported from PvP) ───────────
+(0, node_test_1.describe)('Battle Towers basic actions', () => {
+    const floor = makeFloor('defeat-all');
+    (0, node_test_1.it)('heal restores 10% max HP, costs chakra, goes on cooldown', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { hp: 1000, maxHp: 5000, chakra: 100, maxChakra: 100, character: { specialty: 'Ninjutsu', stats: {} } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { character: WEAK })]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'heal' }, (0, _sim_js_1.makeRng)(1)).applied);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').hp, 1500);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').chakra, 90);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'heal' }, (0, _sim_js_1.makeRng)(1)).reason, 'on-cooldown');
+    });
+    (0, node_test_1.it)('cleanse strips the actor\'s own debuffs but keeps buffs', () => {
+        const sq = makeActor('sq-1', 'squad', 0, { statuses: [{ name: 'Poison', rounds: 2, kind: 'negative' }, { name: 'Increase Damage Given', rounds: 2, kind: 'positive' }], character: { specialty: 'Ninjutsu', stats: {} } });
+        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { character: WEAK })]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'cleanse' }, (0, _sim_js_1.makeRng)(1)).applied);
+        const st = (0, _tower_session_js_1.getActor)(s, 'sq-1').statuses;
+        node_assert_1.strict.ok(!st.some(x => x.kind === 'negative'), 'debuffs gone');
+        node_assert_1.strict.ok(st.some(x => x.name === 'Increase Damage Given'), 'buffs kept');
+    });
+    (0, node_test_1.it)('clear strips a hostile target\'s buffs', () => {
+        const en = makeActor('en-1', 'enemy', 1, { statuses: [{ name: 'Reflect', rounds: 2, kind: 'positive' }], character: WEAK });
+        const s = makeSession([makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }), en]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'clear', targetId: 'en-1' }, (0, _sim_js_1.makeRng)(1)).applied);
+        node_assert_1.strict.ok(!(0, _tower_session_js_1.getActor)(s, 'en-1').statuses.some(x => x.kind === 'positive'), 'enemy buffs cleared');
+    });
+    (0, node_test_1.it)('dash relocates up to 3 hexes and rejects farther', () => {
+        const s = makeSession([makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', stats: {} } }), makeActor('en-1', 'enemy', 30, { character: WEAK })]);
+        (0, _engine_js_1.startRound)(s);
+        node_assert_1.strict.ok((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'dash', tile: 3 }, (0, _sim_js_1.makeRng)(1)).applied);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').pos, 3);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'dash', tile: 60 }, (0, _sim_js_1.makeRng)(1)).reason, 'out-of-range');
+    });
+});

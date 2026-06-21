@@ -98,11 +98,29 @@ export const TOWER_TURN_AFK_MS = 75_000;
 
 export type TowerActionInput =
     | { type: 'move'; tile: number }
+    | { type: 'dash'; tile: number }
     | { type: 'attack'; targetId: string }
     | { type: 'jutsu'; jutsuId: string; targetId?: string; tile?: number }
     | { type: 'weapon'; targetId: string; itemId?: string }
     | { type: 'item'; itemId?: string }
+    | { type: 'heal' }
+    | { type: 'cleanse' }
+    | { type: 'clear'; targetId: string }
     | { type: 'wait' };
+
+/** The host's client-computed combat extras the SAVE doesn't persist (pvpItems + the
+ *  equipment-derived passives) — sent to /start so the tower fighter matches PvP. */
+export type TowerHostLoadout = {
+    pvpItems: unknown[];
+    bloodlineMult: number;
+    armorFactor: number;
+    armorRawDR: number;
+    itemDamagePct: number;
+    itemAbsorbPct: number;
+    itemReflectPct: number;
+    itemLifeStealPct: number;
+    itemShield: number;
+};
 
 export type TowerActionResponse = { applied: boolean; reason?: string; session: TowerSession };
 export type TowerSettleResult = { paid: boolean; reason?: string; score?: number };
@@ -140,9 +158,10 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
     return res.json() as Promise<T>;
 }
 
-/** Begin a run: host + optional allies (slugs). Returns the runId + the initial session. */
-export function startTowerRun(hostName: string, floor: number, allies: string[] = []): Promise<{ runId: string; session: TowerSession }> {
-    return postJson('/api/towers/start', { hostName, floor, allies });
+/** Begin a run: host + optional allies (slugs) + the host's client-computed loadout extras.
+ *  Returns the runId + the initial session. */
+export function startTowerRun(hostName: string, floor: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
+    return postJson('/api/towers/start', { hostName, floor, allies, hostLoadout });
 }
 
 /** Submit one action for the human's actor on their turn. */
