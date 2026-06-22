@@ -1429,16 +1429,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return finish(await rejectWithLog(`${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`));
                 }
                 // Cooldown enforcement — both thrown weapons AND named melee (hand)
-                // weapons honour their catalog weaponCooldown server-side. The named
-                // weapons advertise a CD in their card text, the client shows it, and
-                // PvE enforces it — but the PvP server used to gate this on thrown
-                // only, so a hand weapon with CD 5 could strike every turn (a crafted
-                // request / non-gating client spam vector). The case above already
-                // guarantees wSlot ∈ {hand, thrown}; a weapon with no weaponCooldown
-                // defaults to 0 → unaffected. Keyed by item id (falls back to name)
-                // and ticked by tickCooldowns exactly like jutsu cooldowns.
+                // weapons cool down between uses server-side. The case above already
+                // guarantees wSlot ∈ {hand, thrown}. Catalog weapons set weaponCooldown
+                // explicitly (CD 5); forged "named weapons", forged hand-slot gauntlets,
+                // and older admin weapons can omit it — so a missing cooldown falls back
+                // to the standard 5 rounds (covers weapons already crafted into saves)
+                // rather than 0, which let them strike every turn (the spam vector). An
+                // explicit 0 is honoured (?? only fills null/undefined). Keep the default
+                // in sync with PvE (shinobij.client Arena.tsx). Keyed by item id (falls
+                // back to name) and ticked by tickCooldowns exactly like jutsu cooldowns.
                 const wCdKey = serverItem.id ?? serverItem.name ?? 'weapon';
-                const wCdTurns = Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 0)));
+                const wCdTurns = Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 5)));
                 if (wCdTurns > 0 && (myCooldowns[wCdKey] ?? 0) > 0) {
                     return finish(withRejected(session, `${serverItem.name ?? 'That weapon'} is on cooldown (${myCooldowns[wCdKey]} turn(s) left).`));
                 }
