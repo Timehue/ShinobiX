@@ -3127,39 +3127,38 @@ button {
 .hex-deathsgate .hex-tile {
     background: rgba(2, 6, 23, 0.48) !important;
     border-color: rgba(74,222,128,0.28) !important;
-    backdrop-filter: blur(1px);
 }
 
-/* ── Biome tile glass overlays ── */
+/* ── Biome tile tinted overlays ──
+   The per-tile backdrop-filter blur(1px) was removed: it ran a GPU blur pass on
+   the backdrop behind every one of the ~120 hex tiles every composite, which
+   tanked low-end Android (Mali/Adreno) GPUs with constant battle lag. A 1px
+   blur under a 32–48% opaque tint is imperceptible, so the rgba tint alone
+   carries the "glass" look with none of the cost. */
 .hex-forest .hex-tile {
     background: rgba(20, 83, 45, 0.38) !important;
     border-color: rgba(74,222,128,0.35) !important;
-    backdrop-filter: blur(1px);
 }
 
 .hex-snow .hex-tile {
     background: rgba(219, 234, 254, 0.32) !important;
     border-color: rgba(147,197,253,0.45) !important;
     color: #082f49;
-    backdrop-filter: blur(1px);
 }
 
 .hex-volcano .hex-tile {
     background: rgba(69, 10, 10, 0.38) !important;
     border-color: rgba(239,68,68,0.35) !important;
-    backdrop-filter: blur(1px);
 }
 
 .hex-shadow .hex-tile {
     background: rgba(2, 6, 23, 0.42) !important;
     border-color: rgba(167,139,250,0.35) !important;
-    backdrop-filter: blur(1px);
 }
 
 .hex-central .hex-tile {
     background: rgba(51, 65, 85, 0.35) !important;
     border-color: rgba(148,163,184,0.35) !important;
-    backdrop-filter: blur(1px);
 }
 
 /* ── Battle Towers hex tiles ──
