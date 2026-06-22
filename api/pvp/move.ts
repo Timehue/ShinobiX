@@ -146,6 +146,7 @@ type PvpItem = {
     weaponEp?: number;
     weaponElement?: string;
     weaponRange?: number;
+    weaponCooldown?: number;
     apCost?: number;
     weaponTags?: JutsuTag[];
     weaponEffect?: string;
@@ -1420,16 +1421,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(lockKey).catch(() => undefined);
                     return res.status(400).json({ error: 'Weapon is not equipped for this fighter' });
                 }
-                const weapRange = serverItem.weaponRange ?? (normalizeEquipmentSlot(serverItem.slot) === 'thrown' ? 4 : 1);
+                const wSlot = normalizeEquipmentSlot(serverItem.slot);
+                const weapRange = serverItem.weaponRange ?? (wSlot === 'thrown' ? 4 : 1);
                 const wApCost = serverItem.apCost ?? 40;
                 if (!canAct(wApCost)) return finish(withRejected(session, `Not enough AP or actions left for ${serverItem.name ?? 'that weapon'}.`));
                 if (distance(me.pos, opp.pos) > weapRange) {
                     return finish(await rejectWithLog(`${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`));
                 }
+                // Cooldown enforcement — thrown weapons honour their catalog
+                // weaponCooldown server-side (the client showed it but the server
+                // ignored it, so a crafted request / non-gating client could throw
+                // every turn). Melee (hand) weapons stay uncapped: their cooldown
+                // would force basicAttack filler turns — a separate balance call.
+                // Keyed by item id (falls back to name) and ticked by tickCooldowns
+                // exactly like jutsu cooldowns.
+                const wCdKey = serverItem.id ?? serverItem.name ?? 'weapon';
+                const wCdTurns = wSlot === 'thrown' ? Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 0))) : 0;
+                if (wCdTurns > 0 && (myCooldowns[wCdKey] ?? 0) > 0) {
+                    return finish(withRejected(session, `${serverItem.name ?? 'That weapon'} is on cooldown (${myCooldowns[wCdKey]} turn(s) left).`));
+                }
                 // Thrown weapons are spent from inventory on each throw; melee
                 // (hand) weapons are reusable and never sealed.
                 let wChargePatch: Partial<PvpSession> = {};
-                if (normalizeEquipmentSlot(serverItem.slot) === 'thrown') {
+                if (wSlot === 'thrown') {
                     const wSpend = spendItemCharge(serverItem.id ?? '');
                     if (!wSpend.ok) return finish(await rejectWithLog(`${me.name}: out of ${serverItem.name ?? 'that weapon'}.`));
                     wChargePatch = wSpend.patch;
@@ -1458,7 +1472,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const wWMult = weatherMultiplier(serverItem.weaponElement, weatherPositiveElement, weatherNegativeElement);
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome, session.round);
                 lines.push(...wr.lines);
-                result = commit(wr.self, wr.opponent, wApCost, undefined, wChargePatch);
+                const wCd = wCdTurns > 0 ? { [wCdKey]: wCdTurns } : undefined;
+                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch);
                 break;
             }
 
@@ -1470,6 +1485,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const iApCost = serverItem.apCost ?? 35;
                 if (!canAct(iApCost)) return finish(withRejected(session, `Not enough AP or actions left for ${serverItem.name ?? 'that item'}.`));
+                // Cooldown enforcement — combat items (pills / smoke bomb) honour
+                // their catalog weaponCooldown so they can't be spammed every turn
+                // (the server previously ignored it). Restore-only potions carry no
+                // weaponCooldown → iCdTurns 0 → unaffected (they keep the separate
+                // 2/fight charge cap). Checked before spending a charge.
+                const iCdKey = serverItem.id ?? serverItem.name ?? 'item';
+                const iCdTurns = Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 0)));
+                if (iCdTurns > 0 && (myCooldowns[iCdKey] ?? 0) > 0) {
+                    return finish(withRejected(session, `${serverItem.name ?? 'That item'} is on cooldown (${myCooldowns[iCdKey]} turn(s) left).`));
+                }
+                const iCd = iCdTurns > 0 ? { [iCdKey]: iCdTurns } : undefined;
                 // Spend from the sealed supply (the potion's 2/fight cap is the
                 // sealed starting charge, so this also enforces it).
                 const iSpend = spendItemCharge(serverItem.id ?? '');
@@ -1486,7 +1512,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         stamina: Math.min(me.maxStamina, me.stamina + iRestoreSt),
                     };
                     lines.push(`${me.name} uses ${serverItem.name ?? 'Potion'}: restores ${iRestoreCk} chakra and ${iRestoreSt} stamina.`);
-                    result = commit(restoredMe, null, iApCost, undefined, iSpend.patch);
+                    result = commit(restoredMe, null, iApCost, iCd, iSpend.patch);
                     break;
                 }
                 const iTags: JutsuTag[] = serverItem.weaponTags?.length
@@ -1514,7 +1540,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ir.lines.push(`Smoke: ${irSelf.name} also deals ${ddgPct}% less damage for 1 round.`);
                 }
                 lines.push(...ir.lines);
-                result = commit(irSelf, ir.opponent, iApCost, undefined, iSpend.patch);
+                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch);
                 break;
             }
 

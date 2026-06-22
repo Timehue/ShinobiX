@@ -286,6 +286,10 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             // can't out-scale jutsus.
             if (out.weaponEp != null)          out.weaponEp = clampNumber(out.weaponEp, 0, 600, 0);
             if (out.weaponRange != null)       out.weaponRange = clampNumber(out.weaponRange, 0, 30, 1);
+            // Cooldown (rounds) — enforced server-side in move.ts for thrown
+            // weapons + combat items. Clamp so a tampered save can't seal a
+            // negative/absurd value; 0 = no cooldown (the melee/legacy default).
+            if (out.weaponCooldown != null)    out.weaponCooldown = clampNumber(out.weaponCooldown, 0, 30, 0);
             if (out.apCost != null)            out.apCost = clampNumber(out.apCost, 0, 200, 40);
             // Flat potion restore (chakra/stamina) — clamp to the same 5000 cap
             // the vitals merge uses so a tampered pvpItem can't over-restore.
