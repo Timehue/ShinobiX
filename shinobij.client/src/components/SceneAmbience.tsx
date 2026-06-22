@@ -19,6 +19,7 @@
  */
 import { useEffect, useMemo, useRef } from "react";
 import type { Biome, WeatherType } from "../types/core";
+import { isLowEndMobile } from "../lib/device-tier";
 
 type Kind = "snow" | "ember" | "petal" | "leaf" | "mote" | "rain" | "ash" | "haze";
 
@@ -104,6 +105,10 @@ export function SceneAmbience({
         const canvas = canvasRef.current;
         if (!canvas) return;
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        // Weak phones: ~60% fewer particles and no per-particle glow (shadowBlur is
+        // the expensive part). Purely cosmetic — the scene still drifts, just lighter.
+        const lowEnd = isLowEndMobile();
+        const effIntensity = intensity * (lowEnd ? 0.4 : 1);
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
@@ -121,7 +126,7 @@ export function SceneAmbience({
             const widthScale = Math.max(0.5, w / 1000);
             for (const kind of kinds) {
                 const cfg = KINDS[kind];
-                const n = Math.round(cfg.count * widthScale * intensity);
+                const n = Math.round(cfg.count * widthScale * effIntensity);
                 for (let i = 0; i < n; i++) {
                     const c = cfg;
                     particles.push({
@@ -172,7 +177,7 @@ export function SceneAmbience({
 
                 ctx!.globalAlpha = p.alpha;
                 ctx!.fillStyle = p.color;
-                if (cfg.glow) { ctx!.shadowBlur = p.size * 3; ctx!.shadowColor = p.color; } else ctx!.shadowBlur = 0;
+                if (cfg.glow && !lowEnd) { ctx!.shadowBlur = p.size * 3; ctx!.shadowColor = p.color; } else ctx!.shadowBlur = 0;
 
                 if (cfg.streak) {
                     ctx!.strokeStyle = p.color;

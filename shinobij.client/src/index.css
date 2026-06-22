@@ -22696,6 +22696,26 @@ html[data-vp="xxl"] .banner-mobile-timers {
     .world-poi-smoke { opacity: 0; }
 }
 
+/* ═══ Lite-FX — weak-device downgrade (device-tier.ts → <html class="lite-fx">) ══
+   On auto-detected low-end mobiles, stop purely-decorative, continuously-animating
+   atmosphere on the hub / world / sector screens so they stay smooth. Mirrors the
+   prefers-reduced-motion treatments above, but targets detected weak hardware
+   instead of a user setting. Cosmetic only — nothing here hides gameplay info;
+   backdrops, markers, avatars and HUD are untouched. The 2D particle/critter
+   canvases and the 3D parallax scenes are gated separately in their components. */
+.lite-fx .scene-ambience-rays,
+.lite-fx .scene-ambience-lightning { animation: none; opacity: .22; }
+.lite-fx .sector-scene-haze,
+.lite-fx .sector-foreground,
+.lite-fx .sector-scatter-sway { animation: none; }
+.lite-fx .sector-scatter-glow { animation: none; opacity: .5; }
+.lite-fx .world-biome-glow { animation: none; filter: none; }
+.lite-fx .world-poi-glow { animation: none; }
+.lite-fx .world-poi-smoke { animation: none; opacity: 0; }
+/* Idle bob only — the walking animation lives on a more specific selector and
+   keeps playing (no !important here, so it wins on specificity). */
+.lite-fx .sector-avatar-body { animation: none; }
+
 /* ─── a11y: keyboard focus visibility ──────────────────────────────────────────
    Give keyboard users a clear focus ring on interactive controls. :focus-visible
    matches ONLY keyboard navigation, so mouse/touch focus stays clean (no ring on

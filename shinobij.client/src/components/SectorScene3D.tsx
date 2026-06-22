@@ -11,12 +11,14 @@
  */
 import { Suspense, lazy, useState } from "react";
 import type { Biome } from "../types/core";
+import { isLowEndMobile } from "../lib/device-tier";
 
 const Scene = lazy(() => import("./SectorScene3DScene"));
 
 function isSectorScene3DEnabled(): boolean {
     if (typeof window === "undefined") return false;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
+    if (isLowEndMobile()) return false; // weak phones fall back to the flat <SectorScene> CSS backdrop
     try {
         if (window.localStorage?.getItem("sectorScene3D.v1") === "off") return false;
     } catch { /* private mode — treat as enabled */ }
