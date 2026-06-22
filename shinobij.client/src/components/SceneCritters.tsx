@@ -20,6 +20,7 @@
 import { useEffect, useRef } from "react";
 import type { Biome } from "../types/core";
 import { skyNow } from "../lib/day-cycle";
+import { isLowEndMobile } from "../lib/device-tier";
 
 type Behavior = "glide" | "flutter" | "glow" | "dart" | "ripple";
 
@@ -107,6 +108,10 @@ export function SceneCritters({
         const canvas = canvasRef.current;
         if (!canvas) return;
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        // Weak phones: ~60% fewer critters and no firefly/spirit glow (shadowBlur is
+        // the expensive part). Cosmetic — the biome still has a little life.
+        const lowEnd = isLowEndMobile();
+        const effDensity = density * (lowEnd ? 0.4 : 1);
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
@@ -148,7 +153,7 @@ export function SceneCritters({
             const widthScale = Math.max(0.5, w / 1000);
             for (const kind of cast) {
                 const r = RECIPES[kind];
-                const n = Math.max(1, Math.round(r.count * widthScale * density));
+                const n = Math.max(1, Math.round(r.count * widthScale * effDensity));
                 for (let i = 0; i < n; i++) crits.push(makeOne(kind));
             }
         }
@@ -236,7 +241,7 @@ export function SceneCritters({
             const blinkOff = p.kind === "firefly" ? Math.max(0, Math.sin(p.blink * 0.37)) : 1;
             ctx!.globalAlpha = p.alpha * pulse * (0.35 + 0.65 * blinkOff);
             ctx!.fillStyle = p.color;
-            ctx!.shadowBlur = p.size * 4;
+            ctx!.shadowBlur = lowEnd ? 0 : p.size * 4;
             ctx!.shadowColor = p.color;
             ctx!.beginPath();
             ctx!.arc(p.x, p.y, p.size, 0, Math.PI * 2);
