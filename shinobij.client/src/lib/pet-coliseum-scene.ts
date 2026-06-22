@@ -56,7 +56,7 @@ export function tileToWorld(
 // each other"). MIN_SEP pushes the two apart to a readable rest distance;
 // CONTACT_GAP is where a lunge STOPS — close enough to read as a hit, never
 // through the target.
-const MIN_SEP = 1.9;
+const MIN_SEP = 2.2;
 const CONTACT_GAP = 0.95;
 // Formation lanes sit the leads ~5 units apart, so a melee strike needs to
 // cross most of that to read as a pounce-into-contact (the leap arc + impact
@@ -66,7 +66,7 @@ const MAX_LUNGE = 3.4;
 // MIN_SEP yet still hide one behind the other at the camera angle. Nearby
 // pairs therefore also get a minimum HORIZONTAL (x) gap so both sprites stay
 // visibly side-by-side on screen.
-const MIN_X_SEP = 1.4;
+const MIN_X_SEP = 1.85;
 const X_SEP_RANGE = 3.2; // only enforce on pairs this close overall
 
 /** Enforce a minimum pairwise separation over N floor positions (2 for 1v1,

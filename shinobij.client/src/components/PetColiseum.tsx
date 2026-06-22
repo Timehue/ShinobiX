@@ -1465,6 +1465,16 @@ const STAGE = { worldW: 30, worldH: 20 };
 // Pets are SMALL tactical units (~60px content height @ scale 1 on a 1536-ref),
 // never the oversized sprites from before. (1 world unit = MAP_H/worldH px.)
 const STAGE_SPRITE_H = 1.2;
+// Render-side spacing for the duel diorama: the minimum on-screen HORIZONTAL gap
+// (world units at depth 1) the two fighters' sprites keep, and the screen-row band
+// within which a crowded pair can visually overlap. The sim's body separation
+// (~1.08 field units) is narrower than a sprite, and the diorama composites
+// straight from the sim — so a same-row clash would draw the two INTO each other.
+// Tuned small so a melee exchange still reads close (the impact VFX sells contact)
+// while the two creatures never merge into one blob. Cosmetic only — never fed
+// back into the sim, so zero balance/determinism impact.
+const DUEL_MIN_SCREEN_X = 0.95;
+const DUEL_SEP_DEPTH_BAND = 2.2;
 // The action band: the sim field maps onto this open lower-middle rectangle of the
 // arena (on the paths, off the decorative back/walls), so the fight reads across
 // the battlefield in front of the camera.
@@ -1492,6 +1502,19 @@ function stagePlace(sx: number, sy: number): StagePos {
         depth: getPerspectiveScale(my),
         zo: (my / MAP_H) * 8,   // depth-sort: front (high map-Y) drawn over back
     };
+}
+
+/** The interpolated stage position of a duel actor at the same clock fraction the
+ *  standee draws (teleport-snapped) — so the render-side spacing pass agrees with
+ *  where each sprite actually lands. */
+function duelActorStageAt(
+    snaps: { actors: DuelActorSnap[] }[], i0: number, i1: number, f: number, id: string,
+): StagePos | null {
+    const a0 = findActor(snaps[i0], id); if (!a0) return null;
+    const a1 = findActor(snaps[i1], id) ?? a0;
+    const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
+    const ff = (tdx * tdx + tdy * tdy) > 9 ? (f < 0.5 ? 0 : 1) : f;
+    return stagePlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
 }
 
 // The ARENA mode uses the FULL inner arena (reaches all four corner seals), not
@@ -1569,10 +1592,29 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         lastPos.current = [p.wx, p.wy];
         const moving = spd > 0.012 && a0.state !== "dead";
 
+        // Render-side spacing — keep the fighters from compositing INTO each other.
+        // A same-row pair the sim packs to body-contact gets a symmetric, deterministic
+        // half-push apart in SCREEN-X so two creatures always read as two. Cosmetic:
+        // never fed back to the sim → no balance/determinism impact.
+        let drawX = p.wx;
+        const actors = snaps[i0].actors;
+        for (let k = 0; k < actors.length; k++) {
+            const other = actors[k];
+            if (other.id === id || other.state === "dead") continue;
+            const op = duelActorStageAt(snaps, i0, i1, f, other.id);
+            if (!op || Math.abs(p.wy - op.wy) > DUEL_SEP_DEPTH_BAND) continue;
+            const gapX = p.wx - op.wx;
+            const minGap = DUEL_MIN_SCREEN_X * (p.depth + op.depth) * 0.5;
+            if (Math.abs(gapX) < minGap) {
+                const dir = gapX > 1e-4 ? 1 : gapX < -1e-4 ? -1 : (id < other.id ? -1 : 1);
+                drawX += dir * (minGap - Math.abs(gapX)) * 0.5;
+            }
+        }
+
         // run-bob + a forward lean make the locomotion READ; depth scales it all.
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.18 : 0;
         scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
-        g.position.set(p.wx, p.wy + bob * p.depth, p.zo);
+        g.position.set(drawX, p.wy + bob * p.depth, p.zo);
         g.scale.setScalar(scaleSm.current);
         // Turn to FACE the target (flip by the sim's facing) so a pet never fights
         // with its back to the enemy; the forward run-lean flips along with it.
@@ -1606,7 +1648,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(p.wx, p.wy - 0.08 * p.depth, p.zo - 0.1);
+            shadow.current.position.set(drawX, p.wy - 0.08 * p.depth, p.zo - 0.1);
             shadow.current.scale.set(shadowW * scaleSm.current, shadowW * 0.32 * scaleSm.current, 1);
             shadowMat.current.opacity = 0.4 * (a0.state === "dead" ? 0.4 : 1);
         }
@@ -2135,6 +2177,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 // reusing the projection + pose flipbook + FX. PREVIEW-ONLY.
 // ═════════════════════════════════════════════════════════════════════════════
 const ARENA_SPRITE_H = 1.05;
+// Render-side motion smoothing factor (per frame) for the drawn sprite position —
+// a light low-pass that rounds the deterministic sim's piecewise-linear corners
+// and damps clump-jitter without touching the sim. Higher = snappier/less lag.
+const ARENA_POS_SMOOTH = 0.4;
 const ROLE_COLOR: Record<ArenaRole, string> = { defender: "#60a5fa", tracker: "#34d399", assassin: "#f87171", sage: "#fbbf24" };
 const ROLE_TAG: Record<ArenaRole, string> = { defender: "DEF", tracker: "TRK", assassin: "ASN", sage: "SGE" };
 const findArenaActor = (s: ArenaSnapshot, id: string) => s.actors.find((a) => a.id === id);
@@ -2188,6 +2234,8 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const facing = useRef(id.startsWith("blue") ? 1 : -1);
     const lastPos = useRef<[number, number]>([0, 0]);
     const scaleSm = useRef(0);   // smoothed depth-scale → absorbs any residual position jitter so the sprite never pulses big↔small (snaps on a teleport)
+    const smX = useRef<number | null>(null), smY = useRef<number | null>(null);   // smoothed DRAW position (render-side low-pass; snaps on a teleport)
+    const prevDown = useRef(false);   // was the pet hidden (respawning/dead) last frame → snap, never lerp, across the off-screen respawn jump (robust at any framerate)
     const runClock = useRef(0);
     const fast = useRef(0);   // speed gate 0..1 → dash-trail opacity (read by the ArenaGhost children)
     const tint = useMemo(() => elementTint(pet.element), [pet.element]);
@@ -2221,17 +2269,29 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
         const p = arenaPlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
         const dx = p.wx - lastPos.current[0], dy = p.wy - lastPos.current[1];
-        const spd = Math.sqrt(dx * dx + dy * dy); lastPos.current = [p.wx, p.wy];
+        // Zero "speed" while hidden AND on the first frame back — a respawn teleports the
+        // body across the board, so the reappear must never read as a dash (trail / run pose).
+        const justBack = prevDown.current && !down;
+        const spd = (down || justBack) ? 0 : Math.sqrt(dx * dx + dy * dy); lastPos.current = [p.wx, p.wy];
         const moving = spd > 0.012 && !down;
-        // Smooth the depth-scale: snap on a teleport (which already hard-cuts position),
-        // else ease toward the target so a jittery tick can't pop the sprite's size.
-        scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
+        // Smooth the depth-scale: snap on a teleport (which already hard-cuts position)
+        // or across a respawn, else ease toward the target so a jittery tick can't pop size.
+        scaleSm.current = (teleport || down || prevDown.current || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
+        // Render-side motion smoothing: ease the DRAWN position toward the interpolated
+        // sim position so the sim's piecewise-linear heading changes (separation nudges,
+        // path replans) round off and clump-jitter is damped — never touches the sim.
+        // Snap (don't lerp) on a teleport AND while hidden / on the first frame back, so the
+        // across-the-board respawn jump never slides the body in — robust at any framerate.
+        if (smX.current === null || smY.current === null || teleport || down || prevDown.current) { smX.current = p.wx; smY.current = p.wy; }
+        else { smX.current += (p.wx - smX.current) * ARENA_POS_SMOOTH; smY.current += (p.wy - smY.current) * ARENA_POS_SMOOTH; }
+        const drawX = smX.current, drawY = smY.current;
+        prevDown.current = down;
         // Dash trail: a single element-flat ghost that fades in ONLY at genuine dash speed
         // (an assassin dive streaks; an ordinary stroll doesn't). Gate raised so routine
         // movement no longer leaves a constant smear of afterimages.
         fast.current = down ? 0 : Math.max(0, Math.min(1, (spd - 0.07) / 0.13));
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.16 : 0;
-        g.position.set(p.wx, p.wy + bob * p.depth, p.zo);
+        g.position.set(drawX, drawY + bob * p.depth, p.zo);
         g.scale.setScalar(scaleSm.current);
         // Hide downed/respawning pets entirely — a faded corpse frozen at the death spot
         // read as a "spawn freeze". The scorch decal + kill FX already mark where it fell.
@@ -2251,12 +2311,12 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         if (glowMat.current) glowMat.current.opacity = a0.carrying ? 0.55 + Math.abs(Math.sin(state.clock.elapsedTime * 5)) * 0.35 : 0;
         if (carryMark.current) carryMark.current.style.display = a0.carrying ? "inline" : "none";
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(p.wx, p.wy - 0.08 * p.depth, p.zo - 0.1);
+            shadow.current.position.set(drawX, drawY - 0.08 * p.depth, p.zo - 0.1);
             shadow.current.scale.set(shadowW * scaleSm.current, shadowW * 0.32 * scaleSm.current, 1);
             shadowMat.current.opacity = down ? 0 : 0.4;
         }
         if (aura.current && auraMat.current) {   // team-colored ground glow (brighter while carrying)
-            aura.current.position.set(p.wx, p.wy - 0.05 * p.depth, p.zo - 0.12);
+            aura.current.position.set(drawX, drawY - 0.05 * p.depth, p.zo - 0.12);
             const aw = shadowW * 1.6 * scaleSm.current; aura.current.scale.set(aw, aw * 0.46, 1);
             auraMat.current.opacity = down ? 0 : (a0.carrying ? 0.85 : 0.5);
         }
