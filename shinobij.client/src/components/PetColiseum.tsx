@@ -2215,9 +2215,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const col = elementColor(e.element).glow;
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
-                        // The elemental BURST on contact — heavy/crit blows fire the
-                        // big tactical-arena asset (kaboom/explosion/vortex/spark/bighit).
-                        spawnFx({ x: a.x, z: a.y, element: e.element, key: heavy ? arenaKillFxKey(e.element) : undefined, scale: heavy ? 2.3 : 1.4, dur: heavy ? 460 : 320 });
+                        // The elemental BURST on contact — the fire/water/wind/earth/
+                        // lightning animation, bigger on heavy/crit blows.
+                        spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.3 : 1.4, dur: heavy ? 460 : 320 });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0));
                         // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
@@ -2256,10 +2256,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
                     if (c) {
-                        spawnFx({ x: c.x, z: c.y, element: el, key: e.type === "ultimate" ? arenaKillFxKey(el) : undefined, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
+                        spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
                         if (e.type === "ultimate") {
                             const ex = c.x, ey = c.y;
-                            window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, key: arenaKillFxKey(el), scale: 3.4, dur: 540 }), 200);
+                            window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.4, dur: 540 }), 200);
                         }
                     }
                     if (e.type === "ultimate") {
@@ -2270,11 +2270,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         onCutIn(e.actorId);                                    // anime portrait cut-in
                     }
                 } else if (e.type === "ko") {
-                    // KO finisher: a themed kill-blast (the victim's element) + a hard
-                    // freeze → deep slow-mo → camera PULL-BACK reveal.
+                    // KO finisher: a big element blast on the victim + a hard freeze →
+                    // deep slow-mo → camera PULL-BACK reveal.
                     const dead = e.actorId ? findActor(snapAt, e.actorId) : null;
                     const del = e.actorId ? elementById[e.actorId] : null;
-                    if (dead) spawnFx({ x: dead.x, z: dead.y, element: del, key: arenaKillFxKey(del), scale: 3.0, dur: 620 });
+                    if (dead) spawnFx({ x: dead.x, z: dead.y, element: del, scale: 3.0, dur: 620 });
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
                     timeScale.current = Math.min(timeScale.current, 0.32);
