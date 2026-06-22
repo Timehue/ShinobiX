@@ -13,6 +13,7 @@ const _text_moderation_js_1 = require("../_text-moderation.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _save_version_js_1 = require("./_save-version.js");
 const _registry_throttle_js_1 = require("./_registry-throttle.js");
+const _lock_js_1 = require("../_lock.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
 const PRIVATE_CHAR_FIELDS = [
@@ -1227,210 +1228,227 @@ async function handler(req, res) {
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
                 // ── Atomicity (finding 14) ─────────────────────────────────
-                // Take a short-lived per-save lock around the read-modify-write
-                // so concurrent saves can't trample each other. 2-second TTL
-                // is plenty for the synchronous work below; lock is auto-released
-                // at the end of the path or just expires.
+                // Serialize the read-modify-write through withKvLock on the SAME
+                // key the currency endpoints use: withKvLock('save:<name>') maps to
+                // the lock key 'lock:save:<name>'. Sharing the helper means the save
+                // path and every bank / seal-pool / treasury / daily-agenda /
+                // weekly-boss / pvp-reward writer use IDENTICAL TTL (5s default),
+                // retry+backoff, and release semantics on the one key — closing the
+                // early-expiry window the old hand-rolled 2s TTL re-opened (a slow
+                // save could outlive its 2s lock mid-op, a withKvLock currency
+                // writer slips in, and the save's later release deletes the NEW
+                // holder's lock). Clan saves serialize through it too.
                 //
-                // Clan saves were previously SKIPPING this lock, which let two
-                // members donating simultaneously race-overwrite each other's
-                // changes. Now they share the same lock as player saves.
-                const writeLockKey = `lock:save:${name.toLowerCase()}`;
-                const lockOk = await _storage_js_1.kv.set(writeLockKey, '1', { nx: true, ex: 2 });
-                if (!lockOk) {
-                    return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
-                }
+                // failClosed: under sustained contention withKvLock retries 5× with
+                // backoff and then THROWS LockContendedError rather than running the
+                // RMW unlocked; we catch it below and return the SAME 429 the
+                // hand-rolled lock did (so the observable contention response is
+                // unchanged — only now a brief overlap is absorbed by the retry
+                // instead of failing the autosave immediately). Release is handled
+                // by withKvLock's own finally — no manual kv.del here.
+                //
+                // The inner `return res...(...)` calls SEND the response as a side
+                // effect and return out of the locked closure; the `return` after
+                // the await then exits the handler. The RMW body below is unchanged.
                 try {
-                    const [pendingSignal, adminLock, existing] = await Promise.all([
-                        _storage_js_1.kv.get(resetSignalKey),
-                        _storage_js_1.kv.get(adminLockKey),
-                        _storage_js_1.kv.get(key),
-                    ]);
-                    if (pendingSignal || adminLock)
-                        return res.status(200).end();
-                    // Sanitize before merge: caps per-save gains to prevent exploit spikes.
-                    // Clan saves go through a different validator (field-level
-                    // role gating + per-call deltas) instead of the player-save
-                    // sanitizer because the blob has different fields.
-                    // For brand-new accounts (no existing), sanitize against a zeroed
-                    // baseline so a fresh registration can't submit absurd values.
-                    let safeIncoming;
-                    if (isClanSave) {
-                        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(existing ?? null, incoming, {
-                            callerName: identityName ?? '',
-                            isAdmin: identityName === null,
-                        });
-                        safeIncoming = next;
-                        if (suppressed.length > 0) {
-                            console.warn('[save POST clan] suppressed:', identityName ?? 'admin', name, suppressed.join('; '));
+                    await (0, _lock_js_1.withKvLock)(`save:${name.toLowerCase()}`, async () => {
+                        const [pendingSignal, adminLock, existing] = await Promise.all([
+                            _storage_js_1.kv.get(resetSignalKey),
+                            _storage_js_1.kv.get(adminLockKey),
+                            _storage_js_1.kv.get(key),
+                        ]);
+                        if (pendingSignal || adminLock)
+                            return res.status(200).end();
+                        // Sanitize before merge: caps per-save gains to prevent exploit spikes.
+                        // Clan saves go through a different validator (field-level
+                        // role gating + per-call deltas) instead of the player-save
+                        // sanitizer because the blob has different fields.
+                        // For brand-new accounts (no existing), sanitize against a zeroed
+                        // baseline so a fresh registration can't submit absurd values.
+                        let safeIncoming;
+                        if (isClanSave) {
+                            const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(existing ?? null, incoming, {
+                                callerName: identityName ?? '',
+                                isAdmin: identityName === null,
+                            });
+                            safeIncoming = next;
+                            if (suppressed.length > 0) {
+                                console.warn('[save POST clan] suppressed:', identityName ?? 'admin', name, suppressed.join('; '));
+                            }
                         }
-                    }
-                    else {
-                        safeIncoming = sanitizeCharacterSave(incoming, existing ?? null);
-                        // Cross-validate clan / clanFounder / village against
-                        // canonical clan records. This is the gate that stops
-                        // a forged save POST from promoting itself to
-                        // clanFounder of any clan (and then draining its
-                        // seal pool via clan/seal-pool/distribute).
-                        if (identityName) {
-                            safeIncoming = await validateClanAndVillageIdentity(safeIncoming, existing ?? null, identityName);
+                        else {
+                            safeIncoming = sanitizeCharacterSave(incoming, existing ?? null);
+                            // Cross-validate clan / clanFounder / village against
+                            // canonical clan records. This is the gate that stops
+                            // a forged save POST from promoting itself to
+                            // clanFounder of any clan (and then draining its
+                            // seal pool via clan/seal-pool/distribute).
+                            if (identityName) {
+                                safeIncoming = await validateClanAndVillageIdentity(safeIncoming, existing ?? null, identityName);
+                            }
                         }
-                    }
-                    // ── Rolling-window gain caps (finding 6) ──────────────────
-                    // Track ryo / stat / xp gain over the last 60 seconds for
-                    // this account. If a save would push cumulative gains over
-                    // the threshold, reject with 429. Clan saves skipped.
-                    if (existing && !isClanSave && identityName) {
-                        const exChar = existing.character;
-                        const inChar = safeIncoming.character;
-                        if (exChar && inChar) {
-                            const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
-                            const inRyo = Math.max(0, Number(inChar.ryo ?? 0));
-                            const ryoDelta = Math.max(0, inRyo - exRyo);
-                            const exXp = Math.max(0, Number(exChar.xp ?? exChar.experience ?? 0));
-                            const inXp = Math.max(0, Number(inChar.xp ?? inChar.experience ?? 0));
-                            const xpDelta = Math.max(0, inXp - exXp);
-                            const exStats = (exChar.stats ?? {});
-                            const inStats = (inChar.stats ?? {});
-                            const statDelta = {};
-                            for (const k of Object.keys(inStats)) {
-                                const ex = Number(exStats[k] ?? 0);
-                                const inv = Number(inStats[k] ?? 0);
-                                const d = Math.max(0, inv - ex);
-                                if (d > 0)
-                                    statDelta[k] = d;
-                            }
-                            const win = (await readGainsWindow(identityName)) ?? freshWindow();
-                            const ageMs = Date.now() - win.startedAt;
-                            const cur = (ageMs > GAIN_WINDOW_MS) ? freshWindow() : win;
-                            const nextRyo = cur.ryo + ryoDelta;
-                            const nextXp = cur.xp + xpDelta;
-                            const nextStat = { ...cur.stat };
-                            for (const [k, d] of Object.entries(statDelta))
-                                nextStat[k] = (nextStat[k] ?? 0) + d;
-                            if (nextRyo > MAX_RYO_PER_MINUTE) {
-                                return res.status(429).json({
-                                    error: `Ryo gain rate-limited (over ${MAX_RYO_PER_MINUTE} / 60s).`,
-                                });
-                            }
-                            if (nextXp > MAX_XP_PER_MINUTE) {
-                                return res.status(429).json({
-                                    error: `XP gain rate-limited (over ${MAX_XP_PER_MINUTE} / 60s).`,
-                                });
-                            }
-                            for (const [k, total] of Object.entries(nextStat)) {
-                                if (total > MAX_STAT_PER_MINUTE) {
+                        // ── Rolling-window gain caps (finding 6) ──────────────────
+                        // Track ryo / stat / xp gain over the last 60 seconds for
+                        // this account. If a save would push cumulative gains over
+                        // the threshold, reject with 429. Clan saves skipped.
+                        if (existing && !isClanSave && identityName) {
+                            const exChar = existing.character;
+                            const inChar = safeIncoming.character;
+                            if (exChar && inChar) {
+                                const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
+                                const inRyo = Math.max(0, Number(inChar.ryo ?? 0));
+                                const ryoDelta = Math.max(0, inRyo - exRyo);
+                                const exXp = Math.max(0, Number(exChar.xp ?? exChar.experience ?? 0));
+                                const inXp = Math.max(0, Number(inChar.xp ?? inChar.experience ?? 0));
+                                const xpDelta = Math.max(0, inXp - exXp);
+                                const exStats = (exChar.stats ?? {});
+                                const inStats = (inChar.stats ?? {});
+                                const statDelta = {};
+                                for (const k of Object.keys(inStats)) {
+                                    const ex = Number(exStats[k] ?? 0);
+                                    const inv = Number(inStats[k] ?? 0);
+                                    const d = Math.max(0, inv - ex);
+                                    if (d > 0)
+                                        statDelta[k] = d;
+                                }
+                                const win = (await readGainsWindow(identityName)) ?? freshWindow();
+                                const ageMs = Date.now() - win.startedAt;
+                                const cur = (ageMs > GAIN_WINDOW_MS) ? freshWindow() : win;
+                                const nextRyo = cur.ryo + ryoDelta;
+                                const nextXp = cur.xp + xpDelta;
+                                const nextStat = { ...cur.stat };
+                                for (const [k, d] of Object.entries(statDelta))
+                                    nextStat[k] = (nextStat[k] ?? 0) + d;
+                                if (nextRyo > MAX_RYO_PER_MINUTE) {
                                     return res.status(429).json({
-                                        error: `Stat ${k} gain rate-limited (over ${MAX_STAT_PER_MINUTE} / 60s).`,
+                                        error: `Ryo gain rate-limited (over ${MAX_RYO_PER_MINUTE} / 60s).`,
                                     });
                                 }
+                                if (nextXp > MAX_XP_PER_MINUTE) {
+                                    return res.status(429).json({
+                                        error: `XP gain rate-limited (over ${MAX_XP_PER_MINUTE} / 60s).`,
+                                    });
+                                }
+                                for (const [k, total] of Object.entries(nextStat)) {
+                                    if (total > MAX_STAT_PER_MINUTE) {
+                                        return res.status(429).json({
+                                            error: `Stat ${k} gain rate-limited (over ${MAX_STAT_PER_MINUTE} / 60s).`,
+                                        });
+                                    }
+                                }
+                                // Allowed — persist the updated window.
+                                await writeGainsWindow(identityName, { startedAt: cur.startedAt, ryo: nextRyo, stat: nextStat, xp: nextXp });
                             }
-                            // Allowed — persist the updated window.
-                            await writeGainsWindow(identityName, { startedAt: cur.startedAt, ryo: nextRyo, stat: nextStat, xp: nextXp });
                         }
-                    }
-                    // ── Multi-tab autosave guard ─────────────────────────────
-                    // Stale-write detection via monotonic version stamp.
-                    //
-                    // Each stored player save carries `_saveVersion: number`,
-                    // bumped on every successful write. Clients MAY echo back
-                    // the version they last loaded as `_baseSaveVersion` in
-                    // the request body. If they do, and the server's stored
-                    // version is newer, reject the write — another tab saved
-                    // in the meantime and overwriting would clobber that
-                    // progress.
-                    //
-                    // Clients that don't send `_baseSaveVersion` get the old
-                    // (lossy) behaviour. This is opt-in so a stale browser
-                    // tab still on the prior client build doesn't get locked
-                    // out of saving entirely.
-                    //
-                    // Clan saves are excluded — they're intentionally shared
-                    // across the whole clan and use a separate field-level
-                    // delta validator that already handles concurrent writes.
-                    const existingObj = existing ?? null;
-                    const storedVersion = Number(existingObj?._saveVersion ?? 0);
-                    const incomingBody = incoming;
-                    const baseVersion = (0, _save_version_js_1.parseBaseSaveVersion)(incomingBody?._baseSaveVersion);
-                    // #14 step 2: REQUIRE a version stamp for non-clan player
-                    // saves. A missing field means a client old enough to
-                    // predate the autosave guard (pre-2026-05-26 / 3455f8d) — the
-                    // current client always echoes a numeric version (0+) on
-                    // every own-save path (autosave timers + immediate saves).
-                    // Such a stale tab can silently clobber a newer tab's
-                    // progress, so reject it and tell it to refresh. Admin saves
-                    // (identityName === null, incl. cross-player grants) and clan
-                    // saves are exempt. Telemetry still records the rejection so
-                    // the (now ~0) trend stays visible in kv_store.
-                    if ((0, _save_version_js_1.isVersionlessPlayerSave)(isClanSave, identityName, baseVersion)) {
-                        // isVersionlessPlayerSave is true only when identityName is set.
-                        console.warn('[save-version] REJECT player save missing _baseSaveVersion (client too old):', identityName);
-                        await recordMissingSaveVersion(identityName);
-                        return res.status(426).json({
-                            error: 'Your game client is out of date. Please refresh the page to keep saving.',
-                            code: 'CLIENT_REFRESH_REQUIRED',
+                        // ── Multi-tab autosave guard ─────────────────────────────
+                        // Stale-write detection via monotonic version stamp.
+                        //
+                        // Each stored player save carries `_saveVersion: number`,
+                        // bumped on every successful write. Clients MAY echo back
+                        // the version they last loaded as `_baseSaveVersion` in
+                        // the request body. If they do, and the server's stored
+                        // version is newer, reject the write — another tab saved
+                        // in the meantime and overwriting would clobber that
+                        // progress.
+                        //
+                        // Clients that don't send `_baseSaveVersion` get the old
+                        // (lossy) behaviour. This is opt-in so a stale browser
+                        // tab still on the prior client build doesn't get locked
+                        // out of saving entirely.
+                        //
+                        // Clan saves are excluded — they're intentionally shared
+                        // across the whole clan and use a separate field-level
+                        // delta validator that already handles concurrent writes.
+                        const existingObj = existing ?? null;
+                        const storedVersion = Number(existingObj?._saveVersion ?? 0);
+                        const incomingBody = incoming;
+                        const baseVersion = (0, _save_version_js_1.parseBaseSaveVersion)(incomingBody?._baseSaveVersion);
+                        // #14 step 2: REQUIRE a version stamp for non-clan player
+                        // saves. A missing field means a client old enough to
+                        // predate the autosave guard (pre-2026-05-26 / 3455f8d) — the
+                        // current client always echoes a numeric version (0+) on
+                        // every own-save path (autosave timers + immediate saves).
+                        // Such a stale tab can silently clobber a newer tab's
+                        // progress, so reject it and tell it to refresh. Admin saves
+                        // (identityName === null, incl. cross-player grants) and clan
+                        // saves are exempt. Telemetry still records the rejection so
+                        // the (now ~0) trend stays visible in kv_store.
+                        if ((0, _save_version_js_1.isVersionlessPlayerSave)(isClanSave, identityName, baseVersion)) {
+                            // isVersionlessPlayerSave is true only when identityName is set.
+                            console.warn('[save-version] REJECT player save missing _baseSaveVersion (client too old):', identityName);
+                            await recordMissingSaveVersion(identityName);
+                            return res.status(426).json({
+                                error: 'Your game client is out of date. Please refresh the page to keep saving.',
+                                code: 'CLIENT_REFRESH_REQUIRED',
+                            });
+                        }
+                        if (!isClanSave && baseVersion !== null && baseVersion < storedVersion) {
+                            return res.status(409).json({
+                                error: 'Save conflict — another tab or device wrote first.',
+                                currentVersion: storedVersion,
+                            });
+                        }
+                        const nextVersion = storedVersion + 1;
+                        const mergedPayload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
+                        // Strip `_baseSaveVersion` from the persisted payload so
+                        // it doesn't accumulate in the stored save record.
+                        const mergedRecord = mergedPayload;
+                        delete mergedRecord._baseSaveVersion;
+                        const payload = isClanSave ? mergedRecord : {
+                            ...mergedRecord,
+                            _saveVersion: nextVersion,
+                            _saveAt: Date.now(),
+                        };
+                        // Build the registry entry from the SANITIZED payload, not
+                        // the raw incoming body (audit #13). Reading raw `incoming`
+                        // let a tampered client publish a forged level/village/
+                        // specialty into the public roster index even though the
+                        // persisted save was clamped. safeIncoming is what we just
+                        // wrote, so the index matches the stored truth.
+                        const char = safeIncoming?.character;
+                        const displayName = char?.name || name;
+                        const registryEntry = {
+                            name: displayName,
+                            level: char?.level ?? 1,
+                            village: char?.village ?? '',
+                            specialty: char?.specialty ?? '',
+                            lastSeen: Date.now(),
+                        };
+                        // Throttle the registry rewrite (see REGISTRY_REFRESH_MS +
+                        // shouldWriteRegistry). The previous registry write time is carried
+                        // in the save blob as `_registryAt` (no extra read); we re-stamp it
+                        // only when we actually rewrite. The save blob (kv.set below) is
+                        // written every time regardless — no progress is ever skipped.
+                        const prevRegistryAt = Number(existingObj?._registryAt ?? 0);
+                        const writeRegistry = (0, _registry_throttle_js_1.shouldWriteRegistry)({
+                            isClanSave,
+                            existingChar: (existingObj?.character ?? null),
+                            next: registryEntry,
+                            prevRegistryAt,
+                            now: Date.now(),
+                            refreshMs: REGISTRY_REFRESH_MS,
                         });
-                    }
-                    if (!isClanSave && baseVersion !== null && baseVersion < storedVersion) {
-                        return res.status(409).json({
-                            error: 'Save conflict — another tab or device wrote first.',
-                            currentVersion: storedVersion,
-                        });
-                    }
-                    const nextVersion = storedVersion + 1;
-                    const mergedPayload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
-                    // Strip `_baseSaveVersion` from the persisted payload so
-                    // it doesn't accumulate in the stored save record.
-                    const mergedRecord = mergedPayload;
-                    delete mergedRecord._baseSaveVersion;
-                    const payload = isClanSave ? mergedRecord : {
-                        ...mergedRecord,
-                        _saveVersion: nextVersion,
-                        _saveAt: Date.now(),
-                    };
-                    // Build the registry entry from the SANITIZED payload, not
-                    // the raw incoming body (audit #13). Reading raw `incoming`
-                    // let a tampered client publish a forged level/village/
-                    // specialty into the public roster index even though the
-                    // persisted save was clamped. safeIncoming is what we just
-                    // wrote, so the index matches the stored truth.
-                    const char = safeIncoming?.character;
-                    const displayName = char?.name || name;
-                    const registryEntry = {
-                        name: displayName,
-                        level: char?.level ?? 1,
-                        village: char?.village ?? '',
-                        specialty: char?.specialty ?? '',
-                        lastSeen: Date.now(),
-                    };
-                    // Throttle the registry rewrite (see REGISTRY_REFRESH_MS +
-                    // shouldWriteRegistry). The previous registry write time is carried
-                    // in the save blob as `_registryAt` (no extra read); we re-stamp it
-                    // only when we actually rewrite. The save blob (kv.set below) is
-                    // written every time regardless — no progress is ever skipped.
-                    const prevRegistryAt = Number(existingObj?._registryAt ?? 0);
-                    const writeRegistry = (0, _registry_throttle_js_1.shouldWriteRegistry)({
-                        isClanSave,
-                        existingChar: (existingObj?.character ?? null),
-                        next: registryEntry,
-                        prevRegistryAt,
-                        now: Date.now(),
-                        refreshMs: REGISTRY_REFRESH_MS,
-                    });
-                    // Stamp when we actually (re)wrote the registry so the next save can
-                    // measure drift. Non-clan only — clan payloads stay byte-identical.
-                    if (!isClanSave)
-                        payload._registryAt = writeRegistry ? Date.now() : prevRegistryAt;
-                    await Promise.all([
-                        _storage_js_1.kv.set(key, payload),
-                        ...(writeRegistry ? [_storage_js_1.kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
-                    ]);
-                    return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
+                        // Stamp when we actually (re)wrote the registry so the next save can
+                        // measure drift. Non-clan only — clan payloads stay byte-identical.
+                        if (!isClanSave)
+                            payload._registryAt = writeRegistry ? Date.now() : prevRegistryAt;
+                        await Promise.all([
+                            _storage_js_1.kv.set(key, payload),
+                            ...(writeRegistry ? [_storage_js_1.kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
+                        ]);
+                        return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
+                    }, { failClosed: true });
+                    return; // the locked closure already sent the response
                 }
-                finally {
-                    // Always release the lock — player AND clan saves now
-                    // both serialize through it.
-                    await _storage_js_1.kv.del(writeLockKey).catch(() => undefined);
+                catch (lockErr) {
+                    // Sustained contention (lock couldn't be acquired within the
+                    // retry budget): same fast 429 the hand-rolled lock returned.
+                    // withKvLock already released any lock it held; real errors from
+                    // the RMW propagate to the outer handler catch → 500.
+                    if (lockErr instanceof _lock_js_1.LockContendedError) {
+                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                    }
+                    throw lockErr;
                 }
             }
             // Admin save path — lock first, then read + write, then signal reload.
