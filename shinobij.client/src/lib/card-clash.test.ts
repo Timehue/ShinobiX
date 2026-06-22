@@ -381,6 +381,30 @@ test("getLocationPowerBonus applies element/rarity/cost bonuses", () => {
     assert.equal(getLocationPowerBonus(cheap, dojo), 1);
 });
 
+test("getLocationPowerBonus applies the new element/cost/power/all-here bonuses", () => {
+    const at = (effectType: string) => CARD_CLASH_LOCATIONS.find((l) => l.effectType === effectType)!;
+
+    const neutral = playedCard({ abilityType: "none", element: "Neutral" });
+    assert.equal(getLocationPowerBonus(neutral, at("neutralBonus")), 2);
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", element: "Fire" }), at("neutralBonus")), 0);
+
+    const elementless = playedCard({ abilityType: "none", element: "None" });
+    assert.equal(getLocationPowerBonus(elementless, at("noneBonus")), 2);
+
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", cost: 3 }), at("midCostBonus")), 2);
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", cost: 4 }), at("midCostBonus")), 2);
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", cost: 2 }), at("midCostBonus")), 0);
+
+    // Sacred Hot Spring buffs every card here regardless of attributes.
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", element: "Earth" }), at("allHereBonus")), 1);
+
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", power: 2 }), at("lowPowerBonus")), 2);
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", power: 9 }), at("lowPowerBonus")), 0);
+
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", power: 9 }), at("highPowerBonus")), 2);
+    assert.equal(getLocationPowerBonus(playedCard({ abilityType: "none", power: 4 }), at("highPowerBonus")), 0);
+});
+
 test("determineWinner counts locations, tiebreaks on board power, else draw", () => {
     const p = (power: number, instanceId: string): CardClashPlayedCard => playedCard({ instanceId, currentPower: power, basePower: power, abilityType: "none" });
     const loc = (pc: CardClashPlayedCard[], oc: CardClashPlayedCard[]) => ({ location: CARD_CLASH_LOCATIONS[0], playerCards: pc, opponentCards: oc });

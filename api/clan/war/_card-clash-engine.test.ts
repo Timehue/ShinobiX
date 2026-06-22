@@ -6,10 +6,12 @@ import {
     resolveTurn,
     determineWinner,
     locationSidePower,
+    locationBonus,
     createMatch,
     dealOpening,
     clashCopyLimit,
     CLASH_DECK_SIZE,
+    CLASH_LOCATIONS,
     type ClashCard,
     type ClashSide,
     type ClashMatch,
@@ -35,6 +37,24 @@ function emptyMatch(): ClashMatch {
     // training-ground / volcano-pass / river-shrine
     return createMatch(['training-ground', 'volcano-pass', 'river-shrine']);
 }
+
+// ── Location bonuses (parity with the client engine) ───────────────────────
+
+test('locationBonus applies the new element/cost/power/all-here effects', () => {
+    const def = (effectType: string) => CLASH_LOCATIONS.find((l) => l.effectType === effectType)!;
+
+    assert.equal(locationBonus(card({ element: 'Neutral' }), def('neutralBonus')), 2);
+    assert.equal(locationBonus(card({ element: 'Fire' }), def('neutralBonus')), 0);
+    assert.equal(locationBonus(card({ element: 'None' }), def('noneBonus')), 2);
+    assert.equal(locationBonus(card({ cost: 3 }), def('midCostBonus')), 2);
+    assert.equal(locationBonus(card({ cost: 4 }), def('midCostBonus')), 2);
+    assert.equal(locationBonus(card({ cost: 2 }), def('midCostBonus')), 0);
+    assert.equal(locationBonus(card({ element: 'Fire' }), def('allHereBonus')), 1);
+    assert.equal(locationBonus(card({ power: 2 }), def('lowPowerBonus')), 2);
+    assert.equal(locationBonus(card({ power: 9 }), def('lowPowerBonus')), 0);
+    assert.equal(locationBonus(card({ power: 9 }), def('highPowerBonus')), 2);
+    assert.equal(locationBonus(card({ power: 4 }), def('highPowerBonus')), 0);
+});
 
 // ── Deck validation ────────────────────────────────────────────────────────
 
