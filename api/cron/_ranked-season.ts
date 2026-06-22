@@ -179,6 +179,9 @@ async function performRollover(fresh: RankedSeason, now: number): Promise<Season
                 playerLadder.push({ slug, name, village, rating: num(char.rankedRating ?? DEFAULT_RANKED_RATING) });
                 petLadder.push({ slug, name, village, rating: num(char.petRankedRating ?? DEFAULT_RANKED_RATING) });
             });
+            // Yield between batches so this all-saves scan doesn't monopolize the
+            // shared event loop (it runs at the same 03:00 slot as the snapshot job).
+            if (i + MAX_PARALLEL < playerKeys.length) await new Promise<void>((resolve) => setImmediate(resolve));
         }
 
         const playerTop = leaderboard(playerLadder, 10);
@@ -226,6 +229,9 @@ async function performRollover(fresh: RankedSeason, now: number): Promise<Season
         for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {
             const slice = playerKeys.slice(i, i + MAX_PARALLEL).map((k) => k.slice(SAVE_PREFIX.length));
             await Promise.all(slice.map(apply));
+            // Yield between batches — see the read loop above. Keeps the locked
+            // per-save rewrite pass from stalling concurrent player requests.
+            if (i + MAX_PARALLEL < playerKeys.length) await new Promise<void>((resolve) => setImmediate(resolve));
         }
 
         const next = nextSeason(fresh, now);

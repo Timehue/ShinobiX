@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors, safeName } from './_utils.js';
@@ -524,8 +525,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const standings = standingRows
             .filter(s => s && s.village && (vnum(s.wins) + vnum(s.losses)) > 0)
             .sort((a, b) => (vnum(b.wins) - vnum(b.losses)) - (vnum(a.wins) - vnum(a.losses)));
+        const payload = { territories, wars, standings };
+        // Content-hash ETag → unchanged polls get a 304 (empty body) instead of
+        // re-downloading the full territory/war/standings map every 15s. The lazy
+        // decay/settle writes above were already dispatched, so the 304 path does
+        // not skip them. Freshness is identical; only the repeat bytes are saved.
+        // (Mirrors api/game-state.ts. Pairs with the client's `cache: "no-cache"`.)
+        const etag = `W/"${createHash('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
         res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
-        return res.status(200).json({ territories, wars, standings });
+        res.setHeader('ETag', etag);
+        if (req.headers['if-none-match'] === etag) {
+            return res.status(304).end();
+        }
+        return res.status(200).json(payload);
     }
 
     if (req.method === 'POST') {

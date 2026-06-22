@@ -107,6 +107,11 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
             else if (r.skip) skipped += 1;
             else failed.push(String((slice[i] as unknown as string)));
         });
+        // Yield to the event loop between batches so this nightly pass doesn't
+        // monopolize the shared always-on process during its bursts of ~1MB
+        // JSON parse/serialize — queued player requests get a turn between
+        // batches. Same items, same results; only the scheduling changes.
+        if (cursor < items.length) await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
     return { snapshotted, skipped, failed, processed: cursor, total: items.length };
