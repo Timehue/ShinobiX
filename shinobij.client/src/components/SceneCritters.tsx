@@ -108,14 +108,16 @@ export function SceneCritters({
         const canvas = canvasRef.current;
         if (!canvas) return;
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        // Weak phones: ~60% fewer critters and no firefly/spirit glow (shadowBlur is
-        // the expensive part). Cosmetic — the biome still has a little life.
+        // Weak phones: ~60% fewer critters, no firefly/spirit glow (shadowBlur is the
+        // expensive part), and a 1x backing store (skip the HiDPI fill). Cosmetic —
+        // the biome still has a little life.
         const lowEnd = isLowEndMobile();
         const effDensity = density * (lowEnd ? 0.4 : 1);
+        const maxDpr = lowEnd ? 1 : 2;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+        let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
         let crits: C[] = [];
         let raf = 0, last = 0, running = true;
         let night = skyNow(new Date()).night > 0.5;
@@ -162,7 +164,7 @@ export function SceneCritters({
             if (!parent) return;
             const rect = parent.getBoundingClientRect();
             w = rect.width; h = rect.height;
-            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
             canvas!.width = Math.max(1, Math.round(w * dpr));
             canvas!.height = Math.max(1, Math.round(h * dpr));
             canvas!.style.width = w + "px";

@@ -22715,6 +22715,10 @@ html[data-vp="xxl"] .banner-mobile-timers {
 /* Idle bob only — the walking animation lives on a more specific selector and
    keeps playing (no !important here, so it wins on specificity). */
 .lite-fx .sector-avatar-body { animation: none; }
+/* Prismatic collar = a continuous hue-rotate filter (one of the costliest things
+   to run forever on a mobile GPU). Drop the cycle; the white collar border stays. */
+.lite-fx .avatar-orb.pet-collar-prismatic,
+.lite-fx .pet-battle-avatar.pet-collar-prismatic { animation: none; }
 
 /* ─── a11y: keyboard focus visibility ──────────────────────────────────────────
    Give keyboard users a clear focus ring on interactive controls. :focus-visible
