@@ -7,6 +7,7 @@ exports.hasRecentIpOverlap = hasRecentIpOverlap;
 exports.hasRecentIpOrFpOverlap = hasRecentIpOrFpOverlap;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
+const _client_ip_js_1 = require("./_client-ip.js");
 // Per-player recent-IP / fingerprint tracking. Stamps two keys with 7-day TTL
 // whenever a player is observed: `player-ip:{name}:{ip}` and
 // `player-fp:{name}:{fp}`. Lets us cheaply detect alt-account farming.
@@ -21,11 +22,10 @@ function ipKey(name, ip) {
 function fpKey(name, fp) {
     return `player-fp:${(0, _utils_js_1.safeName)(name)}:${fp}`;
 }
+// Cloudflare-aware client IP (honors CF-Connecting-IP behind Cloudflare, else
+// falls back to the XFF/socket chain). See `api/_client-ip.ts`.
 function extractIp(req) {
-    const xff = req.headers['x-forwarded-for'];
-    const xffStr = Array.isArray(xff) ? xff[0] : xff;
-    const ip = xffStr?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress;
-    return ip || null;
+    return (0, _client_ip_js_1.clientIp)(req);
 }
 function extractFp(req) {
     const v = req.headers['x-client-fp'];
