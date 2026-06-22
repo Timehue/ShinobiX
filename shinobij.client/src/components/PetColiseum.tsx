@@ -855,6 +855,7 @@ function ColiseumProjectile({ element, from, to, durationMs, scale, onDone }: {
     element?: string | null; from: Vec3; to: Vec3; durationMs: number; scale: number; onDone: () => void;
 }) {
     const group = useRef<THREE.Group>(null);
+    const sprite = useRef<THREE.Mesh>(null);
     const start = useRef<number | null>(null);
     const visual = useMemo(() => projectileVisual({ element }), [element]);
     const tex = projSpriteTexture(visual.spriteKey);
@@ -864,6 +865,12 @@ function ColiseumProjectile({ element, from, to, durationMs, scale, onDone }: {
         if (start.current === null) start.current = state.clock.elapsedTime;
         const p = Math.min(1, (state.clock.elapsedTime - start.current) * 1000 / durationMs);
         g.position.set(lerp(from[0], to[0], p), lerp(from[1], to[1], p), lerp(from[2], to[2], p));
+        // The alpha-blended sprite renders an opaque black box until its WebP decodes —
+        // keep it hidden until the texture has real pixels (the halo still shows).
+        if (sprite.current) {
+            const im = tex?.image as HTMLImageElement | undefined;
+            sprite.current.visible = !!(im && im.complete && (im.naturalWidth || 0) > 0);
+        }
         if (p >= 1) onDone();
     });
     if (!tex) return null;
@@ -876,7 +883,7 @@ function ColiseumProjectile({ element, from, to, durationMs, scale, onDone }: {
                     <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.18} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
                 {/* the real painted element sprite (alpha-blended → true colours) */}
-                <mesh scale={[scale * flip, scale, 1]}>
+                <mesh ref={sprite} scale={[scale * flip, scale, 1]} visible={false}>
                     <planeGeometry args={[1, 1]} />
                     <meshBasicMaterial map={tex} transparent depthWrite={false} toneMapped={false} />
                 </mesh>
@@ -1588,6 +1595,7 @@ const DUEL_FLOOR_HALF_D = 2.3;   // field y → world z (depth) extent
 const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look point
 const DUEL_MIN_WORLD_X = 3.7;    // min world-x gap so two big fighters never merge / cross
 const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
+const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of a melee lunge (close but not overlapping)
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
     return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
 }
@@ -1707,6 +1715,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // Draw-position clamp only — never fed back to the sim.
         const myEnemy = id.startsWith("enemy");
         const actors = snaps[i0].actors;
+        let foeWX: number | null = null;   // nearest opposing fighter's world-x → melee lunge target
         for (let k = 0; k < actors.length; k++) {
             const other = actors[k];
             if (other.id === id || other.state === "dead") continue;
@@ -1723,6 +1732,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 // centred on the pair midpoint so neither can pass through the other.
                 const mid = (wx + of.wx) / 2;
                 wx = myEnemy ? Math.max(wx, mid + DUEL_MIN_WORLD_X / 2) : Math.min(wx, mid - DUEL_MIN_WORLD_X / 2);
+                if (foeWX === null || Math.abs(of.wx - wx) < Math.abs(foeWX - wx)) foeWX = of.wx;
             }
         }
 
@@ -1777,11 +1787,18 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 dxT = -0.5 * e * facing; sxT = 1 - 0.04 * e; syT = 1 + 0.06 * e; rotT = 0;
             } else {
                 const pw = strikePow.current, ct = strikeCrit.current;
-                const reach = 1.3 * (0.78 + 0.75 * pw) + (ct ? 0.4 : 0);
+                // CLOSE THE GAP: lunge most of the way to the foe so the strike actually
+                // CONNECTS across the resting spacer (rush in → hit → recoil back), instead
+                // of a hop into empty air. Stop a hair short (DUEL_CONTACT_GAP) so the big
+                // sprites never overlap. Falls back to a fixed reach if no foe is tracked.
+                const gapToFoe = foeWX !== null ? Math.abs(foeWX - wx) : DUEL_MIN_WORLD_X;
+                const reach = Math.max(0.6, gapToFoe - DUEL_CONTACT_GAP) * (0.95 + 0.1 * pw) + (ct ? 0.3 : 0);
                 // Crit → a quick 2-tap flurry overlaid on the lunge; else one thrust.
                 const jab = ct ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
                 dxT = reach * e * jab * facing;
-                dyT = 0.55 * Math.sin(Math.PI * Math.min(1, pp / 0.72)) * (0.55 + 0.5 * pw);   // arc up into the hit
+                // GROUNDED — feet stay on the floor; only a slight lift on the crit chop.
+                // (The old big arc read as "dashing in the air".)
+                dyT = (ct ? 0.16 : 0.035) * Math.sin(Math.PI * Math.min(1, pp / 0.72)) * (0.7 + 0.3 * pw);
                 sxT = 1 + (0.10 + 0.14 * pw) * e;
                 syT = 1 - (0.07 + 0.09 * pw) * e;
                 rotT = -(0.05 + 0.16 * pw) * e * facing * (ct ? 1.35 : 1);   // overhead chop on heavy/crit
@@ -1853,7 +1870,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (deformU.current) {
             deformU.current.uHalfH.value = L.planeH * 0.5;
             deformU.current.uTime.value = state.clock.elapsedTime;
-            deformU.current.uLean.value = lerp(deformU.current.uLean.value, choX.current * 0.5, 0.4);
+            // Lean into the lunge — clamped so the now-deeper gap-closing reach doesn't shear the sprite.
+            deformU.current.uLean.value = lerp(deformU.current.uLean.value, Math.max(-0.6, Math.min(0.6, choX.current * 0.3)), 0.4);
             deformU.current.uArch.value = Math.max(0, choY.current) * 0.5;
             deformU.current.uWave.value = 0.025 + Math.min(0.14, spd * 2.2) + (pe >= 0 && pe < pulseS.current ? 0.12 : 0);
         }
@@ -2024,6 +2042,10 @@ function projSpriteTexture(key?: string): THREE.Texture | null {
     _projSpriteTex[key] = t;
     return t;
 }
+// Warm + decode every painted projectile texture at module load so they're ready
+// long before the first bolt spawns — a freshly-loaded alpha-blended sprite would
+// otherwise render an opaque black box for the frames before its WebP decodes.
+if (typeof window !== "undefined") for (const k of Object.keys(PROJ_SPRITE_URL)) projSpriteTexture(k);
 
 /** The shared element/role-distinct projectile body — a glowing head (round
  *  fireball / undulating water ball / spinning wind crescent / tumbling rock /
@@ -2033,9 +2055,14 @@ function projSpriteTexture(key?: string): THREE.Texture | null {
  *  always points where it's going — both stages look straight down −z, so world
  *  xy == screen) and the perspective depth-scale. */
 function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
-    const core = useRef<THREE.Mesh>(null);
+    const paintedGrp = useRef<THREE.Group>(null);
+    const procGrp = useRef<THREE.Group>(null);
+    const core = useRef<THREE.Mesh>(null);        // painted-sprite quad
+    const procCore = useRef<THREE.Mesh>(null);    // procedural head
     const ring = useRef<THREE.Mesh>(null);
     const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const procRing = useRef<THREE.Mesh>(null);
+    const procRingMat = useRef<THREE.MeshBasicMaterial>(null);
     const spriteTex = projSpriteTexture(visual.spriteKey);
     const headTex = projHeadTexture(visual.tex);
     const baseW = visual.size * visual.stretch;   // head half-extent along travel
@@ -2047,73 +2074,85 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
     const ringBase = spriteTex ? spriteScale * 0.42 : visual.size;
     useFrame((s) => {
         const t = s.clock.elapsedTime;
-        const c = core.current;
-        if (c) {
-            const fl = visual.flicker ? 1 + Math.sin(t * 38 + visual.size * 60) * 0.5 * visual.flicker : 1;
-            if (spriteTex) {
-                // Real art is already aimed by the parent; only fire/lightning pulse.
-                c.scale.set(spriteScale * fl, spriteScale * fl, 1);
-            } else {
-                c.scale.set(baseW * 2.2 * fl, baseH * 2.2 * fl, 1);
-                if (visual.spin) c.rotation.z = t * visual.spin;
+        // The painted sprite is ALPHA-blended, so its quad renders as an opaque BLACK
+        // box until the WebP has actually decoded (`image.complete` + real dimensions).
+        // Until then — and forever, if the texture fails to load — show the (additive)
+        // procedural projectile instead, which can never flash a black box.
+        const im = spriteTex?.image as HTMLImageElement | undefined;
+        const painted = !!spriteTex && !!im && im.complete && (im.naturalWidth || 0) > 0;
+        if (paintedGrp.current) paintedGrp.current.visible = painted;
+        if (procGrp.current) procGrp.current.visible = !painted;
+        const fl = visual.flicker ? 1 + Math.sin(t * 38 + visual.size * 60) * 0.5 * visual.flicker : 1;
+        if (painted) {
+            // Real art is already aimed by the parent; only fire/lightning pulse.
+            if (core.current) core.current.scale.set(spriteScale * fl, spriteScale * fl, 1);
+            if (ring.current && ringMat.current) {
+                const p = (t * 1.7) % 1; const rs = ringBase * (1 + p * 2.4);
+                ring.current.scale.set(rs, rs, 1); ringMat.current.opacity = (1 - p) * 0.45;
             }
-        }
-        if (ring.current && ringMat.current) {
-            const p = (t * 1.7) % 1;
-            const rs = ringBase * (1 + p * 2.4);
-            ring.current.scale.set(rs, rs, 1);
-            ringMat.current.opacity = (1 - p) * 0.45;
+        } else {
+            if (procCore.current) {
+                procCore.current.scale.set(baseW * 2.2 * fl, baseH * 2.2 * fl, 1);
+                if (visual.spin) procCore.current.rotation.z = t * visual.spin;
+            }
+            if (procRing.current && procRingMat.current) {
+                const p = (t * 1.7) % 1; const rs = ringBase * (1 + p * 2.4);
+                procRing.current.scale.set(rs, rs, 1); procRingMat.current.opacity = (1 - p) * 0.45;
+            }
         }
     });
 
-    // REAL painted element sprite (fireball / water ball / wind cut / boulder /
-    // bolt): alpha-blended so true colours composite over the scene — no white-out.
-    if (spriteTex) {
-        return (
-            <group>
-                {/* faint additive halo so the shot still pops a touch + blooms */}
-                <mesh position={[0, 0, -0.01]} scale={[spriteScale * 0.85, spriteScale * 0.85, 1]}>
+    return (
+        <group>
+            {/* REAL painted element sprite (fireball / water ball / wind cut / boulder /
+                bolt): alpha-blended so true colours composite over the scene — hidden
+                until decoded (see useFrame) so it never flashes a black box. */}
+            {spriteTex && (
+                <group ref={paintedGrp} visible={false}>
+                    {/* faint additive halo so the shot still pops a touch + blooms */}
+                    <mesh position={[0, 0, -0.01]} scale={[spriteScale * 0.85, spriteScale * 0.85, 1]}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.18} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    </mesh>
+                    <mesh ref={core}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial map={spriteTex} transparent opacity={1} depthWrite={false} toneMapped={false} />
+                    </mesh>
+                    {visual.charged && (
+                        <mesh ref={ring} position={[0, 0, 0.01]}>
+                            <ringGeometry args={[0.4, 0.5, 24]} />
+                            <meshBasicMaterial ref={ringMat} color={visual.glow} transparent opacity={0.45} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                        </mesh>
+                    )}
+                </group>
+            )}
+
+            {/* Procedural fallback — all additive (never a black box). Shown while the
+                painted sprite decodes, and as the only body for heal-comet / shadow /
+                neutral shots that have no painted art. */}
+            <group ref={procGrp}>
+                {/* comet tail — soft glow stretched BEHIND the head (parent faces +x = travel) */}
+                <mesh position={[-tailLen * 0.5 - baseW * 0.3, 0, -0.02]} scale={[tailLen, baseH * 2.6, 1]}>
                     <planeGeometry args={[1, 1]} />
-                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.18} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
-                <mesh ref={core}>
+                {/* soft outer glow */}
+                <mesh position={[0, 0, -0.01]} scale={[baseW * 3, baseH * 3, 1]}>
                     <planeGeometry args={[1, 1]} />
-                    <meshBasicMaterial map={spriteTex} transparent opacity={1} depthWrite={false} toneMapped={false} />
+                    <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.42} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                </mesh>
+                {/* bright head */}
+                <mesh ref={procCore}>
+                    <planeGeometry args={[1, 1]} />
+                    <meshBasicMaterial map={headTex} color={visual.core} transparent opacity={0.97} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
                 {visual.charged && (
-                    <mesh ref={ring} position={[0, 0, 0.01]}>
+                    <mesh ref={procRing} position={[0, 0, 0.01]}>
                         <ringGeometry args={[0.4, 0.5, 24]} />
-                        <meshBasicMaterial ref={ringMat} color={visual.glow} transparent opacity={0.45} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                        <meshBasicMaterial ref={procRingMat} color={visual.glow} transparent opacity={0.45} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
                     </mesh>
                 )}
             </group>
-        );
-    }
-
-    // Procedural fallback — support heal-comet, shadow, neutral (no painted art).
-    return (
-        <group>
-            {/* comet tail — soft glow stretched BEHIND the head (parent faces +x = travel) */}
-            <mesh position={[-tailLen * 0.5 - baseW * 0.3, 0, -0.02]} scale={[tailLen, baseH * 2.6, 1]}>
-                <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            {/* soft outer glow */}
-            <mesh position={[0, 0, -0.01]} scale={[baseW * 3, baseH * 3, 1]}>
-                <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial map={projRoundTexture()} color={visual.glow} transparent opacity={0.42} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            {/* bright head */}
-            <mesh ref={core}>
-                <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial map={headTex} color={visual.core} transparent opacity={0.97} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-            </mesh>
-            {visual.charged && (
-                <mesh ref={ring} position={[0, 0, 0.01]}>
-                    <ringGeometry args={[0.4, 0.5, 24]} />
-                    <meshBasicMaterial ref={ringMat} color={visual.glow} transparent opacity={0.45} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
-                </mesh>
-            )}
         </group>
     );
 }
@@ -2216,8 +2255,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
                         // The elemental BURST on contact — the fire/water/wind/earth/
-                        // lightning animation, bigger on heavy/crit blows.
-                        spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.3 : 1.4, dur: heavy ? 460 : 320 });
+                        // lightning animation, bigger on heavy/crit blows. Sized up so even
+                        // a plain melee hit reads as the pet's elemental move, not a tap.
+                        spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0));
                         // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
