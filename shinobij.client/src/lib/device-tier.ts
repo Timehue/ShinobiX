@@ -52,3 +52,47 @@ export function applyLiteFxClass(): void {
     if (typeof document === "undefined") return;
     if (isLowEndMobile()) document.documentElement.classList.add("lite-fx");
 }
+
+let cachedCombat: boolean | undefined;
+
+function detectLiteCombat(): boolean {
+    // Manual override wins (shared with isLowEndMobile / applyLiteFxClass): "0"
+    // forces FULL effects even on weak hardware, so honour it before any probe.
+    try {
+        const override = window.localStorage?.getItem("liteFx.v1");
+        if (override === "1") return true;
+        if (override === "0") return false;
+    } catch { /* private mode — fall through to auto-detect */ }
+    // Weak phones: reuse the existing touch-primary + weak-hardware check.
+    if (isLowEndMobile()) return true;
+    // Weak desktops / laptops: the heavy COMBAT layer (a rAF <canvas> particle
+    // loop + per-cast sprite-frame swaps) can stutter on genuinely weak hardware
+    // even with a mouse, so — unlike the decorative ambient gate, which leaves all
+    // desktops at full fidelity — we do NOT exclude desktops here. Require BOTH
+    // signals weak so a normal multi-core laptop keeps the effects; when
+    // deviceMemory is unavailable (Firefox / Safari don't expose it) fall back to
+    // a stricter core-only bar.
+    try {
+        const nav = navigator as Navigator & { deviceMemory?: number };
+        const mem = typeof nav.deviceMemory === "number" ? nav.deviceMemory : undefined;
+        const cores = typeof nav.hardwareConcurrency === "number" ? nav.hardwareConcurrency : undefined;
+        if (mem !== undefined && cores !== undefined) return mem <= 4 && cores <= 4;
+        if (cores !== undefined) return cores <= 2;
+        return false;
+    } catch {
+        return false;
+    }
+}
+
+/** True when this device should skip the heavy COMBAT VFX layer — the player
+ *  PvE particle canvas + jutsu sprite sheets and the PvP dash-trail flourish.
+ *  A SUPERSET of isLowEndMobile(): it also catches weak desktops / laptops,
+ *  which the decorative ambient gate deliberately leaves at full fidelity.
+ *  Cosmetic only — never affects balance, saves, or shown info. Cached for the
+ *  session; the `liteFx.v1` localStorage override forces it on ("1") or off
+ *  ("0") for mis-detected devices / QA. SSR-safe (false when there's no window). */
+export function prefersLiteCombatFx(): boolean {
+    if (typeof window === "undefined") return false;
+    if (cachedCombat === undefined) cachedCombat = detectLiteCombat();
+    return cachedCombat;
+}
