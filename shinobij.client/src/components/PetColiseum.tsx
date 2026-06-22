@@ -2386,7 +2386,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
 
-    const clock = useRef<DuelClock>({ t: 0, playing: true });
+    const clock = useRef<DuelClock>({ t: 0, playing: false });   // starts paused for the VS intro
     const seqRef = useRef(0);
     const [runId, setRunId] = useState(0);
     const [ended, setEnded] = useState(false);
@@ -2399,7 +2399,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
+    const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
+    // VS intro: hold on the face-off (clock paused) for a beat, then start. Re-runs
+    // on replay / fight-again (runId bump).
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setIntro(true);
+        clock.current.playing = false;
+        const t = window.setTimeout(() => { setIntro(false); clock.current.playing = true; setPaused(false); }, 2000);
+        return () => window.clearTimeout(t);
+    }, [runId]);
 
     // FX map through the SAME field→floor placement as the fighters, at mid-body
     // height, so impacts / numbers / casts land on the right pet in the 3D scene.
@@ -2444,7 +2454,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setFlash(null); setCallout(null); setCombo(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setFlash(null); setCallout(null); setCombo(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -2455,7 +2465,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
                 @keyframes petDuelCombo { 0% { opacity: 0; transform: scale(1.6); } 25% { opacity: 1; transform: scale(1); } 78% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petDuelCritPop { 0% { transform: scale(0.4); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+                @keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+                @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
             `}</style>
+            {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
@@ -2463,6 +2477,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
                 <Arena floor={floor} backdrop={backdrop} big />
+                {/* Ambient embers drifting through the arena — the world feels alive. */}
+                <Sparkles count={46} scale={[26, 11, 14]} position={[0, 4.5, -2]} size={2.6} speed={0.16} opacity={0.32} color="#ffb46b" noise={1.6} />
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}
@@ -2486,6 +2502,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} elementById={elementById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} />
                 <BloomFx />
             </Canvas>
+
+            {/* VS pre-fight intro — both fighters hold their face-off while a "VS"
+                splash slams in, then the clock starts. */}
+            {intro && (
+                <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "clamp(12px,3vw,40px)", padding: "0 5%" }}>
+                        <span style={{ flex: 1, textAlign: "right", font: "800 clamp(18px,3vw,38px) Cinzel, serif", color: "#93c5fd", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out both" }}>{playerPet.name}</span>
+                        <span style={{ font: "900 clamp(44px,9vw,104px) Cinzel, serif", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
+                        <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) Cinzel, serif", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>{enemyPet.name}</span>
+                    </div>
+                </div>
+            )}
 
             {/* Signature ultimate cut-in — anime portrait + move-name slam (reuses
                 the round renderer's .pet-cutin CSS). pointer-events:none so controls
