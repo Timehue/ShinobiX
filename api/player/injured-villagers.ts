@@ -9,6 +9,11 @@ import { professionRankForXp } from '../missions/_progress.js';
 // projection so it's cheap to render in the Hospital UI.
 const HEALER_WORLDWIDE_RANK = 10;
 const HP_INJURED_THRESHOLD = 0.99; // <99% HP counts as injured
+// Persistent player index — every saved player is upserted here atomically with
+// their save (see api/save/[name].ts + api/player/roster.ts). Deriving save keys
+// from it avoids a full save:* keyspace scan (recursive disk-overlay walk) on
+// every Healer poll.
+const REGISTRY_KEY = 'player:registry';
 
 type InjuredEntry = {
     name: string;
@@ -53,11 +58,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const healerVillage = String(healerChar.village ?? '');
         if (!healerVillage) return res.status(400).json({ error: 'Healer has no village set.' });
 
-        // Scan all player saves and filter to same-village injured players.
-        // Same-village filter applied server-side so we never leak other
-        // villages' player data through this endpoint.
-        const keys = await kv.keys('save:*');
-        const playerKeys = keys.filter(k => !k.startsWith('save:clan-') && !k.startsWith('save:admin'));
+        // Derive player save keys from the registry (every saved player is in it)
+        // instead of scanning the whole save:* keyspace, then filter to same-village
+        // injured players. Same-village filter applied server-side so we never leak
+        // other villages' player data through this endpoint.
+        const registry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
+        const playerKeys = Object.keys(registry ?? {})
+            .filter(slug => !slug.startsWith('clan-') && !slug.toLowerCase().startsWith('admin'))
+            .map(slug => `save:${slug}`);
         if (playerKeys.length === 0) {
             res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
             return res.status(200).json({ injured: [] });

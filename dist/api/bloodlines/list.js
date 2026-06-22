@@ -10,6 +10,11 @@ const _auth_js_1 = require("../_auth.js");
 // keys below, so the legacy blob is redundant for this endpoint.
 const bloodlineImageBlobKey = 'shared:images:bloodline';
 const bloodlineImageHashKey = 'shared:imgfields:bloodline';
+// Persistent player index — every saved player is upserted here atomically
+// with their save (see api/save/[name].ts + api/player/roster.ts). Deriving
+// save keys from it avoids a full save:* keyspace scan (a recursive walk of
+// the entire disk overlay) on every call.
+const REGISTRY_KEY = 'player:registry';
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -29,17 +34,21 @@ async function handler(req, res) {
         // for one final read+delete in a future migration step. Reading it
         // on every list call cost a multi-KB transfer per request that
         // never contributed entries the hash didn't already have.
-        const [saveKeys, bloodlineHashImages] = await Promise.all([
-            _storage_js_1.kv.keys('save:*'),
+        const [registry, bloodlineHashImages] = await Promise.all([
+            _storage_js_1.kv.hgetall(REGISTRY_KEY),
             _storage_js_1.kv.hgetall(bloodlineImageHashKey),
         ]);
         const sharedBloodlineImages = bloodlineHashImages ?? {};
         void bloodlineImageBlobKey; // legacy key reference retained for documentation
-        // Batch-fetch all saves in a single mget instead of N individual get()
-        // calls. This keeps connection-pool usage to 1 query regardless of how
-        // many players exist, eliminating the N+1 pattern that caused pool
-        // exhaustion and high error rates under load.
-        const nonAdminKeys = saveKeys.filter(k => !k.replace('save:', '').toLowerCase().startsWith('admin'));
+        // Derive the save keys from the player registry instead of scanning the
+        // whole save:* keyspace (every saved player is in the registry — see the
+        // REGISTRY_KEY note). Then batch-fetch in a single mget instead of N
+        // individual get() calls, keeping pool usage to one query regardless of
+        // player count. Clan saves (save:clan-*) carry no savedBloodlines, so
+        // excluding them is output-identical and saves wasted reads.
+        const nonAdminKeys = Object.keys(registry ?? {})
+            .filter(slug => !slug.toLowerCase().startsWith('admin') && !slug.toLowerCase().startsWith('clan-'))
+            .map(slug => `save:${slug}`);
         const snapshots = nonAdminKeys.length
             ? await _storage_js_1.kv.mget(...nonAdminKeys)
             : [];
