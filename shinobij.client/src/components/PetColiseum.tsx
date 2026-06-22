@@ -44,7 +44,7 @@ import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
-import { POSED_PET_IDS, POSED_RUN_IDS } from "../assets/coliseum/pet-poses-manifest";
+import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
 import { SceneAmbience } from "./SceneAmbience";
@@ -222,9 +222,10 @@ function usePetSprite(pet: Pet, sharedImages: Record<string, string>, mirror = f
 // renderer swaps the billboard to the pose matching the active beat and the
 // procedural choreography supplies the motion (attack POSE + lunge MOTION = a
 // real strike). Pilot: 2 pets; everyone else falls back to the single sprite.
-type PoseCat = "idle" | "attack" | "hurt" | "cast" | "run-a" | "run-b";
+type PoseCat = "idle" | "attack" | "hurt" | "cast" | "run-a" | "run-b" | "windup" | "lunge" | "impact" | "recover";
 const POSE_CATS: PoseCat[] = ["idle", "attack", "hurt", "cast"];
 const RUN_CATS: PoseCat[] = ["run-a", "run-b"]; // 2-frame run cycle (kills gliding)
+const MOVE_CATS: PoseCat[] = ["windup", "lunge", "impact", "recover"]; // generated attack sequence
 // Poses are served as STATIC files (public/pet-poses/) and loaded on demand per
 // fighting pet — the manifest says which of the 148 pets have a generated set.
 const poseUrl = (id: string, cat: PoseCat) => `/pet-poses/${id}-${cat}.webp`;
@@ -242,6 +243,13 @@ function posedRunId(petId: string): string | null {
     const base = petStripVariant(petId);
     return POSED_RUN_IDS.has(base) ? base : null;
 }
+/** The move-sequence id (windup/lunge/impact/recover) for a pet, gated by the move
+ *  manifest, or null → renderer falls back to the single "attack" pose. */
+function posedMoveId(petId: string): string | null {
+    if (POSED_MOVE_IDS.has(petId)) return petId;
+    const base = petStripVariant(petId);
+    return POSED_MOVE_IDS.has(base) ? base : null;
+}
 /** The pose-frame category for a visual state. */
 function poseCategory(s: PetVisualState): PoseCat {
     switch (s) {
@@ -251,7 +259,7 @@ function poseCategory(s: PetVisualState): PoseCat {
         default: return "idle"; // idle / guard / dodge / victory
     }
 }
-type PoseSet = { tex: Record<PoseCat, THREE.Texture>; scan: Record<PoseCat, SpriteScan>; hasRun: boolean };
+type PoseSet = { tex: Record<PoseCat, THREE.Texture>; scan: Record<PoseCat, SpriteScan>; hasRun: boolean; hasMove: boolean };
 /** Load a pet's pose textures + alpha bounds (mirror-aware) from the static pose
  *  store: the 4 combat poses always, plus the 2-frame run cycle when one was
  *  generated (else run-a/run-b alias idle, so every cat is always defined).
@@ -260,6 +268,7 @@ type PoseSet = { tex: Record<PoseCat, THREE.Texture>; scan: Record<PoseCat, Spri
 function usePetPoses(petId: string, mirror: boolean): PoseSet | null {
     const id = posedId(petId);
     const runId = posedRunId(petId);
+    const moveId = posedMoveId(petId);
     const tex = useMemo(() => {
         if (!id) return null;
         const mk = (loadId: string, cat: PoseCat) => {
@@ -271,8 +280,9 @@ function usePetPoses(petId: string, mirror: boolean): PoseSet | null {
         const out = {} as Record<PoseCat, THREE.Texture>;
         for (const c of POSE_CATS) out[c] = mk(id, c);
         for (const c of RUN_CATS) out[c] = runId ? mk(runId, c) : out.idle;
+        for (const c of MOVE_CATS) out[c] = moveId ? mk(moveId, c) : out.attack;
         return out;
-    }, [id, runId, mirror]);
+    }, [id, runId, moveId, mirror]);
     // Dispose pose textures on change/unmount. run-a/run-b may ALIAS `idle`
     // (when no run cycle was generated), so dispose each UNIQUE texture once.
     useEffect(() => {
@@ -292,12 +302,13 @@ function usePetPoses(petId: string, mirror: boolean): PoseSet | null {
         let live = true;
         const jobs = POSE_CATS.map((c) => loadSpriteBounds(poseUrl(id, c)).then((s) => [c, s] as const));
         for (const c of RUN_CATS) jobs.push(loadSpriteBounds(poseUrl(runId ?? id, runId ? c : "idle")).then((s) => [c, s] as const));
+        for (const c of MOVE_CATS) jobs.push(loadSpriteBounds(poseUrl(moveId ?? id, moveId ? c : "attack")).then((s) => [c, s] as const));
         Promise.all(jobs).then((entries) => { if (live) setScan(Object.fromEntries(entries) as Record<PoseCat, SpriteScan>); });
         return () => { live = false; };
-    }, [id, runId]);
+    }, [id, runId, moveId]);
     if (!id || !tex) return null;
-    const sc = scan ?? (Object.fromEntries([...POSE_CATS, ...RUN_CATS].map((c) => [c, { bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }])) as Record<PoseCat, SpriteScan>);
-    return { tex, scan: sc, hasRun: !!runId };
+    const sc = scan ?? (Object.fromEntries([...POSE_CATS, ...RUN_CATS, ...MOVE_CATS].map((c) => [c, { bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 }])) as Record<PoseCat, SpriteScan>);
+    return { tex, scan: sc, hasRun: !!runId, hasMove: !!moveId };
 }
 
 // ── Soft contact-shadow blob texture (one shared canvas) ──────────────────────
@@ -1789,6 +1800,17 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // Pose: alternate the 2-frame run cycle while traversing (if the pet has
         // one), else the state pose (attack / hurt / cast / idle).
         let cat = poseCategory(DUEL_STATE_POSE[a0.state]);
+        // Generated ATTACK SEQUENCE: a windup frame during the wind-up, then
+        // lunge→impact→recover across the strike pulse (melee only) — so the
+        // creature really swings. Falls back to the single "attack" pose for pets
+        // without generated move frames (poses.hasMove === false).
+        if (poses?.hasMove) {
+            if (a0.state === "windup") cat = "windup";
+            else if (strikeKind.current === "melee" && pe >= 0 && pe < pulseS.current) {
+                const pp = pe / pulseS.current;
+                cat = pp < 0.38 ? "lunge" : pp < 0.72 ? "impact" : "recover";
+            }
+        }
         if (moving && poses?.hasRun && (a0.state === "idle" || a0.state === "dash")) {
             runClock.current += delta * 8.5;
             cat = Math.floor(runClock.current) % 2 === 0 ? "run-a" : "run-b";
