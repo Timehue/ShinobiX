@@ -54,7 +54,7 @@ type View = {
 
 type Staged = { handIndex: number; loc: number };
 
-function locBonus(card: { element: string; rarity: string; cost: number }, effectType: string): number {
+function locBonus(card: { element: string; rarity: string; cost: number; power: number }, effectType: string): number {
     switch (effectType) {
         case "fireBonus": return card.element === "Fire" ? 2 : 0;
         case "waterBonus": return card.element === "Water" ? 2 : 0;
@@ -68,6 +68,12 @@ function locBonus(card: { element: string; rarity: string; cost: number }, effec
         case "epicLegendaryBonus": return card.rarity === "epic" || card.rarity === "legendary" ? 2 : 0;
         case "lowCostBonus": return card.cost <= 2 ? 1 : 0;
         case "highCostBonus": return card.cost >= 5 ? 2 : 0;
+        case "neutralBonus": return card.element === "Neutral" ? 2 : 0;
+        case "noneBonus": return card.element === "None" ? 2 : 0;
+        case "midCostBonus": return card.cost === 3 || card.cost === 4 ? 2 : 0;
+        case "allHereBonus": return 1;
+        case "lowPowerBonus": return card.power <= 3 ? 2 : 0;
+        case "highPowerBonus": return card.power >= 8 ? 2 : 0;
         default: return 0;
     }
 }
