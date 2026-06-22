@@ -116,6 +116,8 @@ export function Arena({
     setPvpSeedSession,
     setPendingPetBattleOpponent,
     onBattleActiveChange,
+    directCombat = false,
+    onReturnFromCombat,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -162,6 +164,13 @@ export function Arena({
     // can block travelling out of any arena fight (AI, ranked, endless, story,
     // human). Fires false on resolve/unmount.
     onBattleActiveChange?: (active: boolean) => void;
+    // True when this is a "launched" fight — a mission / hunt / world-map encounter
+    // dropped straight into combat on the dedicated `arena` screen — as opposed to a
+    // Battle Arena lobby spar (`battleArena`). Launched fights drop the "Fight Again"
+    // loop (which re-ran the same fight for XP without re-crediting the mission) and
+    // instead send the player back to the screen they came from via onReturnFromCombat.
+    directCombat?: boolean;
+    onReturnFromCombat?: () => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -5103,6 +5112,13 @@ export function Arena({
                                 ) : exploreAmbushWinRef.current ? (
                                     <div className="menu">
                                         <button className="admin-button" onClick={() => setScreen("worldMap")}>Return to Sector</button>
+                                    </div>
+                                ) : directCombat ? (
+                                    // Launched fight (mission / hunt / world-map encounter): no
+                                    // "Fight Again" — re-fighting handed out XP without re-crediting
+                                    // the mission. Send the player back to the screen they came from.
+                                    <div className="menu">
+                                        <button className="admin-button" onClick={() => (onReturnFromCombat ? onReturnFromCombat() : setScreen("village"))}>Return</button>
                                     </div>
                                 ) : (
                                     <div className="menu">

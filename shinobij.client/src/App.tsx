@@ -8889,7 +8889,7 @@ export default function App() {
                         onHuntBeastDefeated={completeHuntForAi}
                         missionBattleActive={missionBattleActive}
                         onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
-                        onBattleActiveChange={setArenaBattleActive}
+                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack}
                         exploreAmbushActive={pendingExploreSector !== null}
                         onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}
