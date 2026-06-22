@@ -22,6 +22,21 @@ function emptyMatch() {
     // training-ground / volcano-pass / river-shrine
     return (0, _card_clash_engine_js_1.createMatch)(['training-ground', 'volcano-pass', 'river-shrine']);
 }
+// ── Location bonuses (parity with the client engine) ───────────────────────
+(0, node_test_1.test)('locationBonus applies the new element/cost/power/all-here effects', () => {
+    const def = (effectType) => _card_clash_engine_js_1.CLASH_LOCATIONS.find((l) => l.effectType === effectType);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ element: 'Neutral' }), def('neutralBonus')), 2);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ element: 'Fire' }), def('neutralBonus')), 0);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ element: 'None' }), def('noneBonus')), 2);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ cost: 3 }), def('midCostBonus')), 2);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ cost: 4 }), def('midCostBonus')), 2);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ cost: 2 }), def('midCostBonus')), 0);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ element: 'Fire' }), def('allHereBonus')), 1);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ power: 2 }), def('lowPowerBonus')), 2);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ power: 9 }), def('lowPowerBonus')), 0);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ power: 9 }), def('highPowerBonus')), 2);
+    strict_1.default.equal((0, _card_clash_engine_js_1.locationBonus)(card({ power: 4 }), def('highPowerBonus')), 0);
+});
 // ── Deck validation ────────────────────────────────────────────────────────
 (0, node_test_1.test)('validateSubmittedDeck enforces size, bounds, copy + legendary limits', () => {
     const ok = deckOf(12).map((c, i) => ({ ...c, id: `u${i}` }));
