@@ -820,9 +820,11 @@ function FxAnim({
         const idx = Math.min(textures.length - 1, Math.floor(p * textures.length));
         const tex = textures[idx] ?? null;
         if (mat.current) mat.current.map = tex;
-        // Hide until the frame's texture has actually decoded — otherwise a not-yet-
-        // loaded texture renders as a flashing opaque quad on the first frame.
-        if (group.current) group.current.visible = !!(tex && tex.image);
+        // Hide until the frame's texture has actually DECODED — `tex.image` is set
+        // the instant load starts (before pixels exist), so a too-eager check flashes
+        // an opaque quad; gate on the image being complete with real dimensions.
+        const img = tex?.image as HTMLImageElement | undefined;
+        if (group.current) group.current.visible = !!(img && img.complete && (img.naturalWidth || 0) > 0);
         if (group.current && to) {
             group.current.position.x = lerp(from[0], to[0], p);
             group.current.position.y = lerp(from[1], to[1], p);
@@ -1584,7 +1586,7 @@ function StageCamera({ fit = "cover", worldW = STAGE.worldW, worldH = STAGE.worl
 const DUEL_FLOOR_HALF_W = 6.2;   // field x → world x extent on the floor
 const DUEL_FLOOR_HALF_D = 2.3;   // field y → world z (depth) extent
 const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look point
-const DUEL_MIN_WORLD_X = 2.7;    // min world-x gap so two big fighters never merge
+const DUEL_MIN_WORLD_X = 3.7;    // min world-x gap so two big fighters never merge / cross
 const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
     return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
@@ -1699,9 +1701,11 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const fp = duelFieldToFloor(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
         let wx = fp.wx; const wz = fp.wz;
 
-        // World-space spacing — keep two big fighters from compositing INTO each
-        // other when the sim packs them to body-contact. Symmetric, deterministic
-        // half-push along world-x. Cosmetic only — never fed back to the sim.
+        // World-space spacing — player-team fighters stay on the LEFT, enemy-team on
+        // the RIGHT: opposing fighters NEVER cross and always hold a clear gap, so the
+        // statically-mirrored sprites always FACE each other (never back-to-back).
+        // Draw-position clamp only — never fed back to the sim.
+        const myEnemy = id.startsWith("enemy");
         const actors = snaps[i0].actors;
         for (let k = 0; k < actors.length; k++) {
             const other = actors[k];
@@ -1709,11 +1713,16 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             const oa0 = findActor(snaps[i0], other.id); if (!oa0) continue;
             const oa1 = findActor(snaps[i1], other.id) ?? oa0;
             const of = duelFieldToFloor(lerp(oa0.x, oa1.x, ff), lerp(oa0.y, oa1.y, ff));
-            if (Math.abs(wz - of.wz) > DUEL_SEP_BAND_Z) continue;
-            const gapX = wx - of.wx;
-            if (Math.abs(gapX) < DUEL_MIN_WORLD_X) {
-                const dir = gapX > 1e-4 ? 1 : gapX < -1e-4 ? -1 : (id < other.id ? -1 : 1);
-                wx += dir * (DUEL_MIN_WORLD_X - Math.abs(gapX)) * 0.5;
+            if (other.id.startsWith("enemy") === myEnemy) {
+                // Same team (2v2 reserve) — a modest symmetric gap, same-depth only.
+                if (Math.abs(wz - of.wz) > DUEL_SEP_BAND_Z) continue;
+                const gapX = wx - of.wx, need = DUEL_MIN_WORLD_X * 0.7;
+                if (Math.abs(gapX) < need) { const dir = gapX >= 0 ? 1 : -1; wx += dir * (need - Math.abs(gapX)) * 0.5; }
+            } else {
+                // OPPOSING — enforce ordering (player left of enemy) + the full gap,
+                // centred on the pair midpoint so neither can pass through the other.
+                const mid = (wx + of.wx) / 2;
+                wx = myEnemy ? Math.max(wx, mid + DUEL_MIN_WORLD_X / 2) : Math.min(wx, mid - DUEL_MIN_WORLD_X / 2);
             }
         }
 
@@ -1722,8 +1731,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const spd = Math.sqrt(dwx * dwx + dwz * dwz);
         lastPos.current = [wx, wz];
         const moving = spd > 0.01 && a0.state !== "dead";
-        // Face the foe so the lunge drives toward it (sim faceX, else side default).
-        const facing = Math.abs(a0.faceX) > 0.12 ? (a0.faceX < 0 ? -1 : 1) : (mirror ? -1 : 1);
+        // Face/lunge toward the foe: player (left) → +x, enemy (right) → −x. With the
+        // non-crossing clamp above, this always matches the statically-mirrored art.
+        const facing = myEnemy ? -1 : 1;
 
         // ── Anime strike choreography (render-only — never touches the sim) ──────
         // The LONG sim states drive beatTimeline (windup coils back, stagger recoils,
@@ -2163,7 +2173,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
-    spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
+    spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
     elementById: Record<string, string | null | undefined>;
     onCutIn: (actorId: string) => void;
@@ -2205,8 +2215,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const col = elementColor(e.element).glow;
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
-                        // The elemental BURST on contact — fire/water/lightning/etc.
-                        spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 1.9 : 1.4, dur: heavy ? 420 : 320 });
+                        // The elemental BURST on contact — heavy/crit blows fire the
+                        // big tactical-arena asset (kaboom/explosion/vortex/spark/bighit).
+                        spawnFx({ x: a.x, z: a.y, element: e.element, key: heavy ? arenaKillFxKey(e.element) : undefined, scale: heavy ? 2.3 : 1.4, dur: heavy ? 460 : 320 });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0));
                         // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
@@ -2245,10 +2256,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
                     if (c) {
-                        spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.4 : 1.3, dur: e.type === "ultimate" ? 520 : 300 });
+                        spawnFx({ x: c.x, z: c.y, element: el, key: e.type === "ultimate" ? arenaKillFxKey(el) : undefined, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
                         if (e.type === "ultimate") {
                             const ex = c.x, ey = c.y;
-                            window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.2, dur: 520 }), 200);
+                            window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, key: arenaKillFxKey(el), scale: 3.4, dur: 540 }), 200);
                         }
                     }
                     if (e.type === "ultimate") {
@@ -2259,7 +2270,11 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         onCutIn(e.actorId);                                    // anime portrait cut-in
                     }
                 } else if (e.type === "ko") {
-                    // KO finisher: a hard freeze → deep slow-mo → camera PULL-BACK reveal.
+                    // KO finisher: a themed kill-blast (the victim's element) + a hard
+                    // freeze → deep slow-mo → camera PULL-BACK reveal.
+                    const dead = e.actorId ? findActor(snapAt, e.actorId) : null;
+                    const del = e.actorId ? elementById[e.actorId] : null;
+                    if (dead) spawnFx({ x: dead.x, z: dead.y, element: del, key: arenaKillFxKey(del), scale: 3.0, dur: 620 });
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
                     timeScale.current = Math.min(timeScale.current, 0.32);
@@ -2424,9 +2439,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const fp = duelFieldToFloor(n.x, n.z);
         setImpacts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], color: n.color, big: n.big }]);
     };
-    // Element-distinct ability VFX (real fire/water/lightning/earth/wind frames).
-    const spawnFx = (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => {
-        const frames = bundledJutsuFxFrames(elementVfxKey(n.element));
+    // Element-distinct ability VFX — an explicit fx-folder `key` (the tactical-arena
+    // assets: kaboom/explosion/vortex/spark/bighit) when given, else the plain
+    // element burst (fire/water/lightning/earth/wind).
+    const spawnFx = (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => {
+        const frames = bundledJutsuFxFrames(n.key || elementVfxKey(n.element));
         if (!frames) return;
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
