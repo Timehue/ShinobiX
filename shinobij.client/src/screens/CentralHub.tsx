@@ -204,6 +204,11 @@ export function CentralHub({
             weaponEp: namedWeaponRoll.ep,
             apCost: 40,
             weaponRange: namedWeaponRoll.range,
+            // Standard 5-round weapon cooldown — matches every catalog named weapon
+            // so forged weapons can't be spammed every turn. (Both combat engines
+            // also default a missing cooldown to 5, so already-forged weapons in
+            // saves are covered too.)
+            weaponCooldown: 5,
             weaponTags: namedWeaponRoll.tags,
             flavorText: namedWeaponFlavorText.trim() || undefined,
             bonuses: {

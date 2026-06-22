@@ -1760,7 +1760,13 @@ export function Arena({
             return;
         }
 
-        const weaponCd = item.weaponCooldown ?? 0;
+        // Hand/thrown weapons cool down between uses. Catalog weapons set this
+        // explicitly (CD 5); forged "named weapons", forged hand-slot gauntlets, and
+        // older admin weapons can omit it — fall back to the standard 5-round weapon
+        // cooldown so none are spammable (covers weapons already crafted into saves).
+        // Keep the default in sync with the PvP server (api/pvp/move.ts). An explicit
+        // 0 is honoured (?? only fills null/undefined).
+        const weaponCd = item.weaponCooldown ?? 5;
         if (weaponCd > 0 && (jutsuCooldowns[item.id] ?? 0) > 0) {
             setLog(`${item.name} is on cooldown: ${jutsuCooldowns[item.id]} round(s) remaining.`);
             return;
