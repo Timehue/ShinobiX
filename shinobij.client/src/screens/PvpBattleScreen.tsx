@@ -1539,19 +1539,23 @@ export function PvpBattleScreen({
                                             const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                             const apCost = item.apCost ?? 40;
                                             const isArmed = pendingWeaponId === item.id;
+                                            // Named (hand) weapons honour their CD server-side — grey
+                                            // out + show the remaining turns, matching the jutsu cards.
+                                            const wCd = myCooldowns[item.id] ?? 0;
+                                            const onCooldown = wCd > 0;
                                             return (
-                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}`} key={item.id}>
+                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                     <button
                                                         type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
-                                                        title={`${item.name} | ${apCost} AP | Range ${wRange}`}
-                                                        onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={submitting || myAp < apCost}>
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                        title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
+                                                        onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                        disabled={submitting || myAp < apCost || onCooldown}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}{onCooldown ? ` | CD ${wCd}` : ""}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
@@ -1568,19 +1572,23 @@ export function PvpBattleScreen({
                                             const chargesLeft = pvpItemChargesLeft(item.id);
                                             const depleted = chargesLeft != null && chargesLeft <= 0;
                                             const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
+                                            // Thrown weapons also honour their CD server-side — grey
+                                            // out + show the remaining turns like the jutsu cards.
+                                            const wCd = myCooldowns[item.id] ?? 0;
+                                            const onCooldown = wCd > 0;
                                             return (
-                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}`} key={item.id}>
+                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
                                                     <button
                                                         type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
-                                                        title={depleted ? `${item.name} — none left this battle` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
-                                                        onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                        disabled={submitting || myAp < apCost || depleted}>
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                        title={depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                        onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                        disabled={submitting || myAp < apCost || depleted || onCooldown}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}{countSuffix}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
@@ -1631,6 +1639,7 @@ export function PvpBattleScreen({
                                                 <span><strong>AP Cost:</strong> {w.apCost ?? 40}</span>
                                                 <span><strong>Range:</strong> {wRange}</span>
                                                 <span><strong>Effect Power:</strong> {w.weaponEp ?? 15}</span>
+                                                {w.weaponCooldown != null && w.weaponCooldown > 0 && <span><strong>Cooldown:</strong> {w.weaponCooldown} round(s)</span>}
                                                 {w.weaponEffect && <span><strong>Effect:</strong> {w.weaponEffect}</span>}
                                             </div>
                                             {w.description && <p className="combat-jutsu-detail-desc">{w.description}</p>}
