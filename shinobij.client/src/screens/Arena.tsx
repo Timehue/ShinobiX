@@ -46,6 +46,7 @@ import { makeId } from "../lib/utils";
 import { useBoardScale } from "../lib/use-board-scale";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
 import { PetParticleField } from "../lib/pet-vfx-particles";
+import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
@@ -279,6 +280,10 @@ export function Arena({
     // The main Arena fight is computed client-side with NO ranked-replay /
     // determinism constraint (unlike the pet sim and live PvP), so this layer is
     // purely visual and can never affect balance, rewards, or outcomes.
+    // Weak phones AND weak desktops skip the heavy combat VFX (rAF particle
+    // canvas + per-cast sprite-frame swaps) that lags low-end hardware; only the
+    // cheap tile hit-flash stays. Computed once (cached in device-tier).
+    const liteFx = useMemo(() => prefersLiteCombatFx(), []);
     const combatVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const combatVfxFieldRef = useRef<PetParticleField | null>(null);
     const combatFxSeq = useRef(0);
@@ -302,17 +307,25 @@ export function Arena({
         // be an animated GIF/WebP) wins; else the bundled CC0 frame sequence picked
         // by intent/discipline/element (jutsuFxSpriteKey, not element alone, so a
         // heal/shield/debuff/DoT no longer all flash the same element explosion);
-        // else null → particle burst only.
-        const elKey = String(jutsu.element ?? "").toLowerCase();
-        const kvFx = sharedImages[`jutsufx:${jutsu.id}`] || sharedImages[`jutsufx:${elKey}`] || "";
-        const pick = jutsuFxSpriteKey(jutsu, {});
-        const frames = kvFx ? [kvFx] : bundledJutsuFxFrames(pick.key);
-        const variant = kvFx ? undefined : pick.variant;
-        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single: !!kvFx, variant });
+        // else null → particle burst only. On weak devices the whole sprite/particle
+        // layer is gated off (only the cheap tile flash plays), so skip resolving it.
+        let frames: string[] | null = null;
+        let single = false;
+        let variant: string | undefined;
+        if (!liteFx) {
+            const elKey = String(jutsu.element ?? "").toLowerCase();
+            const kvFx = sharedImages[`jutsufx:${jutsu.id}`] || sharedImages[`jutsufx:${elKey}`] || "";
+            const pick = jutsuFxSpriteKey(jutsu, {});
+            frames = kvFx ? [kvFx] : bundledJutsuFxFrames(pick.key);
+            single = !!kvFx;
+            variant = kvFx ? undefined : pick.variant;
+        }
+        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single, variant });
     };
     // Spin up / tear down the canvas particle field when the battlefield mounts.
+    // Skipped entirely on weak devices — no canvas, no rAF loop, no lag.
     useEffect(() => {
-        if (!battleStarted) return;
+        if (!battleStarted || liteFx) return;
         const canvas = combatVfxCanvasRef.current;
         if (!canvas) return;
         let field: PetParticleField | null = null;
@@ -330,23 +343,30 @@ export function Arena({
     // Skipped under prefers-reduced-motion.
     useEffect(() => {
         if (!combatFx) return;
-        const field = combatVfxFieldRef.current;
-        const canvas = combatVfxCanvasRef.current;
         const board = battlefieldRef.current;
-        if (!field || !canvas || !board) return;
+        if (!board) return;
         if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
         const tileEl = board.querySelector<HTMLElement>(`.hex-tile[data-tile="${combatFx.focusPos}"]`);
         if (!tileEl) return;
-        const t = tileEl.getBoundingClientRect();
-        const c = canvas.getBoundingClientRect();
-        const cx = (t.left + t.right) / 2 - c.left;
-        const cy = (t.top + t.bottom) / 2 - c.top;
-        field.burst(cx, cy, combatFx.spec);
-        if (combatFx.frames && combatFx.frames.length) {
-            setCombatSpriteFx({ id: combatFx.id, frames: combatFx.frames, single: combatFx.single, x: cx, y: cy, variant: combatFx.variant });
-        }
+        // Lightweight impact feedback — the cheap tile flash plays on EVERY device
+        // (this is the "impact" kept when the heavy layer is gated off on weak HW).
         tileEl.classList.add("jutsu-impact-flash");
         const clear = window.setTimeout(() => tileEl.classList.remove("jutsu-impact-flash"), 460);
+        // Heavy cosmetic layer — particle burst + sprite-sheet overlay. The field
+        // is never created on weak devices (see the mount effect above), so this
+        // whole block is naturally skipped there.
+        const field = combatVfxFieldRef.current;
+        const canvas = combatVfxCanvasRef.current;
+        if (field && canvas) {
+            const t = tileEl.getBoundingClientRect();
+            const c = canvas.getBoundingClientRect();
+            const cx = (t.left + t.right) / 2 - c.left;
+            const cy = (t.top + t.bottom) / 2 - c.top;
+            field.burst(cx, cy, combatFx.spec);
+            if (combatFx.frames && combatFx.frames.length) {
+                setCombatSpriteFx({ id: combatFx.id, frames: combatFx.frames, single: combatFx.single, x: cx, y: cy, variant: combatFx.variant });
+            }
+        }
         return () => { window.clearTimeout(clear); };
     }, [combatFx]);
 
@@ -4675,8 +4695,9 @@ export function Arena({
                         </div>
                         </div>{/* end clip-wrapper */}
                         {/* Cosmetic elemental cast/impact particles (jutsu VFX). Sits
-                            above the board, never intercepts clicks. */}
-                        <canvas ref={combatVfxCanvasRef} className="combat-vfx-canvas" aria-hidden="true" />
+                            above the board, never intercepts clicks. Skipped on weak
+                            devices (no canvas → no rAF particle loop). */}
+                        {!liteFx && <canvas ref={combatVfxCanvasRef} className="combat-vfx-canvas" aria-hidden="true" />}
                         {/* Sprite-sheet effect overlay (CC0 art / KV override), above
                             the particles. Re-keyed per cast so it restarts cleanly. */}
                         {combatSpriteFx && (
