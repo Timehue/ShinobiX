@@ -1642,7 +1642,38 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const choStart = useRef(0);
     const prevSimState = useRef<DuelState>("idle");
     const strikeStart = useRef(-999);
+    // Per-strike choreography params, set on the windup→strike edge from the
+    // resolution that's about to land (melee lunge vs ranged kick, how hard).
+    const strikeKind = useRef<"melee" | "ranged">("melee");
+    const strikePow = useRef(0.4);
+    const strikeCrit = useRef(false);
+    const pulseS = useRef(STRIKE_PULSE_S);
+    const recoilPow = useRef(0.55);   // set on stagger-entry from the incoming hit's weight
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
+    // Damage-aware choreography lookup (render-only): this pet's OUTGOING
+    // resolutions (a melee `hit` with how hard it landed, vs a ranged `cast`) and
+    // the INCOMING hits that stagger it. Lets a light poke read as a quick jab and
+    // a heavy blow as a deep, committed lunge with real knockback — all derived
+    // from the deterministic event stream, never fed back into it.
+    const { outResolves, inHits } = useMemo(() => {
+        const outR: { t: number; kind: "melee" | "ranged"; power: number; crit: boolean }[] = [];
+        const inH: { t: number; power: number; crit: boolean }[] = [];
+        const snaps = duel.snapshots; const last = snaps.length - 1;
+        for (const e of duel.events) {
+            if (e.type === "hit" && e.dmg && e.actorId === id && e.targetId) {
+                const tgt = findActor(snaps[Math.min(last, e.t)], e.targetId);
+                outR.push({ t: e.t, kind: "melee", power: tgt ? Math.min(1, e.dmg / Math.max(1, tgt.maxHp)) : 0.4, crit: !!e.crit });
+            } else if (e.type === "cast" && e.actorId === id) {
+                outR.push({ t: e.t, kind: "ranged", power: 0, crit: false });
+            }
+            if (e.type === "hit" && e.dmg && e.targetId === id) {
+                const me = findActor(snaps[Math.min(last, e.t)], id);
+                inH.push({ t: e.t, power: me ? Math.min(1, e.dmg / Math.max(1, me.maxHp)) : 0.4, crit: !!e.crit });
+            }
+        }
+        outR.sort((a, b) => a.t - b.t); inH.sort((a, b) => a.t - b.t);
+        return { outResolves: outR, inHits: inH };
+    }, [duel, id]);
 
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
@@ -1706,30 +1737,68 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
         if (basePose !== choKind.current) { choKind.current = basePose; choStart.current = state.clock.elapsedTime; }
         const baseProg = basePose === "idle" ? 1 : Math.min(1, (state.clock.elapsedTime - choStart.current) / (beatChoreoMs(basePose) / 1000));
-        const base = beatTimeline(basePose, facing.current, 1.0, baseProg, { power: 0.6 });
-        // Fire the forward pulse when windup completes into strike/recover (a real hit) —
-        // NOT when an interrupted windup is knocked into stagger (that must recoil, not
-        // thrust). `recover` keeps it robust to the 1-tick `strike` being skipped on a slow frame.
-        if (prevSimState.current === "windup" && (a0.state === "strike" || a0.state === "recover")) strikeStart.current = state.clock.elapsedTime;
+        const curTick = Math.floor(clock.current.t);
+        // Stagger ENTRY → scale this recoil's knockback by how hard the incoming
+        // blow actually landed: a graze barely rocks the pet, a heavy hit throws it.
+        if (a0.state === "stagger" && prevSimState.current !== "stagger") {
+            let p = 0.55;
+            for (let k = 0; k < inHits.length; k++) { const it = inHits[k]; if (it.t > curTick + 4) break; if (it.t >= curTick - 1) { p = Math.max(0.28, it.power); break; } }
+            recoilPow.current = p;
+        }
+        const base = beatTimeline(basePose, facing.current, 1.0, baseProg, { power: basePose === "recoil" ? recoilPow.current : 0.6 });
+        // Fire the forward strike pulse when windup completes into strike/recover —
+        // NOT when an interrupted windup is knocked into stagger (that must recoil).
+        // On the same edge, read the resolution about to land so the pulse is
+        // ability-distinct: a melee HIT → a power-scaled lunge (heavier = deeper,
+        // with an overhead chop on crits); a ranged CAST → a plant + recoil-kick so
+        // ranged pets never slide into melee. All from the deterministic events.
+        if (prevSimState.current === "windup" && (a0.state === "strike" || a0.state === "recover")) {
+            strikeStart.current = state.clock.elapsedTime;
+            let kind: "melee" | "ranged" = "melee", pow = 0.4, crit = false;
+            for (let k = 0; k < outResolves.length; k++) {
+                const it = outResolves[k]; if (it.t > curTick + 8) break;
+                if (it.t >= curTick - 1) { kind = it.kind; pow = it.power; crit = it.crit; break; }
+            }
+            strikeKind.current = kind; strikePow.current = pow; strikeCrit.current = crit;
+            pulseS.current = kind === "ranged" ? STRIKE_PULSE_S * 0.85 : STRIKE_PULSE_S * (1 + 0.45 * pow);
+        }
         prevSimState.current = a0.state;
         const pe = state.clock.elapsedTime - strikeStart.current;
         let dxT = base.dx, sxT = base.sx, syT = base.sy, rotT = base.rot;
-        if (pe >= 0 && pe < STRIKE_PULSE_S) {   // forward pop + stretch, peaking ~⅓ in then easing back
-            const pp = pe / STRIKE_PULSE_S;
+        if (pe >= 0 && pe < pulseS.current) {   // forward pop + stretch, peaking ~⅓ in then easing back
+            const pp = pe / pulseS.current;
             const thrust = pp < 0.32 ? pp / 0.32 : 1 - (pp - 0.32) / 0.68;
             const e = thrust * thrust * (3 - 2 * thrust);   // smoothstep
-            dxT = STRIKE_REACH * e * facing.current; sxT = 1 + 0.14 * e; syT = 1 - 0.1 * e; rotT = 0;
+            if (strikeKind.current === "ranged") {
+                // Plant + kick AWAY on release — the projectile carries the offense.
+                dxT = -0.24 * e * facing.current; sxT = 1 - 0.04 * e; syT = 1 + 0.06 * e; rotT = 0;
+            } else {
+                const pw = strikePow.current, ct = strikeCrit.current;
+                const reach = STRIKE_REACH * (0.78 + 0.75 * pw) + (ct ? 0.18 : 0);
+                // Crit → a quick 2-tap flurry overlaid on the lunge; else one thrust.
+                const jab = ct ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
+                dxT = reach * e * jab * facing.current;
+                sxT = 1 + (0.10 + 0.14 * pw) * e;
+                syT = 1 - (0.07 + 0.09 * pw) * e;
+                rotT = -(0.05 + 0.16 * pw) * e * facing.current * (ct ? 1.35 : 1);   // overhead chop on heavy/crit
+            }
         }
-        const ck = (a0.state === "strike" || a0.state === "stagger" || pe < STRIKE_PULSE_S) ? 0.5 : 0.3;   // snappier on the hit beats
+        // KO finisher — topple + sink when down (the dead pose fades; this lands it
+        // with weight instead of just blinking out).
+        if (a0.state === "dead") { dxT = -0.15 * facing.current; rotT = 0.95 * facing.current; sxT = 1.05; syT = 0.72; }
+        const ck = (a0.state === "strike" || a0.state === "stagger" || pe < pulseS.current) ? 0.5 : 0.3;   // snappier on the hit beats
         choX.current = lerp(choX.current, dxT, ck);
         choSX.current = lerp(choSX.current, sxT, ck);
         choSY.current = lerp(choSY.current, syT, ck);
         choRot.current = lerp(choRot.current, rotT, ck);
 
         // run-bob + a forward lean make the locomotion READ; depth scales it all.
+        // A gentle neutral FOOTWORK sway (only while idle + planted) keeps the pets
+        // alive between exchanges instead of standing stock-still.
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.18 : 0;
+        const footwork = (!moving && a0.state === "idle") ? Math.sin(state.clock.elapsedTime * 2.1 + bobPhase) * 0.05 : 0;
         scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
-        g.position.set(drawX + choX.current * p.depth, p.wy + bob * p.depth, p.zo);
+        g.position.set(drawX + (choX.current + footwork) * p.depth, p.wy + bob * p.depth, p.zo);
         g.scale.setScalar(scaleSm.current);
         if (flip.current) {
             flip.current.scale.set(facing.current * choSX.current, choSY.current, 1);
@@ -1750,9 +1819,21 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         prevHp.current = a0.hp;
         flash.current *= 0.86;
         if (flashMat.current) flashMat.current.opacity = flash.current < 0.02 ? 0 : flash.current * 0.9;
+        // Status TINT (burn = ember-warm, stun = icy-blue) pulses on the sprite so
+        // afflictions read at a glance; the stagger hurt-flash deepens it to red.
         const hurt = a0.state === "stagger" ? 0.5 : 0;
-        m.color.g = lerp(m.color.g, 1 - 0.3 * hurt, 0.4);
-        m.color.b = lerp(m.color.b, 1 - 0.3 * hurt, 0.4);
+        let tr = 1, tg = 1, tb = 1;
+        const st = a0.statuses;
+        if (st.length) {
+            if (st.includes("burn")) { tg = 0.74; tb = 0.55; }
+            else if (st.includes("stun")) { tr = 0.74; tg = 0.88; }
+            const pulse = 0.88 + 0.12 * Math.sin(state.clock.elapsedTime * 7 + bobPhase);
+            tr = 1 - (1 - tr) * pulse; tg = 1 - (1 - tg) * pulse; tb = 1 - (1 - tb) * pulse;
+        }
+        tg -= 0.3 * hurt; tb -= 0.3 * hurt;
+        m.color.r = lerp(m.color.r, tr, 0.35);
+        m.color.g = lerp(m.color.g, Math.max(0, tg), 0.35);
+        m.color.b = lerp(m.color.b, Math.max(0, tb), 0.35);
         m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
 
         // HP bar + dead dim via DOM refs (no React re-render).
@@ -2063,26 +2144,30 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, elementById }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, elementById, onCutIn }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
     elementById: Record<string, string | null | undefined>;
+    onCutIn: (actorId: string) => void;
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
     const ended = useRef(false);
     const shake = useRef(0);
     const hitStop = useRef(0);
+    const timeScale = useRef(1);   // playback slow-mo on ultimate / KO; eases to 1
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
-        // Hit-stop: freeze playback for a beat on impact so the blow lands with
-        // weight, then resume. (delta→0 while frozen.)
-        let dt = delta;
+        // Hit-stop freezes playback on impact (weight); otherwise time can DILATE
+        // (slow-mo) for an ultimate / KO. Both are render-only — they scale only the
+        // clock advance, never the deterministic sim.
+        let dt = delta * timeScale.current;
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
+        timeScale.current = lerp(timeScale.current, 1, 0.06);
         advanceClock(maxT, dt);
         const cur = Math.floor(clock.current.t);
         if (cur > lastTick.current) {
@@ -2100,23 +2185,43 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 1.9 : 1.4, dur: heavy ? 420 : 320 });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0));
+                        // Crit → a couple of trailing sparks read as a multi-hit flurry.
+                        if (e.crit) {
+                            const ax = a.x, az = a.y, col = elementColor(e.element).glow;
+                            window.setTimeout(() => spawnImpact({ x: ax + 0.45, z: az, color: col, big: false }), 70);
+                            window.setTimeout(() => spawnImpact({ x: ax - 0.35, z: az + 0.25, color: col, big: false }), 150);
+                        }
                     }
                 } else if (e.type === "heal" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
                     if (a) spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
+                } else if (e.type === "windup" && e.actorId) {
+                    // Element TELL — a small element-colored charge ring at the attacker
+                    // a beat before the blow, so the strike reads as anticipated.
+                    const c = findActor(snapAt, e.actorId);
+                    if (c) spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: false });
+                } else if (e.type === "dodge" && e.actorId) {
+                    // Parry/slip shimmer where the dodge happened (a clean defensive read).
+                    const d = findActor(snapAt, e.actorId);
+                    if (d) spawnImpact({ x: d.x, z: d.y, color: "#bae6fd", big: false });
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
                     // The elemental UNLEASH at the caster (ability tell).
                     const c = findActor(snapAt, e.actorId);
                     if (c) spawnFx({ x: c.x, z: c.y, element: elementById[e.actorId], scale: e.type === "ultimate" ? 2.4 : 1.3, dur: e.type === "ultimate" ? 520 : 300 });
-                    if (e.type === "ultimate") shake.current = Math.max(shake.current, 1.8);
+                    if (e.type === "ultimate") {
+                        shake.current = Math.max(shake.current, 1.8);
+                        timeScale.current = Math.min(timeScale.current, 0.5);  // brief slow-mo for the unleash
+                        onCutIn(e.actorId);                                    // anime portrait cut-in
+                    }
                 } else if (e.type === "ko") {
                     shake.current = Math.max(shake.current, 2.8);
                     hitStop.current = Math.max(hitStop.current, 0.22);
+                    timeScale.current = Math.min(timeScale.current, 0.4);      // slow-mo the final blow
                 }
             }
             lastTick.current = cur;
         }
-        // Fixed ortho stage camera + a decaying screen-shake offset (world units).
+        // Fixed ortho stage camera + a decaying screen-shake pan (world units).
         const t = state.clock.elapsedTime;
         const a = shake.current; shake.current *= 0.85;
         const sx = a > 0.01 ? Math.sin(t * 53) * a * 0.12 : 0;
@@ -2199,6 +2304,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
+    const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
 
     // FX positions are mapped through the SAME stage projection as the fighters,
@@ -2222,10 +2328,19 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const p = stagePlace(n.x, n.z);
         setFxList((arr) => [...arr, { id, frames, pos: [p.wx, p.wy + STAGE_SPRITE_H * 0.4 * p.depth, 8], scale: n.scale * p.depth * 0.6, dur: n.dur }]);
     };
+    // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
+    // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
+    const triggerCutIn = (actorId: string) => {
+        const r = roster.find((x) => x.id === actorId); if (!r) return;
+        const move = r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate";
+        const id = seqRef.current++;
+        setCutIn({ id, pet: r.pet, side: r.mirror ? "enemy" : "player", move });
+        window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 1500);
+    };
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -2253,9 +2368,24 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 24px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} elementById={elementById} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} elementById={elementById} onCutIn={triggerCutIn} />
                 <BloomFx />
             </Canvas>
+
+            {/* Signature ultimate cut-in — anime portrait + move-name slam (reuses
+                the round renderer's .pet-cutin CSS). pointer-events:none so controls
+                stay clickable; auto-clears after the slam. */}
+            {cutIn && (
+                <div className={`pet-cutin ${cutIn.side}`} key={`duel-cutin-${cutIn.id}`}>
+                    <div className="pet-cutin-portrait">
+                        <PetBattleAvatar pet={cutIn.pet} side={cutIn.side} active sharedImages={sharedImages} />
+                    </div>
+                    <div className="pet-cutin-text">
+                        <span className="pet-cutin-pet">{cutIn.pet.name}</span>
+                        <span className="pet-cutin-move">{cutIn.move}!</span>
+                    </div>
+                </div>
+            )}
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>

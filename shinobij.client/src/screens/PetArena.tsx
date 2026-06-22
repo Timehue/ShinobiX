@@ -9,7 +9,7 @@ import { type ArenaTile } from "../lib/pet-tactics";
 import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { petDuelEngineEnabled } from "../lib/pet-coliseum-flag";
+import { petDuelEngineEnabled, setPetDuelEngineEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
 import { derivePetRole, ROLE_META, type PetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
@@ -170,6 +170,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // "tactical" is the full-screen team game mode (vs AI / challenge / co-op).
     // Defaults to the cinematic battle so Pet Arena opens straight into it.
     const [arenaView, setArenaView] = useState<"battle" | "tactical">("battle");
+    // Per-device "Live Combat" preference — flips the authoritative PvE engine
+    // (petDuelEngine.v1) between the new CONTINUOUS duel and the old round-based
+    // resolver. Read fresh from localStorage at battle-start (startBattle), so this
+    // state only mirrors the flag for the toggle UI. Non-ranked PvE only.
+    const [liveCombat, setLiveCombat] = useState<boolean>(() => petDuelEngineEnabled());
     // Tactical Arena setup (single screen): a size toggle + a team grid shared by
     // Fight AI and Challenge-a-Player. Picks seed to the top pets and re-seed on
     // a size change.
@@ -1002,6 +1007,35 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         Cinematic 1v1 &amp; 2v2 duels — pit your pet against other players and the AI.
                         {selectedPet?.element && selectedPet.element !== "None" ? ` Arena attuned to ${selectedPet.element}.` : ""}
                     </p>
+                </div>
+            )}
+            {/* Live Combat toggle — flips the new CONTINUOUS duel engine on/off for
+                non-ranked PvE. ON: pets approach, kite, trade homing projectiles,
+                dodge and unleash ultimates (PetColiseumDuel). OFF: the classic
+                round-based resolver. Per-device; ranked is unaffected either way. */}
+            {!isHollowGate && (
+                <div className="pet-arena-live-toggle" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 14px", padding: "8px 12px", background: "rgba(15,23,42,0.55)", border: "1px solid #334155", borderRadius: 10 }}>
+                    <button
+                        type="button"
+                        onClick={() => { const next = !liveCombat; setLiveCombat(next); setPetDuelEngineEnabled(next); }}
+                        aria-pressed={liveCombat}
+                        style={{
+                            display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
+                            padding: "6px 14px", borderRadius: 999, fontWeight: 700, fontSize: "0.9rem",
+                            border: `1px solid ${liveCombat ? "#f59e0b" : "#475569"}`,
+                            background: liveCombat ? "linear-gradient(90deg,#b45309,#f59e0b)" : "#1e293b",
+                            color: liveCombat ? "#fff7ed" : "#94a3b8",
+                            boxShadow: liveCombat ? "0 0 14px rgba(245,158,11,0.45)" : "none",
+                        }}
+                    >
+                        <span style={{ fontSize: "1.05rem" }}>⚡</span>
+                        Live Combat: {liveCombat ? "ON" : "OFF"}
+                    </button>
+                    <span className="hint" style={{ margin: 0, fontSize: "0.8rem", color: "#94a3b8" }}>
+                        {liveCombat
+                            ? "Continuous duel — pets kite, dodge, throw elemental projectiles & cast ultimates (beta)."
+                            : "Classic round-based autobattle. Flip ON for the new cinematic continuous duel."}
+                    </span>
                 </div>
             )}
             <div className="pet-arena-grid">
