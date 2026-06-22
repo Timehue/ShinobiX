@@ -47,6 +47,7 @@ import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, type ArenaResult, type ArenaSna
 import { POSED_PET_IDS, POSED_RUN_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
+import { SceneAmbience } from "./SceneAmbience";
 import { isPetSfxMuted, setPetSfxMuted } from "../lib/pet-sfx";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 
@@ -997,6 +998,9 @@ export function PetColiseum({
     const playerResSprite = usePetSprite(playerReservePet ?? playerPet, sharedImages);
     const enemyResSprite = usePetSprite(enemyReservePet ?? enemyPet, sharedImages, true);
     const orbit = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("orbit") === "1";
+    // Desktop fine-pointer only — mirrors the bloom gate; keeps the extra ambient-ember
+    // rAF canvas off low-end/touch devices (the team is actively trimming mobile VFX cost).
+    const desktopPointer = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches;
     // Battle SFX — reuses the shared per-frame picker so sound matches the DOM
     // renderer exactly (only one renderer is mounted at a time → no double-play).
     const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
@@ -1160,7 +1164,9 @@ export function PetColiseum({
     const [fx, setFx] = useState<FxInstance[]>([]);
     const [labels, setLabels] = useState<LabelInstance[]>([]);
     const [dusts, setDusts] = useState<{ id: number; at: Vec3 }[]>([]);
+    const [flash, setFlash] = useState<{ id: number; ko: boolean } | null>(null);   // crit/KO impact-flash overlay
     const seq = useRef(0);
+    const flashedMsg = useRef<string | null>(null);   // de-dupes the crit flash to ONE per frame (a flurry emits many damageNumber beats)
     useEffect(() => {
         if (winnerSide || !activeAnimEvent) return;
         if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -1193,7 +1199,9 @@ export function PetColiseum({
                 element: actorElement, isKO: !!frame?.isKO,
             });
             const f = pick.key ? bundledJutsuFxFrames(pick.key) : null;
-            if (f) { const id = seq.current++; setFx((p) => [...p, { id, frames: f, from: focal, durationMs: 360, scale: 1.7 }]); }
+            // Combo escalation — each chained hit lands a bigger burst (caps at 6) so a
+            // flurry reads as building momentum, not flat repeats. Cosmetic scale only.
+            if (f) { const id = seq.current++; const comboMul = 1 + Math.min(frame?.combo ?? 0, 6) * 0.1; setFx((p) => [...p, { id, frames: f, from: focal, durationMs: 360, scale: 1.7 * comboMul }]); }
         }
 
         // Dust kick-up at the mover's feet on lunges and dodges.
@@ -1209,6 +1217,30 @@ export function PetColiseum({
             setLabels((p) => [...p, { id, text: activeAnimEvent.text!, className: cls, pos: [toV[0], FX_Y + 0.6, toV[2]] }]);
             window.setTimeout(() => setLabels((p) => p.filter((l) => l.id !== id)), 900);
         }
+
+        // Crit flash synced to the damage reveal — exactly ONE light wash per frame. A
+        // crit is a multi-hit flurry (many damageNumber beats), so latch on frame.message
+        // to avoid re-pulsing 3-5× per crit. Pure overlay; the whole effect is already
+        // gated off under prefers-reduced-motion above. (KO gets its own gold burst below.)
+        if (beat === "damageNumber" && frame?.crit && frame?.message !== flashedMsg.current) {
+            flashedMsg.current = frame?.message ?? null;
+            const id = seq.current++;
+            setFlash({ id, ko: false });
+            window.setTimeout(() => setFlash((cur) => (cur && cur.id === id ? null : cur)), 170);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [animIdx, frame?.message]);
+
+    // KO money-moment — a gold burst on the topple beat. Its OWN effect so it fires even
+    // on the result/KO frame (the main VFX effect early-returns once the winner is set,
+    // and a KO emits a `ko` beat, never a damageNumber). Off under prefers-reduced-motion.
+    useEffect(() => {
+        if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+        if (activeAnimEvent?.type !== "ko") return;
+        const id = seq.current++;
+        setFlash({ id, ko: true });
+        const t = window.setTimeout(() => setFlash((cur) => (cur && cur.id === id ? null : cur)), 340);
+        return () => window.clearTimeout(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [animIdx, frame?.message]);
 
@@ -1247,7 +1279,8 @@ export function PetColiseum({
                 .pet-cutin styles + animation from index.css. */}
             <style>{`
                 @keyframes colAnnouncerPop { 0% { transform: translateX(-50%) scale(0.6); opacity: 0; } 25% { transform: translateX(-50%) scale(1.08); opacity: 1; } 75% { transform: translateX(-50%) scale(1); opacity: 1; } 100% { transform: translateX(-50%) scale(0.95); opacity: 0; } }
-                @media (prefers-reduced-motion: reduce) { .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } }
+                @keyframes colFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+                @media (prefers-reduced-motion: reduce) { .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } .col-flash { animation: none !important; opacity: 0 !important; } }
             `}</style>
             <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
@@ -1287,6 +1320,19 @@ export function PetColiseum({
                 {orbit && <OrbitControls target={CAM_LOOK} />}
                 <BloomFx />
             </Canvas>
+
+            {/* Warm embers drifting over the arena — a "living coliseum". Wrapped in a
+                z-index:0 stacking context so the embers paint OVER the 3D canvas but
+                UNDER the (z-auto) HUD + result screen (.scene-ambience is z-index:4 on its
+                own; the wrapper contains it). Perf-guarded (pauses tab-hidden, off under
+                reduced-motion), pointer-events:none. */}
+            {desktopPointer && (
+                <div style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+                    <SceneAmbience biome="volcano" intensity={0.55} />
+                </div>
+            )}
+            {/* Impact flash on the money hits — crit = light wash, KO = gold burst. */}
+            {flash && <div key={flash.id} className="col-flash" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 6, mixBlendMode: "screen", background: flash.ko ? "radial-gradient(circle at 50% 45%, rgba(255,255,255,0.85), rgba(255,238,196,0.4) 45%, transparent 75%)" : "rgba(255,255,255,0.3)", animation: `colFlash ${flash.ko ? 340 : 170}ms ease-out forwards` }} />}
 
             {/* ── DOM overlays (not in 3D) ─────────────────────────────────── */}
             {/* Pre-fight VS face-off — reuses the DOM renderer's prefight CSS
