@@ -1,9 +1,10 @@
 /*
- * ── Tactical Pet Arena — deathmatch + capture-objective match sim ─────────────
- * A deterministic 30 Hz match: 2 teams (2v2 or 4v4), first to 10 points wins.
- *   • Defeat an enemy pet            → +1 point (victim loses a life, respawns 5 s)
- *   • Capture the center scroll and
- *     return it to your own base      → +2 points
+ * ── Tactical Pet Arena — capture-objective + tactical-deathmatch match sim ────
+ * A deterministic 30 Hz match: 2 teams (2v2 or 4v4), first to 5 SCROLL CAPTURES
+ * wins (see WIN_SCORE).
+ *   • Capture the center scroll and return it to your own base → +1 capture
+ *   • Defeating an enemy pet does NOT score — it removes them for a ~7 s respawn
+ *     window (a tactical edge to push a capture, not points)
  * Every pet is assigned one of four ROLES (defender / tracker / assassin / sage)
  * that drive stats, abilities, targeting, positioning and objective behaviour.
  *
@@ -340,6 +341,8 @@ export interface ArenaActorSnap {
     id: string; team: "blue" | "red"; slot: number; role: ArenaRole; element?: string | null;
     x: number; y: number; faceX: number; faceY: number; hp: number; maxHp: number; energy: number;
     lives: number; state: ArenaState; carrying: boolean; statuses: string[];
+    respawnSecs: number;      // whole seconds until this pet respawns (0 unless respawning) — readout only
+    abilityReady: boolean;    // role ability off-cooldown AND affordable — readout only
 }
 export interface ArenaSnapshot {
     t: number; actors: ArenaActorSnap[];
@@ -1029,7 +1032,7 @@ function snap(t: number, fs: AF[], scroll: Scroll, score: { blue: number; red: n
             const statuses: string[] = [];
             if (f.shieldHp > 0) statuses.push("shield"); if (f.slowLeft > 0) statuses.push("slow"); if (f.markLeft > 0) statuses.push("mark");
             if (f.tauntLeft > 0) statuses.push("taunt"); if (f.carrying) statuses.push("carry");
-            return { id: f.id, team: f.team, slot: f.slot, role: f.role, element: f.element, x: quant(f.x), y: quant(f.y), faceX: quant(f.faceX), faceY: quant(f.faceY), hp: Math.max(0, Math.round(f.hp)), maxHp: f.maxHp, energy: Math.round(f.energy), lives: f.lives, state: f.state, carrying: f.carrying, statuses };
+            return { id: f.id, team: f.team, slot: f.slot, role: f.role, element: f.element, x: quant(f.x), y: quant(f.y), faceX: quant(f.faceX), faceY: quant(f.faceY), hp: Math.max(0, Math.round(f.hp)), maxHp: f.maxHp, energy: Math.round(f.energy), lives: f.lives, state: f.state, carrying: f.carrying, statuses, respawnSecs: f.state === "respawning" ? Math.ceil(f.respawnLeft / ARENA_TPS) : 0, abilityReady: f.abilityCd <= 0 && f.energy >= ROLE_CFG[f.role].abilityCost };
         }),
         scroll: { state: scroll.state, x: quant(scroll.x), y: quant(scroll.y), carrierId: scroll.carrierId, channelFrac: scroll.channelById ? 1 - scroll.channelLeft / SCROLL_CHANNEL : 0 },
         scoreBlue: score.blue, scoreRed: score.red,
