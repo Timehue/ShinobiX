@@ -43,7 +43,7 @@ import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../li
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
-import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
+import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
@@ -2640,6 +2640,61 @@ export type PetArenaMatchProps = {
     applyItems?: boolean;
     sharedImages?: Record<string, string>; onExit: () => void;
 };
+/** Objective line below the scoreboard — a per-frame readout written via DOM refs
+ *  (so it never re-renders the HUD): the scroll-spawn countdown while the scroll is
+ *  inactive, and the carrier's "returning home" progress while it's carried. Pure
+ *  presentation — reads the snapshot + result.bases/center, never the sim. */
+function ArenaObjectiveHud({ result, clock, textRef, barWrapRef, barRef }: {
+    result: ArenaResult; clock: { current: DuelClock };
+    textRef: React.RefObject<HTMLSpanElement | null>;
+    barWrapRef: React.RefObject<HTMLDivElement | null>;
+    barRef: React.RefObject<HTMLDivElement | null>;
+}) {
+    const lastText = useRef("");
+    // Per-team base centroid + the carry-journey reference length (center→base), both
+    // constant (bases + center are fixed), so the return meter reads a stable fraction.
+    const home = useMemo(() => {
+        const [cx, cy] = result.center;
+        // Per-seal carry reference: the (constant) center→seal distance. Progress is
+        // measured against the NEAREST seal (mirrors the sim's nearestSeal scoring), so
+        // the bar fills to 100% exactly as the carrier enters BASE_SCORE_RANGE of a seal.
+        const make = (seals: [number, number][]) => seals.map((s) => ({ s, ref: Math.hypot(s[0] - cx, s[1] - cy) || 1 }));
+        return { blue: make(result.bases.blue), red: make(result.bases.red) };
+    }, [result]);
+    useFrame(() => {
+        const snaps = result.snapshots;
+        const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
+        const sc = snaps[i].scroll;
+        let text = "📜 Capture the scroll to score — defeating pets only buys time";
+        let showBar = false, frac = 0, color = "#94a3b8";
+        if (sc.state === "inactive" && sc.spawnSecs > 0) {
+            text = `📜 Scroll in ${sc.spawnSecs}s`;
+        } else if (sc.state === "carried" && sc.carrierId) {
+            const carrier = snaps[i].actors.find((a) => a.id === sc.carrierId);
+            if (carrier) {
+                // Progress toward the closest-to-done seal: 0 at the center pickup, 1 the
+                // instant the carrier reaches scoring range (BASE_SCORE_RANGE) of a seal.
+                let best = 0;
+                for (const { s, ref } of home[carrier.team]) {
+                    const f = (ref - Math.hypot(carrier.x - s[0], carrier.y - s[1])) / Math.max(0.001, ref - BASE_SCORE_RANGE);
+                    if (f > best) best = f;
+                }
+                frac = Math.max(0, Math.min(1, best));
+                color = carrier.team === "blue" ? "#60a5fa" : "#f87171";
+                text = `${carrier.team === "blue" ? "BLUE" : "RED"} returning the scroll`;
+                showBar = true;
+            }
+        }
+        if (textRef.current) {
+            if (lastText.current !== text) { textRef.current.textContent = text; lastText.current = text; }
+            textRef.current.style.color = showBar ? color : "#94a3b8";
+        }
+        if (barWrapRef.current) barWrapRef.current.style.display = showBar ? "block" : "none";
+        if (barRef.current && showBar) { barRef.current.style.width = `${Math.round(frac * 100)}%`; barRef.current.style.background = color; }
+    });
+    return null;
+}
+
 export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit }: PetArenaMatchProps) {
     const result = useMemo(() => runPetArenaMatch(blue, red, seed, applyItems), [blue, red, seed, applyItems]);
     const roster = useMemo(() => [
@@ -2661,6 +2716,9 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
     const [floaters, setFloaters] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; big: boolean }>>([]);
     const [feed, setFeed] = useState<Array<{ id: number; text: string; color: string }>>([]);
     const [decals, setDecals] = useState<Array<{ id: number; pos: Vec3; w: number }>>([]);   // accumulating scorch marks where pets fell
+    const objTextRef = useRef<HTMLSpanElement | null>(null);   // objective line: scroll-spawn countdown / carrier return progress (ref-driven, no re-render)
+    const objBarWrapRef = useRef<HTMLDivElement | null>(null);
+    const objBarRef = useRef<HTMLDivElement | null>(null);
     const nameById = useMemo(() => { const m = new Map<string, string>(); roster.forEach((r) => m.set(r.id, r.pet.name)); return m; }, [roster]);
     const nameOf = (id: string) => nameById.get(id) ?? id;
     const setScore = (b: number, r: number) => setScoreState((p) => (p[0] === b && p[1] === r ? p : [b, r]));
@@ -2732,6 +2790,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                     {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
                     {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
                     <ArenaScroll result={result} clock={clock} />
+                    <ArenaObjectiveHud result={result} clock={clock} textRef={objTextRef} barWrapRef={objBarWrapRef} barRef={objBarRef} />
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
                     {shots.map((sh) => (<ArenaShot key={sh.id} from={sh.from} to={sh.to} visual={sh.visual} dur={sh.dur} depth={sh.depth} arc={sh.arc} onDone={() => setShots((p) => p.filter((x) => x.id !== sh.id))} />))}
                     {floaters.map((f) => (<ArenaFloater key={f.id} pos={f.pos} text={f.text} color={f.color} big={f.big} />))}
@@ -2758,7 +2817,14 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                 <span style={{ color: "#f87171" }}>{score[1]} RED</span>
             </div>
             {/* Captures-only scoring — make the win condition unmistakable (kills don't score). */}
-            <div style={{ position: "absolute", top: 48, left: "50%", transform: "translateX(-50%)", padding: "2px 10px", background: "rgba(8,12,24,0.55)", borderRadius: 999, color: "#94a3b8", font: "600 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap", pointerEvents: "none" }}>Capture the scroll to score — defeating pets only buys time</div>
+            {/* Dynamic objective line — scroll-spawn countdown / carrier return-progress,
+                updated per-frame via refs by <ArenaObjectiveHud> (no HUD re-render). */}
+            <div style={{ position: "absolute", top: 50, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, pointerEvents: "none" }}>
+                <span ref={objTextRef} style={{ padding: "2px 10px", background: "rgba(8,12,24,0.6)", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>📜 Capture the scroll to score — defeating pets only buys time</span>
+                <div ref={objBarWrapRef} style={{ display: "none", width: 150, height: 5, background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
+                    <div ref={objBarRef} style={{ width: "0%", height: "100%", background: "#60a5fa" }} />
+                </div>
+            </div>
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
