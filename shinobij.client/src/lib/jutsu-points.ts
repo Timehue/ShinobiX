@@ -29,13 +29,13 @@ export function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
     if (cappedDamageTags.includes(tagName)) {
         const cap = tagCapForRank(rank);
         if (tag.percent >= cap) return 0.75; // at-cap bonus cost
-        return 0;
+        return 0.25; // floor: a percent damage/DR amp is never free, even below cap
     }
     if (percentageTags.includes(tagName)) { // Wound only remains here
         // v4.3: shifted Wound % tiers (new caps are 25 / 30 / 35).
         if (tag.percent >= 35) return 1;
         if (tag.percent >= 30) return 0.5;
-        return 0;
+        return 0.25; // floor: never free (was 0)
     }
     if (["Copy", "Mirror"].includes(tagName)) return 3;
     if (["Stun", "Bloodline Seal", "Lag", "Overclock", "Debuff Prevent", "Buff Prevent"].includes(tagName)) return 2;
