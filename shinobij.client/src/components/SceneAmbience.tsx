@@ -105,14 +105,16 @@ export function SceneAmbience({
         const canvas = canvasRef.current;
         if (!canvas) return;
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        // Weak phones: ~60% fewer particles and no per-particle glow (shadowBlur is
-        // the expensive part). Purely cosmetic — the scene still drifts, just lighter.
+        // Weak phones: ~60% fewer particles, no per-particle glow (shadowBlur is the
+        // expensive part), and a 1x backing store (skip the HiDPI fill). Cosmetic —
+        // the scene still drifts, just lighter.
         const lowEnd = isLowEndMobile();
         const effIntensity = intensity * (lowEnd ? 0.4 : 1);
+        const maxDpr = lowEnd ? 1 : 2;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+        let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
         let particles: P[] = [];
         let raf = 0;
         let last = 0;
@@ -150,7 +152,7 @@ export function SceneAmbience({
             if (!parent) return;
             const r = parent.getBoundingClientRect();
             w = r.width; h = r.height;
-            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
             canvas!.width = Math.max(1, Math.round(w * dpr));
             canvas!.height = Math.max(1, Math.round(h * dpr));
             canvas!.style.width = w + "px";
