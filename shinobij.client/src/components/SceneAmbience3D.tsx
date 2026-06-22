@@ -9,12 +9,14 @@
  */
 import { Suspense, lazy } from "react";
 import type { Biome } from "../types/core";
+import { isLowEndMobile } from "../lib/device-tier";
 
 const Scene = lazy(() => import("./SceneAmbience3DScene"));
 
 function isSceneAmbience3DEnabled(): boolean {
     if (typeof window === "undefined") return false;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
+    if (isLowEndMobile()) return false; // weak phones skip the extra WebGL depth pass
     try {
         if (window.localStorage?.getItem("sceneAmbience3D.v1") === "off") return false;
     } catch { /* private mode — treat as enabled */ }
