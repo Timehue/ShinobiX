@@ -41,7 +41,7 @@ import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } fro
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
@@ -1657,6 +1657,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const strikeKind = useRef<"melee" | "ranged">("melee");
     const strikePow = useRef(0.4);
     const strikeCrit = useRef(false);
+    const strikeMods = useRef<MoveChoreoMods>(moveChoreoMods("lightMelee"));   // per-move motion tuning (slam/drain/beam/support/…)
     const pulseS = useRef(STRIKE_PULSE_S);
     const recoilPow = useRef(0.55);   // set on stagger-entry from the incoming hit's weight
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
@@ -1666,15 +1667,18 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     // a heavy blow as a deep, committed lunge with real knockback — all derived
     // from the deterministic event stream, never fed back into it.
     const { outResolves, inHits } = useMemo(() => {
-        const outR: { t: number; kind: "melee" | "ranged"; power: number; crit: boolean }[] = [];
+        const outR: { t: number; kind: "melee" | "ranged"; power: number; crit: boolean; choreo: MoveChoreoKind }[] = [];
         const inH: { t: number; power: number; crit: boolean }[] = [];
         const snaps = duel.snapshots; const last = snaps.length - 1;
         for (const e of duel.events) {
             if (e.type === "hit" && e.dmg && e.actorId === id && e.targetId) {
                 const tgt = findActor(snaps[Math.min(last, e.t)], e.targetId);
-                outR.push({ t: e.t, kind: "melee", power: tgt ? Math.min(1, e.dmg / Math.max(1, tgt.maxHp)) : 0.4, crit: !!e.crit });
+                // The move's KIND (e.kind) decides the melee staging: a plain hit lunges,
+                // a crush/push slams, a lifesteal drains back. Render-only classification.
+                outR.push({ t: e.t, kind: "melee", power: tgt ? Math.min(1, e.dmg / Math.max(1, tgt.maxHp)) : 0.4, crit: !!e.crit, choreo: classifyMoveChoreo(e.kind, false) });
             } else if (e.type === "cast" && e.actorId === id) {
-                outR.push({ t: e.t, kind: "ranged", power: 0, crit: false });
+                // A cast → ranged offensive, control beam, or a support gather, by kind.
+                outR.push({ t: e.t, kind: "ranged", power: 0, crit: false, choreo: classifyMoveChoreo(e.kind, true) });
             }
             if (e.type === "hit" && e.dmg && e.targetId === id) {
                 const me = findActor(snaps[Math.min(last, e.t)], id);
@@ -1749,11 +1753,19 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // The LONG sim states drive beatTimeline (windup coils back, stagger recoils,
         // dodge slips); the 1-tick `strike` drives a self-timed forward pulse off the
         // windup→exit edge. On the real 3D floor the melee lunge ARCS (a small hop).
-        const basePose: PetVisualState =
+        let basePose: PetVisualState =
             a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
+        const curTick = Math.floor(clock.current.t);
+        // A SUPPORT cast (heal/shield/buff) winds up as a GATHER/RISE, not the melee
+        // coil-back, so a healer reads as drawing power up — not flinching to strike.
+        if (a0.state === "windup") {
+            for (let k = 0; k < outResolves.length; k++) {
+                const it = outResolves[k]; if (it.t > curTick + 8) break;
+                if (it.t >= curTick - 1) { if (it.choreo === "support") basePose = "charge"; break; }
+            }
+        }
         if (basePose !== choKind.current) { choKind.current = basePose; choStart.current = state.clock.elapsedTime; }
         const baseProg = basePose === "idle" ? 1 : Math.min(1, (state.clock.elapsedTime - choStart.current) / (beatChoreoMs(basePose) / 1000));
-        const curTick = Math.floor(clock.current.t);
         // Stagger ENTRY → scale this recoil's knockback by how hard the incoming blow landed.
         if (a0.state === "stagger" && prevSimState.current !== "stagger") {
             let rp = 0.55;
@@ -1767,13 +1779,15 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // ranged CAST → a plant + recoil-kick so ranged pets never slide into melee.
         if (prevSimState.current === "windup" && (a0.state === "strike" || a0.state === "recover")) {
             strikeStart.current = state.clock.elapsedTime;
-            let kind: "melee" | "ranged" = "melee", pow = 0.4, crit = false;
+            let kind: "melee" | "ranged" = "melee", pow = 0.4, crit = false, choreo: MoveChoreoKind = "lightMelee";
             for (let k = 0; k < outResolves.length; k++) {
                 const it = outResolves[k]; if (it.t > curTick + 8) break;
-                if (it.t >= curTick - 1) { kind = it.kind; pow = it.power; crit = it.crit; break; }
+                if (it.t >= curTick - 1) { kind = it.kind; pow = it.power; crit = it.crit; choreo = it.choreo; break; }
             }
             strikeKind.current = kind; strikePow.current = pow; strikeCrit.current = crit;
-            pulseS.current = kind === "ranged" ? STRIKE_PULSE_S * 0.85 : STRIKE_PULSE_S * (1 + 0.45 * pow);
+            const mods = moveChoreoMods(choreo); strikeMods.current = mods;
+            // Heavier moves hold the pulse longer (slam), lighter casts snap (ranged 0.85×).
+            pulseS.current = STRIKE_PULSE_S * (1 + 0.45 * pow) * mods.pulseMul;
         }
         prevSimState.current = a0.state;
         const pe = state.clock.elapsedTime - strikeStart.current;
@@ -1782,26 +1796,42 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             const pp = pe / pulseS.current;
             const thrust = pp < 0.32 ? pp / 0.32 : 1 - (pp - 0.32) / 0.68;
             const e = thrust * thrust * (3 - 2 * thrust);   // smoothstep
-            if (strikeKind.current === "ranged") {
-                // Plant + kick AWAY on release — the projectile carries the offense.
-                dxT = -0.5 * e * facing; sxT = 1 - 0.04 * e; syT = 1 + 0.06 * e; rotT = 0;
+            const mods = strikeMods.current;
+            if (mods.plant) {
+                // Planted archetypes never gap-close, so a ranged/support pet never
+                // slides into melee. Three distinct reads off the SAME pulse:
+                if (mods.kickAway) {
+                    // Ranged offensive — plant + recoil-kick away; the projectile carries it.
+                    dxT = -0.5 * e * facing; sxT = 1 - 0.04 * e; syT = 1 + 0.06 * e; rotT = 0;
+                } else if (mods.rise > 0) {
+                    // Support cast — a stationary gather/rise (no kick, no lunge).
+                    dxT = 0; dyT = mods.rise * Math.sin(Math.PI * pp); sxT = 1 - 0.03 * e; syT = 1 + 0.10 * e; rotT = 0;
+                } else {
+                    // Control beam — a braced plant (no kick, no travel).
+                    dxT = 0; sxT = 1 + 0.05 * e; syT = 1 + 0.02 * e; rotT = 0;
+                }
             } else {
                 const pw = strikePow.current, ct = strikeCrit.current;
                 // CLOSE THE GAP: lunge most of the way to the foe so the strike actually
                 // CONNECTS across the resting spacer (rush in → hit → recoil back), instead
-                // of a hop into empty air. Stop a hair short (DUEL_CONTACT_GAP) so the big
-                // sprites never overlap. Falls back to a fixed reach if no foe is tracked.
+                // of a hop into empty air. A heavy slam commits a hair closer (closeMul<1);
+                // stop short (DUEL_CONTACT_GAP) so the big sprites never overlap. Falls back
+                // to a fixed reach if no foe is tracked.
                 const gapToFoe = foeWX !== null ? Math.abs(foeWX - wx) : DUEL_MIN_WORLD_X;
-                const reach = Math.max(0.6, gapToFoe - DUEL_CONTACT_GAP) * (0.95 + 0.1 * pw) + (ct ? 0.3 : 0);
+                // Clamped so a single lunge can never overshoot the contact line into the foe.
+                const reach = meleeLungeReach(gapToFoe, pw, ct, DUEL_CONTACT_GAP, mods.closeMul);
                 // Crit → a quick 2-tap flurry overlaid on the lunge; else one thrust.
                 const jab = ct ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
-                dxT = reach * e * jab * facing;
-                // GROUNDED — feet stay on the floor; only a slight lift on the crit chop.
+                let dx = reach * e * jab * facing;
+                // Lifesteal → after contact, retract toward self (yank the life home).
+                if (mods.drainBack > 0 && pp > 0.5) dx -= mods.drainBack * reach * 0.4 * ((pp - 0.5) / 0.5) * facing;
+                dxT = dx;
+                // GROUNDED — feet stay on the floor; only a slight lift on the crit/slam chop.
                 // (The old big arc read as "dashing in the air".)
                 dyT = (ct ? 0.16 : 0.035) * Math.sin(Math.PI * Math.min(1, pp / 0.72)) * (0.7 + 0.3 * pw);
-                sxT = 1 + (0.10 + 0.14 * pw) * e;
-                syT = 1 - (0.07 + 0.09 * pw) * e;
-                rotT = -(0.05 + 0.16 * pw) * e * facing * (ct ? 1.35 : 1);   // overhead chop on heavy/crit
+                sxT = 1 + (0.10 + 0.14 * pw) * e + mods.chop * 0.05 * e;
+                syT = 1 - (0.07 + 0.09 * pw) * e - mods.chop * 0.04 * e;
+                rotT = -(0.05 + 0.16 * pw + mods.chop * 0.16) * e * facing * (ct ? 1.35 : 1);   // deeper overhead chop on slam/crit
             }
         }
         // KO finisher — topple + sink when down (the dead pose fades; this lands it
@@ -2254,12 +2284,16 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         const col = elementColor(e.element).glow;
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
-                        // The elemental BURST on contact — the fire/water/wind/earth/
-                        // lightning animation, bigger on heavy/crit blows. Sized up so even
-                        // a plain melee hit reads as the pet's elemental move, not a tap.
-                        spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
-                        hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
-                        shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0));
+                        const heavyKind = e.kind === "crush" || e.kind === "push";
+                        const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element tint
+                        // The BURST on contact: a themed sprite for a status/special move
+                        // (a drain reads BLOOD, a mark reads SHADOW, a frost reads ICE),
+                        // else the pet's element animation. Bigger on heavy/crit/slam blows
+                        // so every hit reads as the pet's MOVE, not a tap.
+                        if (fxKey) spawnFx({ x: a.x, z: a.y, key: fxKey, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
+                        else spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavyKind ? 3.1 : heavy ? 2.7 : 1.9, dur: heavyKind ? 560 : heavy ? 520 : 400 });
+                        hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0));
+                        shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0));
                         // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
                         // hit (bigger on heavy/crit) so even a small spell reads as an event.
                         onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0));
@@ -2280,7 +2314,26 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     }
                 } else if (e.type === "heal" && e.dmg && e.targetId) {
                     const a = findActor(snapAt, e.targetId);
-                    if (a) spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
+                    if (a) {
+                        spawnNumber({ x: a.x, z: a.y, text: `+${e.dmg}`, crit: false, heal: true });
+                        // A green RESTORE bloom on the mended ally (was a bare number).
+                        spawnFx({ x: a.x, z: a.y, key: "heal", scale: 1.9, dur: 460 });
+                    }
+                } else if (e.type === "shield" && e.targetId) {
+                    // A protective DOME on the warded ally (was completely invisible).
+                    const a = findActor(snapAt, e.targetId);
+                    if (a) {
+                        const tel = String(elementById[e.targetId] ?? "").toLowerCase();
+                        spawnFx({ x: a.x, z: a.y, key: tel === "water" || tel === "earth" ? "shield" : "eshield", scale: 2.1, dur: 520 });
+                        onFlash("#bfe3ff", 0.14);
+                    }
+                } else if (e.type === "buff" && e.actorId) {
+                    // A self POWER-UP gather — a rising aura (was completely invisible).
+                    const c = findActor(snapAt, e.actorId);
+                    if (c) {
+                        spawnFx({ x: c.x, z: c.y, key: "aura", scale: 2.0, dur: 480 });
+                        onFlash(elementColor(elementById[e.actorId]).glow, 0.12);
+                    }
                 } else if (e.type === "windup" && e.actorId) {
                     // Element TELL — a small element-colored charge ring at the attacker
                     // a beat before the blow, so the strike reads as anticipated.
@@ -2291,15 +2344,25 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const d = findActor(snapAt, e.actorId);
                     if (d) spawnImpact({ x: d.x, z: d.y, color: "#bae6fd", big: false });
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
-                    // The elemental UNLEASH at the caster — a per-element SEQUENCE (burst
-                    // now → a bigger bloom a beat later) so it reads as a channelled spell.
+                    // The UNLEASH at the caster. A status cast wears its themed muzzle glow
+                    // (poison gathers GREEN, a stun SPARKS); a support cast gathers a soft AURA
+                    // (the heal/shield/buff bloom lands on its target separately); an offensive
+                    // cast / ultimate channels the pet's element in a 2-stage bloom.
                     const c = findActor(snapAt, e.actorId);
                     const el = elementById[e.actorId];
+                    const supportCast = e.type === "cast" && classifyMoveChoreo(e.kind, true) === "support";
                     if (c) {
-                        spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
-                        if (e.type === "ultimate") {
-                            const ex = c.x, ey = c.y;
-                            window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.4, dur: 540 }), 200);
+                        if (supportCast) {
+                            spawnFx({ x: c.x, z: c.y, key: "aura", scale: 1.6, dur: 340 });
+                        } else {
+                            if (e.type === "ultimate") spawnFx({ x: c.x, z: c.y, key: "charge", scale: 2.2, dur: 360 });  // charge-up telegraph
+                            const castKey = e.type === "ultimate" ? "" : moveFxKey(e.kind);
+                            if (castKey) spawnFx({ x: c.x, z: c.y, key: castKey, scale: 1.5, dur: 320 });
+                            else spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.6 : 1.3, dur: e.type === "ultimate" ? 540 : 300 });
+                            if (e.type === "ultimate") {
+                                const ex = c.x, ey = c.y;
+                                window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.4, dur: 540 }), 200);
+                            }
                         }
                     }
                     if (e.type === "ultimate") {

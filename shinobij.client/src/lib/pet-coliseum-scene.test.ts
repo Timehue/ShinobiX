@@ -18,6 +18,10 @@ import {
     formationSlots,
     formationAnchor,
     engagementAdvance,
+    classifyMoveChoreo,
+    moveChoreoMods,
+    moveFxKey,
+    meleeLungeReach,
     COLISEUM_COLS,
     COLISEUM_ROWS,
 } from "./pet-coliseum-scene.ts";
@@ -373,4 +377,80 @@ test("spreadPositions: well-spaced points are untouched and output is finite", (
     assert.deepEqual(spread, pts);
     const dup = spreadPositions([{ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }]);
     for (const p of dup) assert.ok(Number.isFinite(p.x) && Number.isFinite(p.z), "finite on coincident input");
+});
+
+// ── Per-move choreography classification (render-only) ───────────────────────
+test("classifyMoveChoreo: melee hits split light vs heavy slam vs drain", () => {
+    assert.equal(classifyMoveChoreo("damage", false), "lightMelee");
+    assert.equal(classifyMoveChoreo("wound", false), "lightMelee");
+    assert.equal(classifyMoveChoreo("crush", false), "heavySlam");
+    assert.equal(classifyMoveChoreo("push", false), "heavySlam");
+    assert.equal(classifyMoveChoreo("lifesteal", false), "drain");
+    assert.equal(classifyMoveChoreo(undefined, false), "lightMelee");
+});
+
+test("classifyMoveChoreo: casts split ranged vs control beam vs support", () => {
+    assert.equal(classifyMoveChoreo("dot", true), "rangedCast");
+    assert.equal(classifyMoveChoreo("burn", true), "rangedCast");
+    assert.equal(classifyMoveChoreo("damage", true), "rangedCast");   // ranged basic poke
+    assert.equal(classifyMoveChoreo("stun", true), "beam");
+    assert.equal(classifyMoveChoreo("freeze", true), "beam");
+    assert.equal(classifyMoveChoreo("pull", true), "beam");
+    assert.equal(classifyMoveChoreo("heal", true), "support");
+    assert.equal(classifyMoveChoreo("shield", true), "support");
+    assert.equal(classifyMoveChoreo("buff", true), "support");
+    // debuff/taunt are RANGED in the sim (abilityClass) — they fly a projectile, so they
+    // must NOT classify as a stationary support gather.
+    assert.equal(classifyMoveChoreo("debuff", true), "rangedCast");
+    assert.equal(classifyMoveChoreo("taunt", true), "rangedCast");
+});
+
+test("meleeLungeReach: a single lunge NEVER overshoots the contact line (no overlap)", () => {
+    const CONTACT = 1.7;
+    for (const closeMul of [0.88, 1]) {
+        for (const pw of [0, 0.4, 1]) {
+            for (const crit of [false, true]) {
+                for (const gap of [3.7, 4.5, 6, 8]) {
+                    const reach = meleeLungeReach(gap, pw, crit, CONTACT, closeMul);
+                    const remaining = gap - reach;  // sprite-origin distance left to the foe at peak
+                    assert.ok(Number.isFinite(reach) && reach >= 0, `finite/non-negative reach (gap=${gap})`);
+                    // Must stop AT or short of the contact line — never cross it.
+                    assert.ok(remaining >= CONTACT * closeMul - 1e-9, `gap=${gap} pw=${pw} crit=${crit} closeMul=${closeMul}: remaining ${remaining.toFixed(3)} < contact ${(CONTACT * closeMul).toFixed(3)}`);
+                }
+            }
+        }
+    }
+    // A heavy slam (closeMul 0.88) commits closer than a light strike at the same gap.
+    assert.ok(meleeLungeReach(3.7, 1, false, 1.7, 0.88) > meleeLungeReach(3.7, 1, false, 1.7, 1), "slam reaches further than light");
+});
+
+test("moveChoreoMods: planted archetypes never gap-close; melee ones do", () => {
+    // Ranged kicks away; control braces (no kick); support rises (no kick) — all planted.
+    for (const k of ["rangedCast", "beam", "support"] as const) assert.equal(moveChoreoMods(k).plant, true, `${k} plants`);
+    assert.equal(moveChoreoMods("rangedCast").kickAway, true);
+    assert.equal(moveChoreoMods("beam").kickAway, false);
+    assert.equal(moveChoreoMods("support").kickAway, false);
+    assert.ok(moveChoreoMods("support").rise > 0, "support rises");
+    // Melee archetypes close the gap and never plant.
+    for (const k of ["lightMelee", "heavySlam", "drain"] as const) assert.equal(moveChoreoMods(k).plant, false, `${k} closes`);
+    // A heavy slam commits closer + holds longer than a light strike.
+    assert.ok(moveChoreoMods("heavySlam").closeMul < moveChoreoMods("lightMelee").closeMul, "slam closes nearer");
+    assert.ok(moveChoreoMods("heavySlam").pulseMul > moveChoreoMods("lightMelee").pulseMul, "slam holds longer");
+    assert.ok(moveChoreoMods("drain").drainBack > 0, "drain retracts");
+    // The slam must never close PAST the contact gap (no sprite overlap by construction).
+    assert.ok(moveChoreoMods("heavySlam").closeMul > 0.5, "slam still leaves a gap");
+});
+
+test("moveFxKey: status kinds get a themed sprite; plain damage keeps the element tint", () => {
+    assert.equal(moveFxKey("lifesteal"), "blood");
+    assert.equal(moveFxKey("mark"), "shadow");
+    assert.equal(moveFxKey("dot"), "poison");
+    assert.equal(moveFxKey("burn"), "burn");
+    assert.equal(moveFxKey("stun"), "spark");
+    assert.equal(moveFxKey("freeze"), "ice");
+    assert.equal(moveFxKey("pull"), "vortex");
+    // Plain damage / crush keep "" → caller uses the pet's element burst.
+    assert.equal(moveFxKey("damage"), "");
+    assert.equal(moveFxKey("crush"), "");
+    assert.equal(moveFxKey(undefined), "");
 });

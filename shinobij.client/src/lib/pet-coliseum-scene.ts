@@ -350,6 +350,101 @@ export function shakeAmpForBeat(
     return 0.07; // every hit gets a little punch (anime weight)
 }
 
+// ── Per-MOVE choreography (give each move kind its own staging + VFX) ─────────
+// The duel events already carry each move's KIND (PetJutsu kind: crush / lifesteal
+// / burn / stun / heal / shield / ...). The renderer used to collapse everything to
+// melee-vs-ranged, so a slam, a drain, a poison lob, a heal and a shield all looked
+// the same. These pure helpers turn that kind into (a) a MOTION archetype + its
+// tuning and (b) the fx-folder key for the burst — so each move reads distinctly.
+// Pure (no clock/RNG) → node-testable; the renderer reads the deterministic event
+// stream and never feeds back, so determinism/ranked are untouched.
+
+export type MoveChoreoKind =
+    | "lightMelee"   // basic / damage / wound / mark melee — the standard lunge
+    | "heavySlam"    // crush / push — a deeper, committed overhead slam
+    | "drain"        // lifesteal — lunge in, then yank life back home
+    | "rangedCast"   // offensive ranged (dot / burn / damage poke) — plant + recoil kick
+    | "beam"         // control (stun / freeze / movelock / slow / pull) — braced plant, no kick
+    | "support";     // heal / buff / shield / haste — a stationary gather/rise, never a kick
+
+// Mirror the duel sim's abilityClass() support set EXACTLY (pet-duel-sim.ts:96) so a
+// move's render archetype matches how the sim actually resolves it: debuff / taunt are
+// RANGED there (they fly a projectile), NOT support, so they fall through to rangedCast.
+const SUPPORT_KINDS = new Set(["heal", "buff", "shield", "barrier", "absorb", "haste"]);
+const CONTROL_KINDS = new Set(["stun", "freeze", "movelock", "slow", "pull", "confuse", "mark"]);
+
+/** Classify a duel move into a render choreography archetype from its PetJutsu
+ *  `kind` and whether it resolved as a ranged cast (a `cast` event) vs a melee hit. */
+export function classifyMoveChoreo(kind: string | null | undefined, isCast: boolean): MoveChoreoKind {
+    const k = String(kind ?? "").toLowerCase();
+    if (isCast) {
+        if (SUPPORT_KINDS.has(k)) return "support";
+        if (CONTROL_KINDS.has(k)) return "beam";
+        return "rangedCast";
+    }
+    if (k === "crush" || k === "push") return "heavySlam";
+    if (k === "lifesteal") return "drain";
+    return "lightMelee";
+}
+
+/** Render tuning for a choreography archetype — consumed by the strike-pulse in
+ *  DuelStandee. All draw-only; melee fields are ignored for planted archetypes. */
+export type MoveChoreoMods = {
+    plant: boolean;      // true → stay in the lane, don't gap-close (ranged / control / support)
+    kickAway: boolean;   // ranged release recoil (false for the braced beam + the support gather)
+    rise: number;        // support upward gather swell (world units; 0 for non-support)
+    pulseMul: number;    // strike-pulse duration scale (heavier = longer)
+    closeMul: number;    // melee: fraction of the contact gap to close to (<1 = closer/heavier)
+    chop: number;        // melee: extra overhead chop on contact (0..1)
+    drainBack: number;   // melee: retract toward self after contact (0..1, lifesteal)
+};
+
+export function moveChoreoMods(kind: MoveChoreoKind): MoveChoreoMods {
+    switch (kind) {
+        case "heavySlam": return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.28, closeMul: 0.88, chop: 1, drainBack: 0 };
+        case "drain":     return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.05, closeMul: 1,    chop: 0, drainBack: 0.5 };
+        case "rangedCast":return { plant: true,  kickAway: true,  rise: 0,    pulseMul: 0.85, closeMul: 1,    chop: 0, drainBack: 0 };
+        case "beam":      return { plant: true,  kickAway: false, rise: 0,    pulseMul: 0.9,  closeMul: 1,    chop: 0, drainBack: 0 };
+        case "support":   return { plant: true,  kickAway: false, rise: 0.12, pulseMul: 1.1,  closeMul: 1,    chop: 0, drainBack: 0 };
+        case "lightMelee":
+        default:          return { plant: false, kickAway: false, rise: 0,    pulseMul: 1,    closeMul: 1,    chop: 0, drainBack: 0 };
+    }
+}
+
+/** The bundled fx-folder key for a move's themed burst, by PetJutsu `kind`. Status
+ *  / special kinds get their own sprite (so a Fire pet's poison reads GREEN, a drain
+ *  reads BLOOD, a stun reads SPARK), independent of the pet's element. Returns "" for
+ *  plain damage / crush / basic — the caller then falls back to the element tint so
+ *  those keep their elemental identity (crush reads heavy via motion + shake, not a
+ *  recolor). */
+export function moveFxKey(kind: string | null | undefined): string {
+    switch (String(kind ?? "").toLowerCase()) {
+        case "lifesteal": case "wound": return "blood";
+        case "mark": case "debuff": return "shadow";
+        case "dot": return "poison";
+        case "burn": return "burn";
+        case "stun": return "spark";
+        case "freeze": case "slow": return "ice";
+        case "confuse": case "movelock": return "wind";
+        case "pull": return "vortex";
+        default: return "";   // damage / crush / push / basic → keep the element tint
+    }
+}
+
+/** The melee lunge reach (world units toward the foe) for a strike — closes the gap so
+ *  the blow CONNECTS, but is HARD-CLAMPED so a single lunge can NEVER overshoot past the
+ *  contact line into the foe, for ANY gap / power / crit (the owner demanded a firm "they
+ *  can't go into each other" spacer). `closeMul` (<1, the heavy slam) lets a move commit a
+ *  touch nearer; the result still stops `contactGap*closeMul` short of the foe's origin.
+ *  Pure / deterministic-independent. (Two pets lunging on the SAME tick can still graze at
+ *  the minimum spacing, but the sim staggers windups so that's transient; this guarantees
+ *  the single-lunge spacer, which is the one that was overshooting.) */
+export function meleeLungeReach(gapToFoe: number, power: number, crit: boolean, contactGap: number, closeMul: number): number {
+    const cap = Math.max(0.6, gapToFoe - contactGap * closeMul);   // never closer than the contact line
+    const want = cap * (0.95 + 0.1 * clamp01(power)) + (crit ? 0.3 : 0);
+    return Math.min(want, cap);
+}
+
 // ── Formation staging (Phase 2 — kill overlap by construction) ───────────────
 // Pets no longer stand on raw sim tiles (which clump). Each side owns fixed
 // lane anchors chosen so sprites + nameplates can NEVER overlap; the sim still
