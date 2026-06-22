@@ -64,6 +64,12 @@ exports.CLASH_LOCATIONS = [
     { id: 'hollow-gate', name: 'Hollow Gate', description: 'Epic and Legendary cards here have +2 Power.', effectType: 'epicLegendaryBonus' },
     { id: 'hidden-dojo', name: 'Hidden Dojo', description: 'Cards that cost 1 or 2 have +1 Power here.', effectType: 'lowCostBonus' },
     { id: 'kage-summit', name: 'Kage Summit', description: 'Cards that cost 5 or 6 have +2 Power here.', effectType: 'highCostBonus' },
+    { id: 'balance-shrine', name: 'Balance Shrine', description: 'Neutral cards here have +2 Power.', effectType: 'neutralBonus' },
+    { id: 'forgotten-battlefield', name: 'Forgotten Battlefield', description: 'Elementless cards here have +2 Power.', effectType: 'noneBonus' },
+    { id: 'chunin-arena', name: 'Chunin Exam Arena', description: 'Cards that cost 3 or 4 have +2 Power here.', effectType: 'midCostBonus' },
+    { id: 'sacred-spring', name: 'Sacred Hot Spring', description: 'All cards here have +1 Power.', effectType: 'allHereBonus' },
+    { id: 'hidden-village', name: 'Hidden Village', description: 'Cards with 3 or less Power here have +2 Power.', effectType: 'lowPowerBonus' },
+    { id: 'legends-battlefield', name: 'Battlefield of Legends', description: 'Cards with 8 or more Power here have +2 Power.', effectType: 'highPowerBonus' },
 ];
 const RARITIES = new Set(['common', 'rare', 'epic', 'legendary']);
 const ABILITIES = new Set([
@@ -180,6 +186,12 @@ function locationBonus(card, def) {
         case 'epicLegendaryBonus': return card.rarity === 'epic' || card.rarity === 'legendary' ? 2 : 0;
         case 'lowCostBonus': return card.cost <= 2 ? 1 : 0;
         case 'highCostBonus': return card.cost >= 5 ? 2 : 0;
+        case 'neutralBonus': return card.element === 'Neutral' ? 2 : 0;
+        case 'noneBonus': return card.element === 'None' ? 2 : 0;
+        case 'midCostBonus': return card.cost === 3 || card.cost === 4 ? 2 : 0;
+        case 'allHereBonus': return 1;
+        case 'lowPowerBonus': return card.power <= 3 ? 2 : 0;
+        case 'highPowerBonus': return card.power >= 8 ? 2 : 0;
         default: return 0;
     }
 }
