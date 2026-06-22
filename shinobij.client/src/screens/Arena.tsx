@@ -3915,6 +3915,112 @@ export function Arena({
     enemyTurnRef.current    = enemyTurn;
     enemyContinueRef.current = enemyContinue;
 
+    // ── Combat-board memoization (mobile perf; see docs/combat-board-memoization-handoff.md) ──
+    // The 120-tile hex grid + its range/AOE highlight Sets used to rebuild on
+    // EVERY combat state commit (HP/AP/log/status). On a budget phone that
+    // stutters/freezes during the enemy's multi-action turn. Memoizing the Sets
+    // and the grid element subtree lets commits that don't touch the board skip
+    // re-rendering it entirely (a commit that doesn't change any dep below
+    // reuses the cached element array, so React bails out of the 120-tile diff).
+    //
+    // These hooks MUST be declared before the `if (!battleStarted)` early return
+    // (rules-of-hooks). All inputs are already in scope here. react-hooks/
+    // exhaustive-deps is disabled file-wide, so deps are hand-verified: pure
+    // hoisted helpers (distance / hexNeighbors / isMoveJutsu / moveJutsuRange /
+    // isGroundEffectJutsu / battleGroundEffectClass), the stable click ref, and
+    // setHoveredBattleTile are intentionally omitted — their behavior is
+    // render-stable, so they can never go stale.
+    const handleTileClickRef = useRef<(tile: number) => void>(() => {});
+    handleTileClickRef.current = handleTileClick;
+    const activeJutsuRangeTiles = useMemo(() => jutsuRangeTiles(pendingTargetJutsu), [pendingTargetJutsu, playerPos]);
+    const activeJutsuAoeTiles = useMemo(() => jutsuAoeTiles(pendingTargetJutsu), [pendingTargetJutsu, playerPos, enemyPos]);
+    const activeWeaponRangeTiles = useMemo(() => weaponRangeTiles(pendingTargetWeapon), [pendingTargetWeapon, playerPos]);
+    const activeGroundAffectedTiles = useMemo(() => groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile), [pendingTargetJutsu, hoveredBattleTile]);
+    const boardGrid = useMemo(() => (
+        Array.from({ length: gridHeight }).map((_, row) =>
+            Array.from({ length: gridWidth }).map((_, col) => {
+                const i = row * gridWidth + col;
+                const x = col * X_STEP;
+                const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
+
+                const isBarrierTile = barrierTiles.some((b) => b.tile === i);
+                const isGroundZoneTile = groundZones.some((z) => z.tiles.includes(i));
+                const canDashHere =
+                    dashMode &&
+                    distance(playerPos, i) <= 3 &&
+                    i !== playerPos &&
+                    i !== enemyPos &&
+                    !isBarrierTile;
+                const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
+                const isMoveAoeAffectedTile = pendingTargetJutsu != null &&
+                    isMoveJutsu(pendingTargetJutsu) &&
+                    pendingTargetJutsu.method === "AOE_CIRCLE" &&
+                    hoveredBattleTile !== null &&
+                    hexNeighbors(hoveredBattleTile).includes(i);
+                const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
+                const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
+                const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
+                const isPendingJutsuTarget =
+                    ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
+                    i === enemyPos;
+                // Ground-target jutsu: highlight valid open landing tiles in range.
+                // Floor to 1 — see normalizeJutsu comment.
+                const isGroundTargetTile = pendingTargetJutsu != null &&
+                    isGroundEffectJutsu(pendingTargetJutsu) &&
+                    distance(playerPos, i) <= Math.max(1, Number(pendingTargetJutsu.range) || 1) &&
+                    i !== playerPos &&
+                    i !== enemyPos &&
+                    !isBarrierTile;
+                const groundEffectClass = pendingTargetJutsu && (isGroundTargetTile || isGroundAffectedTile || isMoveAoeAffectedTile)
+                    ? battleGroundEffectClass(pendingTargetJutsu, (isGroundAffectedTile || isMoveAoeAffectedTile) ? "affected" : "target")
+                    : "";
+                // Move jutsu: highlight valid landing tiles.
+                const isMoveLandingTile = pendingTargetJutsu != null &&
+                    isMoveJutsu(pendingTargetJutsu) &&
+                    distance(playerPos, i) >= 1 &&
+                    distance(playerPos, i) <= moveJutsuRange(pendingTargetJutsu) &&
+                    i !== playerPos &&
+                    i !== enemyPos &&
+                    !isBarrierTile;
+
+                return (
+                    <button
+                        key={i}
+                        data-tile={i}
+                        className={`hex-tile ${i === playerPos ? "hex-player" : ""
+                            } ${i === enemyPos ? "hex-enemy" : ""
+                            } ${isBarrierTile ? "hex-barrier" : ""
+                            } ${canDashHere ? "dash-target-tile" : ""
+                            } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
+                            } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
+                            } ${(isGroundAffectedTile || isMoveAoeAffectedTile || isGroundZoneTile) ? "ground-affected-tile" : ""
+                            } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
+                            } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
+                            } ${isGroundTargetTile ? "ground-target-tile" : ""
+                            } ${groundEffectClass
+                            } ${isMoveLandingTile ? "dash-target-tile" : ""
+                            }`}
+                        style={{
+                            left: `${x}px`,
+                            top: `${y}px`,
+                            width: `${HEX_W}px`,
+                            height: `${HEX_H}px`,
+                        }}
+                        title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isGroundTargetTile ? `Place ${pendingTargetJutsu?.name} here` : isGroundAffectedTile ? `${pendingTargetJutsu?.name} affected tile` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
+                        onMouseEnter={() => setHoveredBattleTile(i)}
+                        onMouseLeave={() => setHoveredBattleTile(null)}
+                        onClick={() => handleTileClickRef.current(i)}
+                    >
+                        {isBarrierTile ? "🛡"
+                            : i === playerPos ? (character.avatarImage ? "" : "🥷")
+                            : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:") || opponentAvatar.startsWith("/api/img")) ? "" : opponentAvatar)
+                                : ""}
+                    </button>
+                );
+            })
+        )
+    ), [playerPos, enemyPos, barrierTiles, groundZones, dashMode, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, opponentAvatar, opponentName]);
+
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
         const clanWarOpponents = opponentClanData
@@ -4213,10 +4319,9 @@ export function Arena({
         else groups.push({ round: entry.round, entries: [entry] });
         return groups;
     }, []);
-    const activeJutsuRangeTiles = jutsuRangeTiles(pendingTargetJutsu);
-    const activeJutsuAoeTiles = jutsuAoeTiles(pendingTargetJutsu);
-    const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
-    const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
+    // activeJutsuRangeTiles / activeJutsuAoeTiles / activeWeaponRangeTiles /
+    // activeGroundAffectedTiles are now memoized above (before the
+    // !battleStarted early return) so they're not rebuilt on every commit.
 
     // ── Mid-battle PvE state persistence (isolated-component v3) ────────
     // Previous two attempts added hooks DIRECTLY to Arena and tripped
@@ -4566,90 +4671,7 @@ export function Arena({
                                     </>
                                 );
                             })()}
-                            {Array.from({ length: gridHeight }).map((_, row) =>
-                                Array.from({ length: gridWidth }).map((_, col) => {
-                                    const i = row * gridWidth + col;
-
-
-                                    const x = col * X_STEP;
-                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
-
-                                    const isBarrierTile = barrierTiles.some((b) => b.tile === i);
-                                    const isGroundZoneTile = groundZones.some((z) => z.tiles.includes(i));
-                                    const canDashHere =
-                                        dashMode &&
-                                        distance(playerPos, i) <= 3 &&
-                                        i !== playerPos &&
-                                        i !== enemyPos &&
-                                        !isBarrierTile;
-                                    const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
-                                    const isMoveAoeAffectedTile = pendingTargetJutsu != null &&
-                                        isMoveJutsu(pendingTargetJutsu) &&
-                                        pendingTargetJutsu.method === "AOE_CIRCLE" &&
-                                        hoveredBattleTile !== null &&
-                                        hexNeighbors(hoveredBattleTile).includes(i);
-                                    const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
-                                    const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
-                                    const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
-                                    const isPendingJutsuTarget =
-                                        ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
-                                        i === enemyPos;
-                                    // Ground-target jutsu: highlight valid open landing tiles in range.
-                                    // Floor to 1 — see normalizeJutsu comment.
-                                    const isGroundTargetTile = pendingTargetJutsu != null &&
-                                        isGroundEffectJutsu(pendingTargetJutsu) &&
-                                        distance(playerPos, i) <= Math.max(1, Number(pendingTargetJutsu.range) || 1) &&
-                                        i !== playerPos &&
-                                        i !== enemyPos &&
-                                        !isBarrierTile;
-                                    const groundEffectClass = pendingTargetJutsu && (isGroundTargetTile || isGroundAffectedTile || isMoveAoeAffectedTile)
-                                        ? battleGroundEffectClass(pendingTargetJutsu, (isGroundAffectedTile || isMoveAoeAffectedTile) ? "affected" : "target")
-                                        : "";
-                                    // Move jutsu: highlight valid landing tiles.
-                                    const isMoveLandingTile = pendingTargetJutsu != null &&
-                                        isMoveJutsu(pendingTargetJutsu) &&
-                                        distance(playerPos, i) >= 1 &&
-                                        distance(playerPos, i) <= moveJutsuRange(pendingTargetJutsu) &&
-                                        i !== playerPos &&
-                                        i !== enemyPos &&
-                                        !isBarrierTile;
-
-                                    return (
-                                        <button
-                                            key={i}
-                                            data-tile={i}
-                                            className={`hex-tile ${i === playerPos ? "hex-player" : ""
-                                                } ${i === enemyPos ? "hex-enemy" : ""
-                                                } ${isBarrierTile ? "hex-barrier" : ""
-                                                } ${canDashHere ? "dash-target-tile" : ""
-                                                } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
-                                                } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
-                                                } ${(isGroundAffectedTile || isMoveAoeAffectedTile || isGroundZoneTile) ? "ground-affected-tile" : ""
-                                                } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
-                                                } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
-                                                } ${isGroundTargetTile ? "ground-target-tile" : ""
-                                                } ${groundEffectClass
-                                                } ${isMoveLandingTile ? "dash-target-tile" : ""
-                                                }`}
-                                            style={{
-                                                left: `${x}px`,
-                                                top: `${y}px`,
-                                                width: `${HEX_W}px`,
-                                                height: `${HEX_H}px`,
-                                            }}
-                                            title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isGroundTargetTile ? `Place ${pendingTargetJutsu?.name} here` : isGroundAffectedTile ? `${pendingTargetJutsu?.name} affected tile` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
-                                            onMouseEnter={() => setHoveredBattleTile(i)}
-                                            onMouseLeave={() => setHoveredBattleTile(null)}
-                                            onClick={() => handleTileClick(i)}
-                                        >
-                                            {isBarrierTile ? "🛡"
-                                                : i === playerPos ? (character.avatarImage ? "" : "🥷")
-                                                : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:") || opponentAvatar.startsWith("/api/img")) ? "" : opponentAvatar)
-                                                    : ""}
-                                        </button>
-                                    );
-                                })
-                            )}
+                            {boardGrid}
                         </div>
                         </div>{/* end clip-wrapper */}
                         {/* Cosmetic elemental cast/impact particles (jutsu VFX). Sits
