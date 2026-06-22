@@ -1,5 +1,6 @@
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
+import { clientIp } from './_client-ip.js';
 
 // Per-player recent-IP / fingerprint tracking. Stamps two keys with 7-day TTL
 // whenever a player is observed: `player-ip:{name}:{ip}` and
@@ -18,11 +19,10 @@ function fpKey(name: string, fp: string): string {
     return `player-fp:${safeName(name)}:${fp}`;
 }
 
+// Cloudflare-aware client IP (honors CF-Connecting-IP behind Cloudflare, else
+// falls back to the XFF/socket chain). See `api/_client-ip.ts`.
 function extractIp(req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } }): string | null {
-    const xff = req.headers['x-forwarded-for'];
-    const xffStr = Array.isArray(xff) ? xff[0] : xff;
-    const ip = xffStr?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress;
-    return ip || null;
+    return clientIp(req);
 }
 
 function extractFp(req: { headers: Record<string, string | string[] | undefined> }): string | null {

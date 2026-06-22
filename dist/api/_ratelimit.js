@@ -20,6 +20,7 @@ exports.clientKey = clientKey;
 exports.enforceRateLimit = enforceRateLimit;
 exports.enforceRateLimitKv = enforceRateLimitKv;
 const _storage_js_1 = require("./_storage.js");
+const _client_ip_js_1 = require("./_client-ip.js");
 const _buckets = new Map();
 // Garbage-collect expired buckets periodically so the Map doesn't grow
 // without bound. Cheap — runs every 60s, walks at most a few hundred entries.
@@ -113,9 +114,8 @@ async function allowKv(key, limit, windowMs, strict = false) {
 function clientKey(req, authedName) {
     if (authedName)
         return `name:${authedName}`;
-    const xff = req.headers['x-forwarded-for'];
-    const xffStr = Array.isArray(xff) ? xff[0] : xff;
-    const ip = xffStr?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || 'unknown';
+    // Cloudflare-aware: keys on the real client IP, not the Cloudflare edge IP.
+    const ip = (0, _client_ip_js_1.clientIp)(req) ?? 'unknown';
     return `ip:${ip}`;
 }
 /**

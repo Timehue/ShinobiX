@@ -11,6 +11,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _client_ip_js_1 = require("../_client-ip.js");
 const _lock_js_1 = require("../_lock.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const BAN_KEY_PREFIX = 'mod:ban:';
@@ -82,17 +83,13 @@ function clientFpFrom(req) {
         return '';
     return trimmed;
 }
-/** Extract the request's client IP, normalized (first XFF hop wins). */
+/**
+ * Extract the request's real client IP. Cloudflare-aware: honors
+ * `CF-Connecting-IP` when the request transited Cloudflare, else falls back to
+ * the XFF/socket chain. See `api/_client-ip.ts`.
+ */
 function clientIpFrom(req) {
-    const xff = req.headers['x-forwarded-for'];
-    const xffStr = Array.isArray(xff) ? xff[0] : xff;
-    const fromXff = xffStr?.split(',')[0]?.trim();
-    if (fromXff)
-        return fromXff;
-    const real = req.headers['x-real-ip'];
-    if (typeof real === 'string' && real.trim())
-        return real.trim();
-    return (req.socket?.remoteAddress ?? 'unknown').trim();
+    return (0, _client_ip_js_1.clientIp)(req) ?? 'unknown';
 }
 /**
  * Record that `name` was just observed with browser fingerprint `fp`.
