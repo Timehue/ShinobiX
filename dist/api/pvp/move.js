@@ -1585,15 +1585,17 @@ async function handler(req, res) {
                 if (distance(me.pos, opp.pos) > weapRange) {
                     return finish(await rejectWithLog(`${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`));
                 }
-                // Cooldown enforcement — thrown weapons honour their catalog
-                // weaponCooldown server-side (the client showed it but the server
-                // ignored it, so a crafted request / non-gating client could throw
-                // every turn). Melee (hand) weapons stay uncapped: their cooldown
-                // would force basicAttack filler turns — a separate balance call.
-                // Keyed by item id (falls back to name) and ticked by tickCooldowns
-                // exactly like jutsu cooldowns.
+                // Cooldown enforcement — both thrown weapons AND named melee (hand)
+                // weapons honour their catalog weaponCooldown server-side. The named
+                // weapons advertise a CD in their card text, the client shows it, and
+                // PvE enforces it — but the PvP server used to gate this on thrown
+                // only, so a hand weapon with CD 5 could strike every turn (a crafted
+                // request / non-gating client spam vector). The case above already
+                // guarantees wSlot ∈ {hand, thrown}; a weapon with no weaponCooldown
+                // defaults to 0 → unaffected. Keyed by item id (falls back to name)
+                // and ticked by tickCooldowns exactly like jutsu cooldowns.
                 const wCdKey = serverItem.id ?? serverItem.name ?? 'weapon';
-                const wCdTurns = wSlot === 'thrown' ? Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 0))) : 0;
+                const wCdTurns = Math.max(0, Math.floor(Number(serverItem.weaponCooldown ?? 0)));
                 if (wCdTurns > 0 && (myCooldowns[wCdKey] ?? 0) > 0) {
                     return finish(withRejected(session, `${serverItem.name ?? 'That weapon'} is on cooldown (${myCooldowns[wCdKey]} turn(s) left).`));
                 }
