@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { clientIp } from '../_client-ip.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 
@@ -122,15 +123,13 @@ export function clientFpFrom(req: VercelRequest): string {
     return trimmed;
 }
 
-/** Extract the request's client IP, normalized (first XFF hop wins). */
+/**
+ * Extract the request's real client IP. Cloudflare-aware: honors
+ * `CF-Connecting-IP` when the request transited Cloudflare, else falls back to
+ * the XFF/socket chain. See `api/_client-ip.ts`.
+ */
 export function clientIpFrom(req: VercelRequest): string {
-    const xff = req.headers['x-forwarded-for'];
-    const xffStr = Array.isArray(xff) ? xff[0] : xff;
-    const fromXff = xffStr?.split(',')[0]?.trim();
-    if (fromXff) return fromXff;
-    const real = req.headers['x-real-ip'];
-    if (typeof real === 'string' && real.trim()) return real.trim();
-    return (req.socket?.remoteAddress ?? 'unknown').trim();
+    return clientIp(req) ?? 'unknown';
 }
 
 /**
