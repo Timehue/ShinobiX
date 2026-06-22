@@ -807,7 +807,11 @@ function FxAnim({
         const elapsed = (state.clock.elapsedTime - start.current) * 1000;
         const p = Math.min(1, elapsed / durationMs);
         const idx = Math.min(textures.length - 1, Math.floor(p * textures.length));
-        if (mat.current) mat.current.map = textures[idx] ?? null;
+        const tex = textures[idx] ?? null;
+        if (mat.current) mat.current.map = tex;
+        // Hide until the frame's texture has actually decoded — otherwise a not-yet-
+        // loaded texture renders as a flashing opaque quad on the first frame.
+        if (group.current) group.current.visible = !!(tex && tex.image);
         if (group.current && to) {
             group.current.position.x = lerp(from[0], to[0], p);
             group.current.position.y = lerp(from[1], to[1], p);
@@ -817,7 +821,7 @@ function FxAnim({
     });
 
     return (
-        <group ref={group} position={from}>
+        <group ref={group} position={from} visible={false}>
             <Billboard>
                 <mesh scale={[scale, scale, scale]}>
                     <planeGeometry args={[1, 1]} />
@@ -1586,8 +1590,30 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const poses = usePetPoses(petVisualId(pet), mirror);
     const group = useRef<THREE.Group>(null);     // floor position + lunge offset
     const poseG = useRef<THREE.Group>(null);      // squash/stretch + topple, pivots at the feet
-    const mat = useRef<THREE.MeshBasicMaterial>(null);
-    const flashMat = useRef<THREE.MeshBasicMaterial>(null);
+    // Deform "rig": a meshBasicMaterial whose vertex shader is patched
+    // (onBeforeCompile) to BEND the sprite up its body — the creature leans into a
+    // lunge, arches on the hop, and its body/tail follow through with a travelling
+    // sine — so it ANIMATES instead of sliding as a flat image. Cheap; scales to all
+    // pets; texture/tint/flash stay on the standard material so colour is correct.
+    const deformU = useRef<Record<string, { value: number }> | null>(null);
+    const baseMat = useMemo(() => {
+        const m = new THREE.MeshBasicMaterial({ map: sprite.texture, transparent: true, alphaTest: 0.4, depthWrite: false, toneMapped: false });
+        m.onBeforeCompile = (shader) => {
+            shader.uniforms.uLean = { value: 0 };
+            shader.uniforms.uArch = { value: 0 };
+            shader.uniforms.uWave = { value: 0 };
+            shader.uniforms.uTime = { value: 0 };
+            shader.uniforms.uHalfH = { value: 1 };
+            deformU.current = shader.uniforms as unknown as Record<string, { value: number }>;
+            shader.vertexShader = shader.vertexShader
+                .replace("#include <common>", "uniform float uLean,uArch,uWave,uTime,uHalfH;\n#include <common>")
+                .replace("#include <begin_vertex>", "#include <begin_vertex>\nfloat _h=clamp(transformed.y/(uHalfH*2.0)+0.5,0.0,1.0);\ntransformed.x += uLean*_h*_h + uArch*sin(_h*3.14159) + sin(_h*5.0 - uTime*6.0)*uWave*_h;");
+        };
+        return m;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    useEffect(() => () => baseMat.dispose(), [baseMat]);
+    const matRef = useRef<THREE.MeshBasicMaterial>(null);   // primitive ref → mutated in useFrame (r3f escape hatch)
     const shadow = useRef<THREE.Mesh>(null);
     const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
     const hpFill = useRef<HTMLDivElement>(null);
@@ -1646,8 +1672,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const side = mirror ? "enemy" : "player";
 
     useFrame((state, delta) => {
-        const g = group.current, m = mat.current, pg = poseG.current;
-        if (!g || !m || !pg) return;
+        const g = group.current, pg = poseG.current, m = matRef.current;
+        if (!g || !pg || !m) return;
         const snaps = duel.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
         const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
@@ -1769,11 +1795,12 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         if (cat !== poseCat) setPoseCat(cat);
 
-        // Hit flash on HP drop; status tint while afflicted; fade out when down.
+        // Hit flash on HP drop (folded into the material colour); status tint while
+        // afflicted; fade out when down.
         if (a0.hp < prevHp.current - 0.5) flash.current = 1;
         prevHp.current = a0.hp;
         flash.current *= 0.86;
-        if (flashMat.current) flashMat.current.opacity = flash.current < 0.02 ? 0 : flash.current * 0.9;
+        const fl = flash.current < 0.02 ? 0 : flash.current * 0.9;
         // Status TINT (burn = ember-warm, stun = icy-blue) pulses on the sprite so
         // afflictions read at a glance; the stagger hurt-flash deepens it to red.
         const hurt = a0.state === "stagger" ? 0.5 : 0;
@@ -1786,10 +1813,18 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             tr = 1 - (1 - tr) * pulse; tg = 1 - (1 - tg) * pulse; tb = 1 - (1 - tb) * pulse;
         }
         tg -= 0.3 * hurt; tb -= 0.3 * hurt;
-        m.color.r = lerp(m.color.r, tr, 0.35);
-        m.color.g = lerp(m.color.g, Math.max(0, tg), 0.35);
-        m.color.b = lerp(m.color.b, Math.max(0, tb), 0.35);
+        m.color.setRGB(Math.min(2, tr + fl), Math.min(2, Math.max(0, tg) + fl), Math.min(2, Math.max(0, tb) + fl));
         m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
+        if (m.map !== useTex) m.map = useTex;
+        // Drive the deform "rig": lean into the lunge, arch on the hop, body/tail
+        // follow-through wave (stronger while moving / striking, gentle idle sway).
+        if (deformU.current) {
+            deformU.current.uHalfH.value = L.planeH * 0.5;
+            deformU.current.uTime.value = state.clock.elapsedTime;
+            deformU.current.uLean.value = lerp(deformU.current.uLean.value, choX.current * 0.5, 0.4);
+            deformU.current.uArch.value = Math.max(0, choY.current) * 0.5;
+            deformU.current.uWave.value = 0.025 + Math.min(0.14, spd * 2.2) + (pe >= 0 && pe < pulseS.current ? 0.12 : 0);
+        }
 
         // HP bar + dead dim via DOM refs (no React re-render).
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100))}%`;
@@ -1814,12 +1849,8 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 <Billboard lockX lockZ>
                     <group ref={poseG}>
                         <mesh position={[L.meshX, L.meshY, 0]}>
-                            <planeGeometry args={[L.planeW, L.planeH]} />
-                            <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.4} depthWrite={false} toneMapped={false} />
-                            <mesh position={[0, 0, 0.01]}>
-                                <planeGeometry args={[L.planeW, L.planeH]} />
-                                <meshBasicMaterial ref={flashMat} map={useTex} transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} />
-                            </mesh>
+                            <planeGeometry args={[L.planeW, L.planeH, 6, 20]} />
+                            <primitive object={baseMat} ref={matRef} attach="material" />
                         </mesh>
                     </group>
                 </Billboard>
@@ -2105,14 +2136,18 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, elementById, onCutIn }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, elementById, onCutIn, onFlash, onCallout, onCombo }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => void;
+    spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
     elementById: Record<string, string | null | undefined>;
     onCutIn: (actorId: string) => void;
+    onFlash: (color: string, intensity: number) => void;     // full-screen element flash
+    onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
+    onCombo: (n: number) => void;                            // combo counter pop
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
@@ -2120,9 +2155,14 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const shake = useRef(0);
     const hitStop = useRef(0);
     const timeScale = useRef(1);   // playback slow-mo on ultimate / KO; eases to 1
+    const zoomKick = useRef(0);    // transient dolly-IN punch on heavy hits (decays)
+    const koPull = useRef(0);      // camera pull-BACK on KO (eases out slowly)
+    const comboN = useRef(0);      // consecutive-hit combo counter
+    const comboT = useRef(0);      // wall-time the combo window expires
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
+        const now = state.clock.elapsedTime;
         // Hit-stop freezes playback on impact (weight); otherwise time can DILATE
         // (slow-mo) for an ultimate / KO. Both are render-only — they scale only the
         // clock advance, never the deterministic sim.
@@ -2140,15 +2180,27 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     if (a) {
                         const frac = Math.min(1, e.dmg / Math.max(1, a.maxHp));
                         const heavy = !!e.crit || frac > 0.12;
+                        const col = elementColor(e.element).glow;
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
-                        spawnImpact({ x: a.x, z: a.y, color: elementColor(e.element).glow, big: heavy });
+                        spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
                         // The elemental BURST on contact — fire/water/lightning/etc.
                         spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 1.9 : 1.4, dur: heavy ? 420 : 320 });
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0));
+                        // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
+                        // hit (bigger on heavy/crit) so even a small spell reads as an event.
+                        onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0));
+                        spawnShock({ x: a.x, z: a.y, color: col, big: heavy });
+                        // Camera ZOOM-PUNCH on heavy/crit blows.
+                        if (heavy) zoomKick.current = Math.max(zoomKick.current, e.crit ? 2.6 : 1.4);
+                        // Combo counter — consecutive hits inside a 1.1s window.
+                        comboN.current = now < comboT.current ? comboN.current + 1 : 1;
+                        comboT.current = now + 1.1;
+                        if (comboN.current >= 2) onCombo(comboN.current);
+                        if (e.crit) onCallout("CRITICAL!");
                         // Crit → a couple of trailing sparks read as a multi-hit flurry.
                         if (e.crit) {
-                            const ax = a.x, az = a.y, col = elementColor(e.element).glow;
+                            const ax = a.x, az = a.y;
                             window.setTimeout(() => spawnImpact({ x: ax + 0.45, z: az, color: col, big: false }), 70);
                             window.setTimeout(() => spawnImpact({ x: ax - 0.35, z: az + 0.25, color: col, big: false }), 150);
                         }
@@ -2166,28 +2218,44 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     const d = findActor(snapAt, e.actorId);
                     if (d) spawnImpact({ x: d.x, z: d.y, color: "#bae6fd", big: false });
                 } else if ((e.type === "cast" || e.type === "ultimate") && e.actorId) {
-                    // The elemental UNLEASH at the caster (ability tell).
+                    // The elemental UNLEASH at the caster — a per-element SEQUENCE (burst
+                    // now → a bigger bloom a beat later) so it reads as a channelled spell.
                     const c = findActor(snapAt, e.actorId);
-                    if (c) spawnFx({ x: c.x, z: c.y, element: elementById[e.actorId], scale: e.type === "ultimate" ? 2.4 : 1.3, dur: e.type === "ultimate" ? 520 : 300 });
+                    const el = elementById[e.actorId];
+                    if (c) {
+                        spawnFx({ x: c.x, z: c.y, element: el, scale: e.type === "ultimate" ? 2.4 : 1.3, dur: e.type === "ultimate" ? 520 : 300 });
+                        if (e.type === "ultimate") {
+                            const ex = c.x, ey = c.y;
+                            window.setTimeout(() => spawnFx({ x: ex, z: ey, element: el, scale: 3.2, dur: 520 }), 200);
+                        }
+                    }
                     if (e.type === "ultimate") {
                         shake.current = Math.max(shake.current, 1.8);
                         timeScale.current = Math.min(timeScale.current, 0.5);  // brief slow-mo for the unleash
+                        zoomKick.current = Math.max(zoomKick.current, 2.8);
+                        onFlash(elementColor(el).glow, 0.42);
                         onCutIn(e.actorId);                                    // anime portrait cut-in
                     }
                 } else if (e.type === "ko") {
-                    shake.current = Math.max(shake.current, 2.8);
-                    hitStop.current = Math.max(hitStop.current, 0.22);
-                    timeScale.current = Math.min(timeScale.current, 0.4);      // slow-mo the final blow
+                    // KO finisher: a hard freeze → deep slow-mo → camera PULL-BACK reveal.
+                    shake.current = Math.max(shake.current, 3.0);
+                    hitStop.current = Math.max(hitStop.current, 0.34);
+                    timeScale.current = Math.min(timeScale.current, 0.32);
+                    koPull.current = 3.4;
+                    onFlash("#fff7e6", 0.5);
+                    onCallout("FINISH!");
                 }
             }
             lastTick.current = cur;
         }
-        // Perspective hero camera at its base pose + a decaying impact shake offset.
-        const t = state.clock.elapsedTime;
+        // Perspective hero camera: base pose + decaying impact shake + a transient
+        // ZOOM-PUNCH (dolly in on big hits) and a KO PULL-BACK reveal.
         const a = shake.current; shake.current *= 0.85;
-        const sx = a > 0.01 ? Math.sin(t * 53) * a * 0.1 : 0;
-        const sy = a > 0.01 ? Math.sin(t * 61) * a * 0.06 : 0;
-        camera.position.set(CAM_POS[0] + sx, CAM_POS[1] + sy, CAM_POS[2]);
+        const sx = a > 0.01 ? Math.sin(now * 53) * a * 0.1 : 0;
+        const sy = a > 0.01 ? Math.sin(now * 61) * a * 0.06 : 0;
+        const zk = zoomKick.current; zoomKick.current *= 0.86;
+        koPull.current = lerp(koPull.current, 0, 0.025);
+        camera.position.set(CAM_POS[0] + sx, CAM_POS[1] + sy, CAM_POS[2] - zk + koPull.current);
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
     });
     return null;
@@ -2220,6 +2288,40 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
                     <meshBasicMaterial ref={coreMat} color={color} transparent opacity={0.85} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
                 </mesh>
             </Billboard>
+        </group>
+    );
+}
+
+/** Ground SHOCKWAVE — flat expanding rings on the floor at the impact point that
+ *  drive force into the arena; bigger + brighter on heavy/crit blows. */
+function DuelShockwave({ at, color, big, onDone }: { at: Vec3; color: string; big: boolean; onDone: () => void }) {
+    const r1 = useRef<THREE.Mesh>(null);
+    const m1 = useRef<THREE.MeshBasicMaterial>(null);
+    const r2 = useRef<THREE.Mesh>(null);
+    const m2 = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    const DUR = big ? 0.5 : 0.36;
+    const maxR = big ? 3.0 : 1.7;
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / DUR);
+        const ease = 1 - (1 - p) * (1 - p);
+        if (r1.current) r1.current.scale.setScalar(0.3 + ease * maxR);
+        if (m1.current) m1.current.opacity = (1 - p) * 0.7;
+        if (r2.current) r2.current.scale.setScalar(0.2 + Math.max(0, ease - 0.15) * maxR * 0.7);
+        if (m2.current) m2.current.opacity = (1 - p) * 0.5;
+        if (p >= 1) onDone();
+    });
+    return (
+        <group position={[at[0], 0.05, at[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh ref={r1}>
+                <ringGeometry args={[0.72, 1.0, 40]} />
+                <meshBasicMaterial ref={m1} color={color} transparent opacity={0.7} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+            </mesh>
+            <mesh ref={r2}>
+                <ringGeometry args={[0.8, 0.94, 40]} />
+                <meshBasicMaterial ref={m2} color="#ffffff" transparent opacity={0.5} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+            </mesh>
         </group>
     );
 }
@@ -2271,6 +2373,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
     const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
+    const [shocks, setShocks] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
+    const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
+    const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
+    const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
 
     // FX map through the SAME field→floor placement as the fighters, at mid-body
@@ -2294,6 +2400,16 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const fp = duelFieldToFloor(n.x, n.z);
         setFxList((arr) => [...arr, { id, frames, pos: [fp.wx, FX_Y, fp.wz], scale: n.scale * 1.1, dur: n.dur }]);
     };
+    // Ground shockwave rings on the floor at the impact point.
+    const spawnShock = (n: { x: number; z: number; color: string; big: boolean }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setShocks((arr) => [...arr, { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
+    };
+    // Full-screen element flash / big "CRITICAL!/FINISH!" callout / combo-counter pop.
+    const triggerFlash = (color: string, intensity: number) => setFlash({ id: seqRef.current++, color, intensity: Math.min(0.6, intensity) });
+    const triggerCallout = (text: string) => { const id = seqRef.current++; setCallout({ id, text }); window.setTimeout(() => setCallout((c) => (c && c.id === id ? null : c)), 760); };
+    const triggerCombo = (n: number) => { const id = seqRef.current++; setCombo({ id, n }); window.setTimeout(() => setCombo((c) => (c && c.id === id ? null : c)), 820); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string) => {
@@ -2306,12 +2422,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = true; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setFlash(null); setCallout(null); setCombo(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
+            <style>{`
+                @keyframes petDuelFlash { 0% { opacity: 0; } 14% { opacity: var(--fp, 0.4); } 100% { opacity: 0; } }
+                @keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
+                @keyframes petDuelCombo { 0% { opacity: 0; transform: scale(1.6); } 25% { opacity: 1; transform: scale(1); } 78% { opacity: 1; } 100% { opacity: 0; } }
+                @keyframes petDuelCritPop { 0% { transform: scale(0.4); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+            `}</style>
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
@@ -2328,15 +2450,18 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {impacts.map((im) => (
                     <DuelImpact key={im.id} at={im.pos} color={im.color} big={im.big} onDone={() => setImpacts((p) => p.filter((x) => x.id !== im.id))} />
                 ))}
+                {shocks.map((s) => (
+                    <DuelShockwave key={s.id} at={s.pos} color={s.color} big={s.big} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
+                ))}
                 {fxList.map((fx) => (
                     <FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
                 {numbers.map((l) => (
                     <Html key={l.id} position={l.pos} center pointerEvents="none" zIndexRange={[20, 0]}>
-                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 24px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif" }}>{l.text}</span>
+                        <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} elementById={elementById} onCutIn={triggerCutIn} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} elementById={elementById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} />
                 <BloomFx />
             </Canvas>
 
@@ -2353,6 +2478,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className="pet-cutin-move">{cutIn.move}!</span>
                     </div>
                 </div>
+            )}
+
+            {/* Combat-juice overlays: full-screen element flash, big callout, combo. */}
+            {flash && (
+                <div key={`flash-${flash.id}`} style={{ position: "absolute", inset: 0, background: flash.color, opacity: 0, mixBlendMode: "screen", pointerEvents: "none", animation: "petDuelFlash 340ms ease-out forwards", ["--fp" as string]: flash.intensity } as React.CSSProperties} />
+            )}
+            {callout && (
+                <div key={`callout-${callout.id}`} style={{ position: "absolute", top: "28%", left: 0, right: 0, textAlign: "center", pointerEvents: "none", font: "900 clamp(34px,7vw,72px)/1 Cinzel, serif", color: "#fff", letterSpacing: "0.05em", textShadow: "0 0 18px rgba(250,204,21,0.9), 0 4px 10px #000", animation: "petDuelCallout 740ms cubic-bezier(.2,.9,.2,1) forwards" }}>{callout.text}</div>
+            )}
+            {combo && combo.n >= 2 && (
+                <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "20%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(30px,5vw,58px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
             )}
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
