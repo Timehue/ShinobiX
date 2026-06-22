@@ -1528,9 +1528,18 @@ const DIORAMA_URL = new URL("../assets/coliseum/tactics-diorama.webp", import.me
 // lands on the exact painted pixel at any viewport. worldW:worldH == image aspect.
 const MAP_W = 1536, MAP_H = 1024;
 const STAGE = { worldW: 30, worldH: 20 };
-// Pets are SMALL tactical units (~60px content height @ scale 1 on a 1536-ref),
-// never the oversized sprites from before. (1 world unit = MAP_H/worldH px.)
-const STAGE_SPRITE_H = 1.2;
+// ── COLISEUM duel stage ──────────────────────────────────────────────────────
+// The 1v1/2v2 "Live Combat" duel composites its fighters over the painted COLISEUM
+// backdrop (the moonlit pagoda arena) as a SIDE-ON stage — BIG fighters on the
+// arena floor, not tiny tactical units on a top-down map. It has its own
+// map/stage/projection constants so the separate Tactical Arena mode (which keeps
+// the top-down diorama) is unaffected. worldW:worldH == the backdrop's aspect.
+const DUEL_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
+const DUEL_MAP_W = 1024, DUEL_MAP_H = 768;        // coliseum-bg.webp dimensions (4:3)
+const DUEL_STAGE = { worldW: 30, worldH: 22.5 };  // 4:3 to match the backdrop
+// Fighters are BIG (a duel, not a tactical skirmish) — content height in world
+// units, then depth-scaled. (1 world unit = DUEL_MAP_H/worldH px.)
+const STAGE_SPRITE_H = 5.0;
 // Render-side spacing for the duel diorama: the minimum on-screen HORIZONTAL gap
 // (world units at depth 1) the two fighters' sprites keep, and the screen-row band
 // within which a crowded pair can visually overlap. The sim's body separation
@@ -1540,25 +1549,27 @@ const STAGE_SPRITE_H = 1.2;
 // contact; the strike PULSE (below) pops the attacker in for the actual hit, so this
 // needn't be held wide. Cosmetic only — never fed back into the sim, so zero balance/
 // determinism impact.
-const DUEL_MIN_SCREEN_X = 1.6;
+const DUEL_MIN_SCREEN_X = 6.0;
 // Strike pulse: a self-timed forward thrust on the hit beat. The sim's `strike` state is
 // a single ~33ms tick (far too short for a 320ms beatTimeline to play, and skippable on
 // a slow frame), so the thrust is fired off the WINDUP→exit edge instead. STRIKE_REACH is
 // world units at depth 1 (depth applied once at draw); duration in seconds.
 const STRIKE_REACH = 0.7;
 const STRIKE_PULSE_S = 0.26;
-const DUEL_SEP_DEPTH_BAND = 2.2;
-// The action band: the sim field maps onto this open lower-middle rectangle of the
-// arena (on the paths, off the decorative back/walls), so the fight reads across
-// the battlefield in front of the camera.
-const PLAY = { x0: 292, x1: 1244, y0: 452, y1: 800 };
+const DUEL_SEP_DEPTH_BAND = 3.0;
+// The action band: the sim field maps onto this lower-centre rectangle of the
+// COLISEUM backdrop (the lit arena floor in front of the stands), so the two
+// fighters face off ON the floor with the pagoda + moon rising behind them.
+const PLAY = { x0: 205, x1: 819, y0: 520, y1: 642 };
 // Perspective: front (high map-Y) units larger, back units smaller — so they sit
-// in the painting's depth instead of looking pasted on.
-function getPerspectiveScale(my: number): number {
-    const t = Math.min(1, Math.max(0, my / MAP_H));
-    return 0.65 + (1.15 - 0.65) * t;
+// in the painting's depth instead of looking pasted on. mapH defaults to the
+// tactical-arena reference; the duel passes its own (DUEL_MAP_H) and a FLATTER
+// lo/hi range so both fighters stay big and read as a face-off (not one-behind-other).
+function getPerspectiveScale(my: number, mapH: number = MAP_H, lo = 0.65, hi = 1.15): number {
+    const t = Math.min(1, Math.max(0, my / mapH));
+    return lo + (hi - lo) * t;
 }
-/** sim field (x∈±ARENA_X, y∈±ARENA_Y) → map-space (px in the 1536×1024 image). */
+/** sim field (x∈±ARENA_X, y∈±ARENA_Y) → map-space (px in the coliseum backdrop). */
 function fieldToMap(fx: number, fy: number): { mx: number; my: number } {
     return {
         mx: lerp(PLAY.x0, PLAY.x1, (fx + ARENA_X) / (2 * ARENA_X)),
@@ -1570,10 +1581,10 @@ type StagePos = { wx: number; wy: number; depth: number; zo: number };
 function stagePlace(sx: number, sy: number): StagePos {
     const { mx, my } = fieldToMap(sx, sy);
     return {
-        wx: (mx / MAP_W - 0.5) * STAGE.worldW,
-        wy: (0.5 - my / MAP_H) * STAGE.worldH,
-        depth: getPerspectiveScale(my),
-        zo: (my / MAP_H) * 8,   // depth-sort: front (high map-Y) drawn over back
+        wx: (mx / DUEL_MAP_W - 0.5) * DUEL_STAGE.worldW,
+        wy: (0.5 - my / DUEL_MAP_H) * DUEL_STAGE.worldH,
+        depth: getPerspectiveScale(my, DUEL_MAP_H, 0.96, 1.05),
+        zo: (my / DUEL_MAP_H) * 8,   // depth-sort: front (high map-Y) drawn over back
     };
 }
 
@@ -1603,11 +1614,11 @@ function arenaPlace(sx: number, sy: number): StagePos {
  *  the sprite layer is pixel-locked to the painting at any size. `cover` fills +
  *  crops (duel/coliseum); `contain` shows the WHOLE map centred (arena — so the
  *  full board is always visible + the side panels don't crop the action). */
-function StageCamera({ fit = "cover" }: { fit?: "cover" | "contain" }) {
+function StageCamera({ fit = "cover", worldW = STAGE.worldW, worldH = STAGE.worldH }: { fit?: "cover" | "contain"; worldW?: number; worldH?: number }) {
     const size = useThree((s) => s.size);
     const zoom = fit === "contain"
-        ? Math.min(size.width / STAGE.worldW, size.height / STAGE.worldH)
-        : Math.max(size.width / STAGE.worldW, size.height / STAGE.worldH);
+        ? Math.min(size.width / worldW, size.height / worldH)
+        : Math.max(size.width / worldW, size.height / worldH);
     return <OrthographicCamera makeDefault position={[0, 0, 100]} zoom={zoom} near={0.1} far={1000} />;
 }
 
@@ -2345,12 +2356,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a", backgroundImage: `url(${DIORAMA_URL})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a", backgroundImage: `url(${DUEL_BG_URL})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
             {/* Transparent r3f layer composited OVER the CSS diorama backdrop. The
                 orthographic, cover-fit camera (StageCamera) keeps every fighter +
                 FX pixel-locked to the painting at any viewport size. */}
             <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
-                <StageCamera />
+                <StageCamera worldW={DUEL_STAGE.worldW} worldH={DUEL_STAGE.worldH} />
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}
