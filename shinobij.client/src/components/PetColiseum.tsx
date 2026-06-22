@@ -1516,10 +1516,17 @@ const STAGE_SPRITE_H = 1.2;
 // within which a crowded pair can visually overlap. The sim's body separation
 // (~1.08 field units) is narrower than a sprite, and the diorama composites
 // straight from the sim — so a same-row clash would draw the two INTO each other.
-// Tuned small so a melee exchange still reads close (the impact VFX sells contact)
-// while the two creatures never merge into one blob. Cosmetic only — never fed
-// back into the sim, so zero balance/determinism impact.
-const DUEL_MIN_SCREEN_X = 0.95;
+// Sized so two WIDE quadruped sprites keep a clear gap when the sim packs them to melee
+// contact; the strike PULSE (below) pops the attacker in for the actual hit, so this
+// needn't be held wide. Cosmetic only — never fed back into the sim, so zero balance/
+// determinism impact.
+const DUEL_MIN_SCREEN_X = 1.6;
+// Strike pulse: a self-timed forward thrust on the hit beat. The sim's `strike` state is
+// a single ~33ms tick (far too short for a 320ms beatTimeline to play, and skippable on
+// a slow frame), so the thrust is fired off the WINDUP→exit edge instead. STRIKE_REACH is
+// world units at depth 1 (depth applied once at draw); duration in seconds.
+const STRIKE_REACH = 0.7;
+const STRIKE_PULSE_S = 0.26;
 const DUEL_SEP_DEPTH_BAND = 2.2;
 // The action band: the sim field maps onto this open lower-middle rectangle of the
 // arena (on the paths, off the decorative back/walls), so the fight reads across
@@ -1607,6 +1614,14 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const lastPos = useRef<[number, number]>([0, 0]);
     const scaleSm = useRef(0);   // smoothed depth-scale → no size pop from a jittery tick or a reserve swap-in teleport
     const runClock = useRef(0);
+    // Anime strike choreography (render-only): eased offsets + phase clocks. The LONG sim
+    // states (windup/stagger/dodge) drive beatTimeline directly; the 1-tick `strike` drives
+    // a self-timed forward pulse off the windup-exit edge.
+    const choX = useRef(0), choSX = useRef(1), choSY = useRef(1), choRot = useRef(0);
+    const choKind = useRef<PetVisualState>("idle");
+    const choStart = useRef(0);
+    const prevSimState = useRef<DuelState>("idle");
+    const strikeStart = useRef(-999);
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
 
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
@@ -1657,17 +1672,48 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
             }
         }
 
+        // Face the target BEFORE choreography so the lunge drives toward the foe.
+        if (Math.abs(a0.faceX) > 0.12) facing.current = a0.faceX < 0 ? -1 : 1;
+
+        // ── Anime strike choreography (render-only — never touches the sim) ──────
+        // To read like a Sword-x-Staff auto-battle. The LONG sim states drive the same
+        // beatTimeline arcs the 3D coliseum uses: windup coils back, stagger recoils,
+        // dodge slips. HORIZONTAL only (the diorama is top-down — a vertical leap would
+        // read as moving back). `dash` is left to the SIM (it already translates the body
+        // toward the foe). The forward THRUST is a self-timed pulse, fired off the
+        // windup→exit edge (robust to the 1-tick `strike` being skipped on a slow frame).
+        const basePose: PetVisualState =
+            a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
+        if (basePose !== choKind.current) { choKind.current = basePose; choStart.current = state.clock.elapsedTime; }
+        const baseProg = basePose === "idle" ? 1 : Math.min(1, (state.clock.elapsedTime - choStart.current) / (beatChoreoMs(basePose) / 1000));
+        const base = beatTimeline(basePose, facing.current, 1.0, baseProg, { power: 0.6 });
+        // Fire the forward pulse when windup completes into strike/recover (a real hit) —
+        // NOT when an interrupted windup is knocked into stagger (that must recoil, not
+        // thrust). `recover` keeps it robust to the 1-tick `strike` being skipped on a slow frame.
+        if (prevSimState.current === "windup" && (a0.state === "strike" || a0.state === "recover")) strikeStart.current = state.clock.elapsedTime;
+        prevSimState.current = a0.state;
+        const pe = state.clock.elapsedTime - strikeStart.current;
+        let dxT = base.dx, sxT = base.sx, syT = base.sy, rotT = base.rot;
+        if (pe >= 0 && pe < STRIKE_PULSE_S) {   // forward pop + stretch, peaking ~⅓ in then easing back
+            const pp = pe / STRIKE_PULSE_S;
+            const thrust = pp < 0.32 ? pp / 0.32 : 1 - (pp - 0.32) / 0.68;
+            const e = thrust * thrust * (3 - 2 * thrust);   // smoothstep
+            dxT = STRIKE_REACH * e * facing.current; sxT = 1 + 0.14 * e; syT = 1 - 0.1 * e; rotT = 0;
+        }
+        const ck = (a0.state === "strike" || a0.state === "stagger" || pe < STRIKE_PULSE_S) ? 0.5 : 0.3;   // snappier on the hit beats
+        choX.current = lerp(choX.current, dxT, ck);
+        choSX.current = lerp(choSX.current, sxT, ck);
+        choSY.current = lerp(choSY.current, syT, ck);
+        choRot.current = lerp(choRot.current, rotT, ck);
+
         // run-bob + a forward lean make the locomotion READ; depth scales it all.
         const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.18 : 0;
         scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
-        g.position.set(drawX, p.wy + bob * p.depth, p.zo);
+        g.position.set(drawX + choX.current * p.depth, p.wy + bob * p.depth, p.zo);
         g.scale.setScalar(scaleSm.current);
-        // Turn to FACE the target (flip by the sim's facing) so a pet never fights
-        // with its back to the enemy; the forward run-lean flips along with it.
-        if (Math.abs(a0.faceX) > 0.12) facing.current = a0.faceX < 0 ? -1 : 1;
         if (flip.current) {
-            flip.current.scale.x = facing.current;
-            flip.current.rotation.z = lerp(flip.current.rotation.z, moving ? -0.12 : 0, 0.2);
+            flip.current.scale.set(facing.current * choSX.current, choSY.current, 1);
+            flip.current.rotation.z = lerp(flip.current.rotation.z, (moving ? -0.12 : 0) + choRot.current, 0.25);
         }
 
         // Pose: alternate the 2-frame run cycle while traversing (if the pet has
@@ -1694,7 +1740,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(drawX, p.wy - 0.08 * p.depth, p.zo - 0.1);
+            shadow.current.position.set(drawX + choX.current * p.depth, p.wy - 0.08 * p.depth, p.zo - 0.1);
             shadow.current.scale.set(shadowW * scaleSm.current, shadowW * 0.32 * scaleSm.current, 1);
             shadowMat.current.opacity = 0.4 * (a0.state === "dead" ? 0.4 : 1);
         }
