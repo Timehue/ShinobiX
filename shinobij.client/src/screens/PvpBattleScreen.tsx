@@ -17,6 +17,7 @@ import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { useBoardScale } from "../lib/use-board-scale";
 import { hexLineTiles } from "../lib/hex-path";
+import { prefersLiteCombatFx } from "../lib/device-tier";
 import {
     normalizeCharacter,
     playerLensDiscipline,
@@ -169,6 +170,9 @@ export function PvpBattleScreen({
     // wondering whether to refresh. The fetch/subscribe effect flips
     // this on Realtime status callbacks and SSE error/open events.
     const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
+    // Weak phones / desktops skip the dash-trail flourish (the only animation-heavy
+    // PvP cosmetic); the floating ±damage numbers below are kept as the impact cue.
+    const liteFx = prefersLiteCombatFx();
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
     const logRef = useRef<HTMLDivElement>(null);
     // Battle-log round accordion overrides (default-open = latest two rounds).
@@ -410,9 +414,11 @@ export function PvpBattleScreen({
 
     useEffect(() => {
         if (!session) return;
+        // Track positions regardless (so re-enabling never slingshots), but on weak
+        // devices skip building the dash-trail FX + its timers entirely.
         const previous = previousPvpPositionsRef.current;
         const current = { p1: session.p1.pos, p2: session.p2.pos };
-        if (!previous) {
+        if (!previous || liteFx) {
             previousPvpPositionsRef.current = current;
             return;
         }
