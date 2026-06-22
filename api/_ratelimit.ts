@@ -14,6 +14,7 @@
  */
 
 import { kv } from './_storage.js';
+import { clientIp } from './_client-ip.js';
 
 type Bucket = { count: number; resetAt: number };
 const _buckets = new Map<string, Bucket>();
@@ -115,9 +116,8 @@ export function clientKey(
     authedName?: string | null,
 ): string {
     if (authedName) return `name:${authedName}`;
-    const xff = req.headers['x-forwarded-for'];
-    const xffStr = Array.isArray(xff) ? xff[0] : xff;
-    const ip = xffStr?.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || 'unknown';
+    // Cloudflare-aware: keys on the real client IP, not the Cloudflare edge IP.
+    const ip = clientIp(req) ?? 'unknown';
     return `ip:${ip}`;
 }
 
