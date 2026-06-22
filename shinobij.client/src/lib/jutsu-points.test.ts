@@ -43,4 +43,12 @@ describe("jutsuPointBreakdown", () => {
     it("a plain standard 60 AP jutsu has no point items", () => {
         assert.deepEqual(jutsuPointBreakdown(j({ ap: 60, effectPower: 40, range: 4, cooldown: 7, tags: [] })), []);
     });
+
+    it("a below-cap percent amp tag costs the 0.25 floor (never free)", () => {
+        // Increase Damage Given 20% on a no-rank jutsu (cap 30) used to be free (0);
+        // now floored to 0.25 so a player can't stack cheap below-cap amps.
+        const items = jutsuPointBreakdown(j({ ap: 60, effectPower: 40, range: 4, cooldown: 7, tags: [{ name: "Increase Damage Given", percent: 20 }] }));
+        const idg = items.find((it) => it.label.startsWith("Increase Damage Given"));
+        assert.ok(idg && idg.points === 0.25, `expected 0.25 floor, got ${idg?.points}`);
+    });
 });
