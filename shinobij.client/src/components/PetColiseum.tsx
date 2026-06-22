@@ -2172,9 +2172,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PetArenaMatch — the Tactical Pet Arena game mode (docs/pet-arena-mode-plan.md):
-// deathmatch + capture-the-scroll, 2v2/4v4, first to 10 points, 3 lives + respawns.
-// Plays the deterministic match sim (pet-arena-sim.ts) on the same diorama stage,
-// reusing the projection + pose flipbook + FX. PREVIEW-ONLY.
+// capture-the-scroll, 2v2/4v4: first to 5 CAPTURES wins (kills don't score — they
+// remove a pet for a ~7s respawn window). Plays the deterministic match sim
+// (pet-arena-sim.ts) on the same diorama stage, reusing the projection + pose
+// flipbook + FX. Also the engine behind the Tactical ranked ladder.
 // ═════════════════════════════════════════════════════════════════════════════
 const ARENA_SPRITE_H = 1.05;
 // Render-side motion smoothing factor (per frame) for the drawn sprite position —
@@ -2236,6 +2237,8 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const scaleSm = useRef(0);   // smoothed depth-scale → absorbs any residual position jitter so the sprite never pulses big↔small (snaps on a teleport)
     const smX = useRef<number | null>(null), smY = useRef<number | null>(null);   // smoothed DRAW position (render-side low-pass; snaps on a teleport)
     const prevDown = useRef(false);   // was the pet hidden (respawning/dead) last frame → snap, never lerp, across the off-screen respawn jump (robust at any framerate)
+    const reviveRef = useRef<HTMLDivElement>(null);     // "↻ Ns" respawn countdown shown while down
+    const abilityPipRef = useRef<HTMLSpanElement>(null); // role-ability-ready glow dot
     const runClock = useRef(0);
     const fast = useRef(0);   // speed gate 0..1 → dash-trail opacity (read by the ArenaGhost children)
     const tint = useMemo(() => elementTint(pet.element), [pet.element]);
@@ -2307,7 +2310,12 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
 
         if (a0.lives !== lives) setLives(a0.lives);
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100))}%`;
-        if (nameWrap.current) nameWrap.current.style.opacity = down ? "0.4" : "1";
+        // Readouts (sim emits these for display only): a respawn countdown so a downed
+        // pet reads "back in Ns" instead of just vanishing, + an ability-ready glow dot.
+        const respawning = a0.state === "respawning";
+        if (nameWrap.current) nameWrap.current.style.opacity = respawning ? "0.92" : a0.state === "dead" ? "0.3" : "1";
+        if (reviveRef.current) { reviveRef.current.style.display = respawning ? "block" : "none"; if (respawning) reviveRef.current.textContent = `↻ ${a0.respawnSecs}s`; }
+        if (abilityPipRef.current) abilityPipRef.current.style.opacity = (!down && a0.abilityReady) ? "1" : "0";
         if (glowMat.current) glowMat.current.opacity = a0.carrying ? 0.55 + Math.abs(Math.sin(state.clock.elapsedTime * 5)) * 0.35 : 0;
         if (carryMark.current) carryMark.current.style.display = a0.carrying ? "inline" : "none";
         if (shadow.current && shadowMat.current) {
@@ -2343,6 +2351,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
                         <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center", marginBottom: 2 }}>
                             <span ref={carryMark} style={{ display: "none", filter: "drop-shadow(0 0 3px #fde047)" }}>📜</span>
                             <span style={{ color: ROLE_COLOR[role], border: `1px solid ${ROLE_COLOR[role]}`, borderRadius: 3, padding: "0 2px", fontSize: 8 }}>{ROLE_TAG[role]}</span>
+                            <span ref={abilityPipRef} title="ability charged" style={{ width: 5, height: 5, borderRadius: 5, background: ROLE_COLOR[role], boxShadow: `0 0 5px ${ROLE_COLOR[role]}`, opacity: 0 }} />
                             <span style={{ color: "#fff", textShadow: "0 1px 2px #000" }}>{pet.name}</span>
                         </div>
                         <div style={{ width: 56, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
@@ -2351,6 +2360,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
                         <div style={{ display: "flex", gap: 2, justifyContent: "center", marginTop: 2 }}>
                             {[0, 1, 2].map((i) => (<span key={i} style={{ width: 5, height: 5, borderRadius: 5, background: i < lives ? (team === "blue" ? "#60a5fa" : "#fca5a5") : "#334155" }} />))}
                         </div>
+                        <div ref={reviveRef} style={{ display: "none", marginTop: 2, color: "#fde047", font: "800 10px Inter, system-ui, sans-serif", textShadow: "0 1px 3px #000" }} />
                     </div>
                 </Html>
             </group>
@@ -2364,6 +2374,7 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
     const beacon = useRef<THREE.Mesh>(null);
     const beaconMat = useRef<THREE.MeshBasicMaterial>(null);
     const ringRef = useRef<HTMLDivElement>(null);
+    const capRef = useRef<HTMLDivElement>(null);   // "Capturing…" label while a pet channels the pickup
     const [visible, setVisible] = useState(false);
     useFrame((state) => {
         const snaps = result.snapshots;
@@ -2383,6 +2394,7 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
             beaconMat.current.opacity = sc.state === "carried" ? 0 : 0.4 + pulse * 0.4;
         }
         if (ringRef.current) { ringRef.current.style.opacity = sc.channelFrac > 0 ? "1" : "0"; ringRef.current.style.background = `conic-gradient(#fde047 ${sc.channelFrac * 360}deg, rgba(0,0,0,0.35) 0deg)`; }
+        if (capRef.current) capRef.current.style.opacity = sc.channelFrac > 0 ? "1" : "0";   // "hold to capture" cue
     });
     if (!visible) return null;
     return (
@@ -2393,6 +2405,7 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
                     <div style={{ position: "relative", width: 42, height: 42, display: "grid", placeItems: "center" }}>
                         <div ref={ringRef} style={{ position: "absolute", inset: -7, borderRadius: "50%", opacity: 0 }} />
                         <div style={{ fontSize: 34, filter: "drop-shadow(0 0 12px #fde047) drop-shadow(0 0 5px #fff)" }}>📜</div>
+                        <div ref={capRef} style={{ position: "absolute", top: 44, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", font: "800 9px Inter, system-ui, sans-serif", color: "#fde047", textShadow: "0 1px 3px #000", opacity: 0, pointerEvents: "none" }}>Capturing…</div>
                     </div>
                 </Html>
             </group>
@@ -2695,9 +2708,11 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             {/* Scoreboard */}
             <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 14, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: 999, font: "800 20px Inter, system-ui, sans-serif" }}>
                 <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
-                <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>first to {WIN_SCORE}</span>
+                <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {WIN_SCORE}</span>
                 <span style={{ color: "#f87171" }}>{score[1]} RED</span>
             </div>
+            {/* Captures-only scoring — make the win condition unmistakable (kills don't score). */}
+            <div style={{ position: "absolute", top: 48, left: "50%", transform: "translateX(-50%)", padding: "2px 10px", background: "rgba(8,12,24,0.55)", borderRadius: 999, color: "#94a3b8", font: "600 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap", pointerEvents: "none" }}>Capture the scroll to score — defeating pets only buys time</div>
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
