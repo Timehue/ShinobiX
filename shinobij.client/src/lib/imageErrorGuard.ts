@@ -39,4 +39,35 @@ function installImageErrorGuard(): void {
     );
 }
 
+/*
+ * Global image DECODE hint (install once, at app boot).
+ *
+ * None of the ~140 <img> sites set `decoding`, so the browser may decode large
+ * decorative art (backdrops, banners, sector/coliseum scenes) on the MAIN THREAD
+ * during a screen transition — a real source of hitches on weak phones. Rather
+ * than annotate every site, a tiny MutationObserver stamps `decoding="async"` on
+ * each <img> as it enters the DOM (and any already present). `async` is
+ * universally safe: it never blocks, and at worst delays an image's first paint
+ * by a frame. We deliberately do NOT force `loading="lazy"` globally — that can
+ * reflow/flash above-the-fold art — so lazy-loading stays opt-in per site.
+ */
+function installImageDecodeHint(): void {
+    if (typeof window === "undefined" || typeof MutationObserver === "undefined") return;
+    const w = window as unknown as { __imgDecodeHintInstalled?: boolean };
+    if (w.__imgDecodeHintInstalled) return;
+    w.__imgDecodeHintInstalled = true;
+
+    const hint = (img: HTMLImageElement) => { if (!img.hasAttribute("decoding")) img.decoding = "async"; };
+    const scan = (node: Node) => {
+        if (node instanceof HTMLImageElement) hint(node);
+        else if (node instanceof Element && node.firstElementChild) node.querySelectorAll("img").forEach(hint);
+    };
+
+    document.querySelectorAll("img").forEach(hint); // any imgs already mounted at boot
+    new MutationObserver((records) => {
+        for (const r of records) for (const n of r.addedNodes) scan(n);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+}
+
 installImageErrorGuard();
+installImageDecodeHint();
