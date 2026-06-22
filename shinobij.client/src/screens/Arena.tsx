@@ -282,21 +282,22 @@ export function Arena({
     const combatVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const combatVfxFieldRef = useRef<PetParticleField | null>(null);
     const combatFxSeq = useRef(0);
-    const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string; shake?: "" | "light" | "heavy" } | null>(null);
+    const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string } | null>(null);
     // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
     // the burst effect (its on-screen x/y is read from the live tile DOM rect).
     const [combatSpriteFx, setCombatSpriteFx] = useState<{ id: number; frames: string[]; single: boolean; x: number; y: number; variant?: string } | null>(null);
-    // Whole-board screen shake on a meaty blow — the "weight" layer the pet arena
-    // already has (light on a crit/heavy hit, heavy on a KO). Cleared by a timer.
-    const [combatShake, setCombatShake] = useState<"" | "light" | "heavy">("");
-    // Queue a burst at a board tile for a cast jutsu (called from castJutsu and
-    // the enemy AI turn). focusPos < 0 means "no anchor" → skip.
+    // Queue a baseline cosmetic burst at a board tile for a cast jutsu (called
+    // from castJutsu and the enemy AI turn). The old heavy/KO escalation tier
+    // (scaled drop-shadow sprite + whole-board screen shake) was removed: it was
+    // GPU-expensive and froze older iPhones / budget Androids on damage casts.
+    // `heavy`/`isKO` are still accepted from callers but no longer change the
+    // visuals — every cast uses the cheap baseline burst. focusPos < 0 → skip.
     const triggerCombatFx = (
         jutsu: Jutsu,
-        opts: { selfCast: boolean; focusPos: number; heavy: boolean; isKO: boolean },
+        opts: { selfCast: boolean; focusPos: number; heavy?: boolean; isKO?: boolean },
     ) => {
         if (opts.focusPos < 0) return;
-        const spec = jutsuVfxBurst({ element: jutsu.element, selfCast: opts.selfCast, heavy: opts.heavy, isKO: opts.isKO });
+        const spec = jutsuVfxBurst({ element: jutsu.element, selfCast: opts.selfCast });
         // Sprite layer: a KV override (jutsufx:<id> / jutsufx:<element>, which may
         // be an animated GIF/WebP) wins; else the bundled CC0 frame sequence picked
         // by intent/discipline/element (jutsuFxSpriteKey, not element alone, so a
@@ -304,15 +305,10 @@ export function Arena({
         // else null → particle burst only.
         const elKey = String(jutsu.element ?? "").toLowerCase();
         const kvFx = sharedImages[`jutsufx:${jutsu.id}`] || sharedImages[`jutsufx:${elKey}`] || "";
-        const pick = jutsuFxSpriteKey(jutsu, { heavy: opts.heavy, isKO: opts.isKO });
+        const pick = jutsuFxSpriteKey(jutsu, {});
         const frames = kvFx ? [kvFx] : bundledJutsuFxFrames(pick.key);
-        // Big hits read bigger: scale-up + brighter glow on the impact sprite
-        // (KO > heavy), and a matching whole-board shake. A KV override sprite
-        // keeps its own look (no tier class), but still earns the shake.
-        const tier = opts.isKO ? "fx-arena-ko" : opts.heavy ? "fx-arena-heavy" : "";
-        const variant = kvFx ? undefined : [pick.variant, tier].filter(Boolean).join(" ") || undefined;
-        const shake: "" | "light" | "heavy" = opts.isKO ? "heavy" : opts.heavy ? "light" : "";
-        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single: !!kvFx, variant, shake });
+        const variant = kvFx ? undefined : pick.variant;
+        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single: !!kvFx, variant });
     };
     // Spin up / tear down the canvas particle field when the battlefield mounts.
     useEffect(() => {
@@ -351,15 +347,7 @@ export function Arena({
         }
         tileEl.classList.add("jutsu-impact-flash");
         const clear = window.setTimeout(() => tileEl.classList.remove("jutsu-impact-flash"), 460);
-        // Whole-board shake on a meaty blow (skipped here under reduced-motion via
-        // the early return above). Cleared by a timer so the class can re-add and
-        // restart the animation on the next hit.
-        let shakeClear: number | undefined;
-        if (combatFx.shake) {
-            setCombatShake(combatFx.shake);
-            shakeClear = window.setTimeout(() => setCombatShake(""), combatFx.shake === "heavy" ? 700 : 460);
-        }
-        return () => { window.clearTimeout(clear); if (shakeClear) window.clearTimeout(shakeClear); };
+        return () => { window.clearTimeout(clear); };
     }, [combatFx]);
 
     const [aiLevel, setAiLevel] = useState(character.level);
@@ -4490,7 +4478,7 @@ export function Arena({
                             title="Reset zoom"
                         >↺</button>
                     </div>
-                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}${combatShake ? ` combat-shake-${combatShake}` : ""}`} ref={battlefieldCallbackRef}>
+                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldCallbackRef}>
                         {/*
                           Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
                           overflow:hidden clips at exactly the right boundary regardless
