@@ -324,6 +324,10 @@ function shadowTexture(): THREE.CanvasTexture {
 // this VISIBLE height (consistent silhouettes; padding no longer varies size).
 // Trimmed from 2.6 so pets sit IN the full-screen arena instead of looming over it.
 const TARGET_SPRITE_H = 2.3;
+// 3D coliseum: hold OPPOSING combatants this far apart (screen-x, world units) so a
+// melee strike reads as a DASH across the gap, not a point-blank poke. The gap-aware
+// lunge (lungeReach) auto-scales to cross it. Render-only / tunable.
+const COLISEUM_ENGAGE_GAP = 3.2;
 
 // Element → a bright tint for idle aura wisps + dash-trail streaks (mirrors the
 // particle palette). Falls back to chakra-cyan for None/unknown.
@@ -1123,6 +1127,22 @@ export function PetColiseum({
                 { pet: enemyPet, side: "enemy" as const, tile: enemyPos, sprite: enemySprite, hp: enemyHp, maxHp: Math.max(1, enemyPet.hp), fainted: enemyFainted },
             ];
         const positions = spreadPositions(list.map((c) => tileToWorld(c.tile)));
+        // Engagement spacing — hold OPPOSING pets a clear screen-x gap apart so a melee
+        // strike reads as a DASH across the gap, not a point-blank poke (the gap-aware
+        // `reach` below auto-scales to cross it). Render-only; allies untouched, bodies
+        // still derive from their sim tiles — just nudged to face off cleanly.
+        for (let iter = 0; iter < 2; iter++) {
+            for (let i = 0; i < positions.length; i++) {
+                for (let j = i + 1; j < positions.length; j++) {
+                    if (list[i].side === list[j].side) continue;
+                    const dx = positions[j].x - positions[i].x, ax = Math.abs(dx);
+                    if (ax < COLISEUM_ENGAGE_GAP) {
+                        const dir = dx >= 0 ? 1 : -1, push = (COLISEUM_ENGAGE_GAP - ax) / 2;
+                        positions[i].x -= dir * push; positions[j].x += dir * push;
+                    }
+                }
+            }
+        }
         return list.map((c, i) => {
             const pos = positions[i];
             // toward + gap-aware reach from the nearest LIVING foe.
