@@ -10,6 +10,7 @@ import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -1246,21 +1247,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
                 // ── Atomicity (finding 14) ─────────────────────────────────
-                // Take a short-lived per-save lock around the read-modify-write
-                // so concurrent saves can't trample each other. 2-second TTL
-                // is plenty for the synchronous work below; lock is auto-released
-                // at the end of the path or just expires.
+                // Serialize the read-modify-write through withKvLock on the SAME
+                // key the currency endpoints use: withKvLock('save:<name>') maps to
+                // the lock key 'lock:save:<name>'. Sharing the helper means the save
+                // path and every bank / seal-pool / treasury / daily-agenda /
+                // weekly-boss / pvp-reward writer use IDENTICAL TTL (5s default),
+                // retry+backoff, and release semantics on the one key — closing the
+                // early-expiry window the old hand-rolled 2s TTL re-opened (a slow
+                // save could outlive its 2s lock mid-op, a withKvLock currency
+                // writer slips in, and the save's later release deletes the NEW
+                // holder's lock). Clan saves serialize through it too.
                 //
-                // Clan saves were previously SKIPPING this lock, which let two
-                // members donating simultaneously race-overwrite each other's
-                // changes. Now they share the same lock as player saves.
-                const writeLockKey = `lock:save:${name.toLowerCase()}`;
-                const lockOk = await kv.set(writeLockKey, '1', { nx: true, ex: 2 });
-                if (!lockOk) {
-                    return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
-                }
-
+                // failClosed: under sustained contention withKvLock retries 5× with
+                // backoff and then THROWS LockContendedError rather than running the
+                // RMW unlocked; we catch it below and return the SAME 429 the
+                // hand-rolled lock did (so the observable contention response is
+                // unchanged — only now a brief overlap is absorbed by the retry
+                // instead of failing the autosave immediately). Release is handled
+                // by withKvLock's own finally — no manual kv.del here.
+                //
+                // The inner `return res...(...)` calls SEND the response as a side
+                // effect and return out of the locked closure; the `return` after
+                // the await then exits the handler. The RMW body below is unchanged.
                 try {
+                    await withKvLock(`save:${name.toLowerCase()}`, async () => {
                     const [pendingSignal, adminLock, existing] = await Promise.all([
                         kv.get(resetSignalKey),
                         kv.get(adminLockKey),
@@ -1463,10 +1473,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ...(writeRegistry ? [kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
                     ]);
                     return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
-                } finally {
-                    // Always release the lock — player AND clan saves now
-                    // both serialize through it.
-                    await kv.del(writeLockKey).catch(() => undefined);
+                    }, { failClosed: true });
+                    return; // the locked closure already sent the response
+                } catch (lockErr) {
+                    // Sustained contention (lock couldn't be acquired within the
+                    // retry budget): same fast 429 the hand-rolled lock returned.
+                    // withKvLock already released any lock it held; real errors from
+                    // the RMW propagate to the outer handler catch → 500.
+                    if (lockErr instanceof LockContendedError) {
+                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                    }
+                    throw lockErr;
                 }
             }
 
