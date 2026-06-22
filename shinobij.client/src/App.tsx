@@ -121,16 +121,16 @@ const ProfessionPicker = lazy(() => import("./screens/ProfessionPicker").then(m 
 const StarterPetSelect = lazy(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
 
 import { Bank } from "./screens/Bank";
-import { EndlessTowerLobby } from "./screens/EndlessTowerLobby";
-import { VillageWarScreen } from "./screens/VillageWarScreen";
-import { WeeklyBossArena } from "./screens/WeeklyBossArena";
-import { BloodlineMaker } from "./screens/BloodlineMaker";
+const EndlessTowerLobby = lazy(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
+const VillageWarScreen = lazy(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
+const WeeklyBossArena = lazy(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
+const BloodlineMaker = lazy(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 import { Profile } from "./screens/Profile";
-import { Logbook } from "./screens/Logbook";
+const Logbook = lazy(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
 import { HunterBoard } from "./screens/HunterBoard";
 import { Missions } from "./screens/Missions";
 import { StoryHall, StoryBoss } from "./screens/StoryBoss";
-import { TownHall } from "./screens/TownHall";
+const TownHall = lazy(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
 import { ClanHall } from "./screens/ClanHall";
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, endlessCtxKey, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readEndlessContext, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { allProgressMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
@@ -140,15 +140,15 @@ const WorldMap = lazy(() => import("./screens/WorldMap").then(m => ({ default: m
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
 const CentralHub = lazy(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
 const BattleTowers = lazy(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
-import { SunscarFestival } from "./screens/SunscarFestival";
+const SunscarFestival = lazy(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
 const PetArena = lazy(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
 const PetLadder = lazy(() => import("./screens/PetLadder").then(m => ({ default: m.PetLadder })));
 import { type PetArenaOpponent } from "./data/pet-arena-opponents";
 const PetYard = lazy(() => import("./screens/PetYard").then(m => ({ default: m.PetYard })));
-import { ClanWarTileCardDuel } from "./screens/ClanWarTileCardDuel";
-import { ShinobiCouncilHall } from "./screens/ShinobiCouncilHall";
-import { CardClashDuel } from "./screens/CardClashDuel";
-import { CardHall } from "./screens/CardHall";
+const ClanWarTileCardDuel = lazy(() => import("./screens/ClanWarTileCardDuel").then(m => ({ default: m.ClanWarTileCardDuel })));
+const ShinobiCouncilHall = lazy(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
+const CardClashDuel = lazy(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
+const CardHall = lazy(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
 import { GuidesLibrary } from "./components/GuidesLibrary";
 import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDeck } from "./lib/card-clash";
 import { DungeonEncounter, DungeonPetBattle } from "./screens/Dungeon";
@@ -2144,7 +2144,7 @@ export default function App() {
         let alive = true;
         async function refreshWorldState() {
             try {
-                const response = await fetch(WORLD_STATE_API, { cache: "no-store" });
+                const response = await fetch(WORLD_STATE_API, { cache: "no-cache" }); // no-cache: revalidate via the api/world-state.ts ETag, 304 on unchanged polls → no re-download. Freshness identical.
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
@@ -2167,7 +2167,7 @@ export default function App() {
             try {
                 const owner = characterRef.current?.name ?? currentAccountName;
                 setSharedGameStateOwnerName(owner); // seeds the POST (pendingClanPetBattle) owner; NOT sent as a GET query (would fragment the CDN cache key)
-                const response = await fetch(GAME_STATE_API, { cache: "no-store" });
+                const response = await fetch(GAME_STATE_API, { cache: "no-cache" }); // no-cache (not no-store): browser revalidates via the api/game-state.ts ETag, gets 304 on unchanged frames → no re-download. Freshness identical.
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
@@ -4217,8 +4217,8 @@ export default function App() {
                 if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return prev;
                 // No passive recovery inside the Hollow Gate — the shrine forbids healing.
                 if (screen === "hollowGateShrine") return prev;
+                if (prev.hp >= prev.maxHp && prev.chakra >= prev.maxChakra && prev.stamina >= prev.maxStamina) return prev; // idle at full vitals (common): same-ref no-op skips the per-second full-App reconcile; values are Math.min-clamped so identical — no gameplay change
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
-
                 return {
                     ...prev,
                     hp: Math.min(prev.maxHp, prev.hp + 1 + auraBonuses.regen),
