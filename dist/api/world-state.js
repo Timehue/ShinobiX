@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
+const node_crypto_1 = require("node:crypto");
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
@@ -460,8 +461,19 @@ async function handler(req, res) {
         const standings = standingRows
             .filter(s => s && s.village && (vnum(s.wins) + vnum(s.losses)) > 0)
             .sort((a, b) => (vnum(b.wins) - vnum(b.losses)) - (vnum(a.wins) - vnum(a.losses)));
+        const payload = { territories, wars, standings };
+        // Content-hash ETag → unchanged polls get a 304 (empty body) instead of
+        // re-downloading the full territory/war/standings map every 15s. The lazy
+        // decay/settle writes above were already dispatched, so the 304 path does
+        // not skip them. Freshness is identical; only the repeat bytes are saved.
+        // (Mirrors api/game-state.ts. Pairs with the client's `cache: "no-cache"`.)
+        const etag = `W/"${(0, node_crypto_1.createHash)('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
         res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
-        return res.status(200).json({ territories, wars, standings });
+        res.setHeader('ETag', etag);
+        if (req.headers['if-none-match'] === etag) {
+            return res.status(304).end();
+        }
+        return res.status(200).json(payload);
     }
     if (req.method === 'POST') {
         // Require a logged-in player at minimum. We also gate territory and
