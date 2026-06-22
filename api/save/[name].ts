@@ -9,6 +9,7 @@ import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
+import { shouldWriteRegistry } from './_registry-throttle.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -112,6 +113,15 @@ function combatProjection(data: Record<string, unknown>): Record<string, unknown
 }
 
 const REGISTRY_KEY = 'player:registry';
+// How long the cached player:registry `lastSeen` may drift before a save
+// rewrites it even when no identity field changed. kv.hset re-serializes the
+// entire registry row (one hot row holding every player) on each call — a
+// full-row write + WAL image + row-lock contention point that every autosave
+// (~1/3s per active player) otherwise hits. Refreshing at most once a minute
+// keeps roster/UserHub "last seen" accurate within a minute (its display is
+// "X ago" granularity, so the throttle is invisible) while cutting registry
+// writes by ~20× for an actively-saving player.
+const REGISTRY_REFRESH_MS = 60_000;
 
 // ─── Save sanitization ────────────────────────────────────────────────────────
 // Applied to every non-admin player save to prevent client-side economy cheating.
@@ -1430,9 +1440,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         lastSeen: Date.now(),
                     };
 
+                    // Throttle the registry rewrite (see REGISTRY_REFRESH_MS +
+                    // shouldWriteRegistry). The previous registry write time is carried
+                    // in the save blob as `_registryAt` (no extra read); we re-stamp it
+                    // only when we actually rewrite. The save blob (kv.set below) is
+                    // written every time regardless — no progress is ever skipped.
+                    const prevRegistryAt = Number(existingObj?._registryAt ?? 0);
+                    const writeRegistry = shouldWriteRegistry({
+                        isClanSave,
+                        existingChar: (existingObj?.character ?? null) as Record<string, unknown> | null,
+                        next: registryEntry,
+                        prevRegistryAt,
+                        now: Date.now(),
+                        refreshMs: REGISTRY_REFRESH_MS,
+                    });
+                    // Stamp when we actually (re)wrote the registry so the next save can
+                    // measure drift. Non-clan only — clan payloads stay byte-identical.
+                    if (!isClanSave) (payload as Record<string, unknown>)._registryAt = writeRegistry ? Date.now() : prevRegistryAt;
+
                     await Promise.all([
                         kv.set(key, payload),
-                        kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
+                        ...(writeRegistry ? [kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
                     ]);
                     return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
                 } finally {
