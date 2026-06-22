@@ -47,7 +47,7 @@ const SCROLL_CHANNEL = ARENA_TPS * 2;        // 2 s channel to pick up
 const SCROLL_DROP_LIFE = ARENA_TPS * 10;     // a dropped scroll resets after 10 s
 const RESPAWN_TICKS = ARENA_TPS * 7;         // 7 s respawn — a kill earns a real window, fewer pets churning
 const PICKUP_RANGE = 1.4;                     // how close you must be to channel
-const BASE_SCORE_RANGE = 1.8;                 // carrier scores within this of its base
+export const BASE_SCORE_RANGE = 1.8;                 // carrier scores within this of its base
 const CARRIER_SLOW = 0.85;                    // −15% speed while carrying
 const SPEED_CRIT_DIVISOR = 600;               // ownSpeed/this → bonus crit; gives Speed a payoff past the move-speed cap
 
@@ -346,7 +346,7 @@ export interface ArenaActorSnap {
 }
 export interface ArenaSnapshot {
     t: number; actors: ArenaActorSnap[];
-    scroll: { state: Scroll["state"]; x: number; y: number; carrierId: string | null; channelFrac: number };
+    scroll: { state: Scroll["state"]; x: number; y: number; carrierId: string | null; channelFrac: number; spawnSecs: number };   // spawnSecs: whole seconds until (re)spawn while inactive (0 otherwise) — readout only
     scoreBlue: number; scoreRed: number;
 }
 export type ArenaEvent =
@@ -1034,7 +1034,7 @@ function snap(t: number, fs: AF[], scroll: Scroll, score: { blue: number; red: n
             if (f.tauntLeft > 0) statuses.push("taunt"); if (f.carrying) statuses.push("carry");
             return { id: f.id, team: f.team, slot: f.slot, role: f.role, element: f.element, x: quant(f.x), y: quant(f.y), faceX: quant(f.faceX), faceY: quant(f.faceY), hp: Math.max(0, Math.round(f.hp)), maxHp: f.maxHp, energy: Math.round(f.energy), lives: f.lives, state: f.state, carrying: f.carrying, statuses, respawnSecs: f.state === "respawning" ? Math.ceil(f.respawnLeft / ARENA_TPS) : 0, abilityReady: f.abilityCd <= 0 && f.energy >= ROLE_CFG[f.role].abilityCost };
         }),
-        scroll: { state: scroll.state, x: quant(scroll.x), y: quant(scroll.y), carrierId: scroll.carrierId, channelFrac: scroll.channelById ? 1 - scroll.channelLeft / SCROLL_CHANNEL : 0 },
+        scroll: { state: scroll.state, x: quant(scroll.x), y: quant(scroll.y), carrierId: scroll.carrierId, channelFrac: scroll.channelById ? 1 - scroll.channelLeft / SCROLL_CHANNEL : 0, spawnSecs: scroll.state === "inactive" ? Math.ceil(scroll.spawnTimer / ARENA_TPS) : 0 },
         scoreBlue: score.blue, scoreRed: score.red,
     };
 }
