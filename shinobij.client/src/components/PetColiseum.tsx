@@ -1528,78 +1528,16 @@ const DIORAMA_URL = new URL("../assets/coliseum/tactics-diorama.webp", import.me
 // lands on the exact painted pixel at any viewport. worldW:worldH == image aspect.
 const MAP_W = 1536, MAP_H = 1024;
 const STAGE = { worldW: 30, worldH: 20 };
-// ── COLISEUM duel stage ──────────────────────────────────────────────────────
-// The 1v1/2v2 "Live Combat" duel composites its fighters over the painted COLISEUM
-// backdrop (the moonlit pagoda arena) as a SIDE-ON stage — BIG fighters on the
-// arena floor, not tiny tactical units on a top-down map. It has its own
-// map/stage/projection constants so the separate Tactical Arena mode (which keeps
-// the top-down diorama) is unaffected. worldW:worldH == the backdrop's aspect.
-const DUEL_BG_URL = new URL("../assets/coliseum/coliseum-bg.webp", import.meta.url).href;
-const DUEL_MAP_W = 1024, DUEL_MAP_H = 768;        // coliseum-bg.webp dimensions (4:3)
-const DUEL_STAGE = { worldW: 30, worldH: 22.5 };  // 4:3 to match the backdrop
-// Fighters are BIG (a duel, not a tactical skirmish) — content height in world
-// units, then depth-scaled. (1 world unit = DUEL_MAP_H/worldH px.)
-const STAGE_SPRITE_H = 5.0;
-// Render-side spacing for the duel diorama: the minimum on-screen HORIZONTAL gap
-// (world units at depth 1) the two fighters' sprites keep, and the screen-row band
-// within which a crowded pair can visually overlap. The sim's body separation
-// (~1.08 field units) is narrower than a sprite, and the diorama composites
-// straight from the sim — so a same-row clash would draw the two INTO each other.
-// Sized so two WIDE quadruped sprites keep a clear gap when the sim packs them to melee
-// contact; the strike PULSE (below) pops the attacker in for the actual hit, so this
-// needn't be held wide. Cosmetic only — never fed back into the sim, so zero balance/
-// determinism impact.
-const DUEL_MIN_SCREEN_X = 6.0;
-// Strike pulse: a self-timed forward thrust on the hit beat. The sim's `strike` state is
-// a single ~33ms tick (far too short for a 320ms beatTimeline to play, and skippable on
-// a slow frame), so the thrust is fired off the WINDUP→exit edge instead. STRIKE_REACH is
-// world units at depth 1 (depth applied once at draw); duration in seconds.
-const STRIKE_REACH = 0.7;
+// The forward strike-pulse duration (s): the sim's `strike` state is a single
+// ~33ms tick, so the render thrust is self-timed off the windup→exit edge instead.
 const STRIKE_PULSE_S = 0.26;
-const DUEL_SEP_DEPTH_BAND = 3.0;
-// The action band: the sim field maps onto this lower-centre rectangle of the
-// COLISEUM backdrop (the lit arena floor in front of the stands), so the two
-// fighters face off ON the floor with the pagoda + moon rising behind them.
-const PLAY = { x0: 205, x1: 819, y0: 520, y1: 642 };
-// Perspective: front (high map-Y) units larger, back units smaller — so they sit
-// in the painting's depth instead of looking pasted on. mapH defaults to the
-// tactical-arena reference; the duel passes its own (DUEL_MAP_H) and a FLATTER
-// lo/hi range so both fighters stay big and read as a face-off (not one-behind-other).
-function getPerspectiveScale(my: number, mapH: number = MAP_H, lo = 0.65, hi = 1.15): number {
+// Perspective scale for the TACTICAL ARENA's top-down diorama (front bigger, back
+// smaller). The duel no longer uses this — it stands its fighters on a real 3D floor.
+function getPerspectiveScale(my: number, mapH: number = MAP_H): number {
     const t = Math.min(1, Math.max(0, my / mapH));
-    return lo + (hi - lo) * t;
-}
-/** sim field (x∈±ARENA_X, y∈±ARENA_Y) → map-space (px in the coliseum backdrop). */
-function fieldToMap(fx: number, fy: number): { mx: number; my: number } {
-    return {
-        mx: lerp(PLAY.x0, PLAY.x1, (fx + ARENA_X) / (2 * ARENA_X)),
-        my: lerp(PLAY.y0, PLAY.y1, (fy + ARENA_Y) / (2 * ARENA_Y)),
-    };
+    return 0.65 + (1.15 - 0.65) * t;
 }
 type StagePos = { wx: number; wy: number; depth: number; zo: number };
-/** sim field → world position (feet pivot) + perspective scale + draw-order. */
-function stagePlace(sx: number, sy: number): StagePos {
-    const { mx, my } = fieldToMap(sx, sy);
-    return {
-        wx: (mx / DUEL_MAP_W - 0.5) * DUEL_STAGE.worldW,
-        wy: (0.5 - my / DUEL_MAP_H) * DUEL_STAGE.worldH,
-        depth: getPerspectiveScale(my, DUEL_MAP_H, 0.96, 1.05),
-        zo: (my / DUEL_MAP_H) * 8,   // depth-sort: front (high map-Y) drawn over back
-    };
-}
-
-/** The interpolated stage position of a duel actor at the same clock fraction the
- *  standee draws (teleport-snapped) — so the render-side spacing pass agrees with
- *  where each sprite actually lands. */
-function duelActorStageAt(
-    snaps: { actors: DuelActorSnap[] }[], i0: number, i1: number, f: number, id: string,
-): StagePos | null {
-    const a0 = findActor(snaps[i0], id); if (!a0) return null;
-    const a1 = findActor(snaps[i1], id) ?? a0;
-    const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
-    const ff = (tdx * tdx + tdy * tdy) > 9 ? (f < 0.5 ? 0 : 1) : f;
-    return stagePlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
-}
 
 // The ARENA mode uses the FULL inner arena (reaches all four corner seals), not
 // the lower band — must match gen-walkmask.mjs --full (pet-arena-fullmask.ts).
@@ -1622,17 +1560,32 @@ function StageCamera({ fit = "cover", worldW = STAGE.worldW, worldH = STAGE.worl
     return <OrthographicCamera makeDefault position={[0, 0, 100]} zoom={zoom} near={0.1} far={1000} />;
 }
 
-/** One fighter composited onto the stage: the pose flipbook + a 2-frame RUN cycle
- *  while traversing (no more gliding), depth-scaled into the painted space, with a
- *  soft ground oval + afterimage streak. Driven by the interpolated tick stream. */
+// ── Grounded 3D-coliseum duel placement ──────────────────────────────────────
+// The duel now plays INSIDE the round renderer's 3D Arena (curved wall + lit
+// floor + perspective camera), so fighters STAND on the floor with real contact
+// shadows instead of floating over a painted wall. Map the sim field (±ARENA_X,
+// ±ARENA_Y) onto the floor plane (x = left↔right, z = depth toward/away camera);
+// perspective + grounding then come from the scene, not a faked projection.
+const DUEL_FLOOR_HALF_W = 6.2;   // field x → world x extent on the floor
+const DUEL_FLOOR_HALF_D = 2.3;   // field y → world z (depth) extent
+const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look point
+const DUEL_MIN_WORLD_X = 2.7;    // min world-x gap so two big fighters never merge
+const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
+function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
+    return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
+}
+
+/** One GROUNDED fighter on the 3D coliseum floor — a Y-locked billboard standing
+ *  on the floor with a real contact shadow, driven by the interpolated duel tick
+ *  stream + the anime strike choreography (ability-distinct strikes, recoil,
+ *  status tints, KO topple). Same grounded rig as the round renderer's Standee. */
 function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     duel: DuelResult; clock: { current: DuelClock }; id: string; pet: Pet; mirror: boolean; sharedImages: Record<string, string>;
 }) {
-    const sprite = usePetSprite(pet, sharedImages, false);   // base art faces RIGHT; facing is flipped per-frame
-    const poses = usePetPoses(petVisualId(pet), false);
-    const group = useRef<THREE.Group>(null);
-    const flip = useRef<THREE.Group>(null);                   // sprite flips here to face the target (nameplate stays unflipped)
-    const facing = useRef(mirror ? -1 : 1);
+    const sprite = usePetSprite(pet, sharedImages, mirror);   // mirror flips the art so the enemy faces the player
+    const poses = usePetPoses(petVisualId(pet), mirror);
+    const group = useRef<THREE.Group>(null);     // floor position + lunge offset
+    const poseG = useRef<THREE.Group>(null);      // squash/stretch + topple, pivots at the feet
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const flashMat = useRef<THREE.MeshBasicMaterial>(null);
     const shadow = useRef<THREE.Mesh>(null);
@@ -1643,12 +1596,11 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const prevHp = useRef(Infinity);
     const flash = useRef(0);
     const lastPos = useRef<[number, number]>([0, 0]);
-    const scaleSm = useRef(0);   // smoothed depth-scale → no size pop from a jittery tick or a reserve swap-in teleport
     const runClock = useRef(0);
     // Anime strike choreography (render-only): eased offsets + phase clocks. The LONG sim
     // states (windup/stagger/dodge) drive beatTimeline directly; the 1-tick `strike` drives
     // a self-timed forward pulse off the windup-exit edge.
-    const choX = useRef(0), choSX = useRef(1), choSY = useRef(1), choRot = useRef(0);
+    const choX = useRef(0), choY = useRef(0), choSX = useRef(1), choSY = useRef(1), choRot = useRef(0);
     const choKind = useRef<PetVisualState>("idle");
     const choStart = useRef(0);
     const prevSimState = useRef<DuelState>("idle");
@@ -1689,13 +1641,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
     const useAspect = poses ? poses.scan[poseCat].aspect : sprite.aspect;
-    const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, STAGE_SPRITE_H, false), [useBounds, useAspect]);
-    const shadowW = Math.max(0.7, L.contentWorldW * 0.95);
+    const L = useMemo(() => groundedSpriteLayout(useBounds, useAspect, TARGET_SPRITE_H, mirror), [useBounds, useAspect, mirror]);
+    const shadowW = Math.max(0.9, L.contentWorldW * 0.95);
     const side = mirror ? "enemy" : "player";
 
     useFrame((state, delta) => {
-        const g = group.current, m = mat.current;
-        if (!g || !m) return;
+        const g = group.current, m = mat.current, pg = poseG.current;
+        if (!g || !m || !pg) return;
         const snaps = duel.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
         const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
@@ -1703,66 +1655,59 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (!a0) return;
         const a1 = findActor(snaps[i1], id) ?? a0;
         // A >3-field-unit jump in one tick is a teleport (reserve swap-in), never real
-        // travel — hard-cut at the tick midpoint instead of sliding (+ scaling) across.
+        // travel — hard-cut at the tick midpoint instead of sliding across.
         const tdx = a1.x - a0.x, tdy = a1.y - a0.y;
         const teleport = (tdx * tdx + tdy * tdy) > 9;
         const ff = teleport ? (f < 0.5 ? 0 : 1) : f;
-        const p = stagePlace(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
+        const fp = duelFieldToFloor(lerp(a0.x, a1.x, ff), lerp(a0.y, a1.y, ff));
+        let wx = fp.wx; const wz = fp.wz;
 
-        // Speed in stage units → drives the run cycle + bob + trail.
-        const dx = p.wx - lastPos.current[0], dy = p.wy - lastPos.current[1];
-        const spd = Math.sqrt(dx * dx + dy * dy);
-        lastPos.current = [p.wx, p.wy];
-        const moving = spd > 0.012 && a0.state !== "dead";
-
-        // Render-side spacing — keep the fighters from compositing INTO each other.
-        // A same-row pair the sim packs to body-contact gets a symmetric, deterministic
-        // half-push apart in SCREEN-X so two creatures always read as two. Cosmetic:
-        // never fed back to the sim → no balance/determinism impact.
-        let drawX = p.wx;
+        // World-space spacing — keep two big fighters from compositing INTO each
+        // other when the sim packs them to body-contact. Symmetric, deterministic
+        // half-push along world-x. Cosmetic only — never fed back to the sim.
         const actors = snaps[i0].actors;
         for (let k = 0; k < actors.length; k++) {
             const other = actors[k];
             if (other.id === id || other.state === "dead") continue;
-            const op = duelActorStageAt(snaps, i0, i1, f, other.id);
-            if (!op || Math.abs(p.wy - op.wy) > DUEL_SEP_DEPTH_BAND) continue;
-            const gapX = p.wx - op.wx;
-            const minGap = DUEL_MIN_SCREEN_X * (p.depth + op.depth) * 0.5;
-            if (Math.abs(gapX) < minGap) {
+            const oa0 = findActor(snaps[i0], other.id); if (!oa0) continue;
+            const oa1 = findActor(snaps[i1], other.id) ?? oa0;
+            const of = duelFieldToFloor(lerp(oa0.x, oa1.x, ff), lerp(oa0.y, oa1.y, ff));
+            if (Math.abs(wz - of.wz) > DUEL_SEP_BAND_Z) continue;
+            const gapX = wx - of.wx;
+            if (Math.abs(gapX) < DUEL_MIN_WORLD_X) {
                 const dir = gapX > 1e-4 ? 1 : gapX < -1e-4 ? -1 : (id < other.id ? -1 : 1);
-                drawX += dir * (minGap - Math.abs(gapX)) * 0.5;
+                wx += dir * (DUEL_MIN_WORLD_X - Math.abs(gapX)) * 0.5;
             }
         }
 
-        // Face the target BEFORE choreography so the lunge drives toward the foe.
-        if (Math.abs(a0.faceX) > 0.12) facing.current = a0.faceX < 0 ? -1 : 1;
+        // Speed (world units) → drives the run cycle + bob.
+        const dwx = wx - lastPos.current[0], dwz = wz - lastPos.current[1];
+        const spd = Math.sqrt(dwx * dwx + dwz * dwz);
+        lastPos.current = [wx, wz];
+        const moving = spd > 0.01 && a0.state !== "dead";
+        // Face the foe so the lunge drives toward it (sim faceX, else side default).
+        const facing = Math.abs(a0.faceX) > 0.12 ? (a0.faceX < 0 ? -1 : 1) : (mirror ? -1 : 1);
 
         // ── Anime strike choreography (render-only — never touches the sim) ──────
-        // To read like a Sword-x-Staff auto-battle. The LONG sim states drive the same
-        // beatTimeline arcs the 3D coliseum uses: windup coils back, stagger recoils,
-        // dodge slips. HORIZONTAL only (the diorama is top-down — a vertical leap would
-        // read as moving back). `dash` is left to the SIM (it already translates the body
-        // toward the foe). The forward THRUST is a self-timed pulse, fired off the
-        // windup→exit edge (robust to the 1-tick `strike` being skipped on a slow frame).
+        // The LONG sim states drive beatTimeline (windup coils back, stagger recoils,
+        // dodge slips); the 1-tick `strike` drives a self-timed forward pulse off the
+        // windup→exit edge. On the real 3D floor the melee lunge ARCS (a small hop).
         const basePose: PetVisualState =
             a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
         if (basePose !== choKind.current) { choKind.current = basePose; choStart.current = state.clock.elapsedTime; }
         const baseProg = basePose === "idle" ? 1 : Math.min(1, (state.clock.elapsedTime - choStart.current) / (beatChoreoMs(basePose) / 1000));
         const curTick = Math.floor(clock.current.t);
-        // Stagger ENTRY → scale this recoil's knockback by how hard the incoming
-        // blow actually landed: a graze barely rocks the pet, a heavy hit throws it.
+        // Stagger ENTRY → scale this recoil's knockback by how hard the incoming blow landed.
         if (a0.state === "stagger" && prevSimState.current !== "stagger") {
-            let p = 0.55;
-            for (let k = 0; k < inHits.length; k++) { const it = inHits[k]; if (it.t > curTick + 4) break; if (it.t >= curTick - 1) { p = Math.max(0.28, it.power); break; } }
-            recoilPow.current = p;
+            let rp = 0.55;
+            for (let k = 0; k < inHits.length; k++) { const it = inHits[k]; if (it.t > curTick + 4) break; if (it.t >= curTick - 1) { rp = Math.max(0.28, it.power); break; } }
+            recoilPow.current = rp;
         }
-        const base = beatTimeline(basePose, facing.current, 1.0, baseProg, { power: basePose === "recoil" ? recoilPow.current : 0.6 });
-        // Fire the forward strike pulse when windup completes into strike/recover —
-        // NOT when an interrupted windup is knocked into stagger (that must recoil).
-        // On the same edge, read the resolution about to land so the pulse is
-        // ability-distinct: a melee HIT → a power-scaled lunge (heavier = deeper,
-        // with an overhead chop on crits); a ranged CAST → a plant + recoil-kick so
-        // ranged pets never slide into melee. All from the deterministic events.
+        const base = beatTimeline(basePose, facing, 1.0, baseProg, { power: basePose === "recoil" ? recoilPow.current : 0.6 });
+        // Fire the forward strike pulse when windup completes into strike/recover.
+        // Read the resolution about to land so the pulse is ability-distinct: a melee
+        // HIT → a power-scaled lunge (heavier = deeper, overhead chop on crits); a
+        // ranged CAST → a plant + recoil-kick so ranged pets never slide into melee.
         if (prevSimState.current === "windup" && (a0.state === "strike" || a0.state === "recover")) {
             strikeStart.current = state.clock.elapsedTime;
             let kind: "melee" | "ranged" = "melee", pow = 0.4, crit = false;
@@ -1775,46 +1720,45 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         prevSimState.current = a0.state;
         const pe = state.clock.elapsedTime - strikeStart.current;
-        let dxT = base.dx, sxT = base.sx, syT = base.sy, rotT = base.rot;
-        if (pe >= 0 && pe < pulseS.current) {   // forward pop + stretch, peaking ~⅓ in then easing back
+        let dxT = base.dx, dyT = base.dy, sxT = base.sx, syT = base.sy, rotT = base.rot;
+        if (pe >= 0 && pe < pulseS.current) {
             const pp = pe / pulseS.current;
             const thrust = pp < 0.32 ? pp / 0.32 : 1 - (pp - 0.32) / 0.68;
             const e = thrust * thrust * (3 - 2 * thrust);   // smoothstep
             if (strikeKind.current === "ranged") {
                 // Plant + kick AWAY on release — the projectile carries the offense.
-                dxT = -0.24 * e * facing.current; sxT = 1 - 0.04 * e; syT = 1 + 0.06 * e; rotT = 0;
+                dxT = -0.5 * e * facing; sxT = 1 - 0.04 * e; syT = 1 + 0.06 * e; rotT = 0;
             } else {
                 const pw = strikePow.current, ct = strikeCrit.current;
-                const reach = STRIKE_REACH * (0.78 + 0.75 * pw) + (ct ? 0.18 : 0);
+                const reach = 1.3 * (0.78 + 0.75 * pw) + (ct ? 0.4 : 0);
                 // Crit → a quick 2-tap flurry overlaid on the lunge; else one thrust.
                 const jab = ct ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
-                dxT = reach * e * jab * facing.current;
+                dxT = reach * e * jab * facing;
+                dyT = 0.55 * Math.sin(Math.PI * Math.min(1, pp / 0.72)) * (0.55 + 0.5 * pw);   // arc up into the hit
                 sxT = 1 + (0.10 + 0.14 * pw) * e;
                 syT = 1 - (0.07 + 0.09 * pw) * e;
-                rotT = -(0.05 + 0.16 * pw) * e * facing.current * (ct ? 1.35 : 1);   // overhead chop on heavy/crit
+                rotT = -(0.05 + 0.16 * pw) * e * facing * (ct ? 1.35 : 1);   // overhead chop on heavy/crit
             }
         }
         // KO finisher — topple + sink when down (the dead pose fades; this lands it
         // with weight instead of just blinking out).
-        if (a0.state === "dead") { dxT = -0.15 * facing.current; rotT = 0.95 * facing.current; sxT = 1.05; syT = 0.72; }
+        if (a0.state === "dead") { dxT = -0.4 * facing; dyT = 0; rotT = 1.1 * facing; sxT = 1.05; syT = 0.7; }
         const ck = (a0.state === "strike" || a0.state === "stagger" || pe < pulseS.current) ? 0.5 : 0.3;   // snappier on the hit beats
         choX.current = lerp(choX.current, dxT, ck);
+        choY.current = lerp(choY.current, dyT, ck);
         choSX.current = lerp(choSX.current, sxT, ck);
         choSY.current = lerp(choSY.current, syT, ck);
         choRot.current = lerp(choRot.current, rotT, ck);
 
-        // run-bob + a forward lean make the locomotion READ; depth scales it all.
-        // A gentle neutral FOOTWORK sway (only while idle + planted) keeps the pets
-        // alive between exchanges instead of standing stock-still.
-        const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 13 + bobPhase)) * 0.18 : 0;
-        const footwork = (!moving && a0.state === "idle") ? Math.sin(state.clock.elapsedTime * 2.1 + bobPhase) * 0.05 : 0;
-        scaleSm.current = (teleport || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
-        g.position.set(drawX + (choX.current + footwork) * p.depth, p.wy + bob * p.depth, p.zo);
-        g.scale.setScalar(scaleSm.current);
-        if (flip.current) {
-            flip.current.scale.set(facing.current * choSX.current, choSY.current, 1);
-            flip.current.rotation.z = lerp(flip.current.rotation.z, (moving ? -0.12 : 0) + choRot.current, 0.25);
-        }
+        // Stand ON the floor: lane position + lunge offset + a tiny run-bob; a gentle
+        // idle stance lean + breathe so a waiting pet never just stands stock-still.
+        const idling = a0.state === "idle" && !moving;
+        const bob = moving ? Math.abs(Math.sin(state.clock.elapsedTime * 12 + bobPhase)) * 0.06 : 0;
+        const footwork = idling ? facing * 0.08 + Math.sin(state.clock.elapsedTime * 2.4 + bobPhase) * 0.05 : 0;
+        const breathe = idling ? 1 + Math.abs(Math.sin(state.clock.elapsedTime * 5.2 + bobPhase)) * 0.04 : 1;
+        g.position.set(wx + choX.current + footwork, FLOOR_Y + Math.max(0, choY.current) + bob, wz);
+        pg.scale.set(choSX.current, choSY.current * breathe, 1);
+        pg.rotation.z = lerp(pg.rotation.z, choRot.current, 0.4);
 
         // Pose: alternate the 2-frame run cycle while traversing (if the pet has
         // one), else the state pose (attack / hurt / cast / idle).
@@ -1825,7 +1769,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         if (cat !== poseCat) setPoseCat(cat);
 
-        // Hit flash on HP drop; hurt tint while staggered; fade out when down.
+        // Hit flash on HP drop; status tint while afflicted; fade out when down.
         if (a0.hp < prevHp.current - 0.5) flash.current = 1;
         prevHp.current = a0.hp;
         flash.current *= 0.86;
@@ -1851,40 +1795,48 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100))}%`;
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
+        // Contact shadow — flat on the floor, tracks x/z, fades + shrinks as the pet lifts.
         if (shadow.current && shadowMat.current) {
-            shadow.current.position.set(drawX + choX.current * p.depth, p.wy - 0.08 * p.depth, p.zo - 0.1);
-            shadow.current.scale.set(shadowW * scaleSm.current, shadowW * 0.32 * scaleSm.current, 1);
-            shadowMat.current.opacity = 0.4 * (a0.state === "dead" ? 0.4 : 1);
+            shadow.current.position.set(wx + choX.current, 0.02, wz);
+            const lift = Math.max(0, choY.current);
+            const sf = Math.max(0, 1 - lift * 0.7);
+            shadowMat.current.opacity = 0.42 * sf * (a0.state === "dead" ? 0.4 : 1);
+            const s = 0.85 + 0.15 * sf;
+            shadow.current.scale.set(shadowW * s, shadowW * 0.5 * s, 1);
         }
     });
 
     return (
         <group>
-            {/* soft ground oval — drawn first (renderOrder −1) so it sits under the pet */}
-            <mesh ref={shadow} renderOrder={-1}>
-                <planeGeometry args={[1, 1]} />
-                <meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.4} depthWrite={false} depthTest={false} toneMapped={false} />
-            </mesh>
             <group ref={group}>
-                <group ref={flip}>
-                    <mesh position={[L.meshX, L.meshY, 0]}>
-                        <planeGeometry args={[L.planeW, L.planeH]} />
-                        <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.4} depthWrite={false} toneMapped={false} />
-                        <mesh position={[0, 0, 0.01]}>
+                {/* Y-axis-locked billboard: yaws to face the camera but stays vertical,
+                    so the feet never lift off the floor at the angled camera. */}
+                <Billboard lockX lockZ>
+                    <group ref={poseG}>
+                        <mesh position={[L.meshX, L.meshY, 0]}>
                             <planeGeometry args={[L.planeW, L.planeH]} />
-                            <meshBasicMaterial ref={flashMat} map={useTex} transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                            <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.4} depthWrite={false} toneMapped={false} />
+                            <mesh position={[0, 0, 0.01]}>
+                                <planeGeometry args={[L.planeW, L.planeH]} />
+                                <meshBasicMaterial ref={flashMat} map={useTex} transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} />
+                            </mesh>
                         </mesh>
-                    </mesh>
-                </group>
-                <Html position={[0, L.contentWorldH + 0.35, 0]} center pointerEvents="none" zIndexRange={[6, 0]}>
-                    <div ref={nameWrap} style={{ textAlign: "center", font: "700 11px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", transform: "scale(0.8)" }}>
-                        <div style={{ color: "#fff", textShadow: "0 1px 2px #000", marginBottom: 2 }}>Lv.{pet.level} {pet.name}</div>
-                        <div style={{ width: 62, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
+                    </group>
+                </Billboard>
+                <Html position={[0, L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
+                    <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
+                        <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {pet.name}</div>
+                        <div style={{ width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpFill} style={{ width: "100%", height: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
                         </div>
                     </div>
                 </Html>
             </group>
+            {/* Per-pet contact shadow — flat on the floor, follows the pet. */}
+            <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+                <planeGeometry args={[1, 1]} />
+                <meshBasicMaterial ref={shadowMat} map={shadowTexture()} transparent opacity={0.42} depthWrite={false} toneMapped={false} />
+            </mesh>
         </group>
     );
 }
@@ -2108,10 +2060,11 @@ function ProjectileBody({ visual }: { visual: ProjectileVisual }) {
  *  going. Driven by the sim's homing projectile in `snapshots[t].projectiles`. */
 function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResult; clock: { current: DuelClock } }) {
     const grp = useRef<THREE.Group>(null);
+    const inner = useRef<THREE.Group>(null);
     const curId = useRef<number | null>(null);
     const lastAngle = useRef(0);
     const [visual, setVisual] = useState<ProjectileVisual>(() => projectileVisual({ element: null }));
-    useFrame((state) => {
+    useFrame(() => {
         const g = grp.current;
         if (!g) return;
         const snaps = duel.snapshots;
@@ -2128,26 +2081,23 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
         g.visible = true;
         const sx = nxt ? lerp(pr.x, nxt.x, f) : pr.x;
         const sy = nxt ? lerp(pr.y, nxt.y, f) : pr.y;
-        const pp = stagePlace(sx, sy);
-        g.position.set(pp.wx, pp.wy + pp.depth, 7);
-        g.scale.setScalar(pp.depth);
-        // Point the head along its WORLD travel direction (world xy == screen here).
+        const pp = duelFieldToFloor(sx, sy);
+        g.position.set(pp.wx, FX_Y, pp.wz);
+        // Point the head along its travel direction, projected into the screen plane.
         if (nxt) {
-            const p1 = stagePlace(nxt.x, nxt.y);
-            const dxw = p1.wx - pp.wx, dyw = p1.wy - pp.wy;
-            if (dxw * dxw + dyw * dyw > 1e-5) lastAngle.current = Math.atan2(dyw, dxw);
+            const p1 = duelFieldToFloor(nxt.x, nxt.y);
+            const dxw = p1.wx - pp.wx, dzw = p1.wz - pp.wz;
+            if (dxw * dxw + dzw * dzw > 1e-5) lastAngle.current = Math.atan2(-dzw, dxw);
         }
-        // Water undulates a touch in flight (perpendicular sine).
-        if (visual.wobble) {
-            const wob = Math.sin(state.clock.elapsedTime * 9 + index) * visual.wobble * pp.depth;
-            g.position.x += -Math.sin(lastAngle.current) * wob;
-            g.position.y += Math.cos(lastAngle.current) * wob;
-        }
-        g.rotation.z = lastAngle.current;
+        if (inner.current) inner.current.rotation.z = lastAngle.current;
     });
     return (
         <group ref={grp} visible={false}>
-            <ProjectileBody visual={visual} />
+            <Billboard lockX lockZ>
+                <group ref={inner}>
+                    <ProjectileBody visual={visual} />
+                </group>
+            </Billboard>
         </group>
     );
 }
@@ -2232,12 +2182,12 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
             }
             lastTick.current = cur;
         }
-        // Fixed ortho stage camera + a decaying screen-shake pan (world units).
+        // Perspective hero camera at its base pose + a decaying impact shake offset.
         const t = state.clock.elapsedTime;
         const a = shake.current; shake.current *= 0.85;
-        const sx = a > 0.01 ? Math.sin(t * 53) * a * 0.12 : 0;
-        const sy = a > 0.01 ? Math.sin(t * 61) * a * 0.08 : 0;
-        camera.position.set(sx, sy, 100);
+        const sx = a > 0.01 ? Math.sin(t * 53) * a * 0.1 : 0;
+        const sy = a > 0.01 ? Math.sin(t * 61) * a * 0.06 : 0;
+        camera.position.set(CAM_POS[0] + sx, CAM_POS[1] + sy, CAM_POS[2]);
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
     });
     return null;
@@ -2306,6 +2256,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (enemyReservePet) r.push({ id: "enemy-1", pet: enemyReservePet, mirror: true });
         return r;
     }, [playerPet, enemyPet, playerReservePet, enemyReservePet]);
+    // 3D coliseum scene textures (curved wall + lit floor) — same as the round
+    // renderer, so the duel inherits the grounded look the owner liked.
+    const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
+    const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
+    useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
 
     const clock = useRef<DuelClock>({ t: 0, playing: true });
     const seqRef = useRef(0);
@@ -2318,26 +2273,26 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
 
-    // FX positions are mapped through the SAME stage projection as the fighters,
-    // and pinned to a high z so they layer over every pet on the backdrop.
+    // FX map through the SAME field→floor placement as the fighters, at mid-body
+    // height, so impacts / numbers / casts land on the right pet in the 3D scene.
     const spawnNumber = (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => {
         const id = seqRef.current++;
-        const p = stagePlace(n.x, n.z);
-        setNumbers((arr) => [...arr, { id, text: n.text, pos: [p.wx, p.wy + STAGE_SPRITE_H * 0.85 * p.depth + 0.5, 9], crit: n.crit, heal: n.heal }]);
+        const fp = duelFieldToFloor(n.x, n.z);
+        setNumbers((arr) => [...arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal }]);
         window.setTimeout(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
     };
     const spawnImpact = (n: { x: number; z: number; color: string; big: boolean }) => {
         const id = seqRef.current++;
-        const p = stagePlace(n.x, n.z);
-        setImpacts((arr) => [...arr, { id, pos: [p.wx, p.wy + STAGE_SPRITE_H * 0.4 * p.depth, 8], color: n.color, big: n.big }]);
+        const fp = duelFieldToFloor(n.x, n.z);
+        setImpacts((arr) => [...arr, { id, pos: [fp.wx, FX_Y, fp.wz], color: n.color, big: n.big }]);
     };
     // Element-distinct ability VFX (real fire/water/lightning/earth/wind frames).
     const spawnFx = (n: { x: number; z: number; element?: string | null; scale: number; dur: number }) => {
         const frames = bundledJutsuFxFrames(elementVfxKey(n.element));
         if (!frames) return;
         const id = seqRef.current++;
-        const p = stagePlace(n.x, n.z);
-        setFxList((arr) => [...arr, { id, frames, pos: [p.wx, p.wy + STAGE_SPRITE_H * 0.4 * p.depth, 8], scale: n.scale * p.depth * 0.6, dur: n.dur }]);
+        const fp = duelFieldToFloor(n.x, n.z);
+        setFxList((arr) => [...arr, { id, frames, pos: [fp.wx, FX_Y, fp.wz], scale: n.scale * 1.1, dur: n.dur }]);
     };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
@@ -2356,12 +2311,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundColor: "#05060a", backgroundImage: `url(${DUEL_BG_URL})`, backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}>
-            {/* Transparent r3f layer composited OVER the CSS diorama backdrop. The
-                orthographic, cover-fit camera (StageCamera) keeps every fighter +
-                FX pixel-locked to the painting at any viewport size. */}
-            <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} style={{ background: "transparent" }}>
-                <StageCamera worldW={DUEL_STAGE.worldW} worldH={DUEL_STAGE.worldH} />
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
+            {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
+                perspective hero camera), so fighters STAND on the floor with real
+                contact shadows instead of floating over a painted wall. */}
+            <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+                <fog attach="fog" args={["#2a1c10", 26, 54]} />
+                <ResponsiveCamera />
+                <Arena floor={floor} backdrop={backdrop} big />
                 {roster.map((r) => (
                     <DuelStandee key={r.id} duel={duel} clock={clock} id={r.id} pet={r.pet} mirror={r.mirror} sharedImages={sharedImages} />
                 ))}
