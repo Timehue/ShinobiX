@@ -29,6 +29,9 @@ const TINT: Record<string, string> = {
     iceBonus: "rgba(176,224,255,0.2)", commonBonus: "rgba(148,163,184,0.2)",
     rareBonus: "rgba(96,165,250,0.2)", epicLegendaryBonus: "rgba(206,147,216,0.2)",
     lowCostBonus: "rgba(74,222,128,0.18)", highCostBonus: "rgba(251,191,36,0.18)",
+    neutralBonus: "rgba(226,232,240,0.18)", noneBonus: "rgba(120,113,108,0.2)",
+    midCostBonus: "rgba(45,212,191,0.18)", allHereBonus: "rgba(244,164,180,0.18)",
+    lowPowerBonus: "rgba(134,239,172,0.18)", highPowerBonus: "rgba(251,146,60,0.2)",
     none: "rgba(80,110,200,0.16)",
 };
 

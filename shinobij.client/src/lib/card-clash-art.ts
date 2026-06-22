@@ -18,6 +18,12 @@ import blackMarket from "../assets/card-clash/loc/black-market.webp";
 import hollowGate from "../assets/card-clash/loc/hollow-gate.webp";
 import hiddenDojo from "../assets/card-clash/loc/hidden-dojo.webp";
 import kageSummit from "../assets/card-clash/loc/kage-summit.webp";
+import balanceShrine from "../assets/card-clash/loc/balance-shrine.webp";
+import forgottenBattlefield from "../assets/card-clash/loc/forgotten-battlefield.webp";
+import chuninArena from "../assets/card-clash/loc/chunin-arena.webp";
+import sacredSpring from "../assets/card-clash/loc/sacred-spring.webp";
+import hiddenVillage from "../assets/card-clash/loc/hidden-village.webp";
+import legendsBattlefield from "../assets/card-clash/loc/legends-battlefield.webp";
 
 export const CARD_CLASH_BOARD_BG = board;
 
@@ -35,4 +41,10 @@ export const CARD_CLASH_LOCATION_ART: Record<string, string> = {
     "hollow-gate": hollowGate,
     "hidden-dojo": hiddenDojo,
     "kage-summit": kageSummit,
+    "balance-shrine": balanceShrine,
+    "forgotten-battlefield": forgottenBattlefield,
+    "chunin-arena": chuninArena,
+    "sacred-spring": sacredSpring,
+    "hidden-village": hiddenVillage,
+    "legends-battlefield": legendsBattlefield,
 };
