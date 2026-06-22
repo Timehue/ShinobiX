@@ -86,7 +86,11 @@ function totalXpForProgress(level: number, xp: number): number {
 }
 
 export function maxHpForLevel(level: number): number {
-    return Math.min(HP_CAP, 100 + (Math.max(1, level) - 1) * 100);
+    // Base HP at level 1 is 500 (starter HP); +100 per level thereafter, up to
+    // HP_CAP. Shifting only the base keeps the curve balance-neutral — players and
+    // same-level AI (aiHpForLevel multiplies this) both gain the +400 base.
+    // Keep this in lock-step with shinobij.client/src/lib/stats.ts (parity test).
+    return Math.min(HP_CAP, 500 + (Math.max(1, level) - 1) * 100);
 }
 
 export function maxChakraForLevel(level: number): number {

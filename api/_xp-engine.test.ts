@@ -32,7 +32,7 @@ const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : lvl * 100;
 const C_TOTAL_XP = ((C_MAX_LEVEL - 1) * C_MAX_LEVEL / 2) * 100;
 const cBeforeLevel = (lvl: number) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return ((l - 1) * l / 2) * 100; };
 const cForProgress = (lvl: number, xp: number) => lvl >= C_MAX_LEVEL ? C_TOTAL_XP : Math.min(C_TOTAL_XP, cBeforeLevel(lvl) + Math.max(0, Math.min(cXpNeeded(lvl), Math.floor(xp))));
-const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 100 + (Math.max(1, lvl) - 1) * 100);
+const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
 const cMaxChakra = (lvl: number) => Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl: number) => Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cRankFrom = (lvl: number) => lvl >= 80 ? 'Special Jonin' : lvl >= 50 ? 'Jonin' : lvl >= 30 ? 'Chunin' : lvl >= 15 ? 'Genin' : 'Academy Student';
@@ -159,8 +159,8 @@ describe('gainXp golden anchors', () => {
         const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
         assert.equal(out.level, 3);
         assert.equal(out.xp, 0);
-        assert.equal(out.maxHp, 300);
-        assert.equal(out.hp, 300);
+        assert.equal(out.maxHp, 700); // maxHpForLevel(3): 500 base + 2×100
+        assert.equal(out.hp, 700);
         assert.equal(out.maxChakra, 198);
         assert.equal(out.maxStamina, 198);
         assert.equal(out.rankTitle, 'Academy Student');
@@ -171,7 +171,7 @@ describe('gainXp golden anchors', () => {
         assert.equal(out.level, 20);
         assert.equal(out.xp, 1999); // clamped to xpNeeded(20)-1
         assert.equal(out.rankTitle, 'Genin');
-        assert.equal(out.maxHp, 2000);
+        assert.equal(out.maxHp, 2400); // maxHpForLevel(20): 500 base + 19×100
     });
     it('clamps to MAX_LEVEL and 0 xp at the top', () => {
         const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 5000);
