@@ -27,7 +27,7 @@ const cXpNeeded = (lvl) => lvl >= C_MAX_LEVEL ? 0 : lvl * 100;
 const C_TOTAL_XP = ((C_MAX_LEVEL - 1) * C_MAX_LEVEL / 2) * 100;
 const cBeforeLevel = (lvl) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return ((l - 1) * l / 2) * 100; };
 const cForProgress = (lvl, xp) => lvl >= C_MAX_LEVEL ? C_TOTAL_XP : Math.min(C_TOTAL_XP, cBeforeLevel(lvl) + Math.max(0, Math.min(cXpNeeded(lvl), Math.floor(xp))));
-const cMaxHp = (lvl) => Math.min(C_HP_CAP, 100 + (Math.max(1, lvl) - 1) * 100);
+const cMaxHp = (lvl) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
 const cMaxChakra = (lvl) => Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl) => Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cRankFrom = (lvl) => lvl >= 80 ? 'Special Jonin' : lvl >= 50 ? 'Jonin' : lvl >= 30 ? 'Chunin' : lvl >= 15 ? 'Genin' : 'Academy Student';
@@ -155,8 +155,8 @@ function cGainXp(character, amount) {
         const out = (0, _xp_engine_js_1.gainXp)({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
         node_assert_1.strict.equal(out.level, 3);
         node_assert_1.strict.equal(out.xp, 0);
-        node_assert_1.strict.equal(out.maxHp, 300);
-        node_assert_1.strict.equal(out.hp, 300);
+        node_assert_1.strict.equal(out.maxHp, 700); // maxHpForLevel(3): 500 base + 2×100
+        node_assert_1.strict.equal(out.hp, 700);
         node_assert_1.strict.equal(out.maxChakra, 198);
         node_assert_1.strict.equal(out.maxStamina, 198);
         node_assert_1.strict.equal(out.rankTitle, 'Academy Student');
@@ -167,7 +167,7 @@ function cGainXp(character, amount) {
         node_assert_1.strict.equal(out.level, 20);
         node_assert_1.strict.equal(out.xp, 1999); // clamped to xpNeeded(20)-1
         node_assert_1.strict.equal(out.rankTitle, 'Genin');
-        node_assert_1.strict.equal(out.maxHp, 2000);
+        node_assert_1.strict.equal(out.maxHp, 2400); // maxHpForLevel(20): 500 base + 19×100
     });
     (0, node_test_1.it)('clamps to MAX_LEVEL and 0 xp at the top', () => {
         const out = (0, _xp_engine_js_1.gainXp)({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 5000);
