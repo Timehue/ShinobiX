@@ -16,6 +16,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
+import { MobileNotificationBar } from "./MobileNotificationBar";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
 // snapshots from App), the navigate callback (stable), and a boolean.
@@ -26,6 +27,7 @@ export const MobileNav = memo(function MobileNav({
     logoutPlayer,
     character,
     atHome,
+    screen,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
@@ -33,6 +35,7 @@ export const MobileNav = memo(function MobileNav({
     character: Character;
     currentSector: number;
     atHome: boolean;
+    screen: Screen;
 }) {
     const [open, setOpen] = useState(false);
     const isAdminAccount = isProtectedAdminName(character.name);
@@ -59,6 +62,15 @@ export const MobileNav = memo(function MobileNav({
 
     return (
         <>
+            {!open && (
+                <MobileNotificationBar
+                    navigate={navigate}
+                    screen={screen}
+                    clan={character.clan ?? ""}
+                    village={character.village}
+                />
+            )}
+
             <nav className="mobile-bottom-nav">
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
                     <span className="mnb-icon">🗺️</span>
