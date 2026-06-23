@@ -38,6 +38,7 @@ export const GAUNTLET_ROSTER_CAP = 5;   // how many run-pets you can hold
 export const GAUNTLET_FIELD_CAP = 5;    // how many you field on the board (= BOARD_SQUAD_MAX)
 export const GAUNTLET_SHOP_SIZE = 4;
 export const GAUNTLET_MAX_ROUNDS = 10;
+export const GAUNTLET_SPIKE_ROUND = 7;  // enemies sharply harden from this round on (the late-game wall)
 export const GAUNTLET_REROLL_COST = 1;
 // Consolation Valor paid when you LOSE a round (but still have a heart). You stay
 // on the same round to retry — losing costs a heart, not progress.
@@ -114,8 +115,17 @@ function enemySizeForRound(round: number): number {
     if (round <= 6) return 4;
     return 5;   // BOARD_SQUAD_MAX
 }
-function enemyStatMultForRound(round: number): number {
-    return 1 + (round - 1) * 0.04;   // gentle escalation layered over the rarity jump
+/**
+ * Enemy stat multiplier per round — a gentle early ramp, then a sharp DIFFICULTY
+ * SPIKE from round 7 (the "gauntlet hardens" wall) that keeps climbing to ~2× by
+ * round 10, so a cruising squad must actually optimise (merges, positioning,
+ * relics) to finish. Tunable: the spike base/step below.
+ * Rounds 1–6: 1.00 → 1.20.  Round 7: ~1.46.  Round 10: ~1.97.
+ */
+export function enemyStatMultForRound(round: number): number {
+    const base = 1 + (round - 1) * 0.04;
+    const spike = round >= GAUNTLET_SPIKE_ROUND ? 0.22 + (round - GAUNTLET_SPIKE_ROUND) * 0.13 : 0;
+    return base + spike;
 }
 /** Valor paid for clearing a round (run-local shop currency — NOT Ryo). */
 function valorRewardForRound(round: number): number {

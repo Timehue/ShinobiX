@@ -19,7 +19,7 @@ import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
     petStar, wouldMerge, offerCost,
-    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, itemCost,
+    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, GAUNTLET_SPIKE_ROUND, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
@@ -52,7 +52,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g20";
+const GAUNTLET_BUILD = "g21";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -373,6 +373,11 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     {/* Next opponent preview (board view) */}
                     <p className="hint" style={{ margin: 0 }}>
                         Next: {enemySquadForRound(run).map((e) => e.name).join(" + ")} ({enemySquadForRound(run)[0]?.rarity}).
+                        {run.round >= GAUNTLET_SPIKE_ROUND
+                            ? <strong style={{ color: "#f87171" }}> ⚠ Elite round — enemies are far tougher from here. Optimize your squad.</strong>
+                            : run.round === GAUNTLET_SPIKE_ROUND - 1
+                                ? <strong style={{ color: "#fbbf24" }}> ⚠ The gauntlet hardens next round ({GAUNTLET_SPIKE_ROUND}). Gear up.</strong>
+                                : null}
                     </p>
 
                     {/* Recruit Shop + Quartermaster stay on the main page; only the
