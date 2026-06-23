@@ -1,13 +1,15 @@
 /*
- * PetBoardArena — the Pet Gauntlet BOARD fight view (TFT / Super-Auto-Pets style).
+ * PetBoardArena — the Pet Gauntlet BOARD fight view (TFT / Dota-Underlords style).
  *
- * Plays a deterministic BoardResult (lib/pet-board-sim) as two lineups of 2.5D-render
- * unit cards facing off — front (slot 0) toward the centre. It steps through the
- * round-by-round snapshot stream (HP bars ease down) and fires the event stream as
- * transient juice: hits flash + shake + float a damage number, abilities pop, faints
- * grey out and topple. Pure DOM/CSS so it natively holds a full squad of N units and
- * is cheap to verify. Full-screen portal, like the duel — but its OWN renderer, not
- * the 2v2-capped PetColiseumDuel.
+ * Renders a tilted, tiled board with both squads STANDING ON the squares (their
+ * 2.5D renders), not cards in rows. Plays a deterministic BoardResult
+ * (lib/pet-board-sim) round-by-round: HP bars ease down, hits flash + float
+ * damage, faints grey out and topple. Pure DOM/CSS (a perspective-transformed
+ * grid + counter-rotated standees), so it holds a full squad and is cheap to
+ * verify. Full-screen portal. Its OWN renderer — not the 2v2 PetColiseumDuel.
+ *
+ * Cell mapping (4 board rows): 0 = enemy back, 1 = enemy front, 2 = player front,
+ * 3 = player back. So both FRONT lines meet in the middle, backs sit at the edges.
  */
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -17,35 +19,17 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 
-const ROUND_MS = 820;   // per-round playback pacing
+const ROUND_MS = 820;
+const COLS = 4;            // board columns
+const TILT = 42;           // board tilt in degrees
 const ELEMENT_COLOR: Record<string, string> = { Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380" };
 const elColor = (el?: string | null) => (el && ELEMENT_COLOR[el]) || "#94a3b8";
 const roleOf = (p: Pet): PetRole => (p.role as PetRole | undefined) ?? derivePetRole(p).role;
 
-function UnitCard({ pet, hp, maxHp, shield, alive, dmg, flash, acted, sharedImages }: {
-    pet: Pet; hp: number; maxHp: number; shield: number; alive: boolean; dmg: number; flash: boolean; acted: boolean; sharedImages: Record<string, string>;
-}) {
-    const role = roleOf(pet);
-    const img = petCardImage(pet, sharedImages);
-    const pct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
-    return (
-        <div className={`bp-unit${alive ? "" : " bp-dead"}${flash ? " bp-hit" : ""}${acted ? " bp-act" : ""}`}
-            style={{ border: `1px solid ${elColor(pet.element)}88`, boxShadow: acted ? `0 0 14px ${elColor(pet.element)}` : undefined }}>
-            {dmg > 0 && <span className="bp-dmg" key={`d${dmg}-${hp}`}>-{dmg}</span>}
-            {shield > 0 && <span className="bp-shield">🛡 {shield}</span>}
-            <div className="bp-portrait">
-                {img ? <img src={img} alt={pet.name} draggable={false} /> : <span className="bp-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
-            </div>
-            <div className="bp-hpbar"><div className="bp-hpfill" style={{ width: `${pct}%`, background: pct > 50 ? "#4ade80" : pct > 22 ? "#facc15" : "#f87171" }} /></div>
-            <div className="bp-name"><span style={{ color: elColor(pet.element) }}>{ROLE_META[role].icon}</span> {pet.name}</div>
-        </div>
-    );
-}
-
 export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: BoardResult; sharedImages?: Record<string, string>; onDone: () => void }) {
     const total = result.snapshots.length;
     const [round, setRound] = useState(0);
-    const done = round >= total - 1;   // derived — the last snapshot has been reached
+    const done = round >= total - 1;
 
     useEffect(() => {
         if (done) return;
@@ -54,12 +38,11 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
     }, [round, total, done]);
 
     const snap = result.snapshots[Math.min(round, total - 1)];
-    // Per-unit transient state for THIS round: damage taken, hit flash, acted.
     const fx = useMemo(() => {
         const m = new Map<string, { dmg: number; flash: boolean; acted: boolean }>();
         for (const e of result.events) {
             if (e.t !== round) continue;
-            if (e.targetId && (e.type === "hit")) {
+            if (e.targetId && e.type === "hit") {
                 const cur = m.get(e.targetId) ?? { dmg: 0, flash: false, acted: false };
                 cur.dmg += e.dmg ?? 0; cur.flash = true; m.set(e.targetId, cur);
             }
@@ -71,50 +54,74 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
         return m;
     }, [result.events, round]);
 
-    const cardFor = (u: BoardResult["roster"][number]) => {
-        const s = snap.units.find((x) => x.id === u.id);
-        const f = fx.get(u.id) ?? { dmg: 0, flash: false, acted: false };
-        return <UnitCard key={u.id} pet={u.pet} hp={s?.hp ?? 0} maxHp={s?.maxHp ?? u.pet.hp} shield={s?.shield ?? 0} alive={s?.alive ?? false} dmg={f.dmg} flash={f.flash} acted={f.acted} sharedImages={sharedImages} />;
-    };
-    const cellsFor = (team: "player" | "enemy", row: number) =>
-        result.roster.filter((u) => u.team === team && u.row === row).sort((a, b) => a.col - b.col);
+    // unit → board row (0 enemy-back … 3 player-back). Clamp engine rows to 0/1.
+    const boardRow = (u: BoardResult["roster"][number]) => (u.team === "enemy" ? 1 - Math.min(1, u.row) : 2 + Math.min(1, u.row));
+    const unitAt = (br: number, bc: number) => result.roster.find((u) => boardRow(u) === br && u.col === bc);
+
     const resultLabel = result.result === "win" ? "Victory" : result.result === "loss" ? "Defeat" : "Draw";
 
+    const standee = (u: BoardResult["roster"][number]) => {
+        const s = snap.units.find((x) => x.id === u.id);
+        const f = fx.get(u.id) ?? { dmg: 0, flash: false, acted: false };
+        const alive = s?.alive ?? false;
+        const pct = Math.max(0, Math.min(100, ((s?.hp ?? 0) / Math.max(1, s?.maxHp ?? u.pet.hp)) * 100));
+        const img = petCardImage(u.pet, sharedImages);
+        return (
+            <div className={`bp-standee${alive ? "" : " dead"}${f.flash ? " hit" : ""}${f.acted ? " act" : ""}`} style={{ ["--el" as string]: elColor(u.pet.element) }}>
+                {f.dmg > 0 && <span className="bp-dmg" key={`${round}-${f.dmg}`}>-{f.dmg}</span>}
+                <div className="bp-hp"><div className="bp-hpfill" style={{ width: `${pct}%`, background: pct > 50 ? "#4ade80" : pct > 22 ? "#facc15" : "#f87171" }} /></div>
+                {img ? <img src={img} alt={u.pet.name} draggable={false} /> : <span className="bp-init">{u.pet.name.slice(0, 2).toUpperCase()}</span>}
+                <span className="bp-tag" style={{ color: elColor(u.pet.element) }}>{ROLE_META[roleOf(u.pet)].icon}</span>
+            </div>
+        );
+    };
+
     return createPortal((
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", display: "grid", gridTemplateRows: "1fr auto 1fr", placeItems: "center", backgroundImage: `linear-gradient(rgba(6,8,16,0.78), rgba(6,8,16,0.9)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", display: "grid", placeItems: "center", backgroundImage: `linear-gradient(rgba(8,11,20,0.48), rgba(8,11,20,0.74)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
             <style>{`
-                .bp-side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
-                .bp-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: flex-end; padding: 4px 14px; min-height: 8px; }
-                .bp-row.back { transform: scale(0.84); opacity: 0.9; }
-                .bp-unit { position: relative; width: 104px; border-radius: 12px; background: rgba(12,17,30,0.82); padding: 8px 8px 9px; text-align: center; transition: opacity .35s, transform .35s, filter .35s; }
-                .bp-unit.bp-dead { opacity: 0.28; filter: grayscale(1); transform: translateY(8px) rotate(-7deg); }
-                .bp-unit.bp-hit { animation: bpHit .34s ease-out; }
-                .bp-unit.bp-act { animation: bpAct .34s ease-out; }
-                @keyframes bpHit { 0%{transform:translateX(0)} 20%{transform:translateX(-5px)} 45%{transform:translateX(5px)} 70%{transform:translateX(-3px)} 100%{transform:translateX(0)} }
-                @keyframes bpAct { 0%{transform:translateY(0) scale(1)} 40%{transform:translateY(-8px) scale(1.06)} 100%{transform:translateY(0) scale(1)} }
-                .bp-portrait { height: 78px; display: grid; place-items: center; }
-                .bp-portrait img { max-height: 78px; max-width: 96px; object-fit: contain; filter: drop-shadow(0 3px 6px rgba(0,0,0,.6)); }
-                .bp-initials { font: 800 26px Inter, sans-serif; color: #cbd5e1; }
-                .bp-hpbar { height: 7px; border-radius: 999px; background: #0b1220; overflow: hidden; margin: 5px 2px 4px; border: 1px solid #00000055; }
+                .bp-stage { perspective: 1700px; perspective-origin: 50% 46%; }
+                .bp-board { transform: rotateX(${TILT}deg); transform-style: preserve-3d; display: grid; grid-template-columns: repeat(${COLS}, 168px); grid-template-rows: repeat(4, 122px); gap: 8px; box-shadow: 0 40px 90px rgba(0,0,0,0.6); }
+                .bp-cell { position: relative; border-radius: 4px; border: 1px solid rgba(148,163,184,0.16); }
+                .bp-cell.enemy { background: rgba(80,30,30,0.34); }
+                .bp-cell.enemy.dark { background: rgba(60,22,22,0.5); }
+                .bp-cell.player { background: rgba(30,52,82,0.34); }
+                .bp-cell.player.dark { background: rgba(22,38,64,0.5); }
+                .bp-cell.mid { box-shadow: inset 0 0 0 1px rgba(250,204,21,0.12); }
+                /* Stand the sprite UP out of the tilted tile, anchored at the tile's near edge. */
+                .bp-standee { position: absolute; left: 50%; bottom: 8px; width: 150px; transform: translateX(-50%) rotateX(-${TILT}deg); transform-origin: bottom center; text-align: center; transition: opacity .35s, filter .35s; z-index: 2; }
+                .bp-standee.dead { opacity: 0.22; filter: grayscale(1); }
+                .bp-standee.hit { animation: bpHit .34s ease-out; }
+                .bp-standee.act { animation: bpAct .34s ease-out; }
+                @keyframes bpHit { 0%{transform:translateX(-50%) rotateX(-${TILT}deg)} 25%{transform:translateX(-58%) rotateX(-${TILT}deg)} 60%{transform:translateX(-44%) rotateX(-${TILT}deg)} 100%{transform:translateX(-50%) rotateX(-${TILT}deg)} }
+                @keyframes bpAct { 0%{filter:none} 40%{filter:drop-shadow(0 0 10px var(--el))} 100%{filter:none} }
+                .bp-standee img { width: 148px; height: 168px; object-fit: contain; object-position: bottom; display: block; margin: 0 auto; filter: drop-shadow(0 8px 7px rgba(0,0,0,.75)); }
+                .bp-init { display: inline-block; height: 168px; line-height: 168px; font: 800 36px Inter, sans-serif; color: #cbd5e1; }
+                .bp-hp { height: 8px; width: 124px; margin: 0 auto 4px; border-radius: 999px; background: #0b1220; overflow: hidden; border: 1px solid #00000066; }
                 .bp-hpfill { height: 100%; border-radius: 999px; transition: width .5s ease-out; }
-                .bp-name { font: 700 11px Inter, sans-serif; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .bp-dmg { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); font: 900 18px Inter, sans-serif; color: #fca5a5; text-shadow: 0 2px 5px #000; animation: bpDmg .8s ease-out forwards; pointer-events: none; }
-                @keyframes bpDmg { 0%{opacity:0; transform:translate(-50%,4px)} 20%{opacity:1} 100%{opacity:0; transform:translate(-50%,-22px)} }
-                .bp-shield { position: absolute; top: 2px; right: 4px; font: 700 10px Inter, sans-serif; color: #bfdbfe; }
+                .bp-tag { position: absolute; right: 2px; bottom: 2px; font-size: 13px; filter: drop-shadow(0 1px 2px #000); }
+                .bp-dmg { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); font: 900 18px Inter, sans-serif; color: #fecaca; text-shadow: 0 2px 5px #000; animation: bpDmg .8s ease-out forwards; }
+                @keyframes bpDmg { 0%{opacity:0; transform:translate(-50%,4px)} 20%{opacity:1} 100%{opacity:0; transform:translate(-50%,-20px)} }
             `}</style>
 
-            <div className="bp-side">
-                <div className="bp-row back">{cellsFor("enemy", 1).map(cardFor)}</div>
-                <div className="bp-row front">{cellsFor("enemy", 0).map(cardFor)}</div>
-            </div>
-
-            <div style={{ textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000" }}>
+            <div style={{ position: "absolute", top: "6%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
 
-            <div className="bp-side">
-                <div className="bp-row front">{cellsFor("player", 0).map(cardFor)}</div>
-                <div className="bp-row back">{cellsFor("player", 1).map(cardFor)}</div>
+            <div className="bp-stage">
+                <div className="bp-board">
+                    {Array.from({ length: 4 }).flatMap((_, br) =>
+                        Array.from({ length: COLS }).map((_, bc) => {
+                            const u = unitAt(br, bc);
+                            const side = br < 2 ? "enemy" : "player";
+                            const mid = br === 1 || br === 2;
+                            return (
+                                <div key={`${br}-${bc}`} className={`bp-cell ${side}${(br + bc) % 2 ? " dark" : ""}${mid ? " mid" : ""}`} style={{ zIndex: br + 1 }}>
+                                    {u && standee(u)}
+                                </div>
+                            );
+                        }),
+                    )}
+                </div>
             </div>
 
             {done && (
