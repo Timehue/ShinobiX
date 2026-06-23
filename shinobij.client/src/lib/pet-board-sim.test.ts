@@ -101,3 +101,45 @@ describe("runPetBoardBattle — outcomes", () => {
         assert.equal(target?.slot, 0, "the lineup front is targeted first");
     });
 });
+
+describe("runPetGridBattle — combat relics (player mods)", () => {
+    const finalHp = (r: ReturnType<typeof runPetGridBattle>, id: string) => r.snapshots[r.snapshots.length - 1].units.find((u) => u.id === id)!.hp;
+
+    it("Stoneward shields the player squad only, before the first snapshot", () => {
+        const p = [{ pet: mk({ id: "p0" }), row: 0, col: 0 }];
+        const e = [{ pet: mk({ id: "e0" }), row: 0, col: 0 }];
+        const ward = runPetGridBattle(p, e, 1, { playerMods: { shieldStartFrac: 0.2 } });
+        assert.equal(runPetGridBattle(p, e, 1).snapshots[0].units.find((u) => u.id === "p0")!.shield, 0, "no shield without the relic");
+        assert.ok(ward.snapshots[0].units.find((u) => u.id === "p0")!.shield > 0, "player opens with a shield");
+        assert.equal(ward.snapshots[0].units.find((u) => u.id === "e0")!.shield, 0, "the enemy gets none");
+    });
+
+    it("Bramble reflect chips the attacker", () => {
+        const tank = [{ pet: mk({ id: "tank", role: "defender", hp: 2000, defense: 40, attack: 1, jutsus: [] }), row: 0, col: 0 }];
+        const foe = [{ pet: mk({ id: "foe", role: "defender", hp: 2000, attack: 120, defense: 0, jutsus: [] }), row: 0, col: 0 }];
+        const base = runPetGridBattle(tank, foe, 3);
+        const refl = runPetGridBattle(tank, foe, 3, { playerMods: { reflectPct: 0.5 } });
+        assert.ok(finalHp(refl, "foe") < finalHp(base, "foe"), "reflect leaves the attacker lower");
+    });
+
+    it("Phoenix Plume revives the first fallen ally once", () => {
+        const glass = [{ pet: mk({ id: "glass", hp: 60, defense: 0, attack: 1, speed: 10, jutsus: [] }), row: 0, col: 0 }];
+        const killer = [{ pet: mk({ id: "killer", attack: 300, hp: 2000, defense: 0, speed: 50, jutsus: [] }), row: 0, col: 0 }];
+        const r = runPetGridBattle(glass, killer, 7, { playerMods: { reviveCharges: 1, reviveHpFrac: 0.5 } });
+        assert.ok(r.events.some((ev) => ev.type === "heal" && ev.actorId === "glass" && ev.targetId === "glass"), "the fallen pet springs back once");
+    });
+
+    it("Vampiric Fang keeps the attacker healthier", () => {
+        const p = [{ pet: mk({ id: "vamp", hp: 600, attack: 90, defense: 20, jutsus: [] }), row: 0, col: 0 }];
+        const e = [{ pet: mk({ id: "chow", hp: 1400, attack: 60, defense: 10, jutsus: [] }), row: 0, col: 0 }];
+        assert.ok(finalHp(runPetGridBattle(p, e, 4, { playerMods: { lifestealPct: 0.5 } }), "vamp") > finalHp(runPetGridBattle(p, e, 4), "vamp"), "lifesteal sustains the attacker");
+    });
+
+    it("mods stay deterministic", () => {
+        const p = team(3).map((pet, i) => ({ pet, row: 0, col: i }));
+        const e = team(3).map((pet, i) => ({ pet, row: 0, col: i }));
+        const opts = { playerMods: { lifestealPct: 0.2, chainPct: 0.3, shieldStartFrac: 0.1 } };
+        const a = runPetGridBattle(p, e, 88, opts), b = runPetGridBattle(p, e, 88, opts);
+        assert.deepEqual(a.events.map((x) => `${x.t}:${x.type}:${x.dmg ?? ""}`), b.events.map((x) => `${x.t}:${x.type}:${x.dmg ?? ""}`));
+    });
+});
