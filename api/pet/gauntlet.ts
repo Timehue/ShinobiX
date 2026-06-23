@@ -42,6 +42,10 @@ const CLEAR_BONUS = 1500;         // extra Ryo for clearing all rounds
 const REWARDED_RUNS_PER_DAY = 3;  // only the first N rewarded runs/day pay Ryo
 const TOKEN_TTL_SECONDS = 60 * 60; // a full run fits comfortably
 const LB_MAX = 1000;
+// Premium-currency exchange: a Fate Shard / Bone Charm bought with Valor is only
+// BANKED if the run cleared round 9, and at most ONCE per UTC day per currency
+// (a server NX flag — the client can never mint premium currency on its own).
+const PREMIUM_ROUNDS_CLEARED = 9;
 
 interface SealedRun { player: string; weekKey: string; seed: number; rewardEligible: boolean; perRound: number; clearBonus: number; maxRounds: number; startHearts: number; }
 interface LbEntry { slug: string; name: string; village?: string; score: number; roundsCleared: number; heartsLeft: number; at: number; }
@@ -57,6 +61,8 @@ const dayStamp = () => new Date().toISOString().slice(0, 10);
 const tokenKey = (id: string) => `petgauntlet:tok:${id}`;
 const lbKey = (weekKey: string) => `petgauntlet:lb:${weekKey}`;
 const rewardCountKey = (slug: string, day: string) => `petgauntlet:rewarded:${slug}:${day}`;
+const shardClaimKey = (slug: string, day: string) => `petgauntlet:fateshard:${slug}:${day}`;
+const charmClaimKey = (slug: string, day: string) => `petgauntlet:bonecharm:${slug}:${day}`;
 
 const clampInt = (v: unknown, lo: number, hi: number): number => {
     const n = Math.floor(Number(v));
@@ -143,8 +149,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ryo = sealed.perRound * roundsCleared + (roundsCleared >= sealed.maxRounds ? sealed.clearBonus : 0);
                 }
             }
+            // Premium-currency buys (Fate Shard / Bone Charm) bank ONLY if the run
+            // cleared round 9, and at most once/day each (the NX claim flags below).
+            const wantShard = body.boughtFateShard === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
+            const wantCharm = body.boughtBoneCharm === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
+            const day = dayStamp();
             let name = me;
             let village: string | undefined;
+            let grantedFateShards = 0;
+            let grantedBoneCharms = 0;
             const saveKey = `save:${me}`;
             await withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
@@ -152,8 +165,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!record || !char) return;
                 name = String(char.name ?? me).slice(0, 40);
                 if (typeof char.village === 'string') village = char.village;
-                if (ryo > 0) {
-                    const next = { ...char, ryo: Number(char.ryo ?? 0) + ryo };
+                // Daily once-per-currency claim via NX; fail CLOSED (a KV hiccup just
+                // means no grant this time — never a double-grant, never a crash).
+                if (wantShard) { try { if (await kv.set(shardClaimKey(me, day), '1', { nx: true, ex: 26 * 3600 }) === 'OK') grantedFateShards = 1; } catch { /* no grant */ } }
+                if (wantCharm) { try { if (await kv.set(charmClaimKey(me, day), '1', { nx: true, ex: 26 * 3600 }) === 'OK') grantedBoneCharms = 1; } catch { /* no grant */ } }
+                if (ryo > 0 || grantedFateShards > 0 || grantedBoneCharms > 0) {
+                    const next = {
+                        ...char,
+                        ryo: Number(char.ryo ?? 0) + ryo,
+                        fateShards: Number(char.fateShards ?? 0) + grantedFateShards,
+                        boneCharms: Number(char.boneCharms ?? 0) + grantedBoneCharms,
+                    };
                     await kv.set(saveKey, mergePreservingImages({ ...record, character: next }, record));
                 }
             }, { failClosed: true });
@@ -173,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rank = pos >= 0 ? pos + 1 : null;
             }, { failClosed: true });
 
-            return res.status(200).json({ ryo, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft });
+            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft });
         }
 
         return res.status(400).json({ error: 'Invalid action.' });

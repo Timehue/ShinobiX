@@ -21,6 +21,8 @@ export interface GauntletStart {
 
 export interface GauntletReward {
     ryo: number;
+    fateShards: number;
+    boneCharms: number;
     score: number;
     rank: number | null;
     weekKey: string;
@@ -42,12 +44,12 @@ export async function startGauntlet(): Promise<GauntletStart | null> {
     }
 }
 
-export async function reportGauntlet(runToken: string, roundsCleared: number, heartsLeft: number): Promise<GauntletReward | null> {
+export async function reportGauntlet(runToken: string, roundsCleared: number, heartsLeft: number, boughtFateShard = false, boughtBoneCharm = false): Promise<GauntletReward | null> {
     try {
         const r = await fetch("/api/pet/gauntlet", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "report", runToken, roundsCleared, heartsLeft }),
+            body: JSON.stringify({ action: "report", runToken, roundsCleared, heartsLeft, boughtFateShard, boughtBoneCharm }),
         });
         if (!r.ok) return null;
         return (await r.json()) as GauntletReward;
