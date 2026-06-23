@@ -169,6 +169,23 @@ export function petCardImage(
     return "";
 }
 
+/**
+ * POSE-FIRST image resolver for billboard-style renderers (the Pet Gauntlet board,
+ * its placement grid, and its recruit cards). Unlike petCardImage — which prefers
+ * a published `pet:`/`petbody:` portrait that may carry an opaque background — this
+ * returns the clean transparent idle POSE cutout first (the exact art the Pet
+ * Coliseum standees use), so dark backgrounds never box the sprite. Falls back to
+ * petCardImage only when a pet has no generated pose. Pure.
+ */
+export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
+    const visualId = petVisualId(pet);
+    if (POSED_PET_IDS.has(visualId)) return `/pet-poses/${visualId}-idle.webp`;
+    if (POSED_PET_IDS.has(pet.id)) return `/pet-poses/${pet.id}-idle.webp`;
+    const baseId = petStripVariant(pet.id);
+    if (POSED_PET_IDS.has(baseId)) return `/pet-poses/${baseId}-idle.webp`;
+    return petCardImage(pet, sharedImages);
+}
+
 /** Map a pet's chakra element to its VFX tint. */
 export function elementVfxKey(element?: JutsuElement | string | null): PetVfxKey {
     switch (String(element ?? "").toLowerCase()) {
