@@ -22,11 +22,19 @@ import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
 const ROUND_MS = 820;
-const CELL = 2.15;            // world units per grid cell
+const CELL = 2.15;            // world units per grid cell (floor-plane sizing only)
 const ROWS = 6;              // 3 enemy + 3 player
-const SPRITE_H = 2.5;        // standee height (world units)
-const cx = (col: number) => (col - (BOARD_COLS - 1) / 2) * CELL;
-const cz = (boardRow: number) => (boardRow - (ROWS - 1) / 2) * CELL;
+const SPRITE_H = 2.2;        // standee height (world units)
+// Pet positions are INSET from the floor plane so squads stand on the playable
+// stone (the lit zones), not out on the fire border / corners. Columns spread
+// across the width; the two sides sit either side of a centre no-man's-land gap
+// (enemy in the far half, player in the near half).
+const COL_SP = 1.55;         // horizontal spacing between columns → cols span ±3.1
+const ROW_SP = 1.4;          // depth spacing between rows on one side
+const CENTER_GAP = 1.0;      // half the empty gap between the two front lines
+const cx = (col: number) => (col - (BOARD_COLS - 1) / 2) * COL_SP;
+// boardRows 0..2 = enemy (far → centre); 3..5 = player (centre → near).
+const cz = (boardRow: number) => (boardRow <= 2 ? -CENTER_GAP - (2 - boardRow) * ROW_SP : CENTER_GAP + (boardRow - 3) * ROW_SP);
 // unit grid row (0 front … 2 back) → board row. Enemy fronts face player fronts at centre.
 const boardRowOf = (u: BoardResult["roster"][number]) => (u.team === "enemy" ? 2 - Math.min(2, u.row) : 3 + Math.min(2, u.row));
 
