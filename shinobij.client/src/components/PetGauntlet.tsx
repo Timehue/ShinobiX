@@ -16,8 +16,8 @@ import type { Pet } from "../types/pet";
 import type { Character } from "../types/character";
 import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
 import {
-    startGauntletRun, buyOffer, buyItem, rerollShop, releasePet, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs,
+    startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, fieldedPets,
+    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll,
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_START_HEARTS, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
@@ -186,6 +186,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
     const rosterFull = run.roster.length >= 5;
     const over = run.status === "won" || run.status === "lost";
+    const rerollCost = hasFreeReroll(run.relics) && run.rerolls === 0 ? 0 : GAUNTLET_REROLL_COST;
 
     return (
         <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
@@ -290,8 +291,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
-                            <button type="button" style={btn("#38bdf8", run.valor < GAUNTLET_REROLL_COST)} disabled={run.valor < GAUNTLET_REROLL_COST} onClick={() => setRun(rerollShop(run))}>
-                                🎲 Reroll ({GAUNTLET_REROLL_COST}✦)
+                            <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => setRun(rerollShop(run))}>
+                                🎲 Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -332,6 +333,31 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     </div>
                                 );
                             })}
+                        </div>
+                    </div>
+
+                    {/* Relics — permanent run-long boons, bought with Valor (rolled shelf + owned strip) */}
+                    <div>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons</span></h4>
+                        {run.relics.length > 0 && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                                {run.relics.map((id) => { const d = relicDef(id); return (
+                                    <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
+                                        <span>{d.icon}</span>{d.name}
+                                    </span>
+                                ); })}
+                            </div>
+                        )}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {run.relicShop.length === 0
+                                ? <p className="hint">No relics on offer — reroll to seek new boons.</p>
+                                : run.relicShop.map((id) => { const d = relicDef(id); const blocked = run.valor < d.cost; return (
+                                    <div key={id} style={{ border: "1px solid #6d28d9", borderRadius: 10, background: "rgba(30,18,52,0.6)", padding: "8px 10px", width: 170 }}>
+                                        <strong style={{ fontSize: "0.84rem", color: "#e9d5ff" }}>{d.icon} {d.name}</strong>
+                                        <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
+                                        <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => setRun(buyRelic(run, id))}>Buy · {d.cost}✦</button>
+                                    </div>
+                                ); })}
                         </div>
                     </div>
 

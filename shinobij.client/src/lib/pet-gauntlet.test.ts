@@ -6,9 +6,10 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
-    startGauntletRun, buyOffer, buyItem, rerollShop, releasePet, setField, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS,
+    startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, setField, fieldedPets,
+    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
+    type RelicId,
 } from "./pet-gauntlet";
 import type { Pet } from "../types/pet";
 import { petStripVariant } from "./pet-battle-anim";
@@ -98,14 +99,42 @@ describe("buyItem", () => {
     });
 });
 
+describe("buyRelic / relic economy", () => {
+    it("buys a stat relic: spends valor, owns it once, folds into the squad buffs", () => {
+        let run = { ...startGauntletRun(1), valor: 99, relicShop: ["razor_fang", "titan_heart"] as RelicId[] };
+        run = buyRelic(run, "razor_fang");
+        assert.ok(run.relics.includes("razor_fang"));
+        assert.ok(run.buffs.atk > 0, "attack buff folded into run buffs");
+        assert.equal(run.relicShop.includes("razor_fang"), false, "leaves the relic shelf");
+        const cost = GAUNTLET_RELICS.find((r) => r.id === "razor_fang")!.cost;
+        assert.equal(run.valor, 99 - cost);
+        assert.equal(buyRelic(run, "razor_fang").relics.filter((r) => r === "razor_fang").length, 1, "can't own twice");
+    });
+
+    it("Merchant's Charm pays Valor each round; Lucky Coin frees the first reroll", () => {
+        let run = beginFight({ ...startGauntletRun(2), relics: ["merchant_charm"] as RelicId[], fieldIds: ["x"], roster: [{ id: "x" } as never] });
+        const before = run.valor;
+        run = applyRoundResult(run, true);
+        assert.equal(run.valor, before + (4 + 1) + 3, "round-1 reward (5) + 3 Valor income");
+
+        let r2 = { ...startGauntletRun(3), valor: 5, relics: ["lucky_coin"] as RelicId[] };
+        const v0 = r2.valor;
+        r2 = rerollShop(r2);
+        assert.equal(r2.valor, v0, "first reroll free with Lucky Coin");
+        r2 = rerollShop(r2);
+        assert.equal(r2.valor, v0 - 1, "second reroll costs Valor");
+    });
+});
+
 describe("applyGauntletBuffs", () => {
     it("scales squad stats by the accumulated buffs (and is a no-op when empty)", () => {
         const pets: Pet[] = [{ id: "p", hp: 100, attack: 50, defense: 20, speed: 10 } as Pet];
-        assert.equal(applyGauntletBuffs(pets, { atk: 0, def: 0, hp: 0 })[0].attack, 50, "empty buffs no-op");
-        const boosted = applyGauntletBuffs(pets, { atk: 0.1, def: 0.5, hp: 0.2 })[0];
+        assert.equal(applyGauntletBuffs(pets, { atk: 0, def: 0, hp: 0, spd: 0 })[0].attack, 50, "empty buffs no-op");
+        const boosted = applyGauntletBuffs(pets, { atk: 0.1, def: 0.5, hp: 0.2, spd: 0.3 })[0];
         assert.equal(boosted.attack, 55);
         assert.equal(boosted.hp, 120);
         assert.equal(boosted.defense, 30);
+        assert.equal(boosted.speed, 13);
     });
 });
 
