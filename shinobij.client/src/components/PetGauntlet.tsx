@@ -51,7 +51,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g16";
+const GAUNTLET_BUILD = "g17";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -317,6 +317,16 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             : (
                                 <div>
                                     <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell on <strong style={{ color: "#93c5fd" }}>your side</strong> (bottom), to position it — this is the board you'll fight on. Your front line meets the enemy's in the middle.</p>
+                                    <details style={{ margin: "0 0 8px", fontSize: "0.72rem" }}>
+                                        <summary style={{ cursor: "pointer", color: "#fcd34d", fontWeight: 700 }}>⚔ How combat works — roles &amp; position</summary>
+                                        <div style={{ display: "grid", gap: 3, margin: "5px 0 0", padding: "7px 10px", borderRadius: 8, background: "rgba(15,23,42,0.55)", border: "1px solid #334155", color: "#cbd5e1", lineHeight: 1.45 }}>
+                                            <div><span style={{ color: "#7dd3fc" }}>🛡 Defender</span> — a tank in your <strong>front row taunts</strong>: enemy melee must hit it before your squishier pets.</div>
+                                            <div><span style={{ color: "#fca5a5" }}>🗡 Assassin</span> — <strong>dives the back row</strong>, hunting the enemy <span style={{ color: "#4ade80" }}>Sage</span> (healer) first.</div>
+                                            <div><span style={{ color: "#fbbf24" }}>🎯 Tracker</span> — ranged; <strong>snipes the lowest-HP foe</strong> anywhere, and hunts enemy Sages.</div>
+                                            <div><span style={{ color: "#4ade80" }}>✚ Sage</span> — heals &amp; shields your most-wounded pet. Keep it protected — it's a target.</div>
+                                            <div style={{ marginTop: 2, color: "#94a3b8" }}>📍 <strong>Position:</strong> melee can't reach the back until the front falls. <span style={{ color: "#fcd34d" }}>Front row +12% damage</span>; <span style={{ color: "#7dd3fc" }}>back row takes −18% melee</span> (cover).</div>
+                                        </div>
+                                    </details>
                                     <div style={{ maxWidth: 560, margin: "0 auto", borderRadius: 12, border: "1px solid #3b2f55", padding: 7, backgroundImage: `linear-gradient(rgba(8,11,20,0.32), rgba(8,11,20,0.32)), url(${gauntletBoard})`, backgroundSize: "cover", backgroundPosition: "center" }}>
                                         <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#fca5a5", letterSpacing: "0.08em", margin: "0 0 3px 2px" }}>ENEMY</div>
                                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 5 }}>
