@@ -3,10 +3,10 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import type { Character, PlayerRecord, ServerPlayerSummary } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen, JutsuElement } from "../types/core";
-import { PET_GRID_COLS, PET_ELEMENT_BEATS } from "../constants/pet-arena";
+import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
 import { type ArenaTile } from "../lib/pet-tactics";
-import { mirrorPetTile, petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, swapPetArenaFrame, type PetPartyBattleResult } from "../lib/pet-battle-sim";
+import { petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petDuelEngineEnabled, setPetDuelEngineEnabled } from "../lib/pet-coliseum-flag";
@@ -602,20 +602,21 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             const seed = opponent.battleSeed ?? Date.now();
             const canonicalPlayerPet = iAmCanonicalPlayer ? myPet : opponent.pet;
             const canonicalOpponentPet = iAmCanonicalPlayer ? opponent.pet : myPet;
-            const canonicalOpponentOwner = iAmCanonicalPlayer ? opponent.owner : character.name;
-            const sim = runPetArenaBattle(canonicalPlayerPet, canonicalOpponentPet, canonicalOpponentOwner, seed, 1);
+            // Ranked now resolves on the SAME continuous duel engine as the Pet
+            // Coliseum (the old round engine is retired here). Canonical ordering
+            // keeps both clients byte-identical, so they agree on the winner;
+            // multiplier 1 (no per-player PvE bonus) keeps it fair. We render the
+            // canonical duel (canonical player on the left, winner shown correctly)
+            // and label Victory/Defeat from MY perspective.
+            const duel = runPetDuel(canonicalPlayerPet, canonicalOpponentPet, seed, 1, 1, false);
             const myResult: "win" | "loss" | "draw" = iAmCanonicalPlayer
-                ? sim.result
-                : sim.result === "win" ? "loss" : sim.result === "loss" ? "win" : "draw";
+                ? duel.result
+                : duel.result === "win" ? "loss" : duel.result === "loss" ? "win" : "draw";
             setBattleOpponent(opponent);
             setBattleReady(true);
-            setBattleObstacles(iAmCanonicalPlayer ? sim.obstacles : sim.obstacles.map(mirrorPetTile));
-            // Mirror tactical tiles for the non-canonical side so the local pet
-            // still appears on the left (matches the obstacle + frame mirroring).
-            setBattleTiles(iAmCanonicalPlayer ? sim.tiles : sim.tiles.map(t => ({ ...t, col: PET_GRID_COLS - 1 - t.col })));
-            setBattleFrames(iAmCanonicalPlayer ? sim.frames : sim.frames.map(swapPetArenaFrame));
-            setFrameIndex(0);
-            setIsPlaying(true);
+            setDuelNonce(nextDuelId);
+            setDuelBattle({ result: duel, playerPet: canonicalPlayerPet, enemyPet: canonicalOpponentPet, seed, id: nextDuelId });
+            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
             setResult(myResult === "win" ? "Victory" : myResult === "draw" ? "Draw" : "Defeat");
             const myRating = character.petRankedRating ?? 1000;
             const oppRating = opponent.opponentRating ?? 1000;
@@ -656,18 +657,18 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     dailyPetWins: (character.dailyPetWins ?? 0) + 1,
                     lastDailyReset: currentDateKey(),
                 });
-                setBattleLog([...sim.logs, `🏆 Ranked pet victory! +${gain} Elo — now ${myRating + gain}.`]);
+                setBattleLog([`🏆 Ranked pet victory! +${gain} Elo — now ${myRating + gain}.`]);
             } else if (myResult === "loss") {
                 const drop = rankedDelta(oppRating, myRating);
                 reportRankedPet("loss", Math.max(0, myRating - drop), {
                     petRankedLosses: (character.petRankedLosses ?? 0) + 1,
                 });
-                setBattleLog([...sim.logs, `Ranked pet defeat. -${drop} Elo — now ${Math.max(0, myRating - drop)}.`]);
+                setBattleLog([`Ranked pet defeat. -${drop} Elo — now ${Math.max(0, myRating - drop)}.`]);
             } else {
                 if (character.pets.find((p) => p.id === myPet.id)?.loadout?.consumable) {
                     updateCharacter({ ...character, pets: clearConsumablePets([myPet.id]) });
                 }
-                setBattleLog([...sim.logs, "Ranked pet draw — no Elo change."]);
+                setBattleLog(["Ranked pet draw — no Elo change."]);
             }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
             return;
