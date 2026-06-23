@@ -20,6 +20,7 @@ import type { Screen, Biome } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
+import { NotificationBar } from "./NotificationBar";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -32,6 +33,7 @@ export const RightMenu = memo(function RightMenu({
     currentBiome,
     characterName,
     characterVillage,
+    characterClan,
     screen,
 }: {
     navigate: (screen: Screen) => void;
@@ -40,6 +42,7 @@ export const RightMenu = memo(function RightMenu({
     currentBiome: Biome;
     characterName: string;
     characterVillage: string;
+    characterClan: string;
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
@@ -62,6 +65,14 @@ export const RightMenu = memo(function RightMenu({
                 backgroundImage: `linear-gradient(180deg, rgba(3,7,18,0.55), rgba(3,7,18,0.28) 26%, rgba(3,7,18,0.20) 60%, rgba(3,7,18,0.50)), url(${rightMenuBg})`,
             }}
         >
+            <NotificationBar
+                navigate={navigate}
+                screen={screen}
+                clan={characterClan}
+                village={characterVillage}
+                compact={!menuOpen}
+            />
+
             <div className="right-menu-header-row">
                 <button onClick={() => setMenuOpen((open) => !open)}>
                     {menuOpen ? "Hide Menu" : "Menu"}
