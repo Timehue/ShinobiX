@@ -264,6 +264,8 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
             <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
+            {/* client-build tag — confirms the live board is running the latest code */}
+            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g11</div>
 
             {done && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.5)" }}>
