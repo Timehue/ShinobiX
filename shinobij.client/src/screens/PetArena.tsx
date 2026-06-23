@@ -5,11 +5,9 @@ import type { Pet } from "../types/pet";
 import type { Screen, JutsuElement } from "../types/core";
 import { PET_ELEMENT_BEATS } from "../constants/pet-arena";
 import { PetArenaCard } from "../components/PetBattleAvatar";
-import { type ArenaTile } from "../lib/pet-tactics";
-import { petFramePace, pickBestPartyOrder, runPetArenaBattle, runPetArenaParty, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
+import { petFramePace, pickBestPartyOrder, scorePetMatchup, type PetPartyBattleResult } from "../lib/pet-battle-sim";
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { petDuelEngineEnabled, setPetDuelEngineEnabled } from "../lib/pet-coliseum-flag";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
 import { derivePetRole, ROLE_META, type PetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
@@ -173,11 +171,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // "tactical" is the full-screen team game mode (vs AI / challenge / co-op).
     // Defaults to the cinematic battle so Pet Arena opens straight into it.
     const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">("battle");
-    // Per-device "Live Combat" preference — flips the authoritative PvE engine
-    // (petDuelEngine.v1) between the new CONTINUOUS duel and the old round-based
-    // resolver. Read fresh from localStorage at battle-start (startBattle), so this
-    // state only mirrors the flag for the toggle UI. Non-ranked PvE only.
-    const [liveCombat, setLiveCombat] = useState<boolean>(() => petDuelEngineEnabled());
     // Tactical Arena setup (single screen): a size toggle + a team grid shared by
     // Fight AI and Challenge-a-Player. Picks seed to the top pets and re-seed on
     // a size change.
@@ -366,8 +359,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [battleOpponent, setBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
-    const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
-    const [battleTiles, setBattleTiles] = useState<ArenaTile[]>([]);
     // When the new continuous engine resolves a NON-ranked fight (petDuelEngine.v1
     // ON), this holds the precomputed DuelResult + combatants for PetColiseumDuel
     // to play. null → the old round engine / PetColiseum path renders instead.
@@ -444,10 +435,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
         setPartyResult(null);
-        setDuelBattle(null); // fresh fight — old-engine paths (incl. ranked) clear any prior duel overlay
-        const useDuel = petDuelEngineEnabled(); // new continuous engine for NON-ranked PvE
-        const nextDuelId = duelNonce + 1; // React key for the duel renderer (bumped below when useDuel)
-        if (useDuel) setDuelNonce(nextDuelId);
+        setDuelBattle(null); // fresh fight — clear any prior duel overlay
+        const nextDuelId = duelNonce + 1; // React key for the duel renderer
+        setDuelNonce(nextDuelId);
 
         // 2v2 party path — two entry points:
         //   • PvP party challenge: opponent already carries both parties (set
@@ -507,33 +497,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             }
             setBattleOpponent(opponent);
             setBattleReady(true);
-            // Resolve via the new continuous engine (ONE 2v2 teamfight) or the old
-            // best-of-3 round engine. matchesWon drives the per-win ryo reports: the
-            // teamfight pays 0/1 (one fight = one result), the old set pays per match
-            // won (up to 3). Outcome + clan-war report key off the same value.
-            let partyOutcome: "win" | "loss" | "draw";
-            let matchesWon: number;
-            if (useDuel) {
-                // PvE mastery modifiers only vs AI (casual party). PvP party
-                // challenges (pvpParty) and any real-player fight get none.
-                const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
-                partyOutcome = duel.result;
-                matchesWon = duel.result === "win" ? 1 : 0;
-                setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
-                setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
-            } else {
-                const party = runPetArenaParty([myLead, myReserve], [enemyLead, enemyReserve], opponent.owner, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
-                partyOutcome = party.result;
-                matchesWon = party.matches.filter(m => m.result === "win").length;
-                // Concatenate match logs/frames into one continuous replay.
-                setBattleLog(party.matches.flatMap(m => m.logs).concat(party.summaryLogs));
-                setBattleFrames(party.matches.flatMap(m => m.frames));
-                setBattleObstacles(party.matches[0]?.obstacles ?? []);
-                setBattleTiles(party.matches[0]?.tiles ?? []); // typed terrain now flows from the 2v2 engine
-                setFrameIndex(0);
-                setIsPlaying(true);
-                setPartyResult(party);
-            }
+            // 2v2 teamfight on the continuous engine (the old round engine is
+            // retired). matchesWon (0/1) drives the per-win ryo report; PvE mastery
+            // modifiers only vs AI; PvP/clan party fights get none.
+            const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
+            const partyOutcome: "win" | "loss" | "draw" = duel.result;
+            const matchesWon = duel.result === "win" ? 1 : 0;
+            setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
+            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
             setResult(partyOutcome === "win" ? "Victory" : partyOutcome === "draw" ? "Draw" : "Defeat");
             // Clan-war auto-report (pet 2v2): if this party battle was
             // launched from a clan-war pet2v2 challenge, post the outcome
@@ -561,7 +532,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // server's 5s/12-per-min/100-per-day caps still bound damage.
             const partySeed = opponent.battleSeed ?? `party-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             for (let i = 0; i < matchesWon; i++) {
-                const reportKey = useDuel ? `${partySeed}:2v2` : `${partySeed}:match:${i}`;
+                const reportKey = `${partySeed}:2v2`;
                 void (async () => {
                     try {
                         await fetch("/api/pet/battle-result", {
@@ -687,28 +658,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // Resolve via the new continuous engine (PetColiseumDuel) or the old round
         // engine (PetColiseum). Outcome + clan-war report + ryo all key off the
         // same `outcome` value, so the swap is invisible to the reward path.
-        let outcome: "win" | "loss" | "draw";
-        let logs: string[];
         // PvE mastery modifiers only vs a built-in AI opponent. Any real-player
         // 1v1 (non-ranked challenge / clan) gets none.
         const pveOpp = isGenericPetOpponent(opponent.pet);
-        if (useDuel) {
-            const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
-            outcome = duel.result;
-            logs = [];
-            setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
-            setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
-        } else {
-            const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
-            outcome = battle.result;
-            logs = battle.logs;
-            setBattleLog(battle.logs);
-            setBattleFrames(battle.frames);
-            setBattleObstacles(battle.obstacles);
-            setBattleTiles(battle.tiles ?? []);
-            setFrameIndex(0);
-            setIsPlaying(true);
-        }
+        // Continuous duel engine (the old round engine is retired).
+        const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
+        const outcome: "win" | "loss" | "draw" = duel.result;
+        const logs: string[] = [];
+        setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
+        setBattleFrames([]); setBattleLog([]); setIsPlaying(false);
         setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
         // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
         // for non-clan-war battles since the helper no-ops without a
@@ -1024,35 +982,6 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     </p>
                 </div>
             )}
-            {/* Live Combat toggle — flips the new CONTINUOUS duel engine on/off for
-                non-ranked PvE. ON: pets approach, kite, trade homing projectiles,
-                dodge and unleash ultimates (PetColiseumDuel). OFF: the classic
-                round-based resolver. Per-device; ranked is unaffected either way. */}
-            {!isHollowGate && (
-                <div className="pet-arena-live-toggle" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", margin: "0 0 14px", padding: "8px 12px", background: "rgba(15,23,42,0.55)", border: "1px solid #334155", borderRadius: 10 }}>
-                    <button
-                        type="button"
-                        onClick={() => { const next = !liveCombat; setLiveCombat(next); setPetDuelEngineEnabled(next); }}
-                        aria-pressed={liveCombat}
-                        style={{
-                            display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer",
-                            padding: "6px 14px", borderRadius: 999, fontWeight: 700, fontSize: "0.9rem",
-                            border: `1px solid ${liveCombat ? "#f59e0b" : "#475569"}`,
-                            background: liveCombat ? "linear-gradient(90deg,#b45309,#f59e0b)" : "#1e293b",
-                            color: liveCombat ? "#fff7ed" : "#94a3b8",
-                            boxShadow: liveCombat ? "0 0 14px rgba(245,158,11,0.45)" : "none",
-                        }}
-                    >
-                        <span style={{ fontSize: "1.05rem" }}>⚡</span>
-                        Live Combat: {liveCombat ? "ON" : "OFF"}
-                    </button>
-                    <span className="hint" style={{ margin: 0, fontSize: "0.8rem", color: "#94a3b8" }}>
-                        {liveCombat
-                            ? "Continuous duel — pets kite, dodge, throw elemental projectiles & cast ultimates (beta)."
-                            : "Classic round-based autobattle. Flip ON for the new cinematic continuous duel."}
-                    </span>
-                </div>
-            )}
             <div className="pet-arena-grid">
                 <section className="summary-box pet-arena-selector">
                     <h3>Your Pet</h3>
@@ -1288,8 +1217,8 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         frame: currentFrame,
                         recentFrames: battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result"),
                         result: showResult ? result : "",
-                        obstacles: battleObstacles,
-                        tiles: battleTiles,
+                        obstacles: [],
+                        tiles: [],
                         onReplay: () => {
                             if (!battleFrames.length) return;
                             setFrameIndex(0);
