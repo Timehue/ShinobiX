@@ -177,8 +177,23 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
             setSelId(null);
         }
     }
-    // Enemies auto-place: defenders to the front line, everyone else to the back.
-    const enemyUnits = (pets: Pet[]): GridUnit[] => { const col = [0, 0, 0]; return pets.map((pet) => { const row = roleOf(pet) === "defender" ? 0 : 2; return { pet, row, col: col[row]++ }; }); };
+    // Enemies auto-form a spread, CENTERED formation (so they stand on separate
+    // cells instead of piling into the corner): defenders to the front line,
+    // assassins/trackers to the back, everyone else mid — and each row's pets are
+    // centered across the columns.
+    const enemyUnits = (pets: Pet[]): GridUnit[] => {
+        const rows: Pet[][] = [[], [], []];   // 0 front · 1 mid · 2 back
+        for (const pet of pets) {
+            const r = roleOf(pet);
+            rows[r === "defender" ? 0 : r === "assassin" || r === "tracker" ? 2 : 1].push(pet);
+        }
+        const units: GridUnit[] = [];
+        rows.forEach((rowPets, row) => {
+            const start = Math.max(0, Math.round((BOARD_COLS - rowPets.length) / 2));   // centre the row
+            rowPets.forEach((pet, i) => units.push({ pet, row, col: Math.min(BOARD_COLS - 1, start + i) }));
+        });
+        return units;
+    };
     // The next opponent's formation, shown across the top of the placement board so
     // you can counter-position (deterministic per round; the real fight uses it too).
     const enemyPreview = enemyUnits(enemySquadForRound(activeRun));
