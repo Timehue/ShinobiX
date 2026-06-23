@@ -1982,6 +1982,194 @@ button {
 .notif-bar.compact { padding: 4px; }
 .notif-bar.compact .notif-chip { justify-content: center; padding: 6px 0; }
 
+/* ===== Daily Briefing modal (once-per-day notice board) ===== */
+.daily-briefing-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(2, 6, 15, 0.72);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: db-fade 0.18s ease-out;
+}
+@keyframes db-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.daily-briefing-card {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    color: #e5e7eb;
+    /* The atmospheric, TEXTLESS background art sits behind a vertical scrim that
+       is light at the top (header — art shows through) and heavy lower down so
+       the translucent content panels stay readable. If the webp is absent the
+       solid base colour + gradient still look intentional. */
+    background-color: #0b1120;
+    background-image:
+        linear-gradient(180deg, rgba(8, 12, 24, 0.55), rgba(8, 12, 24, 0.9) 42%, rgba(8, 12, 24, 0.96) 100%),
+        url(/daily-briefing.webp);
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+    animation: db-rise 0.2s ease-out;
+}
+@keyframes db-rise { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.daily-briefing-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 20px 14px;
+}
+.daily-briefing-titles h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #fde68a;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+    letter-spacing: 0.01em;
+}
+.daily-briefing-titles p {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+.daily-briefing-close {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(2, 6, 15, 0.5);
+    color: #e5e7eb;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+.daily-briefing-close:hover { background: rgba(220, 38, 38, 0.55); border-color: rgba(248, 113, 113, 0.6); }
+
+.daily-briefing-body { padding: 0 16px 4px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Login reward strip */
+.db-reward {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    background: linear-gradient(135deg, rgba(120, 53, 15, 0.6), rgba(2, 6, 15, 0.55));
+}
+.db-reward-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.db-reward-amt { font-size: 1.15rem; font-weight: 800; color: #fcd34d; text-shadow: 0 1px 4px #000; }
+.db-reward-shards { font-size: 0.95rem; font-weight: 800; color: #ce93d8; }
+.db-reward-sub { font-size: 0.82rem; color: #e2e8f0; }
+.db-streak { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.db-streak-flame { font-size: 0.95rem; font-weight: 800; color: #fb923c; }
+.db-streak-next { font-size: 0.72rem; color: #cbd5e1; }
+
+/* Sections */
+.db-section { background: rgba(2, 6, 15, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; padding: 12px 14px; }
+.db-section > h3 {
+    margin: 0 0 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+/* Recommendations */
+.db-recos { display: flex; flex-direction: column; gap: 8px; }
+.db-reco {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    background: linear-gradient(180deg, rgba(30, 58, 138, 0.4), rgba(2, 6, 15, 0.4));
+    color: #f1f5f9;
+    cursor: pointer;
+    transition: filter 0.12s ease, transform 0.08s ease;
+}
+.db-reco:first-child { border-color: rgba(250, 204, 21, 0.5); background: linear-gradient(180deg, rgba(161, 98, 7, 0.45), rgba(2, 6, 15, 0.45)); }
+.db-reco:hover { filter: brightness(1.14); }
+.db-reco:active { transform: translateY(1px); }
+.db-reco-icon { flex: 0 0 auto; font-size: 1.4rem; }
+.db-reco-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.db-reco-title { font-weight: 700; font-size: 0.92rem; }
+.db-reco-detail { font-size: 0.76rem; color: #cbd5e1; }
+.db-reco-cta { flex: 0 0 auto; font-size: 0.78rem; font-weight: 700; color: #fcd34d; white-space: nowrap; }
+
+/* Two-column grid (training + today) */
+.db-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.db-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.db-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; }
+.db-list-key { color: #e2e8f0; }
+.db-list-val { color: #67e8f9; font-weight: 700; font-variant-numeric: tabular-nums; }
+.db-list-go { background: none; border: none; padding: 0; color: #fcd34d; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+.db-list-go:hover { text-decoration: underline; }
+
+/* World report */
+.db-wars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.db-war {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(2, 6, 15, 0.5);
+    color: #e5e7eb;
+    cursor: pointer;
+}
+.db-war:hover { filter: brightness(1.15); }
+.db-war-tag { flex: 0 0 auto; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; }
+.db-war-village { background: rgba(190, 18, 60, 0.85); color: #fff; }
+.db-war-clan { background: rgba(124, 58, 237, 0.85); color: #fff; }
+.db-war-vs { flex: 1 1 auto; font-size: 0.85rem; font-weight: 600; }
+.db-war-vs em { color: #94a3b8; font-style: normal; padding: 0 3px; }
+.db-war-note { flex: 0 0 auto; font-size: 0.72rem; color: #94a3b8; }
+.db-empty { margin: 0; font-size: 0.84rem; color: #94a3b8; font-style: italic; }
+
+/* Footer */
+.daily-briefing-footer { padding: 14px 16px 18px; }
+.db-dismiss {
+    width: 100%;
+    padding: 11px;
+    border-radius: 10px;
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    background: linear-gradient(180deg, #f59e0b, #b45309);
+    color: #1a1207;
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+.db-dismiss:hover { filter: brightness(1.08); }
+
+@media (max-width: 560px) {
+    .db-grid { grid-template-columns: 1fr; }
+    .daily-briefing-titles h2 { font-size: 1.25rem; }
+    .daily-briefing-header { padding: 16px 14px 10px; }
+    .db-reco-detail { display: none; }
+}
+
 /* ===== Story / cinematic ===== */
 
 .cinematic-panel {
