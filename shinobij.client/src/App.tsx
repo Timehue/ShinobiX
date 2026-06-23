@@ -7371,32 +7371,22 @@ export default function App() {
                     navigate={navigate}
                     adminLoggedIn={adminLoggedIn}
                     logoutPlayer={logoutPlayer}
-                    currentBiome={currentBiome}
                     characterName={character?.name ?? ""}
                     characterVillage={character?.village ?? ""} characterClan={character?.clan ?? ""}
                     screen={screen}
                 />
             )}
 
-            {screen !== "start" && character && (() => {
-                const villageBiomesMap: Record<string, string> = {
-                    "Stormveil Village": "forest",
-                    "Ashen Leaf Village": "volcano",
-                    "Frostfang Village": "snow",
-                    "Moonshadow Village": "shadow",
-                };
-                const mobileAtHome = screen !== "worldMap" || currentBiome === (villageBiomesMap[character.village] ?? "central");
-                return (
-                    <MobileNav
-                        navigate={navigate}
-                        adminLoggedIn={adminLoggedIn}
-                        logoutPlayer={logoutPlayer}
-                        character={character}
-                        currentSector={currentSector}
-                        atHome={mobileAtHome} screen={screen}
-                    />
-                );
-            })()}
+            {screen !== "start" && character && (
+                <MobileNav
+                    navigate={navigate}
+                    adminLoggedIn={adminLoggedIn}
+                    logoutPlayer={logoutPlayer}
+                    character={character}
+                    currentSector={currentSector}
+                    screen={screen}
+                />
+            )}
 
             {incomingAttackBanner && (
                 <div className="incoming-attack-banner">{incomingAttackBanner}</div>
