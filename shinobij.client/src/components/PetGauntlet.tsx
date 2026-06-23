@@ -51,7 +51,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g17";
+const GAUNTLET_BUILD = "g18";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -295,6 +295,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 </div>
             ) : (
                 <>
+                    {/* Latest event — surfaces the round result (incl. a loss → retry + consolation Valor). */}
+                    <p className="hint" style={{ margin: "-2px 0 4px", fontSize: "0.76rem", color: run.log[run.log.length - 1]?.includes("lost") ? "#fca5a5" : "#cbd5e1" }}>{run.log[run.log.length - 1]}</p>
                     {/* Fielded squad + active synergies */}
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
