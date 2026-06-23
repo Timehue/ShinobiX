@@ -17,12 +17,17 @@ function startSharedNowTicker() {
     }, 1000);
 }
 
-export function useSharedNow(): void {
-    const [, setNow] = useState(sharedNowValue);
+// Returns the shared "now" timestamp as state — it ticks once a second, so
+// reading it in render is pure (no Date.now() call during render, which the
+// react-hooks/purity rule forbids). Callers that only need the re-render can
+// ignore the return value (back-compat with the original void signature).
+export function useSharedNow(): number {
+    const [now, setNow] = useState(sharedNowValue);
     useEffect(() => {
         startSharedNowTicker();
         const callback = () => setNow(sharedNowValue);
         sharedNowListeners.add(callback);
         return () => { sharedNowListeners.delete(callback); };
     }, []);
+    return now;
 }
