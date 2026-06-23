@@ -20123,10 +20123,12 @@ html[data-vp="xl"] .journey-live-stats .stat-box strong {
     font-size: clamp(12px, 1vw, 16px) !important;
 }
 
-/* Left profile card: prevent bottom cutoff on 1080p */
+/* Left profile card: prevent bottom cutoff on 1080p. Top padding seats the
+   avatar/content INSIDE the darker inset panel (::before starts at 56px) —
+   the old 50px let the avatar poke ~6px above the rectangle on xl screens. */
 html[data-vp="xl"] .left-profile-card {
     height: 92vh !important;
-    padding: 50px 14px 16px !important;
+    padding: 64px 14px 16px !important;
     gap: 6px !important;
     font-size: 0.82rem !important;
     overflow-y: auto !important;
