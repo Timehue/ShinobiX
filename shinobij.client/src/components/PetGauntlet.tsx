@@ -22,6 +22,7 @@ import {
     type GauntletRun,
 } from "../lib/pet-gauntlet";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 
@@ -39,6 +40,7 @@ function PetMiniCard({ pet, footer }: { pet: Pet; footer?: React.ReactNode }) {
     const role = roleOf(pet);
     return (
         <div style={{ border: `1px solid ${elColor(pet.element)}66`, borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", minWidth: 132 }}>
+            {(() => { const img = petCardImage(pet); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
                 <span title={ROLE_META[role].label} style={{ fontSize: "0.92rem" }}>{ROLE_META[role].icon}</span>
