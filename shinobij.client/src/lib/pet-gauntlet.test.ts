@@ -10,6 +10,7 @@ import {
     enemySquadForRound, beginFight, applyRoundResult,
     GAUNTLET_START_HEARTS, GAUNTLET_START_GOLD, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
 } from "./pet-gauntlet";
+import { petStripVariant } from "./pet-battle-anim";
 
 describe("startGauntletRun", () => {
     it("is deterministic from the seed", () => {
@@ -38,7 +39,7 @@ describe("buyOffer", () => {
         assert.equal(after.gold, GAUNTLET_START_GOLD - cost);
         assert.equal(after.roster.length, 1);
         assert.equal(after.shop.length, run.shop.length - 1);
-        assert.ok(after.roster[0].id.startsWith("gauntlet-"), "run-pet gets a unique instance id");
+        assert.equal(petStripVariant(after.roster[0].id), run.shop[0].pet.id, "run-pet id strips back to the canonical template id (so the 2.5D art resolves)");
         assert.deepEqual(after.fieldIds, [after.roster[0].id], "first buy auto-fields");
         assert.equal(run.roster.length, 0, "original run is not mutated");
     });

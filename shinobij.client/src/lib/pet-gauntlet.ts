@@ -24,6 +24,7 @@ import type { Pet, PetRarity } from "../types/pet";
 import { rawPetPool } from "../data/pet-pool";
 import { balanceBuiltInPetTemplate } from "./pet-balance";
 import { derivePetRole, type PetRole } from "./pet-roles";
+import { petCardImage } from "./pet-battle-anim";
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
 export const GAUNTLET_START_HEARTS = 3;
@@ -99,8 +100,15 @@ function instantiate(template: Pet, instanceN: number, statMult = 1): Pet {
     const scale = (v: number, min: number) => Math.max(min, Math.round(v * statMult));
     return {
         ...template,
-        id: `gauntlet-${instanceN}-${template.id}`,
+        // Unique id whose trailing 10-digit suffix petStripVariant() strips back to
+        // the canonical `<rarity>-<index>` — so the 2.5D pose art (keyed by that id)
+        // resolves for the drafted copy: the animated in-fight flipbook (posedId)
+        // AND, via the bodyImage below, the static avatars/cards.
+        id: `${template.id}-${1000000000 + instanceN}`,
         role,
+        // Pin the idle 2.5D render as the body sprite so the avatar/card renderers
+        // (which don't fall back to poses) show real art instead of name-initials.
+        bodyImage: petCardImage(template) || template.bodyImage,
         hp: scale(template.hp, 1),
         attack: scale(template.attack, 1),
         defense: scale(template.defense, 0),
