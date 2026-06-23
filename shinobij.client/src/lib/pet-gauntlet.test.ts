@@ -7,8 +7,8 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, setField, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
-    boardModsFromRelics, petStar, wouldMerge, offerCost, mergeDiscountFromRelics,
+    enemySquadForRound, enemyStatMultForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
+    boardModsFromRelics, petStar, wouldMerge, offerCost, mergeDiscountFromRelics, GAUNTLET_SPIKE_ROUND,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
     GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND, GAUNTLET_MERGE_BOOST, GAUNTLET_LOSS_VALOR,
     type RelicId,
@@ -268,6 +268,17 @@ describe("setField / releasePet / fieldedPets", () => {
         run = releasePet(run, b.id);
         assert.equal(run.roster.find((p) => p.id === b.id), undefined);
         assert.equal(run.fieldIds.includes(b.id), false, "released pet leaves the field");
+    });
+});
+
+describe("enemyStatMultForRound — difficulty spike", () => {
+    it("ramps gently early, then spikes hard at the spike round and keeps climbing", () => {
+        const gentleStep = enemyStatMultForRound(6) - enemyStatMultForRound(5);
+        const spikeJump = enemyStatMultForRound(GAUNTLET_SPIKE_ROUND) - enemyStatMultForRound(GAUNTLET_SPIKE_ROUND - 1);
+        assert.equal(enemyStatMultForRound(1), 1, "round 1 is the baseline");
+        assert.ok(spikeJump > gentleStep * 3, "the spike-round jump is far bigger than the usual gentle step");
+        assert.ok(enemyStatMultForRound(GAUNTLET_MAX_ROUNDS) > enemyStatMultForRound(GAUNTLET_SPIKE_ROUND), "difficulty keeps climbing after the spike");
+        assert.ok(enemyStatMultForRound(GAUNTLET_MAX_ROUNDS) >= 1.9, "round 10 enemies are ~2x base stats");
     });
 });
 
