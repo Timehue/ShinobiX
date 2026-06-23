@@ -39,6 +39,9 @@ export const GAUNTLET_FIELD_CAP = 5;    // how many you field on the board (= BO
 export const GAUNTLET_SHOP_SIZE = 4;
 export const GAUNTLET_MAX_ROUNDS = 10;
 export const GAUNTLET_REROLL_COST = 1;
+// Consolation Valor paid when you LOSE a round (but still have a heart). You stay
+// on the same round to retry — losing costs a heart, not progress.
+export const GAUNTLET_LOSS_VALOR = 3;
 // Auto-battler MERGE: recruiting a pet you already own levels up the existing one
 // instead of adding a duplicate. Each merge multiplies its core stats by this and
 // bumps its ★ rank. Works even at a full roster (it doesn't add a slot).
@@ -506,8 +509,11 @@ export function beginFight(run: GauntletRun): GauntletRun {
 /**
  * Apply the result of the current round's fight.
  * Win → gold reward + advance (clearing the final round = "won").
- * Loss → lose a heart (0 hearts = "lost"); the round still advances.
- * Either way (if the run continues) a fresh shop rolls for the next round.
+ * Loss → lose a heart (0 hearts = "lost"). If a heart remains you do NOT advance:
+ *   you stay on the SAME round to retry, and get a little consolation Valor to
+ *   adjust your squad/positions. (The final round is the exception — surviving it
+ *   with a heart still counts as clearing the Gauntlet.)
+ * On a WIN a fresh shop rolls for the next round; on a retry you keep your shop.
  */
 export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
     if (run.status !== "fighting") return run;
@@ -533,10 +539,11 @@ export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
     if (run.round >= run.maxRounds) {
         return { ...run, status: "won", hearts, log: [...run.log, `Final round lost, but you survived the Gauntlet with ${hearts} ❤ left.`] };
     }
+    // Stay on the SAME round — losing costs a heart, not progress. A little
+    // consolation Valor lets you regroup (re-draft, merge, or re-position) and
+    // retry. Keep the current shop so the player decides how to spend it.
     return {
-        ...run, status: "drafting", round: nextRound, hearts, valor: run.valor + income, rerolls: 0,
-        shop: rollShop(run.seed, nextRound, 0),
-        relicShop: rollRelicShop(run.seed, nextRound, 0, run.relics),
-        log: [...run.log, `Round ${run.round} lost — ${hearts} ❤ left. On to round ${nextRound}.`],
+        ...run, status: "drafting", hearts, valor: run.valor + GAUNTLET_LOSS_VALOR,
+        log: [...run.log, `Round ${run.round} lost — ${hearts} ❤ left. +${GAUNTLET_LOSS_VALOR} Valor — regroup and retry round ${run.round}.`],
     };
 }
