@@ -26,6 +26,7 @@ import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-g
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
+import { elementIcon } from "../lib/elements";
 import { PetBoardArena } from "./PetBoardArena";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
@@ -51,7 +52,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g19";
+const GAUNTLET_BUILD = "g20";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -341,6 +342,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                         return (
                                                             <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
                                                                 {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", transform: "scaleX(-1)" }} /> : null}
+                                                                {eu?.pet.element && <span title={eu.pet.element} style={{ position: "absolute", bottom: 0, left: 2, fontSize: "0.62rem", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}>{elementIcon(eu.pet.element)}</span>}
                                                             </div>
                                                         );
                                                     }
@@ -354,7 +356,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
                                                             {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
                                                             {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "#fcd34d", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
-                                                            {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
+                                                            {pet?.element && <span title={pet.element} style={{ position: "absolute", bottom: 0, left: 2, fontSize: "0.62rem", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}>{elementIcon(pet.element)}</span>}
+                                                            {pet && <span title={ROLE_META[roleOf(pet)].label} style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
                                                         </button>
                                                     );
                                                 }),
