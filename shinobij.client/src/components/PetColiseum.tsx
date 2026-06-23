@@ -2237,7 +2237,7 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, elementById, onCutIn, onFlash, onCallout, onCombo }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, elementById, nameById, ultById, onCutIn, onFlash, onCallout, onCombo, onAnnounce }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
@@ -2245,10 +2245,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
     elementById: Record<string, string | null | undefined>;
+    nameById: Record<string, string>;
+    ultById: Record<string, string>;
     onCutIn: (actorId: string) => void;
     onFlash: (color: string, intensity: number) => void;     // full-screen element flash
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
+    onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
@@ -2260,6 +2263,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const koPull = useRef(0);      // camera pull-BACK on KO (eases out slowly)
     const comboN = useRef(0);      // consecutive-hit combo counter
     const comboT = useRef(0);      // wall-time the combo window expires
+    const lowHp = useRef<Set<string>>(new Set());   // actors already called "on the ropes" (re-arms on heal)
+    const leadSide = useRef<"player" | "enemy" | "even">("even");   // who holds the HP lead — a swap = a reversal
+    const lastReversal = useRef(0);                  // wall-time of the last reversal call (debounce)
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
@@ -2371,6 +2377,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         zoomKick.current = Math.max(zoomKick.current, 2.8);
                         onFlash(elementColor(el).glow, 0.42);
                         onCutIn(e.actorId);                                    // anime portrait cut-in
+                        onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
                     }
                 } else if (e.type === "ko") {
                     // KO finisher: a big element blast on the victim + a hard freeze →
@@ -2384,7 +2391,33 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     koPull.current = 3.4;
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
+                    if (e.actorId) onAnnounce(`${nameById[e.actorId] ?? "A fighter"} is down!`, "ko");
                 }
+            }
+            // ── Play-by-play momentum (render-only; reads the deterministic
+            // stream). Commentary fires on narrative beats only: a fighter dropping
+            // to the ropes, and the HP lead SWAPPING (a reversal / comeback).
+            const snapNow = snaps[Math.min(maxT, cur)];
+            if (snapNow) {
+                let pHp = 0, pMax = 0, eHp = 0, eMax = 0;
+                for (const ac of snapNow.actors) {
+                    if (ac.team === "player") { pHp += ac.hp; pMax += ac.maxHp; } else { eHp += ac.hp; eMax += ac.maxHp; }
+                    const frac = ac.hp / Math.max(1, ac.maxHp);
+                    if (ac.hp > 0 && frac < 0.26 && !lowHp.current.has(ac.id)) {
+                        lowHp.current.add(ac.id);
+                        onAnnounce(`${nameById[ac.id] ?? "A fighter"} is on the ropes!`, "danger");
+                    } else if (frac > 0.5 && lowHp.current.has(ac.id)) {
+                        lowHp.current.delete(ac.id);   // healed back up — re-arm the call
+                    }
+                }
+                const pFrac = pHp / Math.max(1, pMax), eFrac = eHp / Math.max(1, eMax);
+                const lead = pFrac - eFrac > 0.14 ? "player" : eFrac - pFrac > 0.14 ? "enemy" : "even";
+                if (lead !== "even" && leadSide.current !== "even" && lead !== leadSide.current && now - lastReversal.current > 3) {
+                    lastReversal.current = now;
+                    const who = nameById[lead === "player" ? "player-0" : "enemy-0"] ?? "The underdog";
+                    onAnnounce(`Reversal — ${who} storms back!`, "reversal");
+                }
+                if (lead !== "even") leadSide.current = lead;
             }
             lastTick.current = cur;
         }
@@ -2517,8 +2550,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
+    const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
+    const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
+    const ultById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate"])) as Record<string, string>, [roster]);
     // VS intro: hold on the face-off (clock paused) for a beat, then start. Re-runs
     // on replay / fight-again (runId bump).
     useEffect(() => {
@@ -2562,6 +2598,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerFlash = (color: string, intensity: number) => setFlash({ id: seqRef.current++, color, intensity: Math.min(0.6, intensity) });
     const triggerCallout = (text: string) => { const id = seqRef.current++; setCallout({ id, text }); window.setTimeout(() => setCallout((c) => (c && c.id === id ? null : c)), 760); };
     const triggerCombo = (n: number) => { const id = seqRef.current++; setCombo({ id, n }); window.setTimeout(() => setCombo((c) => (c && c.id === id ? null : c)), 820); };
+    // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
+    const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string) => {
@@ -2574,7 +2612,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setFlash(null); setCallout(null); setCombo(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -2587,6 +2625,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelCritPop { 0% { transform: scale(0.4); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
                 @keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
+                @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -2619,7 +2658,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} elementById={elementById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} elementById={elementById} nameById={nameById} ultById={ultById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} />
                 <BloomFx />
             </Canvas>
 
@@ -2660,19 +2699,24 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {combo && combo.n >= 2 && (
                 <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "20%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(30px,5vw,58px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
             )}
+            {/* Play-by-play broadcast line (lower-third) — narrates the swings:
+                a fighter on the ropes, a reversal, an ultimate, the finish. */}
+            {announce && !ended && (
+                <div key={`ann-${announce.id}`} style={{ position: "absolute", left: "50%", bottom: "13%", transform: "translateX(-50%)", maxWidth: "84vw", pointerEvents: "none", padding: "7px 22px", borderRadius: 999, background: "rgba(8,11,22,0.74)", border: `1px solid ${announce.tone === "reversal" ? "#f59e0b" : announce.tone === "ultimate" ? "#a855f7" : announce.tone === "ko" ? "#fcd34d" : "#ef4444"}`, boxShadow: "0 6px 22px rgba(0,0,0,0.55)", color: announce.tone === "reversal" ? "#fde68a" : announce.tone === "ultimate" ? "#e9d5ff" : announce.tone === "ko" ? "#fff7e6" : "#fecaca", font: "800 clamp(15px,2.6vw,24px)/1.1 Cinzel, serif", letterSpacing: "0.02em", textShadow: "0 2px 8px #000", whiteSpace: "nowrap", animation: "petDuelAnnounce 2600ms ease-out forwards" }}>{announce.text}</div>
+            )}
 
             <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 8 }}>
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={togglePause} style={duelBtn}>{paused ? "▶ Play" : "❚❚ Pause"}</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🗺️ Tactical battle (beta)</div>
+            <div style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ Pet Coliseum</div>
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{resultLabel}</div>
-                        <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>tactical pet battle</div>
+                        <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>Pet Coliseum</div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
                             <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>
@@ -2681,7 +2725,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     </div>
                 </div>
             )}
-            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>tactical pet battle · diorama stage (beta)</div>
+            <div style={{ position: "absolute", bottom: 12, right: 14, color: "#64748b", font: "600 11px Inter, system-ui, sans-serif" }}>Pet Coliseum</div>
         </div>
     ), document.body);
 }

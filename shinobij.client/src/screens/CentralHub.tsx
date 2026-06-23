@@ -611,9 +611,9 @@ export function CentralHub({
             action: () => { setShowAwakening(true); setAwakeningMsg(""); },
         },
         {
-            name: "Pet Arena",
+            name: "Pet Coliseum",
             icon: "🐾",
-            text: "Choose one of your pets and watch it autobattle another player's pet using AI rule logic.",
+            text: "Pick a pet and watch a cinematic duel — it approaches, kites, dodges and unleashes ultimates on its own. Also hosts the Tactical Pet Arena.",
             action: () => setScreen("petArena"),
         },
         {
