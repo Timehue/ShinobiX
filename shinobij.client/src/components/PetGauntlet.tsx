@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from "react";
 import type { Pet } from "../types/pet";
-import { runPetGridBattle, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
+import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
 import {
     startGauntletRun, buyOffer, rerollShop, releasePet, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult,
@@ -68,24 +68,45 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
     const fielded = useMemo(() => fieldedPets(run), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
 
-    // Placement: each pet sits in the FRONT (0) or BACK (1) line — the core
-    // positional lever (front soaks; the back is protected from melee). Default by
-    // role: defenders anchor the front, everyone else starts protected behind.
-    const [rows, setRows] = useState<Record<string, number>>({});
-    const defaultRow = (pet: Pet) => (roleOf(pet) === "defender" ? 0 : 1);
-    const rowOf = (pet: Pet) => rows[pet.id] ?? defaultRow(pet);
-    const toggleRow = (pet: Pet) => setRows((m) => ({ ...m, [pet.id]: rowOf(pet) === 0 ? 1 : 0 }));
-    // Lay a squad out into grid cells: front/back row, columns by order in the row.
-    const place = (pets: Pet[], getRow: (p: Pet) => number): GridUnit[] => {
-        const col = [0, 0];
-        return pets.map((pet) => { const row = getRow(pet); return { pet, row, col: col[row]++ }; });
-    };
+    // Placement: each pet sits on a cell of YOUR grid (row 0 = front line that
+    // soaks the enemy melee … back row = protected). Click a pet, then a cell, to
+    // move it. `cells` holds the player's explicit moves; `placement` fills in any
+    // un-placed pet automatically (defenders front, everyone else back).
+    const [cells, setCells] = useState<Record<string, { row: number; col: number }>>({});
+    const [selId, setSelId] = useState<string | null>(null);
+    const placement = useMemo(() => {
+        const next: Record<string, { row: number; col: number }> = {};
+        const taken = new Set<string>();
+        for (const p of run.roster) { const c = cells[p.id]; if (c) { next[p.id] = c; taken.add(`${c.row},${c.col}`); } }
+        for (const p of run.roster) {
+            if (next[p.id]) continue;
+            const order = roleOf(p) === "defender" ? [0, 1, 2] : [2, 1, 0];
+            let done = false;
+            for (const r of order) { for (let c = 0; c < BOARD_COLS && !done; c++) if (!taken.has(`${r},${c}`)) { next[p.id] = { row: r, col: c }; taken.add(`${r},${c}`); done = true; } if (done) break; }
+        }
+        return next;
+    }, [cells, run.roster]);
+    function clickCell(r: number, c: number) {
+        const occupant = run.roster.find((p) => placement[p.id]?.row === r && placement[p.id]?.col === c) ?? null;
+        if (selId && selId !== occupant?.id) {
+            const from = placement[selId];
+            setCells((prev) => { const n = { ...prev, [selId]: { row: r, col: c } }; if (occupant && from) n[occupant.id] = from; return n; });
+            setSelId(null);
+        } else if (occupant) {
+            setSelId((prev) => (prev === occupant.id ? null : occupant.id));
+        } else {
+            setSelId(null);
+        }
+    }
+    // Enemies auto-place: defenders to the front line, everyone else to the back.
+    const enemyUnits = (pets: Pet[]): GridUnit[] => { const col = [0, 0, 0]; return pets.map((pet) => { const row = roleOf(pet) === "defender" ? 0 : 2; return { pet, row, col: col[row]++ }; }); };
 
     function startRound() {
         const squad = applySynergiesToSquad(fielded);
         const enemy = enemySquadForRound(run);
         if (!squad.length || !enemy.length) return;
-        const result = runPetGridBattle(place(squad, rowOf), place(enemy, defaultRow), fightSeed(run));
+        const playerUnits: GridUnit[] = squad.map((pet) => ({ pet, row: placement[pet.id]?.row ?? 2, col: placement[pet.id]?.col ?? 0 }));
+        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(run));
         setRun(beginFight(run));
         setFight({ result, key: run.round });
     }
@@ -153,24 +174,28 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                         )}
                         {run.roster.length === 0
                             ? <p className="hint">Draft pets from the shop below to build your squad.</p>
-                            : ([0, 1] as const).map((rowIdx) => (
-                                <div key={rowIdx} style={{ marginBottom: 8 }}>
-                                    <div style={{ font: "700 0.72rem Inter, sans-serif", color: "#94a3b8", margin: "0 0 3px" }}>
-                                        {rowIdx === 0 ? "⚔ Front line — soaks the enemy melee" : "🏹 Back line — protected (only ranged & assassins reach it)"}
+                            : (
+                                <div>
+                                    <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell, to position it. The <strong style={{ color: "#fca5a5" }}>front row</strong> soaks the enemy melee; the back is protected.</p>
+                                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 5, maxWidth: 440, margin: "0 auto" }}>
+                                        {Array.from({ length: BOARD_ROWS_PER_SIDE }).flatMap((_, r) =>
+                                            Array.from({ length: BOARD_COLS }).map((_, c) => {
+                                                const pet = run.roster.find((p) => placement[p.id]?.row === r && placement[p.id]?.col === c) ?? null;
+                                                const sel = !!pet && selId === pet.id;
+                                                const img = pet ? petCardImage(pet) : "";
+                                                return (
+                                                    <button key={`${r}-${c}`} type="button" onClick={() => clickCell(r, c)} title={r === 0 ? "Front line" : r === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
+                                                        style={{ aspectRatio: "1", borderRadius: 8, border: `1px solid ${sel ? "#facc15" : r === 0 ? "#7f3a3a" : "#334155"}`, background: pet ? "rgba(15,23,42,0.72)" : r === 0 ? "rgba(90,32,32,0.28)" : "rgba(30,41,59,0.4)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.6)" : "none" }}>
+                                                        {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "84%", objectFit: "contain" }} /> : null}
+                                                        {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.6rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
+                                                    </button>
+                                                );
+                                            }),
+                                        )}
                                     </div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", minHeight: 36 }}>
-                                        {run.roster.filter((p) => rowOf(p) === rowIdx).map((pet) => (
-                                            <PetMiniCard key={pet.id} pet={pet} footer={
-                                                <div style={{ display: "flex", gap: 5 }}>
-                                                    <button type="button" style={btn("#60a5fa")} onClick={() => toggleRow(pet)}>{rowIdx === 0 ? "⬇ Back" : "⬆ Front"}</button>
-                                                    <button type="button" style={btn("#7f1d1d")} onClick={() => setRun(releasePet(run, pet.id))} title="Release">✕</button>
-                                                </div>
-                                            } />
-                                        ))}
-                                        {run.roster.filter((p) => rowOf(p) === rowIdx).length === 0 && <span className="hint" style={{ fontSize: "0.72rem", alignSelf: "center" }}>(empty)</span>}
-                                    </div>
+                                    {selId && <div style={{ textAlign: "center", marginTop: 6 }}><button type="button" style={btn("#7f1d1d")} onClick={() => { setRun(releasePet(run, selId)); setSelId(null); }}>✕ Release selected</button></div>}
                                 </div>
-                            ))}
+                            )}
                     </div>
 
                     {/* Shop */}
