@@ -25,7 +25,6 @@ import type { BoardMods } from "./pet-board-sim";
 import { rawPetPool } from "../data/pet-pool";
 import { balanceBuiltInPetTemplate } from "./pet-balance";
 import { derivePetRole, type PetRole } from "./pet-roles";
-import { petCardImage } from "./pet-battle-anim";
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
 // The in-run shop currency is VALOR — a run-local resource you earn by winning
@@ -199,14 +198,15 @@ function instantiate(template: Pet, instanceN: number, statMult = 1): Pet {
     return {
         ...template,
         // Unique id whose trailing 10-digit suffix petStripVariant() strips back to
-        // the canonical `<rarity>-<index>` — so the 2.5D pose art (keyed by that id)
-        // resolves for the drafted copy: the animated in-fight flipbook (posedId)
-        // AND, via the bodyImage below, the static avatars/cards.
+        // the canonical `<rarity>-<index>` — so BOTH the 2.5D pose art (keyed by that
+        // id) AND the published pet:/petbody: shared portrait resolve for the drafted
+        // copy. We deliberately do NOT pin bodyImage here: pinning the idle pose made
+        // petCardImage return the pose ahead of the clean shared portrait the Pet Yard
+        // uses, so the gauntlet showed a (cached, boxed) pose while the yard was clean.
+        // Leaving bodyImage as the template's lets the run-pet resolve exactly like a
+        // real pet (shared portrait first, idle pose as the fallback).
         id: `${template.id}-${1000000000 + instanceN}`,
         role,
-        // Pin the idle 2.5D render as the body sprite so the avatar/card renderers
-        // (which don't fall back to poses) show real art instead of name-initials.
-        bodyImage: petCardImage(template) || template.bodyImage,
         hp: scale(template.hp, 1),
         attack: scale(template.attack, 1),
         defense: scale(template.defense, 0),
