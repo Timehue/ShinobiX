@@ -6,10 +6,11 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
-    startGauntletRun, buyOffer, rerollShop, releasePet, setField, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult,
-    GAUNTLET_START_HEARTS, GAUNTLET_START_GOLD, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
+    startGauntletRun, buyOffer, buyItem, rerollShop, releasePet, setField, fieldedPets,
+    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS,
+    GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
 } from "./pet-gauntlet";
+import type { Pet } from "../types/pet";
 import { petStripVariant } from "./pet-battle-anim";
 
 describe("startGauntletRun", () => {
@@ -18,8 +19,10 @@ describe("startGauntletRun", () => {
         const b = startGauntletRun(1234);
         assert.deepEqual(a.shop.map((o) => o.pet.id), b.shop.map((o) => o.pet.id));
         assert.equal(a.hearts, GAUNTLET_START_HEARTS);
-        assert.equal(a.gold, GAUNTLET_START_GOLD);
+        assert.equal(a.valor, GAUNTLET_START_VALOR);
         assert.equal(a.round, 1);
+        assert.equal(a.roundsCleared, 0);
+        assert.equal(a.maxRounds, GAUNTLET_MAX_ROUNDS);
         assert.equal(a.status, "drafting");
         assert.ok(a.shop.length > 0);
     });
@@ -32,11 +35,11 @@ describe("startGauntletRun", () => {
 });
 
 describe("buyOffer", () => {
-    it("deducts gold, adds a unique run-pet, auto-fields, and consumes the offer", () => {
+    it("deducts valor, adds a unique run-pet, auto-fields, and consumes the offer", () => {
         const run = startGauntletRun(42);
         const cost = run.shop[0].cost;
         const after = buyOffer(run, 0);
-        assert.equal(after.gold, GAUNTLET_START_GOLD - cost);
+        assert.equal(after.valor, GAUNTLET_START_VALOR - cost);
         assert.equal(after.roster.length, 1);
         assert.equal(after.shop.length, run.shop.length - 1);
         assert.equal(petStripVariant(after.roster[0].id), run.shop[0].pet.id, "run-pet id strips back to the canonical template id (so the 2.5D art resolves)");
@@ -44,13 +47,13 @@ describe("buyOffer", () => {
         assert.equal(run.roster.length, 0, "original run is not mutated");
     });
 
-    it("blocks a buy with insufficient gold", () => {
-        const run = { ...startGauntletRun(42), gold: 0 };
+    it("blocks a buy with insufficient valor", () => {
+        const run = { ...startGauntletRun(42), valor: 0 };
         assert.equal(buyOffer(run, 0).roster.length, 0);
     });
 
     it("blocks a buy when the roster is full", () => {
-        let run = { ...startGauntletRun(42), gold: 999 };
+        let run = { ...startGauntletRun(42), valor: 999 };
         // Fill the roster (reroll between buys to keep offers available).
         for (let i = 0; run.roster.length < GAUNTLET_ROSTER_CAP && i < 40; i++) {
             run = run.shop.length ? buyOffer(run, 0) : rerollShop(run);
@@ -61,17 +64,56 @@ describe("buyOffer", () => {
     });
 
     it("only auto-fields up to FIELD_CAP", () => {
-        let run = { ...startGauntletRun(7), gold: 999 };
+        let run = { ...startGauntletRun(7), valor: 999 };
         for (let i = 0; i < GAUNTLET_FIELD_CAP + 1; i++) run = run.shop.length ? buyOffer(run, 0) : buyOffer(rerollShop(run), 0);
         assert.equal(run.fieldIds.length, GAUNTLET_FIELD_CAP);
     });
 });
 
+describe("buyItem", () => {
+    it("Mend restores a heart, costs valor, and won't over-heal", () => {
+        const run = { ...startGauntletRun(1), valor: 99, hearts: 1 };
+        const after = buyItem(run, "mend");
+        assert.equal(after.hearts, 2, "heart restored");
+        assert.equal(after.itemsBought.mend, 1);
+        assert.ok(after.valor < run.valor, "valor spent");
+        const full = buyItem({ ...startGauntletRun(1), valor: 99 }, "mend");
+        assert.equal(full.valor, 99, "no buy / no spend when already at full hearts");
+    });
+
+    it("stat items add a run-wide buff with rising cost", () => {
+        const def = GAUNTLET_ITEMS.find((d) => d.id === "whetstone")!;
+        let run = { ...startGauntletRun(1), valor: 999 };
+        const c0 = itemCost(def, 0);
+        run = buyItem(run, "whetstone");
+        assert.ok(run.buffs.atk > 0, "attack buff applied");
+        assert.equal(run.valor, 999 - c0);
+        const c1 = itemCost(def, 1);
+        assert.ok(c1 > c0, "second purchase costs more");
+    });
+
+    it("blocks a buy with insufficient valor", () => {
+        const run = { ...startGauntletRun(1), valor: 0 };
+        assert.equal(buyItem(run, "vigor").buffs.hp, 0);
+    });
+});
+
+describe("applyGauntletBuffs", () => {
+    it("scales squad stats by the accumulated buffs (and is a no-op when empty)", () => {
+        const pets: Pet[] = [{ id: "p", hp: 100, attack: 50, defense: 20, speed: 10 } as Pet];
+        assert.equal(applyGauntletBuffs(pets, { atk: 0, def: 0, hp: 0 })[0].attack, 50, "empty buffs no-op");
+        const boosted = applyGauntletBuffs(pets, { atk: 0.1, def: 0.5, hp: 0.2 })[0];
+        assert.equal(boosted.attack, 55);
+        assert.equal(boosted.hp, 120);
+        assert.equal(boosted.defense, 30);
+    });
+});
+
 describe("rerollShop", () => {
-    it("costs gold and produces a fresh, deterministic shop", () => {
+    it("costs valor and produces a fresh, deterministic shop", () => {
         const run = startGauntletRun(5);
         const r1 = rerollShop(run);
-        assert.equal(r1.gold, run.gold - 1);
+        assert.equal(r1.valor, run.valor - 1);
         const r1again = rerollShop(startGauntletRun(5));
         assert.deepEqual(r1.shop.map((o) => o.pet.id), r1again.shop.map((o) => o.pet.id), "reroll is reproducible");
     });
@@ -79,7 +121,7 @@ describe("rerollShop", () => {
 
 describe("setField / releasePet / fieldedPets", () => {
     it("fields chosen roster pets (lead first) and release pulls them from field", () => {
-        let run = { ...startGauntletRun(11), gold: 999 };
+        let run = { ...startGauntletRun(11), valor: 999 };
         run = buyOffer(run, 0);
         run = buyOffer(rerollShop(run), 0);
         const [a, b] = run.roster;
@@ -105,13 +147,14 @@ describe("enemySquadForRound", () => {
 });
 
 describe("applyRoundResult", () => {
-    it("a win advances the round and pays gold", () => {
+    it("a win advances the round, pays valor, and counts a cleared round", () => {
         let run = beginFight({ ...startGauntletRun(8), fieldIds: ["x"], roster: [{ id: "x" } as never] });
-        const before = run.gold;
+        const before = run.valor;
         run = applyRoundResult(run, true);
         assert.equal(run.round, 2);
+        assert.equal(run.roundsCleared, 1);
         assert.equal(run.status, "drafting");
-        assert.ok(run.gold > before, "won round pays gold");
+        assert.ok(run.valor > before, "won round pays valor");
     });
 
     it("a loss costs a heart; 0 hearts ends the run", () => {
