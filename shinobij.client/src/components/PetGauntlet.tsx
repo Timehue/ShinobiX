@@ -16,9 +16,9 @@ import type { Pet } from "../types/pet";
 import type { Character } from "../types/character";
 import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
 import {
-    startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, fieldedPets,
+    startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
-    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, itemCost,
+    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
@@ -50,7 +50,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g12";
+const GAUNTLET_BUILD = "g13";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -155,11 +155,22 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         const { token } = meta;
         const rc = run.roundsCleared;
         const hl = run.hearts;
+        const shard = run.boughtFateShard;
+        const charm = run.boughtBoneCharm;
         void (async () => {
-            const rep = await reportGauntlet(token, rc, hl);
+            const rep = await reportGauntlet(token, rc, hl, shard, charm);
             if (!rep) return;
             setReward(rep);
-            if (rep.ryo > 0) { const c = charRef.current; updateCharacter({ ...c, ryo: (c.ryo ?? 0) + rep.ryo }); }
+            // Mirror the SERVER-granted amounts onto the local character (reconcile).
+            if (rep.ryo > 0 || rep.fateShards > 0 || rep.boneCharms > 0) {
+                const c = charRef.current;
+                updateCharacter({
+                    ...c,
+                    ryo: (c.ryo ?? 0) + rep.ryo,
+                    fateShards: (c.fateShards ?? 0) + (rep.fateShards ?? 0),
+                    boneCharms: (c.boneCharms ?? 0) + (rep.boneCharms ?? 0),
+                });
+            }
         })();
     }, [run, meta, updateCharacter]);
 
@@ -262,6 +273,13 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     {reward ? (
                         <div style={{ display: "inline-flex", flexDirection: "column", gap: 4, padding: "10px 18px", margin: "0 auto 12px", borderRadius: 12, background: "rgba(120,53,15,0.3)", border: "1px solid rgba(250,204,21,0.5)" }}>
                             <span style={{ font: "800 1.1rem Inter, sans-serif", color: "#fcd34d" }}>{reward.ryo > 0 ? `+${reward.ryo.toLocaleString()} Ryo` : "No Ryo this run"}</span>
+                            {(reward.fateShards > 0 || reward.boneCharms > 0) && (
+                                <span style={{ font: "800 0.92rem Inter, sans-serif", color: "#fde68a" }}>
+                                    {reward.fateShards > 0 ? `+${reward.fateShards} 🔮 Fate Shard${reward.fateShards === 1 ? "" : "s"}` : ""}
+                                    {reward.fateShards > 0 && reward.boneCharms > 0 ? " · " : ""}
+                                    {reward.boneCharms > 0 ? `+${reward.boneCharms} 🦴 Bone Charm${reward.boneCharms === 1 ? "" : "s"}` : ""}
+                                </span>
+                            )}
                             <span className="hint" style={{ fontSize: "0.78rem" }}>Weekly score {reward.score.toLocaleString()}{reward.rank ? ` · rank #${reward.rank}` : ""} · see the Hall of Legends → Gauntlet board</span>
                         </div>
                     ) : (
@@ -428,6 +446,30 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 ); })}
                         </div>
                     </div>
+
+                    {/* Rare Goods — Valor → persistent premium currency. Unlocks only
+                        after clearing round 9; the grant is server-side + capped to
+                        once per day each (so Valor can't mint unlimited currency). */}
+                    {premiumUnlocked(run) && (
+                        <div>
+                            <h4 style={{ margin: "0 0 6px", color: "#fcd34d" }}>🏆 Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {[
+                                    { kind: "fateShard" as const, name: "Fate Shard", icon: "🔮", cost: GAUNTLET_SHARD_COST, bought: run.boughtFateShard },
+                                    { kind: "boneCharm" as const, name: "Bone Charm", icon: "🦴", cost: GAUNTLET_CHARM_COST, bought: run.boughtBoneCharm },
+                                ].map((p) => {
+                                    const blocked = p.bought || run.valor < p.cost;
+                                    return (
+                                        <div key={p.kind} style={{ border: "1px solid #b45309", borderRadius: 10, background: "rgba(67,40,8,0.5)", padding: "8px 10px", width: 162 }}>
+                                            <strong style={{ fontSize: "0.84rem", color: "#fde68a" }}>{p.icon} {p.name}</strong>
+                                            <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>Bank 1 {p.name} to your account when the run ends.</p>
+                                            <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => setRun(buyPremium(run, p.kind))}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                                 <div style={{ textAlign: "center", marginTop: 4 }}><button type="button" style={{ ...btn("#475569"), padding: "7px 18px" }} onClick={() => setShopOpen(false)}>Done shopping →</button></div>
                             </div>
