@@ -16,7 +16,9 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
-import { petCardImage, elementVfxKey } from "../lib/pet-battle-anim";
+import { petCardImage, petStripVariant, elementVfxKey } from "../lib/pet-battle-anim";
+import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
+import type { Pet } from "../types/pet";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
@@ -63,14 +65,16 @@ function orbTex(): THREE.Texture {
     g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
     _orb = new THREE.CanvasTexture(c); _orb.colorSpace = THREE.SRGBColorSpace; return _orb;
 }
-// Discard near-black background pixels so pose sprites with a dark (non-alpha)
-// background stand cleanly on the board instead of showing a dark box.
-const blackKey = (shader: { fragmentShader: string }) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-        "#include <map_fragment>",
-        "#include <map_fragment>\n  if (dot(diffuseColor.rgb, vec3(0.299,0.587,0.114)) < 0.13) discard;",
-    );
-};
+// Board sprite source — mirror the Pet Coliseum: the clean idle POSE cutout wins
+// (transparent, billboard-ready), and only pets with no generated pose fall back
+// to petCardImage (which can return a card portrait WITH a background, the box the
+// board used to show). Keyed by the pet's id, then the variant-stripped base id.
+function boardSpriteUrl(pet: Pet, sharedImages: Record<string, string>): string {
+    if (POSED_PET_IDS.has(pet.id)) return `/pet-poses/${pet.id}-idle.webp`;
+    const base = petStripVariant(pet.id);
+    if (POSED_PET_IDS.has(base)) return `/pet-poses/${base}-idle.webp`;
+    return petCardImage(pet, sharedImages);
+}
 
 type Vec3 = [number, number, number];
 
@@ -147,7 +151,10 @@ function Standee({ x, z, tex, beat, element }: { x: number; z: number; tex: THRE
             <Billboard follow lockX lockZ position={[0, SPRITE_H / 2 + 0.1, 0]}>
                 <mesh visible={!!tex}>
                     <planeGeometry args={[SPRITE_H * 0.92, SPRITE_H]} />
-                    <meshBasicMaterial ref={mat} map={tex ?? undefined} transparent alphaTest={0.12} onBeforeCompile={blackKey} toneMapped={false} />
+                    {/* Same material the Pet Coliseum standee uses (alpha cutout, no
+                        luminance key) — the pose art is already transparent, so a
+                        black-key would just eat the pet's own dark pixels. */}
+                    <meshBasicMaterial ref={mat} map={tex ?? undefined} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
                 </mesh>
                 {/* HP bar above the head */}
                 <group position={[0, SPRITE_H / 2 + 0.28, 0]}>
@@ -230,7 +237,7 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
         let live = true;
         const loader = new THREE.TextureLoader();
         for (const u of result.roster) {
-            const url = petCardImage(u.pet, sharedImages);
+            const url = boardSpriteUrl(u.pet, sharedImages);
             if (!url) continue;
             loader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; if (live) setTexMap((prev) => new Map(prev).set(u.id, t)); });
         }
