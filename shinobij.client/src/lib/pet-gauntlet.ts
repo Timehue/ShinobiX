@@ -30,7 +30,7 @@ import { petCardImage } from "./pet-battle-anim";
 export const GAUNTLET_START_HEARTS = 3;
 export const GAUNTLET_START_GOLD = 10;
 export const GAUNTLET_ROSTER_CAP = 5;   // how many run-pets you can hold
-export const GAUNTLET_FIELD_CAP = 2;    // how many you fight with (v1 = runPetPartyDuel)
+export const GAUNTLET_FIELD_CAP = 5;    // how many you field on the board (= BOARD_SQUAD_MAX)
 export const GAUNTLET_SHOP_SIZE = 4;
 export const GAUNTLET_MAX_ROUNDS = 8;
 export const GAUNTLET_REROLL_COST = 1;
@@ -82,7 +82,10 @@ function enemyRarityForRound(round: number): PetRarity {
     return "mythic";
 }
 function enemySizeForRound(round: number): number {
-    return round <= 2 ? 1 : 2;
+    if (round <= 2) return 2;
+    if (round <= 4) return 3;
+    if (round <= 6) return 4;
+    return 5;
 }
 function enemyStatMultForRound(round: number): number {
     return 1 + (round - 1) * 0.04;   // gentle escalation layered over the rarity jump
