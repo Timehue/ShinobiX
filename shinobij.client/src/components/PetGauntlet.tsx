@@ -18,6 +18,7 @@ import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, ty
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
+    petStar, wouldMerge,
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
@@ -50,7 +51,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g14";
+const GAUNTLET_BUILD = "g15";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -60,10 +61,11 @@ const roleOf = (p: Pet): PetRole => (p.role as PetRole | undefined) ?? derivePet
 // Deterministic fight seed from the run + round so a round's fight is reproducible.
 const fightSeed = (run: GauntletRun) => (run.seed * 7919 + run.round * 104729) >>> 0;
 
-function PetMiniCard({ pet, footer, sharedImages = {} }: { pet: Pet; footer?: React.ReactNode; sharedImages?: Record<string, string> }) {
+function PetMiniCard({ pet, footer, sharedImages = {}, badge }: { pet: Pet; footer?: React.ReactNode; sharedImages?: Record<string, string>; badge?: string }) {
     const role = roleOf(pet);
     return (
-        <div style={{ border: `1px solid ${elColor(pet.element)}66`, borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", minWidth: 132 }}>
+        <div style={{ position: "relative", border: `1px solid ${elColor(pet.element)}66`, borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", minWidth: 132 }}>
+            {badge && <span style={{ position: "absolute", top: 5, right: 5, zIndex: 2, padding: "1px 7px", borderRadius: 999, background: "rgba(252,211,77,0.95)", color: "#3b2f0b", fontWeight: 900, fontSize: "0.66rem", boxShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>{badge}</span>}
             {(() => { const img = petCardImage(pet, sharedImages); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
@@ -339,6 +341,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                         <button key={`p${gr}-${c}`} type="button" onClick={() => clickCell(pRow, c)} title={pRow === 0 ? "Front line" : pRow === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
                                                             {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
+                                                            {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "#fcd34d", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
                                                             {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
                                                         </button>
                                                     );
@@ -367,15 +370,21 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 🎲 Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
+                        <p className="hint" style={{ margin: "0 0 6px" }}>Recruit a pet you already own to <strong style={{ color: "#fcd34d" }}>merge</strong> it — the copy levels up (★) with a stat boost instead of taking a roster slot.</p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {run.shop.length === 0
                                 ? <p className="hint">Sold out — reroll for fresh recruits.</p>
                                 : run.shop.map((offer, i) => {
-                                    const blocked = run.valor < offer.cost || rosterFull;
+                                    // Already own this pet? Recruiting MERGES into it (levels it up)
+                                    // instead of adding a slot — so a full roster doesn't block it.
+                                    const merges = wouldMerge(run, offer.pet);
+                                    const owned = run.roster.find((p) => p.id.replace(/-\d{10,}$/, "") === offer.pet.id);
+                                    const nextStar = owned ? petStar(run, owned.id) + 1 : 1;
+                                    const blocked = run.valor < offer.cost || (rosterFull && !merges);
                                     return (
-                                        <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} sharedImages={sharedImages} footer={
-                                            <button type="button" style={btn("#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
-                                                {rosterFull ? "Roster full" : `Recruit · ${offer.cost}✦`}
+                                        <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} sharedImages={sharedImages} badge={merges ? `★${nextStar}` : undefined} footer={
+                                            <button type="button" style={btn(merges ? "#fcd34d" : "#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
+                                                {merges ? `Merge ★${nextStar} · ${offer.cost}✦` : rosterFull ? "Roster full" : `Recruit · ${offer.cost}✦`}
                                             </button>
                                         } />
                                     );

@@ -25,6 +25,7 @@ import type { BoardMods } from "./pet-board-sim";
 import { rawPetPool } from "../data/pet-pool";
 import { balanceBuiltInPetTemplate } from "./pet-balance";
 import { derivePetRole, type PetRole } from "./pet-roles";
+import { petStripVariant } from "./pet-battle-anim";
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
 // The in-run shop currency is VALOR — a run-local resource you earn by winning
@@ -38,6 +39,10 @@ export const GAUNTLET_FIELD_CAP = 5;    // how many you field on the board (= BO
 export const GAUNTLET_SHOP_SIZE = 4;
 export const GAUNTLET_MAX_ROUNDS = 10;
 export const GAUNTLET_REROLL_COST = 1;
+// Auto-battler MERGE: recruiting a pet you already own levels up the existing one
+// instead of adding a duplicate. Each merge multiplies its core stats by this and
+// bumps its ★ rank. Works even at a full roster (it doesn't add a slot).
+export const GAUNTLET_MERGE_BOOST = 1.5;
 // Premium currency exchange — spend Valor to bank persistent Fate Shards / Bone
 // Charms. Unlocks ONLY once you've cleared round 9 (a deep-run reward), and each
 // is a single buy per run; the SERVER additionally caps it to once per UTC day
@@ -241,6 +246,7 @@ export interface GauntletRun {
     rerolls: number;          // shop rerolls this round (also salts the shop roll)
     instanceCounter: number;  // monotonic → unique run-pet ids
     roster: Pet[];            // drafted run-pets you hold
+    stars: Record<string, number>;  // merge rank per roster pet id (absent/1 = base, 2 = one merge, …)
     fieldIds: string[];       // which roster pets are fielded (≤ FIELD_CAP), lead first
     shop: GauntletOffer[];
     itemsBought: Record<GauntletItemId, number>;  // how many of each shop item bought
@@ -281,6 +287,7 @@ export function startGauntletRun(seed: number): GauntletRun {
         rerolls: 0,
         instanceCounter: 0,
         roster: [],
+        stars: {},
         fieldIds: [],
         shop: rollShop(seed >>> 0, 1, 0),
         itemsBought: { mend: 0, whetstone: 0, bulwark: 0, vigor: 0 },
@@ -301,6 +308,27 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
     const offer = run.shop[offerIndex];
     if (!offer) return run;
     if (run.valor < offer.cost) return run;
+    // MERGE: if you already hold this pet, level the existing copy up instead of
+    // adding a duplicate (so it works even at a full roster — it adds no slot).
+    const dupIdx = run.roster.findIndex((p) => petStripVariant(p.id) === offer.pet.id);
+    if (dupIdx >= 0) {
+        const existing = run.roster[dupIdx];
+        const merged: Pet = {
+            ...existing,
+            hp: Math.max(1, Math.round(existing.hp * GAUNTLET_MERGE_BOOST)),
+            attack: Math.max(1, Math.round(existing.attack * GAUNTLET_MERGE_BOOST)),
+            defense: Math.max(0, Math.round(existing.defense * GAUNTLET_MERGE_BOOST)),
+            speed: Math.max(1, Math.round(existing.speed * GAUNTLET_MERGE_BOOST)),
+        };
+        return {
+            ...run,
+            valor: run.valor - offer.cost,
+            roster: run.roster.map((p, i) => (i === dupIdx ? merged : p)),
+            stars: { ...run.stars, [existing.id]: (run.stars[existing.id] ?? 1) + 1 },
+            shop: run.shop.filter((_, i) => i !== offerIndex),
+            log: [...run.log, `${existing.name} merged → ★${(run.stars[existing.id] ?? 1) + 1}.`],
+        };
+    }
     if (run.roster.length >= GAUNTLET_ROSTER_CAP) return run;
     const pet = instantiate(offer.pet, run.instanceCounter);
     const roster = [...run.roster, pet];
@@ -314,6 +342,16 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
         fieldIds,
         shop: run.shop.filter((_, i) => i !== offerIndex),
     };
+}
+
+/** Merge rank of a roster pet (1 = base, 2 = one merge, …). For UI badges. */
+export function petStar(run: GauntletRun, petId: string): number {
+    return run.stars[petId] ?? 1;
+}
+
+/** Would buying this template merge into an owned pet (vs. add a new one)? */
+export function wouldMerge(run: GauntletRun, template: Pet): boolean {
+    return run.roster.some((p) => petStripVariant(p.id) === template.id);
 }
 
 /** Buy a Valor shop item (Mend heals a heart; the rest add a run-wide squad buff). */
@@ -414,9 +452,12 @@ function mergeRelicStat(buffs: GauntletBuffs, stat?: Partial<GauntletBuffs>): Ga
 /** Release a run-pet from the roster (no refund — v1 keeps the economy simple). */
 export function releasePet(run: GauntletRun, petId: string): GauntletRun {
     if (run.status !== "drafting") return run;
+    const stars = { ...run.stars };
+    delete stars[petId];
     return {
         ...run,
         roster: run.roster.filter((p) => p.id !== petId),
+        stars,
         fieldIds: run.fieldIds.filter((id) => id !== petId),
     };
 }
