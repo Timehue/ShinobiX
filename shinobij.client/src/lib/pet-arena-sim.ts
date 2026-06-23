@@ -42,7 +42,7 @@ const DECISION_TICKS = 16;                 // re-decide ~every 0.53 s; reuse the
 
 export const SCROLL_FIRST_SPAWN = ARENA_TPS * 20;   // first scroll at 20 s — an early objective beat the squads converge on
 const SCROLL_ANTICIPATE = 7;                 // seconds before a spawn that pets start pre-positioning toward the centre
-const SCROLL_RESPAWN = ARENA_TPS * 22;       // re-spawn 22 s after capture/reset — a brisk cycle so a race to 5 captures resolves
+const SCROLL_RESPAWN = ARENA_TPS * 28;       // re-spawn 28 s after capture/reset (was 22 s — a slightly longer lull so the scroll race doesn't immediately reset on top of the Warden)
 const SCROLL_CHANNEL = ARENA_TPS * 2;        // 2 s channel to pick up
 const SCROLL_DROP_LIFE = ARENA_TPS * 10;     // a dropped scroll resets after 10 s
 const RESPAWN_TICKS = ARENA_TPS * 7;         // 7 s respawn — a kill earns a real window, fewer pets churning
@@ -290,9 +290,9 @@ function makeRng(seed: number): () => number {
 // across the map instead of camping one tile (which also relieves the old single-point
 // crowding). All integer / quantised → deterministic byte-identical replays.
 export const ZONE_RADIUS = 2.6;                  // a pet within this of the hill centre contests it
-const ZONE_TO_SCORE = ARENA_TPS * 7;             // ~7 s of net-uncontested hold = a zone point
+const ZONE_TO_SCORE = ARENA_TPS * 9;             // ~9 s of net-uncontested hold = a zone point (was 7 s — slowed so the hill churn doesn't outpace the Warden beat)
 const ZONE_DECAY = 2;                            // contested/empty → meter eases toward neutral this fast (>build, so you must hold it clean)
-const ZONE_RELOCATE = ARENA_TPS * 28;            // the hill moves every ~28 s even without a score (forces rotation)
+const ZONE_RELOCATE = ARENA_TPS * 34;            // the hill moves every ~34 s even without a score (was 28 s — fewer relocations so objectives don't fire on top of each other)
 const ZONE_SCORE_COOLDOWN = ARENA_TPS * 3;       // a short lull after a hold scores before the next can build
 // The hill cycles through these painted, centre-connected spots (snapMain keeps each one
 // reachable from the centre region — the same load-bearing rule as spawns/nav goals).
@@ -304,17 +304,31 @@ const ZONE_SPOTS: [number, number][] = [
 ];
 
 // ── Neutral boss (B4 — the Arena Warden) ──────────────────────────────────────
-// A fat neutral PvE sponge that appears ONCE mid-match in the centre pit. It doesn't
-// move or attack — the tension is positional: committing your team to burst it down
-// exposes you, and the enemy can steal the killing blow. The team that lands the kill
-// gets a capped swing — a point PLUS a short team-wide attack buff — enough to matter,
-// not enough to erase the match (the Pokémon-Unite "cap the swing" lesson).
+// A fat neutral PvE bruiser that appears mid-match in the centre pit. It is now an
+// ACTIVE threat, not a sponge: it STRIDES toward the nearest pet and SLAMS the ground
+// on a cadence, an AoE stomp that hits everything packed around it (so committing your
+// whole team to burst it is genuinely risky and clumping is punished). It moves slower
+// than a pet, so trackers/assassins can kite it while the tanks tank. The team that
+// lands the killing blow still gets a capped swing — a point PLUS a short team-wide
+// attack buff — enough to matter, not enough to erase the match (the Pokémon-Unite
+// "cap the swing" lesson). It spawns EARLIER now so the Warden fight is a real beat of
+// the match rather than a late footnote the objective churn buries.
 export const BOSS_RADIUS = 1.25;                 // boss body radius — pets strike from atkRange + this
-const BOSS_SPAWN_AT = ARENA_TPS * 60;            // appears ~60 s in (a mid-match objective beat)
+const BOSS_SPAWN_AT = ARENA_TPS * 32;            // appears ~32 s in (was 60 s — earlier so the Warden actually anchors the mid-game)
 const BOSS_HP = 3000;                            // a coordinated team needs several seconds of focus to drop it (≈40% of matches resolve it)
 const BOSS_REWARD_POINTS = 1;                    // killing-blow team scores this
 const BOSS_BUFF_TICKS = ARENA_TPS * 18;          // + an 18 s team-wide attack buff
 const BOSS_BUFF_ATK = 1.2;                       // +20% attack while buffed (the capped swing)
+// Active-boss combat (all integer / quantised → deterministic; no rng → no crit, so the
+// Warden's threat is predictable and tunable). It hunts the nearest living pet, slams on
+// a cooldown, and the slam is AoE so a face-tanking clump bleeds while a lone diver only
+// eats what it signed up for.
+const BOSS_MOVE_SPEED = 2.0 / ARENA_TPS;         // units/tick — a slow menacing stride, clearly slower than a pet (kiteable)
+const BOSS_AGGRO_RANGE = 8.5;                    // chases a pet within this; otherwise ambles back to the centre pit
+const BOSS_ATK_RANGE = 2.2;                      // a pet within this of the boss BODY (+BOSS_RADIUS) is in slam reach
+const BOSS_ATK_RADIUS = 2.6;                     // slam AoE: every pet within this of the boss centre eats the stomp
+const BOSS_ATK_CD = Math.round(ARENA_TPS * 1.5); // ~1.5 s between slams
+const BOSS_ATK_DMG = 140;                        // base slam damage (def-reduced, shield-aware) — chunky but survivable, not a one-shot
 
 // ── Pacing: escalating objective value ────────────────────────────────────────
 // Later holds are worth more so the match builds to a climax instead of being decided
@@ -404,7 +418,7 @@ interface Scroll {
 // hold is SIGNED: +ZONE_TO_SCORE = a blue point, −ZONE_TO_SCORE = a red point.
 interface Zone { x: number; y: number; idx: number; hold: number; relocTimer: number; coolTimer: number; }
 // ── Objective (the neutral boss — B4) ─────────────────────────────────────────
-interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; hp: number; maxHp: number; spawnTimer: number; lastHitTeam: "blue" | "red" | null; }
+interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; hp: number; maxHp: number; spawnTimer: number; atkCd: number; lastHitTeam: "blue" | "red" | null; }
 
 // ── Snapshots + events ───────────────────────────────────────────────────────
 export interface ArenaActorSnap {
@@ -427,7 +441,7 @@ export type ArenaEvent =
     | { t: number; type: "kill"; targetId: string; actorId: string; team: "blue" | "red" }
     | { t: number; type: "ability"; actorId: string; kind: AbilityKind }
     | { t: number; type: "pickup" | "drop" | "capture" | "scrollspawn" | "respawn"; actorId?: string; team?: "blue" | "red" }
-    | { t: number; type: "zonescore" | "zonemove" | "bossspawn" | "bosskill" | "bosshit"; team?: "blue" | "red"; actorId?: string };
+    | { t: number; type: "zonescore" | "zonemove" | "bossspawn" | "bosskill" | "bosshit" | "bossslam"; team?: "blue" | "red"; actorId?: string };
 export interface ArenaResult {
     winner: "blue" | "red" | "draw"; scoreBlue: number; scoreRed: number; ticks: number;
     snapshots: ArenaSnapshot[]; events: ArenaEvent[];
@@ -871,16 +885,21 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, ctx
         const inZone = dZ <= ZONE_RADIUS;
         const base = f.role === "defender" ? 60 : f.role === "tracker" ? 58 : f.role === "sage" ? 44 : 40;
         const losing = (f.team === "blue" && zone.hold < 0) || (f.team === "red" && zone.hold > 0);   // enemy is taking the hill → push harder
-        const zScore = (inZone ? base + 16 : base - dZ * 0.7) + (losing ? 12 : 0);
+        // While the Warden is up it OWNS the centre: the hill yields priority so the squad
+        // actually commits to the boss instead of being pulled off it by the always-on zone.
+        const bossUp = boss.state === "active" ? -16 : 0;
+        const zScore = (inZone ? base + 16 : base - dZ * 0.7) + (losing ? 12 : 0) + bossUp;
         cands.push({ score: zScore, kind: "zone", plan: zoneP(f, fs, zone) });
     }
-    // Neutral boss (only while active): race for the killing blow. Value climbs as the boss
-    // nears death (don't let the enemy steal the last hit) and when behind on the scoreboard.
-    // Assassins value it most (burst/execute); a carrier ignores it.
+    // Neutral boss (only while active): race for the killing blow. Value starts high enough
+    // to out-pull the hill the moment it spawns (so the Warden is actually fought, not
+    // ignored), climbs as the boss nears death (don't let the enemy steal the last hit),
+    // and rises further when behind on the scoreboard. Assassins value it most (burst/
+    // execute); a carrier ignores it.
     if (boss.state === "active" && !f.carrying) {
         const dB = distPt(f, boss.x, boss.y);
         const lowBoss = 1 - boss.hp / boss.maxHp;
-        const base = f.role === "assassin" ? 56 : f.role === "tracker" ? 52 : f.role === "defender" ? 46 : 34;
+        const base = f.role === "assassin" ? 66 : f.role === "tracker" ? 60 : f.role === "defender" ? 56 : 46;
         const bScore = base + lowBoss * 44 - dB * 0.6 + (ctx.phase === "comeback" ? 14 : 0);
         cands.push({ score: bScore, kind: "boss", plan: bossP(f, boss) });
     }
@@ -1180,16 +1199,46 @@ function relocateZone(zone: Zone, t: number, events: ArenaEvent[]) {
 }
 
 // ── Neutral boss lifecycle ─────────────────────────────────────────────────────
-/** Spawn the boss once mid-match; on death, pay the killing-blow team a capped swing
- *  (a point + a short team-wide attack buff). It never moves or attacks — purely a
- *  contested PvE target whose risk is positional. */
+/** Stride the boss toward a goal at its (slow) move speed, wall-sliding so it never
+ *  wedges. Deterministic: straight step + quantise/clamp, the same shape as the body-
+ *  separation slide. The pit is open so no BFS is needed. */
+function bossStep(boss: Boss, gx: number, gy: number) {
+    const dx = gx - boss.x, dy = gy - boss.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 0.05) return;
+    const step = Math.min(BOSS_MOVE_SPEED, d), ux = dx / d, uy = dy / d;
+    const nx = boss.x + ux * step, ny = boss.y + uy * step;
+    if (walkableAt(nx, ny)) { boss.x = nx; boss.y = ny; }      // slide along a wall if blocked (never wedge)
+    else if (walkableAt(nx, boss.y)) boss.x = nx;
+    else if (walkableAt(boss.x, ny)) boss.y = ny;
+    boss.x = quant(clamp(boss.x, -ARENA_X, ARENA_X)); boss.y = quant(clamp(boss.y, -ARENA_Y, ARENA_Y));
+}
+/** The Warden's slam landing on one pet: neutral environment damage — def-reduced and
+ *  shield-aware, still honouring the wearer's defensive consumables on the PvP-ladder path
+ *  (all inert in casual, itemsOn=false). No crit (no rng) → predictable. The "hit" event
+ *  drives the renderer's impact + damage floater; actorId "boss" is treated as the
+ *  environment by lastAttacker (no team kill-credit). */
+function bossHitPet(tgt: AF, raw: number, t: number, events: ArenaEvent[]) {
+    if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; return; }                         // DODGE fully negates
+    let dmg = Math.max(1, Math.round(raw - tgt.def * 0.38));
+    if (tgt.itemsOn && tgt.cMitigatePct > 0) { dmg = Math.max(1, Math.round(dmg * (1 - tgt.cMitigatePct / 100))); tgt.cMitigatePct = 0; }   // smoke-pellet
+    if (tgt.shieldHp > 0) { const absorbed = Math.min(tgt.shieldHp, dmg); tgt.shieldHp -= absorbed; dmg -= absorbed; }
+    if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }   // survive one lethal blow
+    tgt.hp -= dmg;
+    events.push({ t, type: "hit", targetId: tgt.id, actorId: "boss", dmg, crit: false, element: null, ability: false });
+}
+/** Spawn the boss mid-match, then run it as an ACTIVE bruiser: it hunts the nearest living
+ *  pet, strides toward it (slower than a pet → kiteable), and SLAMS on a cadence — an AoE
+ *  stomp that hits every pet packed around it (punishes clumping). On death, pay the
+ *  killing-blow team a capped swing (a point + a short team-wide attack buff). */
 function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, events: ArenaEvent[], score: { blue: number; red: number }) {
     if (boss.state === "inactive") {
         if (boss.spawnTimer > 0) boss.spawnTimer--;
-        if (boss.spawnTimer <= 0) { boss.state = "active"; boss.hp = boss.maxHp; boss.x = center[0]; boss.y = center[1]; events.push({ t, type: "bossspawn" }); }
+        if (boss.spawnTimer <= 0) { boss.state = "active"; boss.hp = boss.maxHp; boss.x = center[0]; boss.y = center[1]; boss.atkCd = Math.round(ARENA_TPS * 0.9); events.push({ t, type: "bossspawn" }); }
         return;
     }
-    if (boss.state === "active" && boss.hp <= 0) {
+    if (boss.state !== "active") return;
+    // Pets attacked it in tickExecute already → a lethal blow this tick resolves first.
+    if (boss.hp <= 0) {
         boss.state = "dead";
         const team = boss.lastHitTeam;
         if (team) {
@@ -1197,6 +1246,25 @@ function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, eve
             for (const g of fs) if (g.team === team) g.buffLeft = BOSS_BUFF_TICKS;
             events.push({ t, type: "bosskill", team });
         }
+        return;
+    }
+    // Hunt the nearest living pet (deterministic: nearest, ties broken by lowest id).
+    let tgt: AF | null = null, bd = Infinity;
+    for (const g of fs) {
+        if (!alive(g)) continue;
+        const dx = g.x - boss.x, dy = g.y - boss.y, dd = dx * dx + dy * dy;
+        if (dd < bd || (dd === bd && tgt !== null && g.id < tgt.id)) { bd = dd; tgt = g; }
+    }
+    const dTgt = tgt ? Math.sqrt(bd) : Infinity;
+    // Stride toward an in-aggro pet; otherwise amble back to the centre pit so it never wanders off.
+    if (tgt && dTgt <= BOSS_AGGRO_RANGE) bossStep(boss, tgt.x, tgt.y);
+    else bossStep(boss, center[0], center[1]);
+    // Slam on cooldown: an AoE stomp on every pet within reach of the impact.
+    if (boss.atkCd > 0) boss.atkCd--;
+    if (tgt && boss.atkCd <= 0 && dTgt <= BOSS_ATK_RANGE + BOSS_RADIUS) {
+        boss.atkCd = BOSS_ATK_CD;
+        events.push({ t, type: "bossslam" });
+        for (const g of fs) if (alive(g) && distPt(g, boss.x, boss.y) <= BOSS_ATK_RADIUS + BOSS_RADIUS) bossHitPet(g, BOSS_ATK_DMG, t, events);
     }
 }
 
@@ -1229,7 +1297,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
     const sepX = new Array(fs.length).fill(0), sepY = new Array(fs.length).fill(0);   // per-tick body-separation accumulators (reused; see the declump pass)
     const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: SCROLL_FIRST_SPAWN, dropTimer: 0 };
     const zone: Zone = { x: ZONE_SPOTS[0][0], y: ZONE_SPOTS[0][1], idx: 0, hold: 0, relocTimer: ZONE_RELOCATE, coolTimer: 0 };
-    const boss: Boss = { state: "inactive", x: center[0], y: center[1], hp: BOSS_HP, maxHp: BOSS_HP, spawnTimer: BOSS_SPAWN_AT, lastHitTeam: null };
+    const boss: Boss = { state: "inactive", x: center[0], y: center[1], hp: BOSS_HP, maxHp: BOSS_HP, spawnTimer: BOSS_SPAWN_AT, atkCd: 0, lastHitTeam: null };
     const score = { blue: 0, red: 0 };
     const snapshots: ArenaSnapshot[] = []; const events: ArenaEvent[] = [];
     let winner: "blue" | "red" | "draw" = "draw"; let ticks = 0;
@@ -1308,8 +1376,16 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
     return { winner, scoreBlue: score.blue, scoreRed: score.red, ticks, snapshots, events, bases: { blue: SEALS.blue, red: SEALS.red }, center };
 }
 
-/** The team of the most recent hit on `id` (kill credit). Scans events backward. */
+/** The team of the most recent PET hit on `id` (kill credit). Scans events backward.
+ *  Boss slams (actorId "boss") are the neutral environment — skipped, so a pet finished
+ *  off by the Warden isn't miscredited as an enemy-team kill. */
 function lastAttacker(events: ArenaEvent[], id: string): "blue" | "red" | null {
-    for (let i = events.length - 1; i >= 0; i--) { const e = events[i]; if (e.type === "hit" && e.targetId === id) return e.actorId.startsWith("blue") ? "blue" : "red"; }
+    for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i];
+        if (e.type !== "hit" || e.targetId !== id) continue;
+        if (e.actorId.startsWith("blue")) return "blue";
+        if (e.actorId.startsWith("red")) return "red";
+        // else: a neutral (boss) hit — keep scanning for the last real pet attacker
+    }
     return null;
 }

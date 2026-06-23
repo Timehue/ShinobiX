@@ -3205,6 +3205,11 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     pushFeed("⛰ The Arena Warden awakens!", "#34d399");
                     pushBanner("⛰ THE WARDEN AWAKENS", "#34d399");
                     triggerHitstop(90); triggerShake(1.6);
+                } else if (e.type === "bossslam") {
+                    // The Warden stomps the pit — a grounded shockwave + a little weight. (No feed
+                    // spam: slams fire on a ~1.5 s cadence; the per-pet damage floaters carry it.)
+                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 2.9, dur: 460 }); spawnDecal(b.x, b.y);
+                    triggerHitstop(40); triggerShake(0.8);
                 } else if (e.type === "bosskill" && e.team) {
                     const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 5.2, dur: 900 }); spawnFx({ x: b.x, z: b.y, key: "spark", scale: 3.0, dur: 460 });
                     pushFeed(`⛰ ${e.team === "blue" ? "Blue" : "Red"} slew the Warden! (+buff)`, e.team === "blue" ? "#60a5fa" : "#f87171");
