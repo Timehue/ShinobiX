@@ -51,6 +51,21 @@ export const BASE_SCORE_RANGE = 1.8;                 // carrier scores within th
 const CARRIER_SLOW = 0.85;                    // −15% speed while carrying
 const SPEED_CRIT_DIVISOR = 600;               // ownSpeed/this → bonus crit; gives Speed a payoff past the move-speed cap
 
+// ── Body separation (de-overlap ONLY — must not fight melee spacing) ───────────
+// Pets de-clump to this radius — a true BODY size, deliberately SMALLER than every
+// role's attack range so a melee pet can stand in striking distance without the
+// separation pass shoving it back out. (The old radius was 1.5 == defender atkRange,
+// so a melee pet oscillated in and out of range every tick — that read as "stuck /
+// vibrating in place", and because the renderer's depth-scale is tied to y it also
+// pulsed the sprite big↔small.) A small deadzone stops micro-nudges once a pair is
+// already spaced, and opposing pets in a lock push apart only gently so a melee
+// exchange reads toe-to-toe, not bumper-cars. This only moves the de-clump
+// EQUILIBRIUM; combat is range / line-of-sight, unaffected — guarded by the sim
+// balance tests (decisive rate, cap rate, stronger-team-wins-either-side).
+const BODY_SEP = 0.95;                         // body radius (was 1.5) — below every atkRange so melee never gets shoved out of reach
+const SEP_DEADZONE = 0.08;                     // skip the push once within this of body distance → no vibrate-in-place
+const SEP_ENEMY_MUL = 0.5;                     // opposing pets in a melee lock push apart only half as hard (toe-to-toe reads as a fight)
+
 // ── Roles ────────────────────────────────────────────────────────────────────
 export type ArenaRole = "defender" | "tracker" | "assassin" | "sage";
 type AbilityKind = "guard" | "mark" | "assassinate" | "mend";
@@ -265,6 +280,54 @@ function makeRng(seed: number): () => number {
     return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
+// ── Control Zone (king-of-the-hill — the always-on tactical anchor + B3 rotation) ──
+// A contested hill both teams want to STAND on. Net presence (more alive bodies in the
+// ring than the enemy) ticks a signed hold meter; an uncontested hold to ZONE_TO_SCORE
+// scores a point. A contested OR empty ring decays the meter back toward neutral, so a
+// point requires actually WINNING the space — not just touching it. That's the lever
+// that turns the dead time between scroll cycles into positioning play instead of a
+// brawl. The hill RELOCATES on a timer and after each score (B3) so the squads rotate
+// across the map instead of camping one tile (which also relieves the old single-point
+// crowding). All integer / quantised → deterministic byte-identical replays.
+export const ZONE_RADIUS = 2.6;                  // a pet within this of the hill centre contests it
+const ZONE_TO_SCORE = ARENA_TPS * 7;             // ~7 s of net-uncontested hold = a zone point
+const ZONE_DECAY = 2;                            // contested/empty → meter eases toward neutral this fast (>build, so you must hold it clean)
+const ZONE_RELOCATE = ARENA_TPS * 28;            // the hill moves every ~28 s even without a score (forces rotation)
+const ZONE_SCORE_COOLDOWN = ARENA_TPS * 3;       // a short lull after a hold scores before the next can build
+// The hill cycles through these painted, centre-connected spots (snapMain keeps each one
+// reachable from the centre region — the same load-bearing rule as spawns/nav goals).
+const ZONE_SPOTS: [number, number][] = [
+    ARENA_CENTER,
+    snapMain(-5.0, -1.0),
+    snapMain(5.0, -1.0),
+    snapMain(0.0, 2.4),
+];
+
+// ── Neutral boss (B4 — the Arena Warden) ──────────────────────────────────────
+// A fat neutral PvE sponge that appears ONCE mid-match in the centre pit. It doesn't
+// move or attack — the tension is positional: committing your team to burst it down
+// exposes you, and the enemy can steal the killing blow. The team that lands the kill
+// gets a capped swing — a point PLUS a short team-wide attack buff — enough to matter,
+// not enough to erase the match (the Pokémon-Unite "cap the swing" lesson).
+export const BOSS_RADIUS = 1.25;                 // boss body radius — pets strike from atkRange + this
+const BOSS_SPAWN_AT = ARENA_TPS * 60;            // appears ~60 s in (a mid-match objective beat)
+const BOSS_HP = 3000;                            // a coordinated team needs several seconds of focus to drop it (≈40% of matches resolve it)
+const BOSS_REWARD_POINTS = 1;                    // killing-blow team scores this
+const BOSS_BUFF_TICKS = ARENA_TPS * 18;          // + an 18 s team-wide attack buff
+const BOSS_BUFF_ATK = 1.2;                       // +20% attack while buffed (the capped swing)
+
+// ── Pacing: escalating objective value ────────────────────────────────────────
+// Later holds are worth more so the match builds to a climax instead of being decided
+// in the opening — capped low (×2, not Unite's match-erasing ×2-plus-boss) so the early
+// game still counts. Keyed off the tick only → deterministic.
+const ZONE_LATE_AT = ARENA_TPS * 160;            // past ~2.7 min a held hill is worth double
+function zoneValue(t: number): number { return t >= ZONE_LATE_AT ? 2 : 1; }
+// Anti-snowball / comeback: a team trailing by a clear margin hits a little harder, so a
+// lead is defensible but not a runaway. Capped low (the leader's own play should decide
+// it, per Riot's comeback note) and re-evaluated every tick from the live score.
+const COMEBACK_GAP = 3;                           // behind by this many points → the catch-up buff turns on
+const COMEBACK_DMG = 1.12;                        // +12% damage while trailing (does NOT erase a lead, just slows the snowball)
+
 // ── Fighter ──────────────────────────────────────────────────────────────────
 export type ArenaState = "idle" | "move" | "attack" | "dash" | "channel" | "respawning" | "dead";
 interface AF {
@@ -275,6 +338,8 @@ interface AF {
     state: ArenaState; respawnLeft: number; attackCd: number; abilityCd: number; dashLeft: number; moveDx: number; moveDy: number;
     // statuses
     shieldHp: number; slowLeft: number; dotLeft: number; dotDmg: number; markLeft: number; tauntBy: string | null; tauntLeft: number;
+    buffLeft: number;                                   // boss-kill team attack buff — ticks down; multiplies outgoing damage while >0
+    behind: boolean;                                    // team is trailing by ≥COMEBACK_GAP → catch-up damage buff (set each tick)
     carrying: boolean; seals: [number, number][];
     path: number[] | null; pathIdx: number; navGoal: number; navAge: number; stuckTicks: number;   // BFS path cache + stuck watchdog
     aiTargetId: string | null;                          // last committed target — decision hysteresis (anti-flip-flop)
@@ -319,7 +384,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         // speed (gp) so +SPD PvP gear also lifts crit; casual (gp===pet) is unchanged.
         atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (gp.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
-        shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, carrying: false,
+        shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, buffLeft: 0, behind: false, carrying: false,
         path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null, decisionCd: 0,
         itemsOn: applyItems,
         cDodge: ch ? ch.dodge : 0, cMitigatePct: ch ? ch.mitigate : 0, cEndure: ch ? ch.endure : 0,
@@ -335,6 +400,11 @@ interface Scroll {
     x: number; y: number; carrierId: string | null;
     channelById: string | null; channelLeft: number; spawnTimer: number; dropTimer: number;
 }
+// ── Objective (the control zone / king-of-the-hill) ───────────────────────────
+// hold is SIGNED: +ZONE_TO_SCORE = a blue point, −ZONE_TO_SCORE = a red point.
+interface Zone { x: number; y: number; idx: number; hold: number; relocTimer: number; coolTimer: number; }
+// ── Objective (the neutral boss — B4) ─────────────────────────────────────────
+interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; hp: number; maxHp: number; spawnTimer: number; lastHitTeam: "blue" | "red" | null; }
 
 // ── Snapshots + events ───────────────────────────────────────────────────────
 export interface ArenaActorSnap {
@@ -347,6 +417,8 @@ export interface ArenaActorSnap {
 export interface ArenaSnapshot {
     t: number; actors: ArenaActorSnap[];
     scroll: { state: Scroll["state"]; x: number; y: number; carrierId: string | null; channelFrac: number; spawnSecs: number };   // spawnSecs: whole seconds until (re)spawn while inactive (0 otherwise) — readout only
+    zone: { x: number; y: number; holdFrac: number; lead: "blue" | "red" | null };   // holdFrac signed −1..1 (sign = leading team); lead = who is currently building/holding
+    boss: { state: Boss["state"]; x: number; y: number; hpFrac: number; spawnSecs: number };   // neutral boss readout (state inactive until it spawns)
     scoreBlue: number; scoreRed: number;
 }
 export type ArenaEvent =
@@ -354,7 +426,8 @@ export type ArenaEvent =
     | { t: number; type: "heal" | "shield"; targetId: string; actorId: string; amount: number }
     | { t: number; type: "kill"; targetId: string; actorId: string; team: "blue" | "red" }
     | { t: number; type: "ability"; actorId: string; kind: AbilityKind }
-    | { t: number; type: "pickup" | "drop" | "capture" | "scrollspawn" | "respawn"; actorId?: string; team?: "blue" | "red" };
+    | { t: number; type: "pickup" | "drop" | "capture" | "scrollspawn" | "respawn"; actorId?: string; team?: "blue" | "red" }
+    | { t: number; type: "zonescore" | "zonemove" | "bossspawn" | "bosskill" | "bosshit"; team?: "blue" | "red"; actorId?: string };
 export interface ArenaResult {
     winner: "blue" | "red" | "draw"; scoreBlue: number; scoreRed: number; ticks: number;
     snapshots: ArenaSnapshot[]; events: ArenaEvent[];
@@ -367,7 +440,7 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
     const crit = rng() < src.crit;
     // DODGE consumable fully negates the incoming hit (no damage, no procs).
     if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; return; }
-    let mult = (crit ? 1.8 : 1) * (tgt.markLeft > 0 ? 1.25 : 1);
+    let mult = (crit ? 1.8 : 1) * (tgt.markLeft > 0 ? 1.25 : 1) * (src.buffLeft > 0 ? BOSS_BUFF_ATK : 1) * (src.behind ? COMEBACK_DMG : 1);
     if (src.itemsOn) mult *= petGearExecuteMult(src.pet, tgt.hp, tgt.maxHp);   // gear execute vs low-HP foe
     let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * mult));
     if (tgt.itemsOn) {
@@ -634,8 +707,8 @@ function criticalAlly(f: AF, fs: AF[]): AF | null {
     return best;
 }
 
-interface Plan { gx: number; gy: number; stopAt: number; target: AF | null; channel: boolean; }
-type CandKind = "objective" | "escort" | "protectCarrier" | "interceptCarrier" | "interceptAssassin" | "protectSage" | "protectAlly" | "hunt" | "frontline" | "regroup" | "retreat" | "support";
+interface Plan { gx: number; gy: number; stopAt: number; target: AF | null; channel: boolean; boss?: boolean; }
+type CandKind = "objective" | "zone" | "boss" | "escort" | "protectCarrier" | "interceptCarrier" | "interceptAssassin" | "protectSage" | "protectAlly" | "hunt" | "frontline" | "regroup" | "retreat" | "support";
 interface Cand { score: number; plan: Plan; kind: CandKind; }
 const huntP = (f: AF, e: AF, neutral: number): Plan => ({ ...spreadGoal(f, e, neutral), target: e, channel: false });
 const diveP = (e: AF, stop: number): Plan => ({ gx: e.x, gy: e.y, stopAt: stop, target: e, channel: false });
@@ -666,6 +739,19 @@ function contestP(f: AF, fs: AF[], scroll: Scroll): Plan {
     const off = f.role === "assassin" ? 2.2 : f.role === "sage" ? 3.0 : 0;
     const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
     return { gx: off ? ex : scroll.x, gy: off ? ey : scroll.y, stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
+}
+/** Hold the control hill: ring up around the zone centre (a role offset so the squad
+ *  spreads across the ring instead of stacking one tile) and fight whoever contests it. */
+function zoneP(f: AF, fs: AF[], zone: Zone): Plan {
+    const off = f.role === "assassin" ? 1.7 : f.role === "sage" ? 2.2 : f.role === "tracker" ? 1.2 : 0.6;
+    const gx = zone.x + (f.team === "blue" ? -off : off), gy = zone.y + (f.slot % 2 ? off : -off);
+    const block = nearestEnemy(f, fs);
+    return { gx, gy, stopAt: 0.4, target: block && dist(f, block) < f.atkRange + 1.5 ? block : null, channel: false };
+}
+/** Attack the neutral boss: close to striking range and whack it (boss damage is applied
+ *  in tickExecute via the plan.boss flag — the boss is neutral, not an AF target). */
+function bossP(f: AF, boss: Boss): Plan {
+    return { gx: boss.x, gy: boss.y, stopAt: Math.max(0.3, f.atkRange * 0.85), target: null, channel: false, boss: true };
 }
 /** Pre-position for the IMMINENT scroll spawn (scroll.x/y holds the spawn point):
  *  defender claims the spot, tracker pressures it, assassin takes a flank, sage rings
@@ -713,7 +799,7 @@ const PEEL_SCORE: Record<ArenaRole, { carrier: number; diver: number }> = {
 
 /** Build the role's scored candidate intents (handoff priority numbers) layered with
  *  squad awareness: focus-fire, rescue, and regroup-when-outnumbered. */
-function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Cand[] {
+function candidates(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, ctx: Ctx, squad: Squad): Cand[] {
     const cfg = ROLE_CFG[f.role];
     const enemies = enemiesAlive(f, fs);
     const cands: Cand[] = [];
@@ -774,6 +860,29 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
         const dS = distPt(f, scroll.x, scroll.y);
         const score = ctx.scrollOpen ? w + (dS <= PICKUP_RANGE ? 45 : -dS * 0.6) : w * 0.85 - dS * 0.5;   // anticipation softer
         cands.push({ score, kind: "objective", plan: ctx.scrollOpen ? contestP(f, fs, scroll) : anticipateP(f, fs, scroll) });
+    }
+
+    // Control zone (ALWAYS on): stand on the hill to tick the meter. Weighted BELOW the
+    // open scroll (which adds a big in-range bonus), so the scroll owns priority while it's
+    // live and the zone is the DEFAULT thing to do between scroll cycles — that's what
+    // converts the old dead-time brawl into positioning play. A carrier ignores it (runs home).
+    if (!f.carrying) {
+        const dZ = distPt(f, zone.x, zone.y);
+        const inZone = dZ <= ZONE_RADIUS;
+        const base = f.role === "defender" ? 60 : f.role === "tracker" ? 58 : f.role === "sage" ? 44 : 40;
+        const losing = (f.team === "blue" && zone.hold < 0) || (f.team === "red" && zone.hold > 0);   // enemy is taking the hill → push harder
+        const zScore = (inZone ? base + 16 : base - dZ * 0.7) + (losing ? 12 : 0);
+        cands.push({ score: zScore, kind: "zone", plan: zoneP(f, fs, zone) });
+    }
+    // Neutral boss (only while active): race for the killing blow. Value climbs as the boss
+    // nears death (don't let the enemy steal the last hit) and when behind on the scoreboard.
+    // Assassins value it most (burst/execute); a carrier ignores it.
+    if (boss.state === "active" && !f.carrying) {
+        const dB = distPt(f, boss.x, boss.y);
+        const lowBoss = 1 - boss.hp / boss.maxHp;
+        const base = f.role === "assassin" ? 56 : f.role === "tracker" ? 52 : f.role === "defender" ? 46 : 34;
+        const bScore = base + lowBoss * 44 - dB * 0.6 + (ctx.phase === "comeback" ? 14 : 0);
+        cands.push({ score: bScore, kind: "boss", plan: bossP(f, boss) });
     }
 
     if (f.role === "defender") {
@@ -841,16 +950,16 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, ctx: Ctx, squad: Squad): Ca
 // match point → the objective + the enemy carrier are everything.
 const PHASE_ADJ: Record<MatchPhase, Partial<Record<CandKind, number>>> = {
     normal: {},
-    closeit: { escort: 18, protectCarrier: 18, protectAlly: 14, protectSage: 12, regroup: 12, support: 8, hunt: -10, frontline: -8 },
-    comeback: { objective: 16, hunt: 12, interceptCarrier: 14, frontline: 8, retreat: -14, regroup: -10 },
-    emergency: { objective: 30, protectCarrier: 30, interceptCarrier: 36, escort: 24, hunt: -16, frontline: -16, support: -8 },
+    closeit: { escort: 18, protectCarrier: 18, protectAlly: 14, protectSage: 12, regroup: 12, support: 8, zone: 8, hunt: -10, frontline: -8 },
+    comeback: { objective: 16, zone: 14, boss: 16, hunt: 12, interceptCarrier: 14, frontline: 8, retreat: -14, regroup: -10 },
+    emergency: { objective: 30, zone: 22, boss: 18, protectCarrier: 30, interceptCarrier: 36, escort: 24, hunt: -16, frontline: -16, support: -8 },
 };
 // Power POSTURE (R3): the commander's board read nudges intent KINDs — PRESS to
 // CONVERT a winning board (collapse on kills + push the objective, stop disengaging),
 // REGROUP to re-form a losing one at the rally. Modest like TRAIT_ADJ; stacks with the
 // score-based PHASE_ADJ (orthogonal axes: scoreboard vs board-strength).
 const POSTURE_ADJ: Record<Posture, Partial<Record<CandKind, number>>> = {
-    press: { hunt: 9, frontline: 7, interceptCarrier: 10, objective: 8, escort: 4, retreat: -9, regroup: -10 },
+    press: { hunt: 9, frontline: 7, interceptCarrier: 10, objective: 8, zone: 8, boss: 8, escort: 4, retreat: -9, regroup: -10 },
     even: {},
     regroup: { regroup: 10, protectAlly: 6, support: 4, hunt: -5, frontline: -5 },
 };
@@ -867,7 +976,7 @@ const TRAIT_ADJ: Record<string, Partial<Record<CandKind, number>>> = {
 };
 
 const COMMIT_MARGIN = 12;   // keep last tick's target unless another beats it by this much
-function decide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }, squad: Squad): Plan {
+function decide(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: { blue: number; red: number }, squad: Squad): Plan {
     const cfg = ROLE_CFG[f.role];
     if (f.carrying) return carryHome(f, fs);                                            // carrier behavior tree
     if (f.tauntLeft > 0 && f.tauntBy) {                                                 // forced taunt overrides
@@ -875,7 +984,7 @@ function decide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: num
         if (tn) { f.aiTargetId = tn.id; return { gx: tn.x, gy: tn.y, stopAt: cfg.neutral, target: tn, channel: false }; }
     }
     const ctx = makeCtx(f, fs, scroll, score);
-    const cands = candidates(f, fs, scroll, ctx, squad);
+    const cands = candidates(f, fs, scroll, zone, boss, ctx, squad);
     const adj = PHASE_ADJ[ctx.phase];
     for (const c of cands) { const a = adj[c.kind]; if (a) c.score += a; }              // match-state rubber-band (scoreboard)
     const padj = POSTURE_ADJ[squad.posture[f.team]];                                    // commander posture (board strength)
@@ -922,6 +1031,11 @@ function spreadGoal(f: AF, target: AF, neutral: number): { gx: number; gy: numbe
 
 /** Act on the plan: channel, attack, or fire the role ability. */
 function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
+    // B1 — carry teeth: a pet hauling the scroll can't basic-attack or fire its role
+    // ability. Carrying is a real commitment (slowed by CARRIER_SLOW, drops on death),
+    // so a capture is a TEAM play — the carrier runs while escorts screen for it — not a
+    // one-pet rush that also wins the fight. Channelling (pickup) still works.
+    if (f.carrying && !plan.channel) return;
     const cfg = ROLE_CFG[f.role];
     const tgt = plan.target;
     const d = tgt ? dist(f, tgt) : Infinity;
@@ -947,12 +1061,14 @@ function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: 
 // board, then all pets EXECUTE. If decide+move+act ran per-pet in one pass, the
 // team processed second would react to the first team's same-tick moves — a
 // second-mover edge that, with reactive AI, snowballs into a lopsided win rate.
-function tickDecide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }, squad: Squad) {
+function tickDecide(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: { blue: number; red: number }, squad: Squad) {
     // CLEANSE consumable: the first tick under any DoT/control, purge it all (once).
     if (f.itemsOn && f.cCleanse > 0 && (f.dotLeft > 0 || f.slowLeft > 0 || f.markLeft > 0 || f.tauntLeft > 0)) {
         f.dotLeft = 0; f.dotDmg = 0; f.slowLeft = 0; f.markLeft = 0; f.tauntLeft = 0; f.tauntBy = null; f.cCleanse = 0;
     }
     if (f.attackCd > 0) f.attackCd--; if (f.abilityCd > 0) f.abilityCd--;
+    if (f.buffLeft > 0) f.buffLeft--;                                                   // boss-kill attack buff ticks down
+    f.behind = score[oppOf(f.team)] - score[f.team] >= COMEBACK_GAP;                    // anti-snowball catch-up buff (live score)
     if (f.slowLeft > 0) f.slowLeft--; if (f.markLeft > 0) f.markLeft--; if (f.tauntLeft > 0) f.tauntLeft--; else f.tauntBy = null;
     if (f.energy < 100) f.energy = Math.min(100, f.energy + 18 / ARENA_TPS);
     if (f.dotLeft > 0) { f.dotLeft--; if (f.dotLeft % Math.round(ARENA_TPS * 0.5) === 0) f.hp -= f.dotDmg; }
@@ -964,10 +1080,10 @@ function tickDecide(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red:
     f.decisionCd--;
     const tgt = f.plan?.target ?? null;
     const stale = f.plan === null || f.decisionCd <= 0 || f.carrying || (tgt !== null && !alive(tgt));   // carrier re-routes every tick; target died → re-pick now
-    if (stale) { f.plan = decide(f, fs, scroll, score, squad); f.decisionCd = DECISION_TICKS + (f.slot & 3); }
+    if (stale) { f.plan = decide(f, fs, scroll, zone, boss, score, squad); f.decisionCd = DECISION_TICKS + (f.slot & 3); }
 }
 
-function tickExecute(f: AF, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
+function tickExecute(f: AF, fs: AF[], scroll: Scroll, boss: Boss, rng: () => number, t: number, events: ArenaEvent[]) {
     if (f.state === "dash" && f.dashLeft > 0) {                       // assassin lunge — fast, collision-aware
         f.dashLeft--; const nx = f.x + f.moveDx * f.moveSpeed * 3.4, ny = f.y + f.moveDy * f.moveSpeed * 3.4;
         if (walkableAt(nx, ny) && lineClear(f.x, f.y, nx, ny)) { f.x = nx; f.y = ny; } else f.dashLeft = 0;   // dash stops at a wall, never jumps it
@@ -981,7 +1097,21 @@ function tickExecute(f: AF, fs: AF[], scroll: Scroll, rng: () => number, t: numb
     moveToward(f, plan.gx, plan.gy, effSpeed(f), plan.stopAt);
     const moved = Math.abs(f.x - before.x) + Math.abs(f.y - before.y) > 0.002;
     f.state = moved ? "move" : "idle";
+    if (plan.boss) { attackBoss(f, boss, rng, t, events); return; }   // boss is neutral (not an AF) — handled here, not in act()
     act(f, plan, fs, scroll, rng, t, events);
+}
+
+/** A pet attacking the neutral boss. Boss takes flat damage (no def), records the last-hit
+ *  team for kill credit; the reward + buff are paid out in stepBoss when its HP hits 0. */
+function attackBoss(f: AF, boss: Boss, rng: () => number, t: number, events: ArenaEvent[]) {
+    if (boss.state !== "active" || f.attackCd > 0) return;
+    const dx = boss.x - f.x, dy = boss.y - f.y, d = Math.sqrt(dx * dx + dy * dy);
+    if (d > f.atkRange + BOSS_RADIUS + 0.15) return;                  // not in striking reach yet (keep moving)
+    if (d > 1e-6) { f.faceX = dx / d; f.faceY = dy / d; }
+    const crit = rng() < f.crit;
+    const dmg = Math.max(1, Math.round(f.atk * (crit ? 1.8 : 1) * (f.buffLeft > 0 ? BOSS_BUFF_ATK : 1)));
+    boss.hp -= dmg; boss.lastHitTeam = f.team; f.attackCd = ATTACK_CD; f.state = "attack";
+    events.push({ t, type: "bosshit", actorId: f.id, team: f.team });
 }
 
 // ── Scroll lifecycle ─────────────────────────────────────────────────────────
@@ -1025,16 +1155,63 @@ function stepScroll(scroll: Scroll, fs: AF[], center: [number, number], t: numbe
     }
 }
 
-function snap(t: number, fs: AF[], scroll: Scroll, score: { blue: number; red: number }): ArenaSnapshot {
+// ── Control-zone lifecycle ─────────────────────────────────────────────────────
+/** Tick the king-of-the-hill: net presence builds a signed hold meter, a contested or
+ *  empty ring decays it back toward neutral (so you must hold the space CLEAN to score),
+ *  a full hold scores + relocates, and a timer relocates it anyway so the squads rotate. */
+function stepZone(zone: Zone, fs: AF[], t: number, events: ArenaEvent[], score: { blue: number; red: number }, zoneValue: number) {
+    if (zone.coolTimer > 0) zone.coolTimer--;
+    let bn = 0, rn = 0;
+    for (const g of fs) { if (!alive(g) || distPt(g, zone.x, zone.y) > ZONE_RADIUS) continue; if (g.team === "blue") bn++; else rn++; }
+    const net = zone.coolTimer > 0 ? 0 : (bn > rn ? 1 : rn > bn ? -1 : 0);
+    if (net > 0) zone.hold = Math.min(ZONE_TO_SCORE, zone.hold + 1);
+    else if (net < 0) zone.hold = Math.max(-ZONE_TO_SCORE, zone.hold - 1);
+    else if (zone.hold > 0) zone.hold = Math.max(0, zone.hold - ZONE_DECAY);
+    else if (zone.hold < 0) zone.hold = Math.min(0, zone.hold + ZONE_DECAY);
+    if (zone.hold >= ZONE_TO_SCORE) { score.blue += zoneValue; events.push({ t, type: "zonescore", team: "blue" }); relocateZone(zone, t, events); return; }
+    if (zone.hold <= -ZONE_TO_SCORE) { score.red += zoneValue; events.push({ t, type: "zonescore", team: "red" }); relocateZone(zone, t, events); return; }
+    zone.relocTimer--; if (zone.relocTimer <= 0) relocateZone(zone, t, events);
+}
+function relocateZone(zone: Zone, t: number, events: ArenaEvent[]) {
+    zone.idx = (zone.idx + 1) % ZONE_SPOTS.length;
+    zone.x = ZONE_SPOTS[zone.idx][0]; zone.y = ZONE_SPOTS[zone.idx][1];
+    zone.hold = 0; zone.relocTimer = ZONE_RELOCATE; zone.coolTimer = ZONE_SCORE_COOLDOWN;
+    events.push({ t, type: "zonemove" });
+}
+
+// ── Neutral boss lifecycle ─────────────────────────────────────────────────────
+/** Spawn the boss once mid-match; on death, pay the killing-blow team a capped swing
+ *  (a point + a short team-wide attack buff). It never moves or attacks — purely a
+ *  contested PvE target whose risk is positional. */
+function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, events: ArenaEvent[], score: { blue: number; red: number }) {
+    if (boss.state === "inactive") {
+        if (boss.spawnTimer > 0) boss.spawnTimer--;
+        if (boss.spawnTimer <= 0) { boss.state = "active"; boss.hp = boss.maxHp; boss.x = center[0]; boss.y = center[1]; events.push({ t, type: "bossspawn" }); }
+        return;
+    }
+    if (boss.state === "active" && boss.hp <= 0) {
+        boss.state = "dead";
+        const team = boss.lastHitTeam;
+        if (team) {
+            score[team] += BOSS_REWARD_POINTS;
+            for (const g of fs) if (g.team === team) g.buffLeft = BOSS_BUFF_TICKS;
+            events.push({ t, type: "bosskill", team });
+        }
+    }
+}
+
+function snap(t: number, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: { blue: number; red: number }): ArenaSnapshot {
     return {
         t,
         actors: fs.map((f) => {
             const statuses: string[] = [];
             if (f.shieldHp > 0) statuses.push("shield"); if (f.slowLeft > 0) statuses.push("slow"); if (f.markLeft > 0) statuses.push("mark");
-            if (f.tauntLeft > 0) statuses.push("taunt"); if (f.carrying) statuses.push("carry");
+            if (f.tauntLeft > 0) statuses.push("taunt"); if (f.carrying) statuses.push("carry"); if (f.buffLeft > 0) statuses.push("buff");
             return { id: f.id, team: f.team, slot: f.slot, role: f.role, element: f.element, x: quant(f.x), y: quant(f.y), faceX: quant(f.faceX), faceY: quant(f.faceY), hp: Math.max(0, Math.round(f.hp)), maxHp: f.maxHp, energy: Math.round(f.energy), lives: f.lives, state: f.state, carrying: f.carrying, statuses, respawnSecs: f.state === "respawning" ? Math.ceil(f.respawnLeft / ARENA_TPS) : 0, abilityReady: f.abilityCd <= 0 && f.energy >= ROLE_CFG[f.role].abilityCost };
         }),
         scroll: { state: scroll.state, x: quant(scroll.x), y: quant(scroll.y), carrierId: scroll.carrierId, channelFrac: scroll.channelById ? 1 - scroll.channelLeft / SCROLL_CHANNEL : 0, spawnSecs: scroll.state === "inactive" ? Math.ceil(scroll.spawnTimer / ARENA_TPS) : 0 },
+        zone: { x: quant(zone.x), y: quant(zone.y), holdFrac: quant(zone.hold / ZONE_TO_SCORE), lead: zone.hold > 0 ? "blue" : zone.hold < 0 ? "red" : null },
+        boss: { state: boss.state, x: quant(boss.x), y: quant(boss.y), hpFrac: boss.maxHp > 0 ? Math.max(0, quant(boss.hp / boss.maxHp)) : 0, spawnSecs: boss.state === "inactive" ? Math.ceil(boss.spawnTimer / ARENA_TPS) : 0 },
         scoreBlue: score.blue, scoreRed: score.red,
     };
 }
@@ -1051,6 +1228,8 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
     const center = ARENA_CENTER;   // on the painted center paw (measured off the art)
     const sepX = new Array(fs.length).fill(0), sepY = new Array(fs.length).fill(0);   // per-tick body-separation accumulators (reused; see the declump pass)
     const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: SCROLL_FIRST_SPAWN, dropTimer: 0 };
+    const zone: Zone = { x: ZONE_SPOTS[0][0], y: ZONE_SPOTS[0][1], idx: 0, hold: 0, relocTimer: ZONE_RELOCATE, coolTimer: 0 };
+    const boss: Boss = { state: "inactive", x: center[0], y: center[1], hp: BOSS_HP, maxHp: BOSS_HP, spawnTimer: BOSS_SPAWN_AT, lastHitTeam: null };
     const score = { blue: 0, red: 0 };
     const snapshots: ArenaSnapshot[] = []; const events: ArenaEvent[] = [];
     let winner: "blue" | "red" | "draw" = "draw"; let ticks = 0;
@@ -1068,8 +1247,8 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         // real matches — player pets vs AI pets, never identical — are decided by
         // pet quality, not side.
         const squad = buildSquad(fs, scroll);   // shared squad awareness (focus + call + peels) + commander (posture + rally) — built once per tick
-        for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, score, squad);
-        for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, rng, t, events); }
+        for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, zone, boss, score, squad);
+        for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, boss, rng, t, events); }
         // Separate overlapping bodies. Accumulate every pair's push from the FROZEN
         // start-of-pass positions, then apply once and DAMPED — so a dense scrum (3-4
         // pets contesting the scroll / jammed in a choke) eases into a stable ring
@@ -1081,8 +1260,11 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         for (let i = 0; i < fs.length; i++) for (let j = i + 1; j < fs.length; j++) {
             const a = fs[i], b = fs[j]; if (!alive(a) || !alive(b)) continue;
             const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy);
-            if (d >= 1.5 || d < 1e-6) continue;
-            const push = (1.5 - d) * 0.25, ux = dx / d, uy = dy / d;   // 0.25/pet ⇒ ~half the gap per tick (was a full-gap snap, applied per-pair in sequence)
+            if (d >= BODY_SEP || d < 1e-6) continue;
+            const overlap = BODY_SEP - d;
+            if (overlap < SEP_DEADZONE) continue;                                 // already body-spaced → no micro-nudge (anti-jitter)
+            const teamMul = a.team === b.team ? 1 : SEP_ENEMY_MUL;                // a melee lock between enemies separates only gently
+            const push = overlap * 0.25 * teamMul, ux = dx / d, uy = dy / d;      // 0.25/pet ⇒ ~half the gap per tick, applied once from frozen positions
             sepX[i] -= ux * push; sepY[i] -= uy * push; sepX[j] += ux * push; sepY[j] += uy * push;
         }
         for (let i = 0; i < fs.length; i++) {
@@ -1104,7 +1286,9 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         }
         for (const f of fs) { f.x = quant(clamp(f.x, -ARENA_X, ARENA_X)); f.y = quant(clamp(f.y, -ARENA_Y, ARENA_Y)); }
         stepScroll(scroll, fs, center, t, events, score);
-        snapshots.push(snap(t, fs, scroll, score));
+        stepZone(zone, fs, t, events, score, zoneValue(t));
+        stepBoss(boss, fs, center, t, events, score);
+        snapshots.push(snap(t, fs, scroll, zone, boss, score));
 
         // win checks
         if (score.blue >= WIN_SCORE || score.red >= WIN_SCORE) { winner = score.blue >= WIN_SCORE ? "blue" : "red"; break; }
