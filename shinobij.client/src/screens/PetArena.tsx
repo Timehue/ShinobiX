@@ -135,6 +135,9 @@ const PetColiseum = lazy(() => import("../components/PetColiseum").then((m) => (
 const PetColiseumDuel = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 // Tactical Arena game mode (deathmatch + capture-scroll, 2v2 / 4v4) — same lazy chunk.
 const PetArenaMatch = lazy(() => import("../components/PetColiseum").then((m) => ({ default: m.PetArenaMatch })));
+// Pet Gauntlet — the roguelike run mode (3rd tab). Self-contained (owns its run
+// state + its own fight), so it's lazy-loaded and never touches the duel/arena state here.
+const PetGauntlet = lazy(() => import("../components/PetGauntlet").then((m) => ({ default: m.PetGauntlet })));
 // Co-op lobby (play the Tactical Arena 4v4 with friends) — lazy; pulls the arena chunk.
 const ArenaCoopLobby = lazy(() => import("../components/ArenaCoopLobby").then((m) => ({ default: m.ArenaCoopLobby })));
 
@@ -169,7 +172,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
     // "tactical" is the full-screen team game mode (vs AI / challenge / co-op).
     // Defaults to the cinematic battle so Pet Arena opens straight into it.
-    const [arenaView, setArenaView] = useState<"battle" | "tactical">("battle");
+    const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">("battle");
     // Per-device "Live Combat" preference — flips the authoritative PvE engine
     // (petDuelEngine.v1) between the new CONTINUOUS duel and the old round-based
     // resolver. Read fresh from localStorage at battle-start (startBattle), so this
@@ -890,13 +893,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         </>
                     ) : (
                         <>
-                            <h2>{arenaView === "tactical" ? "Tactical Pet Arena" : "Pet Coliseum"}</h2>
+                            <h2>{arenaView === "tactical" ? "Tactical Pet Arena" : arenaView === "gauntlet" ? "Pet Gauntlet" : "Pet Coliseum"}</h2>
                             <p className="hint">{
                                 pendingClanPetBattle
                                     ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.`
                                     : arenaView === "tactical"
                                         ? "Big-map team battles — deathmatch + capture the scroll. Fight AI, or team up with a friend against two opponents."
-                                        : "Cinematic 1v1 & 2v2 duels — your pet approaches, kites, dodges, trades elemental strikes and unleashes ultimates on its own. You build the pet; it fights the duel."
+                                        : arenaView === "gauntlet"
+                                            ? "Roguelike run — draft a one-time squad, chase element & role synergies, and survive escalating rounds. Preview — no rewards yet."
+                                            : "Cinematic 1v1 & 2v2 duels — your pet approaches, kites, dodges, trades elemental strikes and unleashes ultimates on its own. You build the pet; it fights the duel."
                             }</p>
                         </>
                     )}
@@ -906,12 +911,15 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             {/* Top-level view tabs — the cinematic duel vs the Tactical Arena game
                 mode. Hidden for forced duels (Hollow Gate) which land in battle. */}
             {!isHollowGate && (
-                <div className="pet-arena-mode-toggle" style={{ maxWidth: 460, marginBottom: 14 }}>
+                <div className="pet-arena-mode-toggle" style={{ maxWidth: 660, marginBottom: 14 }}>
                     <button type="button" className={arenaView === "battle" ? "active" : ""} onClick={() => setArenaView("battle")}>
                         ⚔️ Pet Coliseum
                     </button>
                     <button type="button" className={arenaView === "tactical" ? "active" : ""} onClick={() => setArenaView("tactical")}>
                         🏟️ Tactical Pet Arena
+                    </button>
+                    <button type="button" className={arenaView === "gauntlet" ? "active" : ""} onClick={() => setArenaView("gauntlet")}>
+                        🗡️ Pet Gauntlet
                     </button>
                 </div>
             )}
@@ -998,6 +1006,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     </div>
                 </div>
             ))}
+
+            {arenaView === "gauntlet" && (
+                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the Gauntlet…</div>}>
+                    <PetGauntlet sharedImages={sharedImages} />
+                </Suspense>
+            )}
 
             {arenaView === "battle" && (
             <>
