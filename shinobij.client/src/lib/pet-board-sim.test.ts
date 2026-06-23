@@ -102,6 +102,68 @@ describe("runPetBoardBattle — outcomes", () => {
     });
 });
 
+describe("runPetGridBattle — role + position depth", () => {
+    it("a front-row DEFENDER taunts: melee hits the tank over a nearer squishy", () => {
+        const attacker = mk({ id: "atk", role: "defender", attack: 80, speed: 99 });
+        const bait = mk({ id: "bait", role: "assassin", hp: 400 });          // same column, NOT a defender
+        const tank = mk({ id: "tank", role: "defender", hp: 1200, defense: 40 });
+        const r = runPetGridBattle(
+            [{ pet: attacker, row: 0, col: 2 }],
+            [{ pet: bait, row: 0, col: 2 }, { pet: tank, row: 0, col: 0 }],   // bait shares the attacker's column
+            3,
+        );
+        const firstHit = r.events.find((e) => e.type === "hit" && e.actorId === "atk");
+        assert.equal(firstHit?.targetId, "tank", "the taunting front defender is hit before the nearer squishy");
+    });
+
+    it("an assassin HUNTS the enemy Sage in the back row first", () => {
+        const assassin = mk({ id: "asn", role: "assassin", attack: 90, speed: 99 });
+        const carry = mk({ id: "carry", role: "tracker", hp: 300, defense: 0 });   // same HP as the sage
+        const sage = mk({ id: "sage", role: "sage", hp: 300, defense: 0 });
+        const r = runPetGridBattle(
+            [{ pet: assassin, row: 0, col: 0 }],
+            [{ pet: mk({ id: "wall", role: "defender", hp: 900 }), row: 0, col: 0 },
+             { pet: carry, row: 2, col: 0 }, { pet: sage, row: 2, col: 1 }],
+            7,
+        );
+        const firstHit = r.events.find((e) => e.type === "hit" && e.actorId === "asn");
+        assert.equal(firstHit?.targetId, "sage", "the assassin dives the back-row Sage (not the equal-HP carry)");
+    });
+
+    it("a tracker snipes the enemy Sage even when a front pet is lower HP", () => {
+        const tracker = mk({ id: "trk", role: "tracker", attack: 80, speed: 99 });
+        const front = mk({ id: "front", role: "defender", hp: 500, defense: 0 });   // LOWER hp than the sage
+        const sage = mk({ id: "sage2", role: "sage", hp: 900, defense: 0 });
+        const r = runPetGridBattle(
+            [{ pet: tracker, row: 0, col: 0 }],
+            [{ pet: front, row: 0, col: 0 }, { pet: sage, row: 1, col: 0 }],
+            11,
+        );
+        const firstHit = r.events.find((e) => e.type === "hit" && e.actorId === "trk");
+        assert.equal(firstHit?.targetId, "sage2", "the tracker hunts the Sage despite the lower-HP front pet");
+    });
+
+    it("the vanguard (front row) deals more than the same pet in the back", () => {
+        const hit = (row: number) => {
+            const atkPet = mk({ id: "v", role: "defender", attack: 100, speed: 99, jutsus: [] });
+            const dummy = mk({ id: "dummy", role: "defender", hp: 100000, defense: 0, attack: 0, jutsus: [] });
+            const r = runPetGridBattle([{ pet: atkPet, row, col: 0 }], [{ pet: dummy, row: 0, col: 0 }], 5);
+            return r.events.find((e) => e.type === "hit" && e.actorId === "v")?.dmg ?? 0;
+        };
+        assert.ok(hit(0) > hit(1), "front-row attacker hits harder than the same pet placed in back");
+    });
+
+    it("the back row takes reduced MELEE damage (cover)", () => {
+        const hit = (targetRow: number) => {
+            const atkPet = mk({ id: "m", role: "defender", attack: 100, speed: 99, jutsus: [] });
+            const dummy = mk({ id: "d", role: "defender", hp: 100000, defense: 0, attack: 0, jutsus: [] });
+            const r = runPetGridBattle([{ pet: atkPet, row: 0, col: 0 }], [{ pet: dummy, row: targetRow, col: 0 }], 5);
+            return r.events.find((e) => e.type === "hit" && e.actorId === "m")?.dmg ?? 0;
+        };
+        assert.ok(hit(2) < hit(0), "a back-row (row 2) target takes less melee than a front-row target");
+    });
+});
+
 describe("runPetGridBattle — combat relics (player mods)", () => {
     const finalHp = (r: ReturnType<typeof runPetGridBattle>, id: string) => r.snapshots[r.snapshots.length - 1].units.find((u) => u.id === id)!.hp;
 
