@@ -23,7 +23,7 @@ import {
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
-import { petPoseImage } from "../lib/pet-battle-anim";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { PetBoardArena } from "./PetBoardArena";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
@@ -55,11 +55,11 @@ const roleOf = (p: Pet): PetRole => (p.role as PetRole | undefined) ?? derivePet
 // Deterministic fight seed from the run + round so a round's fight is reproducible.
 const fightSeed = (run: GauntletRun) => (run.seed * 7919 + run.round * 104729) >>> 0;
 
-function PetMiniCard({ pet, footer }: { pet: Pet; footer?: React.ReactNode }) {
+function PetMiniCard({ pet, footer, sharedImages = {} }: { pet: Pet; footer?: React.ReactNode; sharedImages?: Record<string, string> }) {
     const role = roleOf(pet);
     return (
         <div style={{ border: `1px solid ${elColor(pet.element)}66`, borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", minWidth: 132 }}>
-            {(() => { const img = petPoseImage(pet); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
+            {(() => { const img = petCardImage(pet, sharedImages); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
                 <span title={ROLE_META[role].label} style={{ fontSize: "0.92rem" }}>{ROLE_META[role].icon}</span>
@@ -280,7 +280,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     if (gr < BOARD_ROWS_PER_SIDE) {
                                                         // Enemy half (top): front toward centre = bottom of this block.
                                                         const eu = enemyPreview.find((u) => u.row === (BOARD_ROWS_PER_SIDE - 1 - gr) && u.col === c);
-                                                        const eimg = eu ? petPoseImage(eu.pet) : "";
+                                                        const eimg = eu ? petCardImage(eu.pet, sharedImages) : "";
                                                         return (
                                                             <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
                                                                 {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", transform: "scaleX(-1)" }} /> : null}
@@ -291,7 +291,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     const pRow = gr - BOARD_ROWS_PER_SIDE;
                                                     const pet = run.roster.find((p) => placement[p.id]?.row === pRow && placement[p.id]?.col === c) ?? null;
                                                     const sel = !!pet && selId === pet.id;
-                                                    const img = pet ? petPoseImage(pet) : "";
+                                                    const img = pet ? petCardImage(pet, sharedImages) : "";
                                                     return (
                                                         <button key={`p${gr}-${c}`} type="button" onClick={() => clickCell(pRow, c)} title={pRow === 0 ? "Front line" : pRow === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
@@ -330,7 +330,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 : run.shop.map((offer, i) => {
                                     const blocked = run.valor < offer.cost || rosterFull;
                                     return (
-                                        <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} footer={
+                                        <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} sharedImages={sharedImages} footer={
                                             <button type="button" style={btn("#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
                                                 {rosterFull ? "Roster full" : `Recruit · ${offer.cost}✦`}
                                             </button>
