@@ -17,6 +17,8 @@ import { Billboard } from "@react-three/drei";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
 import { petPoseImage, elementVfxKey } from "../lib/pet-battle-anim";
+import { spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, type SpriteBounds } from "../lib/pet-coliseum-scene";
+import type { Pet } from "../types/pet";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
@@ -38,6 +40,49 @@ const cx = (col: number) => (col - (BOARD_COLS - 1) / 2) * COL_SP;
 const cz = (boardRow: number) => (boardRow <= 2 ? -CENTER_GAP - (2 - boardRow) * ROW_SP : CENTER_GAP + (boardRow - 3) * ROW_SP);
 // unit grid row (0 front … 2 back) → board row. Enemy fronts face player fronts at centre.
 const boardRowOf = (u: BoardResult["roster"][number]) => (u.team === "enemy" ? 2 - Math.min(2, u.row) : 3 + Math.min(2, u.row));
+
+// ── Pet sprite sizing ────────────────────────────────────────────────────────
+// Each pose webp frames its creature at a DIFFERENT scale (a drake fills its
+// frame; an otter is tiny in its margin). Drawing them on one fixed plane made
+// pets wildly different sizes. We scan each sprite's alpha bounding box and size
+// it so the VISIBLE creature is a consistent world height — then scale by rarity
+// so rarer pets (dragons etc.) stand bigger than commons. Feet are grounded via
+// groundedSpriteLayout (same math the Pet Coliseum uses).
+const BASE_SUBJECT_H = 1.35;   // on-board height of a standard pet's body (world units)
+const RARITY_SCALE: Record<string, number> = { standard: 0.9, rare: 1.0, legendary: 1.16, mythic: 1.32 };
+const subjectHeightFor = (pet: Pet) => BASE_SUBJECT_H * (RARITY_SCALE[pet.rarity as string] ?? 1);
+
+type BoardSprite = { texture: THREE.Texture; bounds: SpriteBounds; aspect: number };
+const _spriteCache = new Map<string, BoardSprite>();
+/** Load a pose image, scan its alpha bbox (for sizing/grounding), build a texture. */
+function loadBoardSprite(url: string): Promise<BoardSprite> {
+    const cached = _spriteCache.get(url);
+    if (cached) return Promise.resolve(cached);
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            const w = img.naturalWidth || 96, h = img.naturalHeight || 96;
+            let bounds = DEFAULT_SPRITE_BOUNDS;
+            try {
+                const S = 96;
+                const cw = Math.max(8, Math.round(S * Math.min(1, w / Math.max(w, h))));
+                const ch = Math.max(8, Math.round(S * Math.min(1, h / Math.max(w, h))));
+                const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+                const ctx = cv.getContext("2d", { willReadFrequently: true })!;
+                ctx.drawImage(img, 0, 0, cw, ch);
+                bounds = spriteBoundsFromAlpha(ctx.getImageData(0, 0, cw, ch).data, cw, ch);
+            } catch { /* keep default bounds */ }
+            const texture = new THREE.Texture(img);
+            texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; texture.needsUpdate = true;
+            const out: BoardSprite = { texture, bounds, aspect: w / Math.max(1, h) };
+            _spriteCache.set(url, out);
+            resolve(out);
+        };
+        img.onerror = () => resolve({ texture: new THREE.Texture(), bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 });
+        img.src = url;
+    });
+}
 
 /** Load an image URL into an sRGB THREE texture (async; null until ready). */
 function useTex(url: string | undefined): THREE.Texture | null {
@@ -110,62 +155,73 @@ function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDo
 
 interface Beat { hp: number; maxHp: number; alive: boolean; dmg: number; hit: boolean; acted: boolean; }
 
-function Standee({ x, z, tex, beat, element }: { x: number; z: number; tex: THREE.Texture | null; beat: Beat; element?: string | null }) {
+function Standee({ x, z, sprite, pet, beat, element }: { x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; beat: Beat; element?: string | null }) {
     const grp = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const hitAt = useRef(-1);
+    const deadAt = useRef<number | null>(null);
     // Trigger a flash/recoil when this round's beat marks a hit.
     useEffect(() => { if (beat.hit) hitAt.current = performance.now(); }, [beat.hit, beat.dmg]);
+    // Stamp the moment of death so the faint can animate (shrink/sink, in place).
+    useEffect(() => { if (!beat.alive) { if (deadAt.current === null) deadAt.current = performance.now(); } else deadAt.current = null; }, [beat.alive]);
     useFrame(() => {
         const g = grp.current; if (!g) return;
         const since = (performance.now() - hitAt.current) / 1000;
         const k = hitAt.current > 0 && since < 0.34 ? Math.sin(since / 0.34 * Math.PI) : 0;   // 0→1→0
-        g.position.x = x + (beat.alive ? Math.sin(since * 60) * 0.06 * k : 0);                 // recoil shake
-        g.rotation.z = beat.alive ? 0 : -0.9;                                                   // topple on death
-        g.position.y = beat.alive ? 0 : -0.15;
-        if (mat.current) {
-            // Opaque alpha-tested material → no opacity fade (it would re-introduce
-            // see-through pets). Alive: red flash on hit. KO'd: darken + (toppled).
-            if (beat.alive) { const tint = 1 - 0.5 * k; mat.current.color.setRGB(1, tint, tint); }
-            else mat.current.color.setRGB(0.42, 0.42, 0.5);
+        if (beat.alive) {
+            g.position.x = x + Math.sin(since * 60) * 0.06 * k;   // recoil shake
+            g.position.y = 0; g.rotation.z = 0; g.scale.setScalar(1);
+            if (mat.current) { const tint = 1 - 0.5 * k; mat.current.color.setRGB(1, tint, tint); }   // red flash on hit
+        } else {
+            // FAINT: shrink + sink straight down IN PLACE (no sideways topple that
+            // used to flop a corpse across a neighbour's cell), darkened.
+            const dp = deadAt.current !== null ? Math.min(1, (performance.now() - deadAt.current) / 450) : 1;
+            g.position.x = x; g.rotation.z = 0;
+            g.scale.setScalar(1 - 0.72 * dp);
+            g.position.y = -0.45 * dp;
+            if (mat.current) mat.current.color.setRGB(0.4, 0.4, 0.46);
         }
     });
+    const layout = useMemo(
+        () => groundedSpriteLayout(sprite?.bounds ?? DEFAULT_SPRITE_BOUNDS, sprite?.aspect ?? 1, subjectHeightFor(pet), false),
+        [sprite, pet],
+    );
     const pct = Math.max(0, Math.min(1, beat.hp / Math.max(1, beat.maxHp)));
     const hpColor = pct > 0.5 ? "#4ade80" : pct > 0.22 ? "#facc15" : "#f87171";
     const glow = (element && { Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380" }[element]) || "#94a3b8";
+    const ringR = Math.max(0.5, layout.contentWorldW * 0.5 + 0.12);   // ring tracks the pet's footprint
     return (
         <group ref={grp} position={[x, 0, z]}>
             {/* contact shadow on the floor */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0.1]}>
-                <circleGeometry args={[0.72, 24]} />
-                <meshBasicMaterial color="#000" transparent opacity={0.34} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0.08]}>
+                <circleGeometry args={[ringR * 0.9, 24]} />
+                <meshBasicMaterial color="#000" transparent opacity={0.32} />
             </mesh>
             {/* element ring */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0.1]}>
-                <ringGeometry args={[0.74, 0.86, 28]} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0.08]}>
+                <ringGeometry args={[ringR, ringR + 0.12, 28]} />
                 <meshBasicMaterial color={glow} transparent opacity={beat.alive ? 0.5 : 0.12} />
             </mesh>
-            <Billboard follow lockX lockZ position={[0, SPRITE_H / 2 + 0.1, 0]}>
-                <mesh visible={!!tex}>
-                    <planeGeometry args={[SPRITE_H * 0.92, SPRITE_H]} />
-                    {/* OPAQUE alpha-tested cutout: a body pixel (alpha ≥ 0.4) draws
-                        fully solid — no alpha blending — so even soft/translucent pose
-                        art renders as a solid pet, not a see-through ghost. The
-                        background + faint fringe (alpha < 0.4) are discarded. */}
-                    <meshBasicMaterial ref={mat} map={tex ?? undefined} alphaTest={0.4} toneMapped={false} />
+            <Billboard follow lockX lockZ position={[0, 0.06, 0]}>
+                {/* Grounded, rarity-scaled cutout: the alpha-scanned bounds size the
+                    creature to a consistent world height + sit its feet on the cell.
+                    Opaque alpha-test (≥0.4) so the body is solid, not see-through. */}
+                <mesh visible={!!sprite} position={[layout.meshX, layout.meshY, 0]}>
+                    <planeGeometry args={[layout.planeW, layout.planeH]} />
+                    <meshBasicMaterial ref={mat} map={sprite?.texture ?? undefined} alphaTest={0.4} toneMapped={false} />
                 </mesh>
-                {/* HP bar above the head */}
-                <group position={[0, SPRITE_H / 2 + 0.28, 0]}>
-                    <mesh><planeGeometry args={[1.5, 0.2]} /><meshBasicMaterial color="#0b1220" /></mesh>
-                    <mesh position={[-(1.5 * (1 - pct)) / 2, 0, 0.01]}><planeGeometry args={[Math.max(0.001, 1.5 * pct), 0.14]} /><meshBasicMaterial color={hpColor} toneMapped={false} /></mesh>
+                {/* HP bar above the creature's head */}
+                <group position={[0, layout.contentWorldH + 0.42, 0]}>
+                    <mesh><planeGeometry args={[1.1, 0.16]} /><meshBasicMaterial color="#0b1220" /></mesh>
+                    <mesh position={[-(1.1 * (1 - pct)) / 2, 0, 0.01]}><planeGeometry args={[Math.max(0.001, 1.1 * pct), 0.11]} /><meshBasicMaterial color={hpColor} toneMapped={false} /></mesh>
                 </group>
             </Billboard>
         </group>
     );
 }
 
-function BoardScene({ result, round, fx, texMap }: {
-    result: BoardResult; round: number; fx: Map<string, { dmg: number; hit: boolean; acted: boolean }>; texMap: Map<string, THREE.Texture | null>;
+function BoardScene({ result, round, fx, spriteMap }: {
+    result: BoardResult; round: number; fx: Map<string, { dmg: number; hit: boolean; acted: boolean }>; spriteMap: Map<string, BoardSprite>;
 }) {
     const floor = useTex(gauntletBoard);
     const snap = result.snapshots[Math.min(round, result.snapshots.length - 1)];
@@ -203,7 +259,7 @@ function BoardScene({ result, round, fx, texMap }: {
                 const s = snap.units.find((x) => x.id === u.id);
                 const f = fx.get(u.id) ?? { dmg: 0, hit: false, acted: false };
                 return (
-                    <Standee key={u.id} x={cx(u.col)} z={cz(boardRowOf(u))} tex={texMap.get(u.id) ?? null} element={u.pet.element}
+                    <Standee key={u.id} x={cx(u.col)} z={cz(boardRowOf(u))} sprite={spriteMap.get(u.id)} pet={u.pet} element={u.pet.element}
                         beat={{ hp: s?.hp ?? 0, maxHp: s?.maxHp ?? u.pet.hp, alive: s?.alive ?? false, dmg: f.dmg, hit: f.hit, acted: f.acted }} />
                 );
             })}
@@ -229,15 +285,14 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
         return () => window.clearTimeout(t);
     }, [round, total, done]);
 
-    // Preload a pose texture per unit (run-pets carry their idle pose as bodyImage).
-    const [texMap, setTexMap] = useState<Map<string, THREE.Texture | null>>(new Map());
+    // Preload each unit's pose sprite + its alpha bounds (for consistent sizing).
+    const [spriteMap, setSpriteMap] = useState<Map<string, BoardSprite>>(new Map());
     useEffect(() => {
         let live = true;
-        const loader = new THREE.TextureLoader();
         for (const u of result.roster) {
             const url = petPoseImage(u.pet, sharedImages);
             if (!url) continue;
-            loader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; if (live) setTexMap((prev) => new Map(prev).set(u.id, t)); });
+            void loadBoardSprite(url).then((s) => { if (live) setSpriteMap((prev) => new Map(prev).set(u.id, s)); });
         }
         return () => { live = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -258,14 +313,14 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
             <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 14.5, 13.5], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}>
-                <BoardScene result={result} round={round} fx={fx} texMap={texMap} />
+                <BoardScene result={result} round={round} fx={fx} spriteMap={spriteMap} />
             </Canvas>
 
             <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
             {/* client-build tag — confirms the live board is running the latest code */}
-            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g11</div>
+            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g12</div>
 
             {done && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.5)" }}>
