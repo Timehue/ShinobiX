@@ -51,7 +51,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g18";
+const GAUNTLET_BUILD = "g19";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",

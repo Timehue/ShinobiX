@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Billboard } from "@react-three/drei";
+import { Billboard, Html } from "@react-three/drei";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
 import { petPoseImage, elementVfxKey } from "../lib/pet-battle-anim";
@@ -23,7 +23,7 @@ import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
-const ROUND_MS = 820;
+const STEP_STAGGER = 150;    // ms between sequential impacts within a round (so hits read one-by-one)
 const CELL = 2.15;            // world units per grid cell (floor-plane sizing only)
 const ROWS = 6;              // 3 enemy + 3 player
 const SPRITE_H = 1.75;       // standee height (world units) — sized to sit within a cell
@@ -153,41 +153,48 @@ function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDo
     return <Billboard position={pos}><mesh><planeGeometry args={[2.7, 2.7]} /><meshBasicMaterial ref={mat} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>;
 }
 
-interface Beat { hp: number; maxHp: number; alive: boolean; dmg: number; hit: boolean; acted: boolean; }
-
-function Standee({ x, z, sprite, pet, beat, element, star }: { x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; beat: Beat; element?: string | null; star?: number }) {
+function Standee({ x, z, sprite, pet, hp, maxHp, alive, element, star, pulse }: { x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; hp: number; maxHp: number; alive: boolean; element?: string | null; star?: number; pulse: number }) {
     const grp = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const barFill = useRef<THREE.Mesh>(null);
+    const barMat = useRef<THREE.MeshBasicMaterial>(null);
     const hitAt = useRef(-1);
     const deadAt = useRef<number | null>(null);
-    // Trigger a flash/recoil when this round's beat marks a hit.
-    useEffect(() => { if (beat.hit) hitAt.current = performance.now(); }, [beat.hit, beat.dmg]);
+    const dispPct = useRef(1);
+    const BAR_W = 1.1;
+    // Flash + recoil each time a hit LANDS on this unit (pulse increments per impact).
+    useEffect(() => { if (pulse > 0) hitAt.current = performance.now(); }, [pulse]);
     // Stamp the moment of death so the faint can animate (shrink/sink, in place).
-    useEffect(() => { if (!beat.alive) { if (deadAt.current === null) deadAt.current = performance.now(); } else deadAt.current = null; }, [beat.alive]);
+    useEffect(() => { if (!alive) { if (deadAt.current === null) deadAt.current = performance.now(); } else deadAt.current = null; }, [alive]);
     useFrame(() => {
-        const g = grp.current; if (!g) return;
-        const since = (performance.now() - hitAt.current) / 1000;
-        const k = hitAt.current > 0 && since < 0.34 ? Math.sin(since / 0.34 * Math.PI) : 0;   // 0→1→0
-        if (beat.alive) {
-            g.position.x = x + Math.sin(since * 60) * 0.06 * k;   // recoil shake
-            g.position.y = 0; g.rotation.z = 0; g.scale.setScalar(1);
-            if (mat.current) { const tint = 1 - 0.5 * k; mat.current.color.setRGB(1, tint, tint); }   // red flash on hit
-        } else {
-            // FAINT: shrink + sink straight down IN PLACE (no sideways topple that
-            // used to flop a corpse across a neighbour's cell), darkened.
-            const dp = deadAt.current !== null ? Math.min(1, (performance.now() - deadAt.current) / 450) : 1;
-            g.position.x = x; g.rotation.z = 0;
-            g.scale.setScalar(1 - 0.72 * dp);
-            g.position.y = -0.45 * dp;
-            if (mat.current) mat.current.color.setRGB(0.4, 0.4, 0.46);
+        const g = grp.current;
+        if (g) {
+            const since = (performance.now() - hitAt.current) / 1000;
+            const k = hitAt.current > 0 && since < 0.34 ? Math.sin(since / 0.34 * Math.PI) : 0;   // 0→1→0
+            if (alive) {
+                g.position.x = x + Math.sin(since * 60) * 0.06 * k;   // recoil shake
+                g.position.y = 0; g.rotation.z = 0; g.scale.setScalar(1);
+                if (mat.current) { const tint = 1 - 0.5 * k; mat.current.color.setRGB(1, tint, tint); }   // red flash on hit
+            } else {
+                // FAINT: shrink + sink straight down IN PLACE (no sideways topple), darkened.
+                const dp = deadAt.current !== null ? Math.min(1, (performance.now() - deadAt.current) / 450) : 1;
+                g.position.x = x; g.rotation.z = 0;
+                g.scale.setScalar(1 - 0.72 * dp);
+                g.position.y = -0.45 * dp;
+                if (mat.current) mat.current.color.setRGB(0.4, 0.4, 0.46);
+            }
         }
+        // Ease the HP bar toward the live value so it visibly DRAINS as numbers pop.
+        const target = Math.max(0, Math.min(1, hp / Math.max(1, maxHp)));
+        dispPct.current += (target - dispPct.current) * 0.2;
+        const p = dispPct.current;
+        if (barFill.current) { barFill.current.scale.x = Math.max(0.001, p); barFill.current.position.x = -(BAR_W * (1 - p)) / 2; }
+        if (barMat.current) barMat.current.color.set(p > 0.5 ? "#4ade80" : p > 0.22 ? "#facc15" : "#f87171");
     });
     const layout = useMemo(
         () => groundedSpriteLayout(sprite?.bounds ?? DEFAULT_SPRITE_BOUNDS, sprite?.aspect ?? 1, subjectHeightFor(pet), false),
         [sprite, pet],
     );
-    const pct = Math.max(0, Math.min(1, beat.hp / Math.max(1, beat.maxHp)));
-    const hpColor = pct > 0.5 ? "#4ade80" : pct > 0.22 ? "#facc15" : "#f87171";
     const glow = (element && { Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380" }[element]) || "#94a3b8";
     const ringR = Math.max(0.5, layout.contentWorldW * 0.5 + 0.12);   // ring tracks the pet's footprint
     return (
@@ -200,7 +207,7 @@ function Standee({ x, z, sprite, pet, beat, element, star }: { x: number; z: num
             {/* element ring */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0.08]}>
                 <ringGeometry args={[ringR, ringR + 0.12, 28]} />
-                <meshBasicMaterial color={glow} transparent opacity={beat.alive ? 0.5 : 0.12} />
+                <meshBasicMaterial color={glow} transparent opacity={alive ? 0.5 : 0.12} />
             </mesh>
             <Billboard follow lockX lockZ position={[0, 0.06, 0]}>
                 {/* Grounded, rarity-scaled cutout: the alpha-scanned bounds size the
@@ -210,10 +217,10 @@ function Standee({ x, z, sprite, pet, beat, element, star }: { x: number; z: num
                     <planeGeometry args={[layout.planeW, layout.planeH]} />
                     <meshBasicMaterial ref={mat} map={sprite?.texture ?? undefined} alphaTest={0.4} toneMapped={false} />
                 </mesh>
-                {/* HP bar above the creature's head */}
+                {/* HP bar above the creature's head — left-anchored fill, eased per frame */}
                 <group position={[0, layout.contentWorldH + 0.42, 0]}>
-                    <mesh><planeGeometry args={[1.1, 0.16]} /><meshBasicMaterial color="#0b1220" /></mesh>
-                    <mesh position={[-(1.1 * (1 - pct)) / 2, 0, 0.01]}><planeGeometry args={[Math.max(0.001, 1.1 * pct), 0.11]} /><meshBasicMaterial color={hpColor} toneMapped={false} /></mesh>
+                    <mesh><planeGeometry args={[BAR_W, 0.16]} /><meshBasicMaterial color="#0b1220" /></mesh>
+                    <mesh ref={barFill} position={[0, 0, 0.01]}><planeGeometry args={[BAR_W, 0.11]} /><meshBasicMaterial ref={barMat} color="#4ade80" toneMapped={false} /></mesh>
                 </group>
                 {/* ★ merge rank — gold gem pips above the HP bar (one per rank, ★2+ only) */}
                 {!!star && star > 1 && (
@@ -231,33 +238,71 @@ function Standee({ x, z, sprite, pet, beat, element, star }: { x: number; z: num
     );
 }
 
-function BoardScene({ result, round, fx, spriteMap, stars }: {
-    result: BoardResult; round: number; fx: Map<string, { dmg: number; hit: boolean; acted: boolean }>; spriteMap: Map<string, BoardSprite>; stars?: Record<string, number>;
+function BoardScene({ result, round, spriteMap, stars }: {
+    result: BoardResult; round: number; spriteMap: Map<string, BoardSprite>; stars?: Record<string, number>;
 }) {
     const floor = useTex(gauntletBoard);
-    const snap = result.snapshots[Math.min(round, result.snapshots.length - 1)];
     const idRef = useRef(0);
-    const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; element?: string | null }>>([]);
+    const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId: string; element?: string | null; dmg: number; crit: boolean }>>([]);
     const [bursts, setBursts] = useState<Array<{ id: number; pos: Vec3; frames: string[] }>>([]);
-    const worldOf = (id: string): Vec3 | null => {
-        const u = result.roster.find((x) => x.id === id); if (!u) return null;
-        return [cx(u.col), SPRITE_H * 0.55, cz(boardRowOf(u))];
-    };
+    const [pops, setPops] = useState<Array<{ id: number; pos: Vec3; text: string; color: string; size: number }>>([]);
+    const [hpView, setHpView] = useState<Record<string, number>>({});   // live, per-impact HP (drives the bars)
+    const [pulses, setPulses] = useState<Record<string, number>>({});   // per-unit hit counter (drives the flash)
+
+    const maxHpMap = useMemo(() => {
+        const m: Record<string, number> = {};
+        for (const s of result.snapshots[0]?.units ?? []) m[s.id] = s.maxHp;
+        return m;
+    }, [result]);
+    const unitOf = (id?: string) => (id ? result.roster.find((x) => x.id === id) : undefined);
+    const worldOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), SPRITE_H * 0.55, cz(boardRowOf(u))] : null; };
+    const headOf = (id?: string): Vec3 | null => { const u = unitOf(id); return u ? [cx(u.col), SPRITE_H * 0.55 + 1.4, cz(boardRowOf(u))] : null; };
+
     const spawnBurst = (pos: Vec3, element?: string | null) => {
         const frames = bundledJutsuFxFrames(elementVfxKey(element));
-        if (!frames || !frames.length) return;
-        setBursts((b) => [...b, { id: ++idRef.current, pos, frames }]);
+        if (frames && frames.length) setBursts((b) => [...b, { id: ++idRef.current, pos, frames }]);
     };
-    // Each round, fling an element orb attacker→target for every landed hit.
+    const spawnPop = (id: string, text: string, color: string, size: number) => {
+        const pos = headOf(id); if (!pos) return;
+        const pid = ++idRef.current;
+        setPops((p) => [...p, { id: pid, pos, text, color, size }]);
+        window.setTimeout(() => setPops((p) => p.filter((x) => x.id !== pid)), 950);
+    };
+    // A hit LANDS: drop the target's live HP, flash it, pop the damage (gold + "!" on crit).
+    const landDamage = (id: string, dmg: number, crit: boolean) => {
+        setHpView((m) => ({ ...m, [id]: Math.max(0, (m[id] ?? maxHpMap[id] ?? 0) - dmg) }));
+        setPulses((m) => ({ ...m, [id]: (m[id] ?? 0) + 1 }));
+        spawnPop(id, crit ? `${dmg}!` : `${dmg}`, crit ? "#fde047" : "#fb7185", crit ? 30 : 21);
+    };
+
+    // Seed the live HP at the START of this round, then play the round's impacts in
+    // SEQUENCE (staggered) so each hit/heal is readable — projectile → number → bar
+    // drain all land together. Presentation only: HP comes straight from sim events,
+    // and the per-round snapshot is the authoritative seed, so it can't drift.
     useEffect(() => {
-        const add: Array<{ id: number; from: Vec3; to: Vec3; element?: string | null }> = [];
-        for (const e of result.events) {
-            if (e.t !== round || e.type !== "hit" || !e.actorId || !e.targetId) continue;
-            const from = worldOf(e.actorId); const to = worldOf(e.targetId);
-            if (from && to) add.push({ id: ++idRef.current, from, to, element: e.element });
-        }
-        if (add.length) setShots((s) => [...s, ...add]);   // eslint-disable-line react-hooks/set-state-in-effect
-    }, [round, result]);   // eslint-disable-line react-hooks/exhaustive-deps
+        const start = result.snapshots[Math.max(0, round - 1)];
+        const seed: Record<string, number> = {};
+        for (const u of start?.units ?? []) seed[u.id] = u.hp;
+        setHpView(seed);   // eslint-disable-line react-hooks/set-state-in-effect
+        setPulses({});
+        const impacts = result.events.filter((e) => e.t === round && (e.type === "hit" || e.type === "heal" || e.type === "shield"));
+        const timers: number[] = [];
+        impacts.forEach((e, i) => {
+            timers.push(window.setTimeout(() => {
+                if (e.type === "hit") {
+                    const from = worldOf(e.actorId); const to = worldOf(e.targetId);
+                    if (from && to && e.targetId) setShots((s) => [...s, { id: ++idRef.current, from, to, targetId: e.targetId!, element: e.element, dmg: e.dmg ?? 0, crit: !!e.crit }]);
+                    else if (e.targetId) landDamage(e.targetId, e.dmg ?? 0, !!e.crit);
+                } else if (e.targetId) {
+                    const heal = e.type === "heal";
+                    if (heal) setHpView((m) => ({ ...m, [e.targetId!]: Math.min(maxHpMap[e.targetId!] ?? Infinity, (m[e.targetId!] ?? 0) + (e.dmg ?? 0)) }));
+                    spawnPop(e.targetId, `+${e.dmg ?? 0}`, heal ? "#4ade80" : "#67e8f9", 20);   // green heal / cyan shield
+                }
+            }, i * STEP_STAGGER));
+        });
+        return () => timers.forEach((t) => window.clearTimeout(t));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [round, result]);
     return (
         <>
             <ambientLight intensity={1} />
@@ -267,19 +312,24 @@ function BoardScene({ result, round, fx, spriteMap, stars }: {
                 <meshBasicMaterial key={floor ? "floor-tex" : "floor-plain"} map={floor ?? undefined} color={floor ? "#ffffff" : "#1e293b"} toneMapped={false} />
             </mesh>
             {result.roster.map((u) => {
-                const s = snap.units.find((x) => x.id === u.id);
-                const f = fx.get(u.id) ?? { dmg: 0, hit: false, acted: false };
+                const mhp = maxHpMap[u.id] ?? u.pet.hp;
+                const hp = hpView[u.id] ?? mhp;
                 return (
                     <Standee key={u.id} x={cx(u.col)} z={cz(boardRowOf(u))} sprite={spriteMap.get(u.id)} pet={u.pet} element={u.pet.element} star={stars?.[u.pet.id]}
-                        beat={{ hp: s?.hp ?? 0, maxHp: s?.maxHp ?? u.pet.hp, alive: s?.alive ?? false, dmg: f.dmg, hit: f.hit, acted: f.acted }} />
+                        hp={hp} maxHp={mhp} alive={hp > 0} pulse={pulses[u.id] ?? 0} />
                 );
             })}
             {shots.map((s) => (
                 <BoardProjectile key={s.id} from={s.from} to={s.to} color={elGlow(s.element)}
-                    onArrive={() => { setShots((x) => x.filter((y) => y.id !== s.id)); spawnBurst(s.to, s.element); }} />
+                    onArrive={() => { setShots((x) => x.filter((y) => y.id !== s.id)); spawnBurst(s.to, s.element); landDamage(s.targetId, s.dmg, s.crit); }} />
             ))}
             {bursts.map((b) => (
                 <BoardBurst key={b.id} pos={b.pos} frames={b.frames} onDone={() => setBursts((x) => x.filter((y) => y.id !== b.id))} />
+            ))}
+            {pops.map((p) => (
+                <Html key={p.id} position={p.pos} center style={{ pointerEvents: "none", userSelect: "none" }}>
+                    <div style={{ font: `900 ${p.size}px Inter, sans-serif`, color: p.color, textShadow: "0 2px 5px #000, 0 0 8px rgba(0,0,0,0.7)", animation: "boardPop 0.95s ease-out forwards", whiteSpace: "nowrap" }}>{p.text}</div>
+                </Html>
             ))}
         </>
     );
@@ -290,11 +340,20 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     const [round, setRound] = useState(0);
     const done = round >= total - 1;
 
+    // How many HP-changing impacts each round has — the round's on-screen dwell
+    // scales with it, so a big flurry gets time to read instead of flashing past.
+    const impactsByRound = useMemo(() => {
+        const m = new Array(total).fill(0);
+        for (const e of result.events) if ((e.type === "hit" || e.type === "heal" || e.type === "shield") && e.t < total) m[e.t] += 1;
+        return m;
+    }, [result, total]);
+
     useEffect(() => {
         if (done) return;
-        const t = window.setTimeout(() => setRound((r) => Math.min(total - 1, r + 1)), ROUND_MS);
+        const dwell = Math.min(2000, 520 + (impactsByRound[round] ?? 0) * 180);   // adaptive, slower-paced
+        const t = window.setTimeout(() => setRound((r) => Math.min(total - 1, r + 1)), dwell);
         return () => window.clearTimeout(t);
-    }, [round, total, done]);
+    }, [round, total, done, impactsByRound]);
 
     // Preload each unit's pose sprite + its alpha bounds (for consistent sizing).
     const [spriteMap, setSpriteMap] = useState<Map<string, BoardSprite>>(new Map());
@@ -309,29 +368,21 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [result]);
 
-    const fx = useMemo(() => {
-        const m = new Map<string, { dmg: number; hit: boolean; acted: boolean }>();
-        for (const e of result.events) {
-            if (e.t !== round) continue;
-            if (e.targetId && e.type === "hit") { const c = m.get(e.targetId) ?? { dmg: 0, hit: false, acted: false }; c.dmg += e.dmg ?? 0; c.hit = true; m.set(e.targetId, c); }
-            if (e.actorId && (e.type === "attack" || e.type === "ability")) { const c = m.get(e.actorId) ?? { dmg: 0, hit: false, acted: false }; c.acted = true; m.set(e.actorId, c); }
-        }
-        return m;
-    }, [result.events, round]);
-
     const resultLabel = result.result === "win" ? "Victory" : result.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+            {/* floating combat-number animation (damage / heal / shield pops) */}
+            <style>{"@keyframes boardPop{0%{transform:translateY(8px) scale(.6);opacity:0}18%{opacity:1;transform:translateY(0) scale(1.08)}100%{transform:translateY(-42px) scale(1);opacity:0}}"}</style>
             <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 14.5, 13.5], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}>
-                <BoardScene result={result} round={round} fx={fx} spriteMap={spriteMap} stars={stars} />
+                <BoardScene result={result} round={round} spriteMap={spriteMap} stars={stars} />
             </Canvas>
 
             <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
             {/* client-build tag — confirms the live board is running the latest code */}
-            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g18</div>
+            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g19</div>
 
             {done && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.5)" }}>
