@@ -12,8 +12,10 @@ import { runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
 import { PetBoardArena } from "./components/PetBoardArena";
+import { PetGauntlet } from "./components/PetGauntlet";
 import { runPetGridBattle } from "./lib/pet-board-sim";
 import type { PetJutsu, Pet } from "./types/pet";
+import type { Character } from "./types/character";
 import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
 const jts = (...js: PetJutsu[]) => js;   // typed inline jutsu list for the duel harness
 
@@ -75,6 +77,10 @@ function Harness() {
         ];
         return arena4 ? [blueAll, redAll] : [[blueAll[0], blueAll[2]], [redAll[1], redAll[3]]];
     }, [arena4]);
+    // ?gauntlet=1 — the full Pet Gauntlet run UI (offline: the server start fails
+    // gracefully to a local seed, so the shop overlay + board render with no login).
+    const gauntletMode = PARAMS.get("gauntlet") === "1";
+    const mockChar = useMemo(() => ({ name: "Tester", ryo: 5000 } as unknown as Character), []);
     // ?board=1 — the Pet Gauntlet BOARD auto-battler (PetBoardArena), full 5v5.
     const boardMode = PARAMS.get("board") === "1";
     const boardPlayer = useMemo(() => [
@@ -139,6 +145,9 @@ function Harness() {
     const restart = () => { setI(0); setPlaying(true); };
 
     const btn: React.CSSProperties = { padding: "6px 12px", background: "#1e3a8a", color: "#fff", border: "1px solid #3b82f6", borderRadius: 6, cursor: "pointer", font: "600 12px Inter, sans-serif" };
+    if (gauntletMode) {
+        return <div className="pet-arena-screen" style={{ maxWidth: 1000, margin: "16px auto", padding: 12 }}><PetGauntlet character={mockChar} updateCharacter={() => {}} /></div>;
+    }
     return (
         <div style={{ maxWidth: 880, margin: "16px auto", padding: 12 }}>
             {duelMode && (
