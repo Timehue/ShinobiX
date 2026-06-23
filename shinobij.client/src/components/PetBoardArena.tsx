@@ -16,9 +16,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
-import { petCardImage, petStripVariant, elementVfxKey } from "../lib/pet-battle-anim";
-import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
-import type { Pet } from "../types/pet";
+import { petPoseImage, elementVfxKey } from "../lib/pet-battle-anim";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
@@ -65,17 +63,6 @@ function orbTex(): THREE.Texture {
     g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
     _orb = new THREE.CanvasTexture(c); _orb.colorSpace = THREE.SRGBColorSpace; return _orb;
 }
-// Board sprite source — mirror the Pet Coliseum: the clean idle POSE cutout wins
-// (transparent, billboard-ready), and only pets with no generated pose fall back
-// to petCardImage (which can return a card portrait WITH a background, the box the
-// board used to show). Keyed by the pet's id, then the variant-stripped base id.
-function boardSpriteUrl(pet: Pet, sharedImages: Record<string, string>): string {
-    if (POSED_PET_IDS.has(pet.id)) return `/pet-poses/${pet.id}-idle.webp`;
-    const base = petStripVariant(pet.id);
-    if (POSED_PET_IDS.has(base)) return `/pet-poses/${base}-idle.webp`;
-    return petCardImage(pet, sharedImages);
-}
-
 type Vec3 = [number, number, number];
 
 function BoardProjectile({ from, to, color, onArrive }: { from: Vec3; to: Vec3; color: string; onArrive: () => void }) {
@@ -237,7 +224,7 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
         let live = true;
         const loader = new THREE.TextureLoader();
         for (const u of result.roster) {
-            const url = boardSpriteUrl(u.pet, sharedImages);
+            const url = petPoseImage(u.pet, sharedImages);
             if (!url) continue;
             loader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; if (live) setTexMap((prev) => new Map(prev).set(u.id, t)); });
         }
