@@ -13,6 +13,7 @@ import {
 import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from "../lib/world-state";
 import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
+import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -73,6 +74,14 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         if (tab !== "ranked") return;
         let alive = true;
         fetch("/api/ranked-season").then(r => r.json()).then(data => { if (alive) setSeason(data as SeasonInfo); }).catch(() => {});
+        return () => { alive = false; };
+    }, [tab]);
+    // Weekly Pet Gauntlet board (shared-seed run; server-validated reward token).
+    const [gauntletLb, setGauntletLb] = useState<{ weekKey: string; rows: GauntletLbRow[] } | null>(null);
+    useEffect(() => {
+        if (tab !== "gauntlet") return;
+        let alive = true;
+        fetchGauntletLeaderboard(25).then(({ weekKey, leaderboard }) => { if (alive) setGauntletLb({ weekKey, rows: leaderboard }); });
         return () => { alive = false; };
     }, [tab]);
     const [bounties, setBounties] = useState<BountyEntry[]>([]);
@@ -143,6 +152,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         { id: "xp",          label: "Most XP",       icon: "📈" },
         { id: "clans",       label: "Top Clans",     icon: "🏴" },
         { id: "pets",        label: "Pet Wins",      icon: "🐾" },
+        { id: "gauntlet",    label: "Gauntlet",      icon: "🗡" },
         { id: "endless",     label: "Endless",       icon: "🌀" },
         { id: "villageWars", label: "Village Wars",  icon: "⚔" },
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: "👹" },
@@ -281,6 +291,19 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
                         ))}
+                    </>
+                )}
+                {tab === "gauntlet" && (
+                    <>
+                        <p className="hint" style={{ margin: "0 0 0.5rem" }}>🗡 Pet Gauntlet — this week's run. Everyone drafts from the same shop against the same enemies; rank by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
+                        <p className="hol-board-label">🏆 Weekly Gauntlet — Top 25{gauntletLb?.weekKey ? ` · ${gauntletLb.weekKey}` : ""}</p>
+                        {!gauntletLb
+                            ? <p className="hol-empty">Loading this week's board…</p>
+                            : gauntletLb.rows.length === 0
+                                ? <p className="hol-empty">No runs submitted yet this week — be the first to set the pace.</p>
+                                : gauntletLb.rows.map((e) => (
+                                    <Row key={`g-${e.rank}`} rank={e.rank} name={e.name} value={`${e.roundsCleared}/10 rounds`} suffix={` · ${e.heartsLeft}❤`} village={e.village} />
+                                ))}
                     </>
                 )}
                 {tab === "endless" && (

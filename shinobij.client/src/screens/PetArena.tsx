@@ -967,7 +967,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
 
             {arenaView === "gauntlet" && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the Gauntlet…</div>}>
-                    <PetGauntlet sharedImages={sharedImages} />
+                    <PetGauntlet sharedImages={sharedImages} character={character} updateCharacter={updateCharacter} />
                 </Suspense>
             )}
 
