@@ -18,7 +18,7 @@ import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, ty
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
-    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_START_HEARTS, itemCost,
+    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
@@ -33,6 +33,19 @@ import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 // (`<relicId>.webp`); falls back to the relic def's emoji when an image is absent.
 const RELIC_ART = import.meta.glob<{ default: string }>("../assets/coliseum/relics/*.webp", { eager: true });
 const relicArt = (id: string): string | null => RELIC_ART[`../assets/coliseum/relics/${id}.webp`]?.default ?? null;
+// Shopkeeper banner art (gpt-image-1). Optional — the shop still renders without it.
+const SHOP_ART = import.meta.glob<{ default: string }>("../assets/coliseum/gauntlet-shop.webp", { eager: true });
+const gauntletShop = SHOP_ART["../assets/coliseum/gauntlet-shop.webp"]?.default ?? null;
+// The shopkeeper's rotating greeting (deterministic per round → no flicker).
+const NPC_LINES = [
+    "Welcome, challenger! Spend your Valor wisely — the Gauntlet spares no one.",
+    "Fresh recruits and rare relics, straight off the caravan.",
+    "A wise shinobi builds a squad, not just a hero.",
+    "Relics rotate each round — give the shelf a reroll if nothing catches your eye.",
+    "Low on hearts? A Field Medic never goes to waste.",
+    "Stack your synergies and the board all but wins itself.",
+    "Survive deep enough and the Ryo flows. Now — what'll it be?",
+];
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -74,6 +87,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(null);
     const [reward, setReward] = useState<GauntletReward | null>(null);   // shown on the end screen
     const reportedRef = useRef(false);                                   // report the finished run exactly once
+    const shopRef = useRef<HTMLDivElement>(null);                        // "🛒 Shop" button scroll target
     // The active fight: the precomputed board result the board renderer plays.
     const [fight, setFight] = useState<{ result: BoardResult; key: number } | null>(null);
     // Latest character for the (single, async) reward credit — avoids a stale closure.
@@ -211,7 +225,10 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 <span style={{ color: "#fca5a5" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, GAUNTLET_START_HEARTS - run.hearts))}</span>
                 <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
-                <span style={{ marginLeft: "auto" }}><button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run</button></span>
+                <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
+                    {!over && <button type="button" style={btn("#a855f7")} onClick={() => shopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>🛒 Shop</button>}
+                    <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run</button>
+                </span>
             </div>
 
             {over ? (
@@ -292,6 +309,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             )}
                     </div>
 
+                    {/* Shopkeeper banner — the scroll target for the 🛒 Shop button */}
+                    <div ref={shopRef} style={{ borderRadius: 12, padding: "14px 16px", border: "1px solid #3b2f55", backgroundImage: gauntletShop ? `linear-gradient(90deg, rgba(8,11,22,0.88), rgba(8,11,22,0.3) 62%), url(${gauntletShop})` : "linear-gradient(90deg, rgba(30,18,52,0.9), rgba(15,23,42,0.6))", backgroundSize: "cover", backgroundPosition: "center 28%", scrollMarginTop: 12 }}>
+                        <strong style={{ color: "#fcd34d", font: "800 1rem Cinzel, serif" }}>🛒 The Beastmaster's Bazaar</strong>
+                        <p className="hint" style={{ margin: "4px 0 0", fontStyle: "italic", color: "#e7d9b0", maxWidth: 470 }}>“{NPC_LINES[(run.round - 1) % NPC_LINES.length]}”</p>
+                    </div>
+
                     {/* Shop */}
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
@@ -343,7 +366,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
                     {/* Relics — permanent run-long boons, bought with Valor (rolled shelf + owned strip) */}
                     <div>
-                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons</span></h4>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons · a fresh selection from {GAUNTLET_RELICS.length} relics rotates in each round (reroll for more)</span></h4>
                         {run.relics.length > 0 && (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                                 {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (

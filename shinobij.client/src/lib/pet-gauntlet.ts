@@ -163,7 +163,7 @@ export const GAUNTLET_RELICS: RelicDef[] = [
 ];
 const RELIC_BY_ID: Record<RelicId, RelicDef> =
     Object.fromEntries(GAUNTLET_RELICS.map((d) => [d.id, d])) as Record<RelicId, RelicDef>;
-const RELIC_SHOP_SIZE = 2;
+const RELIC_SHOP_SIZE = 3;   // relics shown per round (rolled from the not-owned pool)
 export function relicDef(id: RelicId): RelicDef { return RELIC_BY_ID[id]; }
 /** Total passive Valor-per-round granted by the owned relics. */
 export function relicValorPerRound(relics: RelicId[]): number {
