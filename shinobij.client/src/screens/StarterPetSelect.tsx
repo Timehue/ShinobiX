@@ -88,7 +88,7 @@ export function StarterPetSelect({
                     <p style={{ margin: "0 0 8px", lineHeight: 1.6 }}>
                         Welcome to {character.village}, {character.name}. Before you set out, a
                         young spirit-beast has come looking for a partner — your <strong>first
-                        companion</strong>. Pets fight beside you in PvE and the Pet Arena, so this
+                        companion</strong>. Pets fight beside you in PvE and the Pet Coliseum, so this
                         choice matters.
                     </p>
                     <p style={{ margin: "0 0 20px", lineHeight: 1.6, color: "#bae6fd" }}>

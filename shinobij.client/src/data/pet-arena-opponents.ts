@@ -41,7 +41,7 @@ export type PetArenaOpponent = {
 export const genericPetArenaOpponents: PetArenaOpponent[] = [
     {
         // -- D-rank: fast skirmisher — lifesteal + harassment --
-        owner: "Central Pet Arena AI",
+        owner: "Pet Coliseum AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-sparrow",
             name: "Arena Sparrow",
@@ -68,7 +68,7 @@ export const genericPetArenaOpponents: PetArenaOpponent[] = [
     },
     {
         // -- B-rank: fortress tank, absorb + shield + sustain --
-        owner: "Central Pet Arena AI",
+        owner: "Pet Coliseum AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-guardhound",
             name: "Arena Guardhound",
@@ -96,7 +96,7 @@ export const genericPetArenaOpponents: PetArenaOpponent[] = [
     },
     {
         // -- S-rank: apex predator — lifesteal + absorb + nuke --
-        owner: "Central Pet Arena AI",
+        owner: "Pet Coliseum AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-emberlynx",
             name: "Arena Emberlynx",
