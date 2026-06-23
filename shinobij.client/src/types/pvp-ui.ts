@@ -12,7 +12,7 @@
 import type { JutsuTag } from "./combat";
 import type { Biome } from "./core";
 
-export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions" | "bounties";
+export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "gauntlet" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions" | "bounties";
 
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 

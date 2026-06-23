@@ -131,6 +131,7 @@ const pet_ranked_queue_js_1 = __importDefault(require("./api/pvp/pet-ranked-queu
 const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js"));
 const ranked_start_js_1 = __importDefault(require("./api/pet/ranked-start.js"));
 const evolve_js_1 = __importDefault(require("./api/pet/evolve.js"));
+const gauntlet_js_1 = __importDefault(require("./api/pet/gauntlet.js"));
 const lobby_js_1 = __importDefault(require("./api/arena/lobby.js"));
 const ladder_js_1 = __importDefault(require("./api/pet-ladder/ladder.js"));
 // Jutsu
@@ -589,6 +590,7 @@ route('/pvp/pet-ranked-queue', pet_ranked_queue_js_1.default);
 route('/pet/battle-result', battle_result_js_1.default);
 route('/pet/ranked-start', ranked_start_js_1.default);
 route('/pet/evolve', evolve_js_1.default);
+route('/pet/gauntlet', gauntlet_js_1.default);
 // ─── Co-op Tactical Pet Arena lobby ─────────────────────────────────────────────
 route('/arena/lobby', lobby_js_1.default);
 // ─── Global Pet Ladders (Coliseum 1v1 + Tactical 4v4, offline defense) ───────────
