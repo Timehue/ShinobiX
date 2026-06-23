@@ -68,7 +68,7 @@ function orbTex(): THREE.Texture {
 const blackKey = (shader: { fragmentShader: string }) => {
     shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
-        "#include <map_fragment>\n  if (dot(diffuseColor.rgb, vec3(0.299,0.587,0.114)) < 0.07) discard;",
+        "#include <map_fragment>\n  if (dot(diffuseColor.rgb, vec3(0.299,0.587,0.114)) < 0.13) discard;",
     );
 };
 
@@ -252,7 +252,7 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
-            <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 12.5, 10.5], fov: 42 }} onCreated={({ camera }) => camera.lookAt(0, 0.6, -0.8)}>
+            <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 14.5, 13.5], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}>
                 <BoardScene result={result} round={round} fx={fx} texMap={texMap} />
             </Canvas>
 
