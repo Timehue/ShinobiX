@@ -424,6 +424,13 @@ export function activeVillageWarsFor(village: string) {
         .filter((war): war is VillageWar => Boolean(war && !war.endedAt && war.villages.includes(village)));
 }
 
+// Every active (un-ended) village war in the world, regardless of the player's
+// own village — for the Daily Briefing's global world report. Reads the same
+// hydrated cache App's 15s world-state poll keeps fresh.
+export function activeVillageWarsGlobal(): VillageWar[] {
+    return Object.values(sharedVillageWarCache).filter(war => !war.endedAt);
+}
+
 function activeVillageWarBetween(villageA?: string, villageB?: string) {
     if (!villageA || !villageB || villageA === villageB) return null;
     const war = loadVillageWar(villageA, villageB);

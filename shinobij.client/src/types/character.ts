@@ -313,6 +313,13 @@ export type Character = {
     // refuses to open more than twice between dawns. Tied to lastDailyReset.
     dailyHollowGateRuns?: number;
     lastDailyReset?: string;
+    // Daily login-streak reward (server-authoritative, api/player/daily-login.ts).
+    // loginStreak = consecutive UTC days claimed; lastLoginRewardDate = the UTC
+    // date (YYYY-MM-DD) of the last grant, which gates the once-per-day payout.
+    // Written by the server inside the save lock; the client mirrors them after a
+    // claim so a follow-up autosave preserves them.
+    loginStreak?: number;
+    lastLoginRewardDate?: string;
     // Combat missions (Mission Hall → Combat tab) are fought in the Arena but
     // their reward is *claimed* back in the Mission Hall. Each won-but-unclaimed
     // mission's stable key (see data/combat-missions) sits here until the player

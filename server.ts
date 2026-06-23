@@ -36,6 +36,7 @@ import clearAttackHandler from './api/player/clear-attack.js';
 import healHandler       from './api/player/heal.js';
 import rosterHandler     from './api/player/roster.js';
 import playerTradeHandler from './api/player/trade.js';
+import dailyLoginHandler  from './api/player/daily-login.js';
 import blackMarketHandler from './api/festival/black-market.js';
 import pvpSessionHandler from './api/pvp/session.js';
 import pvpMoveHandler    from './api/pvp/move.js';
@@ -468,6 +469,10 @@ route('/player/clear-attack', clearAttackHandler);
 route('/player/heal',         healHandler);
 route('/player/roster',       rosterHandler);
 route('/player/trade',        playerTradeHandler);
+// Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
+// once per UTC day under the save lock (failClosed), idempotent via the date
+// stamp on the save itself. See api/player/_daily-login.ts.
+route('/player/daily-login',  dailyLoginHandler);
 route('/festival/black-market', blackMarketHandler);
 
 // PvP
