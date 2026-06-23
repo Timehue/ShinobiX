@@ -6,10 +6,11 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
-    startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, setField, fieldedPets,
+    startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, setField, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
     boardModsFromRelics,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
+    GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND,
     type RelicId,
 } from "./pet-gauntlet";
 import type { Pet } from "../types/pet";
@@ -137,6 +138,34 @@ describe("buyRelic / relic economy", () => {
             { shieldStartFrac: 0, reflectPct: 0, chainPct: 0, lifestealPct: 0, reviveCharges: 0, reviveHpFrac: 0 },
             "stat/economy relics contribute no board mods",
         );
+    });
+});
+
+describe("buyPremium (Valor → Fate Shard / Bone Charm)", () => {
+    it("is locked until round 9 is cleared", () => {
+        const early = { ...startGauntletRun(1), valor: 99, roundsCleared: 5 };
+        assert.equal(premiumUnlocked(early), false);
+        assert.equal(buyPremium(early, "fateShard").boughtFateShard, false, "no buy before round 9");
+        assert.equal(buyPremium(early, "fateShard").valor, 99, "no valor spent");
+    });
+
+    it("after clearing round 9, buys once, spends valor, sets the flag", () => {
+        let run = { ...startGauntletRun(1), valor: 99, roundsCleared: 9 };
+        assert.equal(premiumUnlocked(run), true);
+        run = buyPremium(run, "fateShard");
+        assert.equal(run.boughtFateShard, true);
+        assert.equal(run.valor, 99 - GAUNTLET_SHARD_COST);
+        // second buy of the same currency is a no-op (one per run)
+        const again = buyPremium(run, "fateShard");
+        assert.equal(again.valor, run.valor, "can't buy a 2nd fate shard this run");
+        // bone charm is a separate buy
+        const withCharm = buyPremium(run, "boneCharm");
+        assert.equal(withCharm.boughtBoneCharm, true);
+    });
+
+    it("blocks a buy with insufficient valor", () => {
+        const run = { ...startGauntletRun(1), valor: 0, roundsCleared: GAUNTLET_PREMIUM_ROUND };
+        assert.equal(buyPremium(run, "boneCharm").boughtBoneCharm, false);
     });
 });
 

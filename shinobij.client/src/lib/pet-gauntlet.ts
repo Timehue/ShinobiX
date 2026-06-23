@@ -38,6 +38,14 @@ export const GAUNTLET_FIELD_CAP = 5;    // how many you field on the board (= BO
 export const GAUNTLET_SHOP_SIZE = 4;
 export const GAUNTLET_MAX_ROUNDS = 10;
 export const GAUNTLET_REROLL_COST = 1;
+// Premium currency exchange — spend Valor to bank persistent Fate Shards / Bone
+// Charms. Unlocks ONLY once you've cleared round 9 (a deep-run reward), and each
+// is a single buy per run; the SERVER additionally caps it to once per UTC day
+// (the grant is server-authoritative — Valor is free + client-side, so the client
+// never mints premium currency on its own).
+export const GAUNTLET_PREMIUM_ROUND = 9;   // roundsCleared required to unlock the buys
+export const GAUNTLET_SHARD_COST = 15;     // Valor for a Fate Shard
+export const GAUNTLET_CHARM_COST = 10;     // Valor for a Bone Charm
 
 const RARITY_COST: Record<PetRarity, number> = { standard: 3, rare: 5, legendary: 7, mythic: 9 };
 
@@ -234,6 +242,8 @@ export interface GauntletRun {
     relicShop: RelicId[];     // relic offers available this round
     buffs: GauntletBuffs;     // run-wide squad stat boosts from items + relics
     roundsCleared: number;    // rounds WON so far (drives the Ryo reward + leaderboard)
+    boughtFateShard: boolean; // queued a Fate Shard buy this run (granted server-side at run end)
+    boughtBoneCharm: boolean; // queued a Bone Charm buy this run
     status: GauntletStatus;
     log: string[];
 }
@@ -272,6 +282,8 @@ export function startGauntletRun(seed: number): GauntletRun {
         relicShop: rollRelicShop(seed >>> 0, 1, 0, []),
         buffs: { ...EMPTY_BUFFS },
         roundsCleared: 0,
+        boughtFateShard: false,
+        boughtBoneCharm: false,
         status: "drafting",
         log: ["The Gauntlet begins — draft your squad."],
     };
@@ -334,6 +346,24 @@ export function buyRelic(run: GauntletRun, relicId: RelicId): GauntletRun {
         relicShop: run.relicShop.filter((id) => id !== relicId),
         buffs: mergeRelicStat(run.buffs, def.stat),
     };
+}
+
+/** Whether the premium Fate Shard / Bone Charm buys are unlocked (cleared round 9). */
+export function premiumUnlocked(run: GauntletRun): boolean {
+    return run.roundsCleared >= GAUNTLET_PREMIUM_ROUND;
+}
+
+/** Queue a premium-currency buy with Valor (once per run; only after clearing round
+ *  9). The persistent grant is applied SERVER-SIDE at run end (daily-capped) — this
+ *  just spends the Valor + flags the intent so the client can't mint currency. */
+export function buyPremium(run: GauntletRun, kind: "fateShard" | "boneCharm"): GauntletRun {
+    if (run.status !== "drafting" || !premiumUnlocked(run)) return run;
+    if (kind === "fateShard") {
+        if (run.boughtFateShard || run.valor < GAUNTLET_SHARD_COST) return run;
+        return { ...run, valor: run.valor - GAUNTLET_SHARD_COST, boughtFateShard: true };
+    }
+    if (run.boughtBoneCharm || run.valor < GAUNTLET_CHARM_COST) return run;
+    return { ...run, valor: run.valor - GAUNTLET_CHARM_COST, boughtBoneCharm: true };
 }
 
 /** Reroll the shop — re-rolls both the pet offers and the relic shelf. The first
