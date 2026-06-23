@@ -87,7 +87,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(null);
     const [reward, setReward] = useState<GauntletReward | null>(null);   // shown on the end screen
     const reportedRef = useRef(false);                                   // report the finished run exactly once
-    const shopRef = useRef<HTMLDivElement>(null);                        // "🛒 Shop" button scroll target
+    const [shopOpen, setShopOpen] = useState(false);                     // the 🛒 relic bazaar overlay (opened on demand)
     // The active fight: the precomputed board result the board renderer plays.
     const [fight, setFight] = useState<{ result: BoardResult; key: number } | null>(null);
     // Latest character for the (single, async) reward credit — avoids a stale closure.
@@ -226,7 +226,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
-                    {!over && <button type="button" style={btn("#a855f7")} onClick={() => shopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>🛒 Shop</button>}
+                    {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}>🛒 Shop</button>}
                     <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run</button>
                 </span>
             </div>
@@ -268,7 +268,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             <p className="hint" style={{ margin: "0 0 8px" }}>Draft pets that share an element or role to activate a synergy.</p>
                         )}
                         {run.roster.length === 0
-                            ? <p className="hint">Draft pets from the shop below to build your squad.</p>
+                            ? <p className="hint">Recruit pets from the shop below to build your squad — then click a pet and a cell to position it here.</p>
                             : (
                                 <div>
                                     <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell on <strong style={{ color: "#93c5fd" }}>your side</strong> (bottom), to position it — this is the board you'll fight on. Your front line meets the enemy's in the middle.</p>
@@ -309,12 +309,13 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             )}
                     </div>
 
-                    {/* Shopkeeper banner — the scroll target for the 🛒 Shop button */}
-                    <div ref={shopRef} style={{ borderRadius: 12, padding: "14px 16px", border: "1px solid #3b2f55", backgroundImage: gauntletShop ? `linear-gradient(90deg, rgba(8,11,22,0.88), rgba(8,11,22,0.3) 62%), url(${gauntletShop})` : "linear-gradient(90deg, rgba(30,18,52,0.9), rgba(15,23,42,0.6))", backgroundSize: "cover", backgroundPosition: "center 28%", scrollMarginTop: 12 }}>
-                        <strong style={{ color: "#fcd34d", font: "800 1rem Cinzel, serif" }}>🛒 The Beastmaster's Bazaar</strong>
-                        <p className="hint" style={{ margin: "4px 0 0", fontStyle: "italic", color: "#e7d9b0", maxWidth: 470 }}>“{NPC_LINES[(run.round - 1) % NPC_LINES.length]}”</p>
-                    </div>
+                    {/* Next opponent preview (board view) */}
+                    <p className="hint" style={{ margin: 0 }}>
+                        Next: {enemySquadForRound(run).map((e) => e.name).join(" + ")} ({enemySquadForRound(run)[0]?.rarity}).
+                    </p>
 
+                    {/* Recruit Shop + Quartermaster stay on the main page; only the
+                        relic bazaar (below) sits behind the shopkeeper overlay. */}
                     {/* Shop */}
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
@@ -338,6 +339,21 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 })}
                         </div>
                     </div>
+
+                    {/* ── Shop overlay — the shopkeeper scene IS the panel backdrop;
+                        holds the Quartermaster items + the relic shelf. ── */}
+                    {shopOpen && !fight && (
+                    <div onClick={() => setShopOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(2,4,10,0.8)", display: "grid", placeItems: "center", padding: 12 }}>
+                        <div onClick={(e) => e.stopPropagation()} style={{ width: "min(840px, 96vw)", maxHeight: "94vh", display: "flex", flexDirection: "column", borderRadius: 14, border: "1px solid #6d28d9", boxShadow: "0 24px 70px rgba(0,0,0,0.7)", overflow: "hidden", backgroundColor: "#0a0914", backgroundImage: gauntletShop ? `linear-gradient(rgba(8,6,16,0.46) 0%, rgba(8,6,16,0.88) 32%, rgba(8,6,16,0.96) 100%), url(${gauntletShop})` : "none", backgroundSize: "cover", backgroundPosition: "center top", backgroundRepeat: "no-repeat" }}>
+                            {/* Title bar (transparent — the panel backdrop shows the shopkeeper) */}
+                            <div style={{ position: "relative", padding: "16px 20px 10px", flexShrink: 0 }}>
+                                <button type="button" onClick={() => setShopOpen(false)} aria-label="Close shop" style={{ position: "absolute", top: 8, right: 10, width: 30, height: 30, borderRadius: 8, border: "1px solid #475569", background: "rgba(15,23,42,0.85)", color: "#e2e8f0", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>✕</button>
+                                <strong style={{ color: "#fcd34d", font: "800 1.15rem Cinzel, serif", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🛒 The Beastmaster's Bazaar</strong>
+                                <p className="hint" style={{ margin: "4px 0 8px", fontStyle: "italic", color: "#f1e7c6", maxWidth: 460, textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>“{NPC_LINES[(run.round - 1) % NPC_LINES.length]}”</p>
+                                <span title="Valor — the run-only shop currency (not your Ryo)" style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(252,211,77,0.5)", color: "#fcd34d", fontWeight: 800 }}>✦ {run.valor} Valor</span>
+                            </div>
+                            {/* Scrollable shop body (transparent so the backdrop shows through) */}
+                            <div style={{ padding: "6px 18px 18px", display: "grid", gap: "0.9rem", overflowY: "auto" }}>
 
                     {/* Item shop — Valor consumables that buff the whole run */}
                     <div>
@@ -392,10 +408,11 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         </div>
                     </div>
 
-                    {/* Next opponent preview */}
-                    <p className="hint" style={{ margin: 0 }}>
-                        Next: {enemySquadForRound(run).map((e) => e.name).join(" + ")} ({enemySquadForRound(run)[0]?.rarity}).
-                    </p>
+                                <div style={{ textAlign: "center", marginTop: 4 }}><button type="button" style={{ ...btn("#475569"), padding: "7px 18px" }} onClick={() => setShopOpen(false)}>Done shopping →</button></div>
+                            </div>
+                        </div>
+                    </div>
+                    )}
                 </>
             )}
 
