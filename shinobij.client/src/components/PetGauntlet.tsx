@@ -17,7 +17,7 @@ import type { Character } from "../types/character";
 import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll,
+    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_START_HEARTS, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
@@ -169,7 +169,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         const enemy = enemySquadForRound(activeRun);
         if (!squad.length || !enemy.length) return;
         const playerUnits: GridUnit[] = squad.map((pet) => ({ pet, row: placement[pet.id]?.row ?? 2, col: placement[pet.id]?.col ?? 0 }));
-        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(activeRun));
+        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(activeRun), { playerMods: boardModsFromRelics(activeRun.relics) });
         setRun(beginFight(activeRun));
         setFight({ result, key: activeRun.round });
     }
