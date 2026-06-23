@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import "./index.css";
@@ -110,55 +110,55 @@ import backgroundImage from "./assets/background-image.webp";
 // they stay out of the initial JS bundle. The eager imports below are kept
 // for the screens that render on first paint or are tiny / common.
 // (Wrapped in a <Suspense> boundary inside <main> further down.)
-const Inventory = lazy(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
-const Hospital = lazy(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
-const VillageTavern = lazy(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
-const AdminLogin = lazy(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
-const Cafeteria = lazy(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
-const VillageLoreScreen = lazy(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
-const HallOfLegends = lazy(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
-const ProfessionPicker = lazy(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
-const StarterPetSelect = lazy(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
+const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
+const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
+const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
+const AdminLogin = lazyWithRetry(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
+const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
+const VillageLoreScreen = lazyWithRetry(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
+const HallOfLegends = lazyWithRetry(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
+const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
+const StarterPetSelect = lazyWithRetry(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
 
 import { Bank } from "./screens/Bank";
-const EndlessTowerLobby = lazy(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
-const VillageWarScreen = lazy(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
-const WeeklyBossArena = lazy(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
-const BloodlineMaker = lazy(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
+const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
+const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
+const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
+const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 import { Profile } from "./screens/Profile";
-const Logbook = lazy(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
+const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
 import { HunterBoard } from "./screens/HunterBoard";
 import { Missions } from "./screens/Missions";
 import { StoryHall, StoryBoss } from "./screens/StoryBoss";
-const TownHall = lazy(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
+const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
 import { ClanHall } from "./screens/ClanHall";
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, endlessCtxKey, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readEndlessContext, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { allProgressMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
 import { postPlayerChallengeNotice } from "./lib/player-api";
 import { EXAM_LEVEL_GATES } from "./constants/game";
-const WorldMap = lazy(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
+const WorldMap = lazyWithRetry(() => import("./screens/WorldMap").then(m => ({ default: m.WorldMap })));
 import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment } from "./lib/pvp-session";
-const CentralHub = lazy(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
-const BattleTowers = lazy(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
-const SunscarFestival = lazy(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
-const PetArena = lazy(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
-const PetLadder = lazy(() => import("./screens/PetLadder").then(m => ({ default: m.PetLadder })));
+import { lazyWithRetry } from "./lib/lazyWithRetry"; const CentralHub = lazyWithRetry(() => import("./screens/CentralHub").then(m => ({ default: m.CentralHub })));
+const BattleTowers = lazyWithRetry(() => import("./screens/BattleTowers").then(m => ({ default: m.BattleTowers })));
+const SunscarFestival = lazyWithRetry(() => import("./screens/SunscarFestival").then(m => ({ default: m.SunscarFestival })));
+const PetArena = lazyWithRetry(() => import("./screens/PetArena").then(m => ({ default: m.PetArena })));
+const PetLadder = lazyWithRetry(() => import("./screens/PetLadder").then(m => ({ default: m.PetLadder })));
 import { type PetArenaOpponent } from "./data/pet-arena-opponents";
-const PetYard = lazy(() => import("./screens/PetYard").then(m => ({ default: m.PetYard })));
-const ClanWarTileCardDuel = lazy(() => import("./screens/ClanWarTileCardDuel").then(m => ({ default: m.ClanWarTileCardDuel })));
-const ShinobiCouncilHall = lazy(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
-const CardClashDuel = lazy(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
-const CardHall = lazy(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
+const PetYard = lazyWithRetry(() => import("./screens/PetYard").then(m => ({ default: m.PetYard })));
+const ClanWarTileCardDuel = lazyWithRetry(() => import("./screens/ClanWarTileCardDuel").then(m => ({ default: m.ClanWarTileCardDuel })));
+const ShinobiCouncilHall = lazyWithRetry(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
+const CardClashDuel = lazyWithRetry(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
+const CardHall = lazyWithRetry(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
 import { GuidesLibrary } from "./components/GuidesLibrary";
 import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDeck } from "./lib/card-clash";
 import { DungeonEncounter, DungeonPetBattle } from "./screens/Dungeon";
 import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
-const PvpBattleScreen = lazy(() => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen })));
-const Arena = lazy(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
+const PvpBattleScreen = lazyWithRetry(() => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen })));
+const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
-const AdminPanel = lazy(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
+const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { claimPendingWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { masteryBonus } from "./lib/profession-mastery";
@@ -378,11 +378,11 @@ import {
 
 // All-users directory screen moved to ./screens/UserHub. Lazy-loaded — accessed
 // from the Central Hub menu, not on first paint.
-const UserHub = lazy(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
-const Messages = lazy(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
+const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
+const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 // Read-only profile screen for viewing other players moved to ./screens/UserView.
 // Lazy-loaded — only mounts when the player clicks into another player's profile.
-const UserView = lazy(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
+const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
 // Mobile banner timer widget moved to ./components/BannerMobileTimers.
 import { BannerMobileTimers } from "./components/BannerMobileTimers";
 // Mobile-only persistent top status HUD (avatar + bars + Ryo/Shards).
