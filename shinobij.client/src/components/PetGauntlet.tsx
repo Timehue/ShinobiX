@@ -23,7 +23,7 @@ import {
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petPoseImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { PetBoardArena } from "./PetBoardArena";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
@@ -59,7 +59,7 @@ function PetMiniCard({ pet, footer }: { pet: Pet; footer?: React.ReactNode }) {
     const role = roleOf(pet);
     return (
         <div style={{ border: `1px solid ${elColor(pet.element)}66`, borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", minWidth: 132 }}>
-            {(() => { const img = petCardImage(pet); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, mixBlendMode: "screen", filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
+            {(() => { const img = petPoseImage(pet); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
                 <span title={ROLE_META[role].label} style={{ fontSize: "0.92rem" }}>{ROLE_META[role].icon}</span>
@@ -280,10 +280,10 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     if (gr < BOARD_ROWS_PER_SIDE) {
                                                         // Enemy half (top): front toward centre = bottom of this block.
                                                         const eu = enemyPreview.find((u) => u.row === (BOARD_ROWS_PER_SIDE - 1 - gr) && u.col === c);
-                                                        const eimg = eu ? petCardImage(eu.pet) : "";
+                                                        const eimg = eu ? petPoseImage(eu.pet) : "";
                                                         return (
                                                             <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
-                                                                {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", mixBlendMode: "screen", transform: "scaleX(-1)" }} /> : null}
+                                                                {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", transform: "scaleX(-1)" }} /> : null}
                                                             </div>
                                                         );
                                                     }
@@ -291,11 +291,11 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                     const pRow = gr - BOARD_ROWS_PER_SIDE;
                                                     const pet = run.roster.find((p) => placement[p.id]?.row === pRow && placement[p.id]?.col === c) ?? null;
                                                     const sel = !!pet && selId === pet.id;
-                                                    const img = pet ? petCardImage(pet) : "";
+                                                    const img = pet ? petPoseImage(pet) : "";
                                                     return (
                                                         <button key={`p${gr}-${c}`} type="button" onClick={() => clickCell(pRow, c)} title={pRow === 0 ? "Front line" : pRow === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
-                                                            {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", mixBlendMode: "screen" }} /> : null}
+                                                            {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
                                                             {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
                                                         </button>
                                                     );
