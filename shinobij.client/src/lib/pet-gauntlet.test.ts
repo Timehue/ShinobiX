@@ -8,7 +8,7 @@ import { strict as assert } from "node:assert";
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, setField, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
-    boardModsFromRelics, petStar, wouldMerge,
+    boardModsFromRelics, petStar, wouldMerge, offerCost, mergeDiscountFromRelics,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
     GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND, GAUNTLET_MERGE_BOOST,
     type RelicId,
@@ -110,6 +110,21 @@ describe("buyOffer — merge (auto-battler level-up)", () => {
         run = buyOffer(run, 0);
         assert.equal(run.roster.length, GAUNTLET_ROSTER_CAP, "still capped — merge added no slot");
         assert.equal(petStar(run, firstId), 2, "full-roster merge still leveled it up");
+    });
+
+    it("Beast Bond discounts the merge cost (offerCost + buyOffer)", () => {
+        assert.equal(mergeDiscountFromRelics([]), 0);
+        assert.equal(mergeDiscountFromRelics(["beast_bond"] as RelicId[]), 2);
+        let run = { ...startGauntletRun(42), valor: 99, relics: ["beast_bond"] as RelicId[] };
+        const origOffer = run.shop[0];
+        run = buyOffer(run, 0);                          // own one copy (first buy, not a merge)
+        run = { ...run, shop: [origOffer] };             // re-offer the same template → a merge
+        const expected = Math.max(0, origOffer.cost - 2);
+        assert.equal(offerCost(run, origOffer), expected, "offerCost reflects the Beast Bond discount");
+        const valorBefore = run.valor;
+        run = buyOffer(run, 0);
+        assert.equal(run.valor, valorBefore - expected, "merge charged the discounted cost");
+        assert.equal(petStar(run, run.roster[0].id), 2, "still merged");
     });
 
     it("releasePet clears the merge rank", () => {

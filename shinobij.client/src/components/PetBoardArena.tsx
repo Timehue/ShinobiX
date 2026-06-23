@@ -155,7 +155,7 @@ function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDo
 
 interface Beat { hp: number; maxHp: number; alive: boolean; dmg: number; hit: boolean; acted: boolean; }
 
-function Standee({ x, z, sprite, pet, beat, element }: { x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; beat: Beat; element?: string | null }) {
+function Standee({ x, z, sprite, pet, beat, element, star }: { x: number; z: number; sprite: BoardSprite | undefined; pet: Pet; beat: Beat; element?: string | null; star?: number }) {
     const grp = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
     const hitAt = useRef(-1);
@@ -215,13 +215,24 @@ function Standee({ x, z, sprite, pet, beat, element }: { x: number; z: number; s
                     <mesh><planeGeometry args={[1.1, 0.16]} /><meshBasicMaterial color="#0b1220" /></mesh>
                     <mesh position={[-(1.1 * (1 - pct)) / 2, 0, 0.01]}><planeGeometry args={[Math.max(0.001, 1.1 * pct), 0.11]} /><meshBasicMaterial color={hpColor} toneMapped={false} /></mesh>
                 </group>
+                {/* ★ merge rank — gold gem pips above the HP bar (one per rank, ★2+ only) */}
+                {!!star && star > 1 && (
+                    <group position={[0, layout.contentWorldH + 0.66, 0]}>
+                        {Array.from({ length: star }).map((_, i) => (
+                            <mesh key={i} position={[(i - (star - 1) / 2) * 0.17, 0, 0.02]} rotation={[0, 0, Math.PI / 4]}>
+                                <planeGeometry args={[0.12, 0.12]} />
+                                <meshBasicMaterial color="#fcd34d" toneMapped={false} />
+                            </mesh>
+                        ))}
+                    </group>
+                )}
             </Billboard>
         </group>
     );
 }
 
-function BoardScene({ result, round, fx, spriteMap }: {
-    result: BoardResult; round: number; fx: Map<string, { dmg: number; hit: boolean; acted: boolean }>; spriteMap: Map<string, BoardSprite>;
+function BoardScene({ result, round, fx, spriteMap, stars }: {
+    result: BoardResult; round: number; fx: Map<string, { dmg: number; hit: boolean; acted: boolean }>; spriteMap: Map<string, BoardSprite>; stars?: Record<string, number>;
 }) {
     const floor = useTex(gauntletBoard);
     const snap = result.snapshots[Math.min(round, result.snapshots.length - 1)];
@@ -259,7 +270,7 @@ function BoardScene({ result, round, fx, spriteMap }: {
                 const s = snap.units.find((x) => x.id === u.id);
                 const f = fx.get(u.id) ?? { dmg: 0, hit: false, acted: false };
                 return (
-                    <Standee key={u.id} x={cx(u.col)} z={cz(boardRowOf(u))} sprite={spriteMap.get(u.id)} pet={u.pet} element={u.pet.element}
+                    <Standee key={u.id} x={cx(u.col)} z={cz(boardRowOf(u))} sprite={spriteMap.get(u.id)} pet={u.pet} element={u.pet.element} star={stars?.[u.pet.id]}
                         beat={{ hp: s?.hp ?? 0, maxHp: s?.maxHp ?? u.pet.hp, alive: s?.alive ?? false, dmg: f.dmg, hit: f.hit, acted: f.acted }} />
                 );
             })}
@@ -274,7 +285,7 @@ function BoardScene({ result, round, fx, spriteMap }: {
     );
 }
 
-export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: BoardResult; sharedImages?: Record<string, string>; onDone: () => void }) {
+export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { result: BoardResult; sharedImages?: Record<string, string>; stars?: Record<string, number>; onDone: () => void }) {
     const total = result.snapshots.length;
     const [round, setRound] = useState(0);
     const done = round >= total - 1;
@@ -313,14 +324,14 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", backgroundImage: `linear-gradient(rgba(8,11,20,0.55), rgba(8,11,20,0.82)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
             <Canvas dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 14.5, 13.5], fov: 40 }} onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}>
-                <BoardScene result={result} round={round} fx={fx} spriteMap={spriteMap} />
+                <BoardScene result={result} round={round} fx={fx} spriteMap={spriteMap} stars={stars} />
             </Canvas>
 
             <div style={{ position: "absolute", top: "5%", left: 0, right: 0, textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000", pointerEvents: "none" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
             {/* client-build tag — confirms the live board is running the latest code */}
-            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g15</div>
+            <div style={{ position: "absolute", bottom: 6, right: 8, color: "#64748b", font: "700 10px Inter, sans-serif", textShadow: "0 1px 3px #000", pointerEvents: "none" }}>build g16</div>
 
             {done && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.5)" }}>

@@ -18,7 +18,7 @@ import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, ty
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
-    petStar, wouldMerge,
+    petStar, wouldMerge, offerCost,
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
@@ -51,7 +51,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g15";
+const GAUNTLET_BUILD = "g16";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -380,11 +380,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                     const merges = wouldMerge(run, offer.pet);
                                     const owned = run.roster.find((p) => p.id.replace(/-\d{10,}$/, "") === offer.pet.id);
                                     const nextStar = owned ? petStar(run, owned.id) + 1 : 1;
-                                    const blocked = run.valor < offer.cost || (rosterFull && !merges);
+                                    const cost = offerCost(run, offer);   // discounted when it's a merge (Beast Bond)
+                                    const blocked = run.valor < cost || (rosterFull && !merges);
                                     return (
                                         <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} sharedImages={sharedImages} badge={merges ? `★${nextStar}` : undefined} footer={
                                             <button type="button" style={btn(merges ? "#fcd34d" : "#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
-                                                {merges ? `Merge ★${nextStar} · ${offer.cost}✦` : rosterFull ? "Roster full" : `Recruit · ${offer.cost}✦`}
+                                                {merges ? `Merge ★${nextStar} · ${cost}✦` : rosterFull ? "Roster full" : `Recruit · ${cost}✦`}
                                             </button>
                                         } />
                                     );
@@ -494,7 +495,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
             {/* The round fight — full-screen board auto-battle; Continue banks the result. */}
             {fight && (
-                <PetBoardArena key={fight.key} result={fight.result} sharedImages={sharedImages} onDone={resolveFight} />
+                <PetBoardArena key={fight.key} result={fight.result} sharedImages={sharedImages} stars={activeRun.stars} onDone={resolveFight} />
             )}
         </section>
     );
