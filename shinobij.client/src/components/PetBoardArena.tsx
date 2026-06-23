@@ -76,15 +76,16 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
         const f = fx.get(u.id) ?? { dmg: 0, flash: false, acted: false };
         return <UnitCard key={u.id} pet={u.pet} hp={s?.hp ?? 0} maxHp={s?.maxHp ?? u.pet.hp} shield={s?.shield ?? 0} alive={s?.alive ?? false} dmg={f.dmg} flash={f.flash} acted={f.acted} sharedImages={sharedImages} />;
     };
-    const players = result.roster.filter((u) => u.team === "player").sort((a, b) => a.slot - b.slot);
-    const enemies = result.roster.filter((u) => u.team === "enemy").sort((a, b) => a.slot - b.slot);
+    const cellsFor = (team: "player" | "enemy", row: number) =>
+        result.roster.filter((u) => u.team === team && u.row === row).sort((a, b) => a.col - b.col);
     const resultLabel = result.result === "win" ? "Victory" : result.result === "loss" ? "Defeat" : "Draw";
 
     return createPortal((
         <div style={{ position: "fixed", inset: 0, zIndex: 200, width: "100vw", height: "100vh", overflow: "hidden", display: "grid", gridTemplateRows: "1fr auto 1fr", placeItems: "center", backgroundImage: `linear-gradient(rgba(6,8,16,0.78), rgba(6,8,16,0.9)), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center" }}>
             <style>{`
-                .bp-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: flex-end; padding: 14px; }
-                .bp-row.enemy { flex-direction: row-reverse; }
+                .bp-side { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+                .bp-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: flex-end; padding: 4px 14px; min-height: 8px; }
+                .bp-row.back { transform: scale(0.84); opacity: 0.9; }
                 .bp-unit { position: relative; width: 104px; border-radius: 12px; background: rgba(12,17,30,0.82); padding: 8px 8px 9px; text-align: center; transition: opacity .35s, transform .35s, filter .35s; }
                 .bp-unit.bp-dead { opacity: 0.28; filter: grayscale(1); transform: translateY(8px) rotate(-7deg); }
                 .bp-unit.bp-hit { animation: bpHit .34s ease-out; }
@@ -102,13 +103,19 @@ export function PetBoardArena({ result, sharedImages = {}, onDone }: { result: B
                 .bp-shield { position: absolute; top: 2px; right: 4px; font: 700 10px Inter, sans-serif; color: #bfdbfe; }
             `}</style>
 
-            <div className="bp-row enemy">{enemies.map(cardFor)}</div>
+            <div className="bp-side">
+                <div className="bp-row back">{cellsFor("enemy", 1).map(cardFor)}</div>
+                <div className="bp-row front">{cellsFor("enemy", 0).map(cardFor)}</div>
+            </div>
 
             <div style={{ textAlign: "center", color: "#fcd34d", font: "800 clamp(15px,2.4vw,22px) Cinzel, serif", textShadow: "0 2px 8px #000" }}>
                 ⚔️ Round {Math.min(round, result.rounds)} / {result.rounds}
             </div>
 
-            <div className="bp-row">{players.map(cardFor)}</div>
+            <div className="bp-side">
+                <div className="bp-row front">{cellsFor("player", 0).map(cardFor)}</div>
+                <div className="bp-row back">{cellsFor("player", 1).map(cardFor)}</div>
+            </div>
 
             {done && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
