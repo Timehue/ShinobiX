@@ -50,7 +50,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g13";
+const GAUNTLET_BUILD = "g14";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -140,7 +140,11 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
             setFight(null);
             setReward(null);
             reportedRef.current = false;
-            setRun(startGauntletRun(s ? s.seed : ((Date.now() & 0x7fffffff) >>> 0)));
+            // Fresh RANDOM seed every run → the recruit shop + enemy squads are
+            // randomized each time (not the same fixed weekly draw). The server
+            // token still gates rewards; the board leaderboard ranks by how far you
+            // clear (with run-to-run RNG, like any roguelike).
+            setRun(startGauntletRun(((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0x7fffffff) >>> 0));
         })();
         return () => { alive = false; };
     }, [nonce]);
@@ -244,9 +248,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
             <div style={{ borderRadius: 12, padding: "22px 20px", border: "1px solid #3b2f55", backgroundImage: `linear-gradient(105deg, rgba(8,11,22,0.86), rgba(8,11,22,0.4) 70%), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center 38%" }}>
                 <h3 style={{ margin: 0, font: "800 1.15rem Cinzel, serif", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
-                    Draft a run-only squad from the wilds, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
-                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and
-                    everyone runs the <strong style={{ color: "#c4b5fd" }}>same weekly gauntlet</strong> for the Hall of Legends board.
+                    Draft a run-only squad from a <strong style={{ color: "#c4b5fd" }}>randomized</strong> shop, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
+                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
+                    climb the weekly <strong style={{ color: "#c4b5fd" }}>Hall of Legends</strong> board.
                     {meta && !meta.rewardEligible && <em style={{ color: "#fca5a5" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
                 </p>
             </div>
