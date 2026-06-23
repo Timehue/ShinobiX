@@ -37,6 +37,7 @@ const clear_attack_js_1 = __importDefault(require("./api/player/clear-attack.js"
 const heal_js_1 = __importDefault(require("./api/player/heal.js"));
 const roster_js_1 = __importDefault(require("./api/player/roster.js"));
 const trade_js_1 = __importDefault(require("./api/player/trade.js"));
+const daily_login_js_1 = __importDefault(require("./api/player/daily-login.js"));
 const black_market_js_1 = __importDefault(require("./api/festival/black-market.js"));
 const session_js_1 = __importDefault(require("./api/pvp/session.js"));
 const move_js_1 = __importDefault(require("./api/pvp/move.js"));
@@ -441,6 +442,10 @@ route('/player/clear-attack', clear_attack_js_1.default);
 route('/player/heal', heal_js_1.default);
 route('/player/roster', roster_js_1.default);
 route('/player/trade', trade_js_1.default);
+// Daily login-streak reward — server-authoritative ryo + 7-day fate-shard bonus,
+// once per UTC day under the save lock (failClosed), idempotent via the date
+// stamp on the save itself. See api/player/_daily-login.ts.
+route('/player/daily-login', daily_login_js_1.default);
 route('/festival/black-market', black_market_js_1.default);
 // PvP
 route('/pvp/session', session_js_1.default);

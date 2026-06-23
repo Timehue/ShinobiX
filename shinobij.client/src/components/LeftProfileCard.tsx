@@ -30,6 +30,7 @@ import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
 import { GameIcon } from "./icons/GameIcon";
 import type { GameIconName } from "./icons/GameIcon";
+import { DailyBriefingModal } from "./DailyBriefingModal";
 
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
 // ONLY scheduled refresh — parent (App) state churn no longer triggers a
@@ -56,6 +57,19 @@ export const LeftProfileCard = memo(function LeftProfileCard({
 
     return (
         <aside className="left-profile-card">
+            {/* Daily Briefing — once-per-day login notice board. Self-gating
+                (level 5+, once per UTC day) and portal-rendered to <body>, so it
+                appears full-screen on desktop AND mobile even though this host
+                card is CSS-hidden on mobile. Hosted here (rather than App.tsx)
+                because this card already receives character + both training
+                timers, keeping App.tsx within its line budget. */}
+            <DailyBriefingModal
+                character={character}
+                updateCharacter={updateCharacter}
+                navigate={setScreen}
+                activeTraining={activeTraining}
+                activeJutsuTraining={activeJutsuTraining}
+            />
             <div className="left-profile-avatar-wrap">
                 <button
                     className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}
