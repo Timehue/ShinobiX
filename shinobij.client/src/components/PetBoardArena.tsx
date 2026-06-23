@@ -145,7 +145,7 @@ function Standee({ x, z, tex, beat, element }: { x: number; z: number; tex: THRE
                 <meshBasicMaterial color={glow} transparent opacity={beat.alive ? 0.5 : 0.12} />
             </mesh>
             <Billboard follow lockX lockZ position={[0, SPRITE_H / 2 + 0.1, 0]}>
-                <mesh>
+                <mesh visible={!!tex}>
                     <planeGeometry args={[SPRITE_H * 0.92, SPRITE_H]} />
                     <meshBasicMaterial ref={mat} map={tex ?? undefined} transparent alphaTest={0.12} onBeforeCompile={blackKey} toneMapped={false} />
                 </mesh>
