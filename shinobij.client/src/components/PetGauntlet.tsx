@@ -11,15 +11,17 @@
  * element/role SYNERGIES) → fight the round on the continuous engine → win
  * advances + pays gold, loss costs a heart. V1 = PREVIEW (no rewards granted).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Pet } from "../types/pet";
+import type { Character } from "../types/character";
 import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
 import {
-    startGauntletRun, buyOffer, rerollShop, releasePet, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult,
-    GAUNTLET_REROLL_COST,
+    startGauntletRun, buyOffer, buyItem, rerollShop, releasePet, fieldedPets,
+    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs,
+    GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_START_HEARTS, itemCost,
     type GauntletRun,
 } from "../lib/pet-gauntlet";
+import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
@@ -61,12 +63,19 @@ const btn = (bg: string, disabled = false): React.CSSProperties => ({
     color: disabled ? "#64748b" : "#0b1220", fontWeight: 800, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
 
-export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<string, string> }) {
-    const [run, setRun] = useState<GauntletRun>(() => startGauntletRun((Date.now() & 0x7fffffff) >>> 0));
+export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: { sharedImages?: Record<string, string>; character: Character; updateCharacter: (c: Character) => void }) {
+    // run is null until the server hands back the weekly seed + run token.
+    const [run, setRun] = useState<GauntletRun | null>(null);
+    const [meta, setMeta] = useState<{ token: string; weekKey: string; rewardEligible: boolean } | null>(null);
+    const [reward, setReward] = useState<GauntletReward | null>(null);   // shown on the end screen
+    const reportedRef = useRef(false);                                   // report the finished run exactly once
     // The active fight: the precomputed board result the board renderer plays.
     const [fight, setFight] = useState<{ result: BoardResult; key: number } | null>(null);
+    // Latest character for the (single, async) reward credit — avoids a stale closure.
+    const charRef = useRef(character);
+    useEffect(() => { charRef.current = character; }, [character]);
 
-    const fielded = useMemo(() => fieldedPets(run), [run]);
+    const fielded = useMemo(() => (run ? fieldedPets(run) : []), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
 
     // Placement: each pet sits on a cell of YOUR grid (row 0 = front line that
@@ -78,17 +87,67 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
     const placement = useMemo(() => {
         const next: Record<string, { row: number; col: number }> = {};
         const taken = new Set<string>();
-        for (const p of run.roster) { const c = cells[p.id]; if (c) { next[p.id] = c; taken.add(`${c.row},${c.col}`); } }
-        for (const p of run.roster) {
+        const roster = run?.roster ?? [];
+        for (const p of roster) { const c = cells[p.id]; if (c) { next[p.id] = c; taken.add(`${c.row},${c.col}`); } }
+        for (const p of roster) {
             if (next[p.id]) continue;
             const order = roleOf(p) === "defender" ? [0, 1, 2] : [2, 1, 0];
             let done = false;
             for (const r of order) { for (let c = 0; c < BOARD_COLS && !done; c++) if (!taken.has(`${r},${c}`)) { next[p.id] = { row: r, col: c }; taken.add(`${r},${c}`); done = true; } if (done) break; }
         }
         return next;
-    }, [cells, run.roster]);
+    }, [cells, run]);
+
+    // Start a fresh run on the WEEKLY shared seed (so the leaderboard is fair) +
+    // mint a single-use reward token. Falls back to a local seed (unrewarded) if
+    // the server is unreachable, so the mode is always playable.
+    // Loading the run is keyed on `nonce` so the "New Run" button can re-trigger it
+    // by bumping the nonce. All setState lives in the async continuation (after the
+    // await), never synchronously in the effect body.
+    const [nonce, setNonce] = useState(0);
+    useEffect(() => {
+        let alive = true;
+        void (async () => {
+            const s = await startGauntlet();
+            if (!alive) return;
+            setMeta(s ? { token: s.runToken, weekKey: s.weekKey, rewardEligible: s.rewardEligible } : null);
+            setCells({});
+            setSelId(null);
+            setFight(null);
+            setReward(null);
+            reportedRef.current = false;
+            setRun(startGauntletRun(s ? s.seed : ((Date.now() & 0x7fffffff) >>> 0)));
+        })();
+        return () => { alive = false; };
+    }, [nonce]);
+
+    // When a run ends, report it once → the server pays Ryo (sealed schedule) and
+    // returns the credited amount + weekly rank, which we mirror onto the local
+    // character (reconcile pattern). No-op (no rewards) when offline / no token.
+    useEffect(() => {
+        if (!run || !meta || reportedRef.current) return;
+        if (run.status !== "won" && run.status !== "lost") return;
+        reportedRef.current = true;
+        const { token } = meta;
+        const rc = run.roundsCleared;
+        const hl = run.hearts;
+        void (async () => {
+            const rep = await reportGauntlet(token, rc, hl);
+            if (!rep) return;
+            setReward(rep);
+            if (rep.ryo > 0) { const c = charRef.current; updateCharacter({ ...c, ryo: (c.ryo ?? 0) + rep.ryo }); }
+        })();
+    }, [run, meta, updateCharacter]);
+
+    if (!run) {
+        return <section className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Entering the weekly Gauntlet…</section>;
+    }
+    // Non-null alias: TS keeps the guard's narrowing here at top level, but not
+    // inside the nested function declarations below — close over `activeRun`.
+    const activeRun: GauntletRun = run;
+
     function clickCell(r: number, c: number) {
-        const occupant = run.roster.find((p) => placement[p.id]?.row === r && placement[p.id]?.col === c) ?? null;
+        const occupant = activeRun.roster.find((p) => placement[p.id]?.row === r && placement[p.id]?.col === c) ?? null;
         if (selId && selId !== occupant?.id) {
             const from = placement[selId];
             setCells((prev) => { const n = { ...prev, [selId]: { row: r, col: c } }; if (occupant && from) n[occupant.id] = from; return n; });
@@ -103,29 +162,27 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
     const enemyUnits = (pets: Pet[]): GridUnit[] => { const col = [0, 0, 0]; return pets.map((pet) => { const row = roleOf(pet) === "defender" ? 0 : 2; return { pet, row, col: col[row]++ }; }); };
     // The next opponent's formation, shown across the top of the placement board so
     // you can counter-position (deterministic per round; the real fight uses it too).
-    const enemyPreview = enemyUnits(enemySquadForRound(run));
+    const enemyPreview = enemyUnits(enemySquadForRound(activeRun));
 
     function startRound() {
-        const squad = applySynergiesToSquad(fielded);
-        const enemy = enemySquadForRound(run);
+        const squad = applySynergiesToSquad(applyGauntletBuffs(fielded, activeRun.buffs));
+        const enemy = enemySquadForRound(activeRun);
         if (!squad.length || !enemy.length) return;
         const playerUnits: GridUnit[] = squad.map((pet) => ({ pet, row: placement[pet.id]?.row ?? 2, col: placement[pet.id]?.col ?? 0 }));
-        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(run));
-        setRun(beginFight(run));
-        setFight({ result, key: run.round });
+        const result = runPetGridBattle(playerUnits, enemyUnits(enemy), fightSeed(activeRun));
+        setRun(beginFight(activeRun));
+        setFight({ result, key: activeRun.round });
     }
 
     // Watched the board fight → bank the result and return to drafting (or end the run).
     function resolveFight() {
         if (!fight) return;
-        setRun((r) => applyRoundResult(r, fight.result.result === "win"));
+        const won = fight.result.result === "win";
+        setRun((r) => (r ? applyRoundResult(r, won) : r));
         setFight(null);
     }
 
-    function newRun() {
-        setFight(null);
-        setRun(startGauntletRun((Date.now() & 0x7fffffff) >>> 0));
-    }
+    const newRun = () => { setRun(null); setNonce((n) => n + 1); };
 
     const rosterFull = run.roster.length >= 5;
     const over = run.status === "won" || run.status === "lost";
@@ -137,14 +194,16 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                 <h3 style={{ margin: 0, font: "800 1.15rem Cinzel, serif", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
                     Draft a run-only squad from the wilds, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
-                    Drafted pets vanish when the run ends. <em>Preview — no rewards yet.</em>
+                    Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and
+                    everyone runs the <strong style={{ color: "#c4b5fd" }}>same weekly gauntlet</strong> for the Hall of Legends board.
+                    {meta && !meta.rewardEligible && <em style={{ color: "#fca5a5" }}> · Daily Ryo cap reached — this run is for the leaderboard.</em>}
                 </p>
             </div>
 
             {/* Run status bar */}
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "8px 14px", background: "rgba(15,23,42,0.55)", border: "1px solid #334155", borderRadius: 10, fontWeight: 800 }}>
-                <span style={{ color: "#fca5a5" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, 3 - run.hearts))}</span>
-                <span style={{ color: "#fcd34d" }}>🪙 {run.gold}g</span>
+                <span style={{ color: "#fca5a5" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, GAUNTLET_START_HEARTS - run.hearts))}</span>
+                <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
                 <span style={{ marginLeft: "auto" }}><button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run</button></span>
             </div>
@@ -155,7 +214,16 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                         {run.status === "won" ? "🏆 Gauntlet Cleared!" : "Run Over"}
                     </div>
                     <p className="hint">{run.log[run.log.length - 1]}</p>
-                    <button type="button" style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Start a new run</button>
+                    <p className="hint" style={{ margin: "2px 0 10px" }}>Cleared {run.roundsCleared} / {run.maxRounds} rounds.</p>
+                    {reward ? (
+                        <div style={{ display: "inline-flex", flexDirection: "column", gap: 4, padding: "10px 18px", margin: "0 auto 12px", borderRadius: 12, background: "rgba(120,53,15,0.3)", border: "1px solid rgba(250,204,21,0.5)" }}>
+                            <span style={{ font: "800 1.1rem Inter, sans-serif", color: "#fcd34d" }}>{reward.ryo > 0 ? `+${reward.ryo.toLocaleString()} Ryo` : "No Ryo this run"}</span>
+                            <span className="hint" style={{ fontSize: "0.78rem" }}>Weekly score {reward.score.toLocaleString()}{reward.rank ? ` · rank #${reward.rank}` : ""} · see the Hall of Legends → Gauntlet board</span>
+                        </div>
+                    ) : (
+                        <p className="hint" style={{ fontSize: "0.74rem", opacity: 0.75 }}>Tallying the result…</p>
+                    )}
+                    <div><button type="button" style={{ ...btn("#f59e0b"), padding: "8px 18px", fontSize: "0.9rem" }} onClick={newRun}>Run the weekly Gauntlet again</button></div>
                 </div>
             ) : (
                 <>
@@ -222,23 +290,48 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
-                            <button type="button" style={btn("#38bdf8", run.gold < GAUNTLET_REROLL_COST)} disabled={run.gold < GAUNTLET_REROLL_COST} onClick={() => setRun(rerollShop(run))}>
-                                🎲 Reroll ({GAUNTLET_REROLL_COST}g)
+                            <button type="button" style={btn("#38bdf8", run.valor < GAUNTLET_REROLL_COST)} disabled={run.valor < GAUNTLET_REROLL_COST} onClick={() => setRun(rerollShop(run))}>
+                                🎲 Reroll ({GAUNTLET_REROLL_COST}✦)
                             </button>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {run.shop.length === 0
                                 ? <p className="hint">Sold out — reroll for fresh recruits.</p>
                                 : run.shop.map((offer, i) => {
-                                    const blocked = run.gold < offer.cost || rosterFull;
+                                    const blocked = run.valor < offer.cost || rosterFull;
                                     return (
                                         <PetMiniCard key={`${offer.pet.id}-${i}`} pet={offer.pet} footer={
                                             <button type="button" style={btn("#4ade80", blocked)} disabled={blocked} onClick={() => setRun(buyOffer(run, i))}>
-                                                {rosterFull ? "Roster full" : `Recruit · ${offer.cost}g`}
+                                                {rosterFull ? "Roster full" : `Recruit · ${offer.cost}✦`}
                                             </button>
                                         } />
                                     );
                                 })}
+                        </div>
+                    </div>
+
+                    {/* Item shop — Valor consumables that buff the whole run */}
+                    <div>
+                        <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Quartermaster <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· run-wide upgrades</span></h4>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {GAUNTLET_ITEMS.map((def) => {
+                                const owned = run.itemsBought[def.id] ?? 0;
+                                const maxed = owned >= def.max;
+                                const atFullHearts = def.id === "mend" && run.hearts >= GAUNTLET_START_HEARTS;
+                                const cost = itemCost(def, owned);
+                                const blocked = maxed || atFullHearts || run.valor < cost;
+                                const label = maxed ? "Maxed" : atFullHearts ? "Full ❤" : `Buy · ${cost}✦`;
+                                return (
+                                    <div key={def.id} style={{ border: "1px solid #334155", borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", width: 150 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <strong style={{ fontSize: "0.84rem", color: "#e2e8f0" }}>{def.icon} {def.name}</strong>
+                                            {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{owned}/{def.max}</span>}
+                                        </div>
+                                        <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{def.blurb}</p>
+                                        <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => setRun(buyItem(run, def.id))}>{label}</button>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 

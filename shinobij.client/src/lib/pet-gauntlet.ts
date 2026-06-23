@@ -27,12 +27,16 @@ import { derivePetRole, type PetRole } from "./pet-roles";
 import { petCardImage } from "./pet-battle-anim";
 
 // ── Tunables ─────────────────────────────────────────────────────────────────
+// The in-run shop currency is VALOR — a run-local resource you earn by winning
+// rounds and spend in the shop. It is NOT Ryo (the global game currency); Ryo is
+// only ever PAID OUT as the run reward, server-side. Keeping them distinct means
+// the gauntlet can never touch (or be cheated for) the player's real Ryo balance.
 export const GAUNTLET_START_HEARTS = 3;
-export const GAUNTLET_START_GOLD = 10;
+export const GAUNTLET_START_VALOR = 10;
 export const GAUNTLET_ROSTER_CAP = 5;   // how many run-pets you can hold
 export const GAUNTLET_FIELD_CAP = 5;    // how many you field on the board (= BOARD_SQUAD_MAX)
 export const GAUNTLET_SHOP_SIZE = 4;
-export const GAUNTLET_MAX_ROUNDS = 8;
+export const GAUNTLET_MAX_ROUNDS = 10;
 export const GAUNTLET_REROLL_COST = 1;
 
 const RARITY_COST: Record<PetRarity, number> = { standard: 3, rare: 5, legendary: 7, mythic: 9 };
@@ -72,27 +76,56 @@ function shopRaritiesForRound(round: number): PetRarity[] {
     if (round <= 2) return ["standard", "standard", "standard", "rare"];
     if (round <= 4) return ["standard", "rare", "rare", "legendary"];
     if (round <= 6) return ["rare", "rare", "legendary", "legendary"];
-    return ["rare", "legendary", "legendary", "mythic"];
+    if (round <= 8) return ["rare", "legendary", "legendary", "mythic"];
+    return ["legendary", "legendary", "mythic", "mythic"];
 }
 /** The enemy squad's rarity + size + a small per-round stat bump on top of rarity. */
 function enemyRarityForRound(round: number): PetRarity {
     if (round <= 2) return "standard";
-    if (round <= 4) return "rare";
-    if (round <= 6) return "legendary";
+    if (round <= 5) return "rare";
+    if (round <= 8) return "legendary";
     return "mythic";
 }
 function enemySizeForRound(round: number): number {
     if (round <= 2) return 2;
     if (round <= 4) return 3;
     if (round <= 6) return 4;
-    return 5;
+    return 5;   // BOARD_SQUAD_MAX
 }
 function enemyStatMultForRound(round: number): number {
     return 1 + (round - 1) * 0.04;   // gentle escalation layered over the rarity jump
 }
-function goldRewardForRound(round: number): number {
-    return 4 + round;   // round 1 win = 5g … round 8 = 12g
+/** Valor paid for clearing a round (run-local shop currency — NOT Ryo). */
+function valorRewardForRound(round: number): number {
+    return 4 + round;   // round 1 win = 5 valor … round 10 = 14 valor
 }
+
+// ── Shop items (Valor consumables) ───────────────────────────────────────────
+// A fixed shelf of non-pet buys, alongside the rolled pet offers. Stat items add
+// a permanent run-wide multiplier applied to the fielded squad at fight time
+// (exactly like a synergy — so the board engine never changes); Mend restores a
+// heart. Costs scale with the number already bought this run so they can't be
+// spammed into a runaway squad.
+export type GauntletItemId = "mend" | "whetstone" | "bulwark" | "vigor";
+export interface GauntletItemDef {
+    id: GauntletItemId; name: string; icon: string; blurb: string;
+    baseCost: number; step: number; max: number;
+}
+export const GAUNTLET_ITEMS: GauntletItemDef[] = [
+    { id: "mend",      name: "Field Medic",  icon: "❤️", blurb: "Restore 1 heart.",                 baseCost: 6, step: 3, max: 3 },
+    { id: "whetstone", name: "Whetstone",    icon: "⚔️", blurb: "+8% Attack to your whole squad.",  baseCost: 4, step: 2, max: 6 },
+    { id: "bulwark",   name: "Bulwark",      icon: "🛡️", blurb: "+8% Defense to your whole squad.", baseCost: 4, step: 2, max: 6 },
+    { id: "vigor",     name: "Vigor Charm",  icon: "💗", blurb: "+8% HP to your whole squad.",      baseCost: 4, step: 2, max: 6 },
+];
+const GAUNTLET_ITEM_BY_ID: Record<GauntletItemId, GauntletItemDef> =
+    Object.fromEntries(GAUNTLET_ITEMS.map((d) => [d.id, d])) as Record<GauntletItemId, GauntletItemDef>;
+/** The Valor cost of the NEXT purchase of an item, given how many are already owned. */
+export function itemCost(def: GauntletItemDef, owned: number): number {
+    return def.baseCost + def.step * Math.max(0, owned);
+}
+/** Run-wide stat buffs accumulated from Whetstone/Bulwark/Vigor (fractional pct). */
+export interface GauntletBuffs { atk: number; def: number; hp: number; }
+const EMPTY_BUFFS: GauntletBuffs = { atk: 0, def: 0, hp: 0 };
 
 // ── Run-pet instantiation (run-only copies) ──────────────────────────────────
 /** Clone a template into a run-only pet: a unique instance id (so duplicates and
@@ -128,12 +161,15 @@ export interface GauntletRun {
     round: number;            // 1-based current round
     maxRounds: number;
     hearts: number;
-    gold: number;
+    valor: number;            // run-local shop currency (NOT Ryo)
     rerolls: number;          // shop rerolls this round (also salts the shop roll)
     instanceCounter: number;  // monotonic → unique run-pet ids
     roster: Pet[];            // drafted run-pets you hold
     fieldIds: string[];       // which roster pets are fielded (≤ FIELD_CAP), lead first
     shop: GauntletOffer[];
+    itemsBought: Record<GauntletItemId, number>;  // how many of each shop item bought
+    buffs: GauntletBuffs;     // run-wide squad stat boosts from items
+    roundsCleared: number;    // rounds WON so far (drives the Ryo reward + leaderboard)
     status: GauntletStatus;
     log: string[];
 }
@@ -154,12 +190,15 @@ export function startGauntletRun(seed: number): GauntletRun {
         round: 1,
         maxRounds: GAUNTLET_MAX_ROUNDS,
         hearts: GAUNTLET_START_HEARTS,
-        gold: GAUNTLET_START_GOLD,
+        valor: GAUNTLET_START_VALOR,
         rerolls: 0,
         instanceCounter: 0,
         roster: [],
         fieldIds: [],
         shop: rollShop(seed >>> 0, 1, 0),
+        itemsBought: { mend: 0, whetstone: 0, bulwark: 0, vigor: 0 },
+        buffs: { ...EMPTY_BUFFS },
+        roundsCleared: 0,
         status: "drafting",
         log: ["The Gauntlet begins — draft your squad."],
     };
@@ -170,7 +209,7 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
     if (run.status !== "drafting") return run;
     const offer = run.shop[offerIndex];
     if (!offer) return run;
-    if (run.gold < offer.cost) return run;
+    if (run.valor < offer.cost) return run;
     if (run.roster.length >= GAUNTLET_ROSTER_CAP) return run;
     const pet = instantiate(offer.pet, run.instanceCounter);
     const roster = [...run.roster, pet];
@@ -178,7 +217,7 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
     const fieldIds = run.fieldIds.length < GAUNTLET_FIELD_CAP ? [...run.fieldIds, pet.id] : run.fieldIds;
     return {
         ...run,
-        gold: run.gold - offer.cost,
+        valor: run.valor - offer.cost,
         instanceCounter: run.instanceCounter + 1,
         roster,
         fieldIds,
@@ -186,11 +225,44 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
     };
 }
 
-/** Reroll the shop (costs gold). */
+/** Buy a Valor shop item (Mend heals a heart; the rest add a run-wide squad buff). */
+export function buyItem(run: GauntletRun, itemId: GauntletItemId): GauntletRun {
+    if (run.status !== "drafting") return run;
+    const def = GAUNTLET_ITEM_BY_ID[itemId];
+    if (!def) return run;
+    const owned = run.itemsBought[itemId] ?? 0;
+    if (owned >= def.max) return run;
+    if (itemId === "mend" && run.hearts >= GAUNTLET_START_HEARTS) return run;   // already topped up
+    const cost = itemCost(def, owned);
+    if (run.valor < cost) return run;
+    const next: GauntletRun = {
+        ...run,
+        valor: run.valor - cost,
+        itemsBought: { ...run.itemsBought, [itemId]: owned + 1 },
+    };
+    if (itemId === "mend") next.hearts = Math.min(GAUNTLET_START_HEARTS, run.hearts + 1);
+    else if (itemId === "whetstone") next.buffs = { ...run.buffs, atk: run.buffs.atk + 0.08 };
+    else if (itemId === "bulwark") next.buffs = { ...run.buffs, def: run.buffs.def + 0.08 };
+    else if (itemId === "vigor") next.buffs = { ...run.buffs, hp: run.buffs.hp + 0.08 };
+    return next;
+}
+
+/** Reroll the shop (costs Valor). */
 export function rerollShop(run: GauntletRun): GauntletRun {
-    if (run.status !== "drafting" || run.gold < GAUNTLET_REROLL_COST) return run;
+    if (run.status !== "drafting" || run.valor < GAUNTLET_REROLL_COST) return run;
     const rerolls = run.rerolls + 1;
-    return { ...run, gold: run.gold - GAUNTLET_REROLL_COST, rerolls, shop: rollShop(run.seed, run.round, rerolls) };
+    return { ...run, valor: run.valor - GAUNTLET_REROLL_COST, rerolls, shop: rollShop(run.seed, run.round, rerolls) };
+}
+
+/** Apply the run-wide item buffs to a fielded squad (run-only copies; min-1 stats). */
+export function applyGauntletBuffs(pets: Pet[], buffs: GauntletBuffs): Pet[] {
+    if (buffs.atk === 0 && buffs.def === 0 && buffs.hp === 0) return pets;
+    return pets.map((p) => ({
+        ...p,
+        hp: Math.max(1, Math.round(p.hp * (1 + buffs.hp))),
+        attack: Math.max(1, Math.round(p.attack * (1 + buffs.atk))),
+        defense: Math.max(0, Math.round(p.defense * (1 + buffs.def))),
+    }));
 }
 
 /** Release a run-pet from the roster (no refund — v1 keeps the economy simple). */
@@ -241,14 +313,15 @@ export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
     if (run.status !== "fighting") return run;
     const nextRound = run.round + 1;
     if (won) {
-        const reward = goldRewardForRound(run.round);
+        const reward = valorRewardForRound(run.round);
+        const roundsCleared = run.roundsCleared + 1;
         if (run.round >= run.maxRounds) {
-            return { ...run, status: "won", gold: run.gold + reward, log: [...run.log, `Round ${run.round} won — THE GAUNTLET IS CLEARED! 🏆`] };
+            return { ...run, status: "won", valor: run.valor + reward, roundsCleared, log: [...run.log, `Round ${run.round} won — THE GAUNTLET IS CLEARED! 🏆`] };
         }
         return {
-            ...run, status: "drafting", round: nextRound, gold: run.gold + reward, rerolls: 0,
+            ...run, status: "drafting", round: nextRound, valor: run.valor + reward, roundsCleared, rerolls: 0,
             shop: rollShop(run.seed, nextRound, 0),
-            log: [...run.log, `Round ${run.round} won! +${reward}g — draft for round ${nextRound}.`],
+            log: [...run.log, `Round ${run.round} won! +${reward} Valor — draft for round ${nextRound}.`],
         };
     }
     const hearts = run.hearts - 1;

@@ -257,6 +257,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "clans":
             case "tournament":
             case "bounties":
+            case "gauntlet":
                 return 0;
         }
     }
@@ -274,6 +275,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "clans":
             case "tournament":
             case "bounties":
+            case "gauntlet":
                 return "";
         }
     }
@@ -291,6 +293,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "tournament": return "Last Tournament";
             case "professions": return "Top Profession XP (all professions)";
             case "bounties": return "Active Bounties";
+            case "gauntlet": return "Weekly Pet Gauntlet";
         }
     }
 
