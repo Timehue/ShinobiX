@@ -22,8 +22,8 @@ import type { Pet, PetJutsu } from "../types/pet";
 import { derivePetRole, type PetRole } from "./pet-roles";
 
 export const BOARD_SQUAD_MAX = 5;
-export const BOARD_ROWS = 2;    // 0 = front line, 1 = back line
-export const BOARD_COLS = 4;
+export const BOARD_ROWS_PER_SIDE = 3;   // grid depth per side (0 = front … 2 = back)
+export const BOARD_COLS = 5;            // grid width
 const MAX_ROUNDS = 40;
 const DMG_SCALE = 1.5;
 const CRIT_CHANCE = 0.12;
@@ -119,13 +119,15 @@ const teamAlive = (units: Unit[], team: "player" | "enemy") => units.some((u) =>
 function pickTarget(u: Unit, units: Unit[]): Unit | null {
     const foes = units.filter((f) => f.team !== u.team && alive(f));
     if (!foes.length) return null;
-    const front = foes.filter((f) => f.row === 0);
-    const back = foes.filter((f) => f.row === 1);
+    const minRow = Math.min(...foes.map((f) => f.row));   // the current front line (advances as it dies)
+    const maxRow = Math.max(...foes.map((f) => f.row));   // the deepest back line (carries)
+    const front = foes.filter((f) => f.row === minRow);
+    const back = foes.filter((f) => f.row === maxRow);
     const byCol = (pool: Unit[]) => pool.length ? [...pool].sort((a, b) => Math.abs(a.col - u.col) - Math.abs(b.col - u.col) || a.slot - b.slot)[0] : null;
     const byLowHp = (pool: Unit[]) => pool.length ? [...pool].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0] : null;
     if (u.role === "assassin") return byLowHp(back) ?? byLowHp(front);
     if (u.role === "tracker") return byLowHp(foes);
-    return byCol(front) ?? byCol(back);
+    return byCol(front);
 }
 
 /** The lowest-HP-fraction living ally (heal/shield priority). */
