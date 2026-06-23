@@ -34,9 +34,11 @@ import {
     buildRecommendations,
     recommendedMission,
     worldReport,
+    dailyLoginRyo,
     STREAK_SHARD_INTERVAL,
     STREAK_SHARD_REWARD,
 } from "../lib/daily-briefing";
+import briefingBg from "../assets/daily-briefing.webp";
 
 const SEEN_KEY = "dailyBriefing.seen.v1";
 const MIN_LEVEL = 5;
@@ -61,20 +63,27 @@ export function DailyBriefingModal({
     });
     const shouldShow = character.level >= MIN_LEVEL && !dismissed;
 
+    // The login reward is collected by an explicit Claim button (not auto-granted).
+    // `claim` holds the server result once collected this session; the save's
+    // lastLoginRewardDate tells us if it was already collected earlier today.
     const [claim, setClaim] = useState<DailyLoginResult | null>(null);
+    const [claiming, setClaiming] = useState(false);
     const [unread, setUnread] = useState(getUnreadMail());
-    const claimedRef = useRef(false);
+    const claimingRef = useRef(false);
 
-    // Auto-collect the login reward once when the briefing opens for the day.
-    // Server is idempotent (date-stamped), so a re-fire is a harmless no-op. The
-    // claimedRef guard makes the dep re-runs (character changing after the credit)
-    // early-return instead of double-claiming.
-    useEffect(() => {
-        if (!shouldShow || claimedRef.current) return;
-        claimedRef.current = true;
-        let alive = true;
+    useEffect(() => subscribeUnreadMail(setUnread), []);
+
+    if (!shouldShow) return null;
+
+    const alreadyClaimedToday = character.lastLoginRewardDate === today;
+
+    const claimReward = () => {
+        if (claimingRef.current || claim || alreadyClaimedToday) return;
+        claimingRef.current = true;
+        setClaiming(true);
         void claimDailyLogin(character.name).then((res) => {
-            if (!alive || !res) return;
+            setClaiming(false);
+            if (!res) { claimingRef.current = false; return; } // let the player retry on error
             setClaim(res);
             if (!res.alreadyClaimed && (res.granted.ryo || res.granted.fateShards)) {
                 updateCharacter({
@@ -86,12 +95,7 @@ export function DailyBriefingModal({
                 });
             }
         });
-        return () => { alive = false; };
-    }, [shouldShow, character, updateCharacter, today]);
-
-    useEffect(() => subscribeUnreadMail(setUnread), []);
-
-    if (!shouldShow) return null;
+    };
 
     const close = () => {
         try { localStorage.setItem(SEEN_KEY, today); } catch { /* ignore */ }
@@ -99,6 +103,7 @@ export function DailyBriefingModal({
     };
     const go = (screen: Screen) => { close(); navigate(screen); };
 
+    const previewRyo = dailyLoginRyo(character.level);
     const streak = claim?.streak ?? character.loginStreak ?? 0;
     const shardCountdown = claim
         ? claim.daysUntilShardBonus
@@ -130,7 +135,11 @@ export function DailyBriefingModal({
 
     return createPortal(
         <div className="daily-briefing-backdrop" role="dialog" aria-modal="true" aria-label="Daily Briefing" onClick={close}>
-            <div className="daily-briefing-card" onClick={(e) => e.stopPropagation()}>
+            <div
+                className="daily-briefing-card"
+                style={{ backgroundImage: `linear-gradient(180deg, rgba(8,12,24,0.42), rgba(8,12,24,0.86) 46%, rgba(8,12,24,0.95)), url(${briefingBg})` }}
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className="daily-briefing-header">
                     <div className="daily-briefing-titles">
                         <h2>Daily Briefing</h2>
@@ -143,28 +152,30 @@ export function DailyBriefingModal({
                             {/* ── Login reward ──────────────────────────────── */}
                             <div className="db-reward">
                                 <div className="db-reward-main">
-                                    {claim ? (
-                                        claim.granted.ryo || claim.granted.fateShards ? (
-                                            <>
-                                                <span className="db-reward-amt">🎁 +{claim.granted.ryo.toLocaleString()} ryo</span>
-                                                {claim.granted.fateShards > 0 && (
-                                                    <span className="db-reward-shards">+{claim.granted.fateShards} Fate Shards!</span>
-                                                )}
-                                                <span className="db-reward-sub">Daily login reward collected</span>
-                                            </>
-                                        ) : (
-                                            <span className="db-reward-sub">✓ Today's login reward already collected</span>
-                                        )
+                                    {claim && (claim.granted.ryo || claim.granted.fateShards) ? (
+                                        <>
+                                            <span className="db-reward-amt">🎁 +{claim.granted.ryo.toLocaleString()} ryo</span>
+                                            {claim.granted.fateShards > 0 && (
+                                                <span className="db-reward-shards">+{claim.granted.fateShards} Fate Shards!</span>
+                                            )}
+                                            <span className="db-reward-sub">Daily login reward collected</span>
+                                        </>
+                                    ) : claim || alreadyClaimedToday ? (
+                                        <span className="db-reward-sub">✓ Today's login reward already collected</span>
                                     ) : (
-                                        <span className="db-reward-sub">Collecting today's reward…</span>
+                                        <button type="button" className="db-claim-btn" onClick={claimReward} disabled={claiming}>
+                                            {claiming ? "Claiming…" : `🎁 Claim +${previewRyo.toLocaleString()} ryo`}
+                                        </button>
                                     )}
                                 </div>
                                 <div className="db-streak">
-                                    <span className="db-streak-flame">🔥 {streak}-day streak</span>
+                                    <span className="db-streak-flame">{streak > 0 ? `🔥 ${streak}-day streak` : "🔥 Start your streak"}</span>
                                     <span className="db-streak-next">
-                                        {shardCountdown === 0
+                                        {claim && shardCountdown === 0
                                             ? `+${STREAK_SHARD_REWARD} Fate Shards today!`
-                                            : `${shardCountdown} day${shardCountdown === 1 ? "" : "s"} to ${STREAK_SHARD_REWARD} Fate Shards`}
+                                            : (claim || alreadyClaimedToday)
+                                                ? `${shardCountdown} day${shardCountdown === 1 ? "" : "s"} to ${STREAK_SHARD_REWARD} Fate Shards`
+                                                : "Claim to extend your streak"}
                                     </span>
                                 </div>
                             </div>
