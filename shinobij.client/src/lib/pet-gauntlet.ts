@@ -153,7 +153,7 @@ const EMPTY_BUFFS: GauntletBuffs = { atk: 0, def: 0, hp: 0, spd: 0 };
 // economy boons), so the determinism-locked board sim never changes.
 export type RelicId =
     | "titan_heart" | "razor_fang" | "aegis_plating" | "swift_wind"      // stat
-    | "merchant_charm" | "lucky_coin"                                    // economy
+    | "merchant_charm" | "lucky_coin" | "beast_bond"                     // economy
     | "stoneward" | "phoenix_plume" | "bramble_mail" | "chain_charm" | "vampiric_fang";  // combat
 export type RelicTier = "stat" | "economy" | "combat";
 export interface RelicDef {
@@ -161,6 +161,7 @@ export interface RelicDef {
     stat?: Partial<GauntletBuffs>;   // squad stat scale folded into run.buffs on purchase
     valorPerRound?: number;          // passive Valor income each new round
     freeReroll?: boolean;            // first reroll each round is free
+    mergeDiscount?: number;          // Valor knocked off each MERGE buy (min 0)
     mods?: Partial<BoardMods>;       // combat-relic effects applied to the board sim
 }
 export const GAUNTLET_RELICS: RelicDef[] = [
@@ -172,6 +173,7 @@ export const GAUNTLET_RELICS: RelicDef[] = [
     // ── Economy — snowball your Valor ───────────────────────────────────────────
     { id: "merchant_charm", name: "Merchant's Charm", icon: "🪙", blurb: "+3 Valor at the start of every round.",       cost: 7, tier: "economy", valorPerRound: 3 },
     { id: "lucky_coin",     name: "Lucky Coin",       icon: "🍀", blurb: "Your first reroll each round is free.",       cost: 4, tier: "economy", freeReroll: true },
+    { id: "beast_bond",     name: "Beast Bond",       icon: "🐾", blurb: "Merging a pet you own costs 2 less Valor.",   cost: 6, tier: "economy", mergeDiscount: 2 },
     // ── Combat — change how the fight plays out (priciest tier) ─────────────────
     { id: "stoneward",      name: "Stoneward",        icon: "🪨", blurb: "Each pet starts the fight shielded (15% max HP).", cost: 7, tier: "combat", mods: { shieldStartFrac: 0.15 } },
     { id: "phoenix_plume",  name: "Phoenix Plume",    icon: "🪶", blurb: "The first ally to fall revives once at 35% HP.",    cost: 9, tier: "combat", mods: { reviveCharges: 1, reviveHpFrac: 0.35 } },
@@ -190,6 +192,14 @@ export function relicValorPerRound(relics: RelicId[]): number {
 /** Whether the owned relics make the first reroll of a round free. */
 export function hasFreeReroll(relics: RelicId[]): boolean {
     return relics.some((id) => RELIC_BY_ID[id]?.freeReroll);
+}
+/** Total Valor discount the owned relics apply to a MERGE buy. */
+export function mergeDiscountFromRelics(relics: RelicId[]): number {
+    return relics.reduce((s, id) => s + (RELIC_BY_ID[id]?.mergeDiscount ?? 0), 0);
+}
+/** Effective Valor cost of recruiting this offer — discounted when it's a merge. */
+export function offerCost(run: GauntletRun, offer: GauntletOffer): number {
+    return wouldMerge(run, offer.pet) ? Math.max(0, offer.cost - mergeDiscountFromRelics(run.relics)) : offer.cost;
 }
 /** Combine the owned combat relics into the board-sim player modifiers. */
 export function boardModsFromRelics(relics: RelicId[]): Partial<BoardMods> {
@@ -307,11 +317,13 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
     if (run.status !== "drafting") return run;
     const offer = run.shop[offerIndex];
     if (!offer) return run;
-    if (run.valor < offer.cost) return run;
     // MERGE: if you already hold this pet, level the existing copy up instead of
     // adding a duplicate (so it works even at a full roster — it adds no slot).
+    // A Beast Bond relic discounts the merge cost.
     const dupIdx = run.roster.findIndex((p) => petStripVariant(p.id) === offer.pet.id);
     if (dupIdx >= 0) {
+        const cost = Math.max(0, offer.cost - mergeDiscountFromRelics(run.relics));
+        if (run.valor < cost) return run;
         const existing = run.roster[dupIdx];
         const merged: Pet = {
             ...existing,
@@ -322,13 +334,14 @@ export function buyOffer(run: GauntletRun, offerIndex: number): GauntletRun {
         };
         return {
             ...run,
-            valor: run.valor - offer.cost,
+            valor: run.valor - cost,
             roster: run.roster.map((p, i) => (i === dupIdx ? merged : p)),
             stars: { ...run.stars, [existing.id]: (run.stars[existing.id] ?? 1) + 1 },
             shop: run.shop.filter((_, i) => i !== offerIndex),
             log: [...run.log, `${existing.name} merged → ★${(run.stars[existing.id] ?? 1) + 1}.`],
         };
     }
+    if (run.valor < offer.cost) return run;
     if (run.roster.length >= GAUNTLET_ROSTER_CAP) return run;
     const pet = instantiate(offer.pet, run.instanceCounter);
     const roster = [...run.roster, pet];
