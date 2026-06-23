@@ -2,11 +2,18 @@
  * pet-board-sim — the Pet Gauntlet BOARD auto-battler resolver (POSITIONAL).
  *
  * A purpose-built, deterministic engine for the Gauntlet's TFT-style board: each
- * unit sits in a grid cell (row, col) — row 0 = FRONT, row 1 = BACK — and acts in
- * speed order until one side is wiped. Placement is a real lever: the FRONT row
- * shields the BACK, so melee must clear the front before reaching the back; only
- * assassins (dive the back carries) and trackers (ranged, snipe lowest anywhere)
- * reach past the front line. Support pets (heal/shield) tend the wounded.
+ * unit sits in a grid cell (row, col) — row 0 = FRONT, row 2 = BACK — and acts in
+ * speed order until one side is wiped. Placement is a real lever:
+ *   • the FRONT row shields the BACK — melee must clear the front before reaching
+ *     the back; only assassins (dive the back carries) and trackers (ranged, snipe
+ *     lowest anywhere) reach past the front line;
+ *   • a front-row DEFENDER TAUNTS — enemy melee must hit a living front defender
+ *     before its squishier lane-mates (so a tank actually protects its row);
+ *   • assassins/trackers HUNT the enemy SAGE (healer) first — a backlined sage is
+ *     prey, so the player must protect or hide it;
+ *   • POSITIONAL DAMAGE — the vanguard (row 0) presses for +dmg, and the back row
+ *     fights from cover (reduced melee damage), so front/back is a risk/reward axis.
+ * Support pets (heal/shield) tend the wounded.
  *
  * It is NOT the continuous duel sim (spatial 1v1/2v2 for the Pet Coliseum) and
  * NOT the retired round engine — it's its own simple resolver so the board view
@@ -28,6 +35,9 @@ const MAX_ROUNDS = 40;
 const DMG_SCALE = 1.5;
 const CRIT_CHANCE = 0.12;
 const CRIT_MULT = 1.5;
+// Positional damage tilt (role + position synergy). Deterministic, no RNG.
+const FRONT_DMG_BONUS = 1.12;   // vanguard (row 0) presses the attack → +12% out
+const BACK_COVER_MULT = 0.82;   // the deepest row fights from cover → −18% in, vs MELEE only
 
 // Fire > Wind > Lightning > Earth > Water > Fire (same cycle as the duel sim).
 const ELEMENT_CYCLE = ["Fire", "Wind", "Lightning", "Earth", "Water"];
@@ -127,10 +137,12 @@ const teamAlive = (units: Unit[], team: "player" | "enemy") => units.some((u) =>
 
 /**
  * Position + role aware target selection — the heart of why placement matters:
- *   • assassin → dives the enemy BACK row (their carries), then the front;
- *   • tracker (ranged) → snipes the lowest-HP enemy ANYWHERE (reaches the back);
- *   • everyone else (defender/sage melee) → hits the enemy FRONT row, by nearest
- *     column, and only reaches the BACK once the front line is wiped.
+ *   • assassin → dives the enemy BACK row, HUNTING the Sage (healer) there first,
+ *     then the lowest-HP back carry, then the front;
+ *   • tracker (ranged) → snipes the lowest-HP enemy SAGE, else lowest ANYWHERE;
+ *   • everyone else (defender/sage melee) → hits the enemy FRONT row by nearest
+ *     column, but a living front-row DEFENDER TAUNTS (is hit before its squishier
+ *     lane-mates); only reaches the BACK once the front line is wiped.
  */
 function pickTarget(u: Unit, units: Unit[]): Unit | null {
     const foes = units.filter((f) => f.team !== u.team && alive(f));
@@ -141,9 +153,17 @@ function pickTarget(u: Unit, units: Unit[]): Unit | null {
     const back = foes.filter((f) => f.row === maxRow);
     const byCol = (pool: Unit[]) => pool.length ? [...pool].sort((a, b) => Math.abs(a.col - u.col) - Math.abs(b.col - u.col) || a.slot - b.slot)[0] : null;
     const byLowHp = (pool: Unit[]) => pool.length ? [...pool].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0] : null;
-    if (u.role === "assassin") return byLowHp(back) ?? byLowHp(front);
-    if (u.role === "tracker") return byLowHp(foes);
-    return byCol(front);
+    if (u.role === "assassin") {
+        const backSages = back.filter((f) => f.role === "sage");   // dive the healer first
+        return byLowHp(backSages) ?? byLowHp(back) ?? byLowHp(front);
+    }
+    if (u.role === "tracker") {
+        const sages = foes.filter((f) => f.role === "sage");       // ranged healer-hunter
+        return byLowHp(sages) ?? byLowHp(foes);
+    }
+    // Melee: a front-row defender taunts — soak it before the squishier front pets.
+    const frontDefenders = front.filter((f) => f.role === "defender");
+    return byCol(frontDefenders.length ? frontDefenders : front);
 }
 
 /** A 2nd foe for the chain relic — nearest column to the first target, then lowest HP. */
@@ -161,6 +181,19 @@ function woundedAlly(units: Unit[], team: "player" | "enemy"): Unit | null {
 
 function defenseFactor(def: number): number {
     return Math.max(0.35, 1 - def * 0.0012);
+}
+
+/**
+ * Positional damage tilt (deterministic): the vanguard (row 0) presses for +dmg,
+ * and the deepest row fights from cover (−dmg) — but cover only blunts MELEE
+ * (defender/sage), since assassins dive and trackers snipe past the formation.
+ */
+function positionalDmgMult(attacker: Unit, target: Unit): number {
+    let m = 1;
+    if (attacker.row === 0) m *= FRONT_DMG_BONUS;
+    const meleeAttacker = attacker.role !== "assassin" && attacker.role !== "tracker";
+    if (meleeAttacker && target.row >= BOARD_ROWS_PER_SIDE - 1) m *= BACK_COVER_MULT;
+    return m;
 }
 
 function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, attackerId: string, crit: boolean, element?: string | null, kind?: PetJutsu["kind"], ctx?: BoardCtx) {
@@ -233,12 +266,12 @@ function act(u: Unit, units: Unit[], rng: () => number, t: number, events: Board
         if (!target) return;
         if (ready.act === "control") {
             target.stunned = true;
-            const raw = atk * DMG_SCALE * 0.4 * elementMult(u.element, target.element) * defenseFactor(target.defense);
+            const raw = atk * DMG_SCALE * 0.4 * elementMult(u.element, target.element) * defenseFactor(target.defense) * positionalDmgMult(u, target);
             dealDamage(target, raw, events, t, u.id, crit, u.element, ready.kind, ctx);
             relicHeal(raw);
             return;
         }
-        const raw = atk * DMG_SCALE * (ready.power / 100 || 1) * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense);
+        const raw = atk * DMG_SCALE * (ready.power / 100 || 1) * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense) * positionalDmgMult(u, target);
         dealDamage(target, raw, events, t, u.id, crit, u.element, ready.kind, ctx);
         if (ready.lifesteal) u.hp = Math.min(u.maxHp, u.hp + Math.round(Math.max(1, raw) * 0.4));
         else relicHeal(raw);
@@ -248,14 +281,14 @@ function act(u: Unit, units: Unit[], rng: () => number, t: number, events: Board
     const target = pickTarget(u, units);
     if (!target) return;
     events.push({ t, type: "attack", actorId: u.id, targetId: target.id, element: u.element });
-    const raw = atk * DMG_SCALE * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense);
+    const raw = atk * DMG_SCALE * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense) * positionalDmgMult(u, target);
     dealDamage(target, raw, events, t, u.id, crit, u.element, undefined, ctx);
     relicHeal(raw);
     // Chain Lightning — the basic attack arcs to a 2nd foe for a fraction of the hit.
     if (isPlayer && ctx.mods.chainPct > 0) {
         const second = pickChain(u, units, target);
         if (second) {
-            const craw = atk * DMG_SCALE * ctx.mods.chainPct * elementMult(u.element, second.element) * defenseFactor(second.defense);
+            const craw = atk * DMG_SCALE * ctx.mods.chainPct * elementMult(u.element, second.element) * defenseFactor(second.defense) * positionalDmgMult(u, second);
             dealDamage(second, craw, events, t, u.id, false, u.element, undefined, ctx);
             relicHeal(craw);
         }
