@@ -23,6 +23,7 @@ import {
 } from "../lib/pet-gauntlet";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
+import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 
 const PetColiseumDuel = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
@@ -100,8 +101,8 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
 
     return (
         <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
-            {/* Hero header (CSS for now; a generated banner is a polish follow-up). */}
-            <div style={{ borderRadius: 12, padding: "14px 18px", background: "linear-gradient(110deg, #1b1230, #2a1c10 60%, #0d1726)", border: "1px solid #3b2f55" }}>
+            {/* Hero header — generated banner (fal Flux) under a dark gradient for text legibility. */}
+            <div style={{ borderRadius: 12, padding: "22px 20px", border: "1px solid #3b2f55", backgroundImage: `linear-gradient(105deg, rgba(8,11,22,0.86), rgba(8,11,22,0.4) 70%), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center 38%" }}>
                 <h3 style={{ margin: 0, font: "800 1.15rem Cinzel, serif", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
                     Draft a run-only squad from the wilds, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
