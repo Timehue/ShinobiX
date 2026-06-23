@@ -123,9 +123,42 @@ const GAUNTLET_ITEM_BY_ID: Record<GauntletItemId, GauntletItemDef> =
 export function itemCost(def: GauntletItemDef, owned: number): number {
     return def.baseCost + def.step * Math.max(0, owned);
 }
-/** Run-wide stat buffs accumulated from Whetstone/Bulwark/Vigor (fractional pct). */
-export interface GauntletBuffs { atk: number; def: number; hp: number; }
-const EMPTY_BUFFS: GauntletBuffs = { atk: 0, def: 0, hp: 0 };
+/** Run-wide stat buffs accumulated from shop items + relics (fractional pct). */
+export interface GauntletBuffs { atk: number; def: number; hp: number; spd: number; }
+const EMPTY_BUFFS: GauntletBuffs = { atk: 0, def: 0, hp: 0, spd: 0 };
+
+// ── Relics (bought with Valor in the shop) ───────────────────────────────────
+// Permanent run-long boons, owned at most once. A small shelf rolls each round
+// alongside the pet offers, so a relic competes with recruiting/items for Valor.
+// v1 effects are engine-light (squad stat scales folded into the buffs, plus two
+// economy boons), so the determinism-locked board sim never changes.
+export type RelicId = "titan_heart" | "razor_fang" | "aegis_plating" | "swift_wind" | "merchant_charm" | "lucky_coin";
+export interface RelicDef {
+    id: RelicId; name: string; icon: string; blurb: string; cost: number;
+    stat?: Partial<GauntletBuffs>;   // squad stat scale folded into run.buffs on purchase
+    valorPerRound?: number;          // passive Valor income each new round
+    freeReroll?: boolean;            // first reroll each round is free
+}
+export const GAUNTLET_RELICS: RelicDef[] = [
+    { id: "titan_heart",    name: "Titan's Heart",     icon: "💖", blurb: "+25% squad HP for the run.",                   cost: 8, stat: { hp: 0.25 } },
+    { id: "razor_fang",     name: "Razor Fang",        icon: "🦷", blurb: "+18% squad Attack for the run.",               cost: 8, stat: { atk: 0.18 } },
+    { id: "aegis_plating",  name: "Aegis Plating",     icon: "🛡️", blurb: "+25% squad Defense for the run.",              cost: 6, stat: { def: 0.25 } },
+    { id: "swift_wind",     name: "Swift Wind",        icon: "🌀", blurb: "+20% squad Speed — your pets act first.",      cost: 6, stat: { spd: 0.20 } },
+    { id: "merchant_charm", name: "Merchant's Charm",  icon: "🪙", blurb: "+3 Valor at the start of every round.",        cost: 7, valorPerRound: 3 },
+    { id: "lucky_coin",     name: "Lucky Coin",        icon: "🍀", blurb: "Your first reroll each round is free.",        cost: 5, freeReroll: true },
+];
+const RELIC_BY_ID: Record<RelicId, RelicDef> =
+    Object.fromEntries(GAUNTLET_RELICS.map((d) => [d.id, d])) as Record<RelicId, RelicDef>;
+const RELIC_SHOP_SIZE = 2;
+export function relicDef(id: RelicId): RelicDef { return RELIC_BY_ID[id]; }
+/** Total passive Valor-per-round granted by the owned relics. */
+export function relicValorPerRound(relics: RelicId[]): number {
+    return relics.reduce((s, id) => s + (RELIC_BY_ID[id]?.valorPerRound ?? 0), 0);
+}
+/** Whether the owned relics make the first reroll of a round free. */
+export function hasFreeReroll(relics: RelicId[]): boolean {
+    return relics.some((id) => RELIC_BY_ID[id]?.freeReroll);
+}
 
 // ── Run-pet instantiation (run-only copies) ──────────────────────────────────
 /** Clone a template into a run-only pet: a unique instance id (so duplicates and
@@ -168,7 +201,9 @@ export interface GauntletRun {
     fieldIds: string[];       // which roster pets are fielded (≤ FIELD_CAP), lead first
     shop: GauntletOffer[];
     itemsBought: Record<GauntletItemId, number>;  // how many of each shop item bought
-    buffs: GauntletBuffs;     // run-wide squad stat boosts from items
+    relics: RelicId[];        // owned relics (each at most once)
+    relicShop: RelicId[];     // relic offers available this round
+    buffs: GauntletBuffs;     // run-wide squad stat boosts from items + relics
     roundsCleared: number;    // rounds WON so far (drives the Ryo reward + leaderboard)
     status: GauntletStatus;
     log: string[];
@@ -181,6 +216,13 @@ function rollShop(seed: number, round: number, rerolls: number): GauntletOffer[]
         const pet = tier.length ? tier[Math.floor(rng() * tier.length)] : POOL[0];
         return { pet, cost: RARITY_COST[pet.rarity] };
     });
+}
+
+/** Roll the relic shelf for a round — up to RELIC_SHOP_SIZE relics not yet owned. */
+function rollRelicShop(seed: number, round: number, rerolls: number, owned: RelicId[]): RelicId[] {
+    const rng = mulberry32(hashSeed(seed, round, rerolls, 0x9e3d));
+    const pool = GAUNTLET_RELICS.map((d) => d.id).filter((id) => !owned.includes(id));
+    return pickN(pool, RELIC_SHOP_SIZE, rng);
 }
 
 /** Start a fresh run. Deterministic from the seed. */
@@ -197,6 +239,8 @@ export function startGauntletRun(seed: number): GauntletRun {
         fieldIds: [],
         shop: rollShop(seed >>> 0, 1, 0),
         itemsBought: { mend: 0, whetstone: 0, bulwark: 0, vigor: 0 },
+        relics: [],
+        relicShop: rollRelicShop(seed >>> 0, 1, 0, []),
         buffs: { ...EMPTY_BUFFS },
         roundsCleared: 0,
         status: "drafting",
@@ -247,22 +291,59 @@ export function buyItem(run: GauntletRun, itemId: GauntletItemId): GauntletRun {
     return next;
 }
 
-/** Reroll the shop (costs Valor). */
-export function rerollShop(run: GauntletRun): GauntletRun {
-    if (run.status !== "drafting" || run.valor < GAUNTLET_REROLL_COST) return run;
-    const rerolls = run.rerolls + 1;
-    return { ...run, valor: run.valor - GAUNTLET_REROLL_COST, rerolls, shop: rollShop(run.seed, run.round, rerolls) };
+/** Buy a relic from the relic shelf (Valor; owned at most once). Stat relics fold
+ *  into the run buffs immediately; economy relics take effect via their helpers. */
+export function buyRelic(run: GauntletRun, relicId: RelicId): GauntletRun {
+    if (run.status !== "drafting") return run;
+    if (!run.relicShop.includes(relicId) || run.relics.includes(relicId)) return run;
+    const def = RELIC_BY_ID[relicId];
+    if (!def || run.valor < def.cost) return run;
+    return {
+        ...run,
+        valor: run.valor - def.cost,
+        relics: [...run.relics, relicId],
+        relicShop: run.relicShop.filter((id) => id !== relicId),
+        buffs: mergeRelicStat(run.buffs, def.stat),
+    };
 }
 
-/** Apply the run-wide item buffs to a fielded squad (run-only copies; min-1 stats). */
+/** Reroll the shop — re-rolls both the pet offers and the relic shelf. The first
+ *  reroll of a round is free with the Lucky Coin relic. */
+export function rerollShop(run: GauntletRun): GauntletRun {
+    if (run.status !== "drafting") return run;
+    const cost = hasFreeReroll(run.relics) && run.rerolls === 0 ? 0 : GAUNTLET_REROLL_COST;
+    if (run.valor < cost) return run;
+    const rerolls = run.rerolls + 1;
+    return {
+        ...run,
+        valor: run.valor - cost,
+        rerolls,
+        shop: rollShop(run.seed, run.round, rerolls),
+        relicShop: rollRelicShop(run.seed, run.round, rerolls, run.relics),
+    };
+}
+
+/** Apply the run-wide item + relic buffs to a fielded squad (run-only copies; min-1 stats). */
 export function applyGauntletBuffs(pets: Pet[], buffs: GauntletBuffs): Pet[] {
-    if (buffs.atk === 0 && buffs.def === 0 && buffs.hp === 0) return pets;
+    if (buffs.atk === 0 && buffs.def === 0 && buffs.hp === 0 && buffs.spd === 0) return pets;
     return pets.map((p) => ({
         ...p,
         hp: Math.max(1, Math.round(p.hp * (1 + buffs.hp))),
         attack: Math.max(1, Math.round(p.attack * (1 + buffs.atk))),
         defense: Math.max(0, Math.round(p.defense * (1 + buffs.def))),
+        speed: Math.max(1, Math.round(p.speed * (1 + buffs.spd))),
     }));
+}
+
+/** Add a relic's stat scale into the accumulated run buffs. */
+function mergeRelicStat(buffs: GauntletBuffs, stat?: Partial<GauntletBuffs>): GauntletBuffs {
+    if (!stat) return buffs;
+    return {
+        atk: buffs.atk + (stat.atk ?? 0),
+        def: buffs.def + (stat.def ?? 0),
+        hp: buffs.hp + (stat.hp ?? 0),
+        spd: buffs.spd + (stat.spd ?? 0),
+    };
 }
 
 /** Release a run-pet from the roster (no refund — v1 keeps the economy simple). */
@@ -312,6 +393,7 @@ export function beginFight(run: GauntletRun): GauntletRun {
 export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
     if (run.status !== "fighting") return run;
     const nextRound = run.round + 1;
+    const income = relicValorPerRound(run.relics);   // passive Valor when entering the next round
     if (won) {
         const reward = valorRewardForRound(run.round);
         const roundsCleared = run.roundsCleared + 1;
@@ -319,9 +401,10 @@ export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
             return { ...run, status: "won", valor: run.valor + reward, roundsCleared, log: [...run.log, `Round ${run.round} won — THE GAUNTLET IS CLEARED! 🏆`] };
         }
         return {
-            ...run, status: "drafting", round: nextRound, valor: run.valor + reward, roundsCleared, rerolls: 0,
+            ...run, status: "drafting", round: nextRound, valor: run.valor + reward + income, roundsCleared, rerolls: 0,
             shop: rollShop(run.seed, nextRound, 0),
-            log: [...run.log, `Round ${run.round} won! +${reward} Valor — draft for round ${nextRound}.`],
+            relicShop: rollRelicShop(run.seed, nextRound, 0, run.relics),
+            log: [...run.log, `Round ${run.round} won! +${reward}${income ? `+${income}` : ""} Valor — draft for round ${nextRound}.`],
         };
     }
     const hearts = run.hearts - 1;
@@ -332,8 +415,9 @@ export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
         return { ...run, status: "won", hearts, log: [...run.log, `Final round lost, but you survived the Gauntlet with ${hearts} ❤ left.`] };
     }
     return {
-        ...run, status: "drafting", round: nextRound, hearts, rerolls: 0,
+        ...run, status: "drafting", round: nextRound, hearts, valor: run.valor + income, rerolls: 0,
         shop: rollShop(run.seed, nextRound, 0),
+        relicShop: rollRelicShop(run.seed, nextRound, 0, run.relics),
         log: [...run.log, `Round ${run.round} lost — ${hearts} ❤ left. On to round ${nextRound}.`],
     };
 }
