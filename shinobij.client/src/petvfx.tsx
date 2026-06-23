@@ -11,6 +11,8 @@ import { runPetArenaBattle, PetArenaBattlefield, petFramePace } from "./App";
 import { runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
+import { PetBoardArena } from "./components/PetBoardArena";
+import { runPetBoardBattle } from "./lib/pet-board-sim";
 import type { PetJutsu, Pet } from "./types/pet";
 import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
 const jts = (...js: PetJutsu[]) => js;   // typed inline jutsu list for the duel harness
@@ -73,6 +75,19 @@ function Harness() {
         ];
         return arena4 ? [blueAll, redAll] : [[blueAll[0], blueAll[2]], [redAll[1], redAll[3]]];
     }, [arena4]);
+    // ?board=1 — the Pet Gauntlet BOARD auto-battler (PetBoardArena), full 5v5.
+    const boardMode = PARAMS.get("board") === "1";
+    const boardPlayer = useMemo(() => [
+        harnessPet(0, { element: "Fire" }), harnessPet(1, { element: "Fire" }),
+        harnessPet(2, { element: "Water" }), harnessPet(20, { element: "Earth" }),
+        harnessPet(50, { element: "Lightning" }),
+    ], []);
+    const boardEnemy = useMemo(() => [
+        harnessPet(7, { element: "Wind" }), harnessPet(8, { element: "Earth" }),
+        harnessPet(60, { element: "Fire" }), harnessPet(61, { element: "Water" }),
+        harnessPet(62, { element: "Lightning" }),
+    ], []);
+    const boardResult = useMemo(() => runPetBoardBattle(boardPlayer, boardEnemy, seed), [boardPlayer, boardEnemy, seed]);
     const playerPet = useMemo(() => harnessPet(0, { element: "Fire" }), []);
     const enemyPet = useMemo(() => harnessPet(7, { element: "Wind" }), []);
     const playerReserve = useMemo(() => harnessPet(1, { element: "Water" }), []);
@@ -130,6 +145,9 @@ function Harness() {
             )}
             {arenaMode && (
                 <PetArenaMatch blue={arenaBlue} red={arenaRed} seed={seed} sharedImages={harnessShared} onExit={() => { }} />
+            )}
+            {boardMode && (
+                <PetBoardArena result={boardResult} onDone={restart} />
             )}
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <button style={btn} onClick={restart}>⟲ Replay</button>

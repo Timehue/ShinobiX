@@ -94,8 +94,8 @@ describe("setField / releasePet / fieldedPets", () => {
 describe("enemySquadForRound", () => {
     it("is deterministic and scales size with the round", () => {
         const run = startGauntletRun(3);
-        assert.equal(enemySquadForRound(run).length, 1, "round 1-2 = 1 enemy");
-        assert.equal(enemySquadForRound({ ...run, round: 5 }).length, 2, "round 3+ = 2 enemies");
+        assert.equal(enemySquadForRound(run).length, 2, "early rounds field a small squad");
+        assert.equal(enemySquadForRound({ ...run, round: 7 }).length, 5, "late rounds field a full squad");
         assert.deepEqual(
             enemySquadForRound(run).map((p) => p.id),
             enemySquadForRound(startGauntletRun(3)).map((p) => p.id),

@@ -11,10 +11,9 @@
  * element/role SYNERGIES) → fight the round on the continuous engine → win
  * advances + pays gold, loss costs a heart. V1 = PREVIEW (no rewards granted).
  */
-import { lazy, Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Pet } from "../types/pet";
-import type { DuelResult } from "../lib/pet-duel-sim";
-import { runPetPartyDuel } from "../lib/pet-duel-sim";
+import { runPetBoardBattle, type BoardResult } from "../lib/pet-board-sim";
 import {
     startGauntletRun, buyOffer, rerollShop, releasePet, setField, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult,
@@ -24,9 +23,8 @@ import {
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
+import { PetBoardArena } from "./PetBoardArena";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
-
-const PetColiseumDuel = lazy(() => import("./PetColiseum").then((m) => ({ default: m.PetColiseumDuel })));
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -64,8 +62,8 @@ const btn = (bg: string, disabled = false): React.CSSProperties => ({
 
 export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<string, string> }) {
     const [run, setRun] = useState<GauntletRun>(() => startGauntletRun((Date.now() & 0x7fffffff) >>> 0));
-    // The active fight: precomputed DuelResult + the combatants the renderer plays.
-    const [fight, setFight] = useState<{ duel: DuelResult; lead: Pet; reserve?: Pet; enemyLead: Pet; enemyReserve?: Pet; seed: number; key: number } | null>(null);
+    // The active fight: the precomputed board result the board renderer plays.
+    const [fight, setFight] = useState<{ result: BoardResult; key: number } | null>(null);
 
     const fielded = useMemo(() => fieldedPets(run), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
@@ -80,16 +78,15 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
         const squad = applySynergiesToSquad(fielded);
         const enemy = enemySquadForRound(run);
         if (!squad.length || !enemy.length) return;
-        const seed = fightSeed(run);
-        const duel = runPetPartyDuel(squad[0], squad[1] ?? null, enemy[0], enemy[1] ?? null, seed);
+        const result = runPetBoardBattle(squad, enemy, fightSeed(run));
         setRun(beginFight(run));
-        setFight({ duel, lead: squad[0], reserve: squad[1], enemyLead: enemy[0], enemyReserve: enemy[1], seed, key: run.round });
+        setFight({ result, key: run.round });
     }
 
-    // Watched the fight → bank the result and return to drafting (or end the run).
+    // Watched the board fight → bank the result and return to drafting (or end the run).
     function resolveFight() {
         if (!fight) return;
-        setRun((r) => applyRoundResult(r, fight.duel.result === "win"));
+        setRun((r) => applyRoundResult(r, fight.result.result === "win"));
         setFight(null);
     }
 
@@ -194,22 +191,9 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                 </>
             )}
 
-            {/* The round fight — full-screen continuous duel; either end button banks the result. */}
+            {/* The round fight — full-screen board auto-battle; Continue banks the result. */}
             {fight && (
-                <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading the arena…</div>}>
-                    <PetColiseumDuel
-                        key={fight.key}
-                        playerPet={fight.lead}
-                        enemyPet={fight.enemyLead}
-                        playerReservePet={fight.reserve}
-                        enemyReservePet={fight.enemyReserve}
-                        seed={fight.seed}
-                        result={fight.duel}
-                        sharedImages={sharedImages}
-                        onFightAgain={resolveFight}
-                        onExit={resolveFight}
-                    />
-                </Suspense>
+                <PetBoardArena key={fight.key} result={fight.result} sharedImages={sharedImages} onDone={resolveFight} />
             )}
         </section>
     );
