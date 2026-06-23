@@ -2007,14 +2007,12 @@ button {
     border-radius: 16px;
     border: 1px solid rgba(250, 204, 21, 0.35);
     color: #e5e7eb;
-    /* The atmospheric, TEXTLESS background art sits behind a vertical scrim that
-       is light at the top (header — art shows through) and heavy lower down so
-       the translucent content panels stay readable. If the webp is absent the
-       solid base colour + gradient still look intentional. */
+    /* The atmospheric, TEXTLESS background art is set inline on the element
+       (an imported, Vite-hashed asset) layered under a vertical scrim that is
+       light at the top (header — art shows through) and heavy lower down so the
+       translucent content panels stay readable. The solid base colour shows if
+       the image is ever missing. */
     background-color: #0b1120;
-    background-image:
-        linear-gradient(180deg, rgba(8, 12, 24, 0.55), rgba(8, 12, 24, 0.9) 42%, rgba(8, 12, 24, 0.96) 100%),
-        url(/daily-briefing.webp);
     background-size: cover;
     background-position: center top;
     background-repeat: no-repeat;
@@ -2075,6 +2073,23 @@ button {
 .db-reward-amt { font-size: 1.15rem; font-weight: 800; color: #fcd34d; text-shadow: 0 1px 4px #000; }
 .db-reward-shards { font-size: 0.95rem; font-weight: 800; color: #ce93d8; }
 .db-reward-sub { font-size: 0.82rem; color: #e2e8f0; }
+.db-claim-btn {
+    padding: 9px 18px;
+    border-radius: 9px;
+    border: 1px solid rgba(252, 211, 77, 0.7);
+    background: linear-gradient(180deg, #fbbf24, #d97706);
+    color: #1a1207;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45);
+    transition: filter 0.12s ease, transform 0.08s ease;
+    animation: db-claim-pulse 1.8s ease-in-out infinite;
+}
+.db-claim-btn:hover { filter: brightness(1.08); }
+.db-claim-btn:active { transform: translateY(1px); }
+.db-claim-btn:disabled { filter: grayscale(0.3) brightness(0.9); cursor: default; animation: none; }
+@keyframes db-claim-pulse { 0%, 100% { box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45); } 50% { box-shadow: 0 2px 18px rgba(252, 211, 77, 0.75); } }
 .db-streak { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .db-streak-flame { font-size: 0.95rem; font-weight: 800; color: #fb923c; }
 .db-streak-next { font-size: 0.72rem; color: #cbd5e1; }
