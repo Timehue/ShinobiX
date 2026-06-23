@@ -16,7 +16,8 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import type { BoardResult } from "../lib/pet-board-sim";
 import { BOARD_COLS } from "../lib/pet-board-sim";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petCardImage, elementVfxKey } from "../lib/pet-battle-anim";
+import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
@@ -39,6 +40,72 @@ function useTex(url: string | undefined): THREE.Texture | null {
         return () => { live = false; };
     }, [url]);
     return tex;
+}
+
+// ── Element VFX: a tinted orb flies attacker→target, then the element's burst
+// animation (the bundled jutsu FX frames) plays on impact. ───────────────────
+const EL_GLOW: Record<string, string> = { Fire: "#ff7a2f", Water: "#39b6ff", Wind: "#74f0d0", Lightning: "#ffe14d", Earth: "#caa46a" };
+const elGlow = (el?: string | null) => (el && EL_GLOW[el]) || "#cbd5e1";
+
+const fxTexCache = new Map<string, THREE.Texture>();
+function fxTex(url: string): THREE.Texture {
+    let t = fxTexCache.get(url);
+    if (!t) { t = new THREE.TextureLoader().load(url); t.colorSpace = THREE.SRGBColorSpace; fxTexCache.set(url, t); }
+    return t;
+}
+let _orb: THREE.Texture | null = null;
+function orbTex(): THREE.Texture {
+    if (_orb) return _orb;
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const g = c.getContext("2d")!;
+    const grd = g.createRadialGradient(32, 32, 1, 32, 32, 31);
+    grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(0.45, "rgba(255,255,255,0.8)"); grd.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+    _orb = new THREE.CanvasTexture(c); _orb.colorSpace = THREE.SRGBColorSpace; return _orb;
+}
+// Discard near-black background pixels so pose sprites with a dark (non-alpha)
+// background stand cleanly on the board instead of showing a dark box.
+const blackKey = (shader: { fragmentShader: string }) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        "#include <map_fragment>\n  if (dot(diffuseColor.rgb, vec3(0.299,0.587,0.114)) < 0.07) discard;",
+    );
+};
+
+type Vec3 = [number, number, number];
+
+function BoardProjectile({ from, to, color, onArrive }: { from: Vec3; to: Vec3; color: string; onArrive: () => void }) {
+    const grp = useRef<THREE.Group>(null);
+    const born = useRef<number | null>(null);
+    const fired = useRef(false);
+    useFrame((state) => {
+        if (born.current === null) born.current = state.clock.elapsedTime;
+        const t = Math.min(1, (state.clock.elapsedTime - born.current) / 0.26);
+        const g = grp.current;
+        if (g) g.position.set(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t + Math.sin(t * Math.PI) * 0.7, from[2] + (to[2] - from[2]) * t);
+        if (t >= 1 && !fired.current) { fired.current = true; onArrive(); }
+    });
+    return (
+        <group ref={grp} position={from}>
+            <Billboard><mesh><planeGeometry args={[0.85, 0.85]} /><meshBasicMaterial map={orbTex()} color={color} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>
+        </group>
+    );
+}
+
+function BoardBurst({ pos, frames, onDone }: { pos: Vec3; frames: string[]; onDone: () => void }) {
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const born = useRef<number | null>(null);
+    const texes = useMemo(() => frames.map(fxTex), [frames]);
+    useFrame((state) => {
+        if (born.current === null) born.current = state.clock.elapsedTime;
+        const t = (state.clock.elapsedTime - born.current) / 0.48;
+        if (t >= 1) { onDone(); return; }
+        const m = mat.current; if (!m) return;
+        m.map = texes[Math.min(texes.length - 1, Math.floor(t * texes.length))];
+        m.opacity = 1 - t * t;
+        m.needsUpdate = true;
+    });
+    return <Billboard position={pos}><mesh><planeGeometry args={[2.7, 2.7]} /><meshBasicMaterial ref={mat} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh></Billboard>;
 }
 
 interface Beat { hp: number; maxHp: number; alive: boolean; dmg: number; hit: boolean; acted: boolean; }
@@ -80,7 +147,7 @@ function Standee({ x, z, tex, beat, element }: { x: number; z: number; tex: THRE
             <Billboard follow lockX lockZ position={[0, SPRITE_H / 2 + 0.1, 0]}>
                 <mesh>
                     <planeGeometry args={[SPRITE_H * 0.92, SPRITE_H]} />
-                    <meshBasicMaterial ref={mat} map={tex ?? undefined} transparent alphaTest={0.35} toneMapped={false} />
+                    <meshBasicMaterial ref={mat} map={tex ?? undefined} transparent alphaTest={0.12} onBeforeCompile={blackKey} toneMapped={false} />
                 </mesh>
                 {/* HP bar above the head */}
                 <group position={[0, SPRITE_H / 2 + 0.28, 0]}>
@@ -97,6 +164,28 @@ function BoardScene({ result, round, fx, texMap }: {
 }) {
     const floor = useTex(gauntletBoard);
     const snap = result.snapshots[Math.min(round, result.snapshots.length - 1)];
+    const idRef = useRef(0);
+    const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; element?: string | null }>>([]);
+    const [bursts, setBursts] = useState<Array<{ id: number; pos: Vec3; frames: string[] }>>([]);
+    const worldOf = (id: string): Vec3 | null => {
+        const u = result.roster.find((x) => x.id === id); if (!u) return null;
+        return [cx(u.col), SPRITE_H * 0.55, cz(boardRowOf(u))];
+    };
+    const spawnBurst = (pos: Vec3, element?: string | null) => {
+        const frames = bundledJutsuFxFrames(elementVfxKey(element));
+        if (!frames || !frames.length) return;
+        setBursts((b) => [...b, { id: ++idRef.current, pos, frames }]);
+    };
+    // Each round, fling an element orb attacker→target for every landed hit.
+    useEffect(() => {
+        const add: Array<{ id: number; from: Vec3; to: Vec3; element?: string | null }> = [];
+        for (const e of result.events) {
+            if (e.t !== round || e.type !== "hit" || !e.actorId || !e.targetId) continue;
+            const from = worldOf(e.actorId); const to = worldOf(e.targetId);
+            if (from && to) add.push({ id: ++idRef.current, from, to, element: e.element });
+        }
+        if (add.length) setShots((s) => [...s, ...add]);   // eslint-disable-line react-hooks/set-state-in-effect
+    }, [round, result]);   // eslint-disable-line react-hooks/exhaustive-deps
     return (
         <>
             <ambientLight intensity={1} />
@@ -113,6 +202,13 @@ function BoardScene({ result, round, fx, texMap }: {
                         beat={{ hp: s?.hp ?? 0, maxHp: s?.maxHp ?? u.pet.hp, alive: s?.alive ?? false, dmg: f.dmg, hit: f.hit, acted: f.acted }} />
                 );
             })}
+            {shots.map((s) => (
+                <BoardProjectile key={s.id} from={s.from} to={s.to} color={elGlow(s.element)}
+                    onArrive={() => { setShots((x) => x.filter((y) => y.id !== s.id)); spawnBurst(s.to, s.element); }} />
+            ))}
+            {bursts.map((b) => (
+                <BoardBurst key={b.id} pos={b.pos} frames={b.frames} onDone={() => setBursts((x) => x.filter((y) => y.id !== b.id))} />
+            ))}
         </>
     );
 }
