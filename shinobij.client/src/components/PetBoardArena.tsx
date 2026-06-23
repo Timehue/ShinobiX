@@ -123,9 +123,10 @@ function Standee({ x, z, tex, beat, element }: { x: number; z: number; tex: THRE
         g.rotation.z = beat.alive ? 0 : -0.9;                                                   // topple on death
         g.position.y = beat.alive ? 0 : -0.15;
         if (mat.current) {
-            const tint = 1 - 0.5 * k;
-            mat.current.color.setRGB(1, tint, tint);     // red flash on hit
-            mat.current.opacity = beat.alive ? 1 : 0.32;
+            // Opaque alpha-tested material → no opacity fade (it would re-introduce
+            // see-through pets). Alive: red flash on hit. KO'd: darken + (toppled).
+            if (beat.alive) { const tint = 1 - 0.5 * k; mat.current.color.setRGB(1, tint, tint); }
+            else mat.current.color.setRGB(0.42, 0.42, 0.5);
         }
     });
     const pct = Math.max(0, Math.min(1, beat.hp / Math.max(1, beat.maxHp)));
@@ -146,10 +147,11 @@ function Standee({ x, z, tex, beat, element }: { x: number; z: number; tex: THRE
             <Billboard follow lockX lockZ position={[0, SPRITE_H / 2 + 0.1, 0]}>
                 <mesh visible={!!tex}>
                     <planeGeometry args={[SPRITE_H * 0.92, SPRITE_H]} />
-                    {/* Same material the Pet Coliseum standee uses (alpha cutout, no
-                        luminance key) — the pose art is already transparent, so a
-                        black-key would just eat the pet's own dark pixels. */}
-                    <meshBasicMaterial ref={mat} map={tex ?? undefined} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} />
+                    {/* OPAQUE alpha-tested cutout: a body pixel (alpha ≥ 0.4) draws
+                        fully solid — no alpha blending — so even soft/translucent pose
+                        art renders as a solid pet, not a see-through ghost. The
+                        background + faint fringe (alpha < 0.4) are discarded. */}
+                    <meshBasicMaterial ref={mat} map={tex ?? undefined} alphaTest={0.4} toneMapped={false} />
                 </mesh>
                 {/* HP bar above the head */}
                 <group position={[0, SPRITE_H / 2 + 0.28, 0]}>
