@@ -8,6 +8,7 @@ import { strict as assert } from "node:assert";
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, rerollShop, releasePet, setField, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
+    boardModsFromRelics,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
     type RelicId,
 } from "./pet-gauntlet";
@@ -123,6 +124,19 @@ describe("buyRelic / relic economy", () => {
         assert.equal(r2.valor, v0, "first reroll free with Lucky Coin");
         r2 = rerollShop(r2);
         assert.equal(r2.valor, v0 - 1, "second reroll costs Valor");
+    });
+
+    it("boardModsFromRelics merges only the combat relics", () => {
+        const m = boardModsFromRelics(["stoneward", "vampiric_fang", "phoenix_plume"]);
+        assert.equal(m.shieldStartFrac, 0.15);
+        assert.equal(m.lifestealPct, 0.15);
+        assert.equal(m.reviveCharges, 1);
+        assert.equal(m.reviveHpFrac, 0.35);
+        assert.deepEqual(
+            boardModsFromRelics(["titan_heart", "merchant_charm"]),
+            { shieldStartFrac: 0, reflectPct: 0, chainPct: 0, lifestealPct: 0, reviveCharges: 0, reviveHpFrac: 0 },
+            "stat/economy relics contribute no board mods",
+        );
     });
 });
 

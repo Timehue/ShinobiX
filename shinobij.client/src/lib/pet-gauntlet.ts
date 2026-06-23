@@ -21,6 +21,7 @@
  */
 
 import type { Pet, PetRarity } from "../types/pet";
+import type { BoardMods } from "./pet-board-sim";
 import { rawPetPool } from "../data/pet-pool";
 import { balanceBuiltInPetTemplate } from "./pet-balance";
 import { derivePetRole, type PetRole } from "./pet-roles";
@@ -132,20 +133,33 @@ const EMPTY_BUFFS: GauntletBuffs = { atk: 0, def: 0, hp: 0, spd: 0 };
 // alongside the pet offers, so a relic competes with recruiting/items for Valor.
 // v1 effects are engine-light (squad stat scales folded into the buffs, plus two
 // economy boons), so the determinism-locked board sim never changes.
-export type RelicId = "titan_heart" | "razor_fang" | "aegis_plating" | "swift_wind" | "merchant_charm" | "lucky_coin";
+export type RelicId =
+    | "titan_heart" | "razor_fang" | "aegis_plating" | "swift_wind"      // stat
+    | "merchant_charm" | "lucky_coin"                                    // economy
+    | "stoneward" | "phoenix_plume" | "bramble_mail" | "chain_charm" | "vampiric_fang";  // combat
+export type RelicTier = "stat" | "economy" | "combat";
 export interface RelicDef {
-    id: RelicId; name: string; icon: string; blurb: string; cost: number;
+    id: RelicId; name: string; icon: string; blurb: string; cost: number; tier: RelicTier;
     stat?: Partial<GauntletBuffs>;   // squad stat scale folded into run.buffs on purchase
     valorPerRound?: number;          // passive Valor income each new round
     freeReroll?: boolean;            // first reroll each round is free
+    mods?: Partial<BoardMods>;       // combat-relic effects applied to the board sim
 }
 export const GAUNTLET_RELICS: RelicDef[] = [
-    { id: "titan_heart",    name: "Titan's Heart",     icon: "💖", blurb: "+25% squad HP for the run.",                   cost: 8, stat: { hp: 0.25 } },
-    { id: "razor_fang",     name: "Razor Fang",        icon: "🦷", blurb: "+18% squad Attack for the run.",               cost: 8, stat: { atk: 0.18 } },
-    { id: "aegis_plating",  name: "Aegis Plating",     icon: "🛡️", blurb: "+25% squad Defense for the run.",              cost: 6, stat: { def: 0.25 } },
-    { id: "swift_wind",     name: "Swift Wind",        icon: "🌀", blurb: "+20% squad Speed — your pets act first.",      cost: 6, stat: { spd: 0.20 } },
-    { id: "merchant_charm", name: "Merchant's Charm",  icon: "🪙", blurb: "+3 Valor at the start of every round.",        cost: 7, valorPerRound: 3 },
-    { id: "lucky_coin",     name: "Lucky Coin",        icon: "🍀", blurb: "Your first reroll each round is free.",        cost: 5, freeReroll: true },
+    // ── Stat — flat squad multipliers (cheapest tier) ───────────────────────────
+    { id: "titan_heart",    name: "Titan's Heart",    icon: "💖", blurb: "+25% squad HP for the run.",                  cost: 8, tier: "stat", stat: { hp: 0.25 } },
+    { id: "razor_fang",     name: "Razor Fang",       icon: "🦷", blurb: "+18% squad Attack for the run.",              cost: 8, tier: "stat", stat: { atk: 0.18 } },
+    { id: "aegis_plating",  name: "Aegis Plating",    icon: "🛡️", blurb: "+25% squad Defense for the run.",             cost: 6, tier: "stat", stat: { def: 0.25 } },
+    { id: "swift_wind",     name: "Swift Wind",       icon: "🌀", blurb: "+20% squad Speed — your pets act first.",     cost: 6, tier: "stat", stat: { spd: 0.20 } },
+    // ── Economy — snowball your Valor ───────────────────────────────────────────
+    { id: "merchant_charm", name: "Merchant's Charm", icon: "🪙", blurb: "+3 Valor at the start of every round.",       cost: 7, tier: "economy", valorPerRound: 3 },
+    { id: "lucky_coin",     name: "Lucky Coin",       icon: "🍀", blurb: "Your first reroll each round is free.",       cost: 4, tier: "economy", freeReroll: true },
+    // ── Combat — change how the fight plays out (priciest tier) ─────────────────
+    { id: "stoneward",      name: "Stoneward",        icon: "🪨", blurb: "Each pet starts the fight shielded (15% max HP).", cost: 7, tier: "combat", mods: { shieldStartFrac: 0.15 } },
+    { id: "phoenix_plume",  name: "Phoenix Plume",    icon: "🪶", blurb: "The first ally to fall revives once at 35% HP.",    cost: 9, tier: "combat", mods: { reviveCharges: 1, reviveHpFrac: 0.35 } },
+    { id: "bramble_mail",   name: "Bramble Mail",     icon: "🌵", blurb: "Front-line pets reflect 15% of damage taken.",      cost: 6, tier: "combat", mods: { reflectPct: 0.15 } },
+    { id: "chain_charm",    name: "Chain Charm",      icon: "⚡", blurb: "Basic attacks arc to a 2nd foe for 40%.",           cost: 7, tier: "combat", mods: { chainPct: 0.40 } },
+    { id: "vampiric_fang",  name: "Vampiric Fang",    icon: "🩸", blurb: "Your attacks heal for 15% of the damage dealt.",    cost: 7, tier: "combat", mods: { lifestealPct: 0.15 } },
 ];
 const RELIC_BY_ID: Record<RelicId, RelicDef> =
     Object.fromEntries(GAUNTLET_RELICS.map((d) => [d.id, d])) as Record<RelicId, RelicDef>;
@@ -158,6 +172,21 @@ export function relicValorPerRound(relics: RelicId[]): number {
 /** Whether the owned relics make the first reroll of a round free. */
 export function hasFreeReroll(relics: RelicId[]): boolean {
     return relics.some((id) => RELIC_BY_ID[id]?.freeReroll);
+}
+/** Combine the owned combat relics into the board-sim player modifiers. */
+export function boardModsFromRelics(relics: RelicId[]): Partial<BoardMods> {
+    const m: BoardMods = { shieldStartFrac: 0, reflectPct: 0, chainPct: 0, lifestealPct: 0, reviveCharges: 0, reviveHpFrac: 0 };
+    for (const id of relics) {
+        const mod = RELIC_BY_ID[id]?.mods;
+        if (!mod) continue;
+        m.shieldStartFrac += mod.shieldStartFrac ?? 0;
+        m.reflectPct += mod.reflectPct ?? 0;
+        m.chainPct += mod.chainPct ?? 0;
+        m.lifestealPct += mod.lifestealPct ?? 0;
+        m.reviveCharges += mod.reviveCharges ?? 0;
+        m.reviveHpFrac = Math.max(m.reviveHpFrac, mod.reviveHpFrac ?? 0);
+    }
+    return m;
 }
 
 // ── Run-pet instantiation (run-only copies) ──────────────────────────────────

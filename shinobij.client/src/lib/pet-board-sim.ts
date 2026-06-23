@@ -54,6 +54,22 @@ function actionKindOf(kind: PetJutsu["kind"]): BoardActionKind {
     return "damage";
 }
 
+/**
+ * Combat-relic modifiers (Pet Gauntlet) — applied to the PLAYER team only, fully
+ * deterministic (no extra RNG). Zero-valued by default, so a call without
+ * `opts.playerMods` is byte-identical to the base sim.
+ */
+export interface BoardMods {
+    shieldStartFrac: number;  // each player pet starts with this fraction of max HP as shield
+    reflectPct: number;       // player FRONT-row pets reflect this fraction of damage taken
+    chainPct: number;         // player basic attacks chain to a 2nd foe for this fraction
+    lifestealPct: number;     // player damage heals the attacker by this fraction
+    reviveCharges: number;    // shared player revives (consumed when a player pet falls)
+    reviveHpFrac: number;     // a revived pet returns at this fraction of max HP
+}
+const NO_MODS: BoardMods = { shieldStartFrac: 0, reflectPct: 0, chainPct: 0, lifestealPct: 0, reviveCharges: 0, reviveHpFrac: 0 };
+interface BoardCtx { units: Unit[]; mods: BoardMods; }
+
 interface BoardJutsu { name: string; kind: PetJutsu["kind"]; act: BoardActionKind; power: number; cd: number; maxCd: number; lifesteal: boolean; }
 interface Unit {
     id: string; name: string; element?: string | null; role: PetRole; team: "player" | "enemy"; slot: number;
@@ -130,6 +146,13 @@ function pickTarget(u: Unit, units: Unit[]): Unit | null {
     return byCol(front);
 }
 
+/** A 2nd foe for the chain relic — nearest column to the first target, then lowest HP. */
+function pickChain(u: Unit, units: Unit[], exclude: Unit): Unit | null {
+    const foes = units.filter((f) => f.team !== u.team && alive(f) && f.id !== exclude.id);
+    if (!foes.length) return null;
+    return [...foes].sort((a, b) => Math.abs(a.col - exclude.col) - Math.abs(b.col - exclude.col) || a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0];
+}
+
 /** The lowest-HP-fraction living ally (heal/shield priority). */
 function woundedAlly(units: Unit[], team: "player" | "enemy"): Unit | null {
     const allies = units.filter((u) => u.team === team && alive(u)).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp);
@@ -140,7 +163,7 @@ function defenseFactor(def: number): number {
     return Math.max(0.35, 1 - def * 0.0012);
 }
 
-function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, attackerId: string, crit: boolean, element?: string | null, kind?: PetJutsu["kind"]) {
+function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, attackerId: string, crit: boolean, element?: string | null, kind?: PetJutsu["kind"], ctx?: BoardCtx) {
     let dmg = Math.max(1, Math.round(raw));
     if (target.shield > 0) {
         const soak = Math.min(target.shield, dmg);
@@ -148,16 +171,39 @@ function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, 
     }
     target.hp = Math.max(0, target.hp - dmg);
     events.push({ t, type: "hit", actorId: attackerId, targetId: target.id, dmg, crit, element, kind });
+
+    // ── Player combat relics that trigger on damage TAKEN ──────────────────────
+    if (ctx && dmg > 0 && target.team === "player") {
+        // Bramble Mail — front-line reflects a fraction of the damage to its attacker.
+        if (ctx.mods.reflectPct > 0 && target.row === 0) {
+            const attacker = ctx.units.find((f) => f.id === attackerId && f.team === "enemy" && alive(f));
+            if (attacker) {
+                const refl = Math.max(1, Math.round(dmg * ctx.mods.reflectPct));
+                attacker.hp = Math.max(0, attacker.hp - refl);
+                events.push({ t, type: "hit", actorId: target.id, targetId: attacker.id, dmg: refl, element: target.element });
+            }
+        }
+        // Phoenix Plume — the squad's first fallen pet springs back once.
+        if (target.hp <= 0 && ctx.mods.reviveCharges > 0) {
+            ctx.mods.reviveCharges -= 1;
+            target.hp = Math.max(1, Math.round(target.maxHp * ctx.mods.reviveHpFrac));
+            target.shield = 0;
+            events.push({ t, type: "heal", actorId: target.id, targetId: target.id, dmg: target.hp });
+        }
+    }
 }
 
 /** Resolve one unit's action this round. */
-function act(u: Unit, units: Unit[], rng: () => number, t: number, events: BoardEvent[]) {
+function act(u: Unit, units: Unit[], rng: () => number, t: number, events: BoardEvent[], ctx: BoardCtx) {
     if (!alive(u)) return;
     if (u.stunned) { u.stunned = false; return; }
 
     const ready = u.jutsus.find((j) => j.cd <= 0);
     const crit = rng() < CRIT_CHANCE;
     const atk = u.attack + u.atkBuff;
+    const isPlayer = u.team === "player";
+    // Vampiric Fang — player damage heals the attacker (relic lifesteal).
+    const relicHeal = (raw: number) => { if (isPlayer && ctx.mods.lifestealPct > 0 && raw > 0) u.hp = Math.min(u.maxHp, u.hp + Math.max(1, Math.round(raw * ctx.mods.lifestealPct))); };
 
     if (ready) {
         ready.cd = ready.maxCd;
@@ -187,19 +233,33 @@ function act(u: Unit, units: Unit[], rng: () => number, t: number, events: Board
         if (!target) return;
         if (ready.act === "control") {
             target.stunned = true;
-            dealDamage(target, atk * DMG_SCALE * 0.4 * elementMult(u.element, target.element) * defenseFactor(target.defense), events, t, u.id, crit, u.element, ready.kind);
+            const raw = atk * DMG_SCALE * 0.4 * elementMult(u.element, target.element) * defenseFactor(target.defense);
+            dealDamage(target, raw, events, t, u.id, crit, u.element, ready.kind, ctx);
+            relicHeal(raw);
             return;
         }
         const raw = atk * DMG_SCALE * (ready.power / 100 || 1) * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense);
-        dealDamage(target, raw, events, t, u.id, crit, u.element, ready.kind);
+        dealDamage(target, raw, events, t, u.id, crit, u.element, ready.kind, ctx);
         if (ready.lifesteal) u.hp = Math.min(u.maxHp, u.hp + Math.round(Math.max(1, raw) * 0.4));
+        else relicHeal(raw);
         return;
     }
 
     const target = pickTarget(u, units);
     if (!target) return;
     events.push({ t, type: "attack", actorId: u.id, targetId: target.id, element: u.element });
-    dealDamage(target, atk * DMG_SCALE * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense), events, t, u.id, crit, u.element);
+    const raw = atk * DMG_SCALE * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense);
+    dealDamage(target, raw, events, t, u.id, crit, u.element, undefined, ctx);
+    relicHeal(raw);
+    // Chain Lightning — the basic attack arcs to a 2nd foe for a fraction of the hit.
+    if (isPlayer && ctx.mods.chainPct > 0) {
+        const second = pickChain(u, units, target);
+        if (second) {
+            const craw = atk * DMG_SCALE * ctx.mods.chainPct * elementMult(u.element, second.element) * defenseFactor(second.defense);
+            dealDamage(second, craw, events, t, u.id, false, u.element, undefined, ctx);
+            relicHeal(craw);
+        }
+    }
 }
 
 function snapshot(t: number, units: Unit[]): BoardSnapshot {
@@ -211,13 +271,17 @@ function snapshot(t: number, units: Unit[]): BoardSnapshot {
  * Deterministic from (placements, seed). Returns round-by-round snapshots + the
  * typed event stream + the placed roster.
  */
-export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: number): BoardResult {
+export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: number, opts?: { playerMods?: Partial<BoardMods> }): BoardResult {
     const rng = lcg(seed);
+    const mods: BoardMods = { ...NO_MODS, ...(opts?.playerMods ?? {}) };
     const p = player.slice(0, BOARD_SQUAD_MAX), e = enemy.slice(0, BOARD_SQUAD_MAX);
     const units: Unit[] = [
         ...p.map((g, i) => buildUnit(g.pet, "player", i, g.row, g.col)),
         ...e.map((g, i) => buildUnit(g.pet, "enemy", i, g.row, g.col)),
     ];
+    // Stoneward — player pets open the fight with a shield (before the first snapshot).
+    if (mods.shieldStartFrac > 0) for (const u of units) if (u.team === "player") u.shield = Math.round(u.maxHp * mods.shieldStartFrac);
+    const ctx: BoardCtx = { units, mods };
     const roster = units.map((u) => ({ id: u.id, team: u.team, slot: u.slot, row: u.row, col: u.col, pet: (u.team === "player" ? p : e)[u.slot].pet })) as BoardResult["roster"];
     const events: BoardEvent[] = [];
     const snapshots: BoardSnapshot[] = [snapshot(0, units)];
@@ -228,7 +292,7 @@ export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: nu
         // Fastest first; ties → front slot → player-before-enemy (id-independent).
         const order = units.filter(alive).sort((a, b) => b.speed - a.speed || a.slot - b.slot || (a.team === b.team ? 0 : a.team === "player" ? -1 : 1));
         for (const u of order) {
-            act(u, units, rng, r, events);
+            act(u, units, rng, r, events, ctx);
             if (!teamAlive(units, "player") || !teamAlive(units, "enemy")) break;
         }
         for (const u of units) for (const j of u.jutsus) if (j.cd > 0) j.cd -= 1;
