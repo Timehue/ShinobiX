@@ -43,7 +43,7 @@ import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../li
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
-import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
+import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, ZONE_RADIUS, BOSS_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
@@ -1546,6 +1546,16 @@ const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors
 // imgW:imgH, a sim field point lands on the same screen pixel as the painting it
 // represents. (No 3D floor: the painting already has all the depth.)
 const DIORAMA_URL = new URL("../assets/coliseum/tactics-diorama.webp", import.meta.url).href;
+// The neutral boss (Arena Warden) sprite — a transparent cutout generated the same way
+// as the pets (gpt-image-1). Loaded once as a shared texture.
+const BOSS_URL = new URL("../assets/coliseum/boss-warden.webp", import.meta.url).href;
+let _bossTex: THREE.Texture | null = null;
+function bossTexture(): THREE.Texture {
+    if (_bossTex) return _bossTex;
+    _bossTex = new THREE.TextureLoader().load(BOSS_URL);
+    _bossTex.colorSpace = THREE.SRGBColorSpace;
+    return _bossTex;
+}
 // The diorama is a fixed 1536×1024 MAP-SPACE reference (the SpriteFlow arena).
 // All pet positions are computed in map-space, then projected to the world layer
 // — which cover-fits the SAME image as the CSS backdrop, so map-space (mx,my)
@@ -2794,6 +2804,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const nameWrap = useRef<HTMLDivElement>(null);
     const facing = useRef(id.startsWith("blue") ? 1 : -1);
     const lastPos = useRef<[number, number]>([0, 0]);
+    const wasMoving = useRef(false);   // hysteresis on the move/idle gate → a pet hovering near the threshold can't flicker idle↔run pose (which amplified any residual jitter)
     const scaleSm = useRef(0);   // smoothed depth-scale → absorbs any residual position jitter so the sprite never pulses big↔small (snaps on a teleport)
     const smX = useRef<number | null>(null), smY = useRef<number | null>(null);   // smoothed DRAW position (render-side low-pass; snaps on a teleport)
     const prevDown = useRef(false);   // was the pet hidden (respawning/dead) last frame → snap, never lerp, across the off-screen respawn jump (robust at any framerate)
@@ -2836,7 +2847,11 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         // body across the board, so the reappear must never read as a dash (trail / run pose).
         const justBack = prevDown.current && !down;
         const spd = (down || justBack) ? 0 : Math.sqrt(dx * dx + dy * dy); lastPos.current = [p.wx, p.wy];
-        const moving = spd > 0.012 && !down;
+        // Hysteresis: a higher turn-on than turn-off speed, so a pet sitting at the
+        // edge of "moving" stays committed to idle OR run instead of toggling every
+        // frame (the toggle made run/idle poses strobe and amplified any tiny jitter).
+        const moving = !down && (wasMoving.current ? spd > 0.006 : spd > 0.016);
+        wasMoving.current = moving;
         // Smooth the depth-scale: snap on a teleport (which already hard-cuts position)
         // or across a respawn, else ease toward the target so a jittery tick can't pop size.
         scaleSm.current = (teleport || down || prevDown.current || scaleSm.current === 0) ? p.depth : lerp(scaleSm.current, p.depth, 0.25);
@@ -2973,6 +2988,100 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
     );
 }
 
+/** The control zone (king-of-the-hill). A team-tinted ground ring at the current hill
+ *  with a pulsing intensity that tracks the hold meter, plus a floating capture-arc +
+ *  flag so you can read who's winning the space at a glance. Reads snap.zone, never the
+ *  sim. The hill RELOCATES (B3) — this just follows snap.zone.x/y each frame. */
+function ArenaZone({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
+    const ring = useRef<THREE.Mesh>(null);
+    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
+    const arcRef = useRef<HTMLDivElement>(null);
+    const flagRef = useRef<HTMLDivElement>(null);
+    const grp = useRef<THREE.Group>(null);
+    useFrame((state) => {
+        const snaps = result.snapshots;
+        const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
+        const z = snaps[i].zone;
+        const c0 = arenaPlace(z.x, z.y), cR = arenaPlace(z.x + ZONE_RADIUS, z.y);
+        const worldR = Math.max(0.6, Math.abs(cR.wx - c0.wx));
+        const lead = z.lead;
+        const color = lead === "blue" ? "#3b82f6" : lead === "red" ? "#ef4444" : "#fbbf24";
+        const mag = Math.min(1, Math.abs(z.holdFrac));
+        if (ring.current && ringMat.current) {
+            const pulse = 0.5 + Math.abs(Math.sin(state.clock.elapsedTime * 2.4)) * 0.5;
+            ring.current.position.set(c0.wx, c0.wy - 0.04 * c0.depth, c0.zo - 0.13);
+            const rw = worldR * 2; ring.current.scale.set(rw, rw * 0.5, 1);
+            ringMat.current.color.set(color);
+            ringMat.current.opacity = 0.16 + mag * 0.34 + pulse * 0.1;   // brighter as the hold builds
+        }
+        if (grp.current) grp.current.position.set(c0.wx, c0.wy + 0.6 * c0.depth, c0.zo + 0.05);
+        if (arcRef.current) arcRef.current.style.background = `conic-gradient(${color} ${mag * 360}deg, rgba(0,0,0,0.4) 0deg)`;
+        if (flagRef.current) flagRef.current.style.color = color;
+    });
+    return (
+        <group>
+            <mesh ref={ring} renderOrder={-2}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={ringMat} map={shadowTexture()} color="#fbbf24" transparent opacity={0.3} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
+            <group ref={grp}>
+                <Html center pointerEvents="none" zIndexRange={[28, 0]}>
+                    <div style={{ position: "relative", width: 34, height: 34, display: "grid", placeItems: "center" }}>
+                        <div ref={arcRef} style={{ position: "absolute", inset: 0, borderRadius: "50%", opacity: 0.9 }} />
+                        <div ref={flagRef} style={{ fontSize: 20, filter: "drop-shadow(0 1px 3px #000)" }}>⚑</div>
+                    </div>
+                </Html>
+            </group>
+        </group>
+    );
+}
+
+/** The neutral boss (Arena Warden, B4). A big grounded billboard at the centre pit while
+ *  active, with a chunky HP bar. Fades out on death. Reads snap.boss, never the sim. */
+function ArenaBoss({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
+    const grp = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const shadow = useRef<THREE.Mesh>(null);
+    const hpFill = useRef<HTMLDivElement>(null);
+    const wrap = useRef<HTMLDivElement>(null);
+    const [visible, setVisible] = useState(false);
+    const tex = bossTexture();
+    // The sprite is a near-square cutout; show it big and grounded so it reads as a boss.
+    const H = ARENA_SPRITE_H * 2.6;
+    useFrame((state) => {
+        const snaps = result.snapshots;
+        const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
+        const b = snaps[i].boss;
+        const vis = b.state !== "inactive";
+        if (vis !== visible) setVisible(vis);
+        if (!vis || !grp.current) return;
+        const p = arenaPlace(b.x, b.y);
+        const breathe = b.state === "active" ? Math.abs(Math.sin(state.clock.elapsedTime * 1.5)) * 0.05 : 0;
+        grp.current.position.set(p.wx, p.wy + H * 0.5 * p.depth, p.zo + 0.02);
+        grp.current.scale.setScalar(p.depth * (1 + breathe));
+        if (mat.current) mat.current.opacity = b.state === "dead" ? Math.max(0, mat.current.opacity - 0.04) : 1;
+        // Ground footprint sized to the boss's sim collision radius, parked at its feet.
+        const fr = arenaPlace(b.x + BOSS_RADIUS, b.y); const worldR = Math.max(0.8, Math.abs(fr.wx - p.wx));
+        if (shadow.current) { shadow.current.position.set(p.wx, p.wy - 0.05 * p.depth, p.zo - 0.1); shadow.current.scale.set(worldR * 2.4 * p.depth, worldR * 0.9 * p.depth, 1); }
+        if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, b.hpFrac * 100))}%`;
+        if (wrap.current) wrap.current.style.opacity = b.state === "active" ? "1" : "0";
+    });
+    if (!visible) return null;
+    return (
+        <group>
+            <mesh ref={shadow} position={[0, 0, 0]} renderOrder={-2}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={shadowTexture()} transparent opacity={0.45} depthWrite={false} depthTest={false} toneMapped={false} /></mesh>
+            <group ref={grp}>
+                <mesh><planeGeometry args={[H, H]} /><meshBasicMaterial ref={mat} map={tex} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} /></mesh>
+                <Html center position={[0, H * 0.62, 0]} pointerEvents="none" zIndexRange={[34, 0]}>
+                    <div ref={wrap} style={{ width: 132, textAlign: "center", transition: "opacity 0.3s" }}>
+                        <div style={{ font: "800 11px Inter, system-ui, sans-serif", color: "#d6f5e6", textShadow: "0 1px 3px #000", marginBottom: 2, letterSpacing: 0.5 }}>⛰ ARENA WARDEN</div>
+                        <div style={{ height: 8, borderRadius: 4, background: "rgba(8,12,12,0.8)", border: "1px solid #14532d", overflow: "hidden" }}>
+                            <div ref={hpFill} style={{ height: "100%", width: "100%", background: "linear-gradient(90deg,#34d399,#10b981)" }} />
+                        </div>
+                    </div>
+                </Html>
+            </group>
+        </group>
+    );
+}
+
 /** A synthesised travelling projectile for the tactical arena. The arena sim has
  *  NO projectiles — ranged hits/heals resolve at the target — so the renderer
  *  flies a cosmetic element/role-distinct streak from the shooter to the victim
@@ -3084,6 +3193,24 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     triggerHitstop(90); triggerSlowmo(matchPoint ? 460 : 280, 0.38); triggerShake(1.4);
                 } else if (e.type === "pickup" && e.actorId) {
                     pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                } else if (e.type === "zonescore" && e.team) {
+                    const z = snapAt.zone; spawnFx({ x: z.x, z: z.y, key: "power", scale: 3.4, dur: 620 });
+                    const matchPoint = (e.team === "blue" ? snapAt.scoreBlue : snapAt.scoreRed) >= WIN_SCORE;
+                    pushFeed(`⚑ ${e.team === "blue" ? "Blue" : "Red"} held the zone!`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushBanner(matchPoint ? `${e.team === "blue" ? "BLUE" : "RED"} WINS! ⚑` : `${e.team === "blue" ? "BLUE" : "RED"} HOLDS! ⚑`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.42)" : "rgba(239,68,68,0.42)");
+                    triggerHitstop(70); triggerSlowmo(matchPoint ? 440 : 220, 0.42); triggerShake(1.1);
+                } else if (e.type === "bossspawn") {
+                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 4.6, dur: 820 });
+                    pushFeed("⛰ The Arena Warden awakens!", "#34d399");
+                    pushBanner("⛰ THE WARDEN AWAKENS", "#34d399");
+                    triggerHitstop(90); triggerShake(1.6);
+                } else if (e.type === "bosskill" && e.team) {
+                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 5.2, dur: 900 }); spawnFx({ x: b.x, z: b.y, key: "spark", scale: 3.0, dur: 460 });
+                    pushFeed(`⛰ ${e.team === "blue" ? "Blue" : "Red"} slew the Warden! (+buff)`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} SLAYS THE WARDEN!`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
+                    triggerHitstop(110); triggerSlowmo(420, 0.4); triggerShake(1.8);
                 }
             }
             const s = snaps[Math.min(maxT, cur)]; setScore(s.scoreBlue, s.scoreRed);
@@ -3302,7 +3429,9 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                     {/* Accumulating scorch decals where pets fell — the board remembers the fight. */}
                     {decals.map((d) => (<mesh key={d.id} position={d.pos} renderOrder={-3}><planeGeometry args={[d.w, d.w * 0.55]} /><meshBasicMaterial map={shadowTexture()} color="#2a1d12" transparent opacity={0.5} depthWrite={false} depthTest={false} toneMapped={false} /></mesh>))}
                     {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
+                    <ArenaZone result={result} clock={clock} />
                     {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
+                    <ArenaBoss result={result} clock={clock} />
                     <ArenaScroll result={result} clock={clock} />
                     <ArenaObjectiveHud result={result} clock={clock} textRef={objTextRef} barWrapRef={objBarWrapRef} barRef={objBarRef} />
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
