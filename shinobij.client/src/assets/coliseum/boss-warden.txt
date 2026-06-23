@@ -1,0 +1,3 @@
+misc:boss-warden
+
+A colossal neutral arena guardian boss for a 2D anime shinobi RPG: a towering ancient stone-and-moss temple golem, ogre-sized hulking humanoid, cracked granite body veined with glowing teal rune-light, heavy mossy shoulders, two great horns, smoldering teal eyes, fists like boulders, standing in a menacing idle battle stance facing the viewer. Full body, head to feet, centered, slight low camera angle so it looks imposing. Clean painterly cel-shaded game-sprite art, crisp edges, dramatic rim light, fully transparent background, single subject only, no ground, no shadow, no text.
