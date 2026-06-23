@@ -8,9 +8,9 @@ import { strict as assert } from "node:assert";
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, setField, fieldedPets,
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
-    boardModsFromRelics,
+    boardModsFromRelics, petStar, wouldMerge,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
-    GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND,
+    GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND, GAUNTLET_MERGE_BOOST,
     type RelicId,
 } from "./pet-gauntlet";
 import type { Pet } from "../types/pet";
@@ -70,6 +70,57 @@ describe("buyOffer", () => {
         let run = { ...startGauntletRun(7), valor: 999 };
         for (let i = 0; i < GAUNTLET_FIELD_CAP + 1; i++) run = run.shop.length ? buyOffer(run, 0) : buyOffer(rerollShop(run), 0);
         assert.equal(run.fieldIds.length, GAUNTLET_FIELD_CAP);
+    });
+});
+
+describe("buyOffer — merge (auto-battler level-up)", () => {
+    it("recruiting an owned pet merges: boosts stats, bumps ★, adds no slot, still costs valor", () => {
+        let run = { ...startGauntletRun(42), valor: 99 };
+        const template = run.shop[0].pet;
+        run = buyOffer(run, 0);                       // own one copy
+        const owned = run.roster[0];
+        const base = { hp: owned.hp, attack: owned.attack, defense: owned.defense, speed: owned.speed };
+        assert.equal(petStar(run, owned.id), 1, "fresh pet is ★1");
+        // Re-offer the SAME template and buy again → merge, not duplicate.
+        run = { ...run, shop: [{ pet: template, cost: 3 }] };
+        assert.equal(wouldMerge(run, template), true);
+        const valorBefore = run.valor;
+        run = buyOffer(run, 0);
+        assert.equal(run.roster.length, 1, "merge adds no new roster slot");
+        assert.equal(petStar(run, owned.id), 2, "merge bumps ★ to 2");
+        assert.equal(run.valor, valorBefore - 3, "merge still costs valor");
+        const m = run.roster[0];
+        assert.equal(m.id, owned.id, "merged in place (same instance id)");
+        assert.equal(m.attack, Math.round(base.attack * GAUNTLET_MERGE_BOOST), "attack scaled by merge boost");
+        assert.equal(m.hp, Math.round(base.hp * GAUNTLET_MERGE_BOOST));
+        assert.equal(m.defense, Math.round(base.defense * GAUNTLET_MERGE_BOOST));
+        assert.equal(m.speed, Math.round(base.speed * GAUNTLET_MERGE_BOOST));
+    });
+
+    it("merges even when the roster is full (it consumes no slot)", () => {
+        let run = { ...startGauntletRun(42), valor: 999 };
+        for (let i = 0; run.roster.length < GAUNTLET_ROSTER_CAP && i < 40; i++) {
+            run = run.shop.length ? buyOffer(run, 0) : rerollShop(run);
+        }
+        assert.equal(run.roster.length, GAUNTLET_ROSTER_CAP);
+        const firstId = run.roster[0].id;
+        const ownedTemplate = { ...run.roster[0], id: petStripVariant(firstId) } as Pet;
+        run = { ...run, shop: [{ pet: ownedTemplate, cost: 3 }] };
+        assert.equal(wouldMerge(run, ownedTemplate), true);
+        run = buyOffer(run, 0);
+        assert.equal(run.roster.length, GAUNTLET_ROSTER_CAP, "still capped — merge added no slot");
+        assert.equal(petStar(run, firstId), 2, "full-roster merge still leveled it up");
+    });
+
+    it("releasePet clears the merge rank", () => {
+        let run = { ...startGauntletRun(42), valor: 99 };
+        const template = run.shop[0].pet;
+        run = buyOffer(run, 0);
+        const id = run.roster[0].id;
+        run = buyOffer({ ...run, shop: [{ pet: template, cost: 3 }] }, 0);
+        assert.equal(petStar(run, id), 2);
+        run = releasePet(run, id);
+        assert.equal(petStar(run, id), 1, "rank resets once the pet leaves the roster");
     });
 });
 
