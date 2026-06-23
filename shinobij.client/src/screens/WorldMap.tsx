@@ -1524,6 +1524,13 @@ export function WorldMap({
         const territoryBg = villageTerritorySectorBg(loc.name);
         // Pick a virtual sector number inside the enemy territory for explore/battle logic
         const virtualSector = villageOutskirtsSector(loc.name) + 4;
+        // Same painted top-down adventure MAP as the numbered-sector outskirts
+        // (flag-gated, default ON). Without this the enemy "Outer Territory" page was
+        // the lone sector view still stacking the old over-scaled vista + scattered
+        // ground props + foreground foliage band, which read as a cluttered mess
+        // instead of a clean backdrop. Opt-out (sectorMap.v1=off) falls back to it.
+        const sectorMapSrc = isSectorMapEnabled() ? sectorMapUrl(biome, virtualSector) : undefined;
+        const sectorMapMode = !!sectorMapSrc;
         return (
             <div className="map-instance">
                 <div className="sector-instance-wrap">
@@ -1534,11 +1541,17 @@ export function WorldMap({
                         </div>
 
                         <div className="pixel-map walkable-sector-map sector-image-map">
-                            <SectorScene image={territoryBg} biome={biome} focus={sectorPlayerPos} />
-                            <SectorScene3D image={territoryBg} biome={biome} focus={sectorPlayerPos} />
-                            <SectorScatter sector={virtualSector} biome={biome} />
-                            <DayNightSky />
-                            <SceneAmbience3D biome={biome} />
+                            {sectorMapMode ? (
+                                <SectorMap image={sectorMapSrc} />
+                            ) : (
+                                <>
+                                    <SectorScene image={territoryBg} biome={biome} focus={sectorPlayerPos} />
+                                    <SectorScene3D image={territoryBg} biome={biome} focus={sectorPlayerPos} />
+                                    <SectorScatter sector={virtualSector} biome={biome} />
+                                    <DayNightSky />
+                                </>
+                            )}
+                            {!sectorMapMode && <SceneAmbience3D biome={biome} />}
                             <SceneAmbience biome={biome} weather={weather} />
                             <SceneCritters biome={biome} />
                             {Array.from({ length: 144 }).map((_, index) => {
@@ -1558,7 +1571,7 @@ export function WorldMap({
                                 name={character.name}
                                 biome={loc.biome}
                             />
-                            <SectorForeground biome={loc.biome} focus={sectorPlayerPos} />
+                            {!sectorMapMode && <SectorForeground biome={loc.biome} focus={sectorPlayerPos} />}
                         </div>
                     </main>
 
