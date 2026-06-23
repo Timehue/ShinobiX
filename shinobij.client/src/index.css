@@ -18461,6 +18461,14 @@ button.combat-jutsu-button,
   display: none; /* hidden on desktop */
 }
 
+/* Hidden on desktop — the desktop right-rail NotificationBar already covers this.
+   The fixed-to-bottom layout is defined only inside the mobile media query below,
+   so without this base rule the bar would fall back to normal flow and render as a
+   stray full-width chip at the very top of the page on desktop. */
+.mobile-notif-bar {
+  display: none;
+}
+
 /* Unread-mail indicators (shared by the desktop right-rail + mobile nav). */
 .mail-unread-badge {
   display: inline-flex;
