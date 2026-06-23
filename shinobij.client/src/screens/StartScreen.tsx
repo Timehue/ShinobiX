@@ -283,7 +283,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "ranked": return "Ranked Battle Rating (Elo)";
             case "kills": return "Total PvP Kills";
             case "xp": return "Total XP Earned";
-            case "pets": return "Pet Arena Wins";
+            case "pets": return "Pet Coliseum Wins";
             case "endless": return "Endless Tower — Waves Survived";
             case "villageWars": return "Village War Raids Completed";
             case "weeklyBoss": return "Weekly Boss — Top Damage";

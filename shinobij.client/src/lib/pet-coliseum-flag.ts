@@ -64,9 +64,9 @@ export function setPetEvolveCutsceneEnabled(on: boolean): void {
  *
  * RANKED pet battles are NOT affected by this flag — they stay on the old engine
  * until balance + server-side validation are proven (plan Phases E/F). Flipping
- * this OFF is the instant rollback for the PvE engine. DEFAULT OFF until the
- * balance harness (scripts/pet-duel-balance.ts) shows sane win-rates, then this
- * default flips to ON. Per-device persisted; force either way with
+ * this OFF is the instant rollback for the PvE engine. DEFAULT ON: the continuous
+ * duel is now THE Pet Coliseum experience; the balance pass + dramatic-pacing work
+ * continues on this engine. Per-device persisted; force either way with
  * localStorage.setItem("petDuelEngine.v1", "1"|"0").
  */
 const DUEL_ENGINE_KEY = "petDuelEngine.v1";
@@ -76,8 +76,8 @@ export function petDuelEngineEnabled(): boolean {
         const v = localStorage.getItem(DUEL_ENGINE_KEY);
         if (v === "1") return true;
         if (v === "0") return false;
-        return false; // DEFAULT OFF — flips to true once balance-tuned (plan Part 5).
-    } catch { return false; }
+        return true; // DEFAULT ON — the continuous duel is the default Pet Coliseum combat.
+    } catch { return true; }
 }
 
 export function setPetDuelEngineEnabled(on: boolean): void {

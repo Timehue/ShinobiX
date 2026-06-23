@@ -465,7 +465,7 @@ const PETS: Guide = {
             ],
         },
         {
-            heading: "3 · The Pet Arena",
+            heading: "3 · The Pet Coliseum",
             blocks: [
                 { type: "p", text: "The arena is an auto-battler on a 14×7 obstacle grid: pick your pet and it moves and casts on its own with AI — element advantage and positioning decide it. You direct the draft, the pet fights the fight." },
                 { type: "p", text: "Where you can battle:" },
