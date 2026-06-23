@@ -10,7 +10,7 @@ import {
     enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, itemCost, GAUNTLET_ITEMS, GAUNTLET_RELICS,
     boardModsFromRelics, petStar, wouldMerge, offerCost, mergeDiscountFromRelics,
     GAUNTLET_START_HEARTS, GAUNTLET_START_VALOR, GAUNTLET_FIELD_CAP, GAUNTLET_ROSTER_CAP, GAUNTLET_MAX_ROUNDS,
-    GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND, GAUNTLET_MERGE_BOOST,
+    GAUNTLET_SHARD_COST, GAUNTLET_PREMIUM_ROUND, GAUNTLET_MERGE_BOOST, GAUNTLET_LOSS_VALOR,
     type RelicId,
 } from "./pet-gauntlet";
 import type { Pet } from "../types/pet";
@@ -300,6 +300,16 @@ describe("applyRoundResult", () => {
         run = applyRoundResult(run, false);
         assert.equal(run.hearts, 0);
         assert.equal(run.status, "lost");
+    });
+
+    it("a surviving loss does NOT advance the round and pays a little Valor", () => {
+        let run = beginFight({ ...startGauntletRun(8), hearts: 2, round: 3, valor: 0, fieldIds: ["x"], roster: [{ id: "x" } as never] });
+        run = applyRoundResult(run, false);
+        assert.equal(run.round, 3, "stays on the same round to retry");
+        assert.equal(run.hearts, 1, "still costs a heart");
+        assert.equal(run.status, "drafting");
+        assert.equal(run.roundsCleared, 0, "a loss clears no round");
+        assert.equal(run.valor, GAUNTLET_LOSS_VALOR, "a little consolation Valor");
     });
 
     it("clearing the final round wins the run", () => {
