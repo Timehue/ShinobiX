@@ -278,6 +278,10 @@ export function BattleTowerFight({
         if (mode === "jutsu" && selJutsu?.id && selJutsu.target === "EMPTY_GROUND" && jutsuRangeTiles.has(tile) && !session.map.blockedTiles.includes(tile)) {
             void send({ type: "jutsu", jutsuId: selJutsu.id, tile }); return;
         }
+        // Self-cast jutsu → confirmed by clicking your OWN ninja's tile.
+        if (mode === "jutsu" && selJutsu?.id && isSelfCastJutsu(selJutsu) && myActor && tile === myPos) {
+            void send({ type: "jutsu", jutsuId: selJutsu.id, targetId: myActor.id }); return;
+        }
         const occ = session.actors.find(a => a.hp > 0 && a.pos === tile);
         if (occ && occ.side === "enemy" && enemiesInRange.has(occ.id)) {
             if (mode === "attack") void send({ type: "attack", targetId: occ.id });
@@ -307,10 +311,15 @@ export function BattleTowerFight({
     // image cache keyed by `jutsu:<id>` / `item:<id>`).
     const jutsuArt = (j: JutsuLike) => (typeof (j as { image?: string }).image === "string" && (j as { image?: string }).image) || sharedImages?.[`jutsu:${j.id}`] || "";
     const itemArt = (it: ItemLike) => sharedImages?.[`item:${it.id}`] || "";
-    // Clicking a jutsu card arms it (then click a foe on the board); a SELF jutsu fires at once.
+    // Self-cast jutsu (heal/shield/buff) arm and are confirmed by clicking your OWN
+    // ninja — matching PvP and the main PvE arena — instead of firing the instant
+    // the card is clicked. Tower jutsu objects don't carry tags, so the SELF target
+    // field is the self-cast signal here.
+    const isSelfCastJutsu = (j: JutsuLike | null | undefined) => Boolean(j) && j!.target === "SELF";
+    // Clicking a jutsu card only ARMS it; the cast fires on the follow-up click
+    // (a foe in range, a ground tile, or — for a self-cast — your own ninja).
     function armJutsuCard(j: JutsuLike) {
         if (busy) return;
-        if (j.target === "SELF" && myActor) { void send({ type: "jutsu", jutsuId: j.id!, targetId: myActor.id }); return; }
         setSelJutsu(prev => prev?.id === j.id ? null : j);
         setMode(prev => (prev === "jutsu" && selJutsu?.id === j.id) ? "idle" : "jutsu");
     }
@@ -338,6 +347,7 @@ export function BattleTowerFight({
         mode === "attack" ? "Click an enemy in range to attack." :
         mode === "weapon" ? "Click an enemy in range." :
         mode === "clear" ? "Click any enemy to strip its buffs." :
+        mode === "jutsu" && isSelfCastJutsu(selJutsu) ? `Click yourself to cast ${selJutsu?.name ?? "it"}.` :
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 
@@ -391,7 +401,7 @@ export function BattleTowerFight({
                                 {Array.from({ length: w * h }, (_, pos) => {
                                     const { left, top } = towerHexPixel(pos, w);
                                     const isMove = moveTiles.has(pos) || dashTiles.has(pos);
-                                    const inJ = (mode === "jutsu" || mode === "weapon") && jutsuRangeTiles.has(pos);
+                                    const inJ = (mode === "weapon" || (mode === "jutsu" && !isSelfCastJutsu(selJutsu))) && jutsuRangeTiles.has(pos);
                                     const isGoal = session.map.objectiveTiles.includes(pos);
                                     const isBlocked = session.map.blockedTiles.includes(pos);
                                     const feat = featureByTile.get(pos);
@@ -447,20 +457,22 @@ export function BattleTowerFight({
                                     const ox = left + HEX_W / 2 - size / 2;
                                     const oy = top + HEX_H * 0.85 - size;
                                     const row = Math.floor(a.pos / w);
-                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !!selJutsu));
+                                    const targetable = enemiesInRange.has(a.id) && (mode === "attack" || mode === "weapon" || mode === "clear" || (mode === "jutsu" && !!selJutsu && !isSelfCastJutsu(selJutsu)));
+                                    // Self-cast jutsu: the player's own orb is the click target.
+                                    const selfTargetable = mode === "jutsu" && !!selJutsu && isSelfCastJutsu(selJutsu) && myActor != null && a.id === myActor.id;
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
                                     const ringColor = a.side === "squad" ? "#67e8f9" : a.side === "npc" ? "#facc15" : "#fb7185";
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
                                     return (
                                         <div key={a.id} onClick={() => onTileClick(a.pos)} title={`${a.name} ${a.hp}/${a.maxHp}`}
-                                            style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: targetable ? "pointer" : "default" }}>
+                                            style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: targetable || selfTargetable ? "pointer" : "default" }}>
                                             <div className={`avatar-orb${a.side === "enemy" ? " enemy-orb" : ""}`}
                                                 style={{
                                                     width: size, height: size,
-                                                    outline: isActive ? "3px solid #fde047" : targetable ? "3px solid #fca5a5" : "none",
+                                                    outline: isActive ? "3px solid #fde047" : targetable ? "3px solid #fca5a5" : selfTargetable ? "3px solid #67e8f9" : "none",
                                                     outlineOffset: 2,
-                                                    boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : undefined,
+                                                    boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : selfTargetable ? "0 0 16px 4px rgba(34,211,238,0.85)" : undefined,
                                                 }}>
                                                 {img
                                                     ? <img className="tiny-map-avatar" src={img} alt={a.name} />

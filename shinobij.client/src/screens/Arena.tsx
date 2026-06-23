@@ -31,7 +31,7 @@ import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMast
 import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
-import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, statusMatchesName, tagMatchesName } from "../lib/tags";
+import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffectsOpponent, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
@@ -1132,7 +1132,7 @@ export function Arena({
     }
 
     function jutsuRangeTiles(jutsu: Jutsu | null | undefined) {
-        if (!jutsu || jutsu.target === "SELF") return new Set<number>();
+        if (!jutsu || isSelfCastJutsu(jutsu)) return new Set<number>();
         // Floor non-Move range to 1 — protects against malformed jutsu data
         // (range:0 from a stale save) silently disabling the targeting overlay.
         const range = isMoveJutsu(jutsu) ? moveJutsuRange(jutsu) : Math.max(1, Number(jutsu.range) || 1);
@@ -1414,6 +1414,17 @@ export function Arena({
         return jutsu.target === "EMPTY_GROUND" && !isMoveJutsu(jutsu);
     }
 
+    // A jutsu is self-cast (heal/shield/buff) when it isn't a Move/ground jutsu
+    // AND it either declares SELF or touches no opponent (no damage + no
+    // opponent-affecting tag). Mirrors PvP's pvpIsSelfTargetJutsu
+    // (PvpBattleScreen.tsx via lib/tags pvpAffectsOpponent) so PvE and PvP agree:
+    // a self-cast jutsu ARMS and is confirmed by clicking your OWN ninja, instead
+    // of instant-firing the moment the card is clicked.
+    function isSelfCastJutsu(jutsu: Jutsu | null | undefined) {
+        return Boolean(jutsu) && !isMoveJutsu(jutsu!) && !isGroundEffectJutsu(jutsu!) &&
+            (jutsu!.target === "SELF" || !pvpAffectsOpponent(jutsu!));
+    }
+
     function battleGroundEffectClass(jutsu: Jutsu | null | undefined, tileUse: "target" | "affected") {
         if (!jutsu) return "";
         const tagNames = new Set((jutsu.tags ?? []).map(tag => normalizeTagName(tag.name)));
@@ -1578,6 +1589,17 @@ export function Arena({
                 return;
             }
             castJutsu(pendingTargetJutsu, true, tile);
+            return;
+        }
+
+        // Self-cast jutsu (heal/shield/buff): confirmed by clicking your OWN ninja,
+        // matching PvP's arm-then-click-self flow. A click anywhere else just nudges.
+        if (pendingTargetJutsu && isSelfCastJutsu(pendingTargetJutsu)) {
+            if (tile === playerPos) {
+                castJutsu(pendingTargetJutsu, true, playerPos);
+            } else {
+                setLog(`Click yourself to cast ${pendingTargetJutsu.name}, or cancel the jutsu.`);
+            }
             return;
         }
 
@@ -2334,27 +2356,24 @@ export function Arena({
             return setLog(`${jutsu.name} cooldown: ${cooldown} rounds.`);
         }
 
-        const moveJutsu = isMoveJutsu(jutsu);
-        const needsTarget = moveJutsu || jutsu.target !== "SELF";
-
         setSelectedActionId(undefined);
         setDashMode(false);
 
-        if (needsTarget) {
-            armPendingTargetJutsu(jutsu);
+        // Uniform two-step flow for EVERY jutsu (matches PvP): clicking the card
+        // only ARMS it — the cast fires on the follow-up target click. Self-buffs
+        // are confirmed by clicking your OWN ninja (handleTileClick), so they no
+        // longer instant-fire the moment the card is clicked.
+        armPendingTargetJutsu(jutsu);
 
-            if (moveJutsu) {
-                setLog(`${jutsu.name} selected. Choose an open tile within ${moveJutsuRange(jutsu)} spaces.`);
-            } else if (isGroundEffectJutsu(jutsu)) {
-                setLog(`${jutsu.name} selected. Choose a ground tile within ${jutsu.range} spaces.`);
-            } else {
-                setLog(`${jutsu.name} selected. Click ${opponentName} on the battlefield.`);
-            }
-
-            return;
+        if (isMoveJutsu(jutsu)) {
+            setLog(`${jutsu.name} selected. Choose an open tile within ${moveJutsuRange(jutsu)} spaces.`);
+        } else if (isGroundEffectJutsu(jutsu)) {
+            setLog(`${jutsu.name} selected. Choose a ground tile within ${jutsu.range} spaces.`);
+        } else if (isSelfCastJutsu(jutsu)) {
+            setLog(`${jutsu.name} selected. Click yourself to cast.`);
+        } else {
+            setLog(`${jutsu.name} selected. Click ${opponentName} on the battlefield.`);
         }
-
-        castJutsu(jutsu, true);
     }
     function castJutsu(jutsu: Jutsu, targetConfirmed = false, targetTile = enemyPos) {
         if (battleEnded) return;
@@ -2403,7 +2422,7 @@ export function Arena({
                 : true;
         const relocatesToGround = groundTargetRelocatesUser(jutsu);
         const effectiveTargetTile = groundTargeted ? targetTile : enemyPos;
-        if (!moveJutsu && jutsu.target !== "SELF" && jutsu.range > 0 && distance(playerPos, effectiveTargetTile) > jutsu.range) {
+        if (!moveJutsu && !isSelfCastJutsu(jutsu) && jutsu.range > 0 && distance(playerPos, effectiveTargetTile) > jutsu.range) {
             return setLog(`${jutsu.name} needs range ${jutsu.range}. Move closer or use a longer range jutsu.`);
         }
 
@@ -3996,8 +4015,11 @@ export function Arena({
                 const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
                 const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
                 const isPendingJutsuTarget =
-                    ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
+                    ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu) && !isSelfCastJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
                     i === enemyPos;
+                // Self-cast jutsu: light up the caster's OWN tile as the click target,
+                // so the arm-then-click-self flow reads the same as enemy targeting.
+                const isSelfTargetTile = pendingTargetJutsu != null && isSelfCastJutsu(pendingTargetJutsu) && i === playerPos;
                 // Ground-target jutsu: highlight valid open landing tiles in range.
                 // Floor to 1 — see normalizeJutsu comment.
                 const isGroundTargetTile = pendingTargetJutsu != null &&
@@ -4031,6 +4053,7 @@ export function Arena({
                             } ${(isGroundAffectedTile || isMoveAoeAffectedTile || isGroundZoneTile) ? "ground-affected-tile" : ""
                             } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
                             } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
+                            } ${isSelfTargetTile ? "jutsu-target-tile jutsu-self-target-tile" : ""
                             } ${isGroundTargetTile ? "ground-target-tile" : ""
                             } ${groundEffectClass
                             } ${isMoveLandingTile ? "dash-target-tile" : ""
@@ -4041,7 +4064,7 @@ export function Arena({
                             width: `${HEX_W}px`,
                             height: `${HEX_H}px`,
                         }}
-                        title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isGroundTargetTile ? `Place ${pendingTargetJutsu?.name} here` : isGroundAffectedTile ? `${pendingTargetJutsu?.name} affected tile` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
+                        title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isGroundTargetTile ? `Place ${pendingTargetJutsu?.name} here` : isGroundAffectedTile ? `${pendingTargetJutsu?.name} affected tile` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isSelfTargetTile ? `Cast ${pendingTargetJutsu?.name} on yourself` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
                         onMouseEnter={() => setHoveredBattleTile(i)}
                         onMouseLeave={() => setHoveredBattleTile(null)}
                         onClick={() => handleTileClickRef.current(i)}
