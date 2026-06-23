@@ -1917,6 +1917,71 @@ button {
     gap: 8px;
 }
 
+/* ===== Right-rail status notification bar ===== */
+.notif-bar {
+    margin-bottom: 8px;
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: linear-gradient(180deg, rgba(2, 6, 23, 0.74), rgba(2, 6, 23, 0.55));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.notif-bar-title {
+    margin: 0 2px 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #cbd5e1;
+    text-shadow: 0 1px 3px #000;
+}
+
+.notif-bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.notif-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: #f8fafc;
+    cursor: pointer;
+    transition: filter 0.12s ease, transform 0.08s ease;
+}
+
+.notif-chip:hover { filter: brightness(1.12); }
+.notif-chip:active { transform: translateY(1px); }
+.notif-chip.static { cursor: default; }
+.notif-chip.static:hover { filter: none; }
+
+.notif-chip-icon { flex: 0 0 auto; font-size: 0.95rem; }
+.notif-chip-label {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notif-chip.tone-danger { background: linear-gradient(180deg, rgba(220, 38, 38, 0.92), rgba(153, 27, 27, 0.92)); border-color: rgba(248, 113, 113, 0.6); }
+.notif-chip.tone-war    { background: linear-gradient(180deg, rgba(190, 18, 60, 0.92), rgba(136, 19, 55, 0.92)); border-color: rgba(251, 113, 133, 0.55); }
+.notif-chip.tone-event  { background: linear-gradient(180deg, rgba(217, 119, 6, 0.92), rgba(146, 64, 14, 0.92)); border-color: rgba(251, 191, 36, 0.55); }
+.notif-chip.tone-info   { background: linear-gradient(180deg, rgba(30, 64, 175, 0.92), rgba(30, 58, 138, 0.92)); border-color: rgba(96, 165, 250, 0.55); }
+
+/* Collapsed right rail (74px): icon-only, centred chips. */
+.notif-bar.compact { padding: 4px; }
+.notif-bar.compact .notif-chip { justify-content: center; padding: 6px 0; }
+
 /* ===== Story / cinematic ===== */
 
 .cinematic-panel {
@@ -18336,6 +18401,33 @@ button.combat-jutsu-button,
     gap: 2px;
     justify-content: space-around;
     align-items: center;
+  }
+
+  /* Mobile status notification strip — floats just above the bottom nav and
+     horizontally scrolls if several chips are active. Only the .mobile-notif-bar
+     wrapper is mobile-specific; the .notif-chip / .tone-* styles are shared
+     with the desktop right-rail bar. */
+  .mobile-notif-bar {
+    display: flex;
+    gap: 6px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(70px + env(safe-area-inset-bottom));
+    z-index: 999;
+    padding: 6px 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    pointer-events: auto;
+  }
+  .mobile-notif-bar::-webkit-scrollbar { display: none; }
+
+  .mobile-notif-bar .notif-chip {
+    width: auto;
+    flex: 0 0 auto;
+    max-width: 70vw;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   }
 
   .mobile-nav-btn {

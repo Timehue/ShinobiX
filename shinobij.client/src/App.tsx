@@ -7373,7 +7373,7 @@ export default function App() {
                     logoutPlayer={logoutPlayer}
                     currentBiome={currentBiome}
                     characterName={character?.name ?? ""}
-                    characterVillage={character?.village ?? ""}
+                    characterVillage={character?.village ?? ""} characterClan={character?.clan ?? ""}
                     screen={screen}
                 />
             )}
@@ -7393,7 +7393,7 @@ export default function App() {
                         logoutPlayer={logoutPlayer}
                         character={character}
                         currentSector={currentSector}
-                        atHome={mobileAtHome}
+                        atHome={mobileAtHome} screen={screen}
                     />
                 );
             })()}
