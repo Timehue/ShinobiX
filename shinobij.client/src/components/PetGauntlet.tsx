@@ -47,6 +47,11 @@ const NPC_LINES = [
     "Survive deep enough and the Ryo flows. Now — what'll it be?",
 ];
 
+// Visible client-build tag — lets us confirm in one glance whether the live site
+// is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
+// it with each gauntlet render change.
+const GAUNTLET_BUILD = "g11";
+
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
 };
@@ -240,6 +245,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 <span style={{ color: "#fca5a5" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, GAUNTLET_START_HEARTS - run.hearts))}</span>
                 <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
+                <span title="Gauntlet client build — confirms which version the live site is serving" style={{ color: "#475569", fontSize: "0.62rem", fontWeight: 700 }}>build {GAUNTLET_BUILD}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
                     {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}>🛒 Shop</button>}
                     <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run</button>
