@@ -173,6 +173,48 @@ test("R1 — the blackboard never turtles a near-even match into a stalemate", (
     assert.ok(capped <= seeds.length * 0.35, `${capped}/${seeds.length} matches hit the time cap — the AI is over-defending`);
 });
 
+// ── Control zone (king-of-the-hill) + neutral boss + carry teeth ───────────────
+test("the control zone scores and relocates (king-of-the-hill objective)", () => {
+    // A dominant team should win the hill repeatedly; the hill must also move (B3).
+    const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 320, attack: 30 }), 7);
+    assert.ok(r.events.some((e) => e.type === "zonescore"), "no team ever held the zone");
+    assert.ok(r.events.some((e) => e.type === "zonemove"), "the hill never relocated");
+    // Every snapshot exposes the zone readout, holdFrac in [-1,1].
+    for (const s of r.snapshots) {
+        assert.ok(s.zone && Number.isFinite(s.zone.holdFrac) && Math.abs(s.zone.holdFrac) <= 1.0001, `bad zone holdFrac ${s.zone?.holdFrac}`);
+        assert.ok(["blue", "red", null].includes(s.zone.lead));
+    }
+});
+
+test("the neutral boss spawns mid-match and can be slain for a reward", () => {
+    // The boss spawns after its timer in any full-length match; across a spread of even
+    // matchups (which run long enough for a team to commit to it) at least one resolves
+    // the kill. A lopsided stomp ends before the pit matters, so use even teams here.
+    const seeds = Array.from({ length: 10 }, (_, i) => i * 41 + 3);
+    let slain = false, spawned = false;
+    for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed);
+        if (r.events.some((e) => e.type === "bossspawn")) spawned = true;
+        for (const s of r.snapshots) assert.ok(s.boss && s.boss.hpFrac >= 0 && s.boss.hpFrac <= 1.0001, "bad boss hpFrac");
+        if (r.events.some((e) => e.type === "bosskill")) slain = true;
+    }
+    assert.ok(spawned, "the boss never spawned in any even match");
+    assert.ok(slain, "no even match ever resolved the boss kill");
+});
+
+test("B1 — a pet deals no damage while carrying the scroll", () => {
+    // The carry-teeth rule: a carrier can't basic-attack/ability (it must run + rely on
+    // escorts). Exclude the single pickup tick (the pet attacks BEFORE stepScroll flips
+    // carrying on that tick) by requiring the actor to have been carrying last tick too.
+    const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 320, attack: 30 }), 2024);
+    for (const e of r.events) {
+        if (e.type !== "hit" || !e.actorId) continue;
+        const now = r.snapshots[e.t]?.actors.find((a) => a.id === e.actorId);
+        const prev = r.snapshots[e.t - 1]?.actors.find((a) => a.id === e.actorId);
+        if (now?.carrying && prev?.carrying) assert.fail(`${e.actorId} dealt damage while carrying at t=${e.t}`);
+    }
+});
+
 // ── PvP-ladder items (applyItems flag — PVP gear stat-mods/procs + consumables) ──
 // The ladder equips both teams' gear + consumables; casual/preview leave applyItems off.
 test("items: deterministic with gear + consumables equipped", () => {
