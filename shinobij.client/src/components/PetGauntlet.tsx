@@ -25,6 +25,7 @@ import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { PetBoardArena } from "./PetBoardArena";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
+import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -100,6 +101,9 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
     }
     // Enemies auto-place: defenders to the front line, everyone else to the back.
     const enemyUnits = (pets: Pet[]): GridUnit[] => { const col = [0, 0, 0]; return pets.map((pet) => { const row = roleOf(pet) === "defender" ? 0 : 2; return { pet, row, col: col[row]++ }; }); };
+    // The next opponent's formation, shown across the top of the placement board so
+    // you can counter-position (deterministic per round; the real fight uses it too).
+    const enemyPreview = enemyUnits(enemySquadForRound(run));
 
     function startRound() {
         const squad = applySynergiesToSquad(fielded);
@@ -176,22 +180,38 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                             ? <p className="hint">Draft pets from the shop below to build your squad.</p>
                             : (
                                 <div>
-                                    <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell, to position it. The <strong style={{ color: "#fca5a5" }}>front row</strong> soaks the enemy melee; the back is protected.</p>
-                                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 6, maxWidth: 540, margin: "0 auto" }}>
-                                        {Array.from({ length: BOARD_ROWS_PER_SIDE }).flatMap((_, r) =>
-                                            Array.from({ length: BOARD_COLS }).map((_, c) => {
-                                                const pet = run.roster.find((p) => placement[p.id]?.row === r && placement[p.id]?.col === c) ?? null;
-                                                const sel = !!pet && selId === pet.id;
-                                                const img = pet ? petCardImage(pet) : "";
-                                                return (
-                                                    <button key={`${r}-${c}`} type="button" onClick={() => clickCell(r, c)} title={r === 0 ? "Front line" : r === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
-                                                        style={{ aspectRatio: "1", borderRadius: 8, border: `1px solid ${sel ? "#facc15" : r === 0 ? "#7f3a3a" : "#334155"}`, background: pet ? "rgba(15,23,42,0.72)" : r === 0 ? "rgba(90,32,32,0.28)" : "rgba(30,41,59,0.4)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.6)" : "none" }}>
-                                                        {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "84%", objectFit: "contain", mixBlendMode: "screen" }} /> : null}
-                                                        {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.6rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
-                                                    </button>
-                                                );
-                                            }),
-                                        )}
+                                    <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell on <strong style={{ color: "#93c5fd" }}>your side</strong> (bottom), to position it — this is the board you'll fight on. Your front line meets the enemy's in the middle.</p>
+                                    <div style={{ maxWidth: 560, margin: "0 auto", borderRadius: 12, border: "1px solid #3b2f55", padding: 7, backgroundImage: `linear-gradient(rgba(8,11,20,0.32), rgba(8,11,20,0.32)), url(${gauntletBoard})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+                                        <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#fca5a5", letterSpacing: "0.08em", margin: "0 0 3px 2px" }}>ENEMY</div>
+                                        <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 5 }}>
+                                            {Array.from({ length: BOARD_ROWS_PER_SIDE * 2 }).flatMap((_, gr) =>
+                                                Array.from({ length: BOARD_COLS }).map((_, c) => {
+                                                    if (gr < BOARD_ROWS_PER_SIDE) {
+                                                        // Enemy half (top): front toward centre = bottom of this block.
+                                                        const eu = enemyPreview.find((u) => u.row === (BOARD_ROWS_PER_SIDE - 1 - gr) && u.col === c);
+                                                        const eimg = eu ? petCardImage(eu.pet) : "";
+                                                        return (
+                                                            <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
+                                                                {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", mixBlendMode: "screen", transform: "scaleX(-1)" }} /> : null}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    // Your half (bottom): front toward centre = top of this block.
+                                                    const pRow = gr - BOARD_ROWS_PER_SIDE;
+                                                    const pet = run.roster.find((p) => placement[p.id]?.row === pRow && placement[p.id]?.col === c) ?? null;
+                                                    const sel = !!pet && selId === pet.id;
+                                                    const img = pet ? petCardImage(pet) : "";
+                                                    return (
+                                                        <button key={`p${gr}-${c}`} type="button" onClick={() => clickCell(pRow, c)} title={pRow === 0 ? "Front line" : pRow === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
+                                                            style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
+                                                            {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", mixBlendMode: "screen" }} /> : null}
+                                                            {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
+                                                        </button>
+                                                    );
+                                                }),
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#93c5fd", letterSpacing: "0.08em", margin: "3px 0 0 2px", textAlign: "right" }}>YOU</div>
                                     </div>
                                     {selId && <div style={{ textAlign: "center", marginTop: 6 }}><button type="button" style={btn("#7f1d1d")} onClick={() => { setRun(releasePet(run, selId)); setSelId(null); }}>✕ Release selected</button></div>}
                                 </div>
