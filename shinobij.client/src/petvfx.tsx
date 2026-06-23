@@ -12,7 +12,7 @@ import { runPetArenaParty } from "./lib/pet-battle-sim";
 import { rawPetPool } from "./data/pet-pool";
 import { PetColiseum, PetColiseumDuel, PetArenaMatch } from "./components/PetColiseum";
 import { PetBoardArena } from "./components/PetBoardArena";
-import { runPetBoardBattle } from "./lib/pet-board-sim";
+import { runPetGridBattle } from "./lib/pet-board-sim";
 import type { PetJutsu, Pet } from "./types/pet";
 import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
 const jts = (...js: PetJutsu[]) => js;   // typed inline jutsu list for the duel harness
@@ -87,7 +87,17 @@ function Harness() {
         harnessPet(60, { element: "Fire" }), harnessPet(61, { element: "Water" }),
         harnessPet(62, { element: "Lightning" }),
     ], []);
-    const boardResult = useMemo(() => runPetBoardBattle(boardPlayer, boardEnemy, seed), [boardPlayer, boardEnemy, seed]);
+    const boardResult = useMemo(() => runPetGridBattle(
+        [
+            { pet: boardPlayer[0], row: 0, col: 0 }, { pet: boardPlayer[1], row: 0, col: 1 },
+            { pet: boardPlayer[2], row: 1, col: 0 }, { pet: boardPlayer[3], row: 1, col: 1 }, { pet: boardPlayer[4], row: 1, col: 2 },
+        ],
+        [
+            { pet: boardEnemy[0], row: 0, col: 0 }, { pet: boardEnemy[1], row: 0, col: 1 },
+            { pet: boardEnemy[2], row: 1, col: 0 }, { pet: boardEnemy[3], row: 1, col: 1 }, { pet: boardEnemy[4], row: 1, col: 2 },
+        ],
+        seed,
+    ), [boardPlayer, boardEnemy, seed]);
     const playerPet = useMemo(() => harnessPet(0, { element: "Fire" }), []);
     const enemyPet = useMemo(() => harnessPet(7, { element: "Wind" }), []);
     const playerReserve = useMemo(() => harnessPet(1, { element: "Water" }), []);

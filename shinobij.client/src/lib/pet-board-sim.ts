@@ -1,28 +1,29 @@
 /*
- * pet-board-sim — the Pet Gauntlet BOARD auto-battler resolver.
+ * pet-board-sim — the Pet Gauntlet BOARD auto-battler resolver (POSITIONAL).
  *
- * A purpose-built, deterministic engine for the Gauntlet's TFT/Super-Auto-Pets
- * style board: two lineups of up to BOARD_SQUAD_MAX pets each sit in fixed slots
- * (no roaming) and trade actions in speed order until one side is wiped. It is
- * NOT the continuous duel sim (that's spatial 1v1/2v2 for the Pet Coliseum) and
+ * A purpose-built, deterministic engine for the Gauntlet's TFT-style board: each
+ * unit sits in a grid cell (row, col) — row 0 = FRONT, row 1 = BACK — and acts in
+ * speed order until one side is wiped. Placement is a real lever: the FRONT row
+ * shields the BACK, so melee must clear the front before reaching the back; only
+ * assassins (dive the back carries) and trackers (ranged, snipe lowest anywhere)
+ * reach past the front line. Support pets (heal/shield) tend the wounded.
+ *
+ * It is NOT the continuous duel sim (spatial 1v1/2v2 for the Pet Coliseum) and
  * NOT the retired round engine — it's its own simple resolver so the board view
- * can natively hold a full squad of N pets.
+ * natively holds a full squad of N pets. Damage reuses the duel sim's shape
+ * (attack-scaled × element × crit ÷ defense-mitigation) so balance reads familiarly.
  *
- * Each pet acts on its turn: it targets the opposing FRONT-most living unit and
- * either fires a ready jutsu (damage / heal / shield / buff / control, from the
- * pet's real kit) or makes a basic attack. Damage reuses the duel sim's shape
- * (attack-scaled × element × crit ÷ defense-mitigation) so balance reads
- * familiarly. Output is a per-round snapshot stream + a typed event stream the
- * renderer plays (lunge / hit / ability / faint).
- *
- * Determinism (so a run is reproducible + server-validatable later): seeded LCG,
- * fixed iteration order (speed desc, then slot, then id), no Math.random / Date,
- * sqrt/round-only math.
+ * Determinism (reproducible runs, server-validatable later): seeded LCG, fixed
+ * iteration order (speed desc, then slot, then player-before-enemy — id-INDEPENDENT),
+ * no Math.random / Date.
  */
 
 import type { Pet, PetJutsu } from "../types/pet";
+import { derivePetRole, type PetRole } from "./pet-roles";
 
 export const BOARD_SQUAD_MAX = 5;
+export const BOARD_ROWS = 2;    // 0 = front line, 1 = back line
+export const BOARD_COLS = 4;
 const MAX_ROUNDS = 40;
 const DMG_SCALE = 1.5;
 const CRIT_CHANCE = 0.12;
@@ -39,7 +40,6 @@ function elementMult(a?: string | null, b?: string | null): number {
     return 1;
 }
 
-// Classify a jutsu kind into the board's coarse action types.
 const HEAL_KINDS = new Set(["heal"]);
 const SHIELD_KINDS = new Set(["shield", "barrier", "absorb"]);
 const BUFF_KINDS = new Set(["buff", "haste"]);
@@ -51,12 +51,13 @@ function actionKindOf(kind: PetJutsu["kind"]): BoardActionKind {
     if (SHIELD_KINDS.has(kind)) return "shield";
     if (BUFF_KINDS.has(kind)) return "buff";
     if (CONTROL_KINDS.has(kind)) return "control";
-    return "damage"; // damage/crush/burn/lifesteal/wound/pierce/etc.
+    return "damage";
 }
 
 interface BoardJutsu { name: string; kind: PetJutsu["kind"]; act: BoardActionKind; power: number; cd: number; maxCd: number; lifesteal: boolean; }
 interface Unit {
-    id: string; name: string; element?: string | null; team: "player" | "enemy"; slot: number;
+    id: string; name: string; element?: string | null; role: PetRole; team: "player" | "enemy"; slot: number;
+    row: number; col: number;
     maxHp: number; hp: number; attack: number; defense: number; speed: number;
     shield: number; atkBuff: number; stunned: boolean; jutsus: BoardJutsu[];
 }
@@ -69,14 +70,16 @@ export interface BoardEvent {
 }
 export interface BoardUnitSnap { id: string; team: "player" | "enemy"; slot: number; hp: number; maxHp: number; shield: number; alive: boolean; }
 export interface BoardSnapshot { t: number; units: BoardUnitSnap[]; }
+/** A pet placed in a board cell. */
+export interface GridUnit { pet: Pet; row: number; col: number; }
 export interface BoardResult {
     result: "win" | "loss" | "draw";
     winner: "player" | "enemy" | null;
     rounds: number;
     snapshots: BoardSnapshot[];
     events: BoardEvent[];
-    // The lineups as they entered (id-stable), so the renderer can place slots.
-    roster: { id: string; team: "player" | "enemy"; slot: number; pet: Pet }[];
+    // The lineups as placed (id + grid cell), so the renderer can position slots.
+    roster: { id: string; team: "player" | "enemy"; slot: number; row: number; col: number; pet: Pet }[];
 }
 
 function lcg(seed: number): () => number {
@@ -84,7 +87,8 @@ function lcg(seed: number): () => number {
     return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-function buildUnit(pet: Pet, team: "player" | "enemy", slot: number): Unit {
+function buildUnit(pet: Pet, team: "player" | "enemy", slot: number, row: number, col: number): Unit {
+    const role: PetRole = (pet.role as PetRole | undefined) ?? derivePetRole(pet).role;
     const jutsus: BoardJutsu[] = (pet.jutsus ?? [])
         .filter((j) => j.kind !== "move")
         .slice(0, 4)
@@ -94,7 +98,7 @@ function buildUnit(pet: Pet, team: "player" | "enemy", slot: number): Unit {
             lifesteal: j.kind === "lifesteal",
         }));
     return {
-        id: pet.id, name: pet.name, element: pet.element, team, slot,
+        id: pet.id, name: pet.name, element: pet.element, role, team, slot, row, col,
         maxHp: Math.max(1, Math.round(pet.hp)), hp: Math.max(1, Math.round(pet.hp)),
         attack: Math.max(1, Math.round(pet.attack)), defense: Math.max(0, Math.round(pet.defense)),
         speed: Math.max(1, Math.round(pet.speed)),
@@ -104,15 +108,34 @@ function buildUnit(pet: Pet, team: "player" | "enemy", slot: number): Unit {
 
 const alive = (u: Unit) => u.hp > 0;
 const teamAlive = (units: Unit[], team: "player" | "enemy") => units.some((u) => u.team === team && alive(u));
-/** The opposing front-most living unit (lowest slot) — the lineup's "front". */
-function frontTarget(units: Unit[], team: "player" | "enemy"): Unit | null {
-    const foes = units.filter((u) => u.team !== team && alive(u)).sort((a, b) => a.slot - b.slot);
-    return foes[0] ?? null;
+
+/**
+ * Position + role aware target selection — the heart of why placement matters:
+ *   • assassin → dives the enemy BACK row (their carries), then the front;
+ *   • tracker (ranged) → snipes the lowest-HP enemy ANYWHERE (reaches the back);
+ *   • everyone else (defender/sage melee) → hits the enemy FRONT row, by nearest
+ *     column, and only reaches the BACK once the front line is wiped.
+ */
+function pickTarget(u: Unit, units: Unit[]): Unit | null {
+    const foes = units.filter((f) => f.team !== u.team && alive(f));
+    if (!foes.length) return null;
+    const front = foes.filter((f) => f.row === 0);
+    const back = foes.filter((f) => f.row === 1);
+    const byCol = (pool: Unit[]) => pool.length ? [...pool].sort((a, b) => Math.abs(a.col - u.col) - Math.abs(b.col - u.col) || a.slot - b.slot)[0] : null;
+    const byLowHp = (pool: Unit[]) => pool.length ? [...pool].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || a.slot - b.slot)[0] : null;
+    if (u.role === "assassin") return byLowHp(back) ?? byLowHp(front);
+    if (u.role === "tracker") return byLowHp(foes);
+    return byCol(front) ?? byCol(back);
 }
+
 /** The lowest-HP-fraction living ally (heal/shield priority). */
 function woundedAlly(units: Unit[], team: "player" | "enemy"): Unit | null {
     const allies = units.filter((u) => u.team === team && alive(u)).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp);
     return allies[0] ?? null;
+}
+
+function defenseFactor(def: number): number {
+    return Math.max(0.35, 1 - def * 0.0012);
 }
 
 function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, attackerId: string, crit: boolean, element?: string | null, kind?: PetJutsu["kind"]) {
@@ -125,12 +148,11 @@ function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, 
     events.push({ t, type: "hit", actorId: attackerId, targetId: target.id, dmg, crit, element, kind });
 }
 
-/** Resolve one unit's action this round (it targets the enemy front). */
+/** Resolve one unit's action this round. */
 function act(u: Unit, units: Unit[], rng: () => number, t: number, events: BoardEvent[]) {
     if (!alive(u)) return;
-    if (u.stunned) { u.stunned = false; return; } // skip a turn, then recover
+    if (u.stunned) { u.stunned = false; return; }
 
-    // Ready jutsu (lowest remaining cd, fires when cd hits 0)? else basic attack.
     const ready = u.jutsus.find((j) => j.cd <= 0);
     const crit = rng() < CRIT_CHANCE;
     const atk = u.attack + u.atkBuff;
@@ -159,31 +181,23 @@ function act(u: Unit, units: Unit[], rng: () => number, t: number, events: Board
             events.push({ t, type: "buff", actorId: u.id });
             return;
         }
-        const target = frontTarget(units, u.team);
+        const target = pickTarget(u, units);
         if (!target) return;
         if (ready.act === "control") {
             target.stunned = true;
-            const raw = atk * DMG_SCALE * 0.4 * elementMult(u.element, target.element);
-            dealDamage(target, raw * defenseFactor(target.defense), events, t, u.id, crit, u.element, ready.kind);
+            dealDamage(target, atk * DMG_SCALE * 0.4 * elementMult(u.element, target.element) * defenseFactor(target.defense), events, t, u.id, crit, u.element, ready.kind);
             return;
         }
-        // offensive jutsu
-        const raw = atk * DMG_SCALE * (ready.power / 100 || 1) * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1);
-        dealDamage(target, raw * defenseFactor(target.defense), events, t, u.id, crit, u.element, ready.kind);
-        if (ready.lifesteal) u.hp = Math.min(u.maxHp, u.hp + Math.round(Math.max(1, raw * defenseFactor(target.defense)) * 0.4));
+        const raw = atk * DMG_SCALE * (ready.power / 100 || 1) * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense);
+        dealDamage(target, raw, events, t, u.id, crit, u.element, ready.kind);
+        if (ready.lifesteal) u.hp = Math.min(u.maxHp, u.hp + Math.round(Math.max(1, raw) * 0.4));
         return;
     }
 
-    // Basic attack on the enemy front.
-    const target = frontTarget(units, u.team);
+    const target = pickTarget(u, units);
     if (!target) return;
     events.push({ t, type: "attack", actorId: u.id, targetId: target.id, element: u.element });
-    const raw = atk * DMG_SCALE * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1);
-    dealDamage(target, raw * defenseFactor(target.defense), events, t, u.id, crit, u.element);
-}
-
-function defenseFactor(def: number): number {
-    return Math.max(0.35, 1 - def * 0.0012);
+    dealDamage(target, atk * DMG_SCALE * elementMult(u.element, target.element) * (crit ? CRIT_MULT : 1) * defenseFactor(target.defense), events, t, u.id, crit, u.element);
 }
 
 function snapshot(t: number, units: Unit[]): BoardSnapshot {
@@ -191,37 +205,33 @@ function snapshot(t: number, units: Unit[]): BoardSnapshot {
 }
 
 /**
- * Resolve a board battle between two lineups (front = slot 0). Deterministic from
- * (teams, seed). Returns the round-by-round snapshot + event streams + the roster.
+ * Resolve a positional board battle between two placed squads (row 0 = front).
+ * Deterministic from (placements, seed). Returns round-by-round snapshots + the
+ * typed event stream + the placed roster.
  */
-export function runPetBoardBattle(playerTeam: Pet[], enemyTeam: Pet[], seed: number): BoardResult {
+export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: number): BoardResult {
     const rng = lcg(seed);
+    const p = player.slice(0, BOARD_SQUAD_MAX), e = enemy.slice(0, BOARD_SQUAD_MAX);
     const units: Unit[] = [
-        ...playerTeam.slice(0, BOARD_SQUAD_MAX).map((p, i) => buildUnit(p, "player", i)),
-        ...enemyTeam.slice(0, BOARD_SQUAD_MAX).map((p, i) => buildUnit(p, "enemy", i)),
+        ...p.map((g, i) => buildUnit(g.pet, "player", i, g.row, g.col)),
+        ...e.map((g, i) => buildUnit(g.pet, "enemy", i, g.row, g.col)),
     ];
-    const roster = units.map((u) => ({ id: u.id, team: u.team, slot: u.slot, pet: (u.team === "player" ? playerTeam : enemyTeam)[u.slot] })) as BoardResult["roster"];
+    const roster = units.map((u) => ({ id: u.id, team: u.team, slot: u.slot, row: u.row, col: u.col, pet: (u.team === "player" ? p : e)[u.slot].pet })) as BoardResult["roster"];
     const events: BoardEvent[] = [];
     const snapshots: BoardSnapshot[] = [snapshot(0, units)];
 
     let rounds = 0;
     for (let r = 1; r <= MAX_ROUNDS; r++) {
         rounds = r;
-        // Action order: fastest first; ties broken by slot then id (deterministic).
-        // Deterministic, id-INDEPENDENT order: fastest first, then front slot, then
-        // player-before-enemy (so structurally-identical lineups resolve identically
-        // regardless of the run-pet instance ids).
+        // Fastest first; ties → front slot → player-before-enemy (id-independent).
         const order = units.filter(alive).sort((a, b) => b.speed - a.speed || a.slot - b.slot || (a.team === b.team ? 0 : a.team === "player" ? -1 : 1));
         for (const u of order) {
             act(u, units, rng, r, events);
             if (!teamAlive(units, "player") || !teamAlive(units, "enemy")) break;
         }
-        // Tick cooldowns, surface faints.
+        for (const u of units) for (const j of u.jutsus) if (j.cd > 0) j.cd -= 1;
         for (const u of units) {
-            for (const j of u.jutsus) if (j.cd > 0) j.cd -= 1;
-        }
-        for (const u of units) {
-            if (u.hp <= 0 && !events.some((e) => e.type === "faint" && e.targetId === u.id)) {
+            if (u.hp <= 0 && !events.some((ev) => ev.type === "faint" && ev.targetId === u.id)) {
                 events.push({ t: r, type: "faint", targetId: u.id });
             }
         }
@@ -235,7 +245,6 @@ export function runPetBoardBattle(playerTeam: Pet[], enemyTeam: Pet[], seed: num
     if (pAlive && !eAlive) { result = "win"; winner = "player"; }
     else if (eAlive && !pAlive) { result = "loss"; winner = "enemy"; }
     else {
-        // Timeout (or mutual wipe) → higher surviving HP fraction wins.
         const frac = (team: "player" | "enemy") => {
             const t = units.filter((u) => u.team === team);
             const hp = t.reduce((s, u) => s + Math.max(0, u.hp), 0);
@@ -248,4 +257,14 @@ export function runPetBoardBattle(playerTeam: Pet[], enemyTeam: Pet[], seed: num
         else { result = "draw"; winner = null; }
     }
     return { result, winner, rounds, snapshots, events, roster };
+}
+
+/** Lineup convenience — everyone in the front row, one per column. Back-compat
+ *  for simple callers (and the dev harness); the Gauntlet uses runPetGridBattle. */
+export function runPetBoardBattle(playerTeam: Pet[], enemyTeam: Pet[], seed: number): BoardResult {
+    return runPetGridBattle(
+        playerTeam.map((pet, i) => ({ pet, row: 0, col: i })),
+        enemyTeam.map((pet, i) => ({ pet, row: 0, col: i })),
+        seed,
+    );
 }
