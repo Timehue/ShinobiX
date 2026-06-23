@@ -6,7 +6,7 @@
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import type { Pet } from "../types/pet";
-import { runPetBoardBattle, BOARD_SQUAD_MAX } from "./pet-board-sim";
+import { runPetBoardBattle, runPetGridBattle, BOARD_SQUAD_MAX } from "./pet-board-sim";
 
 let n = 0;
 function mk(over: Partial<Pet>): Pet {
@@ -63,6 +63,33 @@ describe("runPetBoardBattle — outcomes", () => {
         );
         assert.ok(r.events.some((e) => e.type === "faint"), "a unit faints");
         assert.equal(r.result, "win");
+    });
+
+    it("the FRONT row shields the BACK row from melee (placement matters)", () => {
+        const tank = mk({ id: "tank", role: "defender", hp: 1400, defense: 70 });
+        const carry = mk({ id: "carry", role: "assassin", hp: 150, defense: 0, attack: 30 });
+        const foe = mk({ id: "foe", role: "defender", hp: 600, attack: 70 });
+        const r = runPetGridBattle(
+            [{ pet: tank, row: 0, col: 0 }, { pet: carry, row: 1, col: 0 }],
+            [{ pet: foe, row: 0, col: 0 }],
+            5,
+        );
+        const firstFoeHit = r.events.find((e) => e.type === "hit" && e.actorId === "foe");
+        assert.equal(firstFoeHit?.targetId, "tank", "the melee foe hits the front tank, not the protected back carry");
+    });
+
+    it("an assassin dives past the front to the enemy BACK row", () => {
+        const front = mk({ id: "front", role: "defender", hp: 900, defense: 40 });
+        const back = mk({ id: "back", role: "sage", hp: 350, defense: 10 });
+        const assassin = mk({ id: "assassin", role: "assassin", attack: 90, hp: 500 });
+        const r = runPetGridBattle(
+            [{ pet: assassin, row: 0, col: 0 }],
+            [{ pet: front, row: 0, col: 0 }, { pet: back, row: 1, col: 0 }],
+            9,
+        );
+        const firstHit = r.events.find((e) => e.type === "hit" && e.actorId === "assassin");
+        assert.equal(firstHit?.targetId, "back", "the assassin reaches the back carry, ignoring the front");
+        assert.ok(r.roster.find((u) => u.id === "back")?.row === 1, "roster carries grid positions");
     });
 
     it("front unit (slot 0) takes the first hits", () => {
