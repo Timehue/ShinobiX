@@ -45,7 +45,7 @@ export function SunscarFestival({
             setFestivalLog(`The Broker: "${BLACK_MARKET_COST.toLocaleString()} ryo buys a pull. Come back when your purse is heavier."`);
             return;
         }
-        if (!confirm(`Risk ${BLACK_MARKET_COST.toLocaleString()} ryo on the black market? Most pulls lose ryo — the house always wins.`)) return;
+        // No confirm() gate — the pull goes straight to the tap-to-open crate reveal.
         setBmBusy(true);
         const res = await pullBlackMarket(character.name);
         setBmBusy(false);
