@@ -26,7 +26,6 @@ export const MobileNav = memo(function MobileNav({
     adminLoggedIn,
     logoutPlayer,
     character,
-    atHome,
     screen,
 }: {
     navigate: (screen: Screen) => void;
@@ -34,7 +33,6 @@ export const MobileNav = memo(function MobileNav({
     logoutPlayer: () => void;
     character: Character;
     currentSector: number;
-    atHome: boolean;
     screen: Screen;
 }) {
     const [open, setOpen] = useState(false);
@@ -76,9 +74,9 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon">🗺️</span>
                     Travel
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("village")} disabled={!atHome}>
-                    <span className="mnb-icon">🏯</span>
-                    Village
+                <button className="mobile-nav-btn" onClick={() => go("tavern")}>
+                    <span className="mnb-icon">🍶</span>
+                    Tavern
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("profile")}>
                     <span className="mnb-icon">👤</span>
@@ -119,7 +117,7 @@ export const MobileNav = memo(function MobileNav({
                     </div>
 
                     <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
+                        <button className="mobile-menu-btn" onClick={() => go("tavern")}>🍶 Tavern</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
                         <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
                         <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail<MailUnreadBadge /></button>

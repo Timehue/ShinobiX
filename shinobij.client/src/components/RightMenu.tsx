@@ -1,22 +1,21 @@
 /*
  * Desktop right-rail navigation menu — the collapsible side menu.
- * Grouped: travel/world (Village, Travel, Users) → activities
+ * Grouped: travel/world (Tavern, Travel, Users) → activities
  * (Missions, Training) → character (Character, Inventory, Jutsu, Pets,
  * Bloodline, Logbook) → community (Discord, Patreon — external links) →
  * system (Admin — shown to the protected admin name or any active admin
  * session so you can always get back into the panel, Logout).
  *
  * Pure leaf — `navigate` and `logoutPlayer` callbacks come in as props.
- * `villageBiomes` lookup imported from ./data/village-biomes; admin-name gate
- * via isProtectedAdminName from constants/game.
+ * Admin-name gate via isProtectedAdminName from constants/game. Tavern jumps
+ * straight to the player's home-village tavern from anywhere in the world.
  *
  * Extracted from App.tsx.
  */
 
 import { memo, useEffect, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
-import { villageBiomes } from "../data/village-biomes";
-import type { Screen, Biome } from "../types/core";
+import type { Screen } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
@@ -30,7 +29,6 @@ export const RightMenu = memo(function RightMenu({
     navigate,
     adminLoggedIn,
     logoutPlayer,
-    currentBiome,
     characterName,
     characterVillage,
     characterClan,
@@ -39,7 +37,6 @@ export const RightMenu = memo(function RightMenu({
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
     logoutPlayer: () => void;
-    currentBiome: Biome;
     characterName: string;
     characterVillage: string;
     characterClan: string;
@@ -51,8 +48,6 @@ export const RightMenu = memo(function RightMenu({
     // sync if the switch is flipped elsewhere.
     const [audioMuted, setAudioMutedState] = useState(isAudioMuted());
     useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
-    const homeBiome = villageBiomes[characterVillage];
-    const atHome = screen !== "worldMap" || currentBiome === homeBiome;
     const isAdminAccount = isProtectedAdminName(characterName);
 
     return (
@@ -90,7 +85,7 @@ export const RightMenu = memo(function RightMenu({
                     <h3>Main Menu</h3>
 
                     <div className="right-menu-buttons">
-                        <button onClick={() => navigate("village")} disabled={!atHome} title={atHome ? undefined : `Travel to ${characterVillage} to enter`}>Village</button>
+                        <button onClick={() => navigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}>🍶 Tavern</button>
                         <button onClick={() => navigate("worldMap")}>Travel</button>
                         <button onClick={() => navigate("userHub")}>Users</button>
                         <button onClick={() => navigate("messages")}>📬 Mail<MailUnreadBadge /></button>
