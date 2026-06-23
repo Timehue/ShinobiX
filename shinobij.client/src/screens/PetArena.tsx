@@ -748,7 +748,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             lastDailyReset: currentDateKey(),
                         });
                         if (data.capped) {
-                            setBattleLog([...logs, "Daily Pet Arena reward cap reached — wins still count, but no more ryo today."]);
+                            setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
                         }
                     } else {
                         // Server refused — DON'T grant ryo locally. Stats stay client-side as before.
@@ -889,13 +889,13 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         </>
                     ) : (
                         <>
-                            <h2>Pet Arena</h2>
+                            <h2>{arenaView === "tactical" ? "Tactical Pet Arena" : "Pet Coliseum"}</h2>
                             <p className="hint">{
                                 pendingClanPetBattle
                                     ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.`
                                     : arenaView === "tactical"
                                         ? "Big-map team battles — deathmatch + capture the scroll. Fight AI, or team up with a friend against two opponents."
-                                        : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."
+                                        : "Cinematic 1v1 & 2v2 duels — your pet approaches, kites, dodges, trades elemental strikes and unleashes ultimates on its own. You build the pet; it fights the duel."
                             }</p>
                         </>
                     )}
@@ -907,10 +907,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             {!isHollowGate && (
                 <div className="pet-arena-mode-toggle" style={{ maxWidth: 460, marginBottom: 14 }}>
                     <button type="button" className={arenaView === "battle" ? "active" : ""} onClick={() => setArenaView("battle")}>
-                        ⚔️ Pet Arena
+                        ⚔️ Pet Coliseum
                     </button>
                     <button type="button" className={arenaView === "tactical" ? "active" : ""} onClick={() => setArenaView("tactical")}>
-                        🏟️ Tactical Arena
+                        🏟️ Tactical Pet Arena
                     </button>
                 </div>
             )}
@@ -1002,7 +1002,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             <>
             {!isHollowGate && (
                 <div className="pet-arena-hero" style={{ backgroundImage: `url(${DUEL_HERO_BY_ELEMENT[selectedPet?.element ?? ""] ?? petDuelHero})` }}>
-                    <h3 className="hero-title">⚔️ Pet Arena</h3>
+                    <h3 className="hero-title">⚔️ Pet Coliseum</h3>
                     <p className="hero-sub">
                         Cinematic 1v1 &amp; 2v2 duels — pit your pet against other players and the AI.
                         {selectedPet?.element && selectedPet.element !== "None" ? ` Arena attuned to ${selectedPet.element}.` : ""}
@@ -1327,7 +1327,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             {arenaView === "tactical" && (
                 <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
                     <div className="pet-arena-hero" style={{ backgroundImage: `url(${tacticalArenaHero})`, marginBottom: 0 }}>
-                        <h3 className="hero-title">🏟️ Tactical Arena</h3>
+                        <h3 className="hero-title">🏟️ Tactical Pet Arena</h3>
                         <p className="hero-sub">
                             A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's role. Preview mode — no rewards yet.
                         </p>

@@ -277,7 +277,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                 )}
                 {tab === "pets" && (
                     <>
-                        <p className="hol-board-label">Pet Arena Wins</p>
+                        <p className="hol-board-label">Pet Coliseum Wins</p>
                         {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
                         ))}

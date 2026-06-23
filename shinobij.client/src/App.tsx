@@ -3102,7 +3102,7 @@ export default function App() {
         setPendingPetBattleOpponent(opponentForResume);
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
-        if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
+        if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open the Pet Coliseum if they do not see the fight.`);
     }
 
     // Fetch full server player list (includes offline players from registry)
@@ -3215,7 +3215,7 @@ export default function App() {
         if (accepted.arenaMatch) { // Tactical Arena PvP — challenger side
             const match = buildAcceptedArenaMatch(accepted);
             if (match) setPendingArenaMatch(match);
-            else alert(`${accepted.fromName} accepted your Tactical Arena challenge. Open Pet Arena if it doesn't start.`);
+            else alert(`${accepted.fromName} accepted your Tactical Pet Arena challenge. Open the Pet Coliseum if it doesn't start.`);
             setScreen("petArena");
             return;
         }
@@ -3261,7 +3261,7 @@ export default function App() {
                 setPendingPetBattleOpponent(opponentForResume);
                 setScreen("petArena");
             } else {
-                alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
+                alert(`${accepted.fromName} accepted your pet battle. Open the Pet Coliseum if it does not start automatically.`);
                 setScreen("petArena");
             }
             return;

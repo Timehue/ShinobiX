@@ -4096,7 +4096,7 @@ export function Arena({
                                     <div className="menu">
                                         <button onClick={() => {
                                             setScreen("petArena");
-                                        }}>🐾 Go to Pet Arena</button>
+                                        }}>🐾 Go to Pet Coliseum</button>
                                         <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                                     </div>
                                 </div>
@@ -4184,7 +4184,7 @@ export function Arena({
                                                 return;
                                             }
                                             acceptChallenge(challenge);
-                                        }}>{challenge.mode === "clanWarPet" ? "Open Pet Arena" : "Accept Duel"}</button>
+                                        }}>{challenge.mode === "clanWarPet" ? "Open Pet Coliseum" : "Accept Duel"}</button>
                                         <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                                     </div>
                                 </div>
@@ -4341,7 +4341,7 @@ export function Arena({
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => setScreen("petArena")}>🎮 Open Casual Pet Arena</button>
+                        <button onClick={() => setScreen("petArena")}>🎮 Open Casual Pet Coliseum</button>
                     </section>
                 )}
             </div>

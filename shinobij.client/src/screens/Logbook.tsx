@@ -314,7 +314,7 @@ export function Logbook({
                     <p><strong>Training.</strong> At the Training Grounds you pick a stat and a timer. Short timers are quick active play; long timers keep progressing while you're away.</p>
                     <p><strong>Jutsu.</strong> Jutsu are your combat identity. Your bloodline gives you a starter set; unlock and equip more, and using them in battle raises their mastery.</p>
                     <p><strong>Missions.</strong> Accept a mission, complete the task (fight or explore), then return to the Mission Hall and claim the reward. That do → return → claim loop is the core of the game.</p>
-                    <p><strong>Pets.</strong> Your companion fights with you in PvE and the Pet Arena. Manage pets, training, and expeditions at the Pet Yard.</p>
+                    <p><strong>Pets.</strong> Your companion fights with you in PvE and the Pet Coliseum. Manage pets, training, and expeditions at the Pet Yard.</p>
                     <p><strong>Healing.</strong> After a tough fight, visit the Hospital to recover HP.</p>
                     <p><strong>Story.</strong> Your village story unlocks once you finish Academy Training — then visit the Story Hall.</p>
                     <p><strong>Reaching Genin.</strong> Level up to 15 and pass the Genin Exam (it appears here in your Logbook) to graduate from Academy Student.</p>
