@@ -38,7 +38,7 @@ function PetMiniCard({ pet, footer }: { pet: Pet; footer?: React.ReactNode }) {
     const role = roleOf(pet);
     return (
         <div style={{ border: `1px solid ${elColor(pet.element)}66`, borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", minWidth: 132 }}>
-            {(() => { const img = petCardImage(pet); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
+            {(() => { const img = petCardImage(pet); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, mixBlendMode: "screen", filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
                 <span title={ROLE_META[role].label} style={{ fontSize: "0.92rem" }}>{ROLE_META[role].icon}</span>
@@ -177,7 +177,7 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                             : (
                                 <div>
                                     <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell, to position it. The <strong style={{ color: "#fca5a5" }}>front row</strong> soaks the enemy melee; the back is protected.</p>
-                                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 5, maxWidth: 440, margin: "0 auto" }}>
+                                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 6, maxWidth: 540, margin: "0 auto" }}>
                                         {Array.from({ length: BOARD_ROWS_PER_SIDE }).flatMap((_, r) =>
                                             Array.from({ length: BOARD_COLS }).map((_, c) => {
                                                 const pet = run.roster.find((p) => placement[p.id]?.row === r && placement[p.id]?.col === c) ?? null;
@@ -186,7 +186,7 @@ export function PetGauntlet({ sharedImages = {} }: { sharedImages?: Record<strin
                                                 return (
                                                     <button key={`${r}-${c}`} type="button" onClick={() => clickCell(r, c)} title={r === 0 ? "Front line" : r === BOARD_ROWS_PER_SIDE - 1 ? "Back line" : "Mid line"}
                                                         style={{ aspectRatio: "1", borderRadius: 8, border: `1px solid ${sel ? "#facc15" : r === 0 ? "#7f3a3a" : "#334155"}`, background: pet ? "rgba(15,23,42,0.72)" : r === 0 ? "rgba(90,32,32,0.28)" : "rgba(30,41,59,0.4)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.6)" : "none" }}>
-                                                        {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "84%", objectFit: "contain" }} /> : null}
+                                                        {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "84%", objectFit: "contain", mixBlendMode: "screen" }} /> : null}
                                                         {pet && <span style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.6rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
                                                     </button>
                                                 );
