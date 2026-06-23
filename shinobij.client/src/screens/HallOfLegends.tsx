@@ -295,7 +295,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                 )}
                 {tab === "gauntlet" && (
                     <>
-                        <p className="hint" style={{ margin: "0 0 0.5rem" }}>🗡 Pet Gauntlet — this week's run. Everyone drafts from the same shop against the same enemies; rank by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
+                        <p className="hint" style={{ margin: "0 0 0.5rem" }}>🗡 Pet Gauntlet — this week's best runs. Each run is a randomized draft + enemy gauntlet; ranked by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
                         <p className="hol-board-label">🏆 Weekly Gauntlet — Top 25{gauntletLb?.weekKey ? ` · ${gauntletLb.weekKey}` : ""}</p>
                         {!gauntletLb
                             ? <p className="hol-empty">Loading this week's board…</p>

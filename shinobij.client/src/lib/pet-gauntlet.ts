@@ -49,9 +49,15 @@ export const GAUNTLET_CHARM_COST = 10;     // Valor for a Bone Charm
 
 const RARITY_COST: Record<PetRarity, number> = { standard: 3, rare: 5, legendary: 7, mythic: 9 };
 
+// Pets kept OUT of the Gauntlet pool (both recruit + enemy) — pose art that
+// renders broken on the board. (Breeze Finch ships baked motion-streak art, like
+// the old Red Fox, that shows as a solid blob on the standee.)
+export const GAUNTLET_EXCLUDED_IDS = new Set<string>(["standard-35"]);
+
 // Balanced pool, indexed by rarity. Built once from the canonical templates —
-// the SAME transform App.tsx applies (rawPetPool.map(balanceBuiltInPetTemplate)).
-const POOL: Pet[] = rawPetPool.map(balanceBuiltInPetTemplate);
+// the SAME transform App.tsx applies (rawPetPool.map(balanceBuiltInPetTemplate)) —
+// minus the excluded ids above.
+const POOL: Pet[] = rawPetPool.map(balanceBuiltInPetTemplate).filter((p) => !GAUNTLET_EXCLUDED_IDS.has(p.id));
 const POOL_BY_RARITY: Record<PetRarity, Pet[]> = { standard: [], rare: [], legendary: [], mythic: [] };
 for (const p of POOL) (POOL_BY_RARITY[p.rarity] ??= []).push(p);
 
