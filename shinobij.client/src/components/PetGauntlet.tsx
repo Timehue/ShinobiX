@@ -29,6 +29,11 @@ import { PetBoardArena } from "./PetBoardArena";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
+// Relic icon art (gpt-image-1, transparent). Auto-resolved by filename
+// (`<relicId>.webp`); falls back to the relic def's emoji when an image is absent.
+const RELIC_ART = import.meta.glob<{ default: string }>("../assets/coliseum/relics/*.webp", { eager: true });
+const relicArt = (id: string): string | null => RELIC_ART[`../assets/coliseum/relics/${id}.webp`]?.default ?? null;
+
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
 };
@@ -341,9 +346,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         <h4 style={{ margin: "0 0 6px", color: "#e2e8f0" }}>Relics <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· permanent run-long boons</span></h4>
                         {run.relics.length > 0 && (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                                {run.relics.map((id) => { const d = relicDef(id); return (
+                                {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
                                     <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
-                                        <span>{d.icon}</span>{d.name}
+                                        {art ? <img src={art} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} /> : <span>{d.icon}</span>}{d.name}
                                     </span>
                                 ); })}
                             </div>
@@ -351,9 +356,12 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {run.relicShop.length === 0
                                 ? <p className="hint">No relics on offer — reroll to seek new boons.</p>
-                                : run.relicShop.map((id) => { const d = relicDef(id); const blocked = run.valor < d.cost; return (
+                                : run.relicShop.map((id) => { const d = relicDef(id); const blocked = run.valor < d.cost; const art = relicArt(id); return (
                                     <div key={id} style={{ border: "1px solid #6d28d9", borderRadius: 10, background: "rgba(30,18,52,0.6)", padding: "8px 10px", width: 170 }}>
-                                        <strong style={{ fontSize: "0.84rem", color: "#e9d5ff" }}>{d.icon} {d.name}</strong>
+                                        <strong style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.84rem", color: "#e9d5ff" }}>
+                                            {art ? <img src={art} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.5))" }} /> : <span>{d.icon}</span>}
+                                            {d.name}
+                                        </strong>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
                                         <button type="button" style={btn("#a855f7", blocked)} disabled={blocked} onClick={() => setRun(buyRelic(run, id))}>Buy · {d.cost}✦</button>
                                     </div>
