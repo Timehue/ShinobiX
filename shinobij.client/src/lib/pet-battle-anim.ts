@@ -47,6 +47,13 @@ export function petStripVariant(id: string): string {
     return id.replace(/-\d{10,}$/, "");
 }
 
+// Cache-busting tag for the static idle-pose files. The poses live at fixed
+// `/pet-poses/<id>-idle.webp` URLs and are cleaned/overwritten IN PLACE, so a CDN
+// or browser would otherwise keep serving the stale (dark-background) version.
+// Bump this whenever the pose art is re-cleaned or regenerated.
+const POSE_ASSET_V = 2;
+const idlePoseUrl = (id: string) => `/pet-poses/${id}-idle.webp?v=${POSE_ASSET_V}`;
+
 /**
  * Resolve a pet's depth-sliced parallax layers (Phase B), if all three bands
  * are published. Looked up by full id first, then the variant-stripped base id
@@ -164,8 +171,8 @@ export function petCardImage(
         pet.image ||
         "";
     if (direct) return direct;
-    if (POSED_PET_IDS.has(visualId)) return `/pet-poses/${visualId}-idle.webp`;
-    if (POSED_PET_IDS.has(baseId)) return `/pet-poses/${baseId}-idle.webp`;
+    if (POSED_PET_IDS.has(visualId)) return idlePoseUrl(visualId);
+    if (POSED_PET_IDS.has(baseId)) return idlePoseUrl(baseId);
     return "";
 }
 
@@ -179,10 +186,10 @@ export function petCardImage(
  */
 export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
     const visualId = petVisualId(pet);
-    if (POSED_PET_IDS.has(visualId)) return `/pet-poses/${visualId}-idle.webp`;
-    if (POSED_PET_IDS.has(pet.id)) return `/pet-poses/${pet.id}-idle.webp`;
+    if (POSED_PET_IDS.has(visualId)) return idlePoseUrl(visualId);
+    if (POSED_PET_IDS.has(pet.id)) return idlePoseUrl(pet.id);
     const baseId = petStripVariant(pet.id);
-    if (POSED_PET_IDS.has(baseId)) return `/pet-poses/${baseId}-idle.webp`;
+    if (POSED_PET_IDS.has(baseId)) return idlePoseUrl(baseId);
     return petCardImage(pet, sharedImages);
 }
 

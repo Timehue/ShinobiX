@@ -56,7 +56,7 @@ test("petBattleSprite: an evolved starter prefers its stage art, else falls back
 test("petCardImage: a starter falls back to its idle pose (no inline image)", () => {
     // Starters ship NO inline image but DO have a baked idle pose — this is the
     // pet-yard bug fix: without the pose fallback the card shows name initials.
-    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp");
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp?v=2");
 });
 
 test("petCardImage: an inline image (e.g. evolved art) wins over the pose", () => {
@@ -69,11 +69,11 @@ test("petCardImage: a published shared image wins over everything", () => {
 
 test("petCardImage: an evolved starter prefers its stage pose", () => {
     // visualId starter-fire-r has an idle pose in the manifest.
-    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 })), "/pet-poses/starter-fire-r-idle.webp");
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 })), "/pet-poses/starter-fire-r-idle.webp?v=2");
 });
 
 test("petCardImage: an encounter clone resolves the pose by variant-stripped base id", () => {
-    assert.equal(petCardImage(mkPet({ id: "standard-1-1700000000000" })), "/pet-poses/standard-1-idle.webp");
+    assert.equal(petCardImage(mkPet({ id: "standard-1-1700000000000" })), "/pet-poses/standard-1-idle.webp?v=2");
 });
 
 test("petCardImage: an id with no pose and no image → empty string (caller shows initials)", () => {
