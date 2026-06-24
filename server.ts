@@ -704,13 +704,43 @@ const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.clie
 //   • index.html must NEVER be cached: it's the chunk map. A stale index.html
 //     pins old hashed <script> URLs that 404 after a deploy — the exact cause
 //     of the post-deploy white screen (also guarded now by the ErrorBoundary).
-const _HASHED_ASSET_RE = /\.[0-9a-f]{8,}\.(?:js|css|woff2?|png|jpe?g|webp|gif|svg|avif|mp3|ogg|wav)$/i;
+// Content-hashed bundle output. Everything Vite emits under the build's assets/
+// dir is content-hashed (e.g. index-D5HRMFzs.js, react-vendor-B5ZEWdOX.js,
+// 001-5JXH1tsk.png) — a content change yields a new filename — so it's safe to
+// cache for a year, immutable. This is what lets the heavy JS/CSS/img bytes (the
+// ~2 MB main bundle, the ~521 KB CSS, every lazy chunk) serve from the edge cache
+// instead of the Railway origin (the only metered-egress tier).
+//   We match BOTH the assets/ dir AND Vite's hash signature (an exactly-8-char
+//   base64 token after the final hyphen). The old `\.[0-9a-f]{8,}\.` pattern
+//   assumed a dot-separated lowercase-hex hash and so NEVER matched Vite's real
+//   `name-HASH.ext` base64 output — these bundles were silently served max-age=0
+//   (revalidated against origin on every load). The dir+hash pair also correctly
+//   EXCLUDES verbatim public files that happen to live under assets/ (e.g.
+//   public/assets/dungeon/atlas-floor.png), which are fixed-name and must stay on
+//   the revalidating media rule below.
+const _HASHED_ASSET_RE = /[\\/]assets[\\/].*-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/i;
+// Fixed-name media copied verbatim from the client's public/ dir (pet-poses,
+// badges, music, sfx, sector-map, arena floors, favicon, dungeon tiles, …). These
+// keep their original, reusable names, so they must NOT be immutable: an in-place
+// art overwrite would otherwise pin the stale version forever (the same trap that
+// keeps index.html uncached). Without an explicit header they fall back to
+// express.static's default max-age=0, which makes Cloudflare revalidate against
+// the Railway origin on essentially every battle / profile open — the single
+// biggest in-session re-fetch cost (pet poses alone are ~31 MB). Give them a
+// 1-week cache + a day of stale-while-revalidate: served from the edge, but
+// self-healing within a week if art changes. The bulk asset (pet poses) is
+// additionally ?v=POSE_ASSET_V cache-busted client-side, so a pose re-clean
+// changes the URL and never waits on this TTL. JS/CSS/JSON are excluded here so no
+// chunk map or data manifest can go stale.
+const _STATIC_MEDIA_RE = /\.(?:png|jpe?g|webp|gif|svg|avif|ico|mp3|ogg|wav|woff2?|ttf|otf)$/i;
 app.use(express.static(staticDir, {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html')) {
             res.setHeader('Cache-Control', 'no-cache');
         } else if (_HASHED_ASSET_RE.test(filePath)) {
             res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (_STATIC_MEDIA_RE.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
         }
     },
 }));
