@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
+import { BackToVillageButton } from "../components/BackToVillageButton";
 import {
     type Character,
     type PlayerRecord,
@@ -238,6 +239,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
 
     return (
         <div className="card">
+            <BackToVillageButton onClick={() => setScreen("village")} />
             <h2>🏥 Village Hospital</h2>
             <p style={{ color: "#94a3b8" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
             {isHealer && (

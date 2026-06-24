@@ -16,16 +16,17 @@ import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, c
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
 import { GameIcon } from "./icons/GameIcon";
+import { BackToVillageButton } from "./BackToVillageButton";
 import type { Character } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 
 function ShopBase({
-    character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo",
+    character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo", onBack, backLabel,
 }: {
     character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[];
     title: string; subtitle: string; filterRarities: GameItem["rarity"][];
-    currency?: "ryo" | "fateShards";
+    currency?: "ryo" | "fateShards"; onBack: () => void; backLabel?: string;
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
 
@@ -133,6 +134,7 @@ function ShopBase({
 
     return (
         <div className="card">
+            <BackToVillageButton onClick={onBack} label={backLabel} />
             <h2>{title}</h2>
 
             <p style={{ marginBottom: "0.25rem", color: "#aaa" }}>{subtitle}</p>
@@ -386,7 +388,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
     );
 }
 
-export function Shop({ character, updateCharacter, creatorItems, creatorCards }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[] }) {
+export function Shop({ character, updateCharacter, creatorItems, creatorCards, onBack }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void }) {
     return (
         <>
             <ShopBase
@@ -397,13 +399,14 @@ export function Shop({ character, updateCharacter, creatorItems, creatorCards }:
                 subtitle="Standard gear for everyday shinobi."
                 filterRarities={["common", "uncommon", "rare", "epic"]}
                 currency="ryo"
+                onBack={onBack}
             />
             <CardPackSection character={character} updateCharacter={updateCharacter} currency="ryo" creatorCards={creatorCards} />
         </>
     );
 }
 
-export function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCards }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[] }) {
+export function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCards, onBack }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; creatorCards: TileCard[]; onBack: () => void }) {
     return (
         <>
             <ShopBase
@@ -414,6 +417,8 @@ export function GrandMarketplace({ character, updateCharacter, creatorItems, cre
                 subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards"
                 filterRarities={["legendary", "mythic"]}
                 currency="fateShards"
+                onBack={onBack}
+                backLabel="← Central Hub"
             />
             <CardPackSection character={character} updateCharacter={updateCharacter} currency="fateShards" creatorCards={creatorCards} />
         </>
