@@ -13,6 +13,7 @@ import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
+import { BackToVillageButton } from "../components/BackToVillageButton";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
@@ -4092,6 +4093,7 @@ export function Arena({
         if (lobbyMode === "battleArena") {
             return (
                 <div className="card arena-lobby">
+                    <BackToVillageButton onClick={() => setScreen("village")} />
                     <h2>Battle Arena</h2>
                     <p>Train against AI fighters or send casual spar requests to other players.</p>
 
