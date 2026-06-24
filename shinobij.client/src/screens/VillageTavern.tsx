@@ -11,9 +11,18 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
+    // The message the player is replying to (null = a fresh, un-quoted message).
+    const [replyingTo, setReplyingTo] = useState<TavernMessage | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     // Track last known message count so we skip re-renders when nothing changed
     const lastCountRef = useRef<number>(-1);
+
+    function startReply(m: TavernMessage) {
+        setReplyingTo(m);
+        // Focus the box so the mobile keyboard opens straight onto the reply.
+        inputRef.current?.focus();
+    }
 
     async function fetchMessages() {
         try {
@@ -65,6 +74,10 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
         if (!text || sending) return;
         setSending(true);
         setInput("");
+        // Capture + clear the reply target before the request so a fast
+        // follow-up message isn't accidentally sent as a reply too.
+        const reply = replyingTo;
+        setReplyingTo(null);
         try {
             const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`, {
                 method: "POST",
@@ -75,6 +88,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                     rank: character.rankTitle,
                     customTitle: character.customTitle,
                     level: character.level,
+                    ...(reply ? { replyTo: { author: reply.author, text: reply.text } } : {}),
                 }),
             });
             if (res.ok) {
@@ -87,10 +101,12 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                 const errData = await res.json().catch(() => ({} as { error?: string }));
                 alert(errData?.error ?? `Failed to send (${res.status}).`);
                 setInput(text);
+                setReplyingTo(reply);
             }
         } catch {
             alert("Network error — message not sent.");
             setInput(text);
+            setReplyingTo(reply);
         }
         setSending(false);
     }
@@ -125,7 +141,19 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                                     {m.customTitle && <span className="tavern-custom-title">«{m.customTitle}»</span>}
                                     {m.rank && <span className="tavern-rank">{m.rank}</span>}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                    <button
+                                        type="button"
+                                        className="tavern-reply-btn"
+                                        onClick={() => startReply(m)}
+                                        aria-label={`Reply to ${m.author}`}
+                                    >↩ Reply</button>
                                 </div>
+                                {m.replyTo && (
+                                    <div className="tavern-quote">
+                                        <span className="tavern-quote-author">↩ {m.replyTo.author}</span>
+                                        <span className="tavern-quote-text">{m.replyTo.text}</span>
+                                    </div>
+                                )}
                                 <p className="tavern-text">{m.text}</p>
                             </div>
                         </div>
@@ -133,19 +161,36 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                 })}
                 <div ref={bottomRef} />
             </div>
-            <div className="tavern-input-row">
-                <input
-                    className="tavern-input"
-                    value={input}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
-                    placeholder={`Say something to ${character.village}...`}
-                    maxLength={300}
-                    disabled={sending}
-                />
-                <button className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
-                    {sending ? "…" : "→ Send"}
-                </button>
+            <div className="tavern-compose">
+                {replyingTo && (
+                    <div className="tavern-reply-banner">
+                        <div className="tavern-reply-banner-info">
+                            <span className="tavern-reply-banner-label">Replying to {replyingTo.author}</span>
+                            <span className="tavern-reply-banner-text">{replyingTo.text}</span>
+                        </div>
+                        <button
+                            type="button"
+                            className="tavern-reply-cancel"
+                            onClick={() => setReplyingTo(null)}
+                            aria-label="Cancel reply"
+                        >✕</button>
+                    </div>
+                )}
+                <div className="tavern-input-row">
+                    <input
+                        ref={inputRef}
+                        className="tavern-input"
+                        value={input}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
+                        placeholder={replyingTo ? `Reply to ${replyingTo.author}...` : `Say something to ${character.village}...`}
+                        maxLength={300}
+                        disabled={sending}
+                    />
+                    <button className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
+                        {sending ? "…" : "→ Send"}
+                    </button>
+                </div>
             </div>
         </div>
     );
