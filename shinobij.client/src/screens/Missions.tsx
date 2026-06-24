@@ -7,6 +7,7 @@ import { DAILY_MISSION_LIMIT } from "../constants/game";
 import type { MissionRank } from "../constants/hunter";
 import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
+import { BackToVillageButton } from "../components/BackToVillageButton";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
@@ -118,6 +119,7 @@ export function Missions({
 
     return (
         <div className="card mission-hall">
+            <BackToVillageButton onClick={() => setScreen("village")} />
             {/* -- Header -- */}
             <div className="mh-header">
                 <div>
