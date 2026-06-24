@@ -17964,7 +17964,10 @@ button.combat-jutsu-button,
     margin: 0 auto;
     display: flex;
     flex-direction: column;
+    /* dvh (not vh) so the screen tracks the *visible* viewport on mobile —
+       avoids the bottom input being stranded under the browser chrome. */
     height: calc(100vh - 120px);
+    height: calc(100dvh - 120px);
     min-height: 480px;
     background: linear-gradient(160deg, #0d0d0f 0%, #120b05 50%, #0d0a00 100%);
     border: 1px solid rgba(202, 138, 4, 0.2);
@@ -18182,12 +18185,16 @@ button.combat-jutsu-button,
 
 .tavern-input {
     flex: 1;
+    min-width: 0;
     padding: 0.55rem 0.85rem;
     border-radius: 7px;
     border: 1px solid transparent;
     background: rgba(255, 255, 255, 0.04);
     color: #f5f5f4;
-    font-size: 0.9rem;
+    /* 16px (not 0.9rem/14.4px) so iOS doesn't auto-zoom the page when the
+       field is focused — that zoom is what made the layout "shrink"/shift
+       sideways when the mobile keyboard opened. */
+    font-size: 16px;
 }
 
 .tavern-input::placeholder {
@@ -18223,6 +18230,136 @@ button.combat-jutsu-button,
     opacity: 0.35;
     cursor: not-allowed;
     box-shadow: none;
+}
+
+/* ── Tavern replies ───────────────────────────────────────────── */
+/* Per-message "Reply" action. Subtle by default; brightens on message
+   hover (desktop) and stays reliably tappable on touch (mobile). */
+.tavern-reply-btn {
+    margin-left: 0.1rem;
+    padding: 2px 9px;
+    border-radius: 99px;
+    border: 1px solid rgba(202, 138, 4, 0.22);
+    background: rgba(202, 138, 4, 0.06);
+    color: #a8896a;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.12s, background 0.12s, color 0.12s, border-color 0.12s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tavern-message:hover .tavern-reply-btn { opacity: 1; }
+
+.tavern-reply-btn:hover,
+.tavern-reply-btn:active {
+    opacity: 1;
+    background: rgba(202, 138, 4, 0.16);
+    border-color: rgba(202, 138, 4, 0.45);
+    color: #fde68a;
+}
+
+/* No hover on touch devices — keep the action visible so it's discoverable. */
+@media (hover: none) {
+    .tavern-reply-btn { opacity: 0.85; }
+}
+
+/* Quoted preview of the message being replied to, shown inside the reply. */
+.tavern-quote {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 0.3rem 0.55rem;
+    border-left: 3px solid rgba(202, 138, 4, 0.5);
+    background: rgba(202, 138, 4, 0.06);
+    border-radius: 0 6px 6px 0;
+    max-width: 100%;
+}
+
+.tavern-quote-author {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #fbbf24;
+    letter-spacing: 0.02em;
+}
+
+.tavern-quote-text {
+    font-size: 0.78rem;
+    color: #a8a29e;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+}
+
+/* Bottom compose area = optional reply banner stacked over the input row. */
+.tavern-compose {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.tavern-reply-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.6rem 0.4rem 0.7rem;
+    background: rgba(202, 138, 4, 0.1);
+    border: 1px solid rgba(202, 138, 4, 0.22);
+    border-left: 3px solid #ca8a04;
+    border-radius: 8px;
+}
+
+.tavern-reply-banner-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+}
+
+.tavern-reply-banner-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #fde68a;
+    letter-spacing: 0.02em;
+}
+
+.tavern-reply-banner-text {
+    font-size: 0.76rem;
+    color: #a8a29e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tavern-reply-cancel {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(202, 138, 4, 0.3);
+    background: rgba(0, 0, 0, 0.3);
+    color: #d6c9a8;
+    font-size: 0.78rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, color 0.12s;
+}
+
+.tavern-reply-cancel:hover,
+.tavern-reply-cancel:active {
+    background: rgba(202, 138, 4, 0.2);
+    color: #fde68a;
 }
 
 @media (max-width: 480px) {

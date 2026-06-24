@@ -7,6 +7,13 @@ import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 
+// A quoted reference to the message being replied to. Display-only — just the
+// original author + a short snippet so the client can render a quote block.
+type ReplyRef = {
+    author: string;
+    text: string;
+};
+
 type ChatMessage = {
     author: string;
     text: string;
@@ -14,7 +21,12 @@ type ChatMessage = {
     rank?: string;
     customTitle?: string;
     level?: number;
+    replyTo?: ReplyRef;
 };
+
+// Max length of the quoted snippet we persist for a reply. Short — it's a
+// preview, not the full message; the client ellipsizes anything longer.
+const REPLY_SNIPPET_LIMIT = 140;
 
 const MAX_MESSAGES = 30; // hold the most recent 30 messages; the oldest drops as new ones arrive (count-based, no age expiry)
 const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30-day KV key TTL (refreshed on every POST) — only garbage-collects truly abandoned villages, not active chat
@@ -52,9 +64,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!(await enforceRateLimitKv(req, res, 'village-chat-post', 20, 60_000))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { author, text } = body as {
+            const { author, text, replyTo } = body as {
                 author?: string;
                 text?: string;
+                replyTo?: { author?: unknown; text?: unknown };
             };
             if (!author || !text) return res.status(400).json({ error: 'Missing author or text.' });
 
@@ -102,6 +115,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const safeText = identity.admin ? text.slice(0, TEXT_LIMITS.chatMessage) : sanitizeUserText(text, TEXT_LIMITS.chatMessage);
             if (!safeText) return res.status(400).json({ error: 'Empty message after moderation.' });
 
+            // Optional reply quote. Display-only and not security-sensitive, but
+            // run the snippet through the same moderation as any user text so a
+            // reply can't smuggle profanity/PII past the filter or bloat KV.
+            let replyRef: ReplyRef | undefined;
+            if (replyTo && typeof replyTo === 'object') {
+                const rAuthor = sanitizeUserText(replyTo.author, TEXT_LIMITS.customTitle);
+                const rText = sanitizeUserText(replyTo.text, REPLY_SNIPPET_LIMIT);
+                if (rAuthor && rText) replyRef = { author: rAuthor, text: rText };
+            }
+
             const newMsg: ChatMessage = {
                 author,
                 text: safeText,
@@ -109,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(derivedRank        ? { rank: derivedRank }              : {}),
                 ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
                 ...(derivedLevel != null ? { level: derivedLevel }          : {}),
+                ...(replyRef ? { replyTo: replyRef } : {}),
             };
 
             // Read-modify-write under a short-lived KV lock so two concurrent
