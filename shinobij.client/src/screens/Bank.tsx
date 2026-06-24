@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { type Character, getBankInterestPercent } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
+import { BackToVillageButton } from "../components/BackToVillageButton";
 
 // MIRROR of api/_bank-interest.ts BANK_INTEREST_PRINCIPAL_CAP (gameplay-loop
 // audit M-2): interest is paid on at most this much banked ryo, so the projected
 // figure shown here matches the server's authoritative payout. Keep in lockstep.
 const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
 
-export function Bank({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
+export function Bank({ character, updateCharacter, onBack }: { character: Character; updateCharacter: (character: Character) => void; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
     // ── Direct transfer (player-to-player send) state ──
     const [sendTo, setSendTo] = useState("");
@@ -90,6 +91,7 @@ export function Bank({ character, updateCharacter }: { character: Character; upd
 
     return (
         <div className="card">
+            <BackToVillageButton onClick={onBack} />
             <h2>Bank</h2>
             <div className="summary-box profile-summary">
                 <p>Wallet: <strong>{character.ryo.toLocaleString()}</strong> ryo</p>

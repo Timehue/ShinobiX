@@ -524,6 +524,14 @@ button {
     background: linear-gradient(#991b1b, #450a0a);
 }
 
+/* Standard "← Village" return button (BackToVillageButton) shown at the top of
+   village menu screens. Sits at top-left, on its own line above the screen
+   heading, with a little breathing room below it. */
+.village-back-button {
+    align-self: flex-start;
+    margin-bottom: 12px;
+}
+
 .admin-button {
     background: linear-gradient(#ca8a04, #713f12);
 }
