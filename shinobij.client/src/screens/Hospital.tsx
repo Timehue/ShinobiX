@@ -84,24 +84,35 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         if (character.ryo < dischargeCost) return alert(`Not enough ryo. You need ${dischargeCost} ryo to be discharged.`);
         setBusy(true);
         try {
-            const res = await fetch('/api/player/heal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetName: character.name, paySkip: !isHealer }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                // The server already shows us as discharged (local state was stale
-                // — the classic "client says admitted, server says free" deadlock
-                // that previously forced a refresh). Treat it as success and leave.
+            // Up to two attempts. A 400 "not hospitalized" immediately after a fresh KO
+            // can mean the admission save just hasn't reached the server yet (the client
+            // flips hospitalized:true and flushes it a beat later). If we simply left
+            // here, that in-flight admission save would re-admit us on the next refresh.
+            // So when we still believe we're admitted, wait briefly and retry once so the
+            // discharge actually lands. A second "not hospitalized" means we are genuinely
+            // free (server already discharged us, or we were never admitted) → leave.
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const res = await fetch('/api/player/heal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetName: character.name, paySkip: !isHealer }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    applyDischargeAndLeave(Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)));
+                    return;
+                }
                 if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
+                    if (attempt === 0 && character.hospitalized) {
+                        await new Promise(resolve => setTimeout(resolve, 700)); // let the KO admission save land
+                        continue;
+                    }
                     applyDischargeAndLeave(0);
                     return;
                 }
                 alert(data.error ?? 'Failed to discharge.');
                 return;
             }
-            applyDischargeAndLeave(Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)));
         } catch {
             alert('Network error — discharge failed.');
         } finally {
