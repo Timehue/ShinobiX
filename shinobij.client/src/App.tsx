@@ -9,6 +9,7 @@ import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
+import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch } from "./lib/presence-store";
 import {
     percentageTags,
     cappedDamageTags,
@@ -2679,7 +2680,9 @@ export default function App() {
     // can't flee the seal back to the shrine.
     const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
-    const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
+    // liveSectorPlayers now lives in lib/presence-store (external store) so the
+    // ~1s heartbeat updates only the sector view, not the whole App tree. Read it
+    // with useLiveSectorPlayers(); write it with pushLiveSectorPlayers()/etc.
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
     const [activeTriggeredEvent, setActiveTriggeredEvent] = useState<CreatorEvent | null>(null);
     const [activeTriggerReturnScreen, setActiveTriggerReturnScreen] = useState<Screen>("village");
@@ -2853,7 +2856,9 @@ export default function App() {
                     }
                     return;
                 }
-                if (data.sectorMates) setLiveSectorPlayers(data.sectorMates);
+                // Live sector-mates → the presence store (external store) so the ~1s
+                // heartbeat updates only the sector view, not all of App (Phase 1A).
+                if (data.sectorMates) pushLiveSectorPlayers(data.sectorMates);
                 // Roster feeds non-urgent social screens (search/spar/pet arena), never
                 // combat (which re-hydrates from save:<name>). Throttle the ingest — the
                 // per-beat path normalizes up to 100 characters + re-renders all of App,
@@ -2955,11 +2960,10 @@ export default function App() {
         const offStatus = onPresenceStatus((connected) => setSocketConnected(connected));
         const offSector = onPresenceSector((sector, players) => {
             // Only adopt a snapshot for the sector we're actually standing in.
-            if (sector === currentSectorRef.current) setLiveSectorPlayers(players);
+            if (sector === currentSectorRef.current) pushLiveSectorPlayers(players);
         });
         const offGone = onPresenceGone((names) => {
-            const goneLower = new Set(names.map((n) => n.toLowerCase()));
-            setLiveSectorPlayers((prev) => prev.filter((p) => !goneLower.has(p.name.toLowerCase())));
+            removeLiveSectorPlayers(names);
         });
         // A kick means an attack/challenge is queued — run an immediate off-cycle
         // heartbeat (the authoritative carrier) so it lands without poll latency.
@@ -2970,6 +2974,7 @@ export default function App() {
             offGone();
             offKick();
             disconnectRealtime();
+            resetLiveSectorPlayers();
             setSocketConnected(false);
         };
     }, [character?.name]);
@@ -4587,17 +4592,29 @@ export default function App() {
         void loadCategory('avatar');
     }
 
-    // Drive the cache-fill from the live player lists. Runs whenever the set of
-    // visible players changes OR sharedImages updates — so it always evaluates
-    // "is anyone's avatar missing?" against fresh state (no stale closure), and
-    // the internal throttle keeps it from spamming /api/images.
+    // Keep a fresh reference to ensureAvatarsCached so the presence-store prefetch
+    // callback (registered once below) always closes over the latest sharedImages.
+    const ensureAvatarsCachedRef = useRef(ensureAvatarsCached);
+    useEffect(() => { ensureAvatarsCachedRef.current = ensureAvatarsCached; });
+    // Live-sector roster now lives in the presence store; have it push the live
+    // names here whenever they change so a newly-seen player's avatar loads at
+    // once — without re-rendering App. Registered once.
+    useEffect(() => {
+        setLiveAvatarPrefetch((names) => ensureAvatarsCachedRef.current(names));
+        return () => setLiveAvatarPrefetch(null);
+    }, []);
+    // Drive the cache-fill from the player lists. Runs whenever playerRoster changes
+    // OR sharedImages updates — so it always re-evaluates "is anyone's avatar
+    // missing?" against fresh state (no stale closure). The live-sector roster is
+    // read non-reactively from the store here too, so a sharedImages update also
+    // re-checks live players; the internal throttle keeps it from spamming /api/images.
     useEffect(() => {
         const names = [
-            ...liveSectorPlayers.map((p) => p.name),
+            ...getLiveSectorPlayers().map((p) => p.name),
             ...playerRoster.map((p) => p.name),
         ];
         if (names.length) ensureAvatarsCached(names);
-    }, [liveSectorPlayers, playerRoster, sharedImages]);
+    }, [playerRoster, sharedImages]);
 
     // ── Hollow Gate Shrine terrain ────────────────────────────────────────
     // The dungeon's wall / floor / corridor / door textures are published AI
@@ -8483,7 +8500,6 @@ export default function App() {
                         playableAis={playableAis}
                         setCurrentWeather={setCurrentWeather}
                         playerRoster={playerRoster}
-                        liveSectorPlayers={liveSectorPlayers}
                         currentSector={currentSector}
                         setCurrentSector={setCurrentSector}
                         isTraveling={isTraveling}
