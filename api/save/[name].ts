@@ -169,6 +169,18 @@ function rankFromXp(profession: unknown, xp: number): number {
 }
 // Server-side hospital downtime — clients can't skip it by editing localStorage.
 const HOSPITAL_DURATION_MS = 60_000;
+// Grace window after a server-authoritative discharge (api/player/heal.ts stamps
+// character.lastDischargeAt on every checkout/heal-discharge). Within this window
+// a client save that STILL asserts hospitalized:true is treated as a stale,
+// pre-discharge write racing the discharge — and is ignored rather than
+// re-admitting the just-released player with a fresh 60s timer. Without this,
+// paying the discharge fee appeared not to work: the discharge landed, then an
+// in-flight `hospitalized:true` autosave re-hospitalized the player (and reset
+// the timer), so only waiting out the free timer ever reliably released them.
+// Kept short so a genuine fresh KO seconds after leaving the hospital (which can
+// only happen after navigating into and losing another fight — far longer than
+// this) is still hospitalized normally.
+const DISCHARGE_GRACE_MS = 12_000;
 
 // Rolling 60-second gain windows. Anything above these caps is rejected with
 // a 429. These are server-side rate limits independent of the per-save caps;
@@ -912,8 +924,24 @@ export function sanitizeCharacterSave(
     const exHospAt = Number(exChar.hospitalizedAt ?? 0);
     if (!exHosp && inHosp) {
         const now = Date.now();
-        char.hospitalizedUntil = now + HOSPITAL_DURATION_MS;
-        char.hospitalizedAt = now;
+        // Discharge-race guard: if the server JUST discharged this player
+        // (heal / paid skip / free checkout, all via api/player/heal.ts, which
+        // stamps lastDischargeAt), an incoming save still flagged hospitalized
+        // is a stale pre-discharge replay racing the discharge. Honor the
+        // discharge instead of re-admitting them with a fresh timer.
+        const lastDischargeAt = Number(exChar.lastDischargeAt ?? 0);
+        if (lastDischargeAt > 0 && now - lastDischargeAt < DISCHARGE_GRACE_MS) {
+            char.hospitalized = false;
+            char.hospitalizedUntil = 0;
+            char.hospitalizedAt = 0;
+            // Preserve the marker so any further stale saves in the same window
+            // are caught too (mergePreservingImages would keep it anyway, but be
+            // explicit — char is what the rest of the validator reasons about).
+            char.lastDischargeAt = lastDischargeAt;
+        } else {
+            char.hospitalizedUntil = now + HOSPITAL_DURATION_MS;
+            char.hospitalizedAt = now;
+        }
     } else if (exHosp && !inHosp) {
         if (exHospUntil && Date.now() < exHospUntil) {
             // Reject early discharge — force the player to wait out the timer
