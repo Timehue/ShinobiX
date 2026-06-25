@@ -8455,6 +8455,7 @@ export default function App() {
                             setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
                         registerWandererAi={(ai) => setWandererAis([ai])}
+                        setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                         recordMissionExplore={recordMissionExplore}
                         setPendingExploreSector={setPendingExploreSector}
                         playableAis={playableAis}
