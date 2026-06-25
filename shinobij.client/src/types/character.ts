@@ -245,6 +245,9 @@ export type Character = {
     totalStatsTrained?: number;
     totalMissionsCompleted?: number;
     totalAiKills?: number;
+    // Active sector-wanderer quest (display mirror; server seals the real baseline
+    // + reward in KV). Additive/optional — old saves read it as "no quest".
+    activeWandererQuest?: { id: string; target: number; baseline: number } | null;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;

@@ -16,8 +16,8 @@
  * See also docs/sector-wanderers-content.md for the written character voice.
  */
 
-export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel";
-export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim" | "beast";
+export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel" | "quest";
+export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim" | "beast" | "sage";
 
 export interface Wanderer {
     /** stable within (sector, dayBucket) */
@@ -94,6 +94,17 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
             "A wild beast bars your path, hackles raised.",
             "It locks eyes with your pet — a challenge.",
             "The creature snarls, daring your beast to step up.",
+        ],
+    },
+    sage: {
+        verb: "quest",
+        weight: 0.15,
+        tellTint: "#8fd0ff",
+        names: ["Wandering Sage", "Old Hermit Roku", "Sister Kaede", "The Grey Pilgrim", "Master Tobei"],
+        greetings: [
+            "These roads aren't safe, traveler. Lend your blade to a task?",
+            "The wilds grow bold. I'd ask a favor of a capable shinobi.",
+            "Walk with purpose — I've a task that needs doing.",
         ],
     },
 };
@@ -204,4 +215,24 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
         });
     }
     return out;
+}
+
+// ── Quests (sage wanderers) ──────────────────────────────────────────────────
+// Display catalog mirrored by the server (api/sector/_wanderer-quest.ts owns the
+// authoritative targets + reward). `target` = foes to defeat on the roads.
+export interface WandererQuestDef {
+    id: string;
+    label: string;
+    target: number;
+}
+export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
+    { id: "wq-cull", label: "Cull 3 foes prowling these roads", target: 3 },
+    { id: "wq-purge", label: "Put down 6 foes prowling these roads", target: 6 },
+];
+
+/** The (stable) quest a given sage offers — deterministic from its id. */
+export function questForWanderer(w: Wanderer): WandererQuestDef {
+    let h = 0;
+    for (let i = 0; i < w.id.length; i++) h = (Math.imul(h, 31) + w.id.charCodeAt(i)) >>> 0;
+    return WANDERER_QUEST_CATALOG[h % WANDERER_QUEST_CATALOG.length];
 }
