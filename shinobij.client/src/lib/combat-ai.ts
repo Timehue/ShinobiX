@@ -329,16 +329,13 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
     const jutsuCount = step.levelReq >= 85 ? 6 : step.levelReq >= 50 ? 5 : 4;
     const selectedJutsus = (villageJutsus.length ? villageJutsus : starterJutsus).slice(0, jutsuCount);
     const statBonus = Math.max(25, Math.floor(step.bossDamage * 0.9));
-    // Story bosses at L65+ (incl. the kage finale) use their authored bossHp
-    // verbatim (hpFloorExempt) so the table value lands EXACTLY — the late-game
-    // peer-band curve would otherwise floor them ~12k–17k regardless of the table.
-    // Lower-level story bosses keep the level-curve floor (toughness 0.30) as a
-    // squishiness guard. These bosses stay hard via the peer band + damage, not HP.
-    const hpAuthoritative = step.kageFinale || step.levelReq >= 65;
-    const bossHp = hpAuthoritative
-        ? Math.max(1, Math.floor(step.bossHp))
-        : Math.max(step.bossHp, aiHpForLevel(step.levelReq, 0.30));
-    const boss = makeBuiltinAi(
+    // ALL story bosses use their authored bossHp verbatim (hpFloorExempt) so the
+    // bossScaleByLevel table is the single source of truth and forms one clean
+    // ascending level→HP curve. Without this the aiHpForLevel peer-band floor
+    // silently inflated every boss (e.g. the L50 table 6500 → ~9.4k, overtaking
+    // the L65 boss). Bosses stay hard via the peer band + damage, not a bigger HP pool.
+    const bossHp = Math.max(1, Math.floor(step.bossHp));
+    return makeBuiltinAi(
         step.aiProfileId ?? storyAiId(village, step.levelReq),
         step.bossName,
         step.bossIcon,
@@ -348,9 +345,8 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
         statBonus,
         bossHp,
         undefined,
-        hpAuthoritative
+        true
     );
-    return boss;
 }
 export const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
 
