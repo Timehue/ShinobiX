@@ -28,10 +28,12 @@ export function VanguardHub({
     character,
     updateCharacter,
     setScreen,
+    onBack,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
     setScreen: (s: Screen) => void;
+    onBack: () => void;
 }) {
     const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
     const sealsToday = character.dailyHonorSealsEarned ?? 0;
@@ -39,7 +41,7 @@ export function VanguardHub({
 
     return (
         <div className="card">
-            <BackToVillageButton onClick={() => setScreen("village")} />
+            <BackToVillageButton onClick={onBack} label="← Back" />
             <ProfessionHero image={vanguardBg} icon="⚔" title="Vanguard" tagline="Lead the charge." accent={ACCENT} />
 
             <ProfessionRankBar character={character} />

@@ -31,6 +31,7 @@ export function Missions({
     setMissionProgress,
     setPendingAiProfileId,
     setScreen,
+    onBack,
     onMissionBattleStart,
 }: {
     character: Character;
@@ -43,6 +44,7 @@ export function Missions({
     setMissionProgress: (progress: Record<string, number>) => void;
     setPendingAiProfileId: (id: string) => void;
     setScreen: (screen: Screen) => void;
+    onBack: () => void;
     onMissionBattleStart?: () => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
@@ -119,7 +121,7 @@ export function Missions({
 
     return (
         <div className="card mission-hall">
-            <BackToVillageButton onClick={() => setScreen("village")} />
+            <BackToVillageButton onClick={onBack} label="← Back" />
             {/* -- Header -- */}
             <div className="mh-header">
                 <div>
