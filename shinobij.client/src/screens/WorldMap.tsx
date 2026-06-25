@@ -189,6 +189,7 @@ export function WorldMap({
     travelingUntil,
     setTravelingUntil,
     sectorAttackPlayer,
+    attackSleeper,
     acceptedMissionIds,
     missionProgress,
     setMissionProgress,
@@ -229,6 +230,7 @@ export function WorldMap({
     travelingUntil: number;
     setTravelingUntil: (until: number) => void;
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
+    attackSleeper: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
     missionProgress: Record<string, number>;
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
@@ -1215,11 +1217,24 @@ export function WorldMap({
         const livePlayersHere = liveSectorPlayers
             .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
             .filter((p) => sameSector(p.currentSector, selectedSector));
-        const rosterPlayersHere = playerRoster
+        // "Sleeping" targets: players who logged out / closed the tab while
+        // standing in THIS wild sector. They come from playerRoster (which carries
+        // every registered player tagged with their last-saved sector) minus
+        // anyone who is currently LIVE here. Previously these offline players were
+        // shown as if they were live and the attack 404'd ("Target not online") —
+        // the ghost-in-the-sector bug. Now they're rendered distinctly with a 💤
+        // badge and routed to the server-authoritative sleeper-KO flow. Capped so
+        // a sector everyone last passed through (e.g. the default sector) can't
+        // flood the panel. A village / Central logout saves currentSector 0, so
+        // those players never appear here.
+        const liveNamesHere = new Set(livePlayersHere.map((p) => p.name.toLowerCase()));
+        const sleepingHere: PlayerRecord[] = playerRoster
             .filter((player) => player.name.toLowerCase() !== character.name.toLowerCase())
-            .filter((player) => sameSector(player.currentSector, selectedSector));
-        const sectorPlayers = sameSector(currentSector, selectedSector)
-            ? (livePlayersHere.length > 0 ? livePlayersHere : rosterPlayersHere)
+            .filter((player) => sameSector(player.currentSector, selectedSector))
+            .filter((player) => !liveNamesHere.has(player.name.toLowerCase()))
+            .slice(0, 15);
+        const sectorPlayers: Array<PlayerRecord & { __sleeping?: boolean }> = sameSector(currentSector, selectedSector)
+            ? [...livePlayersHere, ...sleepingHere.map((p) => ({ ...p, __sleeping: true }))]
             : [];
         const activeHuntMissionForSector = selectedSector >= 1 && selectedSector <= 60
             ? builtinHuntMissions.find((mission) =>
@@ -1310,7 +1325,7 @@ export function WorldMap({
                                                             ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                                             : <span className="other-player-map-emoji">🥷</span>
                                                         }
-                                                        <span className="other-player-map-name">{p.name}</span>
+                                                        <span className="other-player-map-name">{p.name}{p.__sleeping ? " 💤" : ""}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1487,14 +1502,22 @@ export function WorldMap({
                             {sectorPlayers.length === 0 ? (
                                 <span>No other players in this sector.</span>
                             ) : (
-                                sectorPlayers.map((player) => (
+                                sectorPlayers.map((player) => {
+                                    const isSleeping = Boolean(player.__sleeping);
+                                    const isTravelingTarget = Boolean(player.travelingUntil && player.travelingUntil > Date.now());
+                                    return (
                                     <div className="sector-player-card" key={player.name}>
                                         <div className="sector-player-info">
-                                            <strong>{player.name}</strong>
-                                            <small>Level {player.level}{player.travelingUntil && player.travelingUntil > Date.now() ? " | Traveling" : ""}</small>
+                                            <strong>{player.name}{isSleeping ? " 💤" : ""}</strong>
+                                            <small>Level {player.level}{isSleeping ? " | Sleeping" : (isTravelingTarget ? " | Traveling" : "")}</small>
                                         </div>
-                                        <button className="danger-button" disabled={Boolean(player.travelingUntil && player.travelingUntil > Date.now())} onClick={() => {
-                                            if (player.travelingUntil && player.travelingUntil > Date.now()) {
+                                        {isSleeping ? (
+                                            // Logged-out target standing in the sector — a server-resolved
+                                            // KO (no interactive fight). Sends them to the hospital + village.
+                                            <button className="danger-button" onClick={() => attackSleeper(player)}>💤 Strike Down</button>
+                                        ) : (
+                                        <button className="danger-button" disabled={isTravelingTarget} onClick={() => {
+                                            if (isTravelingTarget) {
                                                 alert(`${player.name} is traveling and cannot be attacked right now.`);
                                                 return;
                                             }
@@ -1509,9 +1532,11 @@ export function WorldMap({
                                             // arena mount could clobber the pvpBattle context) while
                                             // the session POST was in flight.
                                             sectorAttackPlayer(player);
-                                        }}>{player.travelingUntil && player.travelingUntil > Date.now() ? "Traveling" : "⚔️ Attack"}</button>
+                                        }}>{isTravelingTarget ? "Traveling" : "⚔️ Attack"}</button>
+                                        )}
                                     </div>
-                                ))
+                                    );
+                                })
                             )}
                         </section>
                         <button onClick={() => exploreSector(selectedSector)}>Explore Tile</button>
