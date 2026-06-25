@@ -56,13 +56,13 @@ export const PROFESSION_INFO: ProfessionInfo[] = [
             "A support shinobi who keeps the village standing. Heal wounded and knocked-out allies for profession XP equal to the share of HP you restore.",
         perks: [
             "Heal hospitalized allies in your village for XP",
-            "Per-target cooldown shrinks and your own hospital timer shortens as you rank up",
+            "Per-target heal cooldown shrinks as you rank up — plus instant, free self-discharge from the hospital",
             "+50% XP for Raid-Assist heals (allies fresh from a fight)",
             "Rank 10: see & heal injured villagers anywhere in the world",
         ],
         rankHighlights: [
             { rank: "Rank 1", perk: "Heal admitted allies · 5-min per-target cooldown" },
-            { rank: "Rank 10", perk: "World-wide healing · 1.5-min cooldown · 15s self-discharge" },
+            { rank: "Rank 10", perk: "World-wide healing · 1.5-min per-target cooldown" },
         ],
     },
     {
