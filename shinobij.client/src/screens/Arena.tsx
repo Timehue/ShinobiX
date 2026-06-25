@@ -843,7 +843,9 @@ export function Arena({
     // short delay. This replaces the manual "Resolve" button tap on mobile.
     useEffect(() => {
         if (!battleStarted || battleEnded || activeActor !== "enemy" || prefightCountdown !== null) return;
-        const t = setTimeout(() => enemyTurnRef.current(), 1200);
+        // Short lead-in before the enemy's first action so the turn handoff reads
+        // (was 1200ms — trimmed to keep multi-action enemy turns snappy).
+        const t = setTimeout(() => enemyTurnRef.current(), 500);
         return () => clearTimeout(t);
     }, [battleStarted, battleEnded, activeActor, prefightCountdown]);
 
@@ -3747,13 +3749,17 @@ export function Arena({
         enemyTurnApRef.current = Math.max(0, enemyTurnApRef.current - res.apSpent);
         enemyTurnActionsRef.current += 1;
         setEnemyAp(enemyTurnApRef.current);
-        // 850ms between chained actions: lets React commit (so the next action
-        // reads fresh state) and gives the fight a readable beat. Tracked so an
-        // unmount can cancel the chain (see the cleanup effect).
+        // Beat between chained actions: lets React commit (so the next action
+        // reads fresh state) and gives the fight a readable rhythm. ~500ms for a
+        // combat action (was 850ms); a pure repositioning step (apSpent === 30 —
+        // the only 30-AP action; attacks are 40, jutsu ≥40, clear/cleanse 60)
+        // gets a near-instant beat so walking toward the player adds no dead air.
+        // Tracked so an unmount can cancel the chain (see the cleanup effect).
+        const beat = res.apSpent === 30 ? 150 : 500;
         enemyTurnTimerRef.current = window.setTimeout(() => {
             enemyTurnTimerRef.current = null;
             enemyContinueRef.current();
-        }, 850);
+        }, beat);
     }
 
     // Scheduled continuation — runs in a fresh render so it sees committed state.
@@ -4760,19 +4766,24 @@ export function Arena({
                     </div>
 
                     <div className="basic-action-bar shinobi-command-bar">
-                        <button onClick={basicAttack}><span>Attack</span><small>40 AP | 10 SP</small></button>
-                        <button className={selectedActionId === "move" ? "selected-action" : ""} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setDashMode(false); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
-                        <button className={dashMode || selectedActionId === "dash" ? "selected-action" : ""} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "dash" ? undefined : "dash"); setDashMode((current) => !current); setLog("Dash selected. Click a tile within 3 spaces."); }}><span>Dash</span><small>3 tiles | {adjustedApCost(30)} AP | CD {cooldowns.dash ?? 0}</small></button>
-                        <button onClick={basicHeal}><span>Heal</span><small>60 AP | 10 CP | CD {cooldowns.basicHeal ?? 0}</small></button>
-                        <button onClick={clearEnemyPositiveEffects}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
-                        <button onClick={cleansePlayerNegativeEffects}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
+                        {/* Affordance feedback: each action disables when it can't be
+                            taken (not your turn / 5 actions used / not enough AP·SP·CP /
+                            on cooldown), mirroring each handler's own guards so a
+                            disabled button can never block a legal action. Wait + Forfeit
+                            stay live (Wait also skips the enemy-turn delay). */}
+                        <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><span>Attack</span><small>40 AP | 10 SP</small></button>
+                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setDashMode(false); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
+                        <button className={dashMode || selectedActionId === "dash" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "dash" ? undefined : "dash"); setDashMode((current) => !current); setLog("Dash selected. Click a tile within 3 spaces."); }}><span>Dash</span><small>3 tiles | {adjustedApCost(30)} AP | CD {cooldowns.dash ?? 0}</small></button>
+                        <button onClick={basicHeal} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}><span>Heal</span><small>60 AP | 10 CP | CD {cooldowns.basicHeal ?? 0}</small></button>
+                        <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
+                        <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
                         {canSummonPet && (
-                            <button onClick={summonActivePet} disabled={!activeBattlePet || Boolean(summonedPet)}>
+                            <button onClick={summonActivePet} disabled={!activeBattlePet || Boolean(summonedPet) || activeActor !== "player"}>
                                 <span>Pet</span>
                                 <small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
                             </button>
                         )}
-                        <button onClick={flee}><span>Flee</span><small>100 AP | 20%</small></button>
+                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 20%</small></button>
                         {!isAcademySpar && <button onClick={forfeit} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}><span>Forfeit</span><small>Take the loss</small></button>}
                         <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
                     </div>

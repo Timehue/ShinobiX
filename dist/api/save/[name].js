@@ -10,6 +10,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _clan_save_validate_js_1 = require("../_clan-save-validate.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
+const _tags_js_1 = require("../pvp/_tags.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _save_version_js_1 = require("./_save-version.js");
 const _registry_throttle_js_1 = require("./_registry-throttle.js");
@@ -957,7 +958,104 @@ function sanitizeCharacterSave(incoming, existing) {
         char.hospitalizedUntil = exHospUntil || char.hospitalizedUntil;
         char.hospitalizedAt = exHospAt || char.hospitalizedAt;
     }
-    return { ...incoming, character: char };
+    // ─── creatorItems normalization (top-level, persisted) ─────────────────────
+    // Player-forged Named Weapons / armor live on the save at the TOP LEVEL
+    // (incoming.creatorItems), NOT under .character — so the character sanitizer
+    // above never touched them and they round-tripped UNVALIDATED. A forged save
+    // could store a Named Weapon with weaponEp 999999 / arbitrary tags, and the
+    // weapon name (echoed into the public PvP battle log) bypassed the moderation
+    // the bloodline/jutsu names get. Clamp numerics, whitelist tags/element/
+    // quality, moderate player text, strip inline SVG / oversized images —
+    // mirroring the savedBloodlines normalizer above + sanitizePvpItems. (PvP
+    // also re-clamps these at session-create, so this is storage-side defense in
+    // depth + name moderation.) The `delete char.creatorItems` above only strips
+    // an admin-content injection from the .character sub-object; players
+    // legitimately own this top-level array, so it is kept (sanitized).
+    const CREATOR_ITEM_CAP = 500;
+    const VALID_WEAPON_ELEMENTS = new Set(['', 'Earth', 'Wind', 'Water', 'Lightning', 'Fire', 'Yin', 'Yang']);
+    const VALID_WEAPON_EFFECT_TARGETS = new Set(['self', 'opponent', 'enemy', 'both']);
+    const KNOWN_ARMOR_QUALITIES = new Set(['Standard', 'Reinforced', 'Rare', 'Elite', 'Legendary', 'Mythic']);
+    let sanitizedCreatorItems;
+    if (Array.isArray(incoming.creatorItems)) {
+        sanitizedCreatorItems = incoming.creatorItems
+            .slice(0, CREATOR_ITEM_CAP)
+            .map((item) => {
+            if (!item || typeof item !== 'object')
+                return {};
+            const out = { ...item };
+            // Player-authored text — moderate + length-cap (the name appears
+            // in the public PvP battle log; description/flavor in tooltips).
+            if (typeof out.name === 'string')
+                out.name = (0, _text_moderation_js_1.sanitizeUserText)(out.name, _text_moderation_js_1.TEXT_LIMITS.storyName);
+            if (typeof out.description === 'string')
+                out.description = (0, _text_moderation_js_1.sanitizeUserText)(out.description, _text_moderation_js_1.TEXT_LIMITS.description);
+            if (typeof out.flavorText === 'string')
+                out.flavorText = (0, _text_moderation_js_1.sanitizeUserText)(out.flavorText, _text_moderation_js_1.TEXT_LIMITS.description);
+            // Strip inline SVG / oversized images — same rule as bloodlines
+            // (shared image storage hosts real images via /api/images). A
+            // normal small data-URL / reference is preserved.
+            if (typeof out.image === 'string') {
+                const img = out.image;
+                if (/^data:image\/svg/i.test(img) || img.length > RAW_BLOODLINE_IMAGE_MAX_BYTES)
+                    out.image = undefined;
+            }
+            // Weapon numerics — match sanitizePvpItems bounds (api/pvp/session.ts).
+            if (out.weaponEp != null)
+                out.weaponEp = Math.max(0, Math.min(600, Number(out.weaponEp) || 0));
+            if (out.weaponRange != null)
+                out.weaponRange = Math.max(0, Math.min(30, Number(out.weaponRange) || 0));
+            if (out.weaponCooldown != null)
+                out.weaponCooldown = Math.max(0, Math.min(30, Number(out.weaponCooldown) || 0));
+            if (out.apCost != null)
+                out.apCost = Math.max(0, Math.min(200, Number(out.apCost) || 40));
+            if (out.weaponEffectValue != null)
+                out.weaponEffectValue = Math.max(0, Math.min(100, Number(out.weaponEffectValue) || 0));
+            if (out.restoreChakra != null)
+                out.restoreChakra = Math.max(0, Math.min(5000, Number(out.restoreChakra) || 0));
+            if (out.restoreStamina != null)
+                out.restoreStamina = Math.max(0, Math.min(5000, Number(out.restoreStamina) || 0));
+            // weaponTags — whitelist + clamp + cap (same as sanitizePvpItems).
+            if (out.weaponTags != null) {
+                const rawTags = Array.isArray(out.weaponTags) ? out.weaponTags : [];
+                out.weaponTags = rawTags
+                    .filter((t) => !!t && typeof t === 'object')
+                    .filter((t) => typeof t.name === 'string' && _tags_js_1.KNOWN_TAG_NAMES.has(String(t.name)))
+                    .map((t) => {
+                    const tag = { name: (0, _tags_js_1.canonicalTagName)(String(t.name)) };
+                    if (t.percent != null)
+                        tag.percent = Math.max(0, Math.min(100, Number(t.percent) || 0));
+                    return tag;
+                })
+                    .slice(0, 10);
+            }
+            // Whitelisted enums — drop a single bad field, not the whole item.
+            if (out.weaponEffect != null) {
+                if (_tags_js_1.KNOWN_TAG_NAMES.has(String(out.weaponEffect)))
+                    out.weaponEffect = (0, _tags_js_1.canonicalTagName)(String(out.weaponEffect));
+                else
+                    delete out.weaponEffect;
+            }
+            if (out.weaponElement != null && !VALID_WEAPON_ELEMENTS.has(String(out.weaponElement)))
+                delete out.weaponElement;
+            if (out.weaponEffectTarget != null && !VALID_WEAPON_EFFECT_TARGETS.has(String(out.weaponEffectTarget)))
+                delete out.weaponEffectTarget;
+            if (out.armorQuality != null && !KNOWN_ARMOR_QUALITIES.has(String(out.armorQuality)))
+                delete out.armorQuality;
+            // Bonus stat grants — clamp each numeric to a sane ceiling so a
+            // forged item can't ship a 999999 stat (PvP also caps total stats
+            // at MAX_STAT, this is storage hygiene).
+            if (out.bonuses && typeof out.bonuses === 'object') {
+                const bonuses = out.bonuses;
+                for (const k of Object.keys(bonuses)) {
+                    bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));
+                }
+            }
+            return out;
+        });
+    }
+    return sanitizedCreatorItems !== undefined
+        ? { ...incoming, character: char, creatorItems: sanitizedCreatorItems }
+        : { ...incoming, character: char };
 }
 // ── Clan / village identity lockdown ──────────────────────────────────────
 // Three character fields gate critical permissions and were previously
