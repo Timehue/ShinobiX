@@ -63,13 +63,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const challengeKey = `challenges:${safeName(name)}`;
         const resetSignalKey = `reset-signal:${safeName(name)}`;
+        // One-shot "you were healed by {healer}" signal queued by api/player/heal.ts
+        // when a Healer discharges this hospitalized player. Delivered + cleared
+        // here so the client can auto-exit the hospital with a toast.
+        const healSignalKey = `heal-signal:${safeName(name)}`;
 
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
         const existing = onlineStore.get(name);
-        const [pendingChallenges, resetSignal] = await Promise.all([
+        const [pendingChallenges, resetSignal, healSignal] = await Promise.all([
             kv.get<unknown[]>(challengeKey),
             kv.get(resetSignalKey),
+            kv.get<{ by?: string; at?: number }>(healSignalKey),
         ]);
 
         if (resetSignal) {
@@ -107,6 +112,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         await Promise.all([
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
+            healSignal ? kv.del(healSignalKey) : Promise.resolve(),
             stampPlayerIp(req, name),
         ]);
 
@@ -126,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             allPlayers,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
+            pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,
         });
     } catch (err) {
         console.error('[heartbeat]', err);

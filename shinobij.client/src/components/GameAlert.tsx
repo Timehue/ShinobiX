@@ -29,7 +29,10 @@ let pendingMessages: string[] = [];
 
 function showGameAlert(message: string): void {
     if (activeListener) activeListener(message);
-    else pendingMessages.push(message);
+    // Collapse a duplicate of the message already at the back of the pending
+    // buffer — repeated identical alerts (e.g. mashing a button that errors the
+    // same way) shouldn't stack into "N more notices queued".
+    else if (pendingMessages[pendingMessages.length - 1] !== message) pendingMessages.push(message);
 }
 
 // Replace window.alert once, at module import time. Stash the original on
@@ -45,7 +48,9 @@ export function GameAlertHost() {
     const [queue, setQueue] = useState<string[]>([]);
 
     useEffect(() => {
-        activeListener = (m: string) => setQueue((q) => [...q, m]);
+        // Skip a message identical to the one already at the back of the queue so
+        // the same alert can't pile up (see showGameAlert's pending-buffer dedupe).
+        activeListener = (m: string) => setQueue((q) => (q[q.length - 1] === m ? q : [...q, m]));
         if (pendingMessages.length > 0) {
             setQueue((q) => [...q, ...pendingMessages]);
             pendingMessages = [];
