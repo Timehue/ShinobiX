@@ -9,6 +9,10 @@ import banditImg from "../assets/festival/fest-broker.webp";
 import gamblerImg from "../assets/festival/fest-kael.webp";
 import pilgrimImg from "../assets/festival/fest-miraa.webp";
 import beastImg from "../assets/coliseum/demo-emberfox.webp";
+import bossImg from "../assets/wanderers/bandit-warlord.webp";
+
+/** Portrait for the ambush boss (Bandit Warlord). */
+export const WANDERER_BOSS_PORTRAIT = bossImg;
 
 const ART: Record<WandererArchetypeId, string> = {
     bandit: banditImg,
