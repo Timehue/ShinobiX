@@ -9,7 +9,6 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
-const presence_gating_js_1 = require("../_realtime/presence-gating.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _reward_farm_js_1 = require("../pvp/_reward-farm.js");
 const _player_ips_js_1 = require("../_player-ips.js");
@@ -37,10 +36,16 @@ function todayKey() {
 function monthKey() {
     return new Date().toISOString().slice(0, 7);
 }
-// Pure gate predicate over a target's SAVE state (no I/O), mirroring live sector
-// PvP's protections so a logged-out player can't be farmed in their sleep. The
-// online check is done separately by the caller (it needs the presence store,
-// not the save). Returns null when the KO may proceed.
+// Pure gate predicate over a target's SAVE state (no I/O). The online check is
+// done separately by the caller (it needs the presence store, not the save).
+// Returns null when the KO may proceed.
+//
+// Per owner decision: ANY player classified as a sleeper is fair game,
+// regardless of level. Academy protection (sub-Genin) is deliberately NOT
+// applied on this path — it still protects new players in live/online PvP. The
+// structural anti-farm bounds remain: a KO relocates the victim to the village
+// (removing them from the sleeper pool), and rewards are anti-alt'd + daily /
+// per-target capped.
 function sleeperTargetBlock(targetChar, sector) {
     if (!targetChar)
         return { status: 404, error: 'Target not found.' };
@@ -48,12 +53,6 @@ function sleeperTargetBlock(targetChar, sector) {
     // Only a logout in a real wild sector (>= 1) leaves a sleeper.
     if (!(Number.isFinite(sector) && sector >= 1)) {
         return { status: 409, error: 'Target logged out in a safe zone and cannot be attacked.' };
-    }
-    // Academy protection (level < 15) is the stricter gate and subsumes the
-    // sector-raid attackable floor (level < 10), so brand-new shinobi are safe.
-    const level = Number(targetChar.level ?? 0);
-    if ((0, presence_gating_js_1.isAcademyProtectedLevel)(level)) {
-        return { status: 403, error: `This shinobi is under Academy protection (cannot be attacked until Genin, level ${presence_gating_js_1.ACADEMY_MIN_LEVEL}).` };
     }
     if (targetChar.hospitalized) {
         return { status: 409, error: 'Target has already been defeated.' };
