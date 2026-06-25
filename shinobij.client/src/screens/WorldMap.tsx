@@ -12,6 +12,8 @@ import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
+import { SectorWanderer } from "../components/SectorWanderer";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, type Wanderer } from "../lib/wanderers";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
@@ -477,6 +479,29 @@ export function WorldMap({
         if (effectiveLevel < 60) return "builtin-ai-frost-sealer";
         if (effectiveLevel < 80) return "builtin-ai-shadow-weaver";
         return "builtin-ai-central-champion";
+    }
+
+    // Sector Wanderers (behind `wanderers.v1`, default OFF). The per-sector cast
+    // is deterministic for a 6h window so it doesn't flicker; rendering + movement
+    // live in <SectorWanderer>. When an "attack" wanderer reaches the player it
+    // calls startWandererAttack, which launches a fight through the SAME arena AI
+    // path the village-guard raid uses — no new combat/endpoint/currency surface.
+    const sectorWanderers = useMemo(
+        () => (isWanderersEnabled() && selectedSector != null
+            ? rollWanderers(selectedSector, wandererDayBucket(new Date()))
+            : []),
+        [selectedSector],
+    );
+    function startWandererAttack(w: Wanderer) {
+        if (selectedSector == null) return;
+        const b = biomeForSector(selectedSector);
+        setCurrentSector(selectedSector);
+        setCurrentBiome(b);
+        setCurrentWeather(weatherForSector(selectedSector, b));
+        setPendingPvpOpponent(null);
+        setPendingAiProfileId(pickGuardAi(w.level));
+        setRaidBattleKind("raidAi");
+        setScreen("arena");
     }
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     const [petVnDone, setPetVnDone] = useState(false);
@@ -1373,6 +1398,18 @@ export function WorldMap({
                                 name={character.name}
                                 biome={ambienceBiomeForSector(selectedSector)}
                             />
+
+                            {/* AI Wanderers — walk the sector and (if their job is to
+                                rob/attack) come at the player. Flag-gated, client-only. */}
+                            {sectorWanderers.map(w => (
+                                <SectorWanderer
+                                    key={w.id}
+                                    wanderer={w}
+                                    playerIndex={sectorPlayerPos}
+                                    biome={ambienceBiomeForSector(selectedSector)}
+                                    onAttack={startWandererAttack}
+                                />
+                            ))}
 
                             {/* Near-camera foliage band that parallaxes against the
                                 backdrop as you cross the grid — the "walking THROUGH

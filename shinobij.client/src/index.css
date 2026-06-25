@@ -7570,6 +7570,76 @@ body {
     .sector-avatar-dust { display: none !important; }
 }
 
+/* ── Sector Wanderers (AI shinobi that walk the sector) ──────────────────────
+   Reuse the .sector-avatar-figure walk look; add the clickable hit-target, the
+   "this is a wanderer" tell ring, a name pill, and a speech bubble. */
+.sector-wanderer-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;          /* tile click-to-move still works underneath */
+    z-index: 6;
+}
+.sector-wanderer-figure {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: auto;          /* but the wanderer itself is clickable */
+    cursor: pointer;
+}
+.sector-wanderer-tell {
+    position: absolute;
+    inset: -9%;
+    border-radius: 50%;
+    border: 2px solid var(--tell, #ffffff);
+    box-shadow: 0 0 8px var(--tell, #ffffff);
+    opacity: 0.85;
+    pointer-events: none;
+}
+.sector-wanderer-label {
+    position: absolute;
+    left: 50%;
+    top: -16%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(20, 16, 28, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 1px 6px;
+    border-radius: 999px;
+    pointer-events: none;
+}
+.sector-wanderer-bubble {
+    position: absolute;
+    left: 50%;
+    bottom: 112%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 168px;
+    white-space: normal;
+    text-align: center;
+    font-size: 0.62rem;
+    line-height: 1.2;
+    color: #1c1c22;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    padding: 5px 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    z-index: 2;
+}
+.sector-wanderer-bubble::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #fff;
+}
+
 .stormveil-village-screen {
     position: relative;
     min-height: 820px;
