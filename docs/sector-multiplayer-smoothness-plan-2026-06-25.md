@@ -1,10 +1,11 @@
 # Sector Multiplayer Smoothness Plan — making crowded sectors feel seamless
 
 **Date:** 2026-06-25
-**Status:** Phases 1, 2, **2D (live peer movement), and 2C (grounded peer look) IMPLEMENTED** on
-branch `claude/xenodochial-faraday-7ef952` (lint + tsc + 1493 root tests + App.size ratchet all green;
-not yet owner-feel-checked live). Commits: `73c922a6` (Phase 1+2), `be49e9f1` (2D + exit-fade), then
-2C. Only the "scaling phases" (Part A 3–6 + Phase 1C + CDN `no-store`) remain PLAN ONLY.
+**Status:** SHIPPED TO MAIN (`origin/main` `694edb4c`) — Phases 1, 2, 2D (live peer movement), 2C
+(grounded peer look). A **scaling/futureproofing pass** (overlay render-isolation + marker cap +
+lite-fx gate) followed (client-only). Verified each step: lint + tsc + 1505 root tests + App.size
+ratchet green; not yet owner-feel-checked live. Only the heavier scaling work (delta socket events,
+HTTP→fallback, single-canvas layer, intra-sector AOI, CDN `no-store`) remains PLAN ONLY.
 **Scope:** The "sectors" (the 12×12 world-map grid screen) where players see each other,
 are viewable, and can fight. Goal: make the experience smooth and seamless when **multiple
 players are present at once** — no flicker, no teleport/pop, no jank, instant-feeling PvP entry.
@@ -38,10 +39,22 @@ players are present at once** — no flicker, no teleport/pop, no jank, instant-
   lockstep), instead of flat dots. Reduced-motion disables the bob. CSS-only addition to `SectorPeers`.
 - **App-size drain** — `presenceCharacter()` moved verbatim from App.tsx to
   `lib/presence-character.ts` to keep App.tsx under the 10,134-line ratchet (now 10,108).
-- **Deferred (the "scaling phases" — only needed when one sector holds big crowds):** Phase 1C (move
+- **Scaling / futureproofing pass (client-only, post-ship)** — keeps a crowded sector smooth:
+  - **Render isolation** — the store now exposes two snapshots: `useLiveSectorPlayers()` (full,
+    tile-sensitive, used by the walking overlay) and `useLiveSectorRoster()` (membership/display only,
+    stable across tile-only moves, used by WorldMap's "Players Here" panel + sleeper logic). The
+    overlay moved into a self-subscribing `<SectorPeersLive>`, so a peer **walking** re-renders only
+    the overlay subtree — **not** the whole WorldMap screen. This was the #1 scaling bottleneck.
+  - **Marker cap** — `SectorPeers` renders at most `MAX_MARKERS = 48` animated markers (live peers
+    prioritised over sleepers), with a "+N more here" pill for the rest. The "Players Here" panel
+    still lists everyone for interaction — only the cosmetic overlay is capped.
+  - **Lite-fx gate** — the continuous idle-bob is disabled on weak devices via the existing
+    `<html class="lite-fx">` gate (glide + shadow stay, so peers still read as alive).
+  - `playerNameTile` extracted to `lib/sector-tile.ts` (shared by WorldMap + the overlay).
+- **Deferred (heavier scaling — only when one sector holds very big crowds):** Phase 1C (move
   `playerRoster` fully into the store), Part A Phase 3 (delta socket join/leave/move events), Phase 4
-  (demote 1s HTTP heartbeat to fallback-only), Phase 5 (crowd cap "+N" / single-canvas peer layer),
-  Phase 6 (intra-sector AOI), and the CDN `no-store` change.
+  (demote 1s HTTP heartbeat to fallback-only), single-`<canvas>` peer layer, Phase 6 (intra-sector
+  AOI), a server-side `sectorMates` cap, and the CDN `no-store` change.
 - **Deploy note:** `dist/` is NOT rebuilt in these commits (Railway self-builds from source for the
   live host). Run `npm run build` + commit `dist/` (root server dist + client dist force-added) before
   any **cPanel** deploy, since cPanel serves committed `dist/` verbatim.

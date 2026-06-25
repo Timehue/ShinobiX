@@ -35,6 +35,14 @@ const LINGER_MS = 2500;
 
 let liveArr: PlayerRecord[] = [];
 let liveSig = "";
+// Membership/display-only snapshot (NO within-sector tile): its reference changes
+// only when WHO is in the sector or their display fields change — NOT when a peer
+// walks to a new tile. The "Players Here" panel + sleeper logic subscribe to this
+// (useLiveSectorRoster) so tile-only movement re-renders just the walking overlay
+// (useLiveSectorPlayers), not all of WorldMap. This is the futureproofing that
+// keeps a crowded sector smooth.
+let rosterArr: PlayerRecord[] = [];
+let rosterSig = "";
 const subscribers = new Set<() => void>();
 // lowercased name -> ms epoch at which a currently-missing player should drop.
 const lingerUntil = new Map<string, number>();
@@ -81,6 +89,12 @@ export function presenceSignature(list: PlayerRecord[]): string {
         .join("|");
 }
 
+// Full live signature = membership signature + per-name tile, so the overlay
+// re-renders when a peer walks. Keep push/remove in sync via this one helper.
+function liveSignature(list: PlayerRecord[], memberSig: string): string {
+    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}`).sort().join(",");
+}
+
 function notify(): void {
     subscribers.forEach((fn) => fn());
 }
@@ -110,15 +124,17 @@ export function pushLiveSectorPlayers(next: PlayerRecord[]): void {
         else lingerUntil.delete(lname);
     }
     const merged = carried.length ? [...next, ...carried] : next;
-    // Append a tile component to the live signature ONLY (not the exported
-    // presenceSignature, which App's playerRoster 1B short-circuit reuses): the
-    // sector overlay must re-render when a peer walks to a new tile, but the broad
-    // roster must NOT churn App every time anyone moves.
-    const sig = presenceSignature(merged) + "||" +
-        merged.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}`).sort().join(",");
+    const memberSig = presenceSignature(merged);
+    const sig = liveSignature(merged, memberSig);
     if (sig === liveSig) return; // unchanged — keep ref, notify nobody
     liveArr = merged;
     liveSig = sig;
+    // Refresh the membership snapshot only when WHO/display changed (not on a
+    // tile-only move), so panel subscribers don't re-render when a peer walks.
+    if (memberSig !== rosterSig) {
+        rosterArr = merged;
+        rosterSig = memberSig;
+    }
     if (prefetch) prefetch(merged.map((p) => p.name));
     notify();
 }
@@ -133,8 +149,11 @@ export function removeLiveSectorPlayers(names: string[]): void {
     for (const lname of goneLower) lingerUntil.delete(lname);
     const filtered = liveArr.filter((p) => !goneLower.has(p.name.toLowerCase()));
     if (filtered.length === liveArr.length) return; // nobody removed
+    const memberSig = presenceSignature(filtered);
     liveArr = filtered;
-    liveSig = presenceSignature(filtered);
+    liveSig = liveSignature(filtered, memberSig);
+    rosterArr = filtered;
+    rosterSig = memberSig;
     notify();
 }
 
@@ -143,6 +162,8 @@ export function resetLiveSectorPlayers(): void {
     if (!liveArr.length && !lingerUntil.size) return;
     liveArr = [];
     liveSig = "";
+    rosterArr = [];
+    rosterSig = "";
     lingerUntil.clear();
     notify();
 }
@@ -150,6 +171,11 @@ export function resetLiveSectorPlayers(): void {
 /** Non-reactive snapshot read. Returns a STABLE reference until contents change. */
 export function getLiveSectorPlayers(): PlayerRecord[] {
     return liveArr;
+}
+
+/** Membership/display-only snapshot (stable across tile-only moves). */
+export function getLiveSectorRoster(): PlayerRecord[] {
+    return rosterArr;
 }
 
 /** Register the avatar prefetch (App passes ensureAvatarsCached). Pass null to clear. */
@@ -164,7 +190,13 @@ function subscribe(fn: () => void): () => void {
     };
 }
 
-/** React binding — only components that call this re-render on a roster change. */
+/** React binding — re-renders on ANY change incl. a peer moving tiles (overlay). */
 export function useLiveSectorPlayers(): PlayerRecord[] {
     return useSyncExternalStore(subscribe, getLiveSectorPlayers);
+}
+
+/** React binding — re-renders only on membership/display change, NOT tile moves
+ *  (the "Players Here" panel + sleeper logic; keeps WorldMap off the hot path). */
+export function useLiveSectorRoster(): PlayerRecord[] {
+    return useSyncExternalStore(subscribe, getLiveSectorRoster);
 }
