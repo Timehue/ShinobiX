@@ -39,7 +39,7 @@ async function handler(req, res) {
         return;
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
-        const { name, sector, character, travelingUntil, inBattle } = body;
+        const { name, sector, character, travelingUntil, inBattle, tile } = body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
         // Require that the heartbeat is from the named player (or admin).
@@ -100,6 +100,7 @@ async function handler(req, res) {
             character: slimChar,
             travelingUntil: safeTravelUntil,
             inBattle: inBattle === true ? true : undefined,
+            tile: (0, presence_input_js_1.normalizeTile)(tile, existing?.tile),
         });
         const pendingAttacker = stored.pendingAttacker ?? null;
         online_store_js_1.onlineStore.clearPendingAttacker(name);

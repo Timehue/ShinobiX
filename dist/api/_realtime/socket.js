@@ -162,6 +162,7 @@ function wireRealtime(io) {
                 character: slim,
                 travelingUntil: (0, presence_input_js_1.capTravelingUntil)(p.travelingUntil, now),
                 inBattle: p.inBattle === true ? true : undefined,
+                tile: (0, presence_input_js_1.normalizeTile)(p.tile, online_store_js_1.onlineStore.get(name)?.tile),
             });
             if (newSector !== prevSector) {
                 if (prevSector >= 0)

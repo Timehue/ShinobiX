@@ -124,6 +124,28 @@ const images_js_1 = require("./images.js");
         node_assert_1.strict.equal((0, images_js_1.ownershipReject)('jutsu:fireball', admin), null);
     });
 });
+(0, node_test_1.describe)('ownershipReject — player bloodline + jutsu image carve-out', () => {
+    const player = { admin: false, name: 'rill' };
+    const uuid = 'b2e291f6-5b58-4bf3-a037-a983f716b121';
+    (0, node_test_1.it)('lets a non-admin player image their own custom bloodline (random UUID id)', () => {
+        node_assert_1.strict.equal((0, images_js_1.ownershipReject)(`bloodline:${uuid}`, player), null);
+    });
+    (0, node_test_1.it)('lets a non-admin player image their own bloodline jutsus (random UUID ids)', () => {
+        node_assert_1.strict.equal((0, images_js_1.ownershipReject)(`jutsu:${uuid}`, player), null);
+    });
+    (0, node_test_1.it)('still blocks non-admins from the readable admin CATALOG bloodline/jutsu ids', () => {
+        for (const id of ['bloodline:starter-bloodline-ashen-eyes', 'jutsu:starter-universal-blitz', 'bloodline:x', 'jutsu:fireball']) {
+            const r = (0, images_js_1.ownershipReject)(id, player);
+            node_assert_1.strict.ok(r && r.status === 403, `expected 403 for ${id}`);
+        }
+    });
+    (0, node_test_1.it)('does not let the UUID carve-out leak to other admin-only prefixes', () => {
+        for (const prefix of ['card', 'event', 'ai', 'shrine', 'landmark', 'leader']) {
+            const r = (0, images_js_1.ownershipReject)(`${prefix}:${uuid}`, player);
+            node_assert_1.strict.ok(r && r.status === 403, `expected 403 for ${prefix}:<uuid>`);
+        }
+    });
+});
 (0, node_test_1.describe)('categoryFromId — leader category (#16)', () => {
     (0, node_test_1.it)('routes leader:* to its own category instead of misc', () => {
         node_assert_1.strict.equal((0, images_js_1.categoryFromId)('leader:konoha:kage'), 'leader');
