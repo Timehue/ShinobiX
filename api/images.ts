@@ -189,6 +189,15 @@ const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai
 // overwrite an icon shown to everyone (unlike a generic `item:<catalog-id>`).
 const PLAYER_NAMED_ITEM_RE = /^named-(weapon|armor)-/;
 
+// Player-created bloodline + that bloodline's jutsu ids. The Bloodline Maker is
+// a player-facing feature; every new bloodline id and jutsu id it mints is a
+// crypto.randomUUID() (client lib/utils.makeId + lib/jutsu.blankJutsu), whereas
+// the admin CATALOG uses readable ids ('starter-bloodline-*', 'starter-*'
+// jutsus). Matching ONLY the UUID shape lets a player image their own custom
+// bloodline/jutsus while keeping every catalog asset admin-only (a non-UUID id
+// still 403s). UUID v1–v5 (any version/variant nibble) so older saves match too.
+const PLAYER_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Returns null if the identity may write to this image id; otherwise an
 // HTTP { status, error } describing the rejection.
 export function ownershipReject(
@@ -210,6 +219,19 @@ export function ownershipReject(
     // random unguessable ids, the 3 MB per-image cap, and a purely cosmetic blast
     // radius (overwriting one named item's picture whose id is already known).
     if (prefix === 'item' && PLAYER_NAMED_ITEM_RE.test(rest)) {
+        return null;
+    }
+    // Carve-out: a player may image their OWN custom bloodline + that bloodline's
+    // jutsus. The Bloodline Maker publishes 'bloodline:<id>' / 'jutsu:<id>'
+    // optimistically BEFORE the debounced save persists the bloodline to
+    // save:<name> (the same race that forces the pet/named-item fail-open below),
+    // so a strict owns-it check would 403 legitimate first-time uploads. Scope
+    // the fail-open to the random UUID ids the maker generates so the readable
+    // admin catalog ids ('bloodline:starter-*', 'jutsu:starter-*') stay
+    // admin-only. Abuse is bounded + purely cosmetic: a player who learns
+    // another's random bloodline/jutsu id (it appears in the public gallery)
+    // could overwrite that one picture — never a catalog asset, never stats.
+    if ((prefix === 'bloodline' || prefix === 'jutsu') && PLAYER_UUID_RE.test(rest)) {
         return null;
     }
     if (ADMIN_ONLY_PREFIXES.has(prefix)) {
