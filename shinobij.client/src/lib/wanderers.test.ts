@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, type Wanderer } from "./wanderers";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -17,19 +17,29 @@ describe("rollWanderers", () => {
         assert.deepEqual(a, b);
     });
 
-    it("changes the cast across days / sectors", () => {
-        const day = JSON.stringify(rollWanderers(7, 1000));
-        const nextDay = JSON.stringify(rollWanderers(7, 1001));
-        const nextSector = JSON.stringify(rollWanderers(8, 1000));
-        assert.notEqual(day, nextDay);
-        assert.notEqual(day, nextSector);
+    it("varies the cast across sectors (and isn't all-empty)", () => {
+        const rosters = Array.from({ length: 60 }, (_, i) => JSON.stringify(rollWanderers(i + 1, 1000)));
+        assert.ok(new Set(rosters).size > 1, "rosters should differ across sectors");
+        assert.ok(rosters.some(r => r !== "[]"), "at least some sectors are populated");
     });
 
-    it("returns 1–3 wanderers with valid, on-grid data", () => {
-        for (let sector = 1; sector <= 60; sector++) {
+    it("is an occasional encounter — many sectors empty, most populated have 1", () => {
+        let empty = 0, total = 0, maxLen = 0;
+        for (let sector = 1; sector <= 200; sector++) {
+            const list = rollWanderers(sector, 5000);
+            if (list.length === 0) empty++;
+            total++;
+            maxLen = Math.max(maxLen, list.length);
+        }
+        assert.ok(empty / total > 0.4, "a healthy share of sectors are empty");
+        assert.ok(maxLen <= 2, "never more than 2 in a sector");
+    });
+
+    it("returns 0–2 wanderers with valid, on-grid data", () => {
+        for (let sector = 1; sector <= 80; sector++) {
             for (let d = 0; d < 4; d++) {
                 const list = rollWanderers(sector, 5000 + d);
-                assert.ok(list.length >= 1 && list.length <= 3, `count for sector ${sector}`);
+                assert.ok(list.length >= 0 && list.length <= 2, `count for sector ${sector}`);
                 for (const w of list) assertValidWanderer(w);
             }
         }
@@ -41,8 +51,20 @@ describe("rollWanderers", () => {
     });
 
     it("ids are unique within a roster", () => {
-        const list = rollWanderers(42, 9999);
+        // find a populated roster to test against
+        let list: Wanderer[] = [];
+        for (let s = 1; s <= 200 && list.length < 2; s++) list = rollWanderers(s, 5000);
         assert.equal(new Set(list.map(w => w.id)).size, list.length);
+    });
+});
+
+describe("wandererCount", () => {
+    it("maps rng to 0/1/2 with empties common and pairs rare", () => {
+        assert.equal(wandererCount(0), 0);
+        assert.equal(wandererCount(0.5), 0);
+        assert.equal(wandererCount(0.7), 1);
+        assert.equal(wandererCount(0.95), 2);
+        assert.ok(wandererCount(0.99) <= 2);
     });
 });
 
