@@ -218,11 +218,21 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     // non-healers saw admits from every village (useless clutter), and
     // healers — the only ones who can actually heal — were restricted
     // to their own village.
+    //
+    // Only show players who are actually hurt — a stale roster entry can
+    // still carry hospitalized=true after the player's HP has reached full
+    // (passive regen / healed-but-not-discharged), and there's nothing to
+    // heal there. Mirror the server's HP_INJURED_THRESHOLD (0.99) from
+    // api/player/injured-villagers.ts so this list agrees with the Rank-10
+    // world-wide list on what counts as "hurt".
+    const HP_INJURED_THRESHOLD = 0.99;
     const hospitalizedPlayers = playerRoster.filter(p =>
         p.character.hospitalized
         && p.name.toLowerCase() !== character.name.toLowerCase()
         && !healed.has(p.name)
         && p.character.village === character.village
+        && p.character.maxHp > 0
+        && p.character.hp / p.character.maxHp <= HP_INJURED_THRESHOLD
     );
 
     if (character.hospitalized) {
