@@ -14,7 +14,7 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
-import { wandererAvatar } from "../lib/wanderer-art";
+import { wandererAvatar, WANDERER_BOSS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { createPortal } from "react-dom";
@@ -520,7 +520,7 @@ export function WorldMap({
     function buildBossAi(level: number): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
         const ai = makeBuiltinAi(`wanderer-boss-${lvl}`, "Bandit Warlord", "💀", lvl, "Wandering Road", [], 12, undefined, "boss");
-        ai.image = wandererAvatar("bandit");
+        ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
     function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush", stage: number, sector: number) {
