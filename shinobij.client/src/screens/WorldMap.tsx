@@ -33,9 +33,10 @@ import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorPlayers, setLocalSectorTile } from "../lib/presence-store";
+import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
-import { SectorPeers, type SectorPeer } from "../components/SectorPeers";
+import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
+import { playerNameTile } from "../lib/sector-tile";
 import { defaultVnScene } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
@@ -74,12 +75,6 @@ import {
 } from "../App";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 
-function playerNameTile(name: string): number {
-    let h = 5381;
-    for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0;
-    // keep away from corners — map to 10–133 range
-    return 10 + (h % 124);
-}
 
 // Which scene-image theme each sector shows. Single source of truth shared by
 // the background image picker and the ambience-biome picker so the drifting
@@ -249,10 +244,12 @@ export function WorldMap({
     creatorItems: GameItem[];
     onImmediateSave?: (char: Character) => void;
 }) {
-    // Live players in the current sector now come from the presence store (external
-    // store) instead of an App prop, so the ~1s heartbeat re-renders only this
-    // sector view rather than all of App. Same data, same shape as before.
-    const liveSectorPlayers = useLiveSectorPlayers();
+    // Live players in the current sector come from the presence store. WorldMap reads
+    // the MEMBERSHIP-only snapshot (useLiveSectorRoster) — it re-renders on join/leave
+    // but NOT when a peer merely walks to a new tile; the walking overlay
+    // (<SectorPeersLive>) subscribes to the full tile-sensitive snapshot itself, so a
+    // crowd in motion doesn't re-render this whole screen.
+    const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
@@ -1247,15 +1244,17 @@ export function WorldMap({
             ? [...livePlayersHere, ...sleepingHere.map((p) => ({ ...p, __sleeping: true }))]
             : [];
         // 2D live peers: when enabled (default), peers render as a walking overlay
-        // at their real transmitted tile (fallback: deterministic per-name tile) and
-        // the in-tile dots are suppressed to avoid drawing each peer twice.
+        // at their real transmitted tile and the in-tile dots are suppressed to avoid
+        // drawing each peer twice. Live peers (with real tiles) are read from the
+        // presence store inside <SectorPeersLive>; only the sleepers (offline targets
+        // with no live position) are derived here, on their per-name fallback tile.
         const livePeersOn = isSectorLivePeersEnabled();
-        const sectorPeerMarkers: SectorPeer[] = livePeersOn
-            ? sectorPlayers.map((p) => ({
+        const sleeperPeers: SectorPeer[] = livePeersOn
+            ? sleepingHere.map((p) => ({
                 name: p.name,
-                tile: typeof p.tile === "number" ? p.tile : playerNameTile(p.name),
+                tile: playerNameTile(p.name),
                 level: p.level,
-                sleeping: Boolean(p.__sleeping),
+                sleeping: true,
                 avatar: sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '',
             }))
             : [];
@@ -1359,7 +1358,14 @@ export function WorldMap({
                                 );
                             })}
 
-                            {livePeersOn && <SectorPeers peers={sectorPeerMarkers} />}
+                            {livePeersOn && sameSector(currentSector, selectedSector) && (
+                                <SectorPeersLive
+                                    selectedSector={selectedSector}
+                                    selfName={character.name}
+                                    sharedImages={sharedImages}
+                                    sleepers={sleeperPeers}
+                                />
+                            )}
 
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
