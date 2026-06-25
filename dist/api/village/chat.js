@@ -8,6 +8,9 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const moderation_js_1 = require("../admin/moderation.js");
 const _lock_js_1 = require("../_lock.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
+// Max length of the quoted snippet we persist for a reply. Short — it's a
+// preview, not the full message; the client ellipsizes anything longer.
+const REPLY_SNIPPET_LIMIT = 140;
 const MAX_MESSAGES = 30; // hold the most recent 30 messages; the oldest drops as new ones arrive (count-based, no age expiry)
 const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30-day KV key TTL (refreshed on every POST) — only garbage-collects truly abandoned villages, not active chat
 function chatKey(village) {
@@ -42,7 +45,7 @@ async function handler(req, res) {
             return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { author, text } = body;
+            const { author, text, replyTo } = body;
             if (!author || !text)
                 return res.status(400).json({ error: 'Missing author or text.' });
             // Authenticate the author so trolls can't impersonate the Kage
@@ -91,6 +94,16 @@ async function handler(req, res) {
             const safeText = identity.admin ? text.slice(0, _text_moderation_js_1.TEXT_LIMITS.chatMessage) : (0, _text_moderation_js_1.sanitizeUserText)(text, _text_moderation_js_1.TEXT_LIMITS.chatMessage);
             if (!safeText)
                 return res.status(400).json({ error: 'Empty message after moderation.' });
+            // Optional reply quote. Display-only and not security-sensitive, but
+            // run the snippet through the same moderation as any user text so a
+            // reply can't smuggle profanity/PII past the filter or bloat KV.
+            let replyRef;
+            if (replyTo && typeof replyTo === 'object') {
+                const rAuthor = (0, _text_moderation_js_1.sanitizeUserText)(replyTo.author, _text_moderation_js_1.TEXT_LIMITS.customTitle);
+                const rText = (0, _text_moderation_js_1.sanitizeUserText)(replyTo.text, REPLY_SNIPPET_LIMIT);
+                if (rAuthor && rText)
+                    replyRef = { author: rAuthor, text: rText };
+            }
             const newMsg = {
                 author,
                 text: safeText,
@@ -98,6 +111,7 @@ async function handler(req, res) {
                 ...(derivedRank ? { rank: derivedRank } : {}),
                 ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
                 ...(derivedLevel != null ? { level: derivedLevel } : {}),
+                ...(replyRef ? { replyTo: replyRef } : {}),
             };
             // Read-modify-write under a short-lived KV lock so two concurrent
             // posters can't silently overwrite each other's message. Lock TTL
