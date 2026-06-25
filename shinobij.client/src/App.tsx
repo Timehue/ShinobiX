@@ -8511,7 +8511,7 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
-                        onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, isTraveling, setCharacter, setPlayerRoster }); }}
+                        onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} attackSleeper={(opponent) => { void strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster }); }}
                         sectorAttackPlayer={async (opponent) => {
                             if (isTraveling) {
                                 alert("You cannot attack while traveling.");
