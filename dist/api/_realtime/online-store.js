@@ -43,6 +43,9 @@ class MemoryOnlineStateStore {
             pendingAttacker: prev?.pendingAttacker ?? null,
             travelingUntil: entry.travelingUntil,
             inBattle: entry.inBattle === true ? true : undefined,
+            // Within-sector tile for live peer rendering; keep the last known tile
+            // if this beat didn't carry one (older client / non-sector screen).
+            tile: entry.tile ?? prev?.tile,
         };
         this.players.set(key, next);
         return next;
