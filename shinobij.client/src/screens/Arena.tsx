@@ -29,7 +29,7 @@ import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "..
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
 import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
-import { pveDifficultyStatMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
+import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffectsOpponent, statusMatchesName, tagMatchesName } from "../lib/tags";
@@ -482,15 +482,18 @@ export function Arena({
         || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
         || pendingAiProfile?.icon
         || "EN";
-    const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
+    // PvE difficulty curve — scale standard PvE AI enemy stats AND max HP by the
+    // band for the ENCOUNTER's level (easy 1-30, medium 31-50, hard 51-90,
+    // peer 91+). Excludes real PvP (opponentCharacter), the endless tower
+    // (already wave-scaled), and ranked, so nothing double-dips and PvP balance
+    // is untouched. The HP factor only applies to the AI fallback / authored HP
+    // (a live opponentCharacter is gated out by isStandardPve). See
+    // lib/pve-difficulty.ts.
+    const isStandardPve = !opponentCharacter && !endlessBattleActive && !rankedBattleActive;
+    const enemyHpDifficultyFactor = isStandardPve ? pveDifficultyHpMultiplier(opponentLevel) : 1;
+    const enemyMaxHp = Math.max(1, Math.floor((opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel)) * enemyHpDifficultyFactor));
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
-    // PvE difficulty curve — scale standard PvE AI enemy stats by the band for
-    // the ENCOUNTER's level (easy <30, medium 30-49, hard 50-89, peer 90+).
-    // Excludes real PvP (opponentCharacter), the endless tower (already
-    // wave-scaled), and ranked, so nothing double-dips and PvP balance is
-    // untouched. See lib/pve-difficulty.ts.
-    const isStandardPve = !opponentCharacter && !endlessBattleActive && !rankedBattleActive;
     const pveDifficultyStatFactor = isStandardPve ? pveDifficultyStatMultiplier(opponentLevel) : 1;
     const enemyCombatStats = scaleStatsForPveDifficulty(
         opponentCharacter?.stats ?? pendingAiProfile?.stats ?? aiStatsForLevel(opponentLevel),
