@@ -61,7 +61,8 @@ export function professionRankForXp(profession: Profession, xp: number): number 
 // Keep arrays IN SYNC with the client file. Idx = rank (0 unused).
 export const HEALER_PER_TARGET_COOLDOWN_SEC = [0, 300, 285, 270, 240, 210, 180, 150, 120, 105, 90] as const;
 export const HEALER_HEAL_XP_BONUS_PCT = [0, 0, 5, 10, 15, 20, 25, 30, 35, 40, 50] as const;
-export const HEALER_HOSPITAL_TIMER_SEC = [0, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15] as const;
+// (A former rank-scaled HEALER_HOSPITAL_TIMER_SEC was removed — Healers now
+//  discharge instantly for free, so there is no Healer hospital timer to mirror.)
 export const HEALER_WORLDWIDE_RANK = 10;
 function clampRank(rank: number): number {
     if (!Number.isFinite(rank) || rank < 1) return 1;
@@ -73,9 +74,6 @@ export function healerHealXpBonusPct(rank: number): number {
 }
 export function healerPerTargetCooldownMs(rank: number): number {
     return HEALER_PER_TARGET_COOLDOWN_SEC[clampRank(rank)] * 1000;
-}
-export function healerHospitalTimerMs(rank: number): number {
-    return HEALER_HOSPITAL_TIMER_SEC[clampRank(rank)] * 1000;
 }
 
 export function utcDateKey(now = new Date()): string {
