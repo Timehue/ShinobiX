@@ -4250,9 +4250,8 @@ export default function App() {
         setSharedImages(prev => ({ ...prev, ...images }));
         if (cat === 'item')
             setCreatorItems(prev => {
-                // Patch images onto existing entries.
-                const patched = prev.map(item =>
-                    images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item);
+                // Patch images on; keep a fresh inline data: image rather than clobber it with the 5-min-stale /api/img ref (same guard as the pet branch).
+                const patched = prev.map(item => images['item:' + item.id] && !String(item.image ?? '').startsWith('data:') ? { ...item, image: images['item:' + item.id] } : item);
                 // For starter items whose image is in KV but whose creatorItems entry
                 // doesn't exist yet on this player (e.g. admin uploaded after their last
                 // save), auto-create a minimal entry so getAllItems can apply the override.
@@ -4404,10 +4403,10 @@ export default function App() {
             } : prev);
         }
         else if (cat === 'bloodline')
-            // Restore the bloodline's own cover image (stripped by stripImages on save).
-            // Jutsu images inside bloodlines are handled by loadCategory('jutsu').
+            // Restore the cover image (stripped on save); keep a fresh inline data:
+            // image rather than clobber it with the 5-min-stale /api/img reference.
             setSavedBloodlines((prev: SavedBloodline[]) => prev.map(b =>
-                images['bloodline:' + b.id] ? { ...b, image: images['bloodline:' + b.id] } : b
+                images['bloodline:' + b.id] && !String(b.image ?? '').startsWith('data:') ? { ...b, image: images['bloodline:' + b.id] } : b
             ));
         else if (cat === 'avatar')
             setCharacter(prev => {

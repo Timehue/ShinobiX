@@ -35,6 +35,57 @@ export function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): P
     });
 }
 
+// Hard size ceiling (KB) for a single still image once it's published / saved.
+// compactImage guarantees the returned data URL stays under this so a busy
+// 512px image can't bloat shared storage or the polled game-state payload. The
+// server still backstops at MAX_IMAGE_BYTES (~2 MB) in api/images.ts.
+export const COMPACT_IMAGE_MAX_KB = 200;
+
+// Approximate the decoded byte size of a base64 data URL without allocating it
+// (base64 → bytes is ~3/4, minus padding). Good enough to drive the size loop.
+function dataUrlApproxBytes(dataUrl: string): number {
+    const comma = dataUrl.indexOf(',');
+    const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+    const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    return Math.max(0, Math.floor((b64.length * 3) / 4) - padding);
+}
+
+/**
+ * Re-encode a still image down to a hard size ceiling. Compresses at maxPx,
+ * then — only if the output is still over maxKB — steps quality down and
+ * finally dimension down until it fits (returning the smallest result found).
+ *
+ * Only touches inline `data:image` URLs. Reference URLs (`/api/img`, http(s))
+ * are already-stored or remote and are returned untouched — re-encoding a
+ * remote URL would taint the canvas and throw. Animated GIFs are passed through
+ * (canvas flattens them to one frame); callers cap those via ANIMATED_MAX_MB
+ * instead. This is the single funnel every upload/AI-image path should use so
+ * no screen can publish a huge file.
+ */
+export async function compactImage(dataUrl: string, maxPx = 512, maxKB = COMPACT_IMAGE_MAX_KB): Promise<string> {
+    if (!dataUrl || !dataUrl.startsWith('data:image')) return dataUrl;
+    // Animated GIF — re-encoding would drop every frame after the first.
+    if (/^data:image\/gif/i.test(dataUrl)) return dataUrl;
+    const maxBytes = maxKB * 1024;
+    let best = await compressDataUrl(dataUrl, maxPx, 0.82);
+    if (dataUrlApproxBytes(best) <= maxBytes) return best;
+    // Drop quality at the same dimension first (cheapest visual cost).
+    for (const quality of [0.7, 0.6, 0.5]) {
+        const next = await compressDataUrl(dataUrl, maxPx, quality);
+        if (dataUrlApproxBytes(next) < dataUrlApproxBytes(best)) best = next;
+        if (dataUrlApproxBytes(best) <= maxBytes) return best;
+    }
+    // Still too big — shrink the dimension and retry the quality ladder.
+    for (const px of [384, 256]) {
+        for (const quality of [0.7, 0.6, 0.5]) {
+            const next = await compressDataUrl(dataUrl, px, quality);
+            if (dataUrlApproxBytes(next) < dataUrlApproxBytes(best)) best = next;
+            if (dataUrlApproxBytes(best) <= maxBytes) return best;
+        }
+    }
+    return best; // smallest achievable; the server cap is the final backstop
+}
+
 // Module-level — callable from any component without prop drilling
 // Mirror of api/images.ts KNOWN_PREFIXES so the client can figure out which
 // category an image lives in without a round-trip. Used for sessionStorage
@@ -157,7 +208,7 @@ export async function isAnimatedImageFile(file: File): Promise<boolean> {
     return false;
 }
 
-export function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 100) {
+export function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 25) {
     if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
     void (async () => {
         const animated = await isAnimatedImageFile(file);
@@ -175,7 +226,9 @@ export function readImageFile(file: File, onLoad: (image: string) => void, maxSi
                 // strip every frame after the first.
                 onLoad(dataUrl);
             } else {
-                compressDataUrl(dataUrl).then(onLoad);
+                // Squeeze every still upload down to the hard size ceiling so a
+                // huge source file can't land in shared storage / the save.
+                compactImage(dataUrl).then(onLoad);
             }
         };
         reader.readAsDataURL(file);
