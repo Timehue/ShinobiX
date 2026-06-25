@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
 import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { normalizeSector, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
+import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from '../_realtime/presence-input.js';
 
 // Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
 // instead of `presence:<name>` DB keys — no per-second DB read/write. The live
@@ -33,12 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
-        const { name, sector, character, travelingUntil, inBattle } = body as {
+        const { name, sector, character, travelingUntil, inBattle, tile } = body as {
             name?: string;
             sector?: number;
             character?: unknown;
             travelingUntil?: number;
             inBattle?: boolean;
+            tile?: number;
         };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
 
@@ -106,6 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             character: slimChar as Record<string, unknown> | null,
             travelingUntil: safeTravelUntil,
             inBattle: inBattle === true ? true : undefined,
+            tile: normalizeTile(tile, existing?.tile),
         });
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);

@@ -7335,6 +7335,53 @@ body {
     overflow: visible;
 }
 
+/* 2D live peers — walking overlay for other players (see SectorPeers.tsx). Sits
+   below the player's own avatar (z 3) and above the tiles; never interactive. */
+.sector-peers-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    overflow: visible;
+}
+
+.sector-peer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    /* transform (tile centre) set inline; glide between tiles when a peer moves. */
+    transition: transform 0.9s linear;
+    will-change: transform;
+    pointer-events: none;
+}
+
+.sector-peer-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+
+.sector-peer-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sector-peer-body.is-entering { animation: peer-map-in 260ms ease-out; }
+.sector-peer-body.is-leaving { animation: peer-map-out 360ms ease-in forwards; }
+
+@keyframes peer-map-out {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: scale(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sector-peer { transition: none; }
+    .sector-peer-body.is-entering,
+    .sector-peer-body.is-leaving { animation: none; }
+}
+
 .sector-avatar-figure {
     position: absolute;
     left: 0;

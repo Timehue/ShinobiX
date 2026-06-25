@@ -35,7 +35,7 @@ import type { Server as HttpServer } from 'node:http';
 import type { Server as IOServer, Socket } from 'socket.io';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { onlineStore } from './online-store.js';
-import { normalizeSector, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
+import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, toPlayerRecord } from './presence-input.js';
 import { setOnSweep } from './game-loop.js';
 import { setRealtimeEmitter } from './notify.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
@@ -194,7 +194,7 @@ function wireRealtime(io: IOServer): void {
         const applyPresence = (payload: unknown): void => {
             const p = (payload ?? {}) as {
                 sector?: unknown; character?: unknown; travelingUntil?: number;
-                inBattle?: boolean; displayName?: unknown;
+                inBattle?: boolean; displayName?: unknown; tile?: unknown;
             };
             const now = Date.now();
             const prevSector: number = socket.data.sector;
@@ -213,6 +213,7 @@ function wireRealtime(io: IOServer): void {
                 character: slim as Record<string, unknown> | null,
                 travelingUntil: capTravelingUntil(p.travelingUntil, now),
                 inBattle: p.inBattle === true ? true : undefined,
+                tile: normalizeTile(p.tile, onlineStore.get(name)?.tile),
             });
 
             if (newSector !== prevSector) {
