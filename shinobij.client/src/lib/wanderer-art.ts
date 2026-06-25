@@ -5,21 +5,24 @@
  * (the in-fight AI portrait) so the same face follows a wanderer into battle.
  */
 import type { WandererArchetypeId } from "./wanderers";
-import banditImg from "../assets/festival/fest-broker.webp";
-import gamblerImg from "../assets/festival/fest-kael.webp";
-import pilgrimImg from "../assets/festival/fest-miraa.webp";
+import banditImg from "../assets/wanderers/bandit.webp";
+import gamblerImg from "../assets/wanderers/gambler.webp";
+import pilgrimImg from "../assets/wanderers/pilgrim.webp";
+import sageImg from "../assets/wanderers/sage.webp";
 import beastImg from "../assets/coliseum/demo-emberfox.webp";
 import bossImg from "../assets/wanderers/bandit-warlord.webp";
 
 /** Portrait for the ambush boss (Bandit Warlord). */
 export const WANDERER_BOSS_PORTRAIT = bossImg;
 
+// Bespoke per-archetype portraits (gpt-image-1), so wanderers have their own
+// faces instead of reusing the festival vendor art.
 const ART: Record<WandererArchetypeId, string> = {
     bandit: banditImg,
     gambler: gamblerImg,
     pilgrim: pilgrimImg,
     beast: beastImg,
-    sage: pilgrimImg, // the sage shares the veiled-elder portrait
+    sage: sageImg,
 };
 
 export function wandererAvatar(key: WandererArchetypeId): string {
