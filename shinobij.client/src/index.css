@@ -7362,10 +7362,38 @@ body {
     gap: 1px;
 }
 
+/* 2C grounded peer look: sized box holds a static contact shadow + a gently
+   bobbing figure, so peers read as planted and alive rather than flat dots. */
 .sector-peer-avatar {
+    position: relative;
+}
+
+.sector-peer-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: -7%;
+    width: 62%;
+    height: 16%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.sector-peer-figure {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1;
+    animation: peer-idle-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes peer-idle-bob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-7%); }
 }
 
 .sector-peer-body.is-entering { animation: peer-map-in 260ms ease-out; }
@@ -7378,6 +7406,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
     .sector-peer { transition: none; }
+    .sector-peer-figure { animation: none; }
     .sector-peer-body.is-entering,
     .sector-peer-body.is-leaving { animation: none; }
 }
