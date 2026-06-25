@@ -22,6 +22,7 @@ import {
     moveChoreoMods,
     moveFxKey,
     meleeContactFx,
+    meleeTrailSpec,
     meleeLungeReach,
     COLISEUM_COLS,
     COLISEUM_ROWS,
@@ -518,4 +519,28 @@ test("meleeContactFx: ordered, element-flavored combo from real fx folders", () 
     assert.equal(meleeContactFx("Lightning", "pierce", false, false).filter((b) => b.key === "slash").length, 0, "lightning pierce leads with spark");
     // A heavy slam leads with a bighit.
     assert.equal(meleeContactFx("Earth", "heavySlam", false, true)[0].key, "bighit", "slam leads bighit");
+});
+
+test("meleeTrailSpec: a distinct weapon arc per archetype", () => {
+    for (const k of ["lightMelee", "slash", "pierce", "heavySlam", "drain"] as const) {
+        const s = meleeTrailSpec(k);
+        assert.ok(s.tex === "crescent" || s.tex === "streak", `${k}: valid tex`);
+        assert.ok(s.w > 0 && s.h > 0 && s.life > 0, `${k}: positive size/life`);
+        assert.ok(Number.isFinite(s.rot0) && Number.isFinite(s.rot1), `${k}: finite rotation`);
+    }
+    // A pierce is a straight forward LANCE — the streak shape that barely rotates + extends.
+    const pierce = meleeTrailSpec("pierce");
+    assert.equal(pierce.tex, "streak");
+    assert.equal(pierce.rot0, pierce.rot1, "pierce barely rotates");
+    assert.ok(pierce.dx1 > pierce.dx0, "pierce extends forward");
+    // Slashes/slams/drains are swinging crescents that actually rotate.
+    for (const k of ["slash", "heavySlam", "drain"] as const) {
+        const s = meleeTrailSpec(k);
+        assert.equal(s.tex, "crescent", `${k}: crescent blade`);
+        assert.notEqual(s.rot0, s.rot1, `${k}: swings through an arc`);
+    }
+    // A heavy slam chops top→down (starts high, ends low); a drain rakes back toward self.
+    const slam = meleeTrailSpec("heavySlam");
+    assert.ok(slam.dy0 > slam.dy1, "slam chops downward");
+    assert.ok(meleeTrailSpec("drain").dx1 < meleeTrailSpec("drain").dx0, "drain pulls back");
 });
