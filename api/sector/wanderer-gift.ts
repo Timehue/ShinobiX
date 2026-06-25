@@ -4,7 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { decideWandererGift, WANDERER_GIFTS_PER_DAY } from './_wanderer-gift.js';
+import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './_wanderer-gift.js';
 
 /*
  * /api/sector/wanderer-gift — POST only
@@ -50,15 +50,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const char = (rec?.character ?? null) as Record<string, unknown> | null;
             if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
-            const decision = decideWandererGift(Number(char.level ?? 1), claimsSoFar);
+            const decision = decideWandererGift(claimsSoFar);
             if (!decision.ok) {
                 return { status: 200, body: { ok: false, reason: decision.reason, claimsLeft: 0 } };
             }
-            const totalRyo = Number(char.ryo ?? 0) + decision.ryo;
-            await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: totalRyo } }, rec));
+            // Roll the bundle SERVER-SIDE (never trust the client) and grant it.
+            const gift = rollWandererGift(Number(char.level ?? 1), Math.random);
+            const updated = {
+                ...char,
+                ryo: Number(char.ryo ?? 0) + gift.ryo,
+                fateShards: Number(char.fateShards ?? 0) + gift.fateShards,
+                boneCharms: Number(char.boneCharms ?? 0) + gift.boneCharms,
+            };
+            await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
             return {
                 status: 200,
-                body: { ok: true, ryo: decision.ryo, totalRyo, claimsLeft: Math.max(0, WANDERER_GIFTS_PER_DAY - countAfter) },
+                body: {
+                    ok: true,
+                    gift,
+                    totals: { ryo: updated.ryo, fateShards: updated.fateShards, boneCharms: updated.boneCharms },
+                    claimsLeft: Math.max(0, WANDERER_GIFTS_PER_DAY - countAfter),
+                },
             };
         }, { failClosed: true });
 
