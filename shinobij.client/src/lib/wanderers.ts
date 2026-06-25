@@ -111,10 +111,10 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
 
 const ARCHETYPE_IDS = Object.keys(ARCHETYPES) as WandererArchetypeId[];
 
-/** Per-device opt-in. Default OFF — the feature stays dark until a device sets it. */
+/** Default ON for everyone; opt out per-device with localStorage `wanderers.v1 = "off"`. */
 export function isWanderersEnabled(): boolean {
     if (typeof window === "undefined") return false;
-    try { return window.localStorage?.getItem("wanderers.v1") === "on"; } catch { return false; }
+    try { return window.localStorage?.getItem("wanderers.v1") !== "off"; } catch { return true; }
 }
 
 /** Roster refreshes every 6h so a sector's cast changes a few times a day. */
