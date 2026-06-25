@@ -3119,9 +3119,9 @@ export default function App() {
     // Fetch full server player list (includes offline players from registry)
     useEffect(() => {
         if (!character?.name) return;
-        async function fetchRoster() {
+        async function fetchRoster(fresh = false) {
             try {
-                const res = await fetch('/api/player/roster');
+                const res = await fetch(fresh ? `/api/player/roster?fresh=${Date.now()}` : '/api/player/roster');
                 if (!res.ok) return;
                 const data = await res.json() as { players?: ServerPlayerSummary[] };
                 if (data.players?.length) {
@@ -3150,7 +3150,7 @@ export default function App() {
                 }
             } catch { /* silently skip */ }
         }
-        fetchRoster();
+        fetchRoster(currentSector >= 1);
         // Poll at the roster endpoint's CDN TTL (s-maxage=60). The old 5-min
         // cadence left the search's 🟢/⚫ online dot up to 5 min stale, so a
         // player who was actually online showed "Offline". Polling every 60s
@@ -3160,7 +3160,7 @@ export default function App() {
         // is a freshness win at negligible origin cost.
         const id = setInterval(fetchRoster, 60000); // refresh every 60s (matches CDN TTL)
         return () => clearInterval(id);
-    }, [character?.name]);
+    }, [character?.name, currentSector]);
 
     useEffect(() => {
         // /api/bloodlines/list is auth-gated (it scans every save), so it 401s

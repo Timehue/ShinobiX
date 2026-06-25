@@ -32,6 +32,7 @@ import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen } from "../lib/sector-return";
+import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { defaultVnScene } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
@@ -1232,6 +1233,7 @@ export function WorldMap({
             .filter((player) => player.name.toLowerCase() !== character.name.toLowerCase())
             .filter((player) => sameSector(player.currentSector, selectedSector))
             .filter((player) => !liveNamesHere.has(player.name.toLowerCase()))
+            .filter((player) => !isRecentlyStruckDown(player.name))
             .slice(0, 15);
         const sectorPlayers: Array<PlayerRecord & { __sleeping?: boolean }> = sameSector(currentSector, selectedSector)
             ? [...livePlayersHere, ...sleepingHere.map((p) => ({ ...p, __sleeping: true }))]
