@@ -33,7 +33,7 @@ const PROFESSIONS: ProfessionInfo[] = [
         tagline: "Mend what war breaks.",
         bullets: [
             "Heal allies for XP (% HP restored)",
-            "Faster per-target cooldown & shorter hospital timer with rank",
+            "Faster per-target heal cooldown with rank · instant free self-discharge",
             "Rank 10: see & heal injured villagers anywhere in the world",
         ],
         accent: "#22d3ee",
