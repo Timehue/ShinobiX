@@ -63,12 +63,17 @@ async function handler(req, res) {
         }
         const challengeKey = `challenges:${(0, _utils_js_1.safeName)(name)}`;
         const resetSignalKey = `reset-signal:${(0, _utils_js_1.safeName)(name)}`;
+        // One-shot "you were healed by {healer}" signal queued by api/player/heal.ts
+        // when a Healer discharges this hospitalized player. Delivered + cleared
+        // here so the client can auto-exit the hospital with a toast.
+        const healSignalKey = `heal-signal:${(0, _utils_js_1.safeName)(name)}`;
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
         const existing = online_store_js_1.onlineStore.get(name);
-        const [pendingChallenges, resetSignal] = await Promise.all([
+        const [pendingChallenges, resetSignal, healSignal] = await Promise.all([
             _storage_js_1.kv.get(challengeKey),
             _storage_js_1.kv.get(resetSignalKey),
+            _storage_js_1.kv.get(healSignalKey),
         ]);
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
@@ -100,6 +105,7 @@ async function handler(req, res) {
         online_store_js_1.onlineStore.clearPendingAttacker(name);
         await Promise.all([
             pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
+            healSignal ? _storage_js_1.kv.del(healSignalKey) : Promise.resolve(),
             (0, _player_ips_js_1.stampPlayerIp)(req, name),
         ]);
         // The in-memory store IS the live roster — no DB scan, no cache layer.
@@ -115,6 +121,7 @@ async function handler(req, res) {
             allPlayers,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
+            pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,
         });
     }
     catch (err) {

@@ -28,9 +28,19 @@ import { readFileSync } from "node:fs";
 // → 10,137 (+2 mandatory Pet Ladder screen WIRING only — the lazy import + the
 // render branch, same 2 lines every screen needs; the PetLadder screen itself
 // lives in its own module src/screens/PetLadder.tsx, not here).
+// → 10,121 (−6: removed the ephemeral hospitalEntryTime state + its 3 KO-site
+// setters + navigate entry-stamp + render prop; the Hospital free-checkout timer
+// is now server-authoritative off character.hospitalizedUntil, fixing the
+// refresh-trap loop).
+// → 10,131 (+10 mandatory heartbeat WIRING for the "you were healed" push: the
+// pendingHeal delivery block in the heartbeat handler + a small generalization of
+// the mission-toast (custom label / hide 0-XP) so a Healer discharge auto-exits
+// the hospital with a toast. The signal is queued/cleared server-side; this is
+// just the client delivery, which must live in the heartbeat effect. Net for the
+// session is −0 below the prior 10,137 budget — not a regrowth).
 // What remains is the App() core (~150 hooks) and its
 // module-level wiring — decompose via hooks, not moves.
-const MAX_LINES = 10_137;
+const MAX_LINES = 10_131;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { kickPlayer } from '../_realtime/notify.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import {
     reportMissionEvent,
@@ -356,6 +357,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             await kv.set(targetKey, mergePreservingImages(healedTarget, fresh));
         });
+
+        // If this heal actually discharged a hospitalized player, queue a one-shot
+        // "you were healed" signal for them. Their next heartbeat delivers+clears it
+        // (api/player/heartbeat.ts) and the client auto-exits the hospital with a
+        // "Healed by {healer}" toast instead of being stuck on the admitted screen
+        // until a manual refresh. kickPlayer nudges an immediate heartbeat so it
+        // lands within ~1s on the live (socket) host; the HTTP poll is the fallback.
+        if (targetHospitalized) {
+            await kv.set(`heal-signal:${targetName}`, { by: actorName, at: Date.now() }, { ex: 120 } as never);
+            kickPlayer(targetName, 'heal');
+        }
 
         // Award Healer XP for the heal itself (% HP restored).
         const heralded = await awardProfessionXp(actorName, 'healer', xpGained);

@@ -287,6 +287,14 @@ export type Character = {
     clanContribMonth?: string;
     guardQueued?: boolean;
     hospitalized?: boolean;
+    // Server-authoritative hospital admission timestamps (epoch ms). Stamped by
+    // api/save/[name].ts when hospitalized flips false→true and enforced by
+    // api/player/heal.ts on discharge. The Hospital screen reads hospitalizedUntil
+    // to drive the free-checkout countdown so it survives a refresh (the old
+    // ephemeral client-only entry-time was lost on reload, trapping admitted
+    // players). Kept in sync server-side; the client never re-stamps them.
+    hospitalizedUntil?: number;
+    hospitalizedAt?: number;
     villageUpgrades: VillageUpgrades;
     // Snapshot of the player's clan's upgrade-building levels, refreshed when the
     // Clan Hall loads clan data. Lets the per-character bonus helpers apply clan
