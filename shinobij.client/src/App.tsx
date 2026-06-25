@@ -5526,7 +5526,7 @@ export default function App() {
             return;
         }
         if (character?.hospitalized && screen === "hospital") {
-            alert("🏥 You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
+            alert("🏥 You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
             return;
         }
         setScreenHistory(prev => {
@@ -5546,7 +5546,7 @@ export default function App() {
         }
         // Lock: cannot leave hospital while still admitted
         if (character?.hospitalized && screen === "hospital" && nextScreen !== "hospital") {
-            alert("🏥 You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
+            alert("🏥 You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
             return;
         }
         // (Hollow Gate "no retreat" lock now lives in isUnresolvedBattle.)
