@@ -33,6 +33,7 @@ import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
+import { useLiveSectorPlayers } from "../lib/presence-store";
 import { defaultVnScene } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
@@ -183,7 +184,6 @@ export function WorldMap({
     playableAis,
     setCurrentWeather,
     playerRoster,
-    liveSectorPlayers,
     currentSector,
     setCurrentSector,
     isTraveling,
@@ -224,7 +224,6 @@ export function WorldMap({
     playableAis: CreatorAi[];
     setCurrentWeather: (weather: WeatherType) => void;
     playerRoster: PlayerRecord[];
-    liveSectorPlayers: PlayerRecord[];
     currentSector: number;
     setCurrentSector: (sector: number) => void;
     isTraveling: boolean;
@@ -248,6 +247,10 @@ export function WorldMap({
     creatorItems: GameItem[];
     onImmediateSave?: (char: Character) => void;
 }) {
+    // Live players in the current sector now come from the presence store (external
+    // store) instead of an App prop, so the ~1s heartbeat re-renders only this
+    // sector view rather than all of App. Same data, same shape as before.
+    const liveSectorPlayers = useLiveSectorPlayers();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
