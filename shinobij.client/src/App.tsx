@@ -118,6 +118,7 @@ const Cafeteria = lazyWithRetry(() => import("./screens/Cafeteria").then(m => ({
 const VillageLoreScreen = lazyWithRetry(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
 const HallOfLegends = lazyWithRetry(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
 const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
+const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
 const StarterPetSelect = lazyWithRetry(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
 
 import { Bank } from "./screens/Bank";
@@ -7377,6 +7378,7 @@ export default function App() {
                     logoutPlayer={logoutPlayer}
                     characterName={character?.name ?? ""}
                     characterVillage={character?.village ?? ""} characterClan={character?.clan ?? ""}
+                    profession={character?.profession ?? null}
                     screen={screen}
                 />
             )}
@@ -8768,6 +8770,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} initialWith={viewingUserName} />}

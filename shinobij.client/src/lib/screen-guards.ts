@@ -19,7 +19,7 @@ export const DEEP_LINKABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall",
     "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall",
     "centralHub", "pets", "petLadder", "hunting", "tavern", "hallOfLegends", "shinobiCouncil",
-    "messages",
+    "messages", "professions",
     // Added: safe, save-only hub screens that previously fell through to the
     // village on refresh (the reported "refresh dumps me to the village" bug).
     "guides", "shinobiTiles", "sunscarFestival",

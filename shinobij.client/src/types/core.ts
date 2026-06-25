@@ -20,6 +20,7 @@ export type Screen =
     | "adminLogin"
     | "adminPanel"
     | "professionPicker"
+    | "professions"
     | "village"
     | "villageLore"
     | "profile"

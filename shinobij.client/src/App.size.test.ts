@@ -38,9 +38,16 @@ import { readFileSync } from "node:fs";
 // the hospital with a toast. The signal is queued/cleared server-side; this is
 // just the client delivery, which must live in the heartbeat effect. Net for the
 // session is −0 below the prior 10,137 budget — not a regrowth).
+// → 10,134 (+3 mandatory Professions screen WIRING only: the lazy import, the
+// render branch, and the one `profession` prop passed to RightMenu. The whole
+// feature — the professions overview + the three profession hub screens
+// (Healer/Vanguard/Pet Tamer) — lives in its own modules under
+// src/screens/Professions.tsx, src/screens/professions/*, and shared bits in
+// src/components/{HealerInjuredList,ProfessionHero}.tsx + src/data/professions.ts,
+// NOT here. Hospital.tsx was also slimmed by reusing HealerInjuredList).
 // What remains is the App() core (~150 hooks) and its
 // module-level wiring — decompose via hooks, not moves.
-const MAX_LINES = 10_131;
+const MAX_LINES = 10_134;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
