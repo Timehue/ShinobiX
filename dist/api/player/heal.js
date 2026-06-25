@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
+const notify_js_1 = require("../_realtime/notify.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _progress_js_1 = require("../missions/_progress.js");
 // Per-target cooldown is now rank-scaled via healerPerTargetCooldownMs(rank).
@@ -340,6 +341,16 @@ async function handler(req, res) {
             };
             await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healedTarget, fresh));
         });
+        // If this heal actually discharged a hospitalized player, queue a one-shot
+        // "you were healed" signal for them. Their next heartbeat delivers+clears it
+        // (api/player/heartbeat.ts) and the client auto-exits the hospital with a
+        // "Healed by {healer}" toast instead of being stuck on the admitted screen
+        // until a manual refresh. kickPlayer nudges an immediate heartbeat so it
+        // lands within ~1s on the live (socket) host; the HTTP poll is the fallback.
+        if (targetHospitalized) {
+            await _storage_js_1.kv.set(`heal-signal:${targetName}`, { by: actorName, at: Date.now() }, { ex: 120 });
+            (0, notify_js_1.kickPlayer)(targetName, 'heal');
+        }
         // Award Healer XP for the heal itself (% HP restored).
         const heralded = await (0, _progress_js_1.awardProfessionXp)(actorName, 'healer', xpGained);
         // Cooldown was already placed by the NX-reservation above (admin
