@@ -29,7 +29,7 @@ import type { PlayerRecord } from "../types/character";
 
 // Grace window: how long a player who drops out of a single snapshot stays shown
 // before we believe they're gone. MUST stay far below the server offline TTL
-// (OFFLINE_AFTER_MS = 60_000) so this can only smooth sub-second gaps, never show
+// (OFFLINE_AFTER_MS = 90_000) so this can only smooth sub-second gaps, never show
 // a ghost. An explicit presence:gone / sleeper-KO bypasses this entirely.
 const LINGER_MS = 2500;
 
