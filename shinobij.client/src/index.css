@@ -10993,6 +10993,46 @@ textarea {
     .combat-jutsu-button.jutsu-on-cooldown .combat-jutsu-info {
         color: #d1d5db !important;
     }
+
+/* Weapon / thrown / consumable item cards on cooldown: the green/red item-card
+   tint below (same specificity, later source order) would otherwise win the
+   `background` and the card wouldn't read as "spent". Re-assert the grey
+   cooldown look at higher specificity so items grey out exactly like jutsu. */
+.combat-weapon-card .combat-jutsu-button.jutsu-on-cooldown,
+.combat-consumable-card .combat-jutsu-button.jutsu-on-cooldown,
+.combat-item-button.jutsu-on-cooldown {
+    cursor: not-allowed !important;
+    filter: grayscale(1) brightness(0.62) !important;
+    opacity: 0.62 !important;
+    border-color: #64748b !important;
+    background: linear-gradient(180deg, #475569, #1f2937) !important;
+}
+
+/* Cooldown countdown badge — rounds remaining until the jutsu / weapon / item is
+   ready again. Lives in the card wrap as a SIBLING of the greyed button, so the
+   button's grayscale filter never touches it and the number stays bright + bold.
+   Sits top-right (the ℹ️ help button owns bottom-left). */
+.combat-cd-badge {
+    position: absolute !important;
+    top: 3px !important;
+    right: 3px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    padding: 0 5px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(248, 250, 252, 0.9) !important;
+    background: rgba(220, 38, 38, 0.96) !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    font-variant-numeric: tabular-nums !important;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.7) !important;
+    pointer-events: none !important;
+    z-index: 5 !important;
+}
 /* ===== Make combat jutsu menu fit 3 rows ===== */
 
 .combat-jutsu-bar {
