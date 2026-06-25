@@ -126,11 +126,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // & Discharge (Healer)". No timer wait: chargedRyo stays 0 and we
                     // fall through to the discharge write below.
                     //
-                    // Previously a rank-scaled hospital timer (r1=60s … r10=15s, minus
-                    // the Quick Discharge mastery) gated this, so the free-discharge
-                    // button 429'd until that timer elapsed — locking healers out of
-                    // their own hospital, worst at low ranks where the "shortened"
-                    // timer was the full 60s.
+                    // Previously a rank-scaled hospital timer (r1=60s … r10=15s) gated
+                    // this, so the free-discharge button 429'd until that timer elapsed
+                    // — locking healers out of their own hospital, worst at low ranks
+                    // where the "shortened" timer was the full 60s. (The Restoration
+                    // mastery that shortened it was repurposed into Conservation, a
+                    // heal chakra-cost discount.)
                 } else if (paySkip) {
                     const curRyo = Number(targetChar.ryo ?? 0);
                     if (curRyo < dischargeCost) {
@@ -307,7 +308,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // no-chakra attempt doesn't lock the Healer out of that target. Admins exempt.
         const amountToHeal = Math.max(0, maxHp - curHp);
         const chakraRate = masteryHasCapstone('healer', healerChar.masterySpec, 'chakra-conduit') ? 0.10 : 0.25;
-        const chakraCost = Math.ceil(amountToHeal * chakraRate);
+        // Mastery (Conservation): trims the chakra cost of healing so a prolific
+        // Healer can sustain more heals before resting. PvE/utility only.
+        const chakraCostPct = Math.min(80, masteryBonus('healer', healerChar.masterySpec, 'healChakraCostPct'));
+        const chakraCost = Math.ceil(amountToHeal * chakraRate * (1 - chakraCostPct / 100));
         if (!identity.admin && chakraCost > 0) {
             const paid = await withKvLock<{ ok: boolean }>(healerKey, async () => {
                 const fresh = await kv.get<Record<string, unknown>>(healerKey);

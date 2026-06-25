@@ -28,7 +28,7 @@ function cap(id: string, path: string): NodeMeta { return { id, path, capstone: 
 const TREES: Record<Prof, NodeMeta[]> = {
     healer: [
         nd('heal-cooldown', 'triage', 'healCooldownPct', 5), nd('heal-tireless', 'triage', 'healCooldownPct', 5), cap('chakra-conduit', 'triage'),
-        nd('heal-xp', 'restoration', 'healXpPct', 6), nd('heal-discharge', 'restoration', 'healDischargePct', 6), cap('full-recovery', 'restoration'),
+        nd('heal-xp', 'restoration', 'healXpPct', 6), nd('heal-discharge', 'restoration', 'healChakraCostPct', 6), cap('full-recovery', 'restoration'),
         nd('heal-support', 'outreach', 'healXpPct', 6), nd('heal-vigil', 'outreach', 'healCooldownPct', 5), cap('village-lifeline', 'outreach'),
     ],
     vanguard: [
