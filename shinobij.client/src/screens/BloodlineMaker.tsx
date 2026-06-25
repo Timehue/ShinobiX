@@ -8,7 +8,7 @@ import { allTags, binaryTags, bloodlineUniqueTags, cappedDamageTags, percentageT
 import { bloodlinePoints, jutsuPoints, jutsuPointBreakdown, jutsuCountForRank, pointBudgetForRank, normalizeBloodlineTagPercent } from "../lib/jutsu-points";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { bloodlineArchetypes, bloodlineTemplateJutsus } from "../lib/bloodline-templates";
-import { compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
+import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResourceCosts } from "../lib/jutsu-scaling";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { makeId } from "../lib/utils";
@@ -453,8 +453,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                         </div>
                         {templateMsg && <div className="bloodline-template-msg">{templateMsg}</div>}
                     </div>
-                    <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 100); }} />
-                    <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={async (image) => setBloodlineImage(await compressDataUrl(image, 512, 0.82))} />
+                    <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 25); }} />
+                    <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={async (image) => setBloodlineImage(await compactImage(image))} />
                     {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
                     <label>Rank</label>
                     {lockedRank

@@ -30,7 +30,7 @@ import { aiHpForLevel, aiStatsForLevel } from "../lib/ai-stats";
 import { addToAllStats, baseStats, capStat, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel, reconcileCharacterStatBudget } from "../lib/stats";
 import { armorQualityTiers, equipmentSlotLabel, itemSectionOptions } from "../lib/equipment";
 import { addItem, removeItem, countItem } from "../lib/inventory";
-import { compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
+import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { firstCurrencyReward, rewardCurrencyOptions, rewardSummary, singleCurrencyReward } from "../lib/currency";
@@ -232,6 +232,7 @@ export function AdminPanel({
     const [itemBonusAmount, setItemBonusAmount] = useState(25);
     const [itemArmorQuality, setItemArmorQuality] = useState<ArmorQuality | "">("");
     const [itemImage, setItemImage] = useState("");
+    const [itemFlavorText, setItemFlavorText] = useState("");
     const [editingItemId, setEditingItemId] = useState("");
     const [itemWeaponElement, setItemWeaponElement] = useState<JutsuElement | "">("");
     const [itemWeaponRange, setItemWeaponRange] = useState<number | "">("");
@@ -258,12 +259,17 @@ export function AdminPanel({
             ? { ...existing.bonuses, [itemBonusStat]: Number(itemBonusAmount) }
             : { [itemBonusStat]: Number(itemBonusAmount) };
         return {
+            // Start from the existing item so fields the form doesn't expose
+            // (weaponTags, levelReq, restoreChakra, etc.) survive an edit instead
+            // of being silently dropped. The form fields below override it.
+            ...(existing ?? {}),
             id: id ?? `item-${makeId()}`,
             name: itemName,
             slot: itemSlot,
             rarity: itemRarity,
             cost: Number(itemCost),
             description: itemDescription,
+            flavorText: itemFlavorText.trim() || undefined,
             ...(isArmorSlot && itemArmorQuality ? { armorQuality: itemArmorQuality } : {}),
             ...(itemImage ? { image: itemImage } : {}),
             ...(isWeaponSlot && itemWeaponElement ? { weaponElement: itemWeaponElement as JutsuElement } : {}),
@@ -283,6 +289,7 @@ export function AdminPanel({
         setItemRarity(item.rarity);
         setItemCost(item.cost);
         setItemDescription(item.description);
+        setItemFlavorText(item.flavorText ?? "");
         setItemArmorQuality(item.armorQuality ?? "");
         setItemImage(item.image ?? "");
         setItemWeaponElement(item.weaponElement ?? "");
@@ -302,7 +309,7 @@ export function AdminPanel({
     }
 
     function applyItemImage(rawImage: string) {
-        void compressDataUrl(rawImage, 512, 0.82).then((image) => {
+        void compactImage(rawImage).then((image) => {
             setItemImage(image);
             publishSharedImage('item:' + editingItemId, image);
             if (!editingItemId) return;
@@ -664,6 +671,7 @@ export function AdminPanel({
     const [bloodlineEditRank, setBloodlineEditRank] = useState<Rank>("A Rank");
     const [bloodlineEditElement, setBloodlineEditElement] = useState("");
     const [bloodlineEditImage, setBloodlineEditImage] = useState("");
+    const [bloodlineEditLore, setBloodlineEditLore] = useState("");
     const [bloodlineRankFilter, setBloodlineRankFilter] = useState<"All" | Rank>("All");
     const [bloodlineSort, setBloodlineSort] = useState<"name" | "rank" | "points" | "jutsus">("name");
     const [selectedBloodlineId, setSelectedBloodlineId] = useState("");
@@ -1355,11 +1363,13 @@ export function AdminPanel({
         });
     }
 
-    function applyBloodlineImage(image: string) {
-        setBloodlineEditImage(image);
-        if (!editingBloodlineId) return;
-        void publishSharedImage('bloodline:' + editingBloodlineId, image);
-        setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
+    function applyBloodlineImage(rawImage: string) {
+        void compactImage(rawImage).then((image) => {
+            setBloodlineEditImage(image);
+            if (!editingBloodlineId) return;
+            void publishSharedImage('bloodline:' + editingBloodlineId, image);
+            setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
+        });
     }
 
     function setVnPageImage(eventId: string, pageIndex: number, image: string) {
@@ -1878,6 +1888,7 @@ export function AdminPanel({
         setBloodlineEditRank(bloodline.rank);
         setBloodlineEditElement(bloodline.specialElement ?? "");
         setBloodlineEditImage(bloodline.image ?? "");
+        setBloodlineEditLore(bloodline.lore ?? "");
     }
 
     async function saveAdminBloodlineEdit() {
@@ -1892,7 +1903,14 @@ export function AdminPanel({
             rank: bloodlineEditRank,
             specialElement: bloodlineEditElement.trim(),
             image: bloodlineEditImage,
+            lore: bloodlineEditLore.trim(),
         };
+        // Republish the cover image under the FINAL id. The id can be reminted
+        // above (editing a built-in mints a fresh `bloodline-*` id), but
+        // applyBloodlineImage published under the loaded id — without this the
+        // saved override's `bloodline:<id>` key wouldn't exist and the image
+        // would never hydrate. No-ops for an unchanged /api/img reference.
+        if (bloodlineEditImage) void publishSharedImage('bloodline:' + updatedBloodline.id, bloodlineEditImage);
         if (isPlayerBloodline) {
             const res = await fetch('/api/admin/bloodline-review', {
                 method: 'POST',
@@ -3151,8 +3169,11 @@ export function AdminPanel({
                         <label>Description</label>
                         <textarea value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} />
 
+                        <label>Flavor Text / Lore</label>
+                        <textarea value={itemFlavorText} onChange={(e) => setItemFlavorText(e.target.value)} placeholder="Optional italic flavor quote shown on the item card (e.g. a named weapon's legend)." />
+
                         <label>Item Image</label>
-                        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, applyItemImage, 100); }} />
+                        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, applyItemImage, 25); }} />
                         <AiImagePrompt label="Item Image" suggestedPrompt={`${itemName} ${itemRarity} equipment weapon ninja shinobi`} onImage={applyItemImage} />
                         {itemImage && (
                             <div className="admin-jutsu-preview">
@@ -3394,8 +3415,9 @@ export function AdminPanel({
                         <label>Loaded Bloodline Name</label><input value={bloodlineEditName} onChange={(e) => setBloodlineEditName(e.target.value)} />
                         <label>Rank</label><select value={bloodlineEditRank} onChange={(e) => setBloodlineEditRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
                         <label>Special Element</label><input value={bloodlineEditElement} onChange={(e) => setBloodlineEditElement(e.target.value)} />
+                        <label>Lore</label><textarea rows={3} value={bloodlineEditLore} onChange={(e) => setBloodlineEditLore(e.target.value)} placeholder="Describe what this bloodline is, where it comes from, or what makes it special." />
                         <label>Bloodline Image URL</label><input value={bloodlineEditImage} onChange={(e) => applyBloodlineImage(e.target.value)} />
-                        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, applyBloodlineImage, 100); }} />
+                        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, applyBloodlineImage, 25); }} />
                         {bloodlineEditImage && <div className="admin-event-list-preview"><img src={bloodlineEditImage} alt="Bloodline preview" /></div>}
                         <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineEditName || "Bloodline"} ${bloodlineEditElement || "chakra"} clan art`} onImage={applyBloodlineImage} />
                         <button onClick={saveAdminBloodlineEdit}>Save Loaded Bloodline</button>
