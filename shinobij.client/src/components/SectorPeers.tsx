@@ -35,6 +35,14 @@ function cellCentre(size: number, count: number, n: number, pad: number, gap: nu
     return pad + n * (tile + gap) + tile / 2;
 }
 
+// Per-peer idle-bob phase offset (negative animation-delay, 0..-2.4s) derived from
+// the name, so a crowd of peers bobs out of sync instead of breathing in lockstep.
+function bobDelay(name: string): number {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return -((h % 2400) / 1000);
+}
+
 function prefersReducedMotion(): boolean {
     return typeof window !== "undefined"
         && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -123,9 +131,14 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
                             onAnimationEnd={() => { if (it.leaving) drop(it.name); }}
                         >
                             <span className="sector-peer-avatar" style={{ width: `${size}px`, height: `${size}px` }}>
-                                {it.avatar
-                                    ? <img className="tiny-map-avatar other-player-map-avatar" src={it.avatar} alt={it.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                    : <span className="other-player-map-emoji">🥷</span>}
+                                {/* 2C grounded look: a static contact shadow under a gently
+                                    bobbing figure, so peers read as planted + alive (not flat dots). */}
+                                <span className="sector-peer-shadow" />
+                                <span className="sector-peer-figure" style={{ animationDelay: `${bobDelay(it.name)}s` }}>
+                                    {it.avatar
+                                        ? <img className="tiny-map-avatar other-player-map-avatar" src={it.avatar} alt={it.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                        : <span className="other-player-map-emoji">🥷</span>}
+                                </span>
                             </span>
                             <span className="other-player-map-name">{it.name}{it.sleeping ? " 💤" : ""}</span>
                         </div>
