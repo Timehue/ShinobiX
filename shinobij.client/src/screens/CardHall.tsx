@@ -12,7 +12,7 @@
  * via getAllTileCards; card art comes from each card's `image`. Rewards/stats
  * persist on the Character through the normal save (additive fields).
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Character } from "../types/character";
 import { CARD_CLASH_BOARD_BG } from "../lib/card-clash-art";
@@ -45,11 +45,17 @@ export function CardHall({
     updateCharacter,
     creatorCards,
     onBack,
+    autoStart = false,
+    onAutoStartConsumed,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     creatorCards: TileCard[];
     onBack: () => void;
+    // When a sector "gambler" wanderer deals the player in, drop straight into a
+    // match instead of the menu. Falls back to the deck tab if no valid deck.
+    autoStart?: boolean;
+    onAutoStartConsumed?: () => void;
 }) {
     const allCards = useMemo(() => getAllTileCards(creatorCards), [creatorCards]);
     const clashCards = useMemo(() => toClashCards(allCards), [allCards]);
@@ -94,6 +100,23 @@ export function CardHall({
         setReward(null);
         setMatch(createCardClashMatch(savedDeck, allCards, character.level));
     }
+
+    // Wanderer "deal me in" → jump straight into a match (or the deck tab if the
+    // player has no valid deck yet). Consumed once so it doesn't re-fire.
+    function autoStartMatch() {
+        setTab("play");
+        startMatch();
+        onAutoStartConsumed?.();
+    }
+    // Intentional one-shot: when the gambler wanderer deals the player in, start a
+    // match on mount. The state writes are deliberate (and consumed immediately),
+    // so the set-state-in-effect guard doesn't apply here.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    useEffect(() => {
+        if (autoStart) autoStartMatch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoStart]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     function finalize(next: CardClashMatchState) {
         const winner = next.winner ?? "draw";

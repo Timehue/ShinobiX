@@ -2230,6 +2230,8 @@ export default function App() {
     // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged
     // into the arena's AI list only (never into the saved creatorAis).
     const [wandererAis, setWandererAis] = useState<CreatorAi[]>([]);
+    // Set when a sector "gambler" wanderer deals the player into Card Clash.
+    const [cardAutoStart, setCardAutoStart] = useState(false);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     // Lifted "fight in progress" flags (fed by Arena/PetArena onBattleActiveChange)
     // so the nav lock can block leaving arena ranked / pet matches whose active
@@ -8456,6 +8458,7 @@ export default function App() {
                         setRaidBattleKind={setRaidBattleKind}
                         registerWandererAi={(ai) => setWandererAis([ai])}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
+                        requestCardChallenge={() => setCardAutoStart(true)}
                         recordMissionExplore={recordMissionExplore}
                         setPendingExploreSector={setPendingExploreSector}
                         playableAis={playableAis}
@@ -8686,7 +8689,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={() => setScreen("centralHub")} />}
-                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={() => setScreen("village")} />}
+                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={() => setScreen("village")} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
                 {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
