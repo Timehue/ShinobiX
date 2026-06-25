@@ -16,6 +16,7 @@ import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, type Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
+import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { createPortal } from "react-dom";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
@@ -182,6 +183,7 @@ export function WorldMap({
     setPendingPvpOpponent,
     setRaidBattleKind,
     registerWandererAi,
+    setPendingPetBattleOpponent,
     recordMissionExplore,
     setPendingExploreSector,
     playableAis,
@@ -223,6 +225,7 @@ export function WorldMap({
     setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     registerWandererAi: (ai: CreatorAi) => void;
+    setPendingPetBattleOpponent: (o: PetArenaOpponent | null) => void;
     recordMissionExplore: (sector: number) => void;
     setPendingExploreSector: (sector: number | null) => void;
     playableAis: CreatorAi[];
@@ -546,6 +549,22 @@ export function WorldMap({
         } catch {
             setWandererDialog({ w, msg: "You couldn't reach them." });
         }
+    }
+    function startWandererPetDuel(w: Wanderer) {
+        // A wild beast brings a tuned arena pet (matched to its tier). Reuses the
+        // existing Pet Coliseum entry + its server-safe casual reward path — no new
+        // endpoint, no balance tuning.
+        const tmpl = w.level < 20 ? genericPetArenaOpponents[0]
+            : w.level < 45 ? genericPetArenaOpponents[1]
+            : genericPetArenaOpponents[2];
+        setPendingPetBattleOpponent({
+            owner: w.name,
+            pet: { ...tmpl.pet, jutsus: tmpl.pet.jutsus.map((j) => ({ ...j })) },
+            battleSeed: Date.now(),
+            returnScreen: "worldMap",
+        });
+        setWandererDialog(null);
+        setScreen("petArena");
     }
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     const [petVnDone, setPetVnDone] = useState(false);
@@ -1466,11 +1485,16 @@ export function WorldMap({
                                             style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
                                         />
                                         <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
-                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>Wandering shinobi · Lv {wandererDialog.w.level}</p>
+                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv {wandererDialog.w.level}</p>
                                         <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
                                         {!wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                 <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take it"}</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "petDuel" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                <button onClick={() => startWandererPetDuel(wandererDialog.w)}>Send out your pet</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
                                         ) : (

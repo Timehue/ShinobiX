@@ -67,8 +67,8 @@ describe("wandererDayBucket", () => {
 
 function assertValidWanderer(w: Wanderer): void {
     assert.ok(w.name.length > 0);
-    assert.ok(["attack", "gift", "gamble"].includes(w.verb));
-    assert.ok(["bandit", "gambler", "pilgrim"].includes(w.archetype));
+    assert.ok(["attack", "gift", "gamble", "petDuel"].includes(w.verb));
+    assert.ok(["bandit", "gambler", "pilgrim", "beast"].includes(w.archetype));
     assert.ok(w.level >= 3 && w.level <= 95);
     assert.ok(onGrid(w.homeTile), `home ${w.homeTile}`);
     assert.ok(w.waypoints.length >= 1 && w.waypoints.every(onGrid), "waypoints on grid");
