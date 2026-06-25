@@ -24,9 +24,13 @@
 import type { OnlinePlayer, OnlineStateStore, PresenceUpsert } from './types.js';
 import { safeName } from '../_utils.js';
 
-// A player is considered offline if not seen within this window. Matches the
-// legacy `presence:<name>` 60s TTL so behavior is unchanged after the cutover.
-export const OFFLINE_AFTER_MS = 60_000;
+// A player is considered offline if not seen within this window. Clients keepalive
+// every ~20s (socket ping + HTTP reconcile), so a 60s window evicts an active peer
+// after a SINGLE missed beat — the root of the sector "pop in/out" flicker. 90s
+// tolerates ~4 missed beats (background-tab throttling, a transient socket drop,
+// latency) before a live player is dropped from everyone's sector, while still
+// clearing a genuinely-closed tab within a beat or two of a minute.
+export const OFFLINE_AFTER_MS = 90_000;
 
 // Canonical presence key = the safeName slug, matching the identity returned by
 // authedPlayer and every `save:`/`user:` key, so a display name with spaces

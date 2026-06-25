@@ -91,7 +91,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
                                     const check = canIncrement(character, n.id);
                                     return (
                                         <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 8, opacity: gateLocked ? 0.6 : 1 }}>
-                                            <div style={{ flex: 1 }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600 }}>
                                                     {n.capstone ? "★ " : ""}{n.name}
                                                     <span style={{ marginLeft: 6, color: "#94a3b8", fontWeight: 400, fontSize: "0.85em" }}>

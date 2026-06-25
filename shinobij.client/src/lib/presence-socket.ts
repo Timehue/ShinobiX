@@ -95,8 +95,14 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
     socket = REALTIME_URL ? io(REALTIME_URL, opts) : io(opts);
 
     socket.on('connect', () => {
-        // Re-assert authoritative presence on every (re)connect.
-        if (latestFrame) socket?.emit('presence', latestFrame);
+        // Re-assert authoritative presence on every (re)connect, then immediately
+        // pull the current sector roster so a reconnecting client repopulates its
+        // sector-mates at once instead of waiting up to 20s for the next HTTP
+        // reconcile. Without this, peers briefly vanish after any socket blip.
+        if (latestFrame) {
+            socket?.emit('presence', latestFrame);
+            socket?.emit('presence:request', { sector: latestFrame.sector });
+        }
         statusHandlers.forEach((h) => h(true));
     });
     socket.on('disconnect', () => {
