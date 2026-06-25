@@ -1,10 +1,10 @@
 # Sector Multiplayer Smoothness Plan — making crowded sectors feel seamless
 
 **Date:** 2026-06-25
-**Status:** Phases 1, 2, **and 2D (live peer movement) IMPLEMENTED** on branch
-`claude/xenodochial-faraday-7ef952` (lint + tsc + 1493 root tests + App.size ratchet all green; not
-yet owner-feel-checked live). Phase 1 committed at `73c922a6`; 2D + exit-fade in a follow-up commit.
-Phases 3–6 and 2C (grounded peer look) remain PLAN ONLY.
+**Status:** Phases 1, 2, **2D (live peer movement), and 2C (grounded peer look) IMPLEMENTED** on
+branch `claude/xenodochial-faraday-7ef952` (lint + tsc + 1493 root tests + App.size ratchet all green;
+not yet owner-feel-checked live). Commits: `73c922a6` (Phase 1+2), `be49e9f1` (2D + exit-fade), then
+2C. Only the "scaling phases" (Part A 3–6 + Phase 1C + CDN `no-store`) remain PLAN ONLY.
 **Scope:** The "sectors" (the 12×12 world-map grid screen) where players see each other,
 are viewable, and can fight. Goal: make the experience smooth and seamless when **multiple
 players are present at once** — no flicker, no teleport/pop, no jank, instant-feeling PvP entry.
@@ -33,11 +33,15 @@ players are present at once** — no flicker, no teleport/pop, no jank, instant-
   `sectorPeers.v1` (localStorage, **default ON**; set `=off` to restore the old in-tile dots).
 - **2A exit-fade** — now delivered: `SectorPeers` keeps a departed peer one fade-out cycle
   (`peer-map-out`) then drops it on `animationend` (immediate drop under reduced motion).
+- **2C (grounded peer look)** — peers now render as a planted billboard: a static contact shadow
+  under a gently bobbing figure (`peer-idle-bob`, per-peer phase offset so a crowd doesn't breathe in
+  lockstep), instead of flat dots. Reduced-motion disables the bob. CSS-only addition to `SectorPeers`.
 - **App-size drain** — `presenceCharacter()` moved verbatim from App.tsx to
   `lib/presence-character.ts` to keep App.tsx under the 10,134-line ratchet (now 10,108).
-- **Deferred:** 2C (flag-gated grounded/aura peer look), Phase 1C (move `playerRoster` fully into the
-  store), Part A Phases 3–6 (delta socket events, HTTP→fallback, crowd cap/canvas, intra-sector AOI),
-  CDN `no-store`.
+- **Deferred (the "scaling phases" — only needed when one sector holds big crowds):** Phase 1C (move
+  `playerRoster` fully into the store), Part A Phase 3 (delta socket join/leave/move events), Phase 4
+  (demote 1s HTTP heartbeat to fallback-only), Phase 5 (crowd cap "+N" / single-canvas peer layer),
+  Phase 6 (intra-sector AOI), and the CDN `no-store` change.
 - **Deploy note:** `dist/` is NOT rebuilt in these commits (Railway self-builds from source for the
   live host). Run `npm run build` + commit `dist/` (root server dist + client dist force-added) before
   any **cPanel** deploy, since cPanel serves committed `dist/` verbatim.
