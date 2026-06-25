@@ -2006,16 +2006,17 @@ export default function App() {
     // Any component (Hospital heal response, DailyProfessionMissions poll,
     // handlePvpWin) emits a `profession-mission-complete` CustomEvent; we
     // collect and render them with the same auto-dismiss as achievements.
-    const [missionToasts, setMissionToasts] = useState<Array<{ id: string; name: string; xp: number; profession?: string }>>([]);
+    const [missionToasts, setMissionToasts] = useState<Array<{ id: string; name: string; xp: number; profession?: string; label?: string }>>([]);
     useEffect(() => {
         function handler(e: Event) {
-            const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string }>).detail;
+            const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string; label?: string }>).detail;
             if (!detail?.name) return;
             setMissionToasts(prev => [...prev, {
                 id: `${detail.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 name: detail.name,
                 xp: detail.xp ?? 0,
                 profession: detail.profession,
+                label: detail.label,
             }]);
         }
         window.addEventListener('profession-mission-complete', handler);
@@ -2393,7 +2394,6 @@ export default function App() {
     const [travelNow, setTravelNow] = useState(Date.now());
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
-    const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
 
     // Auto-cancel stale challenges after 3 minutes. The server inbox + outgoing
@@ -2813,7 +2813,7 @@ export default function App() {
                     body: JSON.stringify(presenceBody),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; forceReload?: boolean } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; pendingHeal?: { by?: string } | null; forceReload?: boolean } = await res.json();
                 // Admin reset this account — wipe local state and reload from server
                 if (data.forceReload) {
                     const accountName = currentAccountName || char.name.toLowerCase();
@@ -2889,6 +2889,15 @@ export default function App() {
                     const attacker = normalizeCharacter(data.pendingAttacker);
                     setIncomingAttackBanner(`${attacker.name} is attacking you!`);
                     setTimeout(() => setIncomingAttackBanner(""), 4000);
+                }
+                // A Healer discharged us from the hospital — sync local state, toast
+                // who healed us, and leave the admitted screen (we're hard-locked there
+                // otherwise). Server already cleared hospitalized; mirror it locally.
+                if (data.pendingHeal && characterRef.current?.hospitalized) {
+                    const by = data.pendingHeal.by || "a Healer";
+                    setCharacter(c => c ? { ...c, hp: c.maxHp, chakra: c.maxChakra, stamina: c.maxStamina, hospitalized: false, hospitalizedUntil: 0, hospitalizedAt: 0 } : c);
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', { detail: { name: `Healed by ${by}`, xp: 0, profession: 'healer', label: '✚ You\'ve been healed' } }));
+                    if (screenRef.current === "hospital") setScreen("village");
                 }
             } catch {
                 // Server unavailable — silently skip
@@ -3613,7 +3622,6 @@ export default function App() {
                             setEndlessBattleWave(0);
                             setTemporaryStoryAi(null);
                             setCharacter({ ...normalized, hp: 0, hospitalized: true, endlessTowerRun: null });
-                            setHospitalEntryTime(Date.now());
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "arenaStory") {
@@ -3628,7 +3636,6 @@ export default function App() {
                             if (hgRun) { setHollowGateRun(null); setHollowGateEvent(null); setHollowGateHiddenChamber(null); setHollowGateLog([]); }
                             const downed = hgRun ? { ...clawBackHollowGateLoot(normalized, hgRun, 1 - attunementLootRetention(normalized)), hollowGateRun: null } : normalized;
                             setCharacter({ ...downed, hp: 0, hospitalized: true });
-                            setHospitalEntryTime(Date.now());
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "hollowGateTiles") {
@@ -3642,7 +3649,6 @@ export default function App() {
                             // applies hp:0 + hospitalized atomically with the unlock,
                             // so it can't be dodged by a fast double-refresh.
                             setCharacter({ ...normalized, hp: 0, hospitalized: true });
-                            setHospitalEntryTime(Date.now());
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         }
@@ -5544,10 +5550,8 @@ export default function App() {
             return;
         }
         // (Hollow Gate "no retreat" lock now lives in isUnresolvedBattle.)
-        // Set hospital entry time when arriving admitted
-        if (nextScreen === "hospital" && character?.hospitalized) {
-            setHospitalEntryTime(Date.now());
-        }
+        // Hospital admission timer is server-authoritative (character.hospitalizedUntil,
+        // read by the Hospital screen) — no client entry-time stamp needed here.
         if (character && nextScreen === "battleArena") {
             const event = creatorEvents.find(
                 (candidate) =>
@@ -8763,7 +8767,7 @@ export default function App() {
                         }}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
+                {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} initialWith={viewingUserName} />}
@@ -9139,10 +9143,10 @@ export default function App() {
                                 </div>
                                 <div className="achievement-toast-body">
                                     <span className="achievement-toast-label" style={{ color: accent }}>
-                                        Mission Complete
+                                        {t.label ?? "Mission Complete"}
                                     </span>
                                     <strong>{t.name}</strong>
-                                    <small>+{t.xp} {t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP</small>
+                                    {t.xp > 0 && <small>+{t.xp} {t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP</small>}
                                 </div>
                             </div>
                         );

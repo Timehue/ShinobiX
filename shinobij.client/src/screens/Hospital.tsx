@@ -12,7 +12,7 @@ import {
 } from "../App";
 
 export
-function Hospital({ character, updateCharacter, setScreen, playerRoster, hospitalEntryTime }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; hospitalEntryTime: number | null }) {
+function Hospital({ character, updateCharacter, setScreen, playerRoster }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
@@ -21,7 +21,20 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     // discharge (or wait the 60-second free checkout) and can't topUp at all.
     const dischargeCost = isHealer ? 0 : discountCost(2500, hospitalDiscount);
     const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
-    const [elapsed, setElapsed] = useState(0);
+    // Free-checkout timer is driven by the SERVER-stamped hospitalizedUntil
+    // (persisted in the save), so it survives a page refresh — the old client-
+    // only entry-time was lost on reload and the free-checkout button never
+    // reappeared, trapping admitted players in a refresh loop. When the stamp
+    // hasn't reached the client yet (a fresh in-session KO, before the save
+    // round-trips), we fall back to a DISPLAY-ONLY 60s count from when the
+    // screen opened. This fallback never writes to the server, so it can't
+    // accidentally re-hospitalize a player the server already discharged; the
+    // discharge endpoint remains the sole authority on whether the timer is up.
+    const serverUntil = Number(character.hospitalizedUntil ?? 0);
+    const [mountTime] = useState(() => Date.now());
+    const effectiveUntil = serverUntil > 0 ? serverUntil : mountTime + 60_000;
+    const [now, setNow] = useState(() => Date.now());
+    const [busy, setBusy] = useState(false);
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
     const [healed, setHealed] = useState<Set<string>>(new Set());
     const hasWorldwideVision = isHealer && healerRank >= 10;
@@ -47,13 +60,13 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     }, [hasWorldwideVision, character.name]);
 
     useEffect(() => {
-        if (!character.hospitalized || hospitalEntryTime === null) return;
-        const id = setInterval(() => setElapsed(Math.floor((Date.now() - hospitalEntryTime) / 1000)), 1000);
+        if (!character.hospitalized) return;
+        const id = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(id);
-    }, [character.hospitalized, hospitalEntryTime]);
+    }, [character.hospitalized]);
 
-    const freeCheckoutReady = character.hospitalized && elapsed >= 60;
-    const remaining = Math.max(0, 60 - elapsed);
+    const freeCheckoutReady = character.hospitalized && now >= effectiveUntil;
+    const remaining = Math.max(0, Math.ceil((effectiveUntil - now) / 1000));
 
     // Pay-skip discharge. Previously this was a client-only mutation that
     // deducted ryo + flipped hospitalized=false locally, but the save
@@ -61,8 +74,27 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     // Now we POST to /api/player/heal with paySkip=true; the server charges
     // ryo AND performs the discharge in one atomic write, then we mirror
     // the post-charge state locally.
+    // Mirror a successful (or already-applied) discharge into local state and
+    // leave for the village. Clears the hospital stamps too so a later re-open
+    // can't read a stale timer.
+    function applyDischargeAndLeave(chargedRyo: number) {
+        updateCharacter({
+            ...character,
+            ryo: Math.max(0, character.ryo - chargedRyo),
+            hp: character.maxHp,
+            chakra: character.maxChakra,
+            stamina: character.maxStamina,
+            hospitalized: false,
+            hospitalizedUntil: 0,
+            hospitalizedAt: 0,
+        });
+        setScreen("village");
+    }
+
     async function discharge() {
+        if (busy) return;
         if (character.ryo < dischargeCost) return alert(`Not enough ryo. You need ${dischargeCost} ryo to be discharged.`);
+        setBusy(true);
         try {
             const res = await fetch('/api/player/heal', {
                 method: 'POST',
@@ -71,21 +103,21 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
+                // The server already shows us as discharged (local state was stale
+                // — the classic "client says admitted, server says free" deadlock
+                // that previously forced a refresh). Treat it as success and leave.
+                if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
+                    applyDischargeAndLeave(0);
+                    return;
+                }
                 alert(data.error ?? 'Failed to discharge.');
                 return;
             }
-            const chargedRyo = Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost));
-            updateCharacter({
-                ...character,
-                ryo: Math.max(0, character.ryo - chargedRyo),
-                hp: character.maxHp,
-                chakra: character.maxChakra,
-                stamina: character.maxStamina,
-                hospitalized: false,
-            });
-            setScreen("village");
+            applyDischargeAndLeave(Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost)));
         } catch {
             alert('Network error — discharge failed.');
+        } finally {
+            setBusy(false);
         }
     }
 
@@ -93,6 +125,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     // decision (validator will reject if timer hasn't actually expired), so
     // we route through the same endpoint with paySkip=false.
     async function freeCheckout() {
+        if (busy) return;
+        setBusy(true);
         try {
             const res = await fetch('/api/player/heal', {
                 method: 'POST',
@@ -101,19 +135,19 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
+                // Already discharged server-side → leave instead of trapping them.
+                if (res.status === 400 && /not hospitalized/i.test(String(data.error ?? ''))) {
+                    applyDischargeAndLeave(0);
+                    return;
+                }
                 alert(data.error ?? 'Failed to check out.');
                 return;
             }
-            updateCharacter({
-                ...character,
-                hp: character.maxHp,
-                chakra: character.maxChakra,
-                stamina: character.maxStamina,
-                hospitalized: false,
-            });
-            setScreen("village");
+            applyDischargeAndLeave(0);
         } catch {
             alert('Network error — check-out failed.');
+        } finally {
+            setBusy(false);
         }
     }
 
@@ -209,19 +243,20 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 </div>
                 <button
                     onClick={discharge}
-                    disabled={character.ryo < dischargeCost}
-                    style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80", opacity: character.ryo < dischargeCost ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
+                    disabled={busy || character.ryo < dischargeCost}
+                    style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80", opacity: (busy || character.ryo < dischargeCost) ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
                 >
-                    {isHealer
+                    {busy ? "…" : isHealer
                         ? "✚ Free Self-Heal & Discharge (Healer)"
                         : `💰 Pay ${dischargeCost.toLocaleString()} ryo — Full Heal & Discharge`}
                 </button>
                 {freeCheckoutReady ? (
                     <button
                         onClick={freeCheckout}
-                        style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa", width: "100%", animation: "pulse 1.5s infinite" }}
+                        disabled={busy}
+                        style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa", width: "100%", animation: "pulse 1.5s infinite", opacity: busy ? 0.5 : 1 }}
                     >
-                        🚪 Check Out (Free — time served)
+                        {busy ? "…" : "🚪 Check Out (Free — time served)"}
                     </button>
                 ) : (
                     <p className="hint" style={{ textAlign: "center" }}>
