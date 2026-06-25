@@ -4,7 +4,8 @@
  * Banded by the ENCOUNTER's level (not the player's), so the felt difficulty
  * tracks story/hunt/sector progression while a maxed player revisiting low-level
  * content still steamrolls it — which is what "keep early game easy" really
- * means. Standard PvE AI fights scale enemy stats by the band multiplier.
+ * means. Standard PvE AI fights scale the enemy's stats AND max HP by the band
+ * multipliers, and clamp the enemy's per-hit / per-turn damage.
  *
  * Deliberately NOT applied to:
  *   • real PvP (a live opponentCharacter) — that is the source of truth,
@@ -22,9 +23,14 @@
  *
  * The multipliers below are a STARTING curve — tune them from kill-time
  * playtests. A factor < 1 weakens the enemy (early game); > 1 strengthens it
- * (late game). Scaling stats raises both the enemy's offense AND its effective
- * defense (statFactor), so this one lever makes a fight deadlier and longer at
- * once, without touching HP-init or the shared damage math.
+ * (late game). Two independent levers, because they answer different complaints:
+ *   • the STAT multiplier scales offense + effective defense (statFactor) — but
+ *     statFactor is heavily damped, so it only nudges damage a few percent;
+ *   • the HP multiplier decides how many hits a foe soaks (the real "tankiness"
+ *     dial), and the per-hit / per-turn caps decide how hard a hit lands.
+ * The peer band (90+) is intentionally left at full strength (stats ×1.3, HP
+ * ×1.0, damage uncapped): that is the one band that is "supposed to be strong".
+ * The shared damage math (combat-math.ts / api/pvp/move.ts) is never touched.
  */
 import { MAX_STAT, JUTSU_MAX_LEVEL } from "../constants/game";
 import type { Stats } from "../types/combat";
@@ -41,14 +47,32 @@ export function pveDifficultyBand(level: number): PveDifficultyBand {
 }
 
 const BAND_STAT_MULTIPLIER: Record<PveDifficultyBand, number> = {
-    easy: 0.8,
-    medium: 1.0,
-    hard: 1.15,
+    easy: 0.7,
+    medium: 0.85,
+    hard: 1.0,
     peer: 1.3,
 };
 
 export function pveDifficultyStatMultiplier(level: number): number {
     return BAND_STAT_MULTIPLIER[pveDifficultyBand(level)];
+}
+
+// Per-band multiplier on the ENEMY'S max HP — the dominant "tankiness" lever.
+// The stat multiplier above only nudges player damage (statFactor is heavily
+// damped: ±100 stat ≈ ±2% damage), so HP is what actually decides how many hits
+// a foe soaks. Sub-peer bands soak fewer hits; the peer band (90+) keeps its
+// full HP pool so endgame PvE still reads like a real duel. Applied to standard
+// PvE only (no live opponentCharacter, not endless/ranked) — exactly like the
+// stat multiplier. STARTING values — tune from kill-time playtests.
+const BAND_HP_MULTIPLIER: Record<PveDifficultyBand, number> = {
+    easy: 0.75,
+    medium: 0.85,
+    hard: 0.92,
+    peer: 1.0,
+};
+
+export function pveDifficultyHpMultiplier(level: number): number {
+    return BAND_HP_MULTIPLIER[pveDifficultyBand(level)];
 }
 
 // The AI's effective jutsu mastery, tied to its OWN level (a level-8 sentinel is
@@ -71,9 +95,9 @@ export function pveAiMasteryForLevel(level: number): number {
 // UNCAPPED so endgame PvE hits as hard as a real duel. STARTING values — tune
 // from kill-time playtests.
 const BAND_MAX_HIT_FRACTION: Record<PveDifficultyBand, number> = {
-    easy: 0.25,
-    medium: 0.40,
-    hard: 0.60,
+    easy: 0.20,
+    medium: 0.30,
+    hard: 0.45,
     peer: Infinity,
 };
 
@@ -90,12 +114,14 @@ export function pveEnemyHitCap(level: number, playerMaxHp: number): number {
 
 // Ceiling on TOTAL damage a player takes across a single enemy turn (one or more
 // chained enemy actions), as a fraction of max HP. Bounds "bad turns" so a
-// multi-action enemy can't stack several capped hits into a kill. Hard has no
-// per-turn cap (it expects HP management); peer is uncapped.
+// multi-action enemy can't stack several capped hits into a kill. The hard band
+// now caps the turn too (it used to be uncapped, so a two-action hard foe could
+// chain ~120% of the bar into a kill — the main "they hit too hard" complaint in
+// the 50–90 range); peer stays uncapped so endgame PvE plays like a real duel.
 const BAND_MAX_TURN_FRACTION: Record<PveDifficultyBand, number> = {
-    easy: 0.38,
-    medium: 0.60,
-    hard: Infinity,
+    easy: 0.30,
+    medium: 0.45,
+    hard: 0.70,
     peer: Infinity,
 };
 
@@ -123,9 +149,9 @@ export interface PveEnemyHitGuard {
 //      HP can't be dropped below 1 this turn (no sudden death). At low levels
 //      (≤10) it's stronger — the enemy can't kill unless the player started the
 //      turn already below a quarter HP.
-// Peer band returns the raw hit unchanged (real-duel). Hard applies only the
-// per-hit cap. Callers gate this to standard PvE (no live opponentCharacter,
-// not endless/ranked), exactly like the stat multiplier.
+// Peer band returns the raw hit unchanged (real-duel). Hard applies the per-hit
+// and per-turn caps but no mercy floor. Callers gate this to standard PvE (no
+// live opponentCharacter, not endless/ranked), exactly like the stat multiplier.
 export function pveGuardedEnemyHit(rawHit: number, guard: PveEnemyHitGuard): number {
     const band = pveDifficultyBand(guard.enemyLevel);
     let hit = Math.max(0, Math.floor(Number.isFinite(rawHit) ? rawHit : 0));
