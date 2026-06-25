@@ -8,11 +8,13 @@ import type { WandererArchetypeId } from "./wanderers";
 import banditImg from "../assets/festival/fest-broker.webp";
 import gamblerImg from "../assets/festival/fest-kael.webp";
 import pilgrimImg from "../assets/festival/fest-miraa.webp";
+import beastImg from "../assets/coliseum/demo-emberfox.webp";
 
 const ART: Record<WandererArchetypeId, string> = {
     bandit: banditImg,
     gambler: gamblerImg,
     pilgrim: pilgrimImg,
+    beast: beastImg,
 };
 
 export function wandererAvatar(key: WandererArchetypeId): string {

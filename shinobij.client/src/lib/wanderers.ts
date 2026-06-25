@@ -16,8 +16,8 @@
  * See also docs/sector-wanderers-content.md for the written character voice.
  */
 
-export type WandererVerb = "attack" | "gift" | "gamble";
-export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim";
+export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel";
+export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim" | "beast";
 
 export interface Wanderer {
     /** stable within (sector, dayBucket) */
@@ -53,7 +53,7 @@ interface ArchetypeMeta {
 const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     bandit: {
         verb: "attack",
-        weight: 0.5,
+        weight: 0.45,
         tellTint: "#ff6b5a",
         names: ["Kazan the Ashbound", "Goro Two-Blades", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
@@ -65,7 +65,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     gambler: {
         verb: "gamble",
-        weight: 0.25,
+        weight: 0.2,
         tellTint: "#ffd24a",
         names: ["Saji Two-Coins", "Lady Miraa", "Old Tatsu", "Kael of Sixes"],
         greetings: [
@@ -76,13 +76,24 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
     },
     pilgrim: {
         verb: "gift",
-        weight: 0.25,
+        weight: 0.2,
         tellTint: "#7be0a3",
         names: ["Sister Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
         greetings: [
             "Rest a moment, traveler. The road is long.",
             "A blessing for the road — take it.",
             "You hear it? No. No one does anymore.",
+        ],
+    },
+    beast: {
+        verb: "petDuel",
+        weight: 0.15,
+        tellTint: "#9bf0a6",
+        names: ["Wild Emberlynx", "Stray Oni-Hound", "Feral Stormcrow", "Rogue Guardhound", "Lone Sparrowhawk"],
+        greetings: [
+            "A wild beast bars your path, hackles raised.",
+            "It locks eyes with your pet — a challenge.",
+            "The creature snarls, daring your beast to step up.",
         ],
     },
 };
