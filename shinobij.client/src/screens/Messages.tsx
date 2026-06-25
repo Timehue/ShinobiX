@@ -140,7 +140,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                                 {inbox.map((e) => (
                                     <button key={e.with} onClick={() => { setActive(e.with); setError(""); }} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 10px", background: e.unread > 0 ? "#1e293b" : "transparent", border: "1px solid #334155", borderRadius: 8 }}>
                                         <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                                            <strong style={{ color: "#e5e7eb" }}>{e.with}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
+                                            <strong style={{ color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{e.with}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
                                             <small style={{ color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>{e.lastText}</small>
                                         </span>
                                         <small style={{ color: "#64748b", flexShrink: 0, marginLeft: 8 }}>{timeAgo(e.lastTs)}</small>

@@ -160,6 +160,7 @@ const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default
 import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
+import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { claimPendingWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
@@ -2715,6 +2716,9 @@ export default function App() {
     // Lets the socket "kick" handler trigger an off-cycle heartbeat without the
     // heartbeat being in scope (it's redefined each effect run).
     const heartbeatRef = useRef<() => void>(() => {});
+    // Throttles the per-beat roster ingest (see heartbeat) so the cross-device
+    // player list isn't re-normalized + re-set on the hot 1s combat/explore beat.
+    const lastRosterMergeAt = useRef(0);
     // Travel rubber-banding guard — applySnapshot used to clobber a freshly
     // travelled-to sector with the server's stale value (409 refetch, admin
     // forceReload, etc.). Two refs work together to fix it:
@@ -2850,22 +2854,13 @@ export default function App() {
                     return;
                 }
                 if (data.sectorMates) setLiveSectorPlayers(data.sectorMates);
-                // Merge server-reported active players into the local roster so players
-                // on different devices/browsers appear in search, spar, pet arena, etc.
-                if (data.allPlayers?.length) {
-                    setPlayerRoster(prev => {
-                        const merged = [...prev];
-                        for (const incoming of data.allPlayers!) {
-                            const idx = merged.findIndex(p => p.name === incoming.name);
-                            const record: PlayerRecord = {
-                                ...incoming,
-                                character: normalizeCharacter(incoming.character as Character),
-                            };
-                            if (idx >= 0) merged[idx] = record;
-                            else merged.push(record);
-                        }
-                        return merged.slice(0, 100);
-                    });
+                // Roster feeds non-urgent social screens (search/spar/pet arena), never
+                // combat (which re-hydrates from save:<name>). Throttle the ingest — the
+                // per-beat path normalizes up to 100 characters + re-renders all of App,
+                // pure waste on the hot 1s beat; every ~12s is plenty. (mergePlayerRoster)
+                if (data.allPlayers?.length && Date.now() - lastRosterMergeAt.current > 12000) {
+                    lastRosterMergeAt.current = Date.now();
+                    setPlayerRoster(prev => mergePlayerRoster(prev, data.allPlayers!, normalizeCharacter));
                 }
                 if (data.pendingChallenges?.length) {
                     setDuelChallenges((current) => {
