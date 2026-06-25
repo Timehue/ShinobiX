@@ -4796,8 +4796,7 @@ button {
 }
 
 .arena-title-panel,
-.dual-ap-panel,
-.battle-command-panel .log {
+.dual-ap-panel {
     border-radius: 0;
     border: 2px solid #7c3f11;
     background: #17070a;
@@ -4881,7 +4880,7 @@ button {
 }
 
 .arena-fullscreen .combat-text-log {
-    max-height: 210px;
+    max-height: 460px;
     border: 3px solid #7c3f11;
     border-radius: 0;
     background: #17070a;
@@ -4948,13 +4947,6 @@ button {
 
 .arena-fullscreen .combat-text-log .timeline-enemy {
     color: #dc2626;
-}
-
-.arena-fullscreen .battle-command-panel {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 8px;
-    align-items: stretch;
 }
 
 /* ===== PvP rich battle log ===== */
@@ -12347,7 +12339,6 @@ textarea {
     }
 
     .arena-fullscreen .dual-ap-panel,
-    .arena-fullscreen .battle-command-panel,
     .arena-fullscreen .jutsu-layout-card {
         width: 100% !important;
         max-width: 100% !important;
@@ -19955,7 +19946,6 @@ button.combat-jutsu-button,
         overflow: hidden !important;
     }
 
-    .arena-fullscreen .battle-command-panel,
     .arena-fullscreen .jutsu-layout-card,
     .arena-fullscreen .combat-jutsu-bar {
         display: grid !important;
