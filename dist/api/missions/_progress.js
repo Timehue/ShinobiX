@@ -1,10 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HEALER_WORLDWIDE_RANK = exports.HEALER_HOSPITAL_TIMER_SEC = exports.HEALER_HEAL_XP_BONUS_PCT = exports.HEALER_PER_TARGET_COOLDOWN_SEC = void 0;
+exports.HEALER_WORLDWIDE_RANK = exports.HEALER_HEAL_XP_BONUS_PCT = exports.HEALER_PER_TARGET_COOLDOWN_SEC = void 0;
 exports.professionRankForXp = professionRankForXp;
 exports.healerHealXpBonusPct = healerHealXpBonusPct;
 exports.healerPerTargetCooldownMs = healerPerTargetCooldownMs;
-exports.healerHospitalTimerMs = healerHospitalTimerMs;
 exports.utcDateKey = utcDateKey;
 exports.awardProfessionXp = awardProfessionXp;
 exports.loadOrIssueDailyMissions = loadOrIssueDailyMissions;
@@ -42,7 +41,8 @@ function professionRankForXp(profession, xp) {
 // Keep arrays IN SYNC with the client file. Idx = rank (0 unused).
 exports.HEALER_PER_TARGET_COOLDOWN_SEC = [0, 300, 285, 270, 240, 210, 180, 150, 120, 105, 90];
 exports.HEALER_HEAL_XP_BONUS_PCT = [0, 0, 5, 10, 15, 20, 25, 30, 35, 40, 50];
-exports.HEALER_HOSPITAL_TIMER_SEC = [0, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15];
+// (A former rank-scaled HEALER_HOSPITAL_TIMER_SEC was removed — Healers now
+//  discharge instantly for free, so there is no Healer hospital timer to mirror.)
 exports.HEALER_WORLDWIDE_RANK = 10;
 function clampRank(rank) {
     if (!Number.isFinite(rank) || rank < 1)
@@ -56,9 +56,6 @@ function healerHealXpBonusPct(rank) {
 }
 function healerPerTargetCooldownMs(rank) {
     return exports.HEALER_PER_TARGET_COOLDOWN_SEC[clampRank(rank)] * 1000;
-}
-function healerHospitalTimerMs(rank) {
-    return exports.HEALER_HOSPITAL_TIMER_SEC[clampRank(rank)] * 1000;
 }
 function utcDateKey(now = new Date()) {
     return now.toISOString().slice(0, 10);
