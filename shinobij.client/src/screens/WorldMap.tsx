@@ -541,6 +541,9 @@ export function WorldMap({
         if (selectedSector == null) return;
         // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss.
         if ((character.robberStreak ?? 0) >= 5) {
+            // Seal the boss-reward baseline server-side (fire-and-forget; if it
+            // fails the fights still pay, just no boss-clear bonus).
+            fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", playerName: character.name }) }).catch(() => { /* ignore */ });
             launchWandererArenaFight(buildRobberAi(character.level, "amb0"), "ambush", 0, selectedSector);
             return;
         }
@@ -553,6 +556,22 @@ export function WorldMap({
     function launchAmbushStage(stage: number, sector: number) {
         const ai = stage >= 3 ? buildBossAi(character.level + 5) : buildRobberAi(character.level + stage, `amb${stage}`);
         launchWandererArenaFight(ai, "ambush", stage, sector);
+    }
+    async function claimAmbushReward() {
+        try {
+            const res = await fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", playerName: character.name }) });
+            const d = await res.json() as { ok?: boolean; reward?: { ryo: number; fateShards: number; boneCharms: number }; totals?: { ryo: number; fateShards: number; boneCharms: number } };
+            if (d.ok && d.reward && d.totals) {
+                updateCharacter({ ...character, ryo: d.totals.ryo, fateShards: d.totals.fateShards, boneCharms: d.totals.boneCharms, robberStreak: 0 });
+                const parts = [`${d.reward.ryo} ryo`];
+                if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
+                if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
+                setTimeout(() => alert(`You broke the ambush and felled their warlord! Loot: ${parts.join(", ")}.`), 40);
+                return;
+            }
+        } catch { /* fall through to the no-loot message */ }
+        updateCharacter({ ...character, robberStreak: 0 });
+        setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
     }
     function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number }) {
         const won = (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
@@ -576,8 +595,7 @@ export function WorldMap({
             if (nextStage <= 3) {
                 launchAmbushStage(nextStage, p.sector); // 1,2 = more robbers; 3 = the boss
             } else {
-                updateCharacter({ ...character, robberStreak: 0 });
-                setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
+                claimAmbushReward(); // boss down → server-authoritative loot + reset
             }
         }
     }
