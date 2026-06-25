@@ -2227,6 +2227,9 @@ export default function App() {
         } catch { /* quota / SSR */ }
     }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
+    // Transient, non-persisted AI(s) for one-off sector-wanderer fights. Merged
+    // into the arena's AI list only (never into the saved creatorAis).
+    const [wandererAis, setWandererAis] = useState<CreatorAi[]>([]);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     // Lifted "fight in progress" flags (fed by Arena/PetArena onBattleActiveChange)
     // so the nav lock can block leaving arena ranked / pet matches whose active
@@ -8451,6 +8454,7 @@ export default function App() {
                         setPendingAiProfileId={setPendingAiProfileId}
                             setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
+                        registerWandererAi={(ai) => setWandererAis([ai])}
                         recordMissionExplore={recordMissionExplore}
                         setPendingExploreSector={setPendingExploreSector}
                         playableAis={playableAis}
@@ -8824,7 +8828,7 @@ export default function App() {
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
-                        creatorAis={playableAis}
+                        creatorAis={wandererAis.length ? [...wandererAis, ...playableAis] : playableAis}
                         pendingAiProfileId={pendingAiProfileId}
                         setPendingAiProfileId={setPendingAiProfileId}
                         currentBiome={currentBiome}
