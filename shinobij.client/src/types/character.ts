@@ -248,6 +248,9 @@ export type Character = {
     // Active sector-wanderer quest (display mirror; server seals the real baseline
     // + reward in KV). Additive/optional — old saves read it as "no quest".
     activeWandererQuest?: { id: string; target: number; baseline: number } | null;
+    // Consecutive sector-wanderer robbers fended off. At 5 the next bandit springs
+    // an ambush (3 robbers + a boss); resets to 0 on a loss or after the ambush.
+    robberStreak?: number;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
