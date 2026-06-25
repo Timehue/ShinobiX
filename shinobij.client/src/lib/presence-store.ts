@@ -42,6 +42,19 @@ const lingerUntil = new Map<string, number>();
 // player's portrait loads the instant they appear, without re-rendering App.
 let prefetch: ((names: string[]) => void) | null = null;
 
+// The local player's current within-sector tile (0..143). WorldMap owns the tile
+// state (sectorPlayerPos) but the heartbeat that broadcasts presence lives in App,
+// so this module bridges the two: WorldMap writes it on every move, App reads it
+// into the heartbeat/socket frame. Defaults to the grid centre (SectorAvatar's
+// default) so a fresh session broadcasts a sane tile before the first move.
+let localTile = 78;
+export function setLocalSectorTile(tile: number): void {
+    if (Number.isFinite(tile)) localTile = Math.max(0, Math.min(143, Math.floor(tile)));
+}
+export function getLocalSectorTile(): number {
+    return localTile;
+}
+
 // lastSeenAt advances every beat, so including it raw would defeat the
 // short-circuit (every beat would look "changed"). Bucket it to 30s instead: the
 // roster still refreshes at least every ~30s, which keeps the Scout Network
@@ -97,7 +110,12 @@ export function pushLiveSectorPlayers(next: PlayerRecord[]): void {
         else lingerUntil.delete(lname);
     }
     const merged = carried.length ? [...next, ...carried] : next;
-    const sig = presenceSignature(merged);
+    // Append a tile component to the live signature ONLY (not the exported
+    // presenceSignature, which App's playerRoster 1B short-circuit reuses): the
+    // sector overlay must re-render when a peer walks to a new tile, but the broad
+    // roster must NOT churn App every time anyone moves.
+    const sig = presenceSignature(merged) + "||" +
+        merged.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}`).sort().join(",");
     if (sig === liveSig) return; // unchanged — keep ref, notify nobody
     liveArr = merged;
     liveSig = sig;

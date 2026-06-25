@@ -37,6 +37,8 @@ export type PresenceFrame = {
     inBattle?: boolean;
     /** Original-cased name for display; server validates it matches the identity. */
     displayName?: string;
+    /** Within-sector tile (0..143) for live peer rendering; display-only. */
+    tile?: number;
 };
 
 type SectorHandler = (sector: number, players: PlayerRecord[]) => void;

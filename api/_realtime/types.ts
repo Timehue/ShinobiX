@@ -30,6 +30,9 @@ export type OnlinePlayer = {
     travelingUntil?: number;
     /** true while a PvP session is active (blocks double-battle). */
     inBattle?: boolean;
+    /** Within-sector tile (0..143) for live peer rendering. Display-only — no
+     * gameplay path reads it (attack/heal/challenge use sector/inBattle/travel). */
+    tile?: number;
 };
 
 /** Fields a heartbeat / ping supplies to refresh presence. */
@@ -39,6 +42,7 @@ export type PresenceUpsert = {
     character: Record<string, unknown> | null;
     travelingUntil?: number;
     inBattle?: boolean;
+    tile?: number;
 };
 
 export interface OnlineStateStore {

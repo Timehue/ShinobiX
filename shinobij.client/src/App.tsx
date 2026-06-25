@@ -9,7 +9,8 @@ import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
-import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch } from "./lib/presence-store";
+import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile } from "./lib/presence-store";
+import { presenceCharacter } from "./lib/presence-character";
 import {
     percentageTags,
     cappedDamageTags,
@@ -1312,57 +1313,9 @@ export { discountCost, getBankInterestPercent, getHospitalDiscountPercent };
 
 export { normalizeJutsu };
 
-// ── Heartbeat presence projection ─────────────────────────────────────────
-// The heartbeat POST used to upload the player's ENTIRE character every beat
-// (inventory, jutsu, stats, bloodlines, mission journals, full pet objects,
-// and a base64 avatar data URL). At a 1s cadence that was a large repeated
-// upload, a fat presence-row write, and bloated the roster mget that reads
-// these rows back. The presence row's `character` is consumed ONLY by the
-// roster endpoint for *display* (and the Pet Arena reads `pets` for PvP pet
-// challenges). Gameplay/PvP paths (attack, challenge, heal, clear-attack)
-// read only sector/inBattle/travelingUntil/pendingAttacker — never character;
-// real combat hydrates the opponent from save:<name> via fetchPlayerCombatSave.
-//
-// So we upload only the display fields the roster surfaces. Notable drops:
-//   • avatarImage — every avatar render site falls back to the name-keyed
-//     sharedImages['avatar:<name>'] cache, so the heavy data URL is redundant.
-//   • inventory / jutsu / stats / bloodlines / mission+quest logs / currencies
-//     — never read off the presence row; roster.ts strips them anyway.
-// Pets are kept but projected to the same public fields roster.ts exposes, so
-// Pet Arena opponent selection keeps working without shipping pet movesets etc.
-// pet `image` is dropped for the SAME reason as avatarImage: every pet render
-// site (PetArenaCard / PetBattleAvatar) resolves the sprite from the viewer's
-// own sharedImages['pet:<id>'|'pet:<base>'] cache and only falls back to
-// pet.image, so shipping the (often multi-100 KB) data URL on every 1s heartbeat
-// was pure waste. Stats/jutsus stay, so the pet battle sim is unaffected.
-const PRESENCE_PET_FIELDS = [
-    'id', 'name', 'rarity', 'level', 'element', 'trait', 'species',
-    'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
-] as const;
-function presenceCharacter(c: Character): Partial<Character> {
-    const src = c as unknown as Record<string, unknown>;
-    const slim: Record<string, unknown> = {};
-    // Display scalars the roster / profile cards render. Avatar intentionally
-    // omitted — resolved from the shared image cache by name.
-    const KEEP = [
-        'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
-        'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
-        'clan', 'clanFounder', 'hp', 'maxHp',
-    ];
-    for (const k of KEEP) if (k in src) slim[k] = src[k];
-    // Pets: project to public fields only (Pet Arena needs the list + basic stats).
-    const pets = src.pets;
-    if (Array.isArray(pets)) {
-        slim.pets = pets.map((p) => {
-            if (!p || typeof p !== 'object') return p;
-            const ps = p as Record<string, unknown>;
-            const out: Record<string, unknown> = {};
-            for (const f of PRESENCE_PET_FIELDS) if (f in ps) out[f] = ps[f];
-            return out;
-        });
-    }
-    return slim as Partial<Character>;
-}
+// presenceCharacter (the heartbeat display-field projection) lives in
+// ./lib/presence-character — drained out of App.tsx to keep it under the size
+// ratchet. Imported at the top of this file.
 
 export function normalizeCharacter(parsed: Character): Character {
     const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(parsed.level ?? 1)));
@@ -2803,6 +2756,7 @@ export default function App() {
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
+                tile: getLocalSectorTile(),
             };
             // Mirror the same frame onto the Socket.IO presence channel (no-op when
             // the socket isn't connected). Because a sector change re-runs this
@@ -2814,6 +2768,7 @@ export default function App() {
                 travelingUntil: presenceBody.travelingUntil,
                 inBattle: inBattleNow,
                 displayName: char.name,
+                tile: presenceBody.tile,
             });
             try {
                 const res = await fetch('/api/player/heartbeat', {
@@ -2956,6 +2911,7 @@ export default function App() {
             travelingUntil: 0,
             inBattle: inBattleNow,
             displayName: char.name,
+            tile: getLocalSectorTile(),
         });
         const offStatus = onPresenceStatus((connected) => setSocketConnected(connected));
         const offSector = onPresenceSector((sector, players) => {

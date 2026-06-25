@@ -21,6 +21,17 @@ export function normalizeSector(value: unknown, fallback = 40): number {
     return Math.max(0, Math.floor(sector));
 }
 
+// Within-sector tile index (the 12x12 grid → 0..143) for live peer rendering.
+// Clamped to range; returns `fallback` (default undefined) when the client sent
+// nothing parseable, so an older client without a tile degrades gracefully (the
+// viewer falls back to a deterministic per-name tile). Display-only: no gameplay
+// path reads tile, so a bogus value can only mis-place a cosmetic marker.
+export function normalizeTile(value: unknown, fallback?: number): number | undefined {
+    const tile = Number(value);
+    if (!Number.isFinite(tile)) return fallback;
+    return Math.max(0, Math.min(143, Math.floor(tile)));
+}
+
 // Cap client-supplied travelingUntil so an exploit can't make a player
 // permanently untouchable (e.g. client sends year-9999 epoch). Returns the
 // capped value only when it's still in the future, else undefined.
@@ -94,5 +105,8 @@ export function toPlayerRecord(p: OnlinePlayer) {
         lastSeenAt: p.lastSeenAt,
         travelingUntil: p.travelingUntil ?? 0,
         inBattle: p.inBattle ?? false,
+        // Within-sector tile for live peer rendering (omitted → viewer falls back
+        // to a deterministic per-name tile). Display-only.
+        tile: p.tile,
     };
 }

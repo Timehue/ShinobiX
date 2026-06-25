@@ -33,7 +33,9 @@ import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
-import { useLiveSectorPlayers } from "../lib/presence-store";
+import { useLiveSectorPlayers, setLocalSectorTile } from "../lib/presence-store";
+import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
+import { SectorPeers, type SectorPeer } from "../components/SectorPeers";
 import { defaultVnScene } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
@@ -497,6 +499,9 @@ export function WorldMap({
         return () => clearTimeout(t);
     }, [activePetEncounter, petVnDone]);
     const [sectorPlayerPos, setSectorPlayerPos] = useState(78);
+    // Bridge the local player's tile to the presence store so the heartbeat (which
+    // lives in App) can broadcast it; other clients render us walking to this tile.
+    useEffect(() => { setLocalSectorTile(sectorPlayerPos); }, [sectorPlayerPos]);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
@@ -1241,6 +1246,19 @@ export function WorldMap({
         const sectorPlayers: Array<PlayerRecord & { __sleeping?: boolean }> = sameSector(currentSector, selectedSector)
             ? [...livePlayersHere, ...sleepingHere.map((p) => ({ ...p, __sleeping: true }))]
             : [];
+        // 2D live peers: when enabled (default), peers render as a walking overlay
+        // at their real transmitted tile (fallback: deterministic per-name tile) and
+        // the in-tile dots are suppressed to avoid drawing each peer twice.
+        const livePeersOn = isSectorLivePeersEnabled();
+        const sectorPeerMarkers: SectorPeer[] = livePeersOn
+            ? sectorPlayers.map((p) => ({
+                name: p.name,
+                tile: typeof p.tile === "number" ? p.tile : playerNameTile(p.name),
+                level: p.level,
+                sleeping: Boolean(p.__sleeping),
+                avatar: sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '',
+            }))
+            : [];
         const activeHuntMissionForSector = selectedSector >= 1 && selectedSector <= 60
             ? builtinHuntMissions.find((mission) =>
                 acceptedMissionIds.includes(mission.id) &&
@@ -1313,7 +1331,9 @@ export function WorldMap({
                             <SceneCritters biome={ambienceBiomeForSector(selectedSector)} />
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
-                                const otherHere = sectorPlayers.filter(p => playerNameTile(p.name) === index);
+                                // With the live-peer overlay on, peers are drawn by <SectorPeers>
+                                // at their real tile, so suppress the in-tile dots here.
+                                const otherHere = livePeersOn ? [] : sectorPlayers.filter(p => playerNameTile(p.name) === index);
 
                                 return (
                                     <button
@@ -1338,6 +1358,8 @@ export function WorldMap({
                                     </button>
                                 );
                             })}
+
+                            {livePeersOn && <SectorPeers peers={sectorPeerMarkers} />}
 
                             <SectorAvatar
                                 targetIndex={sectorPlayerPos}
