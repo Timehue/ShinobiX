@@ -12,19 +12,23 @@ type SleeperKillResponse = { ok?: boolean; error?: string; character?: Character
 
 export async function strikeDownSleeper(opts: {
     opponent: PlayerRecord;
+    attackerName: string;
     isTraveling: boolean;
     setCharacter: Dispatch<SetStateAction<Character | null>>;
     setPlayerRoster: Dispatch<SetStateAction<PlayerRecord[]>>;
 }): Promise<void> {
-    const { opponent, isTraveling, setCharacter, setPlayerRoster } = opts;
+    const { opponent, attackerName, isTraveling, setCharacter, setPlayerRoster } = opts;
     if (isTraveling) { alert("You cannot attack while traveling."); return; }
     if (!window.confirm(`Strike down ${opponent.name} while they're logged out? They'll be sent to the hospital and back to their village.`)) return;
 
     try {
+        // attackerName lets an admin-authed session (no player identity of its
+        // own) act as the character it's playing; the server ignores it for
+        // regular players and uses their authed identity instead.
         const res = await fetch('/api/player/sleeper-kill', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetName: opponent.name }),
+            body: JSON.stringify({ targetName: opponent.name, attackerName }),
         });
         const data = await res.json().catch(() => null) as SleeperKillResponse | null;
         if (!res.ok || !data?.ok) {
