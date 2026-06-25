@@ -20,18 +20,17 @@ function todayKey() {
     (0, node_test_1.it)('409 safe-zone for a non-finite sector', () => {
         node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)(liveTarget, NaN)?.status, 409);
     });
-    (0, node_test_1.it)('403 Academy protection for a sub-Genin target (level < 15)', () => {
-        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 14 }, 18)?.status, 403);
-        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 1 }, 18)?.status, 403);
-    });
     (0, node_test_1.it)('409 when the target is already hospitalized (already KO\'d)', () => {
         const b = (0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 40, hospitalized: true }, 18);
         node_assert_1.strict.equal(b?.status, 409);
         node_assert_1.strict.match(b.error, /already been defeated/);
     });
-    (0, node_test_1.it)('allows a valid sleeper (Genin+, wild sector, not hospitalized)', () => {
+    (0, node_test_1.it)('allows a sleeper of ANY level (no Academy protection on this path)', () => {
+        // Per owner decision: every sleeper is attackable regardless of level.
+        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 1 }, 18), null);
+        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 11 }, 44), null);
+        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 14 }, 18), null);
         node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 40 }, 18), null);
-        node_assert_1.strict.equal((0, sleeper_kill_js_1.sleeperTargetBlock)({ level: 15 }, 1), null);
     });
 });
 (0, node_test_1.describe)('computeSleeperSeals (capped Vanguard payout, no escort / no fight gate)', () => {

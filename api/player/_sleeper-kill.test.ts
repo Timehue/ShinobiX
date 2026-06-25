@@ -24,20 +24,18 @@ describe('sleeperTargetBlock (sleeper KO gating)', () => {
         assert.equal(sleeperTargetBlock(liveTarget, NaN)?.status, 409);
     });
 
-    it('403 Academy protection for a sub-Genin target (level < 15)', () => {
-        assert.equal(sleeperTargetBlock({ level: 14 }, 18)?.status, 403);
-        assert.equal(sleeperTargetBlock({ level: 1 }, 18)?.status, 403);
-    });
-
     it('409 when the target is already hospitalized (already KO\'d)', () => {
         const b = sleeperTargetBlock({ level: 40, hospitalized: true }, 18);
         assert.equal(b?.status, 409);
         assert.match(b!.error, /already been defeated/);
     });
 
-    it('allows a valid sleeper (Genin+, wild sector, not hospitalized)', () => {
+    it('allows a sleeper of ANY level (no Academy protection on this path)', () => {
+        // Per owner decision: every sleeper is attackable regardless of level.
+        assert.equal(sleeperTargetBlock({ level: 1 }, 18), null);
+        assert.equal(sleeperTargetBlock({ level: 11 }, 44), null);
+        assert.equal(sleeperTargetBlock({ level: 14 }, 18), null);
         assert.equal(sleeperTargetBlock({ level: 40 }, 18), null);
-        assert.equal(sleeperTargetBlock({ level: 15 }, 1), null);
     });
 });
 
