@@ -479,6 +479,38 @@ export function meleeContactFx(element: string | null | undefined, archetype: Mo
     return beats.sort((a, b) => a.at - b.at);
 }
 
+/** A melee weapon-TRAIL spec — the swept additive blade/streak drawn during a strike
+ *  so each archetype gets its own weapon MOTION: a pierce STABS straight forward, a
+ *  slash SWEEPS across, a heavy slam CHOPS overhead, a drain RAKES back toward self.
+ *  `tex` picks the procedural shape; the rot/dx/dy pairs are start→end keyframes the
+ *  renderer lerps over `life` ms (rot + dx are mirrored by the attacker's facing).
+ *  Pure (no clock/RNG) → node-testable; render-only, determinism-safe. */
+export type TrailTex = "crescent" | "streak";
+export interface MeleeTrailSpec {
+    tex: TrailTex;
+    rot0: number; rot1: number;   // blade angle (rad), start→end (×facing at render)
+    dx0: number; dx1: number;     // forward offset toward the foe (world units, ×facing)
+    dy0: number; dy1: number;     // vertical offset (world units)
+    w: number; h: number;         // blade plane size (world units)
+    life: number;                 // ms
+}
+
+export function meleeTrailSpec(archetype: MoveChoreoKind): MeleeTrailSpec {
+    switch (archetype) {
+        // A straight forward LANCE — the streak extends toward the foe, barely rotates.
+        case "pierce":    return { tex: "streak",   rot0: 0,    rot1: 0,    dx0: 0.2, dx1: 1.4,  dy0: 0,    dy1: 0,     w: 2.0,  h: 0.6,  life: 200 };
+        // A fast horizontal SWEEP across the foe.
+        case "slash":     return { tex: "crescent", rot0: -1.0, rot1: 0.95, dx0: 0.7, dx1: 0.95, dy0: 0.12, dy1: -0.1,  w: 1.6,  h: 1.6,  life: 200 };
+        // A committed OVERHEAD chop — top-down arc, bigger blade, holds longer.
+        case "heavySlam": return { tex: "crescent", rot0: -1.5, rot1: 0.28, dx0: 0.5, dx1: 0.8,  dy0: 0.75, dy1: -0.32, w: 2.1,  h: 2.1,  life: 300 };
+        // A RAKE that pulls back toward self (lifesteal yank).
+        case "drain":     return { tex: "crescent", rot0: 0.9,  rot1: -0.5, dx0: 1.0, dx1: 0.3,  dy0: 0.05, dy1: 0.05,  w: 1.4,  h: 1.4,  life: 240 };
+        // lightMelee + any planted archetype that somehow reaches here → a plain diagonal slash.
+        case "lightMelee":
+        default:          return { tex: "crescent", rot0: -0.6, rot1: 0.55, dx0: 0.6, dx1: 0.95, dy0: 0.2,  dy1: -0.1,  w: 1.45, h: 1.45, life: 210 };
+    }
+}
+
 /** The melee lunge reach (world units toward the foe) for a strike — closes the gap so
  *  the blow CONNECTS, but is HARD-CLAMPED so a single lunge can NEVER overshoot past the
  *  contact line into the foe, for ANY gap / power / crit (the owner demanded a firm "they
