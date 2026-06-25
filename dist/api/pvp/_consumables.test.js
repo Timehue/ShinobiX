@@ -34,6 +34,31 @@ const claim_rewards_js_1 = require("./claim-rewards.js");
         };
         node_assert_1.strict.equal((0, session_js_1.sealItemCharges)(char, char)['thrown-shuriken'], 5);
     });
+    (0, node_test_1.it)('seals all THREE combat-item slots (item1/2/3) at their owned counts', () => {
+        const char = {
+            equipment: {
+                item1: 'item-smoke-bomb',
+                item2: 'item-attack-pill',
+                item3: 'item-defense-pill',
+            },
+            itemStacks: [
+                { itemId: 'item-smoke-bomb', count: 3 },
+                { itemId: 'item-attack-pill', count: 1 },
+                { itemId: 'item-defense-pill', count: 7 },
+            ],
+        };
+        const charges = (0, session_js_1.sealItemCharges)(char, char);
+        node_assert_1.strict.equal(charges['item-smoke-bomb'], 3);
+        node_assert_1.strict.equal(charges['item-attack-pill'], 1);
+        node_assert_1.strict.equal(charges['item-defense-pill'], 7);
+    });
+    (0, node_test_1.it)('still seals a legacy single "item" slot (not-yet-migrated save)', () => {
+        const char = {
+            equipment: { item: 'item-attack-pill' },
+            itemStacks: [{ itemId: 'item-attack-pill', count: 2 }],
+        };
+        node_assert_1.strict.equal((0, session_js_1.sealItemCharges)(char, char)['item-attack-pill'], 2);
+    });
     (0, node_test_1.it)('owned count spans both inventory[] and itemStacks', () => {
         const char = { inventory: ['x', 'x'], itemStacks: [{ itemId: 'x', count: 3 }] };
         node_assert_1.strict.equal((0, session_js_1.ownedItemCount)(char, 'x'), 5);

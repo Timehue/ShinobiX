@@ -542,7 +542,11 @@ const POTION_USES_PER_BATTLE = 2;
 function sealItemCharges(equipChar, invChar) {
     const charges = {};
     const equip = (equipChar.equipment ?? {});
-    for (const slot of ['thrown', 'item', 'potion']) {
+    // The three combat-item slots (item1/2/3) each hold one of Attack/Defense
+    // Pill or Smoke Bomb; legacy 'item' covers a not-yet-migrated single-item
+    // save. Throwable + combat items seal at the owned count; the potion is
+    // capped per battle (handled below).
+    for (const slot of ['thrown', 'item1', 'item2', 'item3', 'item', 'potion']) {
         const id = equip[slot];
         if (typeof id !== 'string' || !id)
             continue;

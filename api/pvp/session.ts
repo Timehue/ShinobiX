@@ -632,7 +632,11 @@ export function sealItemCharges(
 ): Record<string, number> {
     const charges: Record<string, number> = {};
     const equip = (equipChar.equipment ?? {}) as Record<string, unknown>;
-    for (const slot of ['thrown', 'item', 'potion'] as const) {
+    // The three combat-item slots (item1/2/3) each hold one of Attack/Defense
+    // Pill or Smoke Bomb; legacy 'item' covers a not-yet-migrated single-item
+    // save. Throwable + combat items seal at the owned count; the potion is
+    // capped per battle (handled below).
+    for (const slot of ['thrown', 'item1', 'item2', 'item3', 'item', 'potion'] as const) {
         const id = equip[slot];
         if (typeof id !== 'string' || !id) continue;
         if (slot === 'potion') {

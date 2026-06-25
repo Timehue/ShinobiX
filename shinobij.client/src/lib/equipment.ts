@@ -12,7 +12,7 @@
  * Extracted from App.tsx.
  */
 
-import type { EquipmentSlot, ArmorQuality, GameItem } from "../types/combat";
+import type { EquipmentSlot, EquipmentSlots, ArmorQuality, GameItem } from "../types/combat";
 
 // Canonical equipment slots + their human-readable labels. Aliases like
 // "weapon" / "armor" / "accessory" are normalised by normalizeEquipmentSlot
@@ -66,9 +66,74 @@ export function normalizeEquipmentSlot(slot: EquipmentSlot): EquipmentSlot {
     return slot;
 }
 
+// Display labels for slot KEYS that aren't authoring options in
+// itemSectionOptions (above). The three combat-item keys share the canonical
+// "item" authoring slot, so their per-slot labels live here instead.
+const SLOT_LABEL_OVERRIDES: Partial<Record<EquipmentSlot, string>> = {
+    item1: "Item 1",
+    item2: "Item 2",
+    item3: "Item 3",
+};
+
 export function equipmentSlotLabel(slot: EquipmentSlot): string {
     const normalized = normalizeEquipmentSlot(slot);
-    return itemSectionOptions.find((option) => option.value === normalized)?.label ?? normalized;
+    return SLOT_LABEL_OVERRIDES[normalized]
+        ?? itemSectionOptions.find((option) => option.value === normalized)?.label
+        ?? normalized;
+}
+
+// ── Combat item slots (Attack/Defense Pill, Smoke Bomb) ──────────────────────
+// A combat item is AUTHORED on the canonical "item" slot (so item data and the
+// admin item editor stay unchanged), but it EQUIPS into one of three dedicated
+// keys so all three can be carried at once. Equipping is a non-consuming
+// SELECTION — the inventory stack is the ammo, spent per use in battle. The
+// legacy bare "item" key is kept for back-compat: an old save that stored a
+// single combat item there still resolves until the Inventory migration re-homes
+// it into item1.
+export const COMBAT_ITEM_SLOTS: readonly EquipmentSlot[] = ["item1", "item2", "item3"];
+
+// Equipment KEYS that feed the in-battle action bar AND the per-fight consumable
+// budget: weapon hand, throwable, the three combat-item slots, the potion — plus
+// the legacy "weapon"/"item" aliases so a not-yet-migrated save still loads.
+export const combatLoadoutSlots: EquipmentSlot[] = [
+    "hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion",
+];
+
+// The subset of equipment keys whose contents are SPENT on use (selections, not
+// worn gear): throwable + the three item slots + potion (+ legacy "item").
+// Equipping/unequipping these never drains or mints an inventory stack.
+export const combatConsumableSlots: EquipmentSlot[] = [
+    "thrown", "item1", "item2", "item3", "item", "potion",
+];
+
+// True when `slot` is one of the combat-item KEYS (incl. the legacy bare "item").
+export function isCombatItemSlot(slot: EquipmentSlot): boolean {
+    return slot === "item" || slot === "item1" || slot === "item2" || slot === "item3";
+}
+
+// A combat consumable item — authored on the "item" slot AND carrying a combat
+// field (an action AP cost, a weapon effect, or weapon EP). This distinguishes
+// the real combat items (Attack/Defense Pill, Smoke Bomb) from the other
+// slot-"item" entries (pet food, hunting/forge materials, collars, pet gear),
+// which are NOT player-equippable into a combat slot.
+export function isCombatConsumable(item: Pick<GameItem, "slot" | "weaponEffect" | "apCost" | "weaponEp">): boolean {
+    return normalizeEquipmentSlot(item.slot) === "item"
+        && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null);
+}
+
+// Place a combat item id into the three item KEYS without evicting the others:
+// keep it where it already sits, else the first open slot, else replace item1.
+// Returns a NEW equipment map and retires the legacy bare "item" key on any
+// (re)equip. Never drains an inventory stack — combat items are non-consuming
+// selections spent in battle.
+export function equipCombatItem(equipment: EquipmentSlots, itemId: string): EquipmentSlots {
+    const next: EquipmentSlots = { ...equipment };
+    delete next.item;
+    const existing = COMBAT_ITEM_SLOTS.find((s) => next[s] === itemId);
+    const dest = existing ?? COMBAT_ITEM_SLOTS.find((s) => !next[s]) ?? "item1";
+    for (const s of COMBAT_ITEM_SLOTS) if (s !== dest && next[s] === itemId) delete next[s];
+    next[dest] = itemId;
+    return next;
 }
 
 // ── Armor quality damage reduction ───────────────────────────────────────

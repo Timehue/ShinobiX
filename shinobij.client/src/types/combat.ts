@@ -72,7 +72,11 @@ export type Jutsu = {
 
 export type EquipmentSlot =
     | "aura" | "hand" | "gloves" | "body" | "waist" | "legs" | "feet" | "head"
-    | "item" | "thrown" | "potion" | "weapon" | "armor" | "accessory";
+    // "item" is the canonical slot a combat item (Attack/Defense Pill, Smoke Bomb)
+    // is AUTHORED on; item1/item2/item3 are the three dedicated equipment KEYS it
+    // equips into so all three can be carried at once (legacy bare "item" is kept
+    // for back-compat with saves that stored a single combat item there).
+    | "item" | "item1" | "item2" | "item3" | "thrown" | "potion" | "weapon" | "armor" | "accessory";
 
 export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary" | "Mythic";
 

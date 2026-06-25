@@ -17,7 +17,6 @@ import { describeJutsuEffects, jutsuDisplayAtLevel } from "../lib/jutsu-effects"
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
-import { itemSectionOptions } from "../lib/equipment";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 
 export function Profile({
@@ -37,8 +36,13 @@ export function Profile({
 }) {
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const allItems = getAllItems(creatorItems);
-    const equippedItems = itemSectionOptions
-        .map(({ value }) => getItemById(allItems, character.equipment[value]))
+    // Every distinct equipped id across all slots (weapon, armor pieces, the
+    // three combat-item slots, throwable, potion, aura, …). Deduped so legacy
+    // alias keys (weapon/armor/accessory) don't double-count.
+    const equippedItems = Array.from(
+        new Set(Object.values(character.equipment ?? {}).filter((id): id is string => Boolean(id)))
+    )
+        .map((id) => getItemById(allItems, id))
         .filter((item): item is GameItem => Boolean(item));
     const equippedBloodline = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
     const auraSphereEquipped = hasEquippedAuraSphere(character);
@@ -326,7 +330,7 @@ export function Profile({
                         <p><strong>Bank:</strong> {character.bankRyo}</p>
                         <p><strong style={{ color: "#ce93d8" }}>🔮 Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
                         <p><strong>Jutsu:</strong> {character.equippedJutsuIds.length}/15</p>
-                        <p><strong>Equipment:</strong> {equippedItems.length}/3</p>
+                        <p><strong>Equipment:</strong> {equippedItems.length} equipped</p>
                     </div>
 
                     <div>

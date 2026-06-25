@@ -8893,7 +8893,7 @@ export default function App() {
                 {screen === "pvpBattle" && character && pvpBattleId && pvpRole && (() => {
                     const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
-                    const pvpItems = (["hand", "weapon", "thrown", "item", "potion"] as EquipmentSlot[])
+                    const pvpItems = (["hand", "weapon", "thrown", "item1", "item2", "item3", "item", "potion"] as EquipmentSlot[])
                         .map(slot => character.equipment[slot])
                         .filter((id): id is string => Boolean(id))
                         .map(id => getItemById(pvpAllItems, id))
