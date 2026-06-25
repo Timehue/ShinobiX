@@ -4803,6 +4803,7 @@ export function Arena({
                                                 key={jutsu.id}
                                                 className={`combat-jutsu-card-wrap ${isArmed ? "selected-action" : ""}`}
                                             >
+                                                {isOnCooldown && <span className="combat-cd-badge" title={`${cooldown} round(s) until ready`}>{cooldown}</span>}
                                                 <button
                                                     type="button"
                                                     className={`combat-jutsu-button ${isArmed ? "selected-action" : ""} ${isOnCooldown ? "jutsu-on-cooldown" : ""}`}
@@ -4860,18 +4861,26 @@ export function Arena({
                                         const owned = consumed ? countItem(character, item.id) : null;
                                         const usable = canUseCombatItem(item);
                                         const countSuffix = owned != null ? ` ×${owned}` : "";
+                                        // Hand/thrown weapons cool down between uses (tracked in
+                                        // jutsuCooldowns keyed by item id, set on use). Grey the card
+                                        // out + disable it while the cooldown ticks, matching the jutsu
+                                        // cards. Consumables never set a cooldown, so itemCd stays 0.
+                                        const itemCd = jutsuCooldowns[item.id] ?? 0;
+                                        const onCooldown = itemCd > 0;
+                                        const cdSuffix = onCooldown ? ` | CD ${itemCd}` : "";
                                         const actionText = isWeapon
-                                            ? `${itemAp} AP | R${weaponDisplayRange}${countSuffix}`
-                                            : `${itemAp} AP | Use${countSuffix}`;
+                                            ? `${itemAp} AP | R${weaponDisplayRange}${countSuffix}${cdSuffix}`
+                                            : `${itemAp} AP | Use${countSuffix}${cdSuffix}`;
                                         const isArmed = pendingTargetWeapon?.id === item.id;
 
                                         return (
-                                            <div className={`combat-jutsu-card-wrap combat-item-card-wrap ${isWeapon ? "combat-weapon-card" : "combat-consumable-card"}`} key={item.id}>
+                                            <div className={`combat-jutsu-card-wrap combat-item-card-wrap ${isWeapon ? "combat-weapon-card" : "combat-consumable-card"}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                {onCooldown && <span className="combat-cd-badge" title={`${itemCd} round(s) until ready`}>{itemCd}</span>}
                                                 <button
                                                     type="button"
-                                                    className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}`}
-                                                    title={isArmed ? `${item.name} armed — click ${opponentName} to fire` : !usable ? `${item.name} — none left this battle` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
-                                                    disabled={!usable}
+                                                    className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                    title={onCooldown ? `${item.name} — on cooldown (${itemCd} round(s) left)` : isArmed ? `${item.name} armed — click ${opponentName} to fire` : !usable ? `${item.name} — none left this battle` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
+                                                    disabled={!usable || onCooldown}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();
