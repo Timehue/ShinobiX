@@ -41,7 +41,10 @@ const BACK_COVER_MULT = 0.82;   // the deepest row fights from cover → −18% 
 
 // Fire > Wind > Lightning > Earth > Water > Fire (same cycle as the duel sim).
 const ELEMENT_CYCLE = ["Fire", "Wind", "Lightning", "Earth", "Water"];
-function elementMult(a?: string | null, b?: string | null): number {
+/** Element damage multiplier of attacker `a` vs defender `b`: 1.25 if a beats b,
+ *  0.8 if b beats a, else 1. Exported so the Gauntlet's pre-fight stat panel can
+ *  show the SAME elemental edge the fight actually applies. Pure — no RNG. */
+export function elementMult(a?: string | null, b?: string | null): number {
     const ia = a ? ELEMENT_CYCLE.indexOf(a) : -1;
     const ib = b ? ELEMENT_CYCLE.indexOf(b) : -1;
     if (ia < 0 || ib < 0) return 1;
