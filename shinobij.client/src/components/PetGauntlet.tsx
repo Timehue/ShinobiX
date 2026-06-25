@@ -17,13 +17,14 @@ import type { Character } from "../types/character";
 import { runPetGridBattle, BOARD_COLS, BOARD_ROWS_PER_SIDE, type BoardResult, type GridUnit } from "../lib/pet-board-sim";
 import {
     startGauntletRun, buyOffer, buyItem, buyRelic, buyPremium, premiumUnlocked, rerollShop, releasePet, fieldedPets,
-    enemySquadForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
+    enemySquadForRound, enemyStatMultForRound, beginFight, applyRoundResult, applyGauntletBuffs, relicDef, hasFreeReroll, boardModsFromRelics,
     petStar, wouldMerge, offerCost,
     GAUNTLET_REROLL_COST, GAUNTLET_ITEMS, GAUNTLET_RELICS, GAUNTLET_START_HEARTS, GAUNTLET_SHARD_COST, GAUNTLET_CHARM_COST, GAUNTLET_SPIKE_ROUND, itemCost,
-    type GauntletRun,
+    type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
+import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { elementIcon } from "../lib/elements";
@@ -52,7 +53,7 @@ const NPC_LINES = [
 // Visible client-build tag — lets us confirm in one glance whether the live site
 // is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
 // it with each gauntlet render change.
-const GAUNTLET_BUILD = "g21";
+const GAUNTLET_BUILD = "g22";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -89,6 +90,54 @@ const btn = (bg: string, disabled = false): React.CSSProperties => ({
     color: disabled ? "#64748b" : "#0b1220", fontWeight: 800, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
 
+// Compact "+X% ⚔" parts for the run-wide buffs (Quartermaster items + stat relics).
+const buffParts = (b: GauntletBuffs): string[] => [
+    b.atk ? `+${Math.round(b.atk * 100)}% ⚔` : "",
+    b.def ? `+${Math.round(b.def * 100)}% 🛡` : "",
+    b.hp ? `+${Math.round(b.hp * 100)}% ❤` : "",
+    b.spd ? `+${Math.round(b.spd * 100)}% 💨` : "",
+].filter(Boolean);
+
+// One side of the pre-fight team stat column: pooled power, element spread, and the
+// net elemental edge vs the other squad (mirrors the board sim's element cycle).
+// `footer` carries the side-specific extras — the player's synergies/relics/boosts,
+// or the enemy's round scaling.
+function TeamStatCard({ title, accent, totals, edge, footer }: { title: string; accent: string; totals: TeamStatTotals; edge: number; footer?: React.ReactNode }) {
+    const edgePct = Math.round((edge - 1) * 100);
+    const edgeColor = edgePct > 0 ? "#4ade80" : edgePct < 0 ? "#f87171" : "#94a3b8";
+    return (
+        <div style={{ border: `1px solid ${accent}55`, borderRadius: 10, background: "rgba(15,23,42,0.62)", padding: "9px 11px", display: "grid", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6 }}>
+                <strong style={{ color: accent, fontSize: "0.78rem", letterSpacing: "0.05em" }}>{title}</strong>
+                <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{totals.count} pet{totals.count === 1 ? "" : "s"}</span>
+            </div>
+            {totals.count === 0 ? (
+                <div style={{ fontSize: "0.66rem", color: "#64748b" }}>No pets fielded yet.</div>
+            ) : (
+                <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 10px", fontSize: "0.72rem", color: "#cbd5e1" }}>
+                        <span title="Team HP pool (after bonuses)">❤ {totals.hp.toLocaleString()}</span>
+                        <span title="Team attack pool (after bonuses)">⚔ {totals.attack.toLocaleString()}</span>
+                        <span title="Average defense per pet">🛡 {totals.defenseAvg}</span>
+                        <span title="Average speed per pet">💨 {totals.speedAvg}</span>
+                    </div>
+                    {totals.elements.length > 0 && (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: "0.72rem", fontWeight: 700 }}>
+                            {totals.elements.map((e) => (
+                                <span key={e.element} title={`${e.count}× ${e.element}`} style={{ color: elColor(e.element) }}>{elementIcon(e.element)} {e.count}</span>
+                            ))}
+                        </div>
+                    )}
+                    <div title="Average element damage multiplier this squad deals to the other (the board sim's Fire→Wind→Lightning→Earth→Water cycle)" style={{ fontSize: "0.7rem", fontWeight: 700, color: edgeColor }}>
+                        ⚖ Elemental {edgePct === 0 ? "even" : `${edgePct > 0 ? "+" : ""}${edgePct}%`} <span style={{ color: "#64748b", fontWeight: 400 }}>×{edge.toFixed(2)}</span>
+                    </div>
+                </>
+            )}
+            {footer}
+        </div>
+    );
+}
+
 export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: { sharedImages?: Record<string, string>; character: Character; updateCharacter: (c: Character) => void }) {
     // run is null until the server hands back the weekly seed + run token.
     const [run, setRun] = useState<GauntletRun | null>(null);
@@ -104,6 +153,20 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
     const fielded = useMemo(() => (run ? fieldedPets(run) : []), [run]);
     const synergies = useMemo(() => resolveSynergies(fielded), [fielded]);
+
+    // Pre-fight team power, for the side stat columns. These use the EFFECTIVE pets
+    // the fight will actually run — player squad with synergies + item/relic buffs
+    // baked in (same transform as startRound), enemy squad already round-scaled — so
+    // the pooled stats, element spread, and elemental edge all match the real fight.
+    const playerEffective = useMemo(
+        () => (run && fielded.length ? applySynergiesToSquad(applyGauntletBuffs(fielded, run.buffs)) : []),
+        [run, fielded],
+    );
+    const enemyEffective = useMemo(() => (run ? enemySquadForRound(run) : []), [run]);
+    const playerTotals = useMemo(() => teamStatTotals(playerEffective), [playerEffective]);
+    const enemyTotals = useMemo(() => teamStatTotals(enemyEffective), [enemyEffective]);
+    const playerEdge = useMemo(() => elementalEdge(playerEffective, enemyEffective), [playerEffective, enemyEffective]);
+    const enemyEdge = useMemo(() => elementalEdge(enemyEffective, playerEffective), [enemyEffective, playerEffective]);
 
     // Placement: each pet sits on a cell of YOUR grid (row 0 = front line that
     // soaks the enemy melee … back row = protected). Click a pet, then a cell, to
@@ -330,7 +393,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             <div style={{ marginTop: 2, color: "#94a3b8" }}>📍 <strong>Position:</strong> melee can't reach the back until the front falls. <span style={{ color: "#fcd34d" }}>Front row +12% damage</span>; <span style={{ color: "#7dd3fc" }}>back row takes −18% melee</span> (cover).</div>
                                         </div>
                                     </details>
-                                    <div style={{ maxWidth: 560, margin: "0 auto", borderRadius: 12, border: "1px solid #3b2f55", padding: 7, backgroundImage: `linear-gradient(rgba(8,11,20,0.32), rgba(8,11,20,0.32)), url(${gauntletBoard})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+                                    <div style={{ display: "flex", gap: 10, alignItems: "stretch", justifyContent: "center", flexWrap: "wrap" }}>
+                                    <div style={{ flex: "1 1 360px", maxWidth: 560, borderRadius: 12, border: "1px solid #3b2f55", padding: 7, backgroundImage: `linear-gradient(rgba(8,11,20,0.32), rgba(8,11,20,0.32)), url(${gauntletBoard})`, backgroundSize: "cover", backgroundPosition: "center" }}>
                                         <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#fca5a5", letterSpacing: "0.08em", margin: "0 0 3px 2px" }}>ENEMY</div>
                                         <div style={{ display: "grid", gridTemplateColumns: `repeat(${BOARD_COLS}, 1fr)`, gap: 5 }}>
                                             {Array.from({ length: BOARD_ROWS_PER_SIDE * 2 }).flatMap((_, gr) =>
@@ -364,6 +428,42 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                             )}
                                         </div>
                                         <div style={{ fontSize: "0.64rem", fontWeight: 700, color: "#93c5fd", letterSpacing: "0.08em", margin: "3px 0 0 2px", textAlign: "right" }}>YOU</div>
+                                    </div>
+                                    {/* Team stat column — pooled power, element spread + elemental edge,
+                                        and (for you) the synergies / relics / boosts you've drafted. Stacked
+                                        to mirror the board halves: enemy on top, you on the bottom. */}
+                                    <div style={{ flex: "1 1 208px", maxWidth: 272, minWidth: 184, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8 }}>
+                                        <TeamStatCard title="🛡 ENEMY SQUAD" accent="#f87171" totals={enemyTotals} edge={enemyEdge} footer={
+                                            <div style={{ fontSize: "0.64rem", color: "#fca5a5" }} title="Per-round stat multiplier applied to every enemy pet this round">Round scaling <strong>×{enemyStatMultForRound(run.round).toFixed(2)}</strong></div>
+                                        } />
+                                        <TeamStatCard title="⚔ YOUR SQUAD" accent="#93c5fd" totals={playerTotals} edge={playerEdge} footer={
+                                            (synergies.length > 0 || run.relics.length > 0 || buffParts(run.buffs).length > 0) ? (
+                                                <div style={{ display: "grid", gap: 5 }}>
+                                                    {buffParts(run.buffs).length > 0 && (
+                                                        <div style={{ fontSize: "0.64rem", color: "#fcd34d" }} title="Run-wide boosts folded in from Quartermaster items + stat relics">Boosts: {buffParts(run.buffs).join(" · ")}</div>
+                                                    )}
+                                                    {synergies.length > 0 && (
+                                                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                                            {synergies.map((s) => (
+                                                                <span key={s.def.key} title={`${s.def.label} ×${s.count} — ${s.tier.note}`} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: `${s.def.color}22`, border: `1px solid ${s.def.color}`, color: s.def.color, fontWeight: 700, fontSize: "0.62rem" }}>{s.def.icon} {s.def.label} ×{s.count}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {run.relics.length > 0 && (
+                                                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                                            {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
+                                                                <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.62rem" }}>
+                                                                    {art ? <img src={art} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} /> : <span>{d.icon}</span>}{d.name}
+                                                                </span>
+                                                            ); })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div style={{ fontSize: "0.62rem", color: "#64748b" }}>Draft pets that share an element or role for synergies, and shop relics, to boost your squad.</div>
+                                            )
+                                        } />
+                                    </div>
                                     </div>
                                     {selId && <div style={{ textAlign: "center", marginTop: 6 }}><button type="button" style={btn("#7f1d1d")} onClick={() => { setRun(releasePet(run, selId)); setSelId(null); }}>✕ Release selected</button></div>}
                                 </div>
