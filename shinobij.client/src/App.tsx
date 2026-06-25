@@ -4302,7 +4302,7 @@ export default function App() {
             setCreatorJutsus(prev => {
                 // Patch images onto existing creatorJutsus entries.
                 const patched = prev.map(j =>
-                    Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) ? { ...j, image: images['jutsu:' + j.id] } : j);
+                    Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) && !String(j.image ?? '').startsWith('data:') ? { ...j, image: images['jutsu:' + j.id] } : j);
                 // Seed starter jutsu and starter bloodline jutsu images into creatorJutsus
                 // so getAllJutsus (which processes creatorJutsus last in its Map) overrides
                 // the no-image global-const version. Without this, non-admin players never
@@ -4330,7 +4330,7 @@ export default function App() {
             setSavedBloodlines((prev: SavedBloodline[]) => prev.map(b => ({
                 ...b,
                 jutsus: b.jutsus.map(j =>
-                    Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) ? { ...j, image: images['jutsu:' + j.id] } : j),
+                    Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) && !String(j.image ?? '').startsWith('data:') ? { ...j, image: images['jutsu:' + j.id] } : j),
             })));
         }
         else if (cat === 'event') {
