@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { HealerInjuredList } from "../components/HealerInjuredList";
+import { clearSectorReopen } from "../lib/sector-return";
 import {
     type Character,
     type PlayerRecord,
@@ -33,6 +34,13 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     const effectiveUntil = serverUntil > 0 ? serverUntil : mountTime + 60_000;
     const [now, setNow] = useState(() => Date.now());
     const [busy, setBusy] = useState(false);
+
+    // Arriving at the hospital means a KO (or a normal visit). Either way, drop
+    // any pending "return to the sector you were exploring" latch (set before an
+    // ambush fight) so the next Travel opens the world-map overview, not the
+    // sector the player was just knocked out in. The win path never passes
+    // through here, so this can't cancel a legitimate sector reopen.
+    useEffect(() => { clearSectorReopen(); }, []);
 
     useEffect(() => {
         if (!character.hospitalized) return;

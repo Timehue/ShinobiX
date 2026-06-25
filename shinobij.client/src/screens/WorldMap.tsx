@@ -31,6 +31,7 @@ import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorN
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
+import { setSectorReopen, takeSectorReopen } from "../lib/sector-return";
 import { defaultVnScene } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
@@ -159,13 +160,9 @@ function ambienceBiomeForSector(sector: number): Biome {
     }
 }
 
-// One-shot bridge for "return to the sector you were in" after an explore ambush.
-// exploreSector() sets this to the explored sector right before navigating into the
-// fight; the next WorldMap mount (the player returning via Arena's "Return to
-// Sector") consumes it to reopen that sector's detail view, then clears it. Module
-// scope so it survives WorldMap's unmount/remount during the battle. null = no
-// pending reopen (normal world-map entry stays on the overview).
-let reopenSectorOnReturn: number | null = null;
+// "Return to the sector you were in" after an explore ambush is a one-shot latch
+// in ../lib/sector-return (shared so the Hospital can clear it on a KO). See that
+// module for the full lifecycle.
 
 export function WorldMap({
     setCurrentBiome,
@@ -255,22 +252,11 @@ export function WorldMap({
 
     // Returning from an explore ambush: reopen the sector detail the player was in
     // (set by exploreSector before the fight). One-shot — consumed on this mount so
-    // a normal trip to the world map still opens on the overview.
+    // a normal trip to the world map still opens on the overview, and already
+    // cleared by the Hospital on a KO so a death never reopens the death sector.
     useEffect(() => {
-        if (reopenSectorOnReturn !== null) {
-            setSelectedSector(reopenSectorOnReturn);
-            reopenSectorOnReturn = null;
-        }
-    }, []);
-
-    // Returning from an explore ambush: reopen the sector detail the player was in
-    // (set by exploreSector before the fight). One-shot — consumed on this mount so
-    // a normal trip to the world map still opens on the overview.
-    useEffect(() => {
-        if (reopenSectorOnReturn !== null) {
-            setSelectedSector(reopenSectorOnReturn);
-            reopenSectorOnReturn = null;
-        }
+        const reopen = takeSectorReopen();
+        if (reopen !== null) setSelectedSector(reopen);
     }, []);
 
     // ── Scout Network (clan upgrade) ──────────────────────────────────────
@@ -814,7 +800,7 @@ export function WorldMap({
             // "Return to Sector" lands the player back here. Only real explorable
             // sectors (1-60) reopen a detail view; territory/virtual sectors fall
             // back to the world-map overview.
-            reopenSectorOnReturn = sector >= 1 && sector <= 60 ? sector : null;
+            setSectorReopen(sector >= 1 && sector <= 60 ? sector : null);
             setPendingAiProfileId(randomAi.id);
             setScreen("arena");
             return;
