@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const node_crypto_1 = require("node:crypto");
 const _storage_js_1 = require("./_storage.js");
+const _proc_cache_js_1 = require("./_proc-cache.js");
 const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
@@ -14,6 +15,12 @@ const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
 const ARENA_ACTIVE_FIGHTS_KEY = 'game:arena:active-fights';
 const CLAN_PET_BATTLE_PREFIX = 'game:clan-pet-battle:';
 const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
+// Process-local cache for the hot ~5s frame: bounds the two keyspace scans to
+// once per 3s no matter how many clients poll. s-maxage is dropped 8->5 below to
+// offset this window, so proc ttl (3s) + CDN (5s) = the original 8s worst-case
+// staleness — a village-state write from another handler surfaces no later than
+// it did before this cache existed.
+const GAME_STATE_TTL_MS = 3000;
 function clanPetBattleKey(clanName) {
     return `${CLAN_PET_BATTLE_PREFIX}${clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
@@ -34,49 +41,55 @@ async function handler(req, res) {
                 res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
                 return res.status(200).json({ villageLeadershipImages: leadershipImages ?? null });
             }
-            const [villageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
-                _storage_js_1.kv.keys(`${VILLAGE_STATE_PREFIX}*`),
-                _storage_js_1.kv.get(ARENA_TOURNAMENT_KEY),
-                _storage_js_1.kv.get(ARENA_ACTIVE_FIGHTS_KEY),
-                _storage_js_1.kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
-                _storage_js_1.kv.get(WEEKLY_BOSS_OVERRIDE_KEY),
-            ]);
-            const villageStates = {};
-            if (villageStateKeys.length > 0) {
-                // mget fetches all values in one round-trip instead of N individual gets.
-                const stateValues = await _storage_js_1.kv.mget(...villageStateKeys);
-                villageStateKeys.forEach((k, i) => {
-                    if (stateValues[i] != null) {
-                        const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                        villageStates[name] = stateValues[i];
-                    }
-                });
-            }
-            const clanPetBattles = {};
-            if (clanPetBattleKeys.length > 0) {
-                // mget fetches all values in one round-trip instead of N individual gets.
-                const battleValues = await _storage_js_1.kv.mget(...clanPetBattleKeys);
-                clanPetBattleKeys.forEach((k, i) => {
-                    if (battleValues[i] != null) {
-                        const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                        clanPetBattles[name] = battleValues[i];
-                    }
-                });
-            }
-            // CDN caches this response for 8s (s-maxage=8) so N players polling every
-            // ~5s share ~one KV hit per cache window instead of N individual hits;
-            // stale-while-revalidate=5 serves the slightly-stale frame for up to 5s
-            // more while the next origin fetch runs. The content-hash ETag lets the
-            // CDN (and origin) skip re-sending an unchanged body via a 304.
-            const payload = {
-                villageStates,
-                arenaTournament: arenaTournament ?? null,
-                arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
-                clanPetBattles,
-                weeklyBossAiId: weeklyBossAiId ?? null,
-            };
-            const etag = `W/"${(0, node_crypto_1.createHash)('sha1').update(JSON.stringify(payload)).digest('base64')}"`;
-            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
+            // Collapse the two keyspace scans (+ their mgets + the body hash) across
+            // every client polling this hot frame into at most one build per
+            // GAME_STATE_TTL_MS, regardless of how many poll at once. Safe on the
+            // single-process Railway host (see api/_realtime/online-store.ts).
+            const { payload, etag } = await (0, _proc_cache_js_1.cachedFor)('game-state:frame', GAME_STATE_TTL_MS, async () => {
+                const [villageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
+                    _storage_js_1.kv.keys(`${VILLAGE_STATE_PREFIX}*`),
+                    _storage_js_1.kv.get(ARENA_TOURNAMENT_KEY),
+                    _storage_js_1.kv.get(ARENA_ACTIVE_FIGHTS_KEY),
+                    _storage_js_1.kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
+                    _storage_js_1.kv.get(WEEKLY_BOSS_OVERRIDE_KEY),
+                ]);
+                const villageStates = {};
+                if (villageStateKeys.length > 0) {
+                    // mget fetches all values in one round-trip instead of N individual gets.
+                    const stateValues = await _storage_js_1.kv.mget(...villageStateKeys);
+                    villageStateKeys.forEach((k, i) => {
+                        if (stateValues[i] != null) {
+                            const name = k.slice(VILLAGE_STATE_PREFIX.length);
+                            villageStates[name] = stateValues[i];
+                        }
+                    });
+                }
+                const clanPetBattles = {};
+                if (clanPetBattleKeys.length > 0) {
+                    // mget fetches all values in one round-trip instead of N individual gets.
+                    const battleValues = await _storage_js_1.kv.mget(...clanPetBattleKeys);
+                    clanPetBattleKeys.forEach((k, i) => {
+                        if (battleValues[i] != null) {
+                            const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
+                            clanPetBattles[name] = battleValues[i];
+                        }
+                    });
+                }
+                const built = {
+                    villageStates,
+                    arenaTournament: arenaTournament ?? null,
+                    arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
+                    clanPetBattles,
+                    weeklyBossAiId: weeklyBossAiId ?? null,
+                };
+                const builtEtag = `W/"${(0, node_crypto_1.createHash)('sha1').update(JSON.stringify(built)).digest('base64')}"`;
+                return { payload: built, etag: builtEtag };
+            });
+            // s-maxage lowered 8->5 to offset the 3s process cache above, so the
+            // total worst-case staleness stays at the original ~8s while origin
+            // scans are bounded to once per 3s. The content-hash ETag lets the CDN
+            // (and origin) skip re-sending an unchanged body via a 304.
+            res.setHeader('Cache-Control', 's-maxage=5, stale-while-revalidate=5');
             res.setHeader('ETag', etag);
             if (req.headers['if-none-match'] === etag) {
                 return res.status(304).end();
