@@ -121,6 +121,32 @@ export function isCombatConsumable(item: Pick<GameItem, "slot" | "weaponEffect" 
         && (item.weaponEffect != null || item.apCost != null || item.weaponEp != null);
 }
 
+// ── Combat-consumable hold caps (single shared pool) ─────────────────────────
+// Throwables, combat items, and potions use ONE pool: what you OWN is what
+// battle spends. The shop bulk-buy clamps purchases to these caps, and the
+// inventory equip slots show how many are left (emptying out at zero). Caps are
+// per item id — you can hold up to 50 of EACH combat item across the three
+// item slots, 50 of a throwable, and 2 potions (matching the 2-use/battle cap).
+export const THROWN_HOLD_CAP = 50;
+export const COMBAT_ITEM_HOLD_CAP = 50;
+export const POTION_HOLD_CAP = 2;
+
+// The most a player may hold of a given combat consumable, or null when the
+// item isn't one of the three capped categories (throwable / combat item /
+// potion). Pet food, scrolls, keys, crafting materials etc. return null and
+// stay uncapped, unchanged from before.
+export function consumableHoldCap(
+    item: Pick<GameItem, "slot" | "weaponEffect" | "apCost" | "weaponEp" | "restoreChakra" | "restoreStamina">,
+): number | null {
+    const slot = normalizeEquipmentSlot(item.slot);
+    if (slot === "potion") return POTION_HOLD_CAP;
+    if (slot === "thrown") return THROWN_HOLD_CAP;
+    if (slot === "item" && (isCombatConsumable(item) || item.restoreChakra != null || item.restoreStamina != null)) {
+        return COMBAT_ITEM_HOLD_CAP;
+    }
+    return null;
+}
+
 // Place a combat item id into the three item KEYS without evicting the others:
 // keep it where it already sits, else the first open slot, else replace item1.
 // Returns a NEW equipment map and retires the legacy bare "item" key on any

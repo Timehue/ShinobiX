@@ -10,9 +10,9 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { getAllItems } from "../lib/items";
-import { addItem } from "../lib/inventory";
+import { addItem, countItem } from "../lib/inventory";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
-import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
+import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
 import { GameIcon } from "./icons/GameIcon";
@@ -29,6 +29,9 @@ function ShopBase({
     currency?: "ryo" | "fateShards"; onBack: () => void; backLabel?: string;
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
+    // Bulk-buy quantity for capped consumables/throwables/potions. Reset to 1
+    // whenever a different item popup opens.
+    const [buyQty, setBuyQty] = useState(1);
 
     // Lock background scroll + allow Escape-to-close while the item popup is open.
     useBodyScrollLock(selectedItem !== null);
@@ -38,6 +41,11 @@ function ShopBase({
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [selectedItem]);
+
+    // Open an item's popup, resetting the bulk-buy quantity to 1 for a fresh
+    // start. (The render also clamps the shown qty to what's buyable, so a stale
+    // value can never overflow the cap/wallet even before this resets it.)
+    const openItem = (item: GameItem) => { setSelectedItem(item); setBuyQty(1); };
 
     const allItems = getAllItems(creatorItems);
     const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "potion", "accessory"];
@@ -102,22 +110,39 @@ function ShopBase({
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
-    function buy(item: GameItem) {
+    function buy(item: GameItem, qty = 1) {
         const finalCost = getShopCost(item.cost);
         if (item.levelReq && character.level < item.levelReq) return alert(`Requires Level ${item.levelReq}. You are Level ${character.level}.`);
-        if (wallet < finalCost) return alert(`Not enough ${currencyLabel}.`);
+
+        // Consumables/throwables/potions buy in bulk up to a per-item hold cap
+        // (single shared pool — what you own is the ammo battle spends). Other
+        // gear stays single-purchase. Clamp the requested amount to what's left
+        // under the cap so a bulk buy can never overflow it.
+        const cap = consumableHoldCap(item);
+        let n = cap == null ? 1 : Math.max(1, Math.floor(qty));
+        if (cap != null) {
+            const capLeft = Math.max(0, cap - countItem(character, item.id));
+            if (capLeft <= 0) return alert(`You can only carry ${cap} ${item.name}.`);
+            n = Math.min(n, capLeft);
+        }
+
+        const total = finalCost * n;
+        if (wallet < total) return alert(`Not enough ${currencyLabel}.`);
 
         const update = currency === "fateShards"
-            ? { fateShards: character.fateShards - finalCost }
-            : { ryo: character.ryo - finalCost };
+            ? { fateShards: character.fateShards - total }
+            : { ryo: character.ryo - total };
 
         // addItem routes stackables (potions/throwables/consumables) into the
         // counted itemStacks store and pushes uniques onto inventory[] — so a
         // bought potion stacks immediately instead of piling up one inventory
         // entry per copy (which would also pressure the 500-entry save cap).
-        updateCharacter(addItem({ ...character, ...update }, item.id, 1));
+        updateCharacter(addItem({ ...character, ...update }, item.id, n));
 
-        setSelectedItem(null);
+        // Keep the popup open for capped consumables so the player can watch the
+        // owned/cap count update and keep buying; close it for one-off gear.
+        if (cap == null) setSelectedItem(null);
+        else setBuyQty(1);
     }
 
     const alreadyOwned = (item: GameItem) =>
@@ -169,7 +194,7 @@ function ShopBase({
                                         key={item.id}
                                         type="button"
                                         className="location-button shop-item-button"
-                                        onClick={() => setSelectedItem(item)}
+                                        onClick={() => openItem(item)}
                                         style={{ opacity: owned || !canAfford || levelLocked ? 0.75 : 1 }}
                                     >
                                         {item.image && (
@@ -195,6 +220,12 @@ function ShopBase({
                                             ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
                                             : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
                                         }
+
+                                        {consumableHoldCap(item) != null && (
+                                            <small style={{ color: "#86efac", fontWeight: "bold" }}>
+                                                In bag: {countItem(character, item.id)} / {consumableHoldCap(item)}
+                                            </small>
+                                        )}
                                     </button>
                                 );
                             })}
@@ -309,17 +340,67 @@ function ShopBase({
                                 )}
 
                                 <div className="item-popup-actions">
-                                    <button
-                                        type="button"
-                                        onClick={() => buy(selectedItem)}
-                                        disabled={alreadyOwned(selectedItem) || wallet < getShopCost(selectedItem.cost)}
-                                    >
-                                        {alreadyOwned(selectedItem)
-                                            ? "Owned"
-                                            : wallet < getShopCost(selectedItem.cost)
-                                                ? `Need More ${currencyLabel}`
-                                                : <>Buy for {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}</>}
-                                    </button>
+                                    {(() => {
+                                        const cap = consumableHoldCap(selectedItem);
+                                        const unit = getShopCost(selectedItem.cost);
+
+                                        // One-off gear: single Buy button, exactly as before.
+                                        if (cap == null) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => buy(selectedItem)}
+                                                    disabled={alreadyOwned(selectedItem) || wallet < unit}
+                                                >
+                                                    {alreadyOwned(selectedItem)
+                                                        ? "Owned"
+                                                        : wallet < unit
+                                                            ? `Need More ${currencyLabel}`
+                                                            : <>Buy for {currencyIcon} {unit} {currencyLabel}</>}
+                                                </button>
+                                            );
+                                        }
+
+                                        // Capped consumable: bulk-buy stepper. Cap the selectable
+                                        // amount to whatever's left under the hold cap AND what the
+                                        // wallet can afford (and a 99 ceiling per the spec).
+                                        const owned = countItem(character, selectedItem.id);
+                                        const capLeft = Math.max(0, cap - owned);
+                                        const affordable = unit > 0 ? Math.floor(wallet / unit) : 0;
+                                        const maxBuyable = Math.min(99, capLeft, affordable);
+                                        const qty = Math.min(Math.max(1, buyQty), Math.max(1, maxBuyable));
+
+                                        return (
+                                            <div className="shop-bulk-buy" style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+                                                <small style={{ color: "#86efac", fontWeight: "bold" }}>In bag: {owned} / {cap}</small>
+
+                                                {capLeft <= 0 ? (
+                                                    <button type="button" disabled>At carry limit ({cap})</button>
+                                                ) : maxBuyable < 1 ? (
+                                                    <button type="button" disabled>Need More {currencyLabel}</button>
+                                                ) : (
+                                                    <>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                            <button type="button" aria-label="Less" onClick={() => setBuyQty(Math.max(1, qty - 1))} disabled={qty <= 1}>−</button>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                max={maxBuyable}
+                                                                value={qty}
+                                                                onChange={(e) => setBuyQty(Math.max(1, Math.min(maxBuyable, Math.floor(Number(e.target.value) || 1))))}
+                                                                style={{ width: 64, textAlign: "center" }}
+                                                            />
+                                                            <button type="button" aria-label="More" onClick={() => setBuyQty(Math.min(maxBuyable, qty + 1))} disabled={qty >= maxBuyable}>+</button>
+                                                            <button type="button" onClick={() => setBuyQty(maxBuyable)} disabled={qty >= maxBuyable}>Max</button>
+                                                        </div>
+                                                        <button type="button" onClick={() => buy(selectedItem, qty)}>
+                                                            Buy {qty} for {currencyIcon} {unit * qty} {currencyLabel}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
 
                                     <button
                                         type="button"
