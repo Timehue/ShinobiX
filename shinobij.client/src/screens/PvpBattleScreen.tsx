@@ -1513,6 +1513,7 @@ export function PvpBattleScreen({
                                             const isArmed = pendingJutsuId === j.id;
                                             return (
                                                 <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
+                                                    {onCooldown && <span className="combat-cd-badge" title={`${myCooldowns[j.id]} turn(s) until ready`}>{myCooldowns[j.id]}</span>}
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
@@ -1545,6 +1546,7 @@ export function PvpBattleScreen({
                                             const onCooldown = wCd > 0;
                                             return (
                                                 <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                    {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
@@ -1578,6 +1580,7 @@ export function PvpBattleScreen({
                                             const onCooldown = wCd > 0;
                                             return (
                                                 <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                    {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
                                                     <button
                                                         type="button"
                                                         className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
@@ -1603,19 +1606,26 @@ export function PvpBattleScreen({
                                             const chargesLeft = pvpItemChargesLeft(item.id);
                                             const depleted = chargesLeft != null && chargesLeft <= 0;
                                             const countSuffix = chargesLeft != null ? ` ×${chargesLeft}` : "";
+                                            // Combat items (pills / smoke bomb) honour their CD
+                                            // server-side — grey out + show the remaining turns like
+                                            // the weapon cards. Restore-only potions carry no CD, so
+                                            // wCd stays 0 and they never grey for this reason.
+                                            const wCd = myCooldowns[item.id] ?? 0;
+                                            const onCooldown = wCd > 0;
                                             return (
-                                                <div className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card" key={item.id}>
+                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card${onCooldown ? " jutsu-on-cooldown" : ""}`} key={item.id}>
+                                                    {onCooldown && <span className="combat-cd-badge" title={`${wCd} turn(s) until ready`}>{wCd}</span>}
                                                     <button
                                                         type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}`}
-                                                        title={depleted ? `${item.name} — none left this battle` : `${item.name} | ${apCost} AP | Use`}
-                                                        onClick={() => { setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                        disabled={submitting || myAp < apCost || depleted}>
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                        title={depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                        onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
+                                                        disabled={submitting || myAp < apCost || depleted || onCooldown}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | Use{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
                                                     </button>
                                                 </div>
                                             );
