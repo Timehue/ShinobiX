@@ -1,5 +1,40 @@
 # Sector Wanderers — AI shinobi that roam sectors and *feel like players*
 
+> ## ✅ As-built (shipped to `main`, behind the `wanderers.v1` flag, default OFF)
+>
+> The feature below is **built and live** (dormant until the flag is enabled). What
+> actually shipped, and where it differs from the original plan:
+>
+> - **Wanderers** spawn per wild sector (seeded, 6h refresh), walk/patrol and
+>   approach the player, with an honest "wandering" tell. Five archetypes:
+>   **bandit** (attack), **pilgrim** (gift), **sage** (quest), **beast** (pet duel),
+>   **gambler** (card clash). `lib/wanderers.ts`, `components/SectorWanderer.tsx`.
+> - **Attack/rob** fights the player using a one-off AI that wears the wanderer's
+>   name/face, **scaled to the player's level** (never impossible).
+> - **Robber streak → ambush:** fending off robbers builds `character.robberStreak`;
+>   at 5 the next bandit triggers an **ambush gauntlet — 3 robbers then a boss**,
+>   back-to-back with carried HP. The engine is strictly **1v1**, so this is a
+>   *sequential* gauntlet, not a simultaneous 3v1. Boss clear pays a
+>   **server-authoritative** loot bundle (`api/sector/wanderer-ambush.ts`: sealed
+>   baseline + verified clear + daily cap).
+> - **Gift** (pilgrim): server-rolled bundle — small ryo + an occasional fate shard
+>   + 1–5 bone charms, daily-capped (`api/sector/wanderer-gift.ts`).
+> - **Quest** (sage): 5 varied, server-verified objectives (win battles / pet duels
+>   / card rounds / scout tiles) with sealed baseline + reward
+>   (`api/sector/wanderer-quest.ts`).
+> - **Pet duel** (beast) → existing Pet Coliseum; **Card clash** (gambler) → existing
+>   Card Hall. Both reuse those modes' existing, server-safe reward paths.
+> - **Not yet built** from the depth layer below: the full multi-stage quest book
+>   (§11 of the content doc), the persistent nemesis/bounty-board rivalry, the
+>   reputation/standing layer, faction/war reactivity, and bespoke boss art (no
+>   image-gen keys in the build env). `dist/` is left to a canonical rebuild before
+>   enabling cPanel (Railway builds from source).
+>
+> The rest of this doc is the **original design plan** (more ambitious than what
+> shipped); keep it as the north star for future passes.
+
+---
+
 > Status: **PLAN, not started.** Written 2026-06-25. Mandate from the owner:
 > *"Make a plan for AI interaction with players in sectors — make the AI look
 > like how players look with the avatars, and have them either rob/attack, give
