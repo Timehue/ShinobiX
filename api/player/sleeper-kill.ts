@@ -5,7 +5,6 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { isAcademyProtectedLevel, ACADEMY_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
 import { recordPairWinAndDecay } from '../pvp/_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
@@ -45,24 +44,24 @@ function monthKey(): string {
     return new Date().toISOString().slice(0, 7);
 }
 
-export type SleeperBlock = { status: 403 | 404 | 409; error: string };
+export type SleeperBlock = { status: 404 | 409; error: string };
 
-// Pure gate predicate over a target's SAVE state (no I/O), mirroring live sector
-// PvP's protections so a logged-out player can't be farmed in their sleep. The
-// online check is done separately by the caller (it needs the presence store,
-// not the save). Returns null when the KO may proceed.
+// Pure gate predicate over a target's SAVE state (no I/O). The online check is
+// done separately by the caller (it needs the presence store, not the save).
+// Returns null when the KO may proceed.
+//
+// Per owner decision: ANY player classified as a sleeper is fair game,
+// regardless of level. Academy protection (sub-Genin) is deliberately NOT
+// applied on this path — it still protects new players in live/online PvP. The
+// structural anti-farm bounds remain: a KO relocates the victim to the village
+// (removing them from the sleeper pool), and rewards are anti-alt'd + daily /
+// per-target capped.
 export function sleeperTargetBlock(targetChar: Record<string, unknown> | undefined, sector: number): SleeperBlock | null {
     if (!targetChar) return { status: 404, error: 'Target not found.' };
     // Safe-zone gate: village / Central / any town screen saves currentSector 0.
     // Only a logout in a real wild sector (>= 1) leaves a sleeper.
     if (!(Number.isFinite(sector) && sector >= 1)) {
         return { status: 409, error: 'Target logged out in a safe zone and cannot be attacked.' };
-    }
-    // Academy protection (level < 15) is the stricter gate and subsumes the
-    // sector-raid attackable floor (level < 10), so brand-new shinobi are safe.
-    const level = Number(targetChar.level ?? 0);
-    if (isAcademyProtectedLevel(level)) {
-        return { status: 403, error: `This shinobi is under Academy protection (cannot be attacked until Genin, level ${ACADEMY_MIN_LEVEL}).` };
     }
     if (targetChar.hospitalized) {
         return { status: 409, error: 'Target has already been defeated.' };
