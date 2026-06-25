@@ -258,7 +258,8 @@ export function makeBuiltinAi(
     jutsus: Jutsu[],
     statBonus: number,
     hpOverride?: number,
-    loadoutId: AiLoadoutId = aiLoadoutFromJutsus(jutsus)
+    loadoutId: AiLoadoutId = aiLoadoutFromJutsus(jutsus),
+    hpFloorExempt = false
 ): CreatorAi {
     const selectedJutsus = (jutsus.length ? jutsus : aiJutsuLoadout(loadoutId, starterJutsus)).map(normalizeJutsu);
     // The Worldstorm Dragon (peer-band L92) is opt-in apex content, but 0.35
@@ -277,7 +278,11 @@ export function makeBuiltinAi(
         icon,
         level,
         village,
-        hp: Math.max(hpOverride ?? 0, aiHpForLevel(level, toughness)),
+        // hpFloorExempt bosses use their authored hp verbatim (can sit below the
+        // level curve); everyone else floors at aiHpForLevel so a low/blank hp
+        // can't leave a level-appropriate mob trivially squishy.
+        hp: hpFloorExempt ? Math.max(1, hpOverride ?? 0) : Math.max(hpOverride ?? 0, aiHpForLevel(level, toughness)),
+        hpFloorExempt: hpFloorExempt || undefined,
         chakra: maxChakraForLevel(level),
         stamina: maxStaminaForLevel(level),
         stats: addToAllStats(aiStatsForLevel(level, selectedJutsus), statBonus),
@@ -324,12 +329,16 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
     const jutsuCount = step.levelReq >= 85 ? 6 : step.levelReq >= 50 ? 5 : 4;
     const selectedJutsus = (villageJutsus.length ? villageJutsus : starterJutsus).slice(0, jutsuCount);
     const statBonus = Math.max(25, Math.floor(step.bossDamage * 0.9));
-    // The kage finale uses no toughness HP-floor so its lowered bossHp actually
-    // takes effect (a 0.50 floor pinned it back near ~22k regardless of the table).
-    // It still floors at aiHpForLevel(100, 0) ≈ 14,553 via normalizeAiProfile, and
-    // stays the hardest fight via the peer band, not via a bigger HP pool.
-    const bossHp = Math.max(step.bossHp, aiHpForLevel(step.levelReq, step.kageFinale ? 0 : 0.30));
-    return makeBuiltinAi(
+    // Story bosses at L65+ (incl. the kage finale) use their authored bossHp
+    // verbatim (hpFloorExempt) so the table value lands EXACTLY — the late-game
+    // peer-band curve would otherwise floor them ~12k–17k regardless of the table.
+    // Lower-level story bosses keep the level-curve floor (toughness 0.30) as a
+    // squishiness guard. These bosses stay hard via the peer band + damage, not HP.
+    const hpAuthoritative = step.kageFinale || step.levelReq >= 65;
+    const bossHp = hpAuthoritative
+        ? Math.max(1, Math.floor(step.bossHp))
+        : Math.max(step.bossHp, aiHpForLevel(step.levelReq, 0.30));
+    const boss = makeBuiltinAi(
         step.aiProfileId ?? storyAiId(village, step.levelReq),
         step.bossName,
         step.bossIcon,
@@ -337,8 +346,11 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
         village,
         selectedJutsus,
         statBonus,
-        bossHp
+        bossHp,
+        undefined,
+        hpAuthoritative
     );
+    return boss;
 }
 export const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
 
@@ -366,20 +378,24 @@ export const builtinAis: CreatorAi[] = [
     makeBuiltinAi("hunt-ai-ash-lizard", "Ash Lizard", "🦎", 22, "Volcano Territory", aiJutsuLoadout("burst"), 50, 3200, "burst"),
     makeBuiltinAi("hunt-ai-shadow-panther", "Shadow Panther", "🐈", 38, "Shadow Territory", aiJutsuLoadout("control"), 78, 5800, "control"),
     makeBuiltinAi("hunt-ai-ironback-bear", "Ironback Bear", "🐻", 42, "Forest Territory", aiJutsuLoadout("defender"), 85, 6500, "defender"),
-    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "🐉", 65, "Volcano Territory", aiJutsuLoadout("boss"), 150, 12000, "boss"),
-    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🐍", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 13000, "control"),
-    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "👺", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 18000, "boss"),
-    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐲", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 16000, "boss"),
+    // Apex hunt bosses are hpFloorExempt (final arg) so these authored HP pools land
+    // exactly — the late-game curve would otherwise floor them ~11k–18k. Damage/armor
+    // (toughness) are unchanged; only the HP pool is tuned down for winnability.
+    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "🐉", 65, "Volcano Territory", aiJutsuLoadout("boss"), 150, 8500, "boss", true),
+    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🐍", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 9000, "control", true),
+    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "👺", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 12000, "boss", true),
+    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐲", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 12500, "boss", true),
     // -- Hollow Gate Shrine boss ---------------------------------------------
     // The Hollow Gate Warden is the deepest seal of the shrine. It is flagged
     // isBossAi so the shrine boss-tile picker selects it, and is built at a high
     // base level — the runtime AI selection in startHollowGateBattle rebases
     // its name and level to within ±15 of the player's level on use.
     ((): CreatorAi => {
-        // Base HP is multiplied by the run's floor (up to 1.4× on Floor 5), so a
-        // 22k base hit ~30.8k at the deepest floor — an unwinnable peer-band grind.
-        // 13k base keeps the floor-scaling feel but tops out ~18.2k on Floor 5.
-        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 13000, "boss");
+        // Base HP is multiplied by the run's floor (up to 1.4× on Floor 5). 9k base
+        // tops out ~12.6k on Floor 5 — keeps the floor-scaling feel while staying
+        // winnable (was 13k → ~18.2k, an unwinnable peer-band grind for most). 9k
+        // sits above the L60 curve floor (~8.5k) so it lands without an exempt flag.
+        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 9000, "boss");
         return { ...base, isBossAi: true };
     })(),
 ];
@@ -408,7 +424,9 @@ export function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = 
         icon: ai.icon ?? fallback.icon,
         image: ai.image ?? fallback.image,
         level,
-        hp: Math.max(aiHpForLevel(level), Number(ai.hp ?? fallback.hp)),
+        hp: ai.hpFloorExempt
+            ? Math.max(1, Number(ai.hp ?? fallback.hp))
+            : Math.max(aiHpForLevel(level), Number(ai.hp ?? fallback.hp)),
         chakra: Math.max(maxChakraForLevel(level), Number(ai.chakra ?? fallback.chakra)),
         stamina: Math.max(maxStaminaForLevel(level), Number(ai.stamina ?? fallback.stamina)),
         stats: sturdyStats,

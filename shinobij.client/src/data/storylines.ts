@@ -22,14 +22,17 @@ const bossScaleByLevel: Record<number, { hp: number; damage: number; xp: number;
     25:  { hp: 3500,  damage: 50,  xp: 900,   ryo: 500 },
     35:  { hp: 5200,  damage: 68,  xp: 1400,  ryo: 800 },
     50:  { hp: 7500,  damage: 90,  xp: 2200,  ryo: 1300 },
-    65:  { hp: 11000, damage: 120, xp: 3400,  ryo: 2000 },
-    75:  { hp: 14000, damage: 148, xp: 4600,  ryo: 2800 },
-    85:  { hp: 18000, damage: 185, xp: 6200,  ryo: 4000 },
+    // L65+ story bosses are hpFloorExempt in makeStoryBossAi, so these hp values are
+    // AUTHORITATIVE (used verbatim). The late-game peer-band curve would otherwise
+    // floor them ~12k–17k. Tuned down for winnability; damage/rewards unchanged.
+    65:  { hp: 8500,  damage: 120, xp: 3400,  ryo: 2000 },
+    75:  { hp: 9500,  damage: 148, xp: 4600,  ryo: 2800 },
+    85:  { hp: 11000, damage: 185, xp: 6200,  ryo: 4000 },
     // Kage finale: the peer-band AI (lvl 100) hits with uncapped damage + full
-    // mastery, so 24k HP made the grind unwinnable for non-maxed players. Lowered
-    // to leave room for player skill; effective HP floors at ~14,553 via
-    // aiHpForLevel(100, 0) in makeStoryBossAi (the kage HP-floor was dropped too).
-    100: { hp: 14000, damage: 250, xp: 10000, ryo: 7500 },
+    // mastery, so 24k HP made the grind unwinnable for non-maxed players. This hp
+    // is now AUTHORITATIVE: makeStoryBossAi builds the finale hpFloorExempt, so the
+    // value here is used verbatim (it can sit below aiHpForLevel(100) ≈ 14.7k).
+    100: { hp: 13000, damage: 250, xp: 10000, ryo: 7500 },
 };
 
 const kageLiberatorTitles: Record<string, string> = {
