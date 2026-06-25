@@ -8,7 +8,7 @@ import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBlood
 import type { Rank, Screen } from "../types/core";
 import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID } from "../constants/game";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
-import { armorReductionForQuality, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
+import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
 import { elementIcon, getCharacterElements, rollAwakeningElements, rollNewAwakeningElement, uniqueElements } from "../lib/elements";
 import { getAllItems } from "../lib/items";
@@ -71,6 +71,9 @@ export function CentralHub({
     const [showDungeonPanel, setShowDungeonPanel] = useState(false);
     const [showCrafter, setShowCrafter] = useState(false);
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons" | "armor">("supplies");
+    // Batch-craft size for the Supplies tab — craft up to this many per click,
+    // with the material (craft-point) cost scaled by the same factor.
+    const [craftQty, setCraftQty] = useState(1);
     const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
     // Active-war banner — fetches the world-state once on mount and
     // refreshes every 15s so the banner doesn't lag the war screen.
@@ -1005,42 +1008,72 @@ export function CentralHub({
                 // three tabs stay balanced against one another.
                 const totalPts = craftPointsTotal();
 
-                function craftItem(costPts: number, grant: (c: Character) => Character) {
-                    if (totalPts < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${totalPts}.`);
-                    updateCharacter(grant(consumeCraftPoints(costPts)));
-                    alert("Crafting complete!");
+                // Batch craft up to `qty` copies, scaling the craft-point cost by
+                // the same factor ("raise the materials to compensate"). Capped
+                // consumables clamp the batch to the carry cap so crafting can't
+                // exceed what the shop lets you hold; affordability clamps the rest.
+                function craftRecipe(
+                    recipe: { name: string; cost: number; itemId?: string; per?: number; grant?: (c: Character) => Character },
+                    qty: number,
+                ) {
+                    const affordable = Math.floor(totalPts / recipe.cost);
+                    if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
+                    let n = Math.min(Math.max(1, Math.floor(qty)), affordable);
+
+                    if (recipe.itemId) {
+                        const item = allHubItems.find((i) => i.id === recipe.itemId);
+                        const cap = item ? consumableHoldCap(item) : null;
+                        if (cap != null) {
+                            const per = recipe.per ?? 1;
+                            const capLeft = Math.max(0, cap - countItem(character, recipe.itemId));
+                            const maxByCap = Math.floor(capLeft / per);
+                            if (maxByCap < 1) return alert(`You can only carry ${cap} ${recipe.name}.`);
+                            n = Math.min(n, maxByCap);
+                        }
+                    }
+
+                    let next = consumeCraftPoints(recipe.cost * n);
+                    if (recipe.itemId) next = addItem(next, recipe.itemId, (recipe.per ?? 1) * n);
+                    else if (recipe.grant) for (let i = 0; i < n; i++) next = recipe.grant(next);
+                    updateCharacter(next);
+                    alert(`Crafted ${n}× ${recipe.name}.`);
                 }
 
-                const recipes = [
-                    { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "pet-treat"] }) },
-                    { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "elemental-pet-treat"] }) },
-                    { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", craft: (c: Character) => ({ ...c, auraDust: (c.auraDust ?? 0) + 50 }) },
-                    { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", craft: (c: Character) => ({ ...c, boneCharms: (c.boneCharms ?? 0) + 1 }) },
+                // Item recipes carry { itemId, per } so a batch craft can add the
+                // right count via addItem (stackables → itemStacks) and clamp to
+                // the carry cap; currency recipes (dust/charm) carry a `grant` fn.
+                const recipes: Array<{ name: string; cost: number; desc: string; itemId?: string; per?: number; grant?: (c: Character) => Character }> = [
+                    { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
+                    { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
+                    { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", grant: (c: Character) => ({ ...c, auraDust: (c.auraDust ?? 0) + 50 }) },
+                    { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", grant: (c: Character) => ({ ...c, boneCharms: (c.boneCharms ?? 0) + 1 }) },
                     // Thrown weapons
-                    { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (22 EP thrown)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "thrown-shuriken", "thrown-shuriken", "thrown-shuriken"] }) },
-                    { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "thrown-senbon"] }) },
-                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (55% poison, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "thrown-serpent-dust"] }) },
+                    { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (22 EP thrown)", itemId: "thrown-shuriken", per: 3 },
+                    { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
+                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (55% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
-                    { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-smoke-bomb"] }) },
-                    { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-attack-pill"] }) },
-                    { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (-15% damage received, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-defense-pill"] }) },
-                    // Potions — stack into itemStacks via addItem (not the inventory[]
-                    // push the older recipes use) so high counts don't pile up entries.
-                    { name: "Rejuvenation Potion ×1", cost: 250, desc: "1× Rejuvenation Potion (restore 1000 chakra + 1000 stamina in battle, 20 AP, up to 2/fight)", craft: (c: Character) => addItem(c, "potion-rejuvenation", 1) },
+                    { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", itemId: "item-smoke-bomb", per: 1 },
+                    { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },
+                    { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (-15% damage received, 2 rounds)", itemId: "item-defense-pill", per: 1 },
+                    // Potions — addItem routes the stackable potion into itemStacks
+                    // so high counts don't pile up one inventory[] entry per copy.
+                    { name: "Rejuvenation Potion ×1", cost: 250, desc: "1× Rejuvenation Potion (restore 1000 chakra + 1000 stamina in battle, 20 AP, up to 2/fight)", itemId: "potion-rejuvenation", per: 1 },
                     // PVE companion gear — epic/legendary-tier crafts. Each piece
                     // boosts the summoned pet in PvE and wears out after 20 summons.
                     ...petPveGear.map((gear) => ({
                         name: gear.name,
                         cost: gear.craftPts,
                         desc: `1× ${gear.name} (PVE slot) — ${gear.desc}. Breaks after ${PET_PVE_DURABILITY} summons.`,
-                        craft: (c: Character) => ({ ...c, inventory: [...c.inventory, gear.id] }),
+                        itemId: gear.id,
+                        per: 1,
                     })),
                     // Battle consumables — reactive single-use items (epic-tier craft).
                     ...petConsumables.map((cons) => ({
                         name: cons.name,
                         cost: cons.craftPts,
                         desc: `1× ${cons.name} (Consumable slot) — ${cons.desc}. Single use.`,
-                        craft: (c: Character) => ({ ...c, inventory: [...c.inventory, cons.id] }),
+                        itemId: cons.id,
+                        per: 1,
                     })),
                 ];
 
@@ -1162,19 +1195,46 @@ export function CentralHub({
                             })()}
                             </div>
 
+                            <div className="crafter-batch-row" style={{ display: "flex", alignItems: "center", gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
+                                <strong>Batch:</strong>
+                                {[1, 5, 20].map((q) => (
+                                    <button
+                                        key={q}
+                                        type="button"
+                                        className={craftQty === q ? "active" : ""}
+                                        onClick={() => setCraftQty(q)}
+                                        style={{ padding: "2px 12px" }}
+                                    >
+                                        ×{q}
+                                    </button>
+                                ))}
+                                <small style={{ color: "#9aa0aa" }}>Cost scales with quantity. Capped supplies stop at their carry limit.</small>
+                            </div>
+
                             <div className="crafter-recipe-grid">
                                 {recipes.map((recipe) => {
-                                    const fillPct = Math.min(100, Math.floor((totalPts / recipe.cost) * 100));
+                                    const batchCost = recipe.cost * craftQty;
+                                    const fillPct = Math.min(100, Math.floor((totalPts / batchCost) * 100));
+                                    // Capped consumables (thrown / combat item / potion) can't be
+                                    // crafted past the shared carry cap — show the count and gate.
+                                    const capItem = recipe.itemId ? allHubItems.find((i) => i.id === recipe.itemId) : undefined;
+                                    const cap = capItem ? consumableHoldCap(capItem) : null;
+                                    const owned = recipe.itemId ? countItem(character, recipe.itemId) : 0;
+                                    const atCap = cap != null && owned + (recipe.per ?? 1) > cap;
+                                    const canAffordOne = totalPts >= recipe.cost;
                                     return (
                                         <div key={recipe.name} className="crafter-recipe-btn">
                                             <strong>{recipe.name}</strong>
                                             <small>{recipe.desc}</small>
+                                            {cap != null && (
+                                                <small style={{ color: "#86efac" }}>In bag: {owned} / {cap}</small>
+                                            )}
                                             <div className="crafter-progress-bar">
                                                 <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="crafter-pts-label">{Math.min(totalPts, recipe.cost)}/{recipe.cost} pts</small>
-                                            <button onClick={() => craftItem(recipe.cost, recipe.craft)} disabled={totalPts < recipe.cost}>
-                                                Craft
+                                            <small className="crafter-pts-label">{Math.min(totalPts, batchCost)}/{batchCost} pts</small>
+                                            <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap}>
+                                                {atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
                                         </div>
                                     );
