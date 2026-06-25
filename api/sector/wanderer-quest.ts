@@ -4,7 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { WANDERER_QUEST_TARGETS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
+import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
 
 /*
  * /api/sector/wanderer-quest — POST { action: 'accept' | 'claim', playerName, questId? }
@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'accept') {
             const questId = typeof body.questId === 'string' ? body.questId : '';
             if (!isWandererQuestId(questId)) return res.status(400).json({ error: 'Unknown quest.' });
-            const target = WANDERER_QUEST_TARGETS[questId];
+            const def = WANDERER_QUESTS[questId];
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const existing = await kv.get<{ id: string; baseline: number }>(questKey);
@@ -56,12 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
-                const baseline = num(char.totalAiKills);
+                const baseline = num(char[def.metric]);
                 await kv.set(questKey, { id: questId, baseline, at: Date.now() }, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
-                const updated = { ...char, activeWandererQuest: { id: questId, target, baseline } };
+                const updated = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
                 await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
-                return { status: 200, body: { ok: true, id: questId, target, baseline } };
+                return { status: 200, body: { ok: true, id: questId, target: def.target, baseline } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -75,18 +75,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(questKey).catch(() => undefined);
                     return { status: 200, body: { ok: false, reason: 'none' } };
                 }
-                const target = WANDERER_QUEST_TARGETS[sealed.id];
+                const def = WANDERER_QUESTS[sealed.id];
 
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
-                const current = num(char.totalAiKills);
-                if (!wandererQuestComplete(num(sealed.baseline), current, target)) {
-                    return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target } };
+                const current = num(char[def.metric]);
+                if (!wandererQuestComplete(num(sealed.baseline), current, def.target)) {
+                    return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
                 }
 
-                const reward = wandererQuestRyo(num(char.level) || 1, target);
+                const reward = wandererQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
                 await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
