@@ -404,6 +404,7 @@ export type PlayerRecord = {
     lastSeenAt?: number;
     travelingUntil?: number;
     clan?: string; // surfaced from presence for the Scout Network war overlay
+    tile?: number; // within-sector tile (0..143) for live peer rendering; display-only
 };
 
 export type ServerPlayerSummary = {

@@ -1,9 +1,10 @@
 # Sector Multiplayer Smoothness Plan — making crowded sectors feel seamless
 
 **Date:** 2026-06-25
-**Status:** Phases 1 & 2 (core) **IMPLEMENTED** on branch `claude/xenodochial-faraday-7ef952`
-(client-only, lint + tsc + vite build + App.size ratchet all green; not yet committed, not yet
-owner-feel-checked live). Phases 3–6 and the optional sub-steps 2C/2D remain PLAN ONLY.
+**Status:** Phases 1, 2, **and 2D (live peer movement) IMPLEMENTED** on branch
+`claude/xenodochial-faraday-7ef952` (lint + tsc + 1493 root tests + App.size ratchet all green; not
+yet owner-feel-checked live). Phase 1 committed at `73c922a6`; 2D + exit-fade in a follow-up commit.
+Phases 3–6 and 2C (grounded peer look) remain PLAN ONLY.
 **Scope:** The "sectors" (the 12×12 world-map grid screen) where players see each other,
 are viewable, and can fight. Goal: make the experience smooth and seamless when **multiple
 players are present at once** — no flicker, no teleport/pop, no jank, instant-feeling PvP entry.
@@ -18,15 +19,28 @@ players are present at once** — no flicker, no teleport/pop, no jank, instant-
   display-field signature is unchanged, so the per-beat `allPlayers` merge stops re-rendering App on
   the common no-change beat. Signature buckets `lastSeenAt` to 30s so the Scout overlay's 90s
   staleness check stays accurate (the one subtle correctness point).
-- **2A (enter)** — peers fade+scale in on appearance via a CSS keyframe on `.other-player-map-dot`
-  (`index.css`), reduced-motion respected. (Exit-fade deferred — see below.)
+- **2A (enter)** — peers fade+scale in on appearance, reduced-motion respected.
 - **2B** — a ~2.5s per-name "linger" in the store keeps a peer visible across a momentary snapshot
   gap (kills the sub-second blink); explicit `presence:gone`/sleeper-KO and the 60s TTL still remove
   immediately.
-- **Deferred from this pass:** 2A exit-fade (needs render-local leaving-node tracking — lowest value,
-  highest complexity), 2C (flag-gated grounded peer look), 2D (real peer movement — additive feature,
-  owner approval + server frame change + dist rebuild). Phase 1C (move `playerRoster` fully into the
-  store) only if profiling still shows roster-driven App churn.
+- **2D (live peer movement)** — the presence frame now carries a within-sector `tile` (0..143),
+  added identically on both transports (`api/player/heartbeat.ts` + `api/_realtime/socket.ts`),
+  clamped server-side (`normalizeTile`), stored on `OnlinePlayer`, and returned by `toPlayerRecord`.
+  WorldMap bridges the local player's `sectorPlayerPos` → the heartbeat via the store
+  (`setLocalSectorTile`/`getLocalSectorTile`). A new `SectorPeers` overlay renders other players at
+  their real tile and **glides** them between tiles via a CSS transform transition (fallback: the
+  deterministic per-name tile when a peer hasn't sent one — graceful for old clients). Gated by
+  `sectorPeers.v1` (localStorage, **default ON**; set `=off` to restore the old in-tile dots).
+- **2A exit-fade** — now delivered: `SectorPeers` keeps a departed peer one fade-out cycle
+  (`peer-map-out`) then drops it on `animationend` (immediate drop under reduced motion).
+- **App-size drain** — `presenceCharacter()` moved verbatim from App.tsx to
+  `lib/presence-character.ts` to keep App.tsx under the 10,134-line ratchet (now 10,108).
+- **Deferred:** 2C (flag-gated grounded/aura peer look), Phase 1C (move `playerRoster` fully into the
+  store), Part A Phases 3–6 (delta socket events, HTTP→fallback, crowd cap/canvas, intra-sector AOI),
+  CDN `no-store`.
+- **Deploy note:** `dist/` is NOT rebuilt in these commits (Railway self-builds from source for the
+  live host). Run `npm run build` + commit `dist/` (root server dist + client dist force-added) before
+  any **cPanel** deploy, since cPanel serves committed `dist/` verbatim.
 
 ---
 
