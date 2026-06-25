@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ACCOUNT_AGE_MIN_MS = exports.PER_TARGET_DAILY_CAP = exports.DAILY_SEAL_CAP = exports.VANGUARD_SEALS_PER_KILL = void 0;
 exports.levelGapMult = levelGapMult;
 exports.vanguardXpForLevel = vanguardXpForLevel;
 exports.vanguardSealsForRank = vanguardSealsForRank;
@@ -22,10 +23,14 @@ const PET_ESCORT_SEAL_BONUS = 1.05;
 // Matches the client-side formula in shinobij.client/src/App.tsx
 // (vanguardSealsForKill / vanguardXpForKill) so removing the client-side
 // grant later won't change observable balance.
-const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
-const DAILY_SEAL_CAP = 50;
-const PER_TARGET_DAILY_CAP = 3;
-const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
+// Exported so the sleeper-KO path (api/player/sleeper-kill.ts) reuses the EXACT
+// same seal table + caps — keeping that no-fight payout in lockstep with live
+// PvP balance instead of duplicating the numbers. Adding `export` is the only
+// change here; the grant logic below is untouched.
+exports.VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
+exports.DAILY_SEAL_CAP = 50;
+exports.PER_TARGET_DAILY_CAP = 3;
+exports.ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
 const MIN_FIGHT_DURATION_MS = 15_000;
 function todayKey() {
     return new Date().toISOString().slice(0, 10);
@@ -43,7 +48,7 @@ function vanguardXpForLevel(targetLevel) {
 }
 function vanguardSealsForRank(rank) {
     const r = Math.max(0, Math.min(MAX_RANK, rank));
-    return VANGUARD_SEALS_PER_KILL[r];
+    return exports.VANGUARD_SEALS_PER_KILL[r];
 }
 // Healer 1.5× / baseline thresholds — duplicated from save/[name].ts and
 // missions/_progress.ts. Kept in sync manually; eventually consolidate.
@@ -117,7 +122,7 @@ async function grantVanguardRewardsForSession(session) {
             return { granted: false };
         // Anti-alt: account age and IP overlap.
         const loserCreated = Number(loserChar.createdAt ?? 0);
-        if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
+        if (loserCreated > 0 && (Date.now() - loserCreated) < exports.ACCOUNT_AGE_MIN_MS) {
             return { granted: false, reason: 'too-young' };
         }
         // Includes browser-fingerprint overlap, so VPN rotation alone no
@@ -130,7 +135,7 @@ async function grantVanguardRewardsForSession(session) {
         // fraction of the seals the gap would have stripped.
         const spec = winnerChar.masterySpec;
         const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));
-        const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
+        const baseSeals = exports.VANGUARD_SEALS_PER_KILL[rank];
         const gapMult = levelGapMult(Number(winnerChar.level ?? 1), Number(loserChar.level ?? 1));
         const gapSoftenPct = Math.min(100, (0, _profession_mastery_js_1.masteryBonus)('vanguard', spec, 'sealGapSoftenPct'));
         const effectiveGapMult = gapMult + (1 - gapMult) * (gapSoftenPct / 100);
@@ -150,9 +155,9 @@ async function grantVanguardRewardsForSession(session) {
             : {};
         const loserKey = loserSlug; // per-target daily cap keyed by canonical slug
         const targetSoFar = byTarget[loserKey] ?? 0;
-        const dailyCap = DAILY_SEAL_CAP + Math.min(15, (0, _profession_mastery_js_1.masteryBonus)('vanguard', spec, 'sealDailyCapFlat'));
+        const dailyCap = exports.DAILY_SEAL_CAP + Math.min(15, (0, _profession_mastery_js_1.masteryBonus)('vanguard', spec, 'sealDailyCapFlat'));
         seals = Math.min(seals, Math.max(0, dailyCap - dailySoFar));
-        seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
+        seals = Math.min(seals, Math.max(0, exports.PER_TARGET_DAILY_CAP - targetSoFar));
         if (seals <= 0)
             return { granted: false, reason: 'capped' };
         // Pet escort: if the Vanguard has an active pet and their clan has any
