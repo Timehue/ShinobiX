@@ -30,6 +30,56 @@ const SHORT_LABELS: Record<string, string> = {
     "Decrease Damage Taken": "Damage taken ↓",
 };
 
+// Tiny labels for the compact mobile strip (full name lives in the chip tooltip).
+const TINY_LABELS: Record<string, string> = {
+    "Increase Damage Given": "DMG↑",
+    "Decrease Damage Given": "DMG↓",
+    "Increase Damage Taken": "TKN↑",
+    "Decrease Damage Taken": "TKN↓",
+    "Lifesteal": "Steal",
+    "Absorb": "Absorb",
+    "Reflect": "Reflect",
+    "Ignition": "Burn",
+};
+function tinyStatusLabel(name: string): string {
+    return TINY_LABELS[name] ?? (name.length > 8 ? name.slice(0, 8) : name);
+}
+
+type GroupedStatus = { name: string; count: number; percent?: number; amount?: number; rounds: number };
+
+// Group duplicate stacking statuses into one entry with a ×count, summing raw
+// percent/amount. Shared by the desktop panel and the mobile strip so both read
+// identically.
+function groupStatuses(statuses: { name: string; rounds: number; amount?: number; percent?: number }[]): GroupedStatus[] {
+    const grouped: GroupedStatus[] = [];
+    for (const s of statuses) {
+        const g = grouped.find((x) => x.name === s.name);
+        if (g) {
+            g.count += 1;
+            g.rounds = Math.max(g.rounds, s.rounds);
+            if (s.percent != null) g.percent = (g.percent ?? 0) + s.percent;
+            if (s.amount != null) g.amount = (g.amount ?? 0) + s.amount;
+        } else {
+            grouped.push({ name: s.name, count: 1, percent: s.percent, amount: s.amount, rounds: s.rounds });
+        }
+    }
+    return grouped;
+}
+
+// The value that actually fires for a grouped status: effective % for soft-cap
+// pool tags once stacked, the 60%-capped total for Absorb/Reflect/Lifesteal,
+// else the raw rounded %/amount. Shared by panel + strip.
+function statusValueText(s: GroupedStatus): string {
+    const pooled = s.percent != null && POOL_TAGS.has(s.name);
+    const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
+    const rawPct = s.percent != null ? Math.round(s.percent) : null;
+    const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
+    const cappedPct = capped ? Math.min(rawPct ?? 0, HARD_CAP_PCT) : null;
+    return s.percent != null
+        ? (pooled && s.count > 1 ? `~${effPct}%` : capped ? `${cappedPct}%` : `${rawPct}%`)
+        : s.amount != null ? `${Math.round(s.amount)}` : "active";
+}
+
 export function CombatSideHud({
     name,
     avatar,
@@ -113,6 +163,11 @@ export function CombatSideHud({
                 <span>Round {turn}</span>
             </div>
 
+            {/* Compact glanceable strip — the ONLY effects readout on mobile,
+                where the verbose Buffs/Debuffs columns below are hidden (they
+                overflow the clamped HUD). Hidden on desktop via CSS. */}
+            <MobileEffectsStrip statuses={statuses} />
+
             <CombatEffectsPanel title="Buffs" tone="positive" statuses={statuses.filter((s) => s.kind === "positive")} />
             <CombatEffectsPanel title="Debuffs" tone="negative" statuses={statuses.filter((s) => s.kind === "negative")} />
         </aside>
@@ -132,18 +187,7 @@ export function CombatEffectsPanel({
     // into one pill with a ×count, summing the raw percent. For soft-cap pool
     // tags we also show the approximate effective % in a tooltip so players see
     // that stacks diminish rather than add linearly.
-    const grouped: { name: string; count: number; percent?: number; amount?: number; rounds: number }[] = [];
-    for (const s of statuses) {
-        const g = grouped.find((x) => x.name === s.name);
-        if (g) {
-            g.count += 1;
-            g.rounds = Math.max(g.rounds, s.rounds);
-            if (s.percent != null) g.percent = (g.percent ?? 0) + s.percent;
-            if (s.amount != null) g.amount = (g.amount ?? 0) + s.amount;
-        } else {
-            grouped.push({ name: s.name, count: 1, percent: s.percent, amount: s.amount, rounds: s.rounds });
-        }
-    }
+    const grouped = groupStatuses(statuses);
     return (
         <div className={`combat-effect-panel ${tone === "negative" ? "effects-debuff" : "effects-buff"}`}>
             <h4>{title}</h4>
@@ -160,13 +204,7 @@ export function CombatEffectsPanel({
                     const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
                     const rawPct = s.percent != null ? Math.round(s.percent) : null;
                     const effPct = pooled ? effectivePoolPercent(s.percent ?? 0) : null;
-                    const cappedPct = capped ? Math.min(rawPct ?? 0, HARD_CAP_PCT) : null;
-                    const valueText =
-                        s.percent != null
-                            ? (pooled && s.count > 1 ? `~${effPct}%`
-                                : capped ? `${cappedPct}%`
-                                : `${rawPct}%`)
-                            : s.amount != null ? `${Math.round(s.amount)}` : "active";
+                    const valueText = statusValueText(s);
                     const label = SHORT_LABELS[s.name] ?? s.name;
                     const title = pooled
                         ? `${s.name} — ${s.count} stack${s.count > 1 ? "s" : ""} · +${rawPct}% raw ≈ ${effPct}% effective. Diminishing-returns pool shared with other damage modifiers.`
@@ -181,6 +219,46 @@ export function CombatEffectsPanel({
                     );
                 })
             )}
+        </div>
+    );
+}
+
+// Compact one-row status strip for mobile combat. Both PvP + PvE hide the
+// verbose CombatEffectsPanel columns on phones (they overflow the clamped side
+// HUD), so this keeps active buffs/debuffs — name, ×stacks, the value that
+// actually fires, and rounds left — glanceable where turns are decided. Capped
+// with a "+N" chip so a heavily-affected fighter can't overflow the strip.
+// Hidden on desktop via CSS (.combat-mobile-effects { display:none }).
+export function MobileEffectsStrip({
+    statuses,
+    max = 6,
+}: {
+    statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    max?: number;
+}) {
+    const entries = [
+        ...groupStatuses(statuses.filter((s) => s.kind === "positive")).map((g) => ({ g, tone: "positive" as const })),
+        ...groupStatuses(statuses.filter((s) => s.kind === "negative")).map((g) => ({ g, tone: "negative" as const })),
+    ];
+    if (entries.length === 0) return null;
+    const shown = entries.slice(0, max);
+    const overflow = entries.length - shown.length;
+    return (
+        <div className="combat-mobile-effects" aria-label="Active effects">
+            {shown.map(({ g, tone }, i) => {
+                const value = statusValueText(g);
+                return (
+                    <span
+                        key={i}
+                        className={`cme-chip ${tone === "negative" ? "cme-neg" : "cme-pos"}`}
+                        title={`${g.name}${g.count > 1 ? ` ×${g.count}` : ""} · ${value} · ${g.rounds}r`}
+                    >
+                        {tinyStatusLabel(g.name)}{g.count > 1 ? <b>×{g.count}</b> : null}
+                        <small>{value !== "active" ? `${value} ` : ""}{g.rounds}r</small>
+                    </span>
+                );
+            })}
+            {overflow > 0 && <span className="cme-chip cme-more" title={`${overflow} more active effect${overflow > 1 ? "s" : ""}`}>+{overflow}</span>}
         </div>
     );
 }

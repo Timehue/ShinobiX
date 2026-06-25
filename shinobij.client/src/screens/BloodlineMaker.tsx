@@ -277,7 +277,22 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         const nextBloodlines = editingBloodline
             ? savedBloodlines.map((b) => b.id === finalId ? newBloodline : b)
             : [newBloodline];
-        const nextCharacter = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
+        const swapped = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
+        // Auto-grant level-1 mastery to the new bloodline's jutsu so they are
+        // immediately equippable + usable. replaceCharacterBloodline strips their
+        // mastery (the "retrain from scratch" rule) and the loadout picker only
+        // lists jutsu with mastery level >= 1 — so without this a freshly-made
+        // bloodline's jutsu are invisible in the picker until retrained, which
+        // reads as "my bloodline didn't load". Only add entries for ids that
+        // lack one (never reset existing progress). The save endpoint clamps
+        // mastery level to [0,50], so a level-1 grant is always accepted.
+        const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
+        const grantedMastery = finalizedJutsus
+            .filter((j) => !masteredIds.has(j.id))
+            .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
+        const nextCharacter = grantedMastery.length
+            ? { ...swapped, jutsuMastery: [...(swapped.jutsuMastery ?? []), ...grantedMastery] }
+            : swapped;
         setSavedBloodlines(nextBloodlines);
         updateCharacter(nextCharacter);
         onSaveBloodlines?.(nextBloodlines, nextCharacter);
