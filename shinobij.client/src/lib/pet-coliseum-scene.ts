@@ -360,7 +360,9 @@ export function shakeAmpForBeat(
 // stream and never feeds back, so determinism/ranked are untouched.
 
 export type MoveChoreoKind =
-    | "lightMelee"   // basic / damage / wound / mark melee — the standard lunge
+    | "lightMelee"   // basic / damage melee with no element tell — the standard lunge
+    | "slash"        // wind / water melee — a quick horizontal double-slash flurry
+    | "pierce"       // fire / lightning melee — a deep, committed forward thrust
     | "heavySlam"    // crush / push — a deeper, committed overhead slam
     | "drain"        // lifesteal — lunge in, then yank life back home
     | "rangedCast"   // offensive ranged (dot / burn / damage poke) — plant + recoil kick
@@ -374,8 +376,12 @@ const SUPPORT_KINDS = new Set(["heal", "buff", "shield", "barrier", "absorb", "h
 const CONTROL_KINDS = new Set(["stun", "freeze", "movelock", "slow", "pull", "confuse", "mark"]);
 
 /** Classify a duel move into a render choreography archetype from its PetJutsu
- *  `kind` and whether it resolved as a ranged cast (a `cast` event) vs a melee hit. */
-export function classifyMoveChoreo(kind: string | null | undefined, isCast: boolean): MoveChoreoKind {
+ *  `kind`, whether it resolved as a ranged cast (a `cast` event) vs a melee hit,
+ *  and the attacker's `element`. Crush/push/lifesteal own their staging; every other
+ *  MELEE move splits its swing silhouette by element so a Wind pet double-slashes and
+ *  a Lightning pet thrusts — each element's basic attack reads distinctly. With no
+ *  element (the legacy 2-arg call) it falls through to the standard lightMelee lunge. */
+export function classifyMoveChoreo(kind: string | null | undefined, isCast: boolean, element?: string | null): MoveChoreoKind {
     const k = String(kind ?? "").toLowerCase();
     if (isCast) {
         if (SUPPORT_KINDS.has(k)) return "support";
@@ -384,6 +390,9 @@ export function classifyMoveChoreo(kind: string | null | undefined, isCast: bool
     }
     if (k === "crush" || k === "push") return "heavySlam";
     if (k === "lifesteal") return "drain";
+    const el = String(element ?? "").toLowerCase();
+    if (el === "fire" || el === "lightning") return "pierce";
+    if (el === "wind" || el === "water") return "slash";
     return "lightMelee";
 }
 
@@ -397,17 +406,20 @@ export type MoveChoreoMods = {
     closeMul: number;    // melee: fraction of the contact gap to close to (<1 = closer/heavier)
     chop: number;        // melee: extra overhead chop on contact (0..1)
     drainBack: number;   // melee: retract toward self after contact (0..1, lifesteal)
+    doubleTap: boolean;  // melee: a 2-tap flurry on the lunge (the slash), independent of crit
 };
 
 export function moveChoreoMods(kind: MoveChoreoKind): MoveChoreoMods {
     switch (kind) {
-        case "heavySlam": return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.28, closeMul: 0.88, chop: 1, drainBack: 0 };
-        case "drain":     return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.05, closeMul: 1,    chop: 0, drainBack: 0.5 };
-        case "rangedCast":return { plant: true,  kickAway: true,  rise: 0,    pulseMul: 0.85, closeMul: 1,    chop: 0, drainBack: 0 };
-        case "beam":      return { plant: true,  kickAway: false, rise: 0,    pulseMul: 0.9,  closeMul: 1,    chop: 0, drainBack: 0 };
-        case "support":   return { plant: true,  kickAway: false, rise: 0.12, pulseMul: 1.1,  closeMul: 1,    chop: 0, drainBack: 0 };
+        case "slash":     return { plant: false, kickAway: false, rise: 0,    pulseMul: 0.82, closeMul: 1,    chop: 0, drainBack: 0,   doubleTap: true  };
+        case "pierce":    return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.08, closeMul: 0.9,  chop: 0, drainBack: 0,   doubleTap: false };
+        case "heavySlam": return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.28, closeMul: 0.88, chop: 1, drainBack: 0,   doubleTap: false };
+        case "drain":     return { plant: false, kickAway: false, rise: 0,    pulseMul: 1.05, closeMul: 1,    chop: 0, drainBack: 0.5, doubleTap: false };
+        case "rangedCast":return { plant: true,  kickAway: true,  rise: 0,    pulseMul: 0.85, closeMul: 1,    chop: 0, drainBack: 0,   doubleTap: false };
+        case "beam":      return { plant: true,  kickAway: false, rise: 0,    pulseMul: 0.9,  closeMul: 1,    chop: 0, drainBack: 0,   doubleTap: false };
+        case "support":   return { plant: true,  kickAway: false, rise: 0.12, pulseMul: 1.1,  closeMul: 1,    chop: 0, drainBack: 0,   doubleTap: false };
         case "lightMelee":
-        default:          return { plant: false, kickAway: false, rise: 0,    pulseMul: 1,    closeMul: 1,    chop: 0, drainBack: 0 };
+        default:          return { plant: false, kickAway: false, rise: 0,    pulseMul: 1,    closeMul: 1,    chop: 0, drainBack: 0,   doubleTap: false };
     }
 }
 
@@ -429,6 +441,42 @@ export function moveFxKey(kind: string | null | undefined): string {
         case "pull": return "vortex";
         default: return "";   // damage / crush / push / basic → keep the element tint
     }
+}
+
+/** One scheduled burst in a melee contact COMBO: a bundled fx-folder `key` (""
+ *  → the caller spawns the pet's element burst instead), an `at` offset in ms from
+ *  the contact frame, and the sprite `scale` + `dur`(ation). */
+export interface FxBeat { at: number; key: string; scale: number; dur: number; }
+
+/** The ordered contact-burst COMBO for a plain / elemental MELEE hit — used only
+ *  when the move has no themed status sprite (moveFxKey === ""). Layers a lead
+ *  "weapon" streak (the swing's edge), the pet's element bloom on contact, and a
+ *  short trailing accent so each element's basic attack reads as its own
+ *  choreographed strike: a Wind double-slash, a Lightning staccato thrust, an Earth
+ *  ground-crack, a Fire flare. A crit caps it with an explosion. `heavy` (a crush /
+ *  slam / big blow) scales every beat up. All keys are existing fx folders. Pure
+ *  (no clock / RNG) → node-testable; the renderer schedules these render-only. */
+export function meleeContactFx(element: string | null | undefined, archetype: MoveChoreoKind, crit: boolean, heavy: boolean): FxBeat[] {
+    const el = String(element ?? "").toLowerCase();
+    const base = heavy ? 2.6 : 1.9;
+    const beats: FxBeat[] = [];
+    // 1) Lead edge — the swing connects before the element bloom blossoms.
+    if (archetype === "heavySlam") beats.push({ at: 0, key: "bighit", scale: base * 1.05, dur: 320 });
+    else if (archetype === "pierce") beats.push({ at: 0, key: el === "lightning" ? "spark" : "slash", scale: base * 0.85, dur: 240 });
+    else beats.push({ at: 0, key: "slash", scale: base * 0.85, dur: 240 });
+    // 2) Element bloom on contact — the pet's elemental identity ("" → element burst).
+    beats.push({ at: archetype === "heavySlam" ? 60 : 40, key: "", scale: heavy ? (archetype === "heavySlam" ? 3.0 : 2.6) : 1.9, dur: heavy ? 540 : 420 });
+    // 3) Trailing element accent — a quick follow-through, flavored per element.
+    if (el === "lightning") beats.push({ at: 120, key: "spark", scale: base * 0.7, dur: 220 });
+    else if (el === "fire") beats.push({ at: 150, key: "burn", scale: base * 0.7, dur: 360 });
+    else if (el === "wind") beats.push({ at: 130, key: "wind", scale: base * 0.7, dur: 300 });
+    else if (el === "earth") beats.push({ at: 110, key: "earth", scale: base * 0.75, dur: 320 });
+    // 4) The slash's second tap — a quick repeat streak reads as a flurry.
+    if (archetype === "slash") beats.push({ at: 110, key: "slash", scale: base * 0.7, dur: 220 });
+    // 5) Crit finisher — a bright burst caps the combo (kaboom on heavy, else explosion).
+    if (crit) beats.push({ at: 185, key: heavy ? "kaboom" : "explosion", scale: base * 1.1, dur: 460 });
+    // Schedule in time order (the slash's second tap is authored after the accent).
+    return beats.sort((a, b) => a.at - b.at);
 }
 
 /** The melee lunge reach (world units toward the foe) for a strike — closes the gap so
