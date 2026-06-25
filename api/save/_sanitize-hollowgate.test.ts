@@ -214,3 +214,38 @@ test('bankRyo: forged inflation clamped to exBank + exRyo + MAX_RYO_GAIN; legit 
     assert.equal(sanitize({ bankRyo: 5_000, ryo: 0 }, { bankRyo: 0, ryo: 5_000 }).bankRyo, 5_000, 'legit full deposit of held ryo untouched');
     assert.equal(sanitize({ bankRyo: 10_000_000, ryo: 0 }, { bankRyo: 10_000_000, ryo: 0 }).bankRyo, 10_000_000, 'standing bank balance untouched');
 });
+
+// ── Hospital discharge-race guard ───────────────────────────────────────────
+// A paid discharge / Healer heal / free checkout clears `hospitalized` server-
+// side (api/player/heal.ts) and stamps `lastDischargeAt`. A client autosave that
+// was still in flight with the pre-discharge `hospitalized:true` state must NOT
+// re-admit the just-released player (which would reset the 60s timer and make
+// paid discharge appear broken — "can't leave until the free timer expires").
+
+test('hospital: a stale hospitalized:true save within the discharge grace window does NOT re-admit', () => {
+    const out = sanitize(
+        { hospitalized: true, hospitalizedUntil: 0 },                                // stale pre-discharge autosave
+        { hospitalized: false, hospitalizedUntil: 0, lastDischargeAt: Date.now() },   // server: just discharged via /api/player/heal
+    );
+    assert.equal(out.hospitalized, false, 'discharge honored — player not re-hospitalized by the stale save');
+    assert.equal(out.hospitalizedUntil, 0, 'no fresh hospital timer stamped');
+});
+
+test('hospital: a genuine fresh KO (no recent discharge) is hospitalized with a ~60s timer', () => {
+    const before = Date.now();
+    const out = sanitize({ hospitalized: true }, { hospitalized: false });
+    assert.equal(out.hospitalized, true, 'KO hospitalizes the player');
+    assert.ok(
+        (out.hospitalizedUntil as number) >= before + 60_000 && (out.hospitalizedUntil as number) <= Date.now() + 60_000,
+        'a fresh ~60s timer is stamped',
+    );
+});
+
+test('hospital: a discharge older than the grace window does NOT suppress a later genuine KO', () => {
+    const out = sanitize(
+        { hospitalized: true },
+        { hospitalized: false, lastDischargeAt: Date.now() - 60_000 },   // discharged a minute ago — marker is stale
+    );
+    assert.equal(out.hospitalized, true, 'an old discharge marker no longer blocks a new hospitalization');
+    assert.ok((out.hospitalizedUntil as number) > Date.now(), 'fresh timer stamped for the new KO');
+});
