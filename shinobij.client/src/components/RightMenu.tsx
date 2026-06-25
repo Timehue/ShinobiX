@@ -15,7 +15,8 @@
 
 import { memo, useEffect, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
-import type { Screen } from "../types/core";
+import type { Profession, Screen } from "../types/core";
+import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
 import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
@@ -32,6 +33,7 @@ export const RightMenu = memo(function RightMenu({
     characterName,
     characterVillage,
     characterClan,
+    profession,
     screen,
 }: {
     navigate: (screen: Screen) => void;
@@ -40,6 +42,7 @@ export const RightMenu = memo(function RightMenu({
     characterName: string;
     characterVillage: string;
     characterClan: string;
+    profession: Profession | null;
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
@@ -96,6 +99,12 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
                         <button onClick={() => navigate("pets")}>Pets</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
+                        <button
+                            onClick={() => navigate("professions")}
+                            title={profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions"}
+                        >
+                            {profession ? `${PROFESSION_ICON[profession]} ${PROFESSION_LABEL[profession]}` : "📜 Professions"}
+                        </button>
                         <button onClick={() => navigate("logbook")}>Logbook</button>
                         <button onClick={() => navigate("guides")}>📖 Guides</button>
                         <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}>💬 Discord</button>

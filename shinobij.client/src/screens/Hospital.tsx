@@ -1,8 +1,6 @@
-// Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
-import { visiblePoll } from "../lib/poll";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { HealerInjuredList } from "../components/HealerInjuredList";
 import {
     type Character,
     type PlayerRecord,
@@ -35,29 +33,6 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     const effectiveUntil = serverUntil > 0 ? serverUntil : mountTime + 60_000;
     const [now, setNow] = useState(() => Date.now());
     const [busy, setBusy] = useState(false);
-    const [healMsg, setHealMsg] = useState<Record<string, string>>({});
-    const [healed, setHealed] = useState<Set<string>>(new Set());
-    const hasWorldwideVision = isHealer && healerRank >= 10;
-    const [worldwideInjured, setWorldwideInjured] = useState<Array<{ name: string; level: number; hp: number; maxHp: number; hospitalized: boolean }>>([]);
-
-    useEffect(() => {
-        if (!hasWorldwideVision) {
-            setWorldwideInjured([]);
-            return;
-        }
-        let cancelled = false;
-        async function fetchInjured() {
-            try {
-                const res = await fetch(`/api/player/injured-villagers?healerName=${encodeURIComponent(character.name)}`);
-                if (!res.ok || cancelled) return;
-                const data = await res.json();
-                if (Array.isArray(data.injured)) setWorldwideInjured(data.injured);
-            } catch { /* ignore */ }
-        }
-        void fetchInjured();
-        const stop = visiblePoll(fetchInjured, 20_000);
-        return () => { cancelled = true; stop(); };
-    }, [hasWorldwideVision, character.name]);
 
     useEffect(() => {
         if (!character.hospitalized) return;
@@ -157,84 +132,6 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         updateCharacter({ ...character, ryo: character.ryo - topUpCost, hp: character.maxHp });
     }
 
-    async function healPlayer(targetName: string) {
-        setHealMsg(m => ({ ...m, [targetName]: "💚 Healing…" }));
-        try {
-            const res = await fetch('/api/player/heal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ healerName: character.name, targetName }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                setHealMsg(m => ({ ...m, [targetName]: `❌ ${data.error ?? 'Failed'}` }));
-                return;
-            }
-            const xpGained = Number(data.xpGained ?? 0);
-            const missionXp = Number(data.missionXpAwarded ?? 0);
-            const raidAssist = !!data.raidAssist;
-            const missionsCompleted: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
-            for (const m of missionsCompleted) {
-                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                    detail: { name: m.name, xp: m.xpReward, profession: 'healer' },
-                }));
-            }
-            // Raid assist toast — distinct from regular heal so the player
-            // notices the +50% bonus when it triggers.
-            if (raidAssist && xpGained > 0) {
-                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                    detail: { name: '⚔ Raid Assist!', xp: xpGained, profession: 'healer' },
-                }));
-            }
-            const prevRank = character.professionRank ?? 1;
-            // Server returns the authoritative post-credit XP/rank (mission XP included).
-            const finalXp = Number(data.professionXp ?? (character.professionXp ?? 0) + xpGained);
-            const finalRank = Number(data.professionRank ?? prevRank);
-            updateCharacter({
-                ...character,
-                professionXp: finalXp,
-                professionRank: finalRank,
-                // Healing costs the Healer chakra (server-deducted); reflect it locally.
-                chakra: Math.max(0, (character.chakra ?? 0) - Number(data.chakraCost ?? 0)),
-            });
-            const rankedUp = finalRank > prevRank;
-            const totalXp = xpGained + missionXp;
-            let msg = `✅ Healed! +${totalXp} XP`;
-            if (raidAssist) msg += ` ⚔ Raid Assist +50%`;
-            if (missionsCompleted.length > 0) msg += ` (mission complete!)`;
-            if (rankedUp) msg += ` — Rank ${finalRank}!`;
-            setHealMsg(m => ({ ...m, [targetName]: msg }));
-            // Hide the row locally until next roster refresh confirms.
-            setHealed(s => new Set(s).add(targetName));
-        } catch {
-            setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
-        }
-    }
-
-    // Same-village admitted players are listed for ANY caller (the UI
-    // renders the "Heal" button only for healers, but non-healers can
-    // see who's down — useful for picking who to send heal-pings to).
-    // The previous predicate `(!isHealer || sameVillage)` was inverted:
-    // non-healers saw admits from every village (useless clutter), and
-    // healers — the only ones who can actually heal — were restricted
-    // to their own village.
-    //
-    // Only show players who are actually hurt — a stale roster entry can
-    // still carry hospitalized=true after the player's HP has reached full
-    // (passive regen / healed-but-not-discharged), and there's nothing to
-    // heal there. Mirror the server's HP_INJURED_THRESHOLD (0.99) from
-    // api/player/injured-villagers.ts so this list agrees with the Rank-10
-    // world-wide list on what counts as "hurt".
-    const HP_INJURED_THRESHOLD = 0.99;
-    const hospitalizedPlayers = playerRoster.filter(p =>
-        p.character.hospitalized
-        && p.name.toLowerCase() !== character.name.toLowerCase()
-        && !healed.has(p.name)
-        && p.character.village === character.village
-        && p.character.maxHp > 0
-        && p.character.hp / p.character.maxHp <= HP_INJURED_THRESHOLD
-    );
-
     if (character.hospitalized) {
         return (
             <div className="card">
@@ -311,78 +208,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
                 </p>
             )}
-            {hospitalizedPlayers.length > 0 && (
-                <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players{isHealer ? ` — ${character.village}` : ""}</h4>
-                    {hospitalizedPlayers.map(p => (
-                        <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                            <div style={{ flex: 1 }}>
-                                <strong>{p.name}</strong>
-                                <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {p.village}</span>
-                                <span style={{ marginLeft: 8, color: "#f87171", fontSize: "0.8rem" }}>
-                                    HP {p.character.hp}/{p.character.maxHp}
-                                </span>
-                            </div>
-                            {isHealer ? (
-                                <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
-                                    ✚ Heal
-                                </button>
-                            ) : (
-                                <span className="hint" style={{ color: "#64748b", fontSize: "0.78rem" }}>
-                                    Healers only
-                                </span>
-                            )}
-                            {healMsg[p.name] && (
-                                <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "#f87171" }}>
-                                    {healMsg[p.name]}
-                                </span>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-            {hasWorldwideVision && (
-                <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem", color: "#22d3ee" }}>
-                        🌍 Injured Villagers — World-Wide (Rank 10)
-                    </h4>
-                    <p className="hint" style={{ marginTop: 0 }}>
-                        Same-village shinobi anywhere in the world with HP below max. Sorted lowest HP first.
-                    </p>
-                    {worldwideInjured.filter(p => !healed.has(p.name)).length === 0 ? (
-                        <p className="hint">All villagers are at full health.</p>
-                    ) : (
-                        worldwideInjured.filter(p => !healed.has(p.name)).map(p => {
-                            const hpPct = Math.max(0, Math.min(100, Math.round((p.hp / p.maxHp) * 100)));
-                            return (
-                                <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                                    <div style={{ flex: 1 }}>
-                                        <strong>{p.name}</strong>
-                                        <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
-                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "#facc15", fontSize: "0.75rem" }}>🛏️ Admitted</span>}
-                                        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                            <div style={{ flex: 1, maxWidth: 200, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
-                                                <div style={{ width: `${hpPct}%`, height: "100%", background: hpPct < 30 ? "#f87171" : hpPct < 60 ? "#facc15" : "#84cc16" }} />
-                                            </div>
-                                            <span style={{ color: hpPct < 30 ? "#f87171" : "#94a3b8", fontSize: "0.78rem" }}>
-                                                {p.hp}/{p.maxHp}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
-                                        ✚ Heal
-                                    </button>
-                                    {healMsg[p.name] && (
-                                        <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "#f87171" }}>
-                                            {healMsg[p.name]}
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            )}
+            <HealerInjuredList character={character} updateCharacter={updateCharacter} playerRoster={playerRoster} />
         </div>
     );
 }
