@@ -3189,6 +3189,13 @@ button {
     .hud-bar span {
         display: block;
         height: 100%;
+        /* Ease HP / chakra / stamina / shield bars instead of snapping, so a hit
+           or heal reads as a smooth drain/fill (B3 juice). Cosmetic only — the
+           number beside the bar still updates instantly. */
+        transition: width 320ms ease;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .hud-bar span { transition: none; }
     }
 
 .hp-bar span {
@@ -11160,6 +11167,14 @@ textarea {
     opacity: 0.62 !important;
     border-color: #64748b !important;
     background: linear-gradient(180deg, #475569, #1f2937) !important;
+}
+/* Unaffordable / not-your-turn jutsu + item cards read as inert at a glance
+   (catalog affordance, C5/C1 parity). On-cooldown cards keep their own dim +
+   CD badge above, so this only dims the other disabled states. */
+.combat-jutsu-button:disabled:not(.jutsu-on-cooldown) {
+    cursor: not-allowed;
+    opacity: 0.45;
+    filter: grayscale(0.4);
 }
 
     .combat-jutsu-button.jutsu-on-cooldown .combat-jutsu-thumb img,
