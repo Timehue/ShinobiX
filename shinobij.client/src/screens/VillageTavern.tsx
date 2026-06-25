@@ -1,12 +1,11 @@
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import {
     type Character,
-    type Screen,
     type TavernMessage,
 } from "../App";
 
-export 
-function VillageTavern({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+export
+function VillageTavern({ character, onBack, sharedImages }: { character: Character; onBack: () => void; sharedImages: Record<string, string> }) {
     const [messages, setMessages] = useState<TavernMessage[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
@@ -114,7 +113,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
     return (
         <div className="card tavern-screen">
             <div className="tavern-header">
-                <button className="back-button" onClick={() => setScreen("village")}>← Village</button>
+                <button className="back-button" onClick={onBack}>← Back</button>
                 <div>
                     <h2>🍶 {character.village} Tavern</h2>
                     <p className="tavern-subtitle">Village members only — speak freely.</p>

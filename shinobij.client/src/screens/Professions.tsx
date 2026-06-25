@@ -36,22 +36,24 @@ export function Professions({
     character,
     updateCharacter,
     setScreen,
+    onBack,
     playerRoster,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
     setScreen: (s: Screen) => void;
+    onBack: () => void;
     playerRoster: PlayerRecord[];
 }) {
     // Chosen → route straight to that profession's hub.
     if (character.profession === "healer") {
-        return <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} playerRoster={playerRoster} />;
+        return <HealerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} playerRoster={playerRoster} />;
     }
     if (character.profession === "vanguard") {
-        return <VanguardHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} />;
+        return <VanguardHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
     }
     if (character.profession === "petTamer") {
-        return <PetTamerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} />;
+        return <PetTamerHub character={character} updateCharacter={updateCharacter} setScreen={setScreen} onBack={onBack} />;
     }
 
     // No profession yet → the three-path overview.
@@ -59,7 +61,7 @@ export function Professions({
 
     return (
         <div className="card">
-            <BackToVillageButton onClick={() => setScreen("village")} />
+            <BackToVillageButton onClick={onBack} label="← Back" />
 
             <div
                 style={{
