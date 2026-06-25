@@ -41,7 +41,7 @@ import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } fro
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, ZONE_RADIUS, BOSS_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
@@ -1974,6 +1974,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
 // travel direction, so each shape is authored pointing along +x.
 let _projRoundTex: THREE.CanvasTexture | null = null;
 let _projCrescentTex: THREE.CanvasTexture | null = null;
+let _trailStreakTex: THREE.CanvasTexture | null = null;
 let _projBoltTex: THREE.CanvasTexture | null = null;
 let _projRockTex: THREE.CanvasTexture | null = null;
 
@@ -2007,6 +2008,23 @@ function projCrescentTexture(): THREE.CanvasTexture {
     g.beginPath(); g.arc(S * 0.46, S / 2, S * 0.42, -1.1, 1.1); g.stroke();
     _projCrescentTex = new THREE.CanvasTexture(c); _projCrescentTex.colorSpace = THREE.SRGBColorSpace;
     return _projCrescentTex;
+}
+
+/** A thin horizontal glowing LENS — a forward thrust streak (used for the pierce
+ *  weapon trail). Glow-on-transparent; the element tint colours it, additive blend. */
+function trailStreakTexture(): THREE.CanvasTexture {
+    if (_trailStreakTex) return _trailStreakTex;
+    const S = 128, c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    // Stretch a radial glow into a thin horizontal lens (bright core → soft ends/edges).
+    g.translate(S / 2, S / 2); g.scale(1, 0.26);
+    const rad = g.createRadialGradient(0, 0, 1, 0, 0, S / 2);
+    rad.addColorStop(0, "rgba(255,255,255,1)");
+    rad.addColorStop(0.45, "rgba(255,255,255,0.72)");
+    rad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = rad; g.beginPath(); g.arc(0, 0, S / 2, 0, Math.PI * 2); g.fill();
+    _trailStreakTex = new THREE.CanvasTexture(c); _trailStreakTex.colorSpace = THREE.SRGBColorSpace;
+    return _trailStreakTex;
 }
 
 function projBoltTexture(): THREE.CanvasTexture {
@@ -2251,13 +2269,14 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, elementById, nameById, ultById, onCutIn, onFlash, onCallout, onCombo, onAnnounce }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, onCutIn, onFlash, onCallout, onCombo, onAnnounce }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
     spawnImpact: (n: { x: number; z: number; color: string; big: boolean }) => void;
     spawnFx: (n: { x: number; z: number; element?: string | null; key?: string; scale: number; dur: number }) => void;
     spawnShock: (n: { x: number; z: number; color: string; big: boolean }) => void;
+    spawnTrail: (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string }) => void;
     elementById: Record<string, string | null | undefined>;
     nameById: Record<string, string>;
     ultById: Record<string, string>;
@@ -2324,6 +2343,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                                 const fire = () => spawnFx(b.key ? { x: ax, z: az, key: b.key, scale: b.scale, dur: b.dur } : { x: ax, z: az, element: e.element, scale: b.scale, dur: b.dur });
                                 if (b.at <= 0) fire(); else window.setTimeout(fire, b.at);
                             }
+                        }
+                        // Weapon TRAIL — the swing itself, at the ATTACKER, per archetype
+                        // (pierce stab / slash sweep / slam overhead chop / drain rake).
+                        // Melee only — a ranged projectile has no melee swing.
+                        if (!e.ranged) {
+                            const att = findActor(snapAt, e.actorId);
+                            if (att) spawnTrail({ x: att.x, z: att.y, toward: e.actorId.startsWith("enemy") ? -1 : 1, kind: classifyMoveChoreo(e.kind, false, e.element), color: col });
                         }
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0));
@@ -2492,6 +2518,45 @@ function DuelImpact({ at, color, big, onDone }: { at: Vec3; color: string; big: 
     );
 }
 
+/** A swept melee weapon TRAIL — an additive blade/streak that arcs through the strike
+ *  so each move reads as a distinct SWING: a pierce STABS forward (streak), a slash
+ *  SWEEPS, a heavy slam CHOPS overhead, a drain RAKES back. Procedural texture, tinted
+ *  by the attacker's element; self-timed; mirrored by `toward` (the attacker's facing).
+ *  Render-only — spawned off the deterministic hit stream, never fed back. */
+function DuelMeleeTrail({ at, toward, kind, color, onDone }: { at: Vec3; toward: number; kind: MoveChoreoKind; color: string; onDone: () => void }) {
+    const spec = useMemo(() => meleeTrailSpec(kind), [kind]);
+    const tex = useMemo(() => (spec.tex === "streak" ? trailStreakTexture() : projCrescentTexture()), [spec.tex]);
+    const mesh = useRef<THREE.Mesh>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const start = useRef<number | null>(null);
+    useFrame((state) => {
+        if (start.current === null) start.current = state.clock.elapsedTime;
+        const p = Math.min(1, (state.clock.elapsedTime - start.current) / (spec.life / 1000));
+        const e = p * p * (3 - 2 * p);   // smoothstep through the swing
+        if (mesh.current) {
+            mesh.current.position.set(lerp(spec.dx0, spec.dx1, e), lerp(spec.dy0, spec.dy1, e), 0);
+            mesh.current.rotation.z = lerp(spec.rot0, spec.rot1, e);
+            const grow = 0.7 + 0.5 * Math.sin(Math.PI * Math.min(1, p / 0.7));   // swell, then settle
+            mesh.current.scale.set(spec.w * grow, spec.h * grow, 1);
+        }
+        if (mat.current) mat.current.opacity = (p < 0.22 ? p / 0.22 : 1 - (p - 0.22) / 0.78) * 0.9;
+        if (p >= 1) onDone();
+    });
+    return (
+        <group position={at}>
+            <Billboard>
+                {/* scale.x = toward mirrors the whole swing for the enemy (faces −x). */}
+                <group scale={[toward, 1, 1]}>
+                    <mesh ref={mesh}>
+                        <planeGeometry args={[1, 1]} />
+                        <meshBasicMaterial ref={mat} map={tex} color={color} transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} />
+                    </mesh>
+                </group>
+            </Billboard>
+        </group>
+    );
+}
+
 /** Ground SHOCKWAVE — flat expanding rings on the floor at the impact point that
  *  drive force into the arena; bigger + brighter on heavy/crit blows. */
 function DuelShockwave({ at, color, big, onDone }: { at: Vec3; color: string; big: boolean; onDone: () => void }) {
@@ -2574,6 +2639,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [fxList, setFxList] = useState<Array<{ id: number; frames: string[]; pos: Vec3; scale: number; dur: number }>>([]);
     const [cutIn, setCutIn] = useState<{ id: number; pet: Pet; side: "player" | "enemy"; move: string } | null>(null);
     const [shocks, setShocks] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean }>>([]);
+    const [trails, setTrails] = useState<Array<{ id: number; pos: Vec3; toward: number; kind: MoveChoreoKind; color: string }>>([]);
     const [flash, setFlash] = useState<{ id: number; color: string; intensity: number } | null>(null);
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
@@ -2621,6 +2687,12 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const fp = duelFieldToFloor(n.x, n.z);
         setShocks((arr) => [...arr, { id, pos: [fp.wx, 0, fp.wz], color: n.color, big: n.big }]);
     };
+    // Swept melee weapon trail at the ATTACKER (mid-body), per choreography archetype.
+    const spawnTrail = (n: { x: number; z: number; toward: number; kind: MoveChoreoKind; color: string }) => {
+        const id = seqRef.current++;
+        const fp = duelFieldToFloor(n.x, n.z);
+        setTrails((arr) => [...arr, { id, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 0.42, fp.wz], toward: n.toward, kind: n.kind, color: n.color }]);
+    };
     // Full-screen element flash / big "CRITICAL!/FINISH!" callout / combo-counter pop.
     const triggerFlash = (color: string, intensity: number) => setFlash({ id: seqRef.current++, color, intensity: Math.min(0.6, intensity) });
     const triggerCallout = (text: string) => { const id = seqRef.current++; setCallout({ id, text }); window.setTimeout(() => setCallout((c) => (c && c.id === id ? null : c)), 760); };
@@ -2639,7 +2711,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -2677,6 +2749,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 {shocks.map((s) => (
                     <DuelShockwave key={s.id} at={s.pos} color={s.color} big={s.big} onDone={() => setShocks((p) => p.filter((x) => x.id !== s.id))} />
                 ))}
+                {trails.map((tr) => (
+                    <DuelMeleeTrail key={tr.id} at={tr.pos} toward={tr.toward} kind={tr.kind} color={tr.color} onDone={() => setTrails((p) => p.filter((x) => x.id !== tr.id))} />
+                ))}
                 {fxList.map((fx) => (
                     <FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />
                 ))}
@@ -2685,7 +2760,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} elementById={elementById} nameById={nameById} ultById={ultById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} />
                 <BloomFx />
             </Canvas>
 
