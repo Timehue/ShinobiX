@@ -6,6 +6,7 @@ exports.tickStatuses = tickStatuses;
 exports.applyJutsu = applyJutsu;
 exports.applyDoTs = applyDoTs;
 exports.default = handler;
+const crypto_1 = require("crypto");
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
@@ -1709,7 +1710,9 @@ async function handler(req, res) {
                 if (!canAct(100))
                     return finish(withRejected(session, 'Cannot flee — out of AP or actions this turn.'));
                 const hpCost = Math.max(1, Math.floor(me.maxHp * 0.1));
-                const escaped = Math.random() < 0.2;
+                // Crypto-random 20% (1-in-5) — consistent with the session coin-flip;
+                // V8's Math.random is seeded/predictable and shouldn't gate an outcome.
+                const escaped = (0, crypto_1.randomInt)(5) === 0;
                 const updatedMe = { ...me, hp: Math.max(0, me.hp - hpCost) };
                 if (escaped) {
                     lines.push(`${me.name} fled the battle, losing ${hpCost} HP.`);

@@ -12,6 +12,8 @@ import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { formatJutsuResourcePercent, getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
+import { minActionCost } from "../lib/combat-affordability";
+import { interpolateFlavor } from "../lib/battle-log-format";
 import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
@@ -927,7 +929,9 @@ export function PvpBattleScreen({
             ...pvpEquippedThrown.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 40)),
             ...pvpEquippedConsumables.filter(i => (pvpItemChargesLeft(i.id) ?? 1) > 0).map(i => pvpAdjustedApCost(i.apCost ?? 35)),
         ];
-        return Math.min(...costs);
+        // Fold via the shared reducer (lib/combat-affordability) — keep the PvE
+        // twin (pveMinActionCost in Arena) in sync when adding actions.
+        return minActionCost(costs);
     }
 
     const pvpLogRounds = (() => {
@@ -1588,10 +1592,10 @@ export function PvpBattleScreen({
                                                         onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                         disabled={submitting || myAp < apCost || depleted || onCooldown}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
+                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🎯</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
+                                                        <span className="combat-jutsu-info">Thrown · {apCost} AP | R{wRange}{countSuffix}{onCooldown ? ` | CD ${wCd}` : ""}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
@@ -1704,20 +1708,30 @@ export function PvpBattleScreen({
                                     <span>Round {group.round}</span>
                                     <span className="timeline-round-count">{group.entries.length}</span>
                                 </button>
-                                {roundOpen && group.entries.map((line, i) => {
-                                    const trimmed = line.trim();
-                                    const actorRole = line.startsWith(me.name) ? "timeline-player" : line.startsWith(opp.name) ? "timeline-enemy" : "timeline-system";
-                                    const isHeader = / uses /.test(trimmed) || trimmed.endsWith(":") || line.startsWith(me.name) || line.startsWith(opp.name);
-                                    if (isHeader) {
-                                        return (
-                                            <p key={i} className={`timeline-entry-head ${actorRole}`}
-                                                style={{ color: line.includes("wins!") ? "#fbbf24" : undefined }}>
-                                                {trimmed}
-                                            </p>
-                                        );
-                                    }
-                                    return <BattleLogLine line={trimmed} key={i} />;
-                                })}
+                                {roundOpen && (() => {
+                                    let act = 0;
+                                    return group.entries.map((line, i) => {
+                                        // Defensive %user/%target substitution (D2): the server
+                                        // already interpolates cast flavor, but any un-substituted
+                                        // token (e.g. a future custom-jutsu line) would otherwise
+                                        // leak a literal %target into the log. No-op when absent.
+                                        const display = interpolateFlavor(line, me.name, opp.name);
+                                        const trimmed = display.trim();
+                                        const actorRole = display.startsWith(me.name) ? "timeline-player" : display.startsWith(opp.name) ? "timeline-enemy" : "timeline-system";
+                                        const isAction = / uses /.test(trimmed);
+                                        const isHeader = isAction || trimmed.endsWith(":") || display.startsWith(me.name) || display.startsWith(opp.name);
+                                        if (isHeader) {
+                                            if (isAction) act++;
+                                            return (
+                                                <p key={i} className={`timeline-entry-head ${actorRole}`}
+                                                    style={{ color: display.includes("wins!") ? "#fbbf24" : undefined }}>
+                                                    {isAction ? <span className="timeline-act-num" aria-hidden="true">#{act}</span> : null}{trimmed}
+                                                </p>
+                                            );
+                                        }
+                                        return <BattleLogLine line={trimmed} key={i} />;
+                                    });
+                                })()}
                             </section>
                             );
                         }) : session.log.map((line, i) => <BattleLogLine line={line} key={i} />)}
