@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
     pveDifficultyBand,
+    pveDifficultyStatMultiplier,
+    pveDifficultyHpMultiplier,
     pveAiMasteryForLevel,
     pveEnemyHitCap,
     pveGuardedEnemyHit,
@@ -23,6 +25,26 @@ test("difficulty bands use inclusive bracket boundaries", () => {
     assert.equal(pveDifficultyBand(100), "peer");
 });
 
+// ── Band strength curve: sub-peer bands are weaker; peer is untouched ────────
+// The owner's note was "the AI are too strong in every category besides 90-100".
+// Stat AND HP multipliers must climb monotonically and stay < their peer value
+// below 90, while the peer band (the one that's "supposed to be this strong")
+// keeps its full stat (×1.3) and full HP (×1.0).
+test("stat multiplier weakens sub-peer bands and leaves peer at full strength", () => {
+    assert.ok(pveDifficultyStatMultiplier(10) < pveDifficultyStatMultiplier(40), "easy < medium");
+    assert.ok(pveDifficultyStatMultiplier(40) < pveDifficultyStatMultiplier(70), "medium < hard");
+    assert.ok(pveDifficultyStatMultiplier(70) < pveDifficultyStatMultiplier(95), "hard < peer");
+    assert.equal(pveDifficultyStatMultiplier(95), 1.3, "peer keeps its full ×1.3");
+});
+
+test("HP multiplier makes sub-peer foes less tanky and leaves peer at full HP", () => {
+    assert.ok(pveDifficultyHpMultiplier(10) < 1, "easy foes soak fewer hits");
+    assert.ok(pveDifficultyHpMultiplier(10) < pveDifficultyHpMultiplier(40), "easy < medium");
+    assert.ok(pveDifficultyHpMultiplier(40) < pveDifficultyHpMultiplier(70), "medium < hard");
+    assert.ok(pveDifficultyHpMultiplier(70) < pveDifficultyHpMultiplier(95), "hard < peer");
+    assert.equal(pveDifficultyHpMultiplier(95), 1.0, "peer keeps its full HP pool");
+});
+
 // ── AI mastery is tied to the enemy's level, not hard-coded to max 50 ────────
 test("AI mastery scales with enemy level and caps at the mastery ceiling", () => {
     assert.equal(pveAiMasteryForLevel(8), 8, "a level-8 D-rank casts under-mastered");
@@ -35,10 +57,10 @@ test("AI mastery scales with enemy level and caps at the mastery ceiling", () =>
 
 // ── Single-hit cap by band ──────────────────────────────────────────────────
 test("enemy hit cap clamps early-band damage to a fraction of player HP", () => {
-    // Easy band (the reported repro: level-3 player, 300 HP). 25% of 300 = 75.
-    assert.equal(pveEnemyHitCap(8, 300), 75);
-    assert.equal(pveEnemyHitCap(35, 1000), 400);  // medium 40%
-    assert.equal(pveEnemyHitCap(70, 2000), 1200); // hard 60%
+    // Easy band (the reported repro: level-3 player, 300 HP). 20% of 300 = 60.
+    assert.equal(pveEnemyHitCap(8, 300), 60);
+    assert.equal(pveEnemyHitCap(35, 1000), 300);  // medium 30%
+    assert.equal(pveEnemyHitCap(70, 2000), 900);  // hard 45%
     assert.equal(pveEnemyHitCap(95, 5000), Infinity); // peer uncapped
 });
 
@@ -84,13 +106,24 @@ test("levels <=10: enemy cannot kill a player who started the turn above 25% HP"
 });
 
 // ── Per-turn cap bounds cumulative damage in easy/medium ────────────────────
-test("easy-band per-turn cap bounds cumulative damage (~38% of max HP)", () => {
+test("easy-band per-turn cap bounds cumulative damage (~30% of max HP)", () => {
     const maxHp = 1000;
     let dealt = 0;
     for (let i = 0; i < 5; i++) {
         dealt += pveGuardedEnemyHit(9999, { enemyLevel: 15, playerMaxHp: maxHp, playerHpTurnStart: maxHp, dealtThisTurn: dealt });
     }
-    assert.ok(dealt <= 380, `cumulative ${dealt} must stay within the ~38% turn cap`);
+    assert.ok(dealt <= 300, `cumulative ${dealt} must stay within the ~30% turn cap`);
+});
+
+// ── Hard band now also bounds a full enemy turn (was uncapped) ───────────────
+test("hard-band per-turn cap bounds a chained turn (~70% of max HP)", () => {
+    const maxHp = 2000;
+    let dealt = 0;
+    for (let i = 0; i < 5; i++) {
+        dealt += pveGuardedEnemyHit(9999, { enemyLevel: 70, playerMaxHp: maxHp, playerHpTurnStart: maxHp, dealtThisTurn: dealt });
+    }
+    assert.ok(dealt <= 1400, `cumulative ${dealt} must stay within the ~70% hard turn cap`);
+    assert.ok(maxHp - dealt >= 1, "a healthy player survives a single hard-band turn");
 });
 
 // ── Peer band is uncapped (endgame PvE plays like a real duel) ───────────────
