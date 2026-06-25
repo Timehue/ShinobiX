@@ -2269,7 +2269,7 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, onCutIn, onFlash, onCallout, onCombo, onAnnounce }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
@@ -2285,6 +2285,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
     onAnnounce: (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => void;  // play-by-play commentary
+    onMoveCallout: (text: string, side: "player" | "enemy") => void;                       // named-move flash ("Hellhound Execution!")
 }) {
     const { camera } = useThree();
     const lastTick = useRef(-1);
@@ -2299,16 +2300,22 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const lowHp = useRef<Set<string>>(new Set());   // actors already called "on the ropes" (re-arms on heal)
     const leadSide = useRef<"player" | "enemy" | "even">("even");   // who holds the HP lead — a swap = a reversal
     const lastReversal = useRef(0);                  // wall-time of the last reversal call (debounce)
+    const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
+    const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
         const now = state.clock.elapsedTime;
-        // Hit-stop freezes playback on impact (weight); otherwise time can DILATE
-        // (slow-mo) for an ultimate / KO. Both are render-only — they scale only the
-        // clock advance, never the deterministic sim.
+        // ── Dramatic time control (render-only — scales the clock advance, never the
+        // sim). Neutral runs a touch FAST so dead approach time doesn't drag; each
+        // hit/cast SAVOR-slows playback and HOLDS it (holdUntil) so the exchange
+        // reads like a staged anime beat, then eases back. Hit-stop FREEZES on impact.
+        const BASE_SCALE = 1.12;
         let dt = delta * timeScale.current;
         if (hitStop.current > 0) { hitStop.current = Math.max(0, hitStop.current - delta); dt = 0; }
-        timeScale.current = lerp(timeScale.current, 1, 0.06);
+        if (now >= holdUntil.current) timeScale.current = lerp(timeScale.current, BASE_SCALE, 0.05);
+        // A savor beat: slow to `scale` and hold it for `holdSec` before easing back.
+        const savor = (scale: number, holdSec: number) => { timeScale.current = Math.min(timeScale.current, scale); holdUntil.current = Math.max(holdUntil.current, now + holdSec); };
         advanceClock(maxT, dt);
         const cur = Math.floor(clock.current.t);
         if (cur > lastTick.current) {
@@ -2357,8 +2364,17 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         // hit (bigger on heavy/crit) so even a small spell reads as an event.
                         onFlash(col, Math.min(0.5, 0.1 + frac * 0.9) + (e.crit ? 0.16 : 0));
                         spawnShock({ x: a.x, z: a.y, color: col, big: heavy });
-                        // Camera ZOOM-PUNCH on heavy/crit blows.
-                        if (heavy) zoomKick.current = Math.max(zoomKick.current, e.crit ? 2.6 : 1.4);
+                        // Dramatic SAVOR — slow the moment so the swing reads; deeper on a
+                        // signature, then a crit/heavy slam, then any named ability, then a basic.
+                        const isSig = !!e.signature, isAbility = !!e.move;
+                        if (isSig) savor(0.26, 0.5);
+                        else if (e.crit || heavyKind) savor(0.34, 0.3);
+                        else if (isAbility || heavy) savor(0.42, 0.22);
+                        else savor(0.6, 0.12);
+                        // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
+                        zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : (isAbility || heavy) ? 1.8 : 0.9);
+                        // Move-name CALLOUT for a named ability hit (signatures get the cut-in instead).
+                        if (isAbility && !isSig && now - lastMoveCall.current > 0.4) { lastMoveCall.current = now; onMoveCallout(e.move!, e.actorId.startsWith("enemy") ? "enemy" : "player"); }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         comboN.current = now < comboT.current ? comboN.current + 1 : 1;
                         comboT.current = now + 1.1;
@@ -2426,11 +2442,16 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     }
                     if (e.type === "ultimate") {
                         shake.current = Math.max(shake.current, 1.8);
-                        timeScale.current = Math.min(timeScale.current, 0.5);  // brief slow-mo for the unleash
-                        zoomKick.current = Math.max(zoomKick.current, 2.8);
+                        savor(0.22, 0.7);                                      // deep, HELD slow-mo for the unleash
+                        zoomKick.current = Math.max(zoomKick.current, 3.0);
                         onFlash(elementColor(el).glow, 0.42);
-                        onCutIn(e.actorId);                                    // anime portrait cut-in
+                        onCutIn(e.actorId);                                    // anime portrait cut-in (names the signature)
                         onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
+                    } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
+                        // A named ranged / support ability — flash its name + a short savor beat.
+                        lastMoveCall.current = now;
+                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                        savor(0.5, 0.18);
                     }
                 } else if (e.type === "ko") {
                     // KO finisher: a big element blast on the victim + a hard freeze →
@@ -2440,7 +2461,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     if (dead) spawnFx({ x: dead.x, z: dead.y, element: del, scale: 3.0, dur: 620 });
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
-                    timeScale.current = Math.min(timeScale.current, 0.32);
+                    savor(0.3, 0.9);   // deep, HELD slow-mo for the finishing blow
                     koPull.current = 3.4;
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
@@ -2644,6 +2665,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [callout, setCallout] = useState<{ id: number; text: string } | null>(null);
     const [combo, setCombo] = useState<{ id: number; n: number } | null>(null);
     const [announce, setAnnounce] = useState<{ id: number; text: string; tone: "danger" | "reversal" | "ultimate" | "ko" } | null>(null);  // play-by-play broadcast line
+    const [moveCallout, setMoveCallout] = useState<{ id: number; text: string; side: "player" | "enemy" } | null>(null);  // named-move flash
     const [intro, setIntro] = useState(true);   // VS splash held before the fight plays
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
@@ -2699,6 +2721,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerCombo = (n: number) => { const id = seqRef.current++; setCombo({ id, n }); window.setTimeout(() => setCombo((c) => (c && c.id === id ? null : c)), 820); };
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
     const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
+    // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
+    const triggerMoveCallout = (text: string, side: "player" | "enemy") => { const id = seqRef.current++; setMoveCallout({ id, text, side }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), 1000); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
     const triggerCutIn = (actorId: string) => {
@@ -2711,7 +2735,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const advanceClock = (maxT: number, delta: number) => {
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setRunId((r) => r + 1); };
+    const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     const resultLabel = duel.result === "win" ? "Victory" : duel.result === "loss" ? "Defeat" : "Draw";
 
@@ -2725,6 +2749,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+                @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -2760,7 +2785,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
                 <BloomFx />
             </Canvas>
 
@@ -2800,6 +2825,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             )}
             {combo && combo.n >= 2 && (
                 <div key={`combo-${combo.id}`} style={{ position: "absolute", top: "20%", right: "8%", pointerEvents: "none", textAlign: "center", font: "900 clamp(30px,5vw,58px)/1 Inter, system-ui, sans-serif", color: "#fde68a", textShadow: "0 0 14px rgba(245,158,11,0.85), 0 3px 8px #000", animation: "petDuelCombo 700ms ease-out forwards" }}>{combo.n}<span style={{ fontSize: "0.45em", letterSpacing: "0.15em", display: "block" }}>HIT COMBO</span></div>
+            )}
+            {/* Named-move flash — the ability's name slams in on cast/hit (signatures
+                use the bigger cut-in instead), side-tinted blue (you) / red (foe). */}
+            {moveCallout && (
+                <div key={`move-${moveCallout.id}`} style={{ position: "absolute", left: "50%", top: "40%", transform: "translateX(-50%)", pointerEvents: "none", padding: "4px 20px", borderRadius: 6, border: `2px solid ${moveCallout.side === "player" ? "#60a5fa" : "#f87171"}`, background: "rgba(8,11,22,0.55)", color: moveCallout.side === "player" ? "#dbeafe" : "#fee2e2", font: "900 clamp(20px,3.4vw,40px)/1 Cinzel, serif", letterSpacing: "0.04em", textShadow: "0 2px 10px #000", whiteSpace: "nowrap", animation: "petDuelMove 1000ms cubic-bezier(.2,.9,.2,1) forwards" }}>{moveCallout.text}</div>
             )}
             {/* Play-by-play broadcast line (lower-third) — narrates the swings:
                 a fighter on the ropes, a reversal, an ultimate, the finish. */}
