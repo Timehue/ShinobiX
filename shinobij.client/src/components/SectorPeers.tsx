@@ -15,10 +15,19 @@
  * turning the flag off restores the original dot rendering with zero code change.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLiveSectorPlayers } from "../lib/presence-store";
+import { sameSector } from "../lib/utils";
+import { playerNameTile } from "../lib/sector-tile";
 
 const GRID = 12;
 const PAD = 8;
 const GAP = 1;
+// Cap how many animated markers we draw at once so a packed hub sector stays
+// smooth (each marker is a transform-transitioned, bobbing DOM node). The
+// "Players Here" panel still lists EVERYONE for interaction — this caps only the
+// cosmetic overlay; the rest are summarised by a "+N more" pill. Live peers are
+// prioritised over sleepers.
+const MAX_MARKERS = 48;
 
 export type SectorPeer = {
     name: string;
@@ -111,10 +120,19 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
 
     const tilePx = Math.max(0, (metrics.w - 2 * metrics.padX - (GRID - 1) * metrics.gapX) / GRID);
     const size = tilePx * 0.86;
+    // Prioritise live peers over sleepers, and keep departing markers from
+    // displacing a live one, then cap (overflow becomes a "+N more" pill).
+    const ordered = [...items].sort((a, b) => {
+        if (a.leaving !== b.leaving) return a.leaving ? 1 : -1;
+        if (a.sleeping !== b.sleeping) return a.sleeping ? 1 : -1;
+        return 0;
+    });
+    const shown = ordered.slice(0, MAX_MARKERS);
+    const overflow = Math.max(0, peers.length - MAX_MARKERS);
 
     return (
         <div className="sector-peers-overlay" ref={wrapRef} aria-hidden="true">
-            {items.map((it) => {
+            {shown.map((it) => {
                 const col = it.tile % GRID;
                 const row = Math.floor(it.tile / GRID);
                 const cx = cellCentre(metrics.w, GRID, col, metrics.padX, metrics.gapX);
@@ -145,6 +163,39 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
                     </div>
                 );
             })}
+            {overflow > 0 && (
+                <div className="sector-peers-overflow">+{overflow} more here</div>
+            )}
         </div>
     );
+}
+
+/**
+ * SectorPeersLive — the overlay wired to the live presence store. It subscribes to
+ * the FULL (tile-sensitive) snapshot itself, so a peer walking re-renders only this
+ * subtree, NOT the whole WorldMap (which subscribes to the membership-only roster).
+ * Live peers (with real tiles) are merged with the passed-in sleepers (name-tile
+ * fallback). Render this only while the viewer is standing in the shown sector.
+ */
+export function SectorPeersLive({ selectedSector, selfName, sharedImages, sleepers }: {
+    selectedSector: number;
+    selfName: string;
+    sharedImages: Record<string, string>;
+    sleepers: SectorPeer[];
+}) {
+    const live = useLiveSectorPlayers();
+    const selfLower = selfName.toLowerCase();
+    const liveMarkers: SectorPeer[] = live
+        .filter((p) => p.name.toLowerCase() !== selfLower)
+        .filter((p) => sameSector(p.currentSector, selectedSector))
+        .map((p) => ({
+            name: p.name,
+            tile: typeof p.tile === "number" ? p.tile : playerNameTile(p.name),
+            level: p.level,
+            sleeping: false,
+            avatar: sharedImages["avatar:" + p.name.toLowerCase()] || ((p.character?.avatarImage as string) || ""),
+        }));
+    const liveNames = new Set(liveMarkers.map((m) => m.name.toLowerCase()));
+    const peers = [...liveMarkers, ...sleepers.filter((s) => !liveNames.has(s.name.toLowerCase()))];
+    return <SectorPeers peers={peers} />;
 }
