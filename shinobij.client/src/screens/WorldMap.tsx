@@ -491,6 +491,19 @@ export function WorldMap({
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
+    // Hard-lock the "Befriend / Leave" decision screen for a brief grace window
+    // after it appears. Players who rapid-click through the encounter VN would
+    // otherwise have a leftover/queued click land on "Leave" (it sits right under
+    // where the VN's "Continue" button just was), silently discarding the pet
+    // before they ever see the choice. Disarming the buttons for a moment forces
+    // a fresh, deliberate click to keep or release the pet.
+    const [petDecisionReady, setPetDecisionReady] = useState(false);
+    useEffect(() => {
+        if (!activePetEncounter || !petVnDone) { setPetDecisionReady(false); return; }
+        setPetDecisionReady(false);
+        const t = setTimeout(() => setPetDecisionReady(true), 650);
+        return () => clearTimeout(t);
+    }, [activePetEncounter, petVnDone]);
     const [sectorPlayerPos, setSectorPlayerPos] = useState(78);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
@@ -995,7 +1008,11 @@ export function WorldMap({
 
                 <div className="menu">
                     <button
+                        disabled={!petDecisionReady}
                         onClick={() => {
+                            // Ignore clicks during the grace window — a rapid-click
+                            // carried over from the VN must not auto-resolve this.
+                            if (!petDecisionReady) return;
                             // Re-read length inside the handler in case of fast double-click.
                             if (character.pets.length >= 5) {
                                 return alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
@@ -1014,16 +1031,23 @@ export function WorldMap({
                             alert(`${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
                         }}
                     >
-                        Befriend Pet
+                        {petDecisionReady ? "Befriend Pet" : "Befriend Pet…"}
                     </button>
 
                     <button
                         className="danger-button"
-                        onClick={() => setActivePetEncounter(null)}
+                        disabled={!petDecisionReady}
+                        onClick={() => { if (petDecisionReady) setActivePetEncounter(null); }}
                     >
                         Leave
                     </button>
                 </div>
+
+                {!petDecisionReady && (
+                    <p className="pet-encounter-hint" style={{ textAlign: "center", opacity: 0.7, marginTop: 8 }}>
+                        Make your choice…
+                    </p>
+                )}
             </div>
         );
     }
