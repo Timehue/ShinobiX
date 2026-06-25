@@ -176,6 +176,17 @@ export function wandererLevelFor(sector: number, rng: () => number): number {
     return Math.max(3, Math.min(95, Math.round(base + jitter)));
 }
 
+// Spawn rarity — a wanderer is an OCCASIONAL encounter, not a fixture. Most wild
+// sectors are empty in a given 6h window; some have one; a pair is rare. Tune
+// these two thresholds to taste (raise EMPTY_CHANCE for rarer, lower for busier).
+const WANDERER_EMPTY_CHANCE = 0.6;   // ~60% of sectors: nobody this window
+const WANDERER_SINGLE_CHANCE = 0.92; // 0.6–0.92 → one; 0.92–1.0 → two
+export function wandererCount(roll: number): 0 | 1 | 2 {
+    if (roll < WANDERER_EMPTY_CHANCE) return 0;
+    if (roll < WANDERER_SINGLE_CHANCE) return 1;
+    return 2;
+}
+
 /**
  * The deterministic roster for a sector at a given 6h bucket. Same inputs →
  * identical roster (verified in wanderers.test.ts), so nothing flickers and the
@@ -184,7 +195,7 @@ export function wandererLevelFor(sector: number, rng: () => number): number {
 export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
     if (!Number.isFinite(sector) || sector <= 0) return [];
     const rng = mulberry32(seedFrom(sector, dayBucket));
-    const count = 1 + Math.floor(rng() * 3); // 1..3
+    const count = wandererCount(rng());
     const used = new Set<number>();
     const out: Wanderer[] = [];
 
