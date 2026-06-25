@@ -28,7 +28,10 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         ryo: number; xp: number; statGain: number;
         foundFate: number; foundAura: number; foundBone: number; leveledUp: boolean;
     } | null>(null);
-    const [tick, setTick] = useState(0);
+    // Counter we bump once a second purely to force a re-render so the pet
+    // training/expedition countdowns (computed from Date.now() in render) tick.
+    // The value is never read — only the setter is used.
+    const [, setTick] = useState(0);
     const [petHeartBurst, setPetHeartBurst] = useState(0);
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
@@ -81,7 +84,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (!hasActivePetTimer) return;
         const id = setInterval(() => setTick((t) => t + 1), 1000);
         return () => clearInterval(id);
-    }, [character.pets, tick]);
+        // The render-forcing counter this interval bumps is intentionally NOT a dep —
+        // including it tore down + rebuilt the timer every single second.
+    }, [character.pets]);
 
     function startTraining() {
         if (!selectedPet) return;

@@ -20887,6 +20887,23 @@ html[data-vp="lg"] .battle-side-left {
     overflow: hidden;
 }
 
+/* Phones: the floating chat defaulted to 220x320 pinned top-right, covering most
+   of the battlefield. Shrink it to a small corner panel (the collapse toggle
+   still hides it entirely) so it stops blocking the fight on small screens. */
+html[data-vp="xs"] .battle-chat-col,
+html[data-vp="sm"] .battle-chat-col {
+    width: 150px;
+    max-height: 168px;
+    top: 52px;
+    right: 4px;
+    font-size: 0.7rem;
+}
+html[data-vp="xs"] .battle-chat-col .battle-chat-messages,
+html[data-vp="sm"] .battle-chat-col .battle-chat-messages {
+    min-height: 80px;
+    max-height: 108px;
+}
+
 /* xl: in-grid column instead of floating */
 html[data-vp="xl"] .battle-chat-col,
 html[data-vp="lg"] .battle-chat-col {

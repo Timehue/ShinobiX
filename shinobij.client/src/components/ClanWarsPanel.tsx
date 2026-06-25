@@ -67,8 +67,8 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                     <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                         <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                                <span>{clanName}</span>
-                                <span>{(activeWar.hp[clanName] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[clanName] ?? CW_HP_MAX).toLocaleString()} HP</span>
+                                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clanName}</span>
+                                <span style={{ flexShrink: 0, marginLeft: 8 }}>{(activeWar.hp[clanName] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[clanName] ?? CW_HP_MAX).toLocaleString()} HP</span>
                             </div>
                             <div className="bar" style={{ background: "#0b1220" }}>
                                 <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[clanName] ?? 0) / (activeWar.hpMax?.[clanName] ?? CW_HP_MAX)) * 100))}%`, background: "#22c55e" }} />
@@ -76,8 +76,8 @@ export function ClanWarsPanel({ character, clanName, setScreen }: { character: C
                         </div>
                         <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                                <span>{enemyClan}</span>
-                                <span>{(activeWar.hp[enemyClan] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
+                                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{enemyClan}</span>
+                                <span style={{ flexShrink: 0, marginLeft: 8 }}>{(activeWar.hp[enemyClan] ?? 0).toLocaleString()} / {(activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX).toLocaleString()} HP</span>
                             </div>
                             <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
                                 <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[enemyClan] ?? 0) / (activeWar.hpMax?.[enemyClan] ?? CW_HP_MAX)) * 100))}%`, background: "#ef4444" }} />
