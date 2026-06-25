@@ -36,6 +36,33 @@ describe('sealItemCharges — per-fight consumable budget', () => {
         assert.equal(sealItemCharges(char, char)['thrown-shuriken'], 5);
     });
 
+    it('seals all THREE combat-item slots (item1/2/3) at their owned counts', () => {
+        const char = {
+            equipment: {
+                item1: 'item-smoke-bomb',
+                item2: 'item-attack-pill',
+                item3: 'item-defense-pill',
+            },
+            itemStacks: [
+                { itemId: 'item-smoke-bomb', count: 3 },
+                { itemId: 'item-attack-pill', count: 1 },
+                { itemId: 'item-defense-pill', count: 7 },
+            ],
+        };
+        const charges = sealItemCharges(char, char);
+        assert.equal(charges['item-smoke-bomb'], 3);
+        assert.equal(charges['item-attack-pill'], 1);
+        assert.equal(charges['item-defense-pill'], 7);
+    });
+
+    it('still seals a legacy single "item" slot (not-yet-migrated save)', () => {
+        const char = {
+            equipment: { item: 'item-attack-pill' },
+            itemStacks: [{ itemId: 'item-attack-pill', count: 2 }],
+        };
+        assert.equal(sealItemCharges(char, char)['item-attack-pill'], 2);
+    });
+
     it('owned count spans both inventory[] and itemStacks', () => {
         const char = { inventory: ['x', 'x'], itemStacks: [{ itemId: 'x', count: 3 }] };
         assert.equal(ownedItemCount(char, 'x'), 5);

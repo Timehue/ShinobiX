@@ -15,7 +15,17 @@ import {
     petFeedXpForItem,
     vanguardOnlyHonorSeals,
 } from "../App";
-import { equipmentSlotLabel, equipSlotForItem, isGloveItem, normalizeEquipmentSlot } from "../lib/equipment";
+import {
+    COMBAT_ITEM_SLOTS,
+    combatConsumableSlots,
+    equipCombatItem,
+    equipmentSlotLabel,
+    equipSlotForItem,
+    isCombatConsumable,
+    isCombatItemSlot,
+    isGloveItem,
+    normalizeEquipmentSlot,
+} from "../lib/equipment";
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
@@ -59,6 +69,27 @@ export function Inventory({
         updateCharacter({ ...character, equipment: nextEquipment });
     }, [character, allItems, updateCharacter]);
 
+    // One-time migration: combat items used to share a single "item" equipment
+    // KEY, so only ONE of Attack Pill / Defense Pill / Smoke Bomb could be worn.
+    // They now occupy three dedicated keys (item1/2/3). Re-home any legacy "item"
+    // selection into the first open item slot and retire the bare key. Junk
+    // stranded there by the old equip quirk (materials/collars) is just dropped.
+    // Non-consuming, so no inventory stack changes. Self-terminating — once the
+    // legacy key is cleared the guard fails.
+    useEffect(() => {
+        const legacyId = character.equipment.item;
+        if (!legacyId) return;
+        const nextEquipment = { ...character.equipment };
+        delete nextEquipment.item;
+        const open = COMBAT_ITEM_SLOTS.find((s) => !nextEquipment[s]);
+        const already = COMBAT_ITEM_SLOTS.some((s) => nextEquipment[s] === legacyId);
+        const legacyItem = getItemById(allItems, legacyId);
+        if (open && !already && legacyItem && isCombatConsumable(legacyItem)) {
+            nextEquipment[open] = legacyId;
+        }
+        updateCharacter({ ...character, equipment: nextEquipment });
+    }, [character, allItems, updateCharacter]);
+
     const tileCardStacks = Object.values(
         character.tileCards.reduce<Record<string, { id: string; card?: TileCard; count: number }>>((stacks, cardId) => {
             const card = allTileCards.find((c) => c.id === cardId);
@@ -88,23 +119,24 @@ export function Inventory({
         { label: "Aura", equipmentSlot: "aura", accepts: "aura", className: "slot-keystone" },
         { label: "Head", equipmentSlot: "head", accepts: "head", className: "slot-head" },
         { label: "Thrown", equipmentSlot: "thrown", accepts: "thrown", className: "slot-thrown" },
-        { label: "Item", equipmentSlot: "item", accepts: "item", className: "slot-left-item-1" },
+        { label: "Item 1", equipmentSlot: "item1", accepts: "item1", className: "slot-left-item-1" },
+        { label: "Item 2", equipmentSlot: "item2", accepts: "item2", className: "slot-right-item-1" },
         { label: "Body", equipmentSlot: "body", accepts: "body", className: "slot-chest" },
         { label: "Weapon", equipmentSlot: "hand", accepts: "hand", className: "slot-left-hand" },
         { label: "Waist", equipmentSlot: "waist", accepts: "waist", className: "slot-waist" },
         { label: "Gloves", equipmentSlot: "gloves", accepts: "gloves", className: "slot-right-hand" },
+        { label: "Item 3", equipmentSlot: "item3", accepts: "item3", className: "slot-right-item-2" },
         { label: "Legs", equipmentSlot: "legs", accepts: "legs", className: "slot-legs" },
         { label: "Potion", equipmentSlot: "potion", accepts: "potion", className: "slot-left-item-3" },
         { label: "Feet", equipmentSlot: "feet", accepts: "feet", className: "slot-feet" },
-        { label: "Item", className: "slot-right-item-3" },
     ];
 
-    // Combat consumables (thrown / item / potion) are spent ON USE in battle,
-    // not on equip. Equipping one is a non-consuming SELECTION — it points the
-    // slot at an item id without draining the inventory stack (the stack is the
-    // ammo the battle screens decrement per use). All other gear keeps the
-    // classic "equip pulls one copy from the backpack" swap behaviour.
-    const consumableEquipSlots = new Set<EquipmentSlot>(["thrown", "item", "potion"]);
+    // Combat consumables (thrown / the three item slots / potion) are spent ON
+    // USE in battle, not on equip. Equipping one is a non-consuming SELECTION —
+    // it points the slot at an item id without draining the inventory stack (the
+    // stack is the ammo the battle screens decrement per use). All other gear
+    // keeps the classic "equip pulls one copy from the backpack" swap behaviour.
+    const consumableEquipSlots = new Set<EquipmentSlot>(combatConsumableSlots);
 
     function equippedIdForSlot(slot: EquipmentSlot) {
         const normalized = normalizeEquipmentSlot(slot);
@@ -122,6 +154,16 @@ export function Inventory({
     function equipItem(item: GameItem) {
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
             alert(`You need the ${item.weaponElement} element to equip ${item.name}.`);
+            return;
+        }
+        // Combat items (Attack/Defense Pill, Smoke Bomb) route into one of the
+        // three dedicated item KEYS so all three can be worn together — equipping
+        // a new one no longer evicts the others. Non-consuming selection (no stack
+        // drain). Other slot-"item" entries (materials/collars/pet gear) are not
+        // player-equippable and never reach here (their Equip button is hidden).
+        if (isCombatConsumable(item)) {
+            updateCharacter({ ...character, equipment: equipCombatItem(character.equipment, item.id) });
+            setSelectedInventoryItem(null);
             return;
         }
         // Gloves route to the dedicated "gloves" slot so they no longer evict
@@ -283,6 +325,17 @@ export function Inventory({
     const selectedGameItem = selected?.item;
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
     const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
+    // Equippable to the player? Combat items authored on "item" equip into
+    // item1/2/3; other slot-"item" entries (pet food / materials / collars / pet
+    // gear) are not player-equippable. Every other slot equips as before.
+    const selectedEquippable = !!selectedGameItem && !selectedPetFoodXp
+        && (normalizeEquipmentSlot(selectedGameItem.slot) === "item" ? isCombatConsumable(selectedGameItem) : true);
+    // Selling an EQUIPPED consumable would mint ryo without spending the stack
+    // (the selection never pulled a copy from the backpack). Sell those from the
+    // backpack instead, so hide sell on the equipped instance.
+    const equippedConsumableSelected = selected?.source === "equipped"
+        && selected.equipmentSlot != null
+        && consumableEquipSlots.has(normalizeEquipmentSlot(selected.equipmentSlot));
 
     return (
         <>
@@ -394,16 +447,24 @@ export function Inventory({
                         <>
                             {slotFilter && (
                                 <div className="slot-filter-bar">
-                                    <span>Showing <strong>{slotFilter.charAt(0).toUpperCase() + slotFilter.slice(1)}</strong> items</span>
+                                    <span>Showing <strong>{equipmentSlotLabel(slotFilter)}</strong> items</span>
                                     <button type="button" onClick={() => setSlotFilter(null)}>✕ Clear</button>
                                 </div>
                             )}
                             {(() => {
+                                // Filtering by one of the three item slots shows the
+                                // combat items (Attack/Defense Pill, Smoke Bomb) — all
+                                // are eligible for any item slot. Other slots match on
+                                // the item's destination slot as before.
                                 const visible = slotFilter
-                                    ? backpackStacks.filter(({ item }) => item && equipSlotForItem(item) === slotFilter)
+                                    ? backpackStacks.filter(({ item }) => item && (
+                                        isCombatItemSlot(slotFilter)
+                                            ? isCombatConsumable(item)
+                                            : equipSlotForItem(item) === slotFilter
+                                    ))
                                     : backpackStacks;
                                 if (visible.length === 0) {
-                                    return <p className="inventory-empty">{slotFilter ? `No ${slotFilter} items in inventory.` : "No items in inventory."}</p>;
+                                    return <p className="inventory-empty">{slotFilter ? `No ${equipmentSlotLabel(slotFilter)} items in inventory.` : "No items in inventory."}</p>;
                                 }
                                 return (
                                 <div className="backpack-grid">
@@ -714,7 +775,7 @@ export function Inventory({
                                         </button>
                                     )}
 
-                                    {selectedGameItem && selected.source === "backpack" && !selectedPetFoodXp && selectedGameItem.id !== LEGENDARY_WAR_CRATE_ID && (
+                                    {selectedGameItem && selectedEquippable && selected.source === "backpack" && selectedGameItem.id !== LEGENDARY_WAR_CRATE_ID && (
                                         <button
                                             type="button"
                                             onClick={() => equipItem(selectedGameItem)}
@@ -741,7 +802,7 @@ export function Inventory({
                                         </button>
                                     )}
 
-                                    {selectedGameItem && selectedSellValue > 0 && (
+                                    {selectedGameItem && selectedSellValue > 0 && !equippedConsumableSelected && (
                                         <button
                                             type="button"
                                             onClick={() => sellSelectedItem(1)}
