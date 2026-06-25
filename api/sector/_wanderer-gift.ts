@@ -3,10 +3,11 @@
  * split out so the roll + daily cap can be unit-tested without KV / auth / locks
  * (same pattern as api/pvp/_bounty.ts).
  *
- * A gift is a small random BUNDLE: a modest ryo amount plus 1–5 fate shards and
- * 1–10 bone charms. The amounts are rolled SERVER-SIDE (never trusted from the
- * client) and bounded by the per-day cap, so wanderers stay a fun trickle, not a
- * faucet. `rollWandererGift` takes an rng so the math is deterministic in tests.
+ * A gift is a small random BUNDLE: a modest ryo amount, an OCCASIONAL single fate
+ * shard, and 1–5 bone charms. The amounts are rolled SERVER-SIDE (never trusted
+ * from the client) and bounded by the per-day cap, so wanderers stay a fun
+ * trickle, not a faucet. `rollWandererGift` takes an rng so the math is
+ * deterministic in tests.
  */
 
 export const WANDERER_GIFTS_PER_DAY = 3;
@@ -20,14 +21,18 @@ export interface GiftBundle {
     boneCharms: number;
 }
 
-/** Roll a gift bundle. ryo is a small level-scaled range; shards 1–5; charms 1–10. */
+/** Chance a gift includes a single fate shard. */
+export const WANDERER_GIFT_FATE_SHARD_CHANCE = 0.25;
+
+/** Roll a gift bundle. ryo is a small level-scaled range; an occasional 1 fate
+ *  shard; 1–5 bone charms. */
 export function rollWandererGift(level: number, rng: () => number): GiftBundle {
     const lvl = clamp(level, 1, 100);
-    const ryoBase = 30 + lvl * 5;                       // L1≈35, L50≈280, L100≈530
+    const ryoBase = 30 + lvl * 5;                            // L1≈35, L50≈280, L100≈530
     return {
-        ryo: Math.round(ryoBase * (0.6 + rng() * 0.9)), // ≈0.6×–1.5× of base
-        fateShards: 1 + Math.floor(rng() * 5),          // 1–5
-        boneCharms: 1 + Math.floor(rng() * 10),         // 1–10
+        ryo: Math.round(ryoBase * (0.6 + rng() * 0.9)),     // ≈0.6×–1.5× of base
+        fateShards: rng() < WANDERER_GIFT_FATE_SHARD_CHANCE ? 1 : 0, // sometimes 1
+        boneCharms: 1 + Math.floor(rng() * 5),              // 1–5
     };
 }
 

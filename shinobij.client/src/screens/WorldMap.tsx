@@ -546,7 +546,9 @@ export function WorldMap({
             };
             if (data.ok && data.gift && data.totals) {
                 updateCharacter({ ...character, ryo: data.totals.ryo, fateShards: data.totals.fateShards, boneCharms: data.totals.boneCharms });
-                const parts = [`${data.gift.ryo} ryo`, `${data.gift.fateShards} fate shard${data.gift.fateShards === 1 ? "" : "s"}`, `${data.gift.boneCharms} bone charm${data.gift.boneCharms === 1 ? "" : "s"}`];
+                const parts = [`${data.gift.ryo} ryo`];
+                if (data.gift.fateShards > 0) parts.push(`${data.gift.fateShards} fate shard${data.gift.fateShards === 1 ? "" : "s"}`);
+                if (data.gift.boneCharms > 0) parts.push(`${data.gift.boneCharms} bone charm${data.gift.boneCharms === 1 ? "" : "s"}`);
                 setWandererDialog({ w, msg: `${w.name} presses a small bundle into your hand: ${parts.join(", ")}.` });
             } else if (data.reason === "daily-cap") {
                 setWandererDialog({ w, msg: "“I've nothing left to give today, friend.”" });

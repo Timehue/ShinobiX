@@ -3,13 +3,17 @@ import { strict as assert } from "node:assert";
 import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from "./_wanderer-gift.js";
 
 describe("rollWandererGift", () => {
-    it("rolls shards 1–5, charms 1–10, and positive ryo across the rng range", () => {
+    it("rolls 0–1 fate shards, 1–5 bone charms, and positive ryo across the rng range", () => {
         for (const r of [() => 0, () => 0.5, () => 0.999]) {
             const g = rollWandererGift(40, r);
-            assert.ok(g.fateShards >= 1 && g.fateShards <= 5, `shards ${g.fateShards}`);
-            assert.ok(g.boneCharms >= 1 && g.boneCharms <= 10, `charms ${g.boneCharms}`);
+            assert.ok(g.fateShards === 0 || g.fateShards === 1, `shards ${g.fateShards}`);
+            assert.ok(g.boneCharms >= 1 && g.boneCharms <= 5, `charms ${g.boneCharms}`);
             assert.ok(g.ryo > 0, `ryo ${g.ryo}`);
         }
+    });
+    it("fate shard is occasional (low rng grants 1, mid rng grants 0)", () => {
+        assert.equal(rollWandererGift(40, () => 0).fateShards, 1);
+        assert.equal(rollWandererGift(40, () => 0.5).fateShards, 0);
     });
     it("ryo scales with level but stays modest", () => {
         const lo = rollWandererGift(1, () => 0.5);
