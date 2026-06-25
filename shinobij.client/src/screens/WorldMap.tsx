@@ -16,6 +16,7 @@ import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, type Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
+import { createPortal } from "react-dom";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
@@ -516,6 +517,35 @@ export function WorldMap({
         setPendingAiProfileId(ai.id);
         setRaidBattleKind("raidAi");
         setScreen("arena");
+    }
+    // Non-combat wanderer interaction (gift now; gamble/quest hooks land in later
+    // slices). The dialog is the only UI; rewards are server-authoritative.
+    type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean };
+    const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
+    function handleWandererEngage(w: Wanderer) {
+        if (w.verb === "attack") { startWandererAttack(w); return; }
+        setWandererDialog({ w });
+    }
+    async function claimWandererGift(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        try {
+            const res = await fetch("/api/sector/wanderer-gift", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, sector: selectedSector ?? 0 }),
+            });
+            const data = await res.json() as { ok?: boolean; ryo?: number; totalRyo?: number; reason?: string };
+            if (data.ok && typeof data.totalRyo === "number") {
+                updateCharacter({ ...character, ryo: data.totalRyo });
+                setWandererDialog({ w, msg: `${w.name} presses ${data.ryo} ryo into your hand.` });
+            } else if (data.reason === "daily-cap") {
+                setWandererDialog({ w, msg: "“I've nothing left to give today, friend.”" });
+            } else {
+                setWandererDialog({ w, msg: "They turn away, empty-handed." });
+            }
+        } catch {
+            setWandererDialog({ w, msg: "You couldn't reach them." });
+        }
     }
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     const [petVnDone, setPetVnDone] = useState(false);
@@ -1421,9 +1451,35 @@ export function WorldMap({
                                     wanderer={w}
                                     playerIndex={sectorPlayerPos}
                                     biome={ambienceBiomeForSector(selectedSector)}
-                                    onAttack={startWandererAttack}
+                                    onEngage={handleWandererEngage}
                                 />
                             ))}
+                            {wandererDialog && createPortal(
+                                <div
+                                    style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}
+                                    onClick={() => setWandererDialog(null)}
+                                >
+                                    <div className="card" style={{ maxWidth: 360, width: "88%", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
+                                        <img
+                                            src={wandererAvatar(wandererDialog.w.avatarKey)}
+                                            alt={wandererDialog.w.name}
+                                            style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
+                                        />
+                                        <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
+                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>Wandering shinobi · Lv {wandererDialog.w.level}</p>
+                                        <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
+                                        {!wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take it"}</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setWandererDialog(null)}>{wandererDialog.msg ? "Close" : "Leave"}</button>
+                                        )}
+                                    </div>
+                                </div>,
+                                document.body,
+                            )}
 
                             {/* Near-camera foliage band that parallaxes against the
                                 backdrop as you cross the grid — the "walking THROUGH
