@@ -13,7 +13,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -539,10 +539,15 @@ export function WorldMap({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ playerName: character.name, sector: selectedSector ?? 0 }),
             });
-            const data = await res.json() as { ok?: boolean; ryo?: number; totalRyo?: number; reason?: string };
-            if (data.ok && typeof data.totalRyo === "number") {
-                updateCharacter({ ...character, ryo: data.totalRyo });
-                setWandererDialog({ w, msg: `${w.name} presses ${data.ryo} ryo into your hand.` });
+            const data = await res.json() as {
+                ok?: boolean; reason?: string;
+                gift?: { ryo: number; fateShards: number; boneCharms: number };
+                totals?: { ryo: number; fateShards: number; boneCharms: number };
+            };
+            if (data.ok && data.gift && data.totals) {
+                updateCharacter({ ...character, ryo: data.totals.ryo, fateShards: data.totals.fateShards, boneCharms: data.totals.boneCharms });
+                const parts = [`${data.gift.ryo} ryo`, `${data.gift.fateShards} fate shard${data.gift.fateShards === 1 ? "" : "s"}`, `${data.gift.boneCharms} bone charm${data.gift.boneCharms === 1 ? "" : "s"}`];
+                setWandererDialog({ w, msg: `${w.name} presses a small bundle into your hand: ${parts.join(", ")}.` });
             } else if (data.reason === "daily-cap") {
                 setWandererDialog({ w, msg: "“I've nothing left to give today, friend.”" });
             } else {
@@ -1561,7 +1566,8 @@ export function WorldMap({
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "quest" ? (() => {
                                             const active = character.activeWandererQuest;
                                             if (active) {
-                                                const got = Math.max(0, (character.totalAiKills ?? 0) - active.baseline);
+                                                const metric = questMetricForId(active.id);
+                                                const got = Math.max(0, ((character[metric] as number | undefined) ?? 0) - active.baseline);
                                                 const done = got >= active.target;
                                                 return done ? (
                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>

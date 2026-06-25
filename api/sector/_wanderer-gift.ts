@@ -1,26 +1,40 @@
 /*
  * Pure decision logic for the sector-wanderer GIFT (api/sector/wanderer-gift.ts),
- * split out so the reward math + daily cap can be unit-tested without KV / auth /
- * locks (same pattern as api/pvp/_bounty.ts).
+ * split out so the roll + daily cap can be unit-tested without KV / auth / locks
+ * (same pattern as api/pvp/_bounty.ts).
  *
- * Conservative + daily-capped by design: a small, mildly level-scaled ryo gift at
- * or below a normal PvE win, so wanderers can't become a ryo faucet. The amount
- * is recomputed server-side (never trusted from the client) and bounded by the
- * per-day cap — so the worst case is "claim your few daily wanderer gifts".
+ * A gift is a small random BUNDLE: a modest ryo amount plus 1–5 fate shards and
+ * 1–10 bone charms. The amounts are rolled SERVER-SIDE (never trusted from the
+ * client) and bounded by the per-day cap, so wanderers stay a fun trickle, not a
+ * faucet. `rollWandererGift` takes an rng so the math is deterministic in tests.
  */
 
 export const WANDERER_GIFTS_PER_DAY = 3;
 
-/** Small, mildly level-scaled ryo gift. Tunable. */
-export function wandererGiftRyo(level: number): number {
-    const lvl = Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
-    return 40 + lvl * 8; // L1≈48, L50≈440, L100≈840 — modest, below typical PvE payouts
+const clamp = (n: number, lo: number, hi: number) =>
+    Math.max(lo, Math.min(hi, Math.floor(Number(n) || 0)));
+
+export interface GiftBundle {
+    ryo: number;
+    fateShards: number;
+    boneCharms: number;
 }
 
-export type GiftDecision = { ok: true; ryo: number } | { ok: false; reason: "daily-cap" };
+/** Roll a gift bundle. ryo is a small level-scaled range; shards 1–5; charms 1–10. */
+export function rollWandererGift(level: number, rng: () => number): GiftBundle {
+    const lvl = clamp(level, 1, 100);
+    const ryoBase = 30 + lvl * 5;                       // L1≈35, L50≈280, L100≈530
+    return {
+        ryo: Math.round(ryoBase * (0.6 + rng() * 0.9)), // ≈0.6×–1.5× of base
+        fateShards: 1 + Math.floor(rng() * 5),          // 1–5
+        boneCharms: 1 + Math.floor(rng() * 10),         // 1–10
+    };
+}
+
+export type GiftDecision = { ok: true } | { ok: false; reason: "daily-cap" };
 
 /** `claimsSoFar` = gifts already taken today, BEFORE this one. */
-export function decideWandererGift(level: number, claimsSoFar: number): GiftDecision {
+export function decideWandererGift(claimsSoFar: number): GiftDecision {
     if (claimsSoFar >= WANDERER_GIFTS_PER_DAY) return { ok: false, reason: "daily-cap" };
-    return { ok: true, ryo: wandererGiftRyo(level) };
+    return { ok: true };
 }
