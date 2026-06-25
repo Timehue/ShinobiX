@@ -278,7 +278,7 @@ export interface DuelProjSnap { id: number; x: number; y: number; team: "player"
 export interface DuelSnapshot { t: number; actors: DuelActorSnap[]; projectiles: DuelProjSnap[]; }
 
 export type DuelEventType = "dash" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
-export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; }
+export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; }
 
 export interface DuelResult {
     result: "win" | "loss" | "draw";   // from the PLAYER team's perspective
@@ -389,7 +389,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     // ENDURE consumable: survive one otherwise-lethal blow at 1 HP.
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }
     tgt.hp -= dmg;
-    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage" });
+    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile });
 
     // On-hit effects by ability kind.
     if (ab) applyOnHit(att, tgt, ab);

@@ -21,6 +21,7 @@ import {
     classifyMoveChoreo,
     moveChoreoMods,
     moveFxKey,
+    meleeContactFx,
     meleeLungeReach,
     COLISEUM_COLS,
     COLISEUM_ROWS,
@@ -453,4 +454,68 @@ test("moveFxKey: status kinds get a themed sprite; plain damage keeps the elemen
     assert.equal(moveFxKey("damage"), "");
     assert.equal(moveFxKey("crush"), "");
     assert.equal(moveFxKey(undefined), "");
+});
+
+test("classifyMoveChoreo: melee splits its swing by element; crush/lifesteal own their staging", () => {
+    // Element-keyed melee silhouettes.
+    assert.equal(classifyMoveChoreo("damage", false, "Wind"), "slash");
+    assert.equal(classifyMoveChoreo("damage", false, "Water"), "slash");
+    assert.equal(classifyMoveChoreo("damage", false, "Fire"), "pierce");
+    assert.equal(classifyMoveChoreo("damage", false, "Lightning"), "pierce");
+    assert.equal(classifyMoveChoreo("damage", false, "Earth"), "lightMelee");
+    // crush/push/lifesteal classify by KIND regardless of element.
+    assert.equal(classifyMoveChoreo("crush", false, "Wind"), "heavySlam");
+    assert.equal(classifyMoveChoreo("push", false, "Fire"), "heavySlam");
+    assert.equal(classifyMoveChoreo("lifesteal", false, "Wind"), "drain");
+    // Back-compat: the legacy 2-arg call (no element) still falls to the standard lunge.
+    assert.equal(classifyMoveChoreo("damage", false), "lightMelee");
+    // Casts are unaffected by element (still split ranged/beam/support).
+    assert.equal(classifyMoveChoreo("damage", true, "Fire"), "rangedCast");
+    assert.equal(classifyMoveChoreo("stun", true, "Fire"), "beam");
+});
+
+test("moveChoreoMods: slash double-taps fast; pierce is a single deep thrust", () => {
+    const slash = moveChoreoMods("slash");
+    const pierce = moveChoreoMods("pierce");
+    assert.equal(slash.plant, false);
+    assert.equal(pierce.plant, false);
+    // A slash is the only melee that flurries off-crit; a pierce commits as one blow.
+    assert.equal(slash.doubleTap, true);
+    assert.equal(pierce.doubleTap, false);
+    assert.equal(moveChoreoMods("lightMelee").doubleTap, false);
+    assert.equal(moveChoreoMods("heavySlam").doubleTap, false);
+    // A slash snaps quicker than the baseline; a pierce holds longer + commits closer.
+    assert.ok(slash.pulseMul < moveChoreoMods("lightMelee").pulseMul, "slash is faster");
+    assert.ok(pierce.pulseMul > moveChoreoMods("lightMelee").pulseMul, "pierce holds longer");
+    assert.ok(pierce.closeMul < moveChoreoMods("lightMelee").closeMul, "pierce commits closer");
+    assert.ok(pierce.closeMul > 0.5, "pierce still leaves a gap (no overlap)");
+});
+
+test("meleeContactFx: ordered, element-flavored combo from real fx folders", () => {
+    const FOLDERS = new Set(["", "slash", "spark", "bighit", "burn", "wind", "earth", "kaboom", "explosion"]);
+    for (const [el, arche] of [["Fire", "pierce"], ["Lightning", "pierce"], ["Wind", "slash"], ["Earth", "lightMelee"], ["Water", "slash"]] as const) {
+        for (const crit of [false, true]) {
+            for (const heavy of [false, true]) {
+                const beats = meleeContactFx(el, arche, crit, heavy);
+                assert.ok(beats.length >= 2, `${el}/${arche}: at least a lead + element bloom`);
+                // Monotonic schedule (each beat fires at or after the previous).
+                for (let i = 1; i < beats.length; i++) assert.ok(beats[i].at >= beats[i - 1].at, `${el}: beats ordered`);
+                // Every key is a real bundled fx folder ("" → caller spawns the element burst).
+                for (const b of beats) {
+                    assert.ok(FOLDERS.has(b.key), `${el}/${arche}: key "${b.key}" is a known folder`);
+                    assert.ok(b.scale > 0 && b.dur > 0, "positive scale/dur");
+                }
+                // Exactly one element bloom ("") on contact.
+                assert.equal(beats.filter((b) => b.key === "").length, 1, `${el}: one element bloom`);
+                // A crit always caps the combo with a finisher burst.
+                if (crit) assert.ok(["kaboom", "explosion"].includes(beats[beats.length - 1].key), `${el}: crit finisher`);
+            }
+        }
+    }
+    // A slash flurries (two slash streaks); a pierce never doubles up.
+    assert.equal(meleeContactFx("Wind", "slash", false, false).filter((b) => b.key === "slash").length, 2, "slash = double streak");
+    assert.ok(meleeContactFx("Fire", "pierce", false, false).filter((b) => b.key === "slash").length <= 1, "pierce does not double-slash");
+    assert.equal(meleeContactFx("Lightning", "pierce", false, false).filter((b) => b.key === "slash").length, 0, "lightning pierce leads with spark");
+    // A heavy slam leads with a bighit.
+    assert.equal(meleeContactFx("Earth", "heavySlam", false, true)[0].key, "bighit", "slam leads bighit");
 });
