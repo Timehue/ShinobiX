@@ -18,6 +18,7 @@ const online_store_js_1 = require("../_realtime/online-store.js");
 const presence_gating_js_1 = require("../_realtime/presence-gating.js");
 const _ranked_match_token_js_1 = require("../_ranked-match-token.js");
 const _jutsu_catalog_js_1 = require("./_jutsu-catalog.js");
+const _multipliers_js_1 = require("./_multipliers.js");
 const _tags_js_1 = require("./_tags.js");
 exports.PVP_MOVE_TOKEN_HISTORY = 20;
 // Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
@@ -388,6 +389,35 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
     }
     return resolved;
 }
+// Resolve a fighter's equipped items (weapons / throwables / consumables / armor)
+// server-side from the authoritative save — mirroring resolveEquippedLoadout for
+// jutsu. The client builds pvpItems via getPvpItemLoadout (equipment ids ∩ the
+// item catalog), but pvpItems is NOT persisted, so the old
+// `saveCharacter.pvpItems ?? clientCharacter.pvpItems` trusted the SESSION
+// CREATOR's client — a defender whose creatorItems failed to sync would fight
+// WITHOUT their named weapon. Resolving from the save's own equipment +
+// creatorItems (∪ the built-in ITEM_CATALOG via buildItemLookup) fixes that and
+// makes weapon stats authoritative. Returns null for save-less callers (NPCs)
+// so the existing client fallback still applies.
+function resolveEquippedPvpItems(saveCharacter, save) {
+    if (!save)
+        return null;
+    const equipment = saveCharacter.equipment;
+    if (!equipment || typeof equipment !== 'object')
+        return null;
+    const ids = [...new Set(Object.values(equipment).filter((v) => typeof v === 'string'))];
+    if (ids.length === 0)
+        return null;
+    const getItem = (0, _multipliers_js_1.buildItemLookup)(save.creatorItems);
+    const resolved = [];
+    for (const id of ids) {
+        const item = getItem(id);
+        if (item)
+            resolved.push({ ...item });
+        // else: unknown id (not built-in, not in the player's creatorItems) → dropped.
+    }
+    return resolved;
+}
 // Hydrate a fighter character from the authoritative save. The client payload
 // is only used as a fallback for fields the save lacks (e.g. computed
 // bloodlineMult on NPCs without a save).
@@ -407,17 +437,38 @@ function hydrateCharacterFromSave(saveCharacter, clientCharacter, save = null) {
             return clampNumber(saveVal, min, max, fb);
         return clampNumber(clientVal, min, max, fb);
     };
-    merged.bloodlineMult = pickClamped(saveCharacter.bloodlineMult, clientCharacter.bloodlineMult, 1.0, 3.0, 1.0);
-    merged.armorFactor = pickClamped(saveCharacter.armorFactor, clientCharacter.armorFactor, 0.25, 1.0, 1.0);
-    merged.armorRawDR = pickClamped(saveCharacter.armorRawDR, clientCharacter.armorRawDR, 0, 1.5, 0);
-    merged.itemDamagePct = pickClamped(saveCharacter.itemDamagePct, clientCharacter.itemDamagePct, 0, 200, 0);
+    // Combat multipliers (offense/defense layer). When we have the authoritative
+    // save, DERIVE them server-side from the equipped bloodline rank + equipped
+    // armor/items (see api/pvp/_multipliers.ts) so a tampered client can't
+    // under/over-report them for EITHER fighter — this was the one place damage
+    // inputs were still client-trusted. Honest fighters get identical numbers;
+    // the clamps below stay as a final ceiling. Without a save (legacy/edge
+    // callers — the real PvP + Battle Towers paths always pass one; NPCs use
+    // hydrateNpcCharacter) fall back to the clamped client value as before.
+    const numOr = (saveVal, clientVal) => saveVal != null && Number.isFinite(Number(saveVal)) ? Number(saveVal) : Number(clientVal);
+    const mult = save
+        ? (0, _multipliers_js_1.deriveCombatMultipliers)(saveCharacter, save)
+        : {
+            bloodlineMult: numOr(saveCharacter.bloodlineMult, clientCharacter.bloodlineMult),
+            armorFactor: numOr(saveCharacter.armorFactor, clientCharacter.armorFactor),
+            armorRawDR: numOr(saveCharacter.armorRawDR, clientCharacter.armorRawDR),
+            itemDamagePct: numOr(saveCharacter.itemDamagePct, clientCharacter.itemDamagePct),
+            itemAbsorbPct: numOr(saveCharacter.itemAbsorbPct, clientCharacter.itemAbsorbPct),
+            itemReflectPct: numOr(saveCharacter.itemReflectPct, clientCharacter.itemReflectPct),
+            itemLifeStealPct: numOr(saveCharacter.itemLifeStealPct, clientCharacter.itemLifeStealPct),
+            itemShield: numOr(saveCharacter.itemShield, clientCharacter.itemShield),
+        };
+    merged.bloodlineMult = clampNumber(mult.bloodlineMult, 1.0, 3.0, 1.0);
+    merged.armorFactor = clampNumber(mult.armorFactor, 0.25, 1.0, 1.0);
+    merged.armorRawDR = clampNumber(mult.armorRawDR, 0, 1.5, 0);
+    merged.itemDamagePct = clampNumber(mult.itemDamagePct, 0, 200, 0);
     // Named-armor passives. Percentage values cap at 100 (no point allowing
     // 100%+ absorb/reflect/lifesteal). Shield is flat HP — capped at 5000
     // to prevent a degenerate equipment stack from making a fighter unkillable.
-    merged.itemAbsorbPct = pickClamped(saveCharacter.itemAbsorbPct, clientCharacter.itemAbsorbPct, 0, 100, 0);
-    merged.itemReflectPct = pickClamped(saveCharacter.itemReflectPct, clientCharacter.itemReflectPct, 0, 100, 0);
-    merged.itemLifeStealPct = pickClamped(saveCharacter.itemLifeStealPct, clientCharacter.itemLifeStealPct, 0, 100, 0);
-    merged.itemShield = pickClamped(saveCharacter.itemShield, clientCharacter.itemShield, 0, 5000, 0);
+    merged.itemAbsorbPct = clampNumber(mult.itemAbsorbPct, 0, 100, 0);
+    merged.itemReflectPct = clampNumber(mult.itemReflectPct, 0, 100, 0);
+    merged.itemLifeStealPct = clampNumber(mult.itemLifeStealPct, 0, 100, 0);
+    merged.itemShield = clampNumber(mult.itemShield, 0, 5000, 0);
     // Per-stat defense-in-depth clamp. Save endpoint already gates stat-gain
     // rates (api/save/[name].ts), but a tampered KV row or NPC payload could
     // still ship 999999 on a single stat. Each stat clamps to [0, MAX_STAT].
@@ -448,7 +499,10 @@ function hydrateCharacterFromSave(saveCharacter, clientCharacter, save = null) {
     // jutsu only for old saves with no equippedJutsuIds and for NPCs.
     const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter);
     merged.jutsu = sanitizeJutsuList(resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu);
-    merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
+    // Resolve equipped items from the authoritative save (see resolveEquippedPvpItems);
+    // fall back to the persisted/client pvpItems for save-less (NPC) callers.
+    const resolvedItems = resolveEquippedPvpItems(saveCharacter, save);
+    merged.pvpItems = sanitizePvpItems(resolvedItems ?? saveCharacter.pvpItems ?? clientCharacter.pvpItems);
     // Strip everything that isn't combat-relevant. The session is read by
     // spectators (and by the unauth /api/pvp/stream endpoint) so anything
     // sensitive (ryo, currencies, inventory, journals) would leak otherwise.

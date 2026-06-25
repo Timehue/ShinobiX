@@ -19325,25 +19325,25 @@ button.combat-jutsu-button,
     grid-row: 1 !important;
   }
 
-  /* Compact both HUDs — show HP + Chakra + Stamina (+ Shield if present).
-     Buffs/Debuffs panels stay clipped via max-height; they're useful but
-     not essential for tap-to-act decisions, and the bars are. */
+  /* Compact both HUDs — HP + Chakra + Stamina (+ Shield) + the compact
+     MobileEffectsStrip. The verbose Buffs/Debuffs columns are hidden on mobile
+     (below) and replaced by that one-row strip, so the HUD stays short without
+     clipping the (now glanceable) status info. */
   .arena-fullscreen .combat-side-hud {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    /* Tall enough to fit: header (~22) + avatar (40+6) + 3 bars (~22 ea)
-       + a fourth shield bar when present (~22) + a tiny round-counter
-       line. Buffs / Debuffs scroll past this and are intentionally
-       hidden via the overflow below. */
-    max-height: 220px !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     padding: 6px 8px !important;
     font-size: 11px !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 3px !important;
   }
+
+  /* Swap the verbose effect columns for the compact strip on phones. */
+  .arena-fullscreen .combat-side-hud .combat-effect-panel { display: none !important; }
+  .arena-fullscreen .combat-side-hud .combat-mobile-effects { display: flex !important; }
 
   .arena-fullscreen .combat-side-hud h3 {
     font-size: 11px !important;
@@ -19570,10 +19570,9 @@ button.combat-jutsu-button,
   }
 
   .arena-fullscreen .combat-side-hud {
-    /* Still fits 3 bars on a 360px-wide phone — header (~20) + avatar
-       (32+4) + 3 bars (~20 ea) = ~116px; bump to 200 to leave room for
-       Shield when it spawns. */
-    max-height: 200px !important;
+    /* Height follows content (header + avatar + 3-4 bars + the compact
+       MobileEffectsStrip); the verbose effect columns are hidden on mobile so
+       the HUD stays short without a hard clamp clipping the status strip. */
     font-size: 10px !important;
   }
 

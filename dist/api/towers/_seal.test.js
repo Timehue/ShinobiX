@@ -43,16 +43,32 @@ const _seal_js_1 = require("./_seal.js");
         node_assert_1.strict.equal(jutsu[0].id, 'ashen-eyes-blood-gaze');
         node_assert_1.strict.ok(jutsu[0].chakraCost > 0, 'catalog jutsu carries its real chakra cost');
     });
-    (0, node_test_1.it)('seals client-supplied pvpItems + equipment passives the save does NOT persist', () => {
-        // pvpItems + bloodlineMult/armor/itemDamagePct are computed client-side at fight time
-        // (the save lacks them) — the host sends them; the seal must fill + clamp them.
-        const sealed = (0, _seal_js_1.sealTowerFighter)({ name: 'Hero', stats: {} }, // save character — no items / passives
-        { character: {} }, // save record
-        { pvpItems: [{ id: 'kunai', name: 'Kunai', slot: 'thrown', weaponEp: 20 }], bloodlineMult: 2, armorRawDR: 0.8, itemDamagePct: 50 });
-        node_assert_1.strict.equal(sealed.bloodlineMult, 2, 'client bloodlineMult sealed');
-        node_assert_1.strict.equal(sealed.itemDamagePct, 50, 'client itemDamagePct sealed');
-        node_assert_1.strict.ok(sealed.armorRawDR > 0, 'client armorRawDR sealed');
-        node_assert_1.strict.ok(Array.isArray(sealed.pvpItems) && sealed.pvpItems.length === 1, 'client pvpItems sealed');
+    (0, node_test_1.it)('DERIVES equipment passives + pvpItems from the save (server-authoritative; ignores client-claimed values)', () => {
+        // bloodlineMult / armor* / item*Pct + the equipped-weapon loadout are now
+        // DERIVED server-side from the save's equipped bloodline rank + equipped
+        // armor/items (api/pvp/_multipliers.ts) — the host's client no longer
+        // dictates them. A tampered client claiming inflated passives is ignored.
+        const sealed = (0, _seal_js_1.sealTowerFighter)({
+            name: 'Hero', stats: {},
+            equippedBloodlineId: 'custom-bl-1',
+            // legendary-crown (head) + legendary-chest (body): Legendary armor
+            // (0.07 DR each) granting damagePercent:1 each; ashen-dragon-katana (hand).
+            equipment: { head: 'legendary-crown', body: 'legendary-chest', hand: 'ashen-dragon-katana' },
+        }, {
+            character: {},
+            savedBloodlines: [{ id: 'custom-bl-1', rank: 'S Rank', jutsus: [] }],
+            creatorItems: [],
+        }, 
+        // client claims inflated passives + a bogus weapon — ALL must be ignored.
+        { pvpItems: [{ id: 'kunai', name: 'Kunai', slot: 'thrown', weaponEp: 999999 }], bloodlineMult: 3, armorRawDR: 1.5, itemDamagePct: 200 });
+        node_assert_1.strict.equal(sealed.bloodlineMult, 1.2, 'bloodlineMult derived from the S-Rank bloodline, not client 3');
+        node_assert_1.strict.ok(Math.abs(sealed.armorRawDR - 0.14) < 1e-9, 'armorRawDR derived from the two Legendary pieces (0.07+0.07), not client 1.5');
+        node_assert_1.strict.equal(sealed.itemDamagePct, 2, 'itemDamagePct derived from equipped armor bonuses (1+1), not client 200');
+        const pvpItems = sealed.pvpItems;
+        const katana = pvpItems.find((i) => i.id === 'ashen-dragon-katana');
+        node_assert_1.strict.ok(katana, 'equipped weapon resolved from the catalog, not the client-claimed kunai');
+        node_assert_1.strict.equal(katana.weaponEp, 30, 'resolved weapon carries its authoritative catalog weaponEp');
+        node_assert_1.strict.ok(!pvpItems.some((i) => i.id === 'kunai'), 'client-claimed weapon is ignored');
     });
     (0, node_test_1.it)('clampTowerLoadout clamps tampered passives + sanitizes pvpItems (present fields only)', () => {
         const out = (0, _seal_js_1.clampTowerLoadout)({ bloodlineMult: 99, armorRawDR: 9, itemDamagePct: 9999, pvpItems: [{ id: 'x', name: 'X', slot: 'hand', weaponEp: 999999 }] });
