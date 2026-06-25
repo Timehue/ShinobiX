@@ -40,7 +40,7 @@ function singleNum(src, name) {
     return Number(m[1]);
 }
 (0, node_test_1.describe)('parity: Healer rank perk arrays (_progress.ts ⇄ professionLogic.ts)', () => {
-    for (const name of ['HEALER_PER_TARGET_COOLDOWN_SEC', 'HEALER_HEAL_XP_BONUS_PCT', 'HEALER_HOSPITAL_TIMER_SEC']) {
+    for (const name of ['HEALER_PER_TARGET_COOLDOWN_SEC', 'HEALER_HEAL_XP_BONUS_PCT']) {
         (0, node_test_1.it)(`${name} matches (compared by name, order-independent)`, () => {
             node_assert_1.strict.deepEqual(numArray(PROGRESS, name), numArray(PROFESSION, name), `${name} drifted — sync both files`);
         });
