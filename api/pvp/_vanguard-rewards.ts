@@ -19,10 +19,14 @@ const PET_ESCORT_SEAL_BONUS = 1.05;
 // (vanguardSealsForKill / vanguardXpForKill) so removing the client-side
 // grant later won't change observable balance.
 
-const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
-const DAILY_SEAL_CAP = 50;
-const PER_TARGET_DAILY_CAP = 3;
-const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
+// Exported so the sleeper-KO path (api/player/sleeper-kill.ts) reuses the EXACT
+// same seal table + caps — keeping that no-fight payout in lockstep with live
+// PvP balance instead of duplicating the numbers. Adding `export` is the only
+// change here; the grant logic below is untouched.
+export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+export const DAILY_SEAL_CAP = 50;
+export const PER_TARGET_DAILY_CAP = 3;
+export const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
 const MIN_FIGHT_DURATION_MS = 15_000;
 
 function todayKey(): string {
