@@ -1232,8 +1232,11 @@ export function AdminPanel({
                 : "All";
 
     const allGameJutsus = getAllJutsus(savedBloodlines, creatorJutsus, null);
+    // Built-in / story AIs are source-authoritative (see playableAis in App.tsx): a
+    // same-id override contributes only its image, so the panel shows the real combat
+    // stats from code, not a stale captured snapshot. Mirrors the live battle list.
     const allAdminAis = [
-        ...builtinAis.map((builtin) => creatorAis.find((ai) => ai.id === builtin.id) ?? builtin),
+        ...builtinAis.map((builtin) => { const o = creatorAis.find((ai) => ai.id === builtin.id); return o ? { ...builtin, image: o.image ?? builtin.image } : builtin; }),
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
     ];
     const selectedAdminAiProfile = allAdminAis.find((ai) => ai.id === selectedAiId) ?? allAdminAis[0];
