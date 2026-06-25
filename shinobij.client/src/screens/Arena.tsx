@@ -5027,12 +5027,6 @@ export function Arena({
                             })
                         )}
                     </div>
-
-                    <div className="battle-command-panel">
-                        <button onClick={() => resetBattle()}>Reset Battle</button>
-                        <span>Battle Log · {battleHistory.length} actions</span>
-                        <div className="log">{log}</div>
-                    </div>
                 </main>
                 <CombatSideHud
                     name={opponentName}
