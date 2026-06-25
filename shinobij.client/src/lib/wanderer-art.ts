@@ -15,6 +15,7 @@ const ART: Record<WandererArchetypeId, string> = {
     gambler: gamblerImg,
     pilgrim: pilgrimImg,
     beast: beastImg,
+    sage: pilgrimImg, // the sage shares the veiled-elder portrait
 };
 
 export function wandererAvatar(key: WandererArchetypeId): string {
