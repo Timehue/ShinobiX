@@ -278,7 +278,7 @@ export interface DuelProjSnap { id: number; x: number; y: number; team: "player"
 export interface DuelSnapshot { t: number; actors: DuelActorSnap[]; projectiles: DuelProjSnap[]; }
 
 export type DuelEventType = "dash" | "dodge" | "windup" | "cast" | "hit" | "whiff" | "stagger" | "heal" | "shield" | "buff" | "ultimate" | "ko";
-export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; }
+export interface DuelEvent { t: number; type: DuelEventType; side: "player" | "enemy"; actorId: string; targetId?: string; dmg?: number; crit?: boolean; element?: string | null; kind?: PetJutsu["kind"]; ranged?: boolean; move?: string; signature?: boolean; }
 
 export interface DuelResult {
     result: "win" | "loss" | "draw";   // from the PLAYER team's perspective
@@ -389,7 +389,7 @@ function applyDamage(att: Fighter, tgt: Fighter, ab: Ability | null, rng: () => 
     // ENDURE consumable: survive one otherwise-lethal blow at 1 HP.
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }
     tgt.hp -= dmg;
-    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile });
+    events.push({ t, type: "hit", side: att.team, actorId: att.id, targetId: tgt.id, dmg, crit, element: att.element, kind: ab ? ab.kind : "damage", ranged: viaProjectile, move: ab ? ab.name : undefined, signature: ab ? ab.signature : undefined });
 
     // On-hit effects by ability kind.
     if (ab) applyOnHit(att, tgt, ab);
@@ -758,8 +758,8 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
     f.pendingIdx = idx; f.pendingTargetId = targetId;
     f.state = "windup";
     f.stateLeft = idx >= 0 ? f.abilities[idx].castTicks : f.windT;
-    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id });
-    else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind });
+    if (idx >= 0 && f.abilities[idx].signature) events.push({ t, type: "ultimate", side: f.team, actorId: f.id, move: f.abilities[idx].name });
+    else if (idx >= 0 && f.abilities[idx].cls === "support") events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: f.abilities[idx].kind, move: f.abilities[idx].name });
     else events.push({ t, type: "windup", side: f.team, actorId: f.id, kind: idx >= 0 ? f.abilities[idx].kind : "damage" });
 }
 
@@ -780,7 +780,7 @@ function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
                 x: f.x, y: f.y, speed: 0.34, ttl: Math.round(DUEL_TPS * 3), element: f.element, kind: ab.kind,
             });
         }
-        events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind });
+        events.push({ t, type: "cast", side: f.team, actorId: f.id, kind: ab.kind, move: ab.name });
         return;
     }
 
