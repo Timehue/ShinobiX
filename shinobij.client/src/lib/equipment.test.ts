@@ -2,8 +2,12 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { EquipmentSlots } from "../types/combat";
 import {
+    COMBAT_ITEM_HOLD_CAP,
     COMBAT_ITEM_SLOTS,
+    POTION_HOLD_CAP,
+    THROWN_HOLD_CAP,
     combatLoadoutSlots,
+    consumableHoldCap,
     equipCombatItem,
     equipmentSlotLabel,
     isCombatConsumable,
@@ -71,5 +75,25 @@ describe("combat item slot helpers", () => {
         assert.equal(equipmentSlotLabel("item1"), "Item 1");
         assert.equal(equipmentSlotLabel("item2"), "Item 2");
         assert.equal(equipmentSlotLabel("item3"), "Item 3");
+    });
+});
+
+describe("consumableHoldCap — single-pool carry limits", () => {
+    it("caps throwables, combat items, and potions at 50/50/2", () => {
+        assert.equal(consumableHoldCap({ slot: "thrown", apCost: 20, weaponEp: 22 }), THROWN_HOLD_CAP);
+        assert.equal(consumableHoldCap({ slot: "item", weaponEffect: "Increase Damage Given", apCost: 20 }), COMBAT_ITEM_HOLD_CAP);
+        assert.equal(consumableHoldCap({ slot: "potion", apCost: 20, restoreChakra: 1000 }), POTION_HOLD_CAP);
+        // 2-potion cap intentionally matches the 2-use/battle limit.
+        assert.equal(POTION_HOLD_CAP, 2);
+    });
+
+    it("treats a restore-only item slot as a capped consumable", () => {
+        assert.equal(consumableHoldCap({ slot: "item", restoreStamina: 25 }), COMBAT_ITEM_HOLD_CAP);
+    });
+
+    it("returns null for uncapped stackables and plain gear", () => {
+        assert.equal(consumableHoldCap({ slot: "item" }), null); // pet food / material / collar
+        assert.equal(consumableHoldCap({ slot: "head" }), null); // armor
+        assert.equal(consumableHoldCap({ slot: "hand", weaponEp: 40 }), null); // melee weapon
     });
 });

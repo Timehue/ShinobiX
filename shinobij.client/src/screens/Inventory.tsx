@@ -29,7 +29,7 @@ import {
 import { hasCharacterElement } from "../lib/elements";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { deriveCardClashCard } from "../lib/card-clash";
-import { addItem, addItems, removeItem, unifiedItemStacks } from "../lib/inventory";
+import { addItem, addItems, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
 
 export function Inventory({
     character,
@@ -89,6 +89,25 @@ export function Inventory({
         }
         updateCharacter({ ...character, equipment: nextEquipment });
     }, [character, allItems, updateCharacter]);
+
+    // A consumable equip slot is just a pointer at a backpack stack (single
+    // shared pool — the stack is the ammo battle spends). Once the player burns
+    // the last one in a fight the count hits 0, so clear the now-empty pointer
+    // and leave the slot empty. Self-terminating: once cleared the guard no
+    // longer matches, so this writes at most once per depletion.
+    useEffect(() => {
+        const equipment = character.equipment;
+        const nextEquipment = { ...equipment };
+        let changed = false;
+        for (const slot of combatConsumableSlots) {
+            const id = equipment[slot];
+            if (id && countItem(character, id) <= 0) {
+                nextEquipment[slot] = undefined;
+                changed = true;
+            }
+        }
+        if (changed) updateCharacter({ ...character, equipment: nextEquipment });
+    }, [character, updateCharacter]);
 
     const tileCardStacks = Object.values(
         character.tileCards.reduce<Record<string, { id: string; card?: TileCard; count: number }>>((stacks, cardId) => {
@@ -354,8 +373,18 @@ export function Inventory({
                         </div>
 
                         {visualSlots.map((slot) => {
-                            const equipped = slot.equipmentSlot
-                                ? getItemById(allItems, equippedIdForSlot(slot.equipmentSlot))
+                            const equippedId = slot.equipmentSlot ? equippedIdForSlot(slot.equipmentSlot) : undefined;
+                            const equippedItem = getItemById(allItems, equippedId);
+                            // Consumable slots draw from a single shared pool, so the slot shows
+                            // how many are left (the backpack count). When the player has spent
+                            // them all the count is 0 — render the slot EMPTY (the effect above
+                            // also clears the stale pointer so it stays empty).
+                            const isConsumableSlot = slot.equipmentSlot
+                                ? consumableEquipSlots.has(normalizeEquipmentSlot(slot.equipmentSlot))
+                                : false;
+                            const remaining = isConsumableSlot && equippedId ? countItem(character, equippedId) : null;
+                            const equipped = equippedItem && (!isConsumableSlot || (remaining ?? 0) > 0)
+                                ? equippedItem
                                 : undefined;
 
                             return (
@@ -370,7 +399,7 @@ export function Inventory({
                                             setSelectedInventoryItem({
                                                 entry: equipped.id,
                                                 item: equipped,
-                                                count: 1,
+                                                count: isConsumableSlot ? (remaining ?? 1) : 1,
                                                 source: "equipped",
                                                 equipmentSlot: slot.equipmentSlot,
                                             });
@@ -413,6 +442,28 @@ export function Inventory({
                                         >
                                             {equipped.name}
                                         </small>
+                                    )}
+
+                                    {equipped && isConsumableSlot && (
+                                        <span
+                                            className="equip-slot-count"
+                                            style={{
+                                                position: "absolute",
+                                                top: 2,
+                                                right: 2,
+                                                zIndex: 2,
+                                                background: "rgba(0,0,0,0.85)",
+                                                color: "#fff",
+                                                border: "1px solid rgba(255,255,255,0.35)",
+                                                borderRadius: 8,
+                                                padding: "0 5px",
+                                                fontSize: "0.7rem",
+                                                fontWeight: "bold",
+                                                lineHeight: "1.35",
+                                            }}
+                                        >
+                                            ×{remaining}
+                                        </span>
                                     )}
                                 </button>
                             );
