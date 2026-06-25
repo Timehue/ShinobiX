@@ -10,6 +10,27 @@ import type { Character, PlayerRecord } from "../types/character";
 type SleeperReward = { ryo: number; xp: number; seals: number; rewardEligible: boolean; target: string };
 type SleeperKillResponse = { ok?: boolean; error?: string; character?: Character; reward?: SleeperReward };
 
+// Tombstone: names we just struck down → when to stop suppressing them. After a
+// KO the server relocates the victim to the village (sector 0), but the roster
+// endpoint is edge-cached for ~60s, so a poll can briefly serve the pre-KO
+// snapshot and flicker the victim back into the sector. We suppress them in the
+// sleeper list until the cache is guaranteed to have refreshed.
+const STRUCK_DOWN_SUPPRESS_MS = 90_000;
+const struckDownUntil = new Map<string, number>();
+
+/** Mark a player as just struck down so the stale roster cache can't flicker them back. */
+export function markStruckDown(name: string): void {
+    struckDownUntil.set(name.toLowerCase(), Date.now() + STRUCK_DOWN_SUPPRESS_MS);
+}
+
+/** True while a just-KO'd player should stay hidden from the sleeper list. */
+export function isRecentlyStruckDown(name: string): boolean {
+    const until = struckDownUntil.get(name.toLowerCase());
+    if (!until) return false;
+    if (Date.now() > until) { struckDownUntil.delete(name.toLowerCase()); return false; }
+    return true;
+}
+
 export async function strikeDownSleeper(opts: {
     opponent: PlayerRecord;
     attackerName: string;
@@ -19,7 +40,7 @@ export async function strikeDownSleeper(opts: {
 }): Promise<void> {
     const { opponent, attackerName, isTraveling, setCharacter, setPlayerRoster } = opts;
     if (isTraveling) { alert("You cannot attack while traveling."); return; }
-    if (!window.confirm(`Strike down ${opponent.name} while they're logged out? They'll be sent to the hospital and back to their village.`)) return;
+    if (!window.confirm(`🌙 ${opponent.name} sleeps, defenseless, in this sector.\n\nStrike them down? They'll wake battered in their village's hospital.`)) return;
 
     try {
         // attackerName lets an admin-authed session (no player identity of its
@@ -63,7 +84,9 @@ export async function strikeDownSleeper(opts: {
         }
 
         // Optimistically drop the KO'd player out of this sector (they're now in
-        // the village) so they vanish before the next slow roster poll.
+        // the village). The tombstone keeps them hidden even if a stale (edge-
+        // cached) roster poll briefly re-reports them at their old sector.
+        markStruckDown(opponent.name);
         setPlayerRoster(prev => prev.map(p => p.name.toLowerCase() === opponent.name.toLowerCase() ? { ...p, currentSector: 0 } : p));
 
         const r = data.reward;
