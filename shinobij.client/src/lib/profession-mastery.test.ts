@@ -80,6 +80,14 @@ test("masteryBonus sums perRank × ranks; capstones are boolean", () => {
     assert.equal(masteryHasCapstone(c, "alpha-bond"), false);
 });
 
+test("Conservation (repurposed heal-discharge node) resolves as a heal chakra-cost discount", () => {
+    // Healers now self-discharge instantly, so the old "Quick Discharge" hospital-
+    // timer perk was repurposed in place (same node id → invested points migrate).
+    const c = char("healer", HEALER_CAP + 6 * MASTERY_XP_PER_LEVEL, { "heal-discharge": 3 });
+    assert.equal(masteryBonus(c, "healChakraCostPct"), 18); // 6 × 3
+    assert.equal(masteryBonus(c, "healDischargePct"), 0);   // old effect key no longer wired anywhere
+});
+
 // tiny local re-implementation of "points spent" for an arbitrary spec, for the
 // sanitize assertion above (avoids needing a Character wrapper).
 function masterySpecTotal(profession: string, spec: Record<string, number>): number {
