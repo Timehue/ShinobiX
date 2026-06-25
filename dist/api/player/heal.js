@@ -113,33 +113,17 @@ async function handler(req, res) {
             let chargedRyo = 0;
             if (!identity.admin && !timerExpired) {
                 if (selfIsHealer) {
-                    // Healer rank-scaled timer: r1=60s, r10=15s. If the
-                    // healer's shortened timer also hasn't expired, fall
-                    // through to the pay-skip / wait-it-out checks.
-                    const xp = Number(targetChar.professionXp ?? 0);
-                    const healerRank = (0, _progress_js_1.professionRankForXp)('healer', xp);
-                    const fullTimer = HOSPITAL_DURATION_MS;
-                    // Mastery (Quick Discharge): shorten the Healer's own timer further.
-                    const dischargePct = Math.min(80, (0, _profession_mastery_js_1.masteryBonus)('healer', targetChar.masterySpec, 'healDischargePct'));
-                    const healerTimer = Math.round((0, _progress_js_1.healerHospitalTimerMs)(healerRank) * (1 - dischargePct / 100));
-                    const healerEligibleAt = until - fullTimer + healerTimer;
-                    if (Date.now() >= healerEligibleAt) {
-                        // Healer rank-shortened timer is satisfied — let it discharge for free.
-                    }
-                    else if (paySkip) {
-                        // Pay to skip the remaining (already-shortened) wait.
-                        const curRyo = Number(targetChar.ryo ?? 0);
-                        if (curRyo < dischargeCost) {
-                            return res.status(402).json({ error: `Need ${dischargeCost} ryo to pay-skip discharge.` });
-                        }
-                        chargedRyo = dischargeCost;
-                    }
-                    else {
-                        return res.status(429).json({
-                            error: 'Hospital timer not yet expired.',
-                            retryAfterMs: healerEligibleAt - Date.now(),
-                        });
-                    }
+                    // Healers self-heal & discharge INSTANTLY for free — it is the
+                    // profession perk, and the button literally reads "Free Self-Heal
+                    // & Discharge (Healer)". No timer wait: chargedRyo stays 0 and we
+                    // fall through to the discharge write below.
+                    //
+                    // Previously a rank-scaled hospital timer (r1=60s … r10=15s) gated
+                    // this, so the free-discharge button 429'd until that timer elapsed
+                    // — locking healers out of their own hospital, worst at low ranks
+                    // where the "shortened" timer was the full 60s. (The Restoration
+                    // mastery that shortened it was repurposed into Conservation, a
+                    // heal chakra-cost discount.)
                 }
                 else if (paySkip) {
                     const curRyo = Number(targetChar.ryo ?? 0);
@@ -173,6 +157,11 @@ async function handler(req, res) {
                         hospitalized: false,
                         hospitalizedUntil: 0,
                         hospitalizedAt: 0,
+                        // Marker read by sanitizeCharacterSave (api/save/[name].ts):
+                        // inside its grace window, a stale in-flight `hospitalized:true`
+                        // autosave racing this discharge is ignored instead of
+                        // re-admitting the player with a fresh timer.
+                        lastDischargeAt: Date.now(),
                         ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
                     },
                 };
@@ -301,7 +290,10 @@ async function handler(req, res) {
         // no-chakra attempt doesn't lock the Healer out of that target. Admins exempt.
         const amountToHeal = Math.max(0, maxHp - curHp);
         const chakraRate = (0, _profession_mastery_js_1.masteryHasCapstone)('healer', healerChar.masterySpec, 'chakra-conduit') ? 0.10 : 0.25;
-        const chakraCost = Math.ceil(amountToHeal * chakraRate);
+        // Mastery (Conservation): trims the chakra cost of healing so a prolific
+        // Healer can sustain more heals before resting. PvE/utility only.
+        const chakraCostPct = Math.min(80, (0, _profession_mastery_js_1.masteryBonus)('healer', healerChar.masterySpec, 'healChakraCostPct'));
+        const chakraCost = Math.ceil(amountToHeal * chakraRate * (1 - chakraCostPct / 100));
         if (!identity.admin && chakraCost > 0) {
             const paid = await (0, _lock_js_1.withKvLock)(healerKey, async () => {
                 const fresh = await _storage_js_1.kv.get(healerKey);
@@ -337,6 +329,13 @@ async function handler(req, res) {
                     hospitalized: false,
                     hospitalizedUntil: 0,
                     hospitalizedAt: 0,
+                    // Only a hospitalized target is being DISCHARGED here; stamp the
+                    // discharge-race marker so a stale `hospitalized:true` autosave
+                    // can't re-admit them (sanitizeCharacterSave grace window). A
+                    // Rank-10 heal of a merely-injured (non-hospitalized) player is
+                    // not a discharge, so it leaves no marker — a genuine later KO
+                    // for them still hospitalizes normally.
+                    ...(targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
                 },
             };
             await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healedTarget, fresh));
