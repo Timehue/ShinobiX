@@ -17,14 +17,15 @@ import type { Character } from "../types/character";
 
 
 const bossScaleByLevel: Record<number, { hp: number; damage: number; xp: number; ryo: number }> = {
-    4:   { hp: 600,   damage: 18,  xp: 120,   ryo: 75 },
+    // bossScaleByLevel = the authoritative story-boss HP curve. makeStoryBossAi
+    // builds EVERY story boss hpFloorExempt, so these hp values are used verbatim
+    // (no aiHpForLevel floor) and form one clean ascending level→HP curve. Tuned
+    // down for winnability; damage / xp / ryo unchanged.
+    4:   { hp: 900,   damage: 18,  xp: 120,   ryo: 75 },
     15:  { hp: 2000,  damage: 32,  xp: 500,   ryo: 250 },
-    25:  { hp: 3500,  damage: 50,  xp: 900,   ryo: 500 },
-    35:  { hp: 5200,  damage: 68,  xp: 1400,  ryo: 800 },
-    50:  { hp: 7500,  damage: 90,  xp: 2200,  ryo: 1300 },
-    // L65+ story bosses are hpFloorExempt in makeStoryBossAi, so these hp values are
-    // AUTHORITATIVE (used verbatim). The late-game peer-band curve would otherwise
-    // floor them ~12k–17k. Tuned down for winnability; damage/rewards unchanged.
+    25:  { hp: 3200,  damage: 50,  xp: 900,   ryo: 500 },
+    35:  { hp: 4600,  damage: 68,  xp: 1400,  ryo: 800 },
+    50:  { hp: 6500,  damage: 90,  xp: 2200,  ryo: 1300 },
     65:  { hp: 8500,  damage: 120, xp: 3400,  ryo: 2000 },
     75:  { hp: 9500,  damage: 148, xp: 4600,  ryo: 2800 },
     85:  { hp: 11000, damage: 185, xp: 6200,  ryo: 4000 },
