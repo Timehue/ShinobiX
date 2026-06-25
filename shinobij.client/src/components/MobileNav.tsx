@@ -15,6 +15,7 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
+import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 
@@ -128,6 +129,9 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
                         <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
                         <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("professions")}>
+                            {character.profession ? `${PROFESSION_ICON[character.profession]} ${PROFESSION_LABEL[character.profession]}` : "📜 Professions"}
+                        </button>
                         <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
                         <button className="mobile-menu-btn" onClick={() => go("guides")}>📖 Guides</button>
                         <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}>💬 Discord</button>
