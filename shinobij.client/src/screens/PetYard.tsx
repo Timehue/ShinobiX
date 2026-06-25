@@ -17,7 +17,7 @@ import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
 import { useWarLossDebuff } from "../lib/war-debuff";
 import { masteryBonus } from "../lib/profession-mastery";
 
-export function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onImmediateSave?: (c: Character) => void }) {
+export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
     const warDebuff = useWarLossDebuff(character.village);
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
@@ -550,7 +550,7 @@ export function PetYard({ character, updateCharacter, setScreen, onImmediateSave
 
             <div className="pet-yard-overlay">
                 <div className="pet-yard-header">
-                    <button className="back-btn" onClick={() => setScreen("village")}>🏘️ Village</button>
+                    <button className="back-btn" onClick={onBack}>← Back</button>
                     <div>
                         <h2>Pet Yard</h2>
                         <p className="hint">{character.pets.length}/5 pets · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>

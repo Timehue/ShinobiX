@@ -28,10 +28,12 @@ export function PetTamerHub({
     character,
     updateCharacter,
     setScreen,
+    onBack,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
     setScreen: (s: Screen) => void;
+    onBack: () => void;
 }) {
     const pveBonusPct = Math.round((petTamerPveMultiplier(character) - 1) * 1000) / 10;
     const trainSpeedPct = petTamerTrainingSpeedPct(character);
@@ -47,7 +49,7 @@ export function PetTamerHub({
 
     return (
         <div className="card">
-            <BackToVillageButton onClick={() => setScreen("village")} />
+            <BackToVillageButton onClick={onBack} label="← Back" />
             <ProfessionHero image={petTamerBg} icon="🐾" title="Pet Tamer" tagline="Walk with beasts." accent={ACCENT} />
 
             <ProfessionRankBar character={character} />

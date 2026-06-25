@@ -22,18 +22,20 @@ export function HealerHub({
     character,
     updateCharacter,
     setScreen,
+    onBack,
     playerRoster,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
     setScreen: (s: Screen) => void;
+    onBack: () => void;
     playerRoster: PlayerRecord[];
 }) {
     const healerRank = character.professionRank ?? 1;
 
     return (
         <div className="card">
-            <BackToVillageButton onClick={() => setScreen("village")} />
+            <BackToVillageButton onClick={onBack} label="← Back" />
             <ProfessionHero image={healerBg} icon="✚" title="Healer" tagline="Mend what war breaks." accent="#22d3ee" />
 
             <ProfessionRankBar character={character} />
