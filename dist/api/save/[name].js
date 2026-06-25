@@ -655,9 +655,10 @@ function sanitizeCharacterSave(incoming, existing) {
     const JUTSU_PER_BLOODLINE_CAP = 15;
     const RAW_BLOODLINE_IMAGE_MAX_BYTES = 250_000; // 250 KB inline cap
     const KNOWN_BLOODLINE_RANKS = new Set(['B Rank', 'A Rank', 'S Rank']);
-    if (Array.isArray(char.savedBloodlines)) {
-        const inBloodlines = char.savedBloodlines.slice(0, BLOODLINE_CAP);
-        char.savedBloodlines = inBloodlines.map((bl) => {
+    const normalizeBloodlineArray = (arr) => {
+        if (!Array.isArray(arr))
+            return arr;
+        return arr.slice(0, BLOODLINE_CAP).map((bl) => {
             if (!bl || typeof bl !== 'object')
                 return {};
             const out = { ...bl };
@@ -731,7 +732,16 @@ function sanitizeCharacterSave(incoming, existing) {
             });
             return out;
         });
-    }
+    };
+    // The live client persists savedBloodlines at the TOP LEVEL of the save
+    // record; older/admin shapes nest it under character. Normalize whichever is
+    // present so the per-jutsu numeric clamp (effectPower/ap/cooldown/range) + name
+    // moderation actually run on real saves — the block previously read only the
+    // nested copy, which is empty for live payloads. (PvP re-clamps at session
+    // create, so this closes a defense-in-depth / false-confidence gap, not a live
+    // hole.) The top-level copy is normalized into the return object below.
+    if (Array.isArray(char.savedBloodlines))
+        char.savedBloodlines = normalizeBloodlineArray(char.savedBloodlines);
     // ─── endlessTowerRun shape validation ─────────────────────────────────────
     // Run state is client-tracked then collected via save. Forged saves can
     // POST {wave: 9999, bankedRyo: 999999999, bankedXp: 999999999}. The
@@ -1053,9 +1063,12 @@ function sanitizeCharacterSave(incoming, existing) {
             return out;
         });
     }
-    return sanitizedCreatorItems !== undefined
-        ? { ...incoming, character: char, creatorItems: sanitizedCreatorItems }
-        : { ...incoming, character: char };
+    const out = { ...incoming, character: char };
+    if (Array.isArray(incoming.savedBloodlines))
+        out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines);
+    if (sanitizedCreatorItems !== undefined)
+        out.creatorItems = sanitizedCreatorItems;
+    return out;
 }
 // ── Clan / village identity lockdown ──────────────────────────────────────
 // Three character fields gate critical permissions and were previously

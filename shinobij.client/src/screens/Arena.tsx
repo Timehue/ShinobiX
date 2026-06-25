@@ -35,6 +35,7 @@ import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normali
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffectsOpponent, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement, weatherElementOf } from "../lib/elements";
+import { minActionCost } from "../lib/combat-affordability";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
@@ -299,6 +300,24 @@ export function Arena({
     const liteFx = useMemo(() => prefersLiteCombatFx(), []);
     const combatVfxCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const combatVfxFieldRef = useRef<PetParticleField | null>(null);
+    // Floating ±damage/heal numbers over a fighter on every HP change (D3 — PvE
+    // parity with PvP's pvp-hit-fx). Purely cosmetic overlay; reuses the same CSS
+    // classes/palette. Per-HP refs dedup so each transition fires once.
+    const [pveHitFx, setPveHitFx] = useState<{ id: string; x: number; y: number; amount: number; kind: "damage" | "heal" }[]>([]);
+    const prevPlayerHpRef = useRef<number | null>(null);
+    const prevEnemyHpRef = useRef<number | null>(null);
+    // Persisted "fast battles" preference (B2): halves the enemy-turn pacing
+    // beats. Read via a ref in the delay code so a mid-fight toggle applies on
+    // the next beat without stale-closure issues.
+    const [combatFast, setCombatFast] = useState(false);
+    const combatFastRef = useRef(false);
+    useEffect(() => { combatFastRef.current = combatFast; }, [combatFast]);
+    useEffect(() => { try { setCombatFast(localStorage.getItem("combatFast.v1") === "1"); } catch { /* ignore */ } }, []);
+    const toggleCombatFast = () => setCombatFast((v) => {
+        const next = !v;
+        try { localStorage.setItem("combatFast.v1", next ? "1" : "0"); } catch { /* ignore */ }
+        return next;
+    });
     const combatFxSeq = useRef(0);
     const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string } | null>(null);
     // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
@@ -735,7 +754,9 @@ export function Arena({
                 return adjustedApCost(item.apCost ?? (isWeapon ? 40 : 35));
             }),
         ];
-        return Math.min(...costs);
+        // Fold via the shared reducer (lib/combat-affordability) — keep the PvP
+        // twin (pvpMinActionCost in PvpBattleScreen) in sync when adding actions.
+        return minActionCost(costs);
     }
 
     // Enemy defensive buffs (Absorb / Reflect) honored when the PLAYER damages the
@@ -845,7 +866,7 @@ export function Arena({
         if (!battleStarted || battleEnded || activeActor !== "enemy" || prefightCountdown !== null) return;
         // Short lead-in before the enemy's first action so the turn handoff reads
         // (was 1200ms — trimmed to keep multi-action enemy turns snappy).
-        const t = setTimeout(() => enemyTurnRef.current(), 500);
+        const t = setTimeout(() => enemyTurnRef.current(), combatFastRef.current ? 250 : 500);
         return () => clearTimeout(t);
     }, [battleStarted, battleEnded, activeActor, prefightCountdown]);
 
@@ -863,6 +884,38 @@ export function Arena({
     useEffect(() => {
         if (battleEnded) onMissionBattleResolved?.();
     }, [battleEnded]);
+
+    // Float a ±damage / ±heal number over the player and enemy whenever their HP
+    // changes (D3). Mirrors PvpBattleScreen's pvp-hit-fx: diff vs a per-fighter
+    // ref so each transition fires once, cap the list, auto-expire. Cosmetic only.
+    useEffect(() => {
+        const floatAt = (pos: number, amount: number, kind: "damage" | "heal", who: string) => {
+            const row = Math.floor(pos / gridWidth);
+            const col = pos % gridWidth;
+            const x = col * X_STEP + HEX_W / 2;
+            const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.4;
+            return { id: `${who}-${Date.now()}-${amount}-${kind}`, x, y, amount, kind };
+        };
+        const next: { id: string; x: number; y: number; amount: number; kind: "damage" | "heal" }[] = [];
+        const pPrev = prevPlayerHpRef.current;
+        if (pPrev != null && playerHp !== pPrev) {
+            const d = playerHp - pPrev;
+            next.push(floatAt(playerPos, Math.abs(d), d < 0 ? "damage" : "heal", "p"));
+        }
+        const ePrev = prevEnemyHpRef.current;
+        if (ePrev != null && enemyHp !== ePrev) {
+            const d = enemyHp - ePrev;
+            next.push(floatAt(enemyPos, Math.abs(d), d < 0 ? "damage" : "heal", "e"));
+        }
+        prevPlayerHpRef.current = playerHp;
+        prevEnemyHpRef.current = enemyHp;
+        if (!next.length) return;
+        setPveHitFx((cur) => [...cur, ...next].slice(-8));
+        const t = window.setTimeout(() => {
+            setPveHitFx((cur) => cur.filter((f) => !next.some((n) => n.id === f.id)));
+        }, 1100);
+        return () => window.clearTimeout(t);
+    }, [playerHp, enemyHp]);
 
     // On unmount, cancel any in-flight enemy-turn continuation so the recursive
     // 850ms setTimeout chain can't keep running (firing setState into a dead
@@ -1828,7 +1881,7 @@ export function Arena({
         if (!spendAp(apCost, item.id)) return;
 
         const ep = item.weaponEp ?? Math.floor(22 + characterCombatStats.strength * 0.18 + characterCombatStats.bukijutsuOffense * 0.1 + itemBonusTotal(item) * 0.18);
-        const weaponJutsu = makeJutsu(`item-${item.id}`, item.name, "Bukijutsu", apCost, range, ep, 0, 0, staminaCost, [{ name: "Damage", percent: 100 }], item.weaponElement ?? "Earth");
+        const weaponJutsu = makeJutsu(`item-${item.id}`, item.name, "Bukijutsu", apCost, range, ep, 0, 0, staminaCost, [{ name: "Damage", percent: 100 }], item.weaponElement ?? "None");
         let damage = calculateDamage(
             weaponJutsu,
             characterCombatStats,
@@ -3162,11 +3215,11 @@ export function Arena({
     }
 
     function highestPowerAiJutsu(availableAp = 100) {
-        // Gating: opponents at level 30+ use the smart AI automatically.
-        // Admins can also flag an AI as masterAi to force-enable the smart
-        // logic at any level — for low-level "elite" / boss mobs that
-        // should play to win without bumping their level number.
-        if (pendingAiProfile?.masterAi || (opponentLevel ?? 1) >= 30) {
+        // Gating: opponents at level 30+ use the smart AI automatically, and
+        // admins can flag an AI as masterAi to force it on at any level (elite /
+        // boss mobs). Routed through pveAiCompetence.usesSmartScorer so the
+        // basic→smart threshold lives in ONE place (lib/pve-difficulty.ts).
+        if (pveAiCompetence(opponentLevel, pendingAiProfile?.masterAi).usesSmartScorer) {
             return smartAiJutsuPick(availableAp);
         }
         return applyEasyBurstHold([...enemyAiJutsus]
@@ -3755,7 +3808,7 @@ export function Arena({
         // the only 30-AP action; attacks are 40, jutsu ≥40, clear/cleanse 60)
         // gets a near-instant beat so walking toward the player adds no dead air.
         // Tracked so an unmount can cancel the chain (see the cleanup effect).
-        const beat = res.apSpent === 30 ? 150 : 500;
+        const beat = res.apSpent === 30 ? (combatFastRef.current ? 0 : 150) : (combatFastRef.current ? 250 : 500);
         enemyTurnTimerRef.current = window.setTimeout(() => {
             enemyTurnTimerRef.current = null;
             enemyContinueRef.current();
@@ -4743,6 +4796,18 @@ export function Arena({
                                     </>
                                 );
                             })()}
+                            {/* Floating ±damage/heal numbers (D3) — above the orbs, same
+                                coordinate origin as the board layer; never intercept clicks. */}
+                            {pveHitFx.map((fx) => (
+                                <span
+                                    key={fx.id}
+                                    className={`pvp-hit-fx pvp-hit-${fx.kind}`}
+                                    style={{ left: `${fx.x}px`, top: `${Math.max(fx.y, 16)}px`, zIndex: 20, pointerEvents: "none" }}
+                                    aria-hidden="true"
+                                >
+                                    {fx.kind === "damage" ? "−" : "+"}{fx.amount}
+                                </span>
+                            ))}
                             {boardGrid}
                         </div>
                         </div>{/* end clip-wrapper */}
@@ -4786,6 +4851,7 @@ export function Arena({
                         <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 20%</small></button>
                         {!isAcademySpar && <button onClick={forfeit} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}><span>Forfeit</span><small>Take the loss</small></button>}
                         <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
+                        <button onClick={toggleCombatFast} className={combatFast ? "selected-action" : ""} title="Toggle battle speed (remembered)"><span>{combatFast ? "Fast ⏩" : "Speed"}</span><small>{combatFast ? "Fast battles" : "Normal"}</small></button>
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
@@ -4821,6 +4887,7 @@ export function Arena({
                                                 <button
                                                     type="button"
                                                     className={`combat-jutsu-button ${isArmed ? "selected-action" : ""} ${isOnCooldown ? "jutsu-on-cooldown" : ""}`}
+                                                    disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || isOnCooldown || ap < adjustedApCost(jutsu.ap)}
                                                     title={isOnCooldown ? `${jutsu.name} cooldown: ${cooldown} rounds` : `${jutsu.name} | ${jutsu.ap} AP | Range ${jutsu.range}`}
                                                     onClick={(event) => {
                                                         event.preventDefault();
@@ -4867,7 +4934,7 @@ export function Arena({
                                         const slot = normalizeEquipmentSlot(item.slot);
                                         const isWeapon = slot === "hand" || slot === "thrown";
                                         const icon = slot === "thrown" ? "🎯" : slot === "hand" ? "⚔" : slot === "potion" ? "🧪" : "💼";
-                                        const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
+                                        const itemAp = item.apCost ?? (slot === "thrown" ? 40 : slot === "hand" ? 40 : 35);
                                         const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                         // Consumables (thrown/item/potion) show remaining supply and disable
                                         // when out of stock — or, for the potion, at its per-battle sip cap.
@@ -4894,7 +4961,7 @@ export function Arena({
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
                                                     title={onCooldown ? `${item.name} — on cooldown (${itemCd} round(s) left)` : isArmed ? `${item.name} armed — click ${opponentName} to fire` : !usable ? `${item.name} — none left this battle` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
-                                                    disabled={!usable || onCooldown}
+                                                    disabled={!usable || onCooldown || battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(itemAp)}
                                                     onClick={(event) => {
                                                         event.preventDefault();
                                                         event.stopPropagation();
@@ -4957,7 +5024,7 @@ export function Arena({
                                             <div className="combat-jutsu-detail-grid">
                                                 <span><strong>Type:</strong> {inspectedJutsu.type}</span>
                                                 <span><strong>Element:</strong> {inspectedJutsu.element}</span>
-                                                <span><strong>Action Usage:</strong> {inspectedJutsu.ap}%</span>
+                                                <span><strong>AP:</strong> {inspectedJutsu.ap}</span>
                                                 <span><strong>Range:</strong> {inspectedJutsu.range}</span>
                                                 <span><strong>Cooldown:</strong> {cooldown > 0 ? `${cooldown} active` : inspectedJutsu.cooldown}</span>
                                                 <span><strong>Target:</strong> {cleanTarget}</span>
@@ -4998,7 +5065,7 @@ export function Arena({
 
                                         <div className="combat-jutsu-detail-grid">
                                             <span><strong>Action:</strong> {["hand", "thrown"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? "Weapon attack" : "Support item"}</span>
-                                            <span><strong>AP:</strong> {inspectedCombatItem.apCost ?? (normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 45 : ["hand"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? 40 : 35)}</span>
+                                            <span><strong>AP:</strong> {inspectedCombatItem.apCost ?? (normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 40 : ["hand"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? 40 : 35)}</span>
                                             <span><strong>Range:</strong> {normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 4 : normalizeEquipmentSlot(inspectedCombatItem.slot) === "hand" ? 1 : "Self"}</span>
                                             <span><strong>Rarity:</strong> {inspectedCombatItem.rarity}</span>
                                         </div>

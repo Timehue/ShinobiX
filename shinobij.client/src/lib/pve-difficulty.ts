@@ -222,9 +222,8 @@ export function pveEasyBandAllowsLethal(enemyLevel: number, playerHpFraction: nu
 // Difficulty should differ by BEHAVIOUR across the bands, not just by stats.
 // pveAiCompetence returns the per-band gates the battle AI reads to decide HOW
 // hard it plays: whether it reacts to the player's buffs (Clear), cleanses its
-// own debuffs, reads the player's recent actions, telegraphs its big moves, and
-// may wield a weapon. The stat curve above still sets HOW STRONG it is; this
-// sets HOW SMART it is. Pure data — Arena applies these.
+// own debuffs, and reads the player's recent actions. The stat curve above still
+// sets HOW STRONG it is; this sets HOW SMART it is. Pure data — Arena applies these.
 //
 // IMPORTANT: `usesSmartScorer` preserves the EXACT pre-existing threshold
 // (masterAi || level >= 30) so this change does not move the basic→smart
@@ -240,10 +239,6 @@ export interface PveAiCompetence {
     cleanseSelfThreshold: number;
     /** React to the player's recent ACTIONS (playstyle), not just current state. */
     readsBehavior: boolean;
-    /** Telegraph heavy (AP >= 60) moves a turn ahead so the player can answer. */
-    telegraphs: boolean;
-    /** May weave a 40-AP weapon into its rotation (peer band only). */
-    useWeapon: boolean;
 }
 
 export function pveAiCompetence(level: number, masterAi = false): PveAiCompetence {
@@ -255,22 +250,20 @@ export function pveAiCompetence(level: number, masterAi = false): PveAiCompetenc
     switch (band) {
         case "easy":
             // Teaching mode: never strips the player's buffs or self-cleanses,
-            // doesn't read playstyle, but DOES telegraph so a learner sees the
-            // big move coming.
-            return { band, usesSmartScorer, clearBuffThreshold: Infinity, cleanseSelfThreshold: Infinity, readsBehavior: false, telegraphs: true, useWeapon: false };
+            // doesn't read playstyle.
+            return { band, usesSmartScorer, clearBuffThreshold: Infinity, cleanseSelfThreshold: Infinity, readsBehavior: false };
         case "medium":
             // Competent: reacts to the player stacking buffs (2+), occasional
-            // self-cleanse when heavily debuffed (3+). Still telegraphs.
-            return { band, usesSmartScorer, clearBuffThreshold: 2, cleanseSelfThreshold: 3, readsBehavior: false, telegraphs: true, useWeapon: false };
+            // self-cleanse when heavily debuffed (3+).
+            return { band, usesSmartScorer, clearBuffThreshold: 2, cleanseSelfThreshold: 3, readsBehavior: false };
         case "hard":
             // Punishing: strips any meaningful buff, cleanses at 2 debuffs, reads
-            // playstyle lightly. Still telegraphs (shorter tell handled by Arena).
-            return { band, usesSmartScorer, clearBuffThreshold: 1, cleanseSelfThreshold: 2, readsBehavior: true, telegraphs: true, useWeapon: false };
+            // playstyle lightly.
+            return { band, usesSmartScorer, clearBuffThreshold: 1, cleanseSelfThreshold: 2, readsBehavior: true };
         case "peer":
         default:
-            // Like a real maxed player: reacts aggressively, reads playstyle,
-            // wields a weapon, and does NOT telegraph (no free tell).
-            return { band, usesSmartScorer, clearBuffThreshold: 1, cleanseSelfThreshold: 2, readsBehavior: true, telegraphs: false, useWeapon: true };
+            // Like a real maxed player: reacts aggressively and reads playstyle.
+            return { band, usesSmartScorer, clearBuffThreshold: 1, cleanseSelfThreshold: 2, readsBehavior: true };
     }
 }
 

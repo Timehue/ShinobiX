@@ -140,6 +140,9 @@
 .combat-mobile-effects .cme-pos { background: rgba(34,197,94,0.16); border-color: rgba(34,197,94,0.45); color: #bbf7d0; }
 .combat-mobile-effects .cme-neg { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); color: #fecaca; }
 .combat-mobile-effects .cme-more { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.25); color: #e5e7eb; }
+/* Per-action index in the PvP battle-log timeline (parity with the PvE log's
+   "#N actor:" headers). Muted so it labels without competing with the text. */
+.timeline-entry-head .timeline-act-num { opacity: 0.5; font-variant-numeric: tabular-nums; margin-right: 6px; font-size: 0.85em; }
 .arena-fullscreen .basic-action-bar button small {
     font-family: 'Inter', system-ui, sans-serif;
     text-transform: none;
