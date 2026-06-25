@@ -36,7 +36,7 @@ import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffect
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
-import { equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
+import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
@@ -257,7 +257,10 @@ export function Arena({
     const equippedJutsus = character.equippedJutsuIds
         .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
         .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines));
-    const combatItemSlots: EquipmentSlot[] = ["hand", "weapon", "thrown", "item", "potion"];
+    // Action-bar items: weapon + throwable + the three combat-item slots + potion
+    // (combatLoadoutSlots, which also carries the legacy "item"/"weapon" aliases
+    // so a not-yet-migrated save still loads). Set() dedupes any alias overlap.
+    const combatItemSlots: EquipmentSlot[] = combatLoadoutSlots;
     const combatEquippedItems = Array.from(
         new Set(combatItemSlots.map((slot) => character.equipment[slot]).filter((id): id is string => Boolean(id)))
     )
