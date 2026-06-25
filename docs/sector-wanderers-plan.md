@@ -1,9 +1,10 @@
 # Sector Wanderers — AI shinobi that roam sectors and *feel like players*
 
-> ## ✅ As-built (shipped to `main`, behind the `wanderers.v1` flag, default OFF)
+> ## ✅ As-built (shipped to `main` — ENABLED, `wanderers.v1` default ON, opt-out with `=off`)
 >
-> The feature below is **built and live** (dormant until the flag is enabled). What
-> actually shipped, and where it differs from the original plan:
+> The feature below is **built and turned on** (Railway builds from source). Each
+> archetype has a bespoke portrait (gpt-image-1) and an NPC dialog. What actually
+> shipped, and where it differs from the original plan:
 >
 > - **Wanderers** spawn per wild sector (seeded, 6h refresh), walk/patrol and
 >   approach the player, with an honest "wandering" tell. Five archetypes:

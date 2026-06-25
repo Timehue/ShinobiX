@@ -70,7 +70,6 @@ export function SectorWanderer({
     // movement brain (refs so the RAF loop never forces a re-render)
     const wpIndexRef = useRef(0);
     const pauseUntilRef = useRef(0);
-    const engagedRef = useRef(false);
     const greetedRef = useRef(false);
 
     // latest props for the long-lived RAF closure
@@ -140,8 +139,6 @@ export function SectorWanderer({
             const dt = Math.min(0.05, (ts - lastTsRef.current) / 1000);
             lastTsRef.current = ts;
 
-            if (engagedRef.current) return; // fight launched — stop
-
             const p = posRef.current;
             const pcol = colOf(playerRef.current);
             const prow = rowOf(playerRef.current);
@@ -154,12 +151,13 @@ export function SectorWanderer({
                 // ── Approach: walk up to the player ──────────────────────────
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
-                    if (wanderer.verb === "attack") {
-                        engagedRef.current = true;
-                        onEngageRef.current(wanderer);   // <WorldMap> starts the fight
-                        return;
+                    if (!greetedRef.current) {
+                        greetedRef.current = true;
+                        // A bandit confronts you (opens the Fight/Flee dialog);
+                        // everyone else just greets — you click to interact.
+                        if (wanderer.verb === "attack") onEngageRef.current(wanderer);
+                        else speak(wanderer.greeting);
                     }
-                    if (!greetedRef.current) { greetedRef.current = true; speak(wanderer.greeting); }
                     rafRef.current = requestAnimationFrame(tick); // hold adjacent
                     return;
                 }
@@ -199,9 +197,7 @@ export function SectorWanderer({
     }, []);
 
     function handleClick() {
-        if (engagedRef.current) return;
-        if (wanderer.verb === "attack") engagedRef.current = true;
-        onEngageRef.current(wanderer);   // attack → fight; gift/gamble → <WorldMap> dialog
+        onEngageRef.current(wanderer);   // opens the <WorldMap> interaction dialog
     }
 
     const img = wandererAvatar(wanderer.avatarKey);

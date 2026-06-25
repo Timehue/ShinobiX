@@ -623,7 +623,8 @@ export function WorldMap({
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
     function handleWandererEngage(w: Wanderer) {
-        if (w.verb === "attack") { startWandererAttack(w); return; }
+        // Every wanderer — bandits included — opens a dialog first (a threat line
+        // + Fight/Flee for bandits; greetings + actions for the rest).
         setWandererDialog({ w });
     }
     async function claimWandererGift(w: Wanderer) {
@@ -1645,7 +1646,12 @@ export function WorldMap({
                                         <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
                                         <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv {wandererDialog.w.level}</p>
                                         <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
-                                        {!wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
+                                        {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                <button onClick={() => startWandererAttack(wandererDialog.w)}>Fight</button>
+                                                <button onClick={() => setWandererDialog(null)}>Flee</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                 <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take it"}</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
