@@ -154,7 +154,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     <span className="hospital-admitted-icon">🩹</span>
                     <div>
                         <strong>You are currently admitted</strong>
-                        <p>You were knocked out in battle. Pay the discharge fee or wait for the free check-out.</p>
+                        <p>{isHealer
+                            ? "You were knocked out in battle. As a Healer you can self-heal and discharge instantly for free."
+                            : "You were knocked out in battle. Pay the discharge fee or wait for the free check-out."}</p>
                     </div>
                 </div>
                 <div className="summary-box" style={{ marginBottom: "1rem" }}>
@@ -170,7 +172,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                         ? "✚ Free Self-Heal & Discharge (Healer)"
                         : `💰 Pay ${dischargeCost.toLocaleString()} ryo — Full Heal & Discharge`}
                 </button>
-                {freeCheckoutReady ? (
+                {/* Healers self-heal & discharge instantly for free via the button
+                    above, so the wait-out-the-timer check-out is non-Healer only. */}
+                {!isHealer && (freeCheckoutReady ? (
                     <button
                         onClick={freeCheckout}
                         disabled={busy}
@@ -182,7 +186,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                     <p className="hint" style={{ textAlign: "center" }}>
                         Free check-out unlocks in <strong style={{ color: "#fcd34d" }}>{remaining}s</strong>
                     </p>
-                )}
+                ))}
                 {character.ryo < dischargeCost && !freeCheckoutReady && (
                     <p style={{ color: "#f87171", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
                         You need {(dischargeCost - character.ryo).toLocaleString()} more ryo, or wait {remaining}s for the free check-out.
