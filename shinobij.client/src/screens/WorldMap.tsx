@@ -519,7 +519,7 @@ export function WorldMap({
     }
     function buildBossAi(level: number): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
-        const ai = makeBuiltinAi(`wanderer-boss-${lvl}`, "Bandit Warlord", "💀", lvl, "Wandering Road", [], 12, undefined, "boss");
+        const ai = makeBuiltinAi(`wanderer-boss-${lvl}`, "Bandit Warlord", "💀", lvl, "Wandering Road", [], 8, undefined, "boss");
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
@@ -554,7 +554,9 @@ export function WorldMap({
         launchWandererArenaFight(ai, "single", 0, selectedSector);
     }
     function launchAmbushStage(stage: number, sector: number) {
-        const ai = stage >= 3 ? buildBossAi(character.level + 5) : buildRobberAi(character.level + stage, `amb${stage}`);
+        // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
+        // scaled to the player so the gauntlet is hard, not impossible.
+        const ai = stage >= 3 ? buildBossAi(character.level + 3) : buildRobberAi(character.level + stage, `amb${stage}`);
         launchWandererArenaFight(ai, "ambush", stage, sector);
     }
     async function claimAmbushReward() {
@@ -593,6 +595,12 @@ export function WorldMap({
             }
             const nextStage = (p.stage ?? 0) + 1;
             if (nextStage <= 3) {
+                // Your HP carries across the gauntlet (the arena starts you at
+                // current HP). Catch your breath between waves — restore ~1/3 max
+                // HP — so attrition + the boss can't be an impossible death spiral.
+                const maxHp = character.maxHp ?? 0;
+                const healed = Math.min(maxHp, (character.hp ?? 0) + Math.floor(maxHp / 3));
+                updateCharacter({ ...character, hp: healed });
                 launchAmbushStage(nextStage, p.sector); // 1,2 = more robbers; 3 = the boss
             } else {
                 claimAmbushReward(); // boss down → server-authoritative loot + reset
