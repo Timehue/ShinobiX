@@ -219,15 +219,22 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
 
 // ── Quests (sage wanderers) ──────────────────────────────────────────────────
 // Display catalog mirrored by the server (api/sector/_wanderer-quest.ts owns the
-// authoritative targets + reward). `target` = foes to defeat on the roads.
+// authoritative targets + reward). Each quest tracks a real character counter, and
+// the label states honestly what that counter measures (no "these roads" promise
+// the mechanic can't keep — any qualifying win/explore counts).
+export type WandererQuestMetric = "totalAiKills" | "totalPetWins" | "cardClashWins" | "totalTilesExplored";
 export interface WandererQuestDef {
     id: string;
     label: string;
+    metric: WandererQuestMetric;
     target: number;
 }
 export const WANDERER_QUEST_CATALOG: WandererQuestDef[] = [
-    { id: "wq-cull", label: "Cull 3 foes prowling these roads", target: 3 },
-    { id: "wq-purge", label: "Put down 6 foes prowling these roads", target: 6 },
+    { id: "wq-cull",   label: "Win 3 battles against any foe",       metric: "totalAiKills",       target: 3 },
+    { id: "wq-purge",  label: "Win 6 battles against any foe",       metric: "totalAiKills",       target: 6 },
+    { id: "wq-beasts", label: "Win 2 pet duels in the coliseum",     metric: "totalPetWins",       target: 2 },
+    { id: "wq-cards",  label: "Win 2 rounds of Shinobi Card Clash",  metric: "cardClashWins",      target: 2 },
+    { id: "wq-scout",  label: "Scout 10 tiles across the sectors",   metric: "totalTilesExplored", target: 10 },
 ];
 
 /** The (stable) quest a given sage offers — deterministic from its id. */
@@ -235,4 +242,9 @@ export function questForWanderer(w: Wanderer): WandererQuestDef {
     let h = 0;
     for (let i = 0; i < w.id.length; i++) h = (Math.imul(h, 31) + w.id.charCodeAt(i)) >>> 0;
     return WANDERER_QUEST_CATALOG[h % WANDERER_QUEST_CATALOG.length];
+}
+
+/** Which character counter an active quest tracks (for client-side progress). */
+export function questMetricForId(id: string): WandererQuestMetric {
+    return WANDERER_QUEST_CATALOG.find((q) => q.id === id)?.metric ?? "totalAiKills";
 }
