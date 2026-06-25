@@ -68,4 +68,10 @@ export type CreatorAi = {
     // if the AI is below the level-30 auto-threshold. Lets admins flag a
     // low-level "elite" mob as a real fight without bumping its level.
     masterAi?: boolean;
+    // When true, the level-curve HP floor (aiHpForLevel) is NOT applied to this
+    // AI's authored hp — the explicit hp is used verbatim. Lets a hand-tuned boss
+    // (e.g. the Kage finale) sit BELOW the level-100 minimum the curve would
+    // otherwise force. Without it, makeBuiltinAi / normalizeAiProfile silently
+    // raise any sub-curve hp back up to aiHpForLevel(level).
+    hpFloorExempt?: boolean;
 };

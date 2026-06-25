@@ -7267,7 +7267,7 @@ export default function App() {
     }
 
     const playableAis = [
-        ...builtinAis.map((builtin) => creatorAis.find((ai) => ai.id === builtin.id) ?? builtin),
+        ...builtinAis.map((builtin) => { const o = creatorAis.find((ai) => ai.id === builtin.id); return o ? { ...builtin, image: o.image ?? builtin.image } : builtin; }), // built-in/story AIs source-authoritative; same-id override = image only (see AdminPanel allAdminAis)
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
