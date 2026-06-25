@@ -13,7 +13,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, type Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -559,10 +559,14 @@ export function WorldMap({
         const tmpl = w.level < 20 ? genericPetArenaOpponents[0]
             : w.level < 45 ? genericPetArenaOpponents[1]
             : genericPetArenaOpponents[2];
+        // Deterministic seed from the wanderer + the player's tile (no impure
+        // Date.now() in the component) — fine for a casual duel.
+        let seed = (sectorPlayerPos + 1) >>> 0;
+        for (let i = 0; i < w.id.length; i++) seed = (Math.imul(seed, 31) + w.id.charCodeAt(i)) >>> 0;
         setPendingPetBattleOpponent({
             owner: w.name,
             pet: { ...tmpl.pet, jutsus: tmpl.pet.jutsus.map((j) => ({ ...j })) },
-            battleSeed: Date.now(),
+            battleSeed: seed,
             returnScreen: "worldMap",
         });
         setWandererDialog(null);
@@ -574,6 +578,49 @@ export function WorldMap({
         requestCardChallenge();
         setWandererDialog(null);
         setScreen("shinobiTiles");
+    }
+    async function acceptWandererQuest(w: Wanderer) {
+        const def = questForWanderer(w);
+        setWandererDialog({ w, busy: true });
+        try {
+            const res = await fetch("/api/sector/wanderer-quest", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "accept", playerName: character.name, questId: def.id }),
+            });
+            const data = await res.json() as { ok?: boolean; reason?: string; baseline?: number; target?: number };
+            if (data.ok && typeof data.baseline === "number") {
+                updateCharacter({ ...character, activeWandererQuest: { id: def.id, target: def.target, baseline: data.baseline } });
+                setWandererDialog({ w, msg: `Quest accepted — ${def.label.toLowerCase()}. Return when it's done.` });
+            } else if (data.reason === "busy") {
+                setWandererDialog({ w, msg: "“Finish the task you already carry first.”" });
+            } else {
+                setWandererDialog({ w, msg: "They reconsider, and say nothing." });
+            }
+        } catch {
+            setWandererDialog({ w, msg: "You couldn't reach them." });
+        }
+    }
+    async function claimWandererQuest(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        try {
+            const res = await fetch("/api/sector/wanderer-quest", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "claim", playerName: character.name }),
+            });
+            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number };
+            if (data.ok && typeof data.totalRyo === "number") {
+                updateCharacter({ ...character, ryo: data.totalRyo, activeWandererQuest: null });
+                setWandererDialog({ w, msg: `“Well done.” You receive ${data.ryo} ryo.` });
+            } else if (data.reason === "incomplete") {
+                setWandererDialog({ w, msg: "“Not yet. The roads are still dangerous.”" });
+            } else {
+                setWandererDialog({ w, msg: "“You carry no task of mine.”" });
+            }
+        } catch {
+            setWandererDialog({ w, msg: "You couldn't reach them." });
+        }
     }
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     const [petVnDone, setPetVnDone] = useState(false);
@@ -1511,7 +1558,34 @@ export function WorldMap({
                                                 <button onClick={() => startWandererCardDuel(wandererDialog.w)}>Deal me in</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
-                                        ) : (
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "quest" ? (() => {
+                                            const active = character.activeWandererQuest;
+                                            if (active) {
+                                                const got = Math.max(0, (character.totalAiKills ?? 0) - active.baseline);
+                                                const done = got >= active.target;
+                                                return done ? (
+                                                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                        <button disabled={wandererDialog.busy} onClick={() => claimWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
+                                                        <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Progress: {Math.min(got, active.target)} / {active.target} foes</p>
+                                                        <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                                    </>
+                                                );
+                                            }
+                                            const def = questForWanderer(wandererDialog.w);
+                                            return (
+                                                <>
+                                                    <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
+                                                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                        <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept"}</button>
+                                                        <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                                    </div>
+                                                </>
+                                            );
+                                        })() : (
                                             <button onClick={() => setWandererDialog(null)}>{wandererDialog.msg ? "Close" : "Leave"}</button>
                                         )}
                                     </div>
