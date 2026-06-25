@@ -48,12 +48,12 @@ export function SectorWanderer({
     wanderer,
     playerIndex,
     biome,
-    onAttack,
+    onEngage,
 }: {
     wanderer: Wanderer;
     playerIndex: number;
     biome: Biome;
-    onAttack: (w: Wanderer) => void;
+    onEngage: (w: Wanderer) => void;
 }) {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const figRef = useRef<HTMLDivElement | null>(null);
@@ -75,9 +75,9 @@ export function SectorWanderer({
 
     // latest props for the long-lived RAF closure
     const playerRef = useRef(playerIndex);
-    const onAttackRef = useRef(onAttack);
+    const onEngageRef = useRef(onEngage);
     useEffect(() => { playerRef.current = playerIndex; }, [playerIndex]);
-    useEffect(() => { onAttackRef.current = onAttack; }, [onAttack]);
+    useEffect(() => { onEngageRef.current = onEngage; }, [onEngage]);
 
     const [bubble, setBubble] = useState<string | null>(null);
     const bubbleTimer = useRef(0);
@@ -156,7 +156,7 @@ export function SectorWanderer({
                     setWalking(false);
                     if (wanderer.verb === "attack") {
                         engagedRef.current = true;
-                        onAttackRef.current(wanderer);   // <WorldMap> starts the fight
+                        onEngageRef.current(wanderer);   // <WorldMap> starts the fight
                         return;
                     }
                     if (!greetedRef.current) { greetedRef.current = true; speak(wanderer.greeting); }
@@ -200,12 +200,8 @@ export function SectorWanderer({
 
     function handleClick() {
         if (engagedRef.current) return;
-        if (wanderer.verb === "attack") {
-            engagedRef.current = true;
-            onAttackRef.current(wanderer);
-        } else {
-            speak(wanderer.greeting);
-        }
+        if (wanderer.verb === "attack") engagedRef.current = true;
+        onEngageRef.current(wanderer);   // attack → fight; gift/gamble → <WorldMap> dialog
     }
 
     const img = wandererAvatar(wanderer.avatarKey);
