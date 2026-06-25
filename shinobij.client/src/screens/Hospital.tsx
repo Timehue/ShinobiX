@@ -63,6 +63,11 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
             hospitalizedUntil: 0,
             hospitalizedAt: 0,
         });
+        // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
+        // self-discharges (chargedRyo === 0) leave silently as before.
+        if (chargedRyo > 0) {
+            alert(`💰 You paid ${chargedRyo.toLocaleString()} ryo and were released — fully healed and discharged.`);
+        }
         setScreen("village");
     }
 
