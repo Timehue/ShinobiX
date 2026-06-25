@@ -502,27 +502,96 @@ export function WorldMap({
             : []),
         [selectedSector],
     );
-    function startWandererAttack(w: Wanderer) {
-        if (selectedSector == null) return;
-        const b = biomeForSector(selectedSector);
-        // Mint a one-off AI that fights as THIS wanderer — its own name, face, and
-        // a level-appropriate loadout (built from the existing AI builders). It's
-        // registered into a transient, non-persisted list the arena can resolve, so
-        // it never pollutes the saved creatorAis.
-        const ai = makeBuiltinAi(
-            `wanderer-${w.id}`, w.name, "🥷", w.level, "Wandering Road",
-            [], 0, undefined, w.archetype === "bandit" ? "bruiser" : "balanced",
-        );
-        ai.image = wandererAvatar(w.avatarKey);
+    // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
+    // All wanderer combat scales to the PLAYER's level (never impossible). Fending
+    // off robbers builds character.robberStreak; at 5, the next bandit springs an
+    // AMBUSH gauntlet — 3 robbers then a boss, back-to-back (your HP carries). The
+    // chain is driven client-side: a localStorage handoff survives the arena trip,
+    // and a totalAiKills delta tells a win from a loss. Each arena fight pays its
+    // own existing (server-safe) rewards, so there's no new currency surface.
+    const WANDERER_PENDING_KEY = "wandererFight.pending.v1";
+
+    function buildRobberAi(level: number, tag: string): CreatorAi {
+        const lvl = Math.max(1, Math.min(100, Math.round(level)));
+        const ai = makeBuiltinAi(`wanderer-rob-${tag}-${lvl}`, "Road Bandit", "🥷", lvl, "Wandering Road", [], 0, undefined, "bruiser");
+        ai.image = wandererAvatar("bandit");
+        return ai;
+    }
+    function buildBossAi(level: number): CreatorAi {
+        const lvl = Math.max(1, Math.min(100, Math.round(level)));
+        const ai = makeBuiltinAi(`wanderer-boss-${lvl}`, "Bandit Warlord", "💀", lvl, "Wandering Road", [], 12, undefined, "boss");
+        ai.image = wandererAvatar("bandit");
+        return ai;
+    }
+    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush", stage: number, sector: number) {
+        const b = biomeForSector(sector);
         registerWandererAi(ai);
-        setCurrentSector(selectedSector);
+        setCurrentSector(sector);
         setCurrentBiome(b);
-        setCurrentWeather(weatherForSector(selectedSector, b));
+        setCurrentWeather(weatherForSector(sector, b));
         setPendingPvpOpponent(null);
         setPendingAiProfileId(ai.id);
         setRaidBattleKind("raidAi");
+        try {
+            localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode, stage, sector, baselineKills: character.totalAiKills ?? 0, at: Date.now() }));
+        } catch { /* private mode — chain just won't auto-continue */ }
         setScreen("arena");
     }
+    function startWandererAttack(w: Wanderer) {
+        if (selectedSector == null) return;
+        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss.
+        if ((character.robberStreak ?? 0) >= 5) {
+            launchWandererArenaFight(buildRobberAi(character.level, "amb0"), "ambush", 0, selectedSector);
+            return;
+        }
+        // A lone robber that fights as THIS wanderer, scaled to the player (+1).
+        const lvl = Math.max(1, Math.min(100, character.level + 1));
+        const ai = makeBuiltinAi(`wanderer-${w.id}`, w.name, "🥷", lvl, "Wandering Road", [], 0, undefined, w.archetype === "bandit" ? "bruiser" : "balanced");
+        ai.image = wandererAvatar(w.avatarKey);
+        launchWandererArenaFight(ai, "single", 0, selectedSector);
+    }
+    function launchAmbushStage(stage: number, sector: number) {
+        const ai = stage >= 3 ? buildBossAi(character.level + 5) : buildRobberAi(character.level + stage, `amb${stage}`);
+        launchWandererArenaFight(ai, "ambush", stage, sector);
+    }
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number }) {
+        const won = (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
+        if (p.mode === "single") {
+            if (won) {
+                const next = (character.robberStreak ?? 0) + 1;
+                updateCharacter({ ...character, robberStreak: next });
+                if (next === 5) setTimeout(() => alert("You've fended off 5 robbers. They're gathering against you — the next bandit you cross will spring an ambush."), 40);
+            } else if ((character.robberStreak ?? 0) !== 0) {
+                updateCharacter({ ...character, robberStreak: 0 });
+            }
+            return;
+        }
+        if (p.mode === "ambush") {
+            if (!won) {
+                if ((character.robberStreak ?? 0) !== 0) updateCharacter({ ...character, robberStreak: 0 });
+                setTimeout(() => alert("The ambush overwhelmed you. The bandits melt back into the wilds."), 40);
+                return;
+            }
+            const nextStage = (p.stage ?? 0) + 1;
+            if (nextStage <= 3) {
+                launchAmbushStage(nextStage, p.sector); // 1,2 = more robbers; 3 = the boss
+            } else {
+                updateCharacter({ ...character, robberStreak: 0 });
+                setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
+            }
+        }
+    }
+    // On returning to the world map after a bandit fight, resolve the result and
+    // continue any ambush chain. (Early-returns if there's no pending fight.)
+    useEffect(() => {
+        let raw: string | null;
+        try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
+        if (!raw) return;
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number };
+        try { p = JSON.parse(raw); } catch { return; }
+        if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
+        resolveWandererFight(p);
+    }, []);
     // Non-combat wanderer interaction (gift now; gamble/quest hooks land in later
     // slices). The dialog is the only UI; rewards are server-authoritative.
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean };
