@@ -1431,7 +1431,7 @@ export function CentralHub({
                                                     accept="image/*"
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0];
-                                                        if (file) readImageFile(file, setNamedArmorImage, 100);
+                                                        if (file) readImageFile(file, setNamedArmorImage, 25);
                                                     }}
                                                 />
                                                 {namedArmorImage && (
@@ -1605,7 +1605,7 @@ export function CentralHub({
                                                     accept="image/*"
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0];
-                                                        if (file) readImageFile(file, setNamedWeaponImage, 100);
+                                                        if (file) readImageFile(file, setNamedWeaponImage, 25);
                                                     }}
                                                 />
                                                 {namedWeaponImage && (
