@@ -41,7 +41,7 @@ import { petFxSpriteKey, arenaAbilityFxKey, arenaKillFxKey, multiKillLabel } fro
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../lib/pet-projectile-vfx";
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
-import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
+import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
 import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, ZONE_RADIUS, BOSS_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
@@ -1681,11 +1681,14 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         const inH: { t: number; power: number; crit: boolean }[] = [];
         const snaps = duel.snapshots; const last = snaps.length - 1;
         for (const e of duel.events) {
-            if (e.type === "hit" && e.dmg && e.actorId === id && e.targetId) {
+            if (e.type === "hit" && e.dmg && e.actorId === id && e.targetId && !e.ranged) {
                 const tgt = findActor(snaps[Math.min(last, e.t)], e.targetId);
-                // The move's KIND (e.kind) decides the melee staging: a plain hit lunges,
-                // a crush/push slams, a lifesteal drains back. Render-only classification.
-                outR.push({ t: e.t, kind: "melee", power: tgt ? Math.min(1, e.dmg / Math.max(1, tgt.maxHp)) : 0.4, crit: !!e.crit, choreo: classifyMoveChoreo(e.kind, false) });
+                // The move's KIND + ELEMENT decide the melee staging: a crush/push slams,
+                // a lifesteal drains back, a Wind hit double-slashes, a Lightning hit
+                // thrusts. Projectile hits (e.ranged) are EXCLUDED — a ranged attacker
+                // plants + kicks off its `cast`, it must never lunge on a stray land tick.
+                // Render-only classification.
+                outR.push({ t: e.t, kind: "melee", power: tgt ? Math.min(1, e.dmg / Math.max(1, tgt.maxHp)) : 0.4, crit: !!e.crit, choreo: classifyMoveChoreo(e.kind, false, e.element ?? pet.element) });
             } else if (e.type === "cast" && e.actorId === id) {
                 // A cast → ranged offensive, control beam, or a support gather, by kind.
                 outR.push({ t: e.t, kind: "ranged", power: 0, crit: false, choreo: classifyMoveChoreo(e.kind, true) });
@@ -1697,7 +1700,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
         outR.sort((a, b) => a.t - b.t); inH.sort((a, b) => a.t - b.t);
         return { outResolves: outR, inHits: inH };
-    }, [duel, id]);
+    }, [duel, id, pet.element]);
 
     const useTex = poses ? poses.tex[poseCat] : sprite.texture;
     const useBounds = poses ? poses.scan[poseCat].bounds : sprite.bounds;
@@ -1830,8 +1833,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 const gapToFoe = foeWX !== null ? Math.abs(foeWX - wx) : DUEL_MIN_WORLD_X;
                 // Clamped so a single lunge can never overshoot the contact line into the foe.
                 const reach = meleeLungeReach(gapToFoe, pw, ct, DUEL_CONTACT_GAP, mods.closeMul);
-                // Crit → a quick 2-tap flurry overlaid on the lunge; else one thrust.
-                const jab = ct ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
+                // Crit OR a slash archetype → a quick 2-tap flurry overlaid on the lunge;
+                // else one thrust (a pierce / heavy slam commits as a single deep blow).
+                const jab = (ct || mods.doubleTap) ? 0.72 + 0.28 * Math.abs(Math.cos(pp * Math.PI * 2)) : 1;
                 let dx = reach * e * jab * facing;
                 // Lifesteal → after contact, retract toward self (yank the life home).
                 if (mods.drainBack > 0 && pp > 0.5) dx -= mods.drainBack * reach * 0.4 * ((pp - 0.5) / 0.5) * facing;
@@ -2301,13 +2305,26 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         spawnNumber({ x: a.x, z: a.y, text: `${e.crit ? "CRIT " : ""}-${e.dmg}`, crit: !!e.crit, heal: false });
                         spawnImpact({ x: a.x, z: a.y, color: col, big: heavy });
                         const heavyKind = e.kind === "crush" || e.kind === "push";
-                        const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element tint
-                        // The BURST on contact: a themed sprite for a status/special move
-                        // (a drain reads BLOOD, a mark reads SHADOW, a frost reads ICE),
-                        // else the pet's element animation. Bigger on heavy/crit/slam blows
-                        // so every hit reads as the pet's MOVE, not a tap.
-                        if (fxKey) spawnFx({ x: a.x, z: a.y, key: fxKey, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
-                        else spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavyKind ? 3.1 : heavy ? 2.7 : 1.9, dur: heavyKind ? 560 : heavy ? 520 : 400 });
+                        const fxKey = moveFxKey(e.kind);   // themed burst (blood/shadow/poison/spark/ice/…) or "" → element combo
+                        // The BURST on contact. A themed status/special move keeps its single
+                        // signature sprite (drain=BLOOD, mark=SHADOW, frost=ICE). A plain /
+                        // elemental MELEE hit plays a per-element choreographed COMBO — a lead
+                        // streak → the element bloom → a trailing accent (+ a crit finisher) —
+                        // so each element's basic attack reads as its own strike. A ranged
+                        // projectile impact keeps the single element bloom (its `cast` already
+                        // telegraphed the move at the caster).
+                        if (fxKey) {
+                            spawnFx({ x: a.x, z: a.y, key: fxKey, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
+                        } else if (e.ranged) {
+                            spawnFx({ x: a.x, z: a.y, element: e.element, scale: heavy ? 2.7 : 1.9, dur: heavy ? 520 : 400 });
+                        } else {
+                            const arche = classifyMoveChoreo(e.kind, false, e.element);
+                            const ax = a.x, az = a.y;
+                            for (const b of meleeContactFx(e.element, arche, !!e.crit, heavyKind || heavy)) {
+                                const fire = () => spawnFx(b.key ? { x: ax, z: az, key: b.key, scale: b.scale, dur: b.dur } : { x: ax, z: az, element: e.element, scale: b.scale, dur: b.dur });
+                                if (b.at <= 0) fire(); else window.setTimeout(fire, b.at);
+                            }
+                        }
                         hitStop.current = Math.max(hitStop.current, Math.min(0.18, 0.045 + frac * 0.5) + (e.crit ? 0.04 : 0) + (heavyKind ? 0.05 : 0));
                         shake.current = Math.max(shake.current, 0.5 + frac * 2.4 + (e.crit ? 0.7 : 0) + (heavyKind ? 0.9 : 0));
                         // Element-tinted full-screen FLASH + a ground SHOCKWAVE on every
