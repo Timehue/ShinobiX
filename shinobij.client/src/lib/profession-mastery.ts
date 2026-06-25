@@ -63,7 +63,7 @@ export const MASTERY_TREES: Record<Profession, MasteryPath[]> = {
         ] },
         { id: "restoration", name: "Restoration", nodes: [
             node("restoration", "heal-xp", "Diligent Care", "+6% heal XP per rank (faster Healer progression).", "healXpPct", 6),
-            node("restoration", "heal-discharge", "Quick Discharge", "-6% your own hospital timer per rank.", "healDischargePct", 6),
+            node("restoration", "heal-discharge", "Conservation", "-6% chakra cost of your heals per rank.", "healChakraCostPct", 6),
             capstone("restoration", "full-recovery", "Full Recovery", "Removes the per-target heal cooldown — heal anyone, anytime."),
         ] },
         { id: "outreach", name: "Outreach", nodes: [
@@ -217,7 +217,7 @@ export function sanitizeSpec(profession: Profession | undefined, rawSpec: unknow
 export const EFFECT_LABELS: Record<string, (v: number) => string> = {
     healCooldownPct: (v) => `−${v}% heal cooldown`,
     healXpPct: (v) => `+${v}% heal XP`,
-    healDischargePct: (v) => `−${v}% your hospital timer`,
+    healChakraCostPct: (v) => `−${v}% heal chakra cost`,
     sealGapSoftenPct: (v) => `+${v}% seals kept vs higher-level targets`,
     sealDailyCapFlat: (v) => `+${v} daily Honor-Seal cap`,
     sealTrainCostPct: (v) => `−${v}% Honor-Seal cost of jutsu training`,
