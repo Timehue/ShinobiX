@@ -15,16 +15,8 @@
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Biome } from "../types/core";
-import type { Wanderer, WandererArchetypeId } from "../lib/wanderers";
-import banditImg from "../assets/festival/fest-broker.webp";
-import gamblerImg from "../assets/festival/fest-kael.webp";
-import pilgrimImg from "../assets/festival/fest-miraa.webp";
-
-const AVATAR: Record<WandererArchetypeId, string> = {
-    bandit: banditImg,
-    gambler: gamblerImg,
-    pilgrim: pilgrimImg,
-};
+import type { Wanderer } from "../lib/wanderers";
+import { wandererAvatar } from "../lib/wanderer-art";
 
 const GRID_W = 12;
 const GRID_H = 12;
@@ -216,7 +208,7 @@ export function SectorWanderer({
         }
     }
 
-    const img = AVATAR[wanderer.avatarKey];
+    const img = wandererAvatar(wanderer.avatarKey);
     const initials = wanderer.name.slice(0, 2).toUpperCase();
 
     return (

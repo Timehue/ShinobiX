@@ -14,6 +14,8 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, type Wanderer } from "../lib/wanderers";
+import { wandererAvatar } from "../lib/wanderer-art";
+import { makeBuiltinAi } from "../lib/combat-ai";
 import { SectorScene } from "../components/SectorScene";
 import { SectorScene3D } from "../components/SectorScene3D";
 import { SectorForeground } from "../components/SectorForeground";
@@ -178,6 +180,7 @@ export function WorldMap({
     setPendingAiProfileId,
     setPendingPvpOpponent,
     setRaidBattleKind,
+    registerWandererAi,
     recordMissionExplore,
     setPendingExploreSector,
     playableAis,
@@ -218,6 +221,7 @@ export function WorldMap({
     setPendingAiProfileId: (id: string) => void;
     setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
+    registerWandererAi: (ai: CreatorAi) => void;
     recordMissionExplore: (sector: number) => void;
     setPendingExploreSector: (sector: number | null) => void;
     playableAis: CreatorAi[];
@@ -495,11 +499,21 @@ export function WorldMap({
     function startWandererAttack(w: Wanderer) {
         if (selectedSector == null) return;
         const b = biomeForSector(selectedSector);
+        // Mint a one-off AI that fights as THIS wanderer — its own name, face, and
+        // a level-appropriate loadout (built from the existing AI builders). It's
+        // registered into a transient, non-persisted list the arena can resolve, so
+        // it never pollutes the saved creatorAis.
+        const ai = makeBuiltinAi(
+            `wanderer-${w.id}`, w.name, "🥷", w.level, "Wandering Road",
+            [], 0, undefined, w.archetype === "bandit" ? "bruiser" : "balanced",
+        );
+        ai.image = wandererAvatar(w.avatarKey);
+        registerWandererAi(ai);
         setCurrentSector(selectedSector);
         setCurrentBiome(b);
         setCurrentWeather(weatherForSector(selectedSector, b));
         setPendingPvpOpponent(null);
-        setPendingAiProfileId(pickGuardAi(w.level));
+        setPendingAiProfileId(ai.id);
         setRaidBattleKind("raidAi");
         setScreen("arena");
     }
