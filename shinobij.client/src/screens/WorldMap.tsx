@@ -184,6 +184,7 @@ export function WorldMap({
     setRaidBattleKind,
     registerWandererAi,
     setPendingPetBattleOpponent,
+    requestCardChallenge,
     recordMissionExplore,
     setPendingExploreSector,
     playableAis,
@@ -226,6 +227,7 @@ export function WorldMap({
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     registerWandererAi: (ai: CreatorAi) => void;
     setPendingPetBattleOpponent: (o: PetArenaOpponent | null) => void;
+    requestCardChallenge: () => void;
     recordMissionExplore: (sector: number) => void;
     setPendingExploreSector: (sector: number | null) => void;
     playableAis: CreatorAi[];
@@ -565,6 +567,13 @@ export function WorldMap({
         });
         setWandererDialog(null);
         setScreen("petArena");
+    }
+    function startWandererCardDuel(w: Wanderer) {
+        // The gambler deals you straight into a Card Clash match in the Card Hall.
+        void w;
+        requestCardChallenge();
+        setWandererDialog(null);
+        setScreen("shinobiTiles");
     }
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     const [petVnDone, setPetVnDone] = useState(false);
@@ -1495,6 +1504,11 @@ export function WorldMap({
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "petDuel" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                 <button onClick={() => startWandererPetDuel(wandererDialog.w)}>Send out your pet</button>
+                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                            </div>
+                                        ) : !wandererDialog.msg && wandererDialog.w.verb === "gamble" ? (
+                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                <button onClick={() => startWandererCardDuel(wandererDialog.w)}>Deal me in</button>
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
                                         ) : (
