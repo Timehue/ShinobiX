@@ -714,14 +714,12 @@ export function WorldMap({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
-        // The beast fields a pet SCALED to the player's active pet so the duel is a
-        // real fight, not a pushover. Reuses the Pet Coliseum entry + its server-safe
+        // The beast fields a pet SCALED to the player's CHARACTER level so the duel is
+        // a real fight, not a pushover. Reuses the Pet Coliseum entry + its server-safe
         // casual reward path — no new endpoint.
-        const pets = character.pets ?? [];
-        const activePet = pets.find((p) => p.id === character.activePetId) ?? pets[0];
-        const targetLevel = Math.max(1, Math.min(100, activePet?.level ?? Math.round(character.level * 0.4) ?? 10));
-        // Pick the template tier by the player's PET level (not the wanderer's), then
-        // scale it to match — so a strong player faces the apex template, not a sparrow.
+        const targetLevel = Math.max(1, Math.min(100, character.level));
+        // Pick the template tier by character level (not the wanderer's), then scale it
+        // to match — so a strong player faces the apex template, not a sparrow.
         const tmpl = targetLevel < 20 ? genericPetArenaOpponents[0]
             : targetLevel < 45 ? genericPetArenaOpponents[1]
             : genericPetArenaOpponents[2];
