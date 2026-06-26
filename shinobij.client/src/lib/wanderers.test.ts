@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, type Wanderer } from "./wanderers";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -84,6 +84,28 @@ describe("wandererDayBucket", () => {
         const t6 = new Date("2026-06-25T06:01:00Z");
         assert.equal(wandererDayBucket(t0), wandererDayBucket(t5));
         assert.equal(wandererDayBucket(t6), wandererDayBucket(t0) + 1);
+    });
+});
+
+describe("per-NPC cooldown", () => {
+    it("isWandererOnCooldown is true only while the entry is in the future", () => {
+        const now = 1_000_000;
+        assert.equal(isWandererOnCooldown({ a: now + 1000 }, "a", now), true);
+        assert.equal(isWandererOnCooldown({ a: now - 1000 }, "a", now), false);
+        assert.equal(isWandererOnCooldown({ a: now + 1000 }, "b", now), false);
+        assert.equal(isWandererOnCooldown(undefined, "a", now), false);
+        assert.equal(isWandererOnCooldown(null, "a", now), false);
+    });
+    it("withWandererCooldown sets the new entry and prunes expired ones", () => {
+        const now = 1_000_000;
+        const next = withWandererCooldown({ stale: now - 1, live: now + 5000 }, "w1", now);
+        assert.equal(next.w1, now + WANDERER_NPC_COOLDOWN_MS, "new entry cooled a few hours out");
+        assert.equal(next.live, now + 5000, "still-live entry kept");
+        assert.equal("stale" in next, false, "expired entry pruned");
+        assert.equal(isWandererOnCooldown(next, "w1", now), true);
+    });
+    it("the cooldown is a few hours", () => {
+        assert.ok(WANDERER_NPC_COOLDOWN_MS >= 60 * 60 * 1000 && WANDERER_NPC_COOLDOWN_MS <= 6 * 60 * 60 * 1000);
     });
 });
 

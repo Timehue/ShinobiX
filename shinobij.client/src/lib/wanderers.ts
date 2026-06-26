@@ -117,6 +117,38 @@ export function isWanderersEnabled(): boolean {
     try { return window.localStorage?.getItem("wanderers.v1") !== "off"; } catch { return true; }
 }
 
+// ── Per-NPC anti-spam cooldown ───────────────────────────────────────────────
+// After a player takes a REPEATABLE reward from a wanderer (fight a bandit, take a
+// pilgrim's gift, duel a beast/gambler), that specific NPC goes on cooldown so it
+// can't be farmed — it vanishes from the sector for a few hours. Sages (quests) are
+// NOT cooled: a quest is one-at-a-time already, and you need a sage to continue an
+// active epic. Keyed by the wanderer's stable id → expiry ms.
+export const WANDERER_NPC_COOLDOWN_MS = 3 * 60 * 60 * 1000; // a few hours
+
+export function isWandererOnCooldown(
+    cooldowns: Record<string, number> | null | undefined,
+    id: string,
+    now: number,
+): boolean {
+    const exp = cooldowns?.[id];
+    return typeof exp === "number" && exp > now;
+}
+
+/** A new cooldown map with `id` cooled until now + WANDERER_NPC_COOLDOWN_MS, with
+ *  already-expired entries pruned so the map stays tiny on the save. */
+export function withWandererCooldown(
+    cooldowns: Record<string, number> | null | undefined,
+    id: string,
+    now: number,
+): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(cooldowns ?? {})) {
+        if (typeof v === "number" && v > now) out[k] = v;
+    }
+    out[id] = now + WANDERER_NPC_COOLDOWN_MS;
+    return out;
+}
+
 /** Roster refreshes every 6h so a sector's cast changes a few times a day. */
 export function wandererDayBucket(now: Date): number {
     return Math.floor(now.getTime() / (6 * 60 * 60 * 1000));
