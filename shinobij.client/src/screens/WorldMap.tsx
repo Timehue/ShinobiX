@@ -14,6 +14,7 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
+import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel } from "../lib/questbook";
 import { wandererAvatar, wandererRobberPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -523,7 +524,7 @@ export function WorldMap({
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
-    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush", stage: number, sector: number, extra: Record<string, unknown> = {}) {
+    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush" | "questboss", stage: number, sector: number, extra: Record<string, unknown> = {}) {
         const b = biomeForSector(sector);
         registerWandererAi(ai);
         setCurrentSector(sector);
@@ -625,6 +626,14 @@ export function WorldMap({
             } else {
                 claimAmbushReward(); // boss down → server-authoritative loot + reset
             }
+            return;
+        }
+        if (p.mode === "questboss") {
+            // A Quest Book boss stage. On a win the foe-kill counter ticked, so ask
+            // the server to advance the epic (it re-checks the sealed baseline). On a
+            // loss the epic is NOT lost — the player can retry from the journal.
+            if (won) { void advanceEpic(true); }
+            else { setTimeout(() => alert("The foe stands. Your quest holds — rest, then face them again."), 40); }
         }
     }
     // On returning to the world map after a bandit fight, resolve the result and
@@ -751,6 +760,109 @@ export function WorldMap({
         } catch {
             setWandererDialog({ w, msg: "You couldn't reach them." });
         }
+    }
+    // ── Quest Book (multi-stage epics) ───────────────────────────────────────
+    // Reuses the wanderer art for the bestiary foes (bespoke boss art is a follow-up).
+    function epicBossPortrait(key: "bandit2" | "bandit3" | "boss" | "nemesis" | "beast"): string {
+        if (key === "bandit2") return wandererRobberPortrait(1);
+        if (key === "bandit3") return wandererRobberPortrait(2);
+        if (key === "nemesis") return WANDERER_NEMESIS_PORTRAIT;
+        if (key === "beast") return wandererAvatar("beast");
+        return WANDERER_BOSS_PORTRAIT;
+    }
+    async function acceptEpic(w: Wanderer, questId: string) {
+        setWandererDialog({ w, busy: true });
+        try {
+            const res = await fetch("/api/sector/questbook", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "accept", playerName: character.name, questId }),
+            });
+            const data = await res.json() as { ok?: boolean; reason?: string; target?: number };
+            const entry = questbookEntry(questId);
+            if (data.ok && entry) {
+                const s0 = entry.stages[0];
+                updateCharacter({ ...character, activeQuestbook: { id: questId, stage: 0, baseline: (character[s0.metric] as number | undefined) ?? 0, target: s0.count } });
+                setWandererDialog({ w, msg: `Epic begun — “${entry.title}.” Your journal is open.` });
+            } else if (data.reason === "busy") {
+                setWandererDialog({ w, msg: "“Finish the tale you already walk first.”" });
+            } else if (data.reason === "cooldown") {
+                setWandererDialog({ w, msg: "“That story is freshly told. Return another day.”" });
+            } else if (data.reason === "band") {
+                setWandererDialog({ w, msg: "“This task is not for one of your standing — not yet.”" });
+            } else {
+                setWandererDialog({ w, msg: "They reconsider, and say nothing." });
+            }
+        } catch { setWandererDialog({ w, msg: "You couldn't reach them." }); }
+    }
+    async function advanceEpic(auto = false) {
+        try {
+            const res = await fetch("/api/sector/questbook", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "advance", playerName: character.name }),
+            });
+            const data = await res.json() as { ok?: boolean; reason?: string; stage?: number; target?: number; advanced?: boolean; readyToClaim?: boolean; progress?: number };
+            const cur = character.activeQuestbook;
+            if (data.ok && data.advanced && typeof data.stage === "number" && cur) {
+                const entry = questbookEntry(cur.id);
+                const st = entry?.stages[data.stage] ?? null;
+                const baseline = st ? ((character[st.metric] as number | undefined) ?? 0) : cur.baseline;
+                updateCharacter({ ...character, activeQuestbook: { ...cur, stage: data.stage, baseline, target: data.target ?? cur.target } });
+                setTimeout(() => alert("Stage cleared. The next chapter of your epic opens."), 40);
+            } else if (data.ok && data.readyToClaim) {
+                if (!auto) setTimeout(() => alert("The final deed is done — claim your reward from the journal."), 40);
+            } else if (!auto && data.reason === "incomplete") {
+                alert(`Not yet — ${data.progress ?? 0} / ${data.target ?? "?"} done for this stage.`);
+            }
+        } catch { if (!auto) alert("You couldn't reach the quest-giver."); }
+    }
+    async function claimEpic(w: Wanderer) {
+        setWandererDialog({ w, busy: true });
+        try {
+            const res = await fetch("/api/sector/questbook", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "claim", playerName: character.name }),
+            });
+            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; fateShards?: number; title?: string };
+            if (data.ok && typeof data.totalRyo === "number") {
+                const titles = character.questTitles ?? [];
+                const nextTitles = data.title && !titles.includes(data.title) ? [...titles, data.title] : titles;
+                updateCharacter({ ...character, ryo: data.totalRyo, fateShards: (character.fateShards ?? 0) + (data.fateShards ?? 0), questTitles: nextTitles, activeQuestbook: null });
+                const bits = [`${data.ryo} ryo`];
+                if (data.fateShards) bits.push(`${data.fateShards} fate shard${data.fateShards === 1 ? "" : "s"}`);
+                if (data.title) bits.push(`the title “${data.title}”`);
+                setWandererDialog({ w, msg: `Epic complete! You earn ${bits.join(", ")}.` });
+            } else if (data.reason === "incomplete") {
+                setWandererDialog({ w, msg: "“The tale isn't finished yet.”" });
+            } else {
+                setWandererDialog({ w, msg: "“You carry no epic of mine.”" });
+            }
+        } catch { setWandererDialog({ w, msg: "You couldn't reach them." }); }
+    }
+    async function abandonEpic(w: Wanderer) {
+        if (!window.confirm("Abandon this epic? Your progress on it will be lost.")) return;
+        setWandererDialog({ w, busy: true });
+        try {
+            await fetch("/api/sector/questbook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "abandon", playerName: character.name }) });
+        } catch { /* ignore — clear locally anyway */ }
+        updateCharacter({ ...character, activeQuestbook: null });
+        setWandererDialog({ w, msg: "You set the burden down." });
+    }
+    function fightEpicBoss(w: Wanderer) {
+        if (selectedSector == null) return;
+        const active = character.activeQuestbook;
+        if (!active) return;
+        const stage = questbookStage(active.id, active.stage);
+        if (!stage?.bossId) return;
+        const spec = QUEST_BOSSES[stage.bossId];
+        if (!spec) return;
+        // Foe-kill boss stages launch the scaled boss in the arena; pet-win stages
+        // are fulfilled in the Pet Coliseum, then advanced from the journal.
+        if (stage.metric !== "totalAiKills") { setWandererDialog({ w, msg: "Face this one in the Pet Coliseum, then return to your journal." }); return; }
+        const lvl = Math.max(1, Math.min(100, character.level + spec.levelOffset));
+        const ai = makeBuiltinAi(`questboss-${stage.bossId}`, spec.name, spec.icon, lvl, "Wandering Road", [], spec.statBonus, undefined, spec.loadoutId, !!spec.boss);
+        ai.image = epicBossPortrait(spec.portraitKey);
+        setWandererDialog(null);
+        launchWandererArenaFight(ai, "questboss", 0, selectedSector, { questbook: true });
     }
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     const [petVnDone, setPetVnDone] = useState(false);
@@ -1694,6 +1806,37 @@ export function WorldMap({
                                                 <button onClick={() => setWandererDialog(null)}>Leave</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "quest" ? (() => {
+                                            const epic = character.activeQuestbook;
+                                            if (epic) {
+                                                const entry = questbookEntry(epic.id);
+                                                const stage = questbookStage(epic.id, epic.stage);
+                                                if (entry && stage) {
+                                                    const got = Math.max(0, ((character[stage.metric] as number | undefined) ?? 0) - epic.baseline);
+                                                    const done = got >= stage.count;
+                                                    const isFinal = epic.stage >= entry.stages.length - 1;
+                                                    const bossArena = !!stage.bossId && stage.metric === "totalAiKills";
+                                                    const bossName = stage.bossId ? (QUEST_BOSSES[stage.bossId]?.name ?? "the foe") : "the foe";
+                                                    return (
+                                                        <>
+                                                            <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}>📖 {entry.title}</p>
+                                                            <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
+                                                            <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{stage.text}</p>
+                                                            <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
+                                                            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                                {done && isFinal ? (
+                                                                    <button disabled={wandererDialog.busy} onClick={() => claimEpic(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
+                                                                ) : done ? (
+                                                                    <button disabled={wandererDialog.busy} onClick={() => advanceEpic(false)}>{wandererDialog.busy ? "…" : "Continue"}</button>
+                                                                ) : bossArena ? (
+                                                                    <button onClick={() => fightEpicBoss(wandererDialog.w)}>⚔ Fight {bossName}</button>
+                                                                ) : null}
+                                                                <button onClick={() => abandonEpic(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
+                                                                <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                }
+                                            }
                                             const active = character.activeWandererQuest;
                                             if (active) {
                                                 const metric = questMetricForId(active.id);
@@ -1712,11 +1855,14 @@ export function WorldMap({
                                                 );
                                             }
                                             const def = questForWanderer(wandererDialog.w);
+                                            const offer = epicForWanderer(wandererDialog.w.id, character.level);
                                             return (
                                                 <>
                                                     <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
-                                                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                                        <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept"}</button>
+                                                    {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 Epic available: “{offer.title}” — a long, hard tale in stages.</p>}
+                                                    <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                                                        <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
+                                                        {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}
                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
                                                     </div>
                                                 </>

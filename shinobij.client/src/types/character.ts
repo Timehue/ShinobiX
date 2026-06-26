@@ -258,6 +258,11 @@ export type Character = {
     // real once-per-war-per-tier guard). When warId ≠ the active war, the contract
     // has reset and the client shows none hired. Additive/optional.
     warMercs?: { warId: string; tiers: string[] } | null;
+    // Active multi-stage "epic" from the Quest Book (display mirror; api/sector/questbook.ts
+    // seals the real stage + baseline in KV). One epic at a time. Additive/optional.
+    activeQuestbook?: { id: string; stage: number; baseline: number; target: number } | null;
+    // Cosmetic titles earned from completing Quest Book epics. Additive/optional.
+    questTitles?: string[];
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
