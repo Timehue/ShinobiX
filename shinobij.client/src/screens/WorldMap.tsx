@@ -14,7 +14,7 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
-import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel } from "../lib/questbook";
+import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
@@ -900,10 +900,20 @@ export function WorldMap({
         // Foe-kill boss stages launch the scaled boss in the arena; pet-win stages
         // are fulfilled in the Pet Coliseum, then advanced from the journal.
         if (stage.metric !== "totalAiKills") { setWandererDialog({ w, msg: "Face this one in the Pet Coliseum, then return to your journal." }); return; }
-        const lvl = Math.max(1, Math.min(100, character.level + spec.levelOffset));
+        let lvl = Math.max(1, Math.min(100, character.level + spec.levelOffset));
         // A branch choice (e.g. carrying the cursed bell raw) can wake the boss harder.
-        const bonus = spec.statBonus + bossStatBonusFromChoices(active.id, active.choices);
-        const ai = makeBuiltinAi(`questboss-${stage.bossId}`, spec.name, spec.icon, lvl, "Wandering Road", [], bonus, undefined, spec.loadoutId, !!spec.boss);
+        let bonus = spec.statBonus + bossStatBonusFromChoices(active.id, active.choices);
+        let bossName = spec.name;
+        // The capstone's Kazan reflects YOUR rivalry — harder the more he's bested you,
+        // and his title rises with a long-running grudge.
+        const tier = character.wandererNemesis?.tier ?? 0;
+        if (spec.scalesWithRivalry && tier > 0) {
+            const esc = rivalryEscalation(tier);
+            lvl = Math.max(1, Math.min(100, lvl + esc.level));
+            bonus += esc.stat;
+            if (tier >= 4) bossName = `${spec.name}, Risen`;
+        }
+        const ai = makeBuiltinAi(`questboss-${stage.bossId}`, bossName, spec.icon, lvl, "Wandering Road", [], bonus, undefined, spec.loadoutId, !!spec.boss);
         ai.image = questBossPortrait(stage.bossId) ?? epicBossPortrait(spec.portraitKey);
         setWandererDialog(null);
         launchWandererArenaFight(ai, "questboss", 0, selectedSector, { questbook: true });
@@ -1876,6 +1886,8 @@ export function WorldMap({
                                                     const isFinal = epic.stage >= entry.stages.length - 1;
                                                     const bossArena = !!stage.bossId && stage.metric === "totalAiKills";
                                                     const bossName = stage.bossId ? (QUEST_BOSSES[stage.bossId]?.name ?? "the foe") : "the foe";
+                                                    const rivalTier = character.wandererNemesis?.tier ?? 0;
+                                                    const scalesRivalry = !!(stage.bossId && QUEST_BOSSES[stage.bossId]?.scalesWithRivalry && rivalTier > 0);
                                                     const left = stage.timer && epic.deadline ? timeLeftLabel(epic.deadline, Date.now()) : null;
                                                     const expired = left === "0:00";
                                                     return (
@@ -1899,6 +1911,7 @@ export function WorldMap({
                                                                 </>
                                                             ) : (
                                                                 <>
+                                                                    {scalesRivalry && <p style={{ fontSize: ".75rem", color: "#fca5a5", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has bested you {rivalTier}× — his promoted form is that much stronger{rivalTier >= 4 ? ", and risen" : ""}.</p>}
                                                                     <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
                                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                                         {done && isFinal ? (
