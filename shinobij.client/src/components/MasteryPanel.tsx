@@ -4,6 +4,7 @@
  * from profession XP earned past rank 10. Effects are PvE/utility only and are
  * applied elsewhere (Phase 3); this panel only edits character.masterySpec.
  */
+import type React from "react";
 import type { Character } from "../types/character";
 import {
     MASTERY_TREES, masteryLevel, masteryPointsAvailable, masteryPointsSpent,

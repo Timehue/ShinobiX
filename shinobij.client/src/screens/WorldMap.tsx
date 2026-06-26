@@ -218,7 +218,7 @@ export function WorldMap({
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
@@ -569,7 +569,7 @@ export function WorldMap({
             const res = await fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", playerName: character.name }) });
             const d = await res.json() as { ok?: boolean; reward?: { ryo: number; fateShards: number; boneCharms: number }; totals?: { ryo: number; fateShards: number; boneCharms: number } };
             if (d.ok && d.reward && d.totals) {
-                updateCharacter({ ...character, ryo: d.totals.ryo, fateShards: d.totals.fateShards, boneCharms: d.totals.boneCharms, robberStreak: 0 });
+                updateCharacter(prev => prev ? ({ ...prev, ryo: d.totals!.ryo, fateShards: d.totals!.fateShards, boneCharms: d.totals!.boneCharms, robberStreak: 0 }) : prev);
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
@@ -577,7 +577,7 @@ export function WorldMap({
                 return;
             }
         } catch { /* fall through to the no-loot message */ }
-        updateCharacter({ ...character, robberStreak: 0 });
+        updateCharacter(prev => prev ? ({ ...prev, robberStreak: 0 }) : prev);
         setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
     }
     function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; name?: string; level?: number; nemesis?: boolean }) {
@@ -685,7 +685,7 @@ export function WorldMap({
                 totals?: { ryo: number; fateShards: number; boneCharms: number };
             };
             if (data.ok && data.gift && data.totals) {
-                updateCharacter({ ...character, ryo: data.totals.ryo, fateShards: data.totals.fateShards, boneCharms: data.totals.boneCharms });
+                updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo, fateShards: data.totals!.fateShards, boneCharms: data.totals!.boneCharms }) : prev);
                 const parts = [`${data.gift.ryo} ryo`];
                 if (data.gift.fateShards > 0) parts.push(`${data.gift.fateShards} fate shard${data.gift.fateShards === 1 ? "" : "s"}`);
                 if (data.gift.boneCharms > 0) parts.push(`${data.gift.boneCharms} bone charm${data.gift.boneCharms === 1 ? "" : "s"}`);
@@ -737,7 +737,7 @@ export function WorldMap({
             });
             const data = await res.json() as { ok?: boolean; reason?: string; baseline?: number; target?: number };
             if (data.ok && typeof data.baseline === "number") {
-                updateCharacter({ ...character, activeWandererQuest: { id: def.id, target: def.target, baseline: data.baseline } });
+                updateCharacter(prev => prev ? ({ ...prev, activeWandererQuest: { id: def.id, target: def.target, baseline: data.baseline! } }) : prev);
                 setWandererDialog({ w, msg: `Quest accepted — ${def.label.toLowerCase()}. Return when it's done.` });
             } else if (data.reason === "busy") {
                 setWandererDialog({ w, msg: "“Finish the task you already carry first.”" });
@@ -758,7 +758,7 @@ export function WorldMap({
             });
             const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number };
             if (data.ok && typeof data.totalRyo === "number") {
-                updateCharacter({ ...character, ryo: data.totalRyo, activeWandererQuest: null });
+                updateCharacter(prev => prev ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
                 setWandererDialog({ w, msg: `“Well done.” You receive ${data.ryo} ryo.` });
             } else if (data.reason === "incomplete") {
                 setWandererDialog({ w, msg: "“Not yet. The roads are still dangerous.”" });
@@ -789,7 +789,7 @@ export function WorldMap({
             const entry = questbookEntry(questId);
             if (data.ok && entry) {
                 const s0 = entry.stages[0];
-                updateCharacter({ ...character, activeQuestbook: { id: questId, stage: 0, baseline: (character[s0.metric] as number | undefined) ?? 0, target: s0.count, deadline: data.deadline ?? null, choices: {} } });
+                updateCharacter(prev => prev ? ({ ...prev, activeQuestbook: { id: questId, stage: 0, baseline: (prev[s0.metric] as number | undefined) ?? 0, target: s0.count, deadline: data.deadline ?? null, choices: {} } }) : prev);
                 setWandererDialog({ w, msg: `Epic begun — “${entry.title}.” Your journal is open.` });
             } else if (data.reason === "busy") {
                 setWandererDialog({ w, msg: "“Finish the tale you already walk first.”" });
@@ -813,16 +813,22 @@ export function WorldMap({
             if (data.ok && data.advanced && typeof data.stage === "number" && cur) {
                 const entry = questbookEntry(cur.id);
                 const st = entry?.stages[data.stage] ?? null;
-                const baseline = st ? ((character[st.metric] as number | undefined) ?? 0) : cur.baseline;
-                updateCharacter({ ...character, activeQuestbook: { ...cur, stage: data.stage, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null } });
+                updateCharacter(prev => {
+                    if (!prev) return prev;
+                    const baseline = st ? ((prev[st.metric] as number | undefined) ?? 0) : cur.baseline;
+                    return { ...prev, activeQuestbook: { ...cur, stage: data.stage!, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null } };
+                });
                 setTimeout(() => alert("Stage cleared. The next chapter of your epic opens."), 40);
             } else if (data.ok && data.readyToClaim) {
                 if (!auto) setTimeout(() => alert("The final deed is done — claim your reward from the journal."), 40);
             } else if (data.reason === "expired" && typeof data.resetToStage === "number" && cur) {
                 const entry = questbookEntry(cur.id);
                 const st = entry?.stages[data.resetToStage] ?? null;
-                const baseline = st ? ((character[st.metric] as number | undefined) ?? 0) : cur.baseline;
-                updateCharacter({ ...character, activeQuestbook: { ...cur, stage: data.resetToStage, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null } });
+                updateCharacter(prev => {
+                    if (!prev) return prev;
+                    const baseline = st ? ((prev[st.metric] as number | undefined) ?? 0) : cur.baseline;
+                    return { ...prev, activeQuestbook: { ...cur, stage: data.resetToStage!, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null } };
+                });
                 setTimeout(() => alert("The bell finished its sound — you were too slow. The stage resets; try again."), 40);
             } else if (!auto && data.reason === "incomplete") {
                 alert(`Not yet — ${data.progress ?? 0} / ${data.target ?? "?"} done for this stage.`);
@@ -845,10 +851,13 @@ export function WorldMap({
                 if (data.advanced && typeof data.stage === "number") {
                     const entry = questbookEntry(cur.id);
                     const st = entry?.stages[data.stage] ?? null;
-                    const baseline = st ? ((character[st.metric] as number | undefined) ?? 0) : cur.baseline;
-                    updateCharacter({ ...character, activeQuestbook: { ...cur, stage: data.stage, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null, choices: nextChoices } });
+                    updateCharacter(prev => {
+                        if (!prev) return prev;
+                        const baseline = st ? ((prev[st.metric] as number | undefined) ?? 0) : cur.baseline;
+                        return { ...prev, activeQuestbook: { ...cur, stage: data.stage!, baseline, target: data.target ?? cur.target, deadline: data.deadline ?? null, choices: nextChoices } };
+                    });
                 } else {
-                    updateCharacter({ ...character, activeQuestbook: { ...cur, choices: nextChoices } });
+                    updateCharacter(prev => prev ? ({ ...prev, activeQuestbook: { ...cur, choices: nextChoices } }) : prev);
                 }
                 setWandererDialog({ w, msg: "Your choice is made. The path shifts." });
             } else {
@@ -865,9 +874,12 @@ export function WorldMap({
             });
             const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; fateShards?: number; title?: string; clearedRivalry?: boolean };
             if (data.ok && typeof data.totalRyo === "number") {
-                const titles = character.questTitles ?? [];
-                const nextTitles = data.title && !titles.includes(data.title) ? [...titles, data.title] : titles;
-                updateCharacter({ ...character, ryo: data.totalRyo, fateShards: (character.fateShards ?? 0) + (data.fateShards ?? 0), questTitles: nextTitles, activeQuestbook: null, ...(data.clearedRivalry ? { wandererNemesis: null } : {}) });
+                updateCharacter(prev => {
+                    if (!prev) return prev;
+                    const titles = prev.questTitles ?? [];
+                    const nextTitles = data.title && !titles.includes(data.title) ? [...titles, data.title] : titles;
+                    return { ...prev, ryo: data.totalRyo!, fateShards: (prev.fateShards ?? 0) + (data.fateShards ?? 0), questTitles: nextTitles, activeQuestbook: null, ...(data.clearedRivalry ? { wandererNemesis: null } : {}) };
+                });
                 const bits = [`${data.ryo} ryo`];
                 if (data.fateShards) bits.push(`${data.fateShards} fate shard${data.fateShards === 1 ? "" : "s"}`);
                 if (data.title) bits.push(`the title “${data.title}”`);
@@ -886,7 +898,7 @@ export function WorldMap({
         try {
             await fetch("/api/sector/questbook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "abandon", playerName: character.name }) });
         } catch { /* ignore — clear locally anyway */ }
-        updateCharacter({ ...character, activeQuestbook: null });
+        updateCharacter(prev => prev ? ({ ...prev, activeQuestbook: null }) : prev);
         setWandererDialog({ w, msg: "You set the burden down." });
     }
     function fightEpicBoss(w: Wanderer) {
