@@ -125,18 +125,19 @@ const ProfessionPicker = lazyWithRetry(() => import("./screens/ProfessionPicker"
 const Professions = lazyWithRetry(() => import("./screens/Professions").then(m => ({ default: m.Professions })));
 const StarterPetSelect = lazyWithRetry(() => import("./screens/StarterPetSelect").then(m => ({ default: m.StarterPetSelect })));
 
-import { Bank } from "./screens/Bank";
+const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
-import { Profile } from "./screens/Profile";
+const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
-import { HunterBoard } from "./screens/HunterBoard";
-import { Missions } from "./screens/Missions";
-import { StoryHall, StoryBoss } from "./screens/StoryBoss";
+const HunterBoard = lazyWithRetry(() => import("./screens/HunterBoard").then(m => ({ default: m.HunterBoard })));
+const Missions = lazyWithRetry(() => import("./screens/Missions").then(m => ({ default: m.Missions })));
+const StoryHall = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryHall })));
+const StoryBoss = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryBoss })));
 const TownHall = lazyWithRetry(() => import("./screens/TownHall").then(m => ({ default: m.TownHall })));
-import { ClanHall } from "./screens/ClanHall";
+const ClanHall = lazyWithRetry(() => import("./screens/ClanHall").then(m => ({ default: m.ClanHall })));
 import { BATTLE_LOCK_ID_KEY, BATTLE_LOCK_RESOLVED_KEY, postBattleLock, endlessCtxKey, arenaStoryCtxKey, fetchBattleLockStatus, battleResumeStateExists, readEndlessContext, readArenaStoryContext, type ClientBattleLock } from "./lib/battle-save";
 import { allProgressMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement } from "./data/missions";
 import { postPlayerChallengeNotice } from "./lib/player-api";
@@ -154,9 +155,10 @@ const ClanWarTileCardDuel = lazyWithRetry(() => import("./screens/ClanWarTileCar
 const ShinobiCouncilHall = lazyWithRetry(() => import("./screens/ShinobiCouncilHall").then(m => ({ default: m.ShinobiCouncilHall })));
 const CardClashDuel = lazyWithRetry(() => import("./screens/CardClashDuel").then(m => ({ default: m.CardClashDuel })));
 const CardHall = lazyWithRetry(() => import("./screens/CardHall").then(m => ({ default: m.CardHall })));
-import { GuidesLibrary } from "./components/GuidesLibrary";
+const GuidesLibrary = lazyWithRetry(() => import("./components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
 import { buildPlayableDeck, deriveCardClashCard, validateDeck as validateClashDeck } from "./lib/card-clash";
-import { DungeonEncounter, DungeonPetBattle } from "./screens/Dungeon";
+const DungeonEncounter = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonEncounter })));
+const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonPetBattle })));
 import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
 const PvpBattleScreen = lazyWithRetry(() => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen })));
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
@@ -406,9 +408,11 @@ import { MobileNav } from "./components/MobileNav";
 import { TriggeredVisualNovel } from "./components/TriggeredVisualNovel";
 // Hollow Gate atlas tile picker (admin) moved to ./components/KenneyAtlasPicker.
 // Training screens (stat + jutsu training) moved to ./screens/Training.
-import { Training, JutsuTrainingHall } from "./screens/Training";
+const Training = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.Training })));
+const JutsuTrainingHall = lazyWithRetry(() => import("./screens/Training").then(m => ({ default: m.JutsuTrainingHall })));
 // Shop / Grand Marketplace / card packs moved to ./components/Shop.
-import { Shop, GrandMarketplace } from "./components/Shop";
+const Shop = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.Shop })));
+const GrandMarketplace = lazyWithRetry(() => import("./components/Shop").then(m => ({ default: m.GrandMarketplace })));
 
 // Canonical game-item catalog moved to ./data/starter-items.
 import { starterItems } from "./data/starter-items";
@@ -2039,11 +2043,13 @@ export default function App() {
     }, [worldStateVersion, clanWarStateVersion]);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
-    // ended-war rewards auto-claim. 30s cadence is enough since
-    // rewards have a 7-day claim window.
+    // ended-war rewards auto-claim. 30s cadence is enough (7-day claim window).
+    // Clan-less players are skipped: claimPendingWarCrates short-circuits on an
+    // empty `clan`, so polling the uncached endpoint for them is pure waste.
     useEffect(() => {
         if (!tabVisible) return;
         if (!character) return;
+        if (!character.clan) return;
         let alive = true;
         async function refreshClanWars() {
             try {
@@ -2059,7 +2065,7 @@ export default function App() {
             alive = false;
             clearInterval(id);
         };
-    }, [tabVisible, character?.name]);
+    }, [tabVisible, character?.name, character?.clan]);
 
     const [, setSharedGameStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
@@ -5554,6 +5560,16 @@ export default function App() {
         });
     }, [raidBattleKind, character?.hospitalized, screen]);
 
+    // Stable identities for the memo'd RightMenu/MobileNav: navigate/logoutPlayer get a
+    // fresh identity each render, defeating their memo. These latest-ref wrappers delegate
+    // to the current fn — stable identity, no stale closure, behavior identical.
+    const navigateRef = useRef(navigate);
+    navigateRef.current = navigate;
+    const stableNavigate = useCallback((nextScreen: Screen) => navigateRef.current(nextScreen), []);
+    const logoutPlayerRef = useRef(logoutPlayer);
+    logoutPlayerRef.current = logoutPlayer;
+    const stableLogout = useCallback(() => logoutPlayerRef.current(), []);
+
     function navigate(nextScreen: Screen) {
         // Lock: cannot leave during an active battle (any type — isUnresolvedBattle).
         if (inBattleRef.current) {
@@ -7393,9 +7409,9 @@ export default function App() {
 
             {screen !== "start" && character && (
                 <RightMenu
-                    navigate={navigate}
+                    navigate={stableNavigate}
                     adminLoggedIn={adminLoggedIn}
-                    logoutPlayer={logoutPlayer}
+                    logoutPlayer={stableLogout}
                     characterName={character?.name ?? ""}
                     characterVillage={character?.village ?? ""} characterClan={character?.clan ?? ""}
                     profession={character?.profession ?? null}
@@ -7405,9 +7421,9 @@ export default function App() {
 
             {screen !== "start" && character && (
                 <MobileNav
-                    navigate={navigate}
+                    navigate={stableNavigate}
                     adminLoggedIn={adminLoggedIn}
-                    logoutPlayer={logoutPlayer}
+                    logoutPlayer={stableLogout}
                     character={character}
                     currentSector={currentSector}
                     screen={screen}

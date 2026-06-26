@@ -44,17 +44,29 @@ export type CwWar = {
 };
 // CW_HP_MAX / CW_DAMAGE / CW_MODE_LABEL / CW_MODE_ICON moved to ./constants/clan.
 
+// Coalesce concurrent callers. Three pollers (App-level 30s + ClanWarsPanel 20s
+// + ClanBattlesTab 15s, the latter two on separate screens) can overlap; without
+// this each fires its own uncached origin fetch of the full war list. While a
+// request is in flight, additional callers share it and receive identical data —
+// behavior-identical to firing simultaneously, with no added staleness (the
+// in-flight handle is cleared the moment it settles, so the next call is fresh).
+let _cwListInFlight: Promise<CwWar[]> | null = null;
 export async function cwListWars(): Promise<CwWar[]> {
-    try {
-        const r = await fetch("/api/clan/war/list");
-        if (!r.ok) return [];
-        const data = await r.json() as { wars?: CwWar[] };
-        const wars = data.wars ?? [];
-        // Populate the shared cache so claimPendingWarCrates can scan
-        // ended clan wars for unclaimed rewards on next render.
-        for (const w of wars) sharedClanWarCache[w.id] = w;
-        return wars;
-    } catch { return []; }
+    if (_cwListInFlight) return _cwListInFlight;
+    _cwListInFlight = (async () => {
+        try {
+            const r = await fetch("/api/clan/war/list");
+            if (!r.ok) return [];
+            const data = await r.json() as { wars?: CwWar[] };
+            const wars = data.wars ?? [];
+            // Populate the shared cache so claimPendingWarCrates can scan
+            // ended clan wars for unclaimed rewards on next render.
+            for (const w of wars) sharedClanWarCache[w.id] = w;
+            return wars;
+        } catch { return []; }
+    })();
+    try { return await _cwListInFlight; }
+    finally { _cwListInFlight = null; }
 }
 export async function cwDeclareWar(toClan: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
     try {
