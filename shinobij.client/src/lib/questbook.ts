@@ -44,6 +44,7 @@ export interface QuestBookEntry {
     weight: number;
     fateShards: number;
     award: string;
+    requiresWar?: boolean;
     stages: QuestStage[];
 }
 
@@ -77,6 +78,18 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
             { key: "strings", text: "Cut the strings: defeat the genjutsu puppeteer Itoguchi who drove the captain.", metric: "totalAiKills", count: 1, bossId: "puppeteer-itoguchi" },
         ],
     },
+    "qb-defector": {
+        id: "qb-defector", title: "The Frostfang Defector", giver: "The Defector",
+        bandMin: 40, bandMax: 65, weight: 9, fateShards: 1, award: "Frostfang Survivor", requiresWar: true,
+        stages: [
+            { key: "offer", text: "A defector from the enemy village offers war-turning intel — for safe passage. What do you do?", metric: "totalAiKills", count: 0,
+                choice: { prompt: "“Get me out and the war is yours. Or turn me in for your Kage's coin. Choose — they're already hunting me.”", options: [
+                    { key: "trust",  label: "Trust the defector", blurb: "Escort them out. Their intel feeds your village's war effort. Earns the title Border-Walker.", title: "Border-Walker", standing: "defector-trusted" },
+                    { key: "turnin", label: "Turn them in",      blurb: "A bounty from your Kage — and the enmity of every sympathizer. +ryo, the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
+                ] } },
+            { key: "silencer", text: "Either way, an elite Hunter-Nin — Shirakawa — is sent to erase the defector, and now you. End them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
+        ],
+    },
     "qb-gauntlet": {
         id: "qb-gauntlet", title: "The Coliseum Gauntlet", giver: "Tamer Tomoe",
         bandMin: 1, bandMax: 100, weight: 9, fateShards: 1, award: "Beast-Crowned",
@@ -104,6 +117,7 @@ export const QUEST_BOSSES: Record<string, QuestBossSpec> = {
     "bandit-captain-goro": { name: "Bandit Captain Goro",  icon: "🥷", statBonus: 3, loadoutId: "bruiser", levelOffset: 1, portraitKey: "bandit3" },
     "puppeteer-itoguchi":  { name: "Itoguchi, the Hand",   icon: "🎭", statBonus: 5, loadoutId: "boss",    levelOffset: 2, portraitKey: "nemesis", boss: true },
     "raiju-storm-hound":   { name: "Raijū, the Storm-Hound", icon: "⚡", statBonus: 4, loadoutId: "boss",  levelOffset: 2, portraitKey: "beast", boss: true },
+    "hunter-shirakawa":    { name: "Hunter-Nin Shirakawa",  icon: "🥷", statBonus: 6, loadoutId: "burst", levelOffset: 2, portraitKey: "nemesis", boss: true },
 };
 
 export function questbookEntry(id: string | null | undefined): QuestBookEntry | null {
@@ -118,10 +132,14 @@ export function questbookStage(id: string | null | undefined, stage: number): Qu
     return s >= 0 && s < entry.stages.length ? entry.stages[s] : null;
 }
 
-/** The (stable) epic a given sage offers — band-matched, deterministic from its id. */
-export function epicForWanderer(wandererId: string, level: number): QuestBookEntry | null {
+/**
+ * The (stable) epic a given sage offers — band-matched, deterministic from its id.
+ * War-gated epics (requiresWar) are only offered while the player's village is at war.
+ */
+export function epicForWanderer(wandererId: string, level: number, opts?: { atWar?: boolean }): QuestBookEntry | null {
     const lvl = Math.floor(Number(level) || 1);
-    const matching = Object.values(QUEST_BOOK).filter(q => lvl >= q.bandMin && lvl <= q.bandMax);
+    const atWar = !!opts?.atWar;
+    const matching = Object.values(QUEST_BOOK).filter(q => lvl >= q.bandMin && lvl <= q.bandMax && (!q.requiresWar || atWar));
     if (matching.length === 0) return null;
     let h = 0;
     for (let i = 0; i < wandererId.length; i++) h = (Math.imul(h, 31) + wandererId.charCodeAt(i)) >>> 0;
