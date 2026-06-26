@@ -259,10 +259,15 @@ export type Character = {
     // has reset and the client shows none hired. Additive/optional.
     warMercs?: { warId: string; tiers: string[] } | null;
     // Active multi-stage "epic" from the Quest Book (display mirror; api/sector/questbook.ts
-    // seals the real stage + baseline in KV). One epic at a time. Additive/optional.
-    activeQuestbook?: { id: string; stage: number; baseline: number; target: number } | null;
+    // seals the real stage + baseline + branch choices + timer deadline in KV). One epic
+    // at a time. Additive/optional. `deadline` (ms epoch) is set on timed stages;
+    // `choices` maps a branch stage key → the chosen option key.
+    activeQuestbook?: { id: string; stage: number; baseline: number; target: number; deadline?: number | null; choices?: Record<string, string> } | null;
     // Cosmetic titles earned from completing Quest Book epics. Additive/optional.
     questTitles?: string[];
+    // Persistent world-standing flags from epic branch choices (e.g. "goro-spared").
+    // Additive/optional — drives later flavor reactions.
+    questStandings?: string[];
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;

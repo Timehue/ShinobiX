@@ -7,26 +7,31 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import {
     QUEST_BOOK,
     isQuestBookId,
-    questBookEntry,
     finalStageIndex,
     questStageComplete,
+    stageIsChoice,
+    choiceOption,
+    stageTimerMs,
+    timerResetStage,
     bandMatches,
     questBookRyo,
+    aggregateChoiceEffects,
 } from './_questbook.js';
 
 /*
- * /api/sector/questbook — POST { action, playerName, questId? }
+ * /api/sector/questbook — POST { action, playerName, questId?, optionKey? }
  *
  * Server-authoritative multi-stage "epic" quests (see _questbook.ts). The sealed
- * record { id, stage, baseline } lives in KV (one active epic per player); the
- * save's `activeQuestbook` is a DISPLAY mirror the server never trusts. Stage
- * advancement + the final reward are recomputed from the sealed catalog against the
- * real character counters.
+ * record { id, stage, baseline, deadline?, choices } lives in KV (one active epic per
+ * player); the save's `activeQuestbook` is a DISPLAY mirror the server never trusts.
+ * Stage advancement, BRANCH choices, TIMED-stage deadlines, and the final reward are
+ * all recomputed/enforced from the sealed catalog against the real character counters.
  *
- *   accept  { questId } → { ok, id, stage, target } | { ok:false, reason }
- *   advance            → { ok, stage, target, advanced? , readyToClaim? } | { ok:false, reason, progress?, target? }
- *   claim              → { ok, ryo, totalRyo, fateShards, title } | { ok:false, reason }
- *   abandon            → { ok:true }
+ *   accept  { questId }   → { ok, id, stage, target } | { ok:false, reason }
+ *   advance               → { ok, stage, target, advanced?, readyToClaim?, deadline? } | { ok:false, reason, ... }
+ *   choose  { optionKey } → { ok, chose, advanced?, stage?, target?, readyToClaim? } | { ok:false, reason }
+ *   claim                 → { ok, ryo, totalRyo, fateShards, title, standings } | { ok:false, reason }
+ *   abandon               → { ok:true }
  */
 
 const QUESTBOOK_TTL_SECONDS = 14 * 24 * 60 * 60; // an epic can sit unfinished for two weeks
@@ -35,7 +40,39 @@ const questKeyFor = (player: string) => `questbook:${player}`;
 const doneKeyFor = (player: string, questId: string) => `questbook:done:${player}:${questId}`;
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
-type Sealed = { id: string; stage: number; baseline: number; at?: number };
+type Sealed = { id: string; stage: number; baseline: number; at?: number; deadline?: number; choices?: Record<string, string> };
+
+/** Seal a stage as it becomes active — re-baseline its counter + (re)arm its timer. */
+function sealStage(id: string, stageIdx: number, char: Record<string, unknown>, choices: Record<string, string>, now: number): Sealed {
+    const stage = QUEST_BOOK[id].stages[stageIdx];
+    const timerMs = stageTimerMs(stage);
+    return {
+        id, stage: stageIdx,
+        baseline: num(char[stage.metric]),
+        at: now,
+        deadline: timerMs > 0 ? now + timerMs : undefined,
+        choices,
+    };
+}
+
+/** The display mirror written onto the save (server never trusts it back). */
+function mirrorOf(sealed: Sealed) {
+    const stage = QUEST_BOOK[sealed.id].stages[sealed.stage];
+    return {
+        id: sealed.id,
+        stage: sealed.stage,
+        baseline: sealed.baseline,
+        target: stage.count,
+        deadline: sealed.deadline ?? null,
+        choices: sealed.choices ?? {},
+    };
+}
+
+async function persist(player: string, saveKey: string, rec: Record<string, unknown>, char: Record<string, unknown>, sealed: Sealed) {
+    await kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS });
+    const updated = { ...char, activeQuestbook: mirrorOf(sealed) };
+    await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -75,12 +112,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
                 if (!bandMatches(entry, num(char.level) || 1)) return { status: 200, body: { ok: false, reason: 'band' } };
 
-                const s0 = entry.stages[0];
-                const baseline = num(char[s0.metric]);
-                await kv.set(questKey, { id: questId, stage: 0, baseline, at: Date.now() }, { ex: QUESTBOOK_TTL_SECONDS });
-                const updated = { ...char, activeQuestbook: { id: questId, stage: 0, baseline, target: s0.count } };
-                await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
-                return { status: 200, body: { ok: true, id: questId, stage: 0, target: s0.count } };
+                const sealed = sealStage(questId, 0, char, {}, Date.now());
+                await persist(playerName, saveKey, rec, char, sealed);
+                return { status: 200, body: { ok: true, id: questId, stage: 0, target: entry.stages[0].count, deadline: sealed.deadline ?? null } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -98,26 +132,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const finalIdx = finalStageIndex(entry);
                 const stageIdx = Math.max(0, Math.min(finalIdx, Math.floor(num(sealed.stage))));
                 const stage = entry.stages[stageIdx];
+                const choices = sealed.choices ?? {};
 
                 const rec = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
+                const now = Date.now();
+                // Timer: lazily arm a missing deadline (migrates in-flight epics); else
+                // enforce expiry → reset to the timer's reset stage.
+                let working = sealed;
+                if (stageTimerMs(stage) > 0) {
+                    if (!sealed.deadline) {
+                        working = { ...sealed, deadline: now + stageTimerMs(stage) };
+                        await persist(playerName, saveKey, rec, char, working);
+                    } else if (now > sealed.deadline) {
+                        const resetIdx = timerResetStage(entry, stageIdx);
+                        const reseal = sealStage(sealed.id, resetIdx, char, choices, now);
+                        await persist(playerName, saveKey, rec, char, reseal);
+                        return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, deadline: reseal.deadline ?? null } };
+                    }
+                }
+
+                // Branch: a choice stage advances only via `choose`.
+                if (stageIsChoice(stage) && !choices[stage.key]) {
+                    return { status: 200, body: { ok: false, reason: 'choose', stage: stageIdx } };
+                }
+
                 const current = num(char[stage.metric]);
-                if (!questStageComplete(num(sealed.baseline), current, stage.count)) {
-                    return { status: 200, body: { ok: false, reason: 'incomplete', stage: stageIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
+                if (!questStageComplete(num(working.baseline), current, stage.count)) {
+                    return { status: 200, body: { ok: false, reason: 'incomplete', stage: stageIdx, progress: Math.max(0, current - num(working.baseline)), target: stage.count, deadline: working.deadline ?? null } };
                 }
                 if (stageIdx >= finalIdx) {
                     return { status: 200, body: { ok: true, stage: stageIdx, readyToClaim: true } };
                 }
 
-                const nextIdx = stageIdx + 1;
-                const nextStage = entry.stages[nextIdx];
-                const newBaseline = num(char[nextStage.metric]);
-                await kv.set(questKey, { id: sealed.id, stage: nextIdx, baseline: newBaseline, at: Date.now() }, { ex: QUESTBOOK_TTL_SECONDS });
-                const updated = { ...char, activeQuestbook: { id: sealed.id, stage: nextIdx, baseline: newBaseline, target: nextStage.count } };
-                await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
-                return { status: 200, body: { ok: true, advanced: true, stage: nextIdx, target: nextStage.count } };
+                const reseal = sealStage(sealed.id, stageIdx + 1, char, choices, now);
+                await persist(playerName, saveKey, rec, char, reseal);
+                return { status: 200, body: { ok: true, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null } };
+            }, { failClosed: true });
+
+            return res.status(out.status).json(out.body);
+        }
+
+        // ── CHOOSE (branch) ──────────────────────────────────────────────────
+        if (action === 'choose') {
+            const optionKey = typeof body.optionKey === 'string' ? body.optionKey : '';
+            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
+                const sealed = await kv.get<Sealed>(questKey);
+                if (!sealed || !isQuestBookId(sealed.id)) {
+                    await kv.del(questKey).catch(() => undefined);
+                    return { status: 200, body: { ok: false, reason: 'none' } };
+                }
+                const entry = QUEST_BOOK[sealed.id];
+                const finalIdx = finalStageIndex(entry);
+                const stageIdx = Math.max(0, Math.min(finalIdx, Math.floor(num(sealed.stage))));
+                const stage = entry.stages[stageIdx];
+                if (!stageIsChoice(stage)) return { status: 200, body: { ok: false, reason: 'no-choice' } };
+                if (!choiceOption(stage, optionKey)) return { status: 200, body: { ok: false, reason: 'bad-option' } };
+
+                const rec = await kv.get<Record<string, unknown>>(saveKey);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+
+                const now = Date.now();
+                const choices = { ...(sealed.choices ?? {}), [stage.key]: optionKey };
+                if (stageIdx >= finalIdx) {
+                    await persist(playerName, saveKey, rec, char, { ...sealed, choices });
+                    return { status: 200, body: { ok: true, chose: optionKey, readyToClaim: true } };
+                }
+                const reseal = sealStage(sealed.id, stageIdx + 1, char, choices, now);
+                await persist(playerName, saveKey, rec, char, reseal);
+                return { status: 200, body: { ok: true, chose: optionKey, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
@@ -137,26 +223,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'not-final', stage: num(sealed.stage) } };
                 }
                 const stage = entry.stages[finalIdx];
+                const choices = sealed.choices ?? {};
 
                 const rec = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+
+                const now = Date.now();
+                // A timed final stage must still be within its deadline.
+                if (stageTimerMs(stage) > 0 && sealed.deadline && now > sealed.deadline) {
+                    const resetIdx = timerResetStage(entry, finalIdx);
+                    const reseal = sealStage(sealed.id, resetIdx, char, choices, now);
+                    await persist(playerName, saveKey, rec, char, reseal);
+                    return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count } };
+                }
+                if (stageIsChoice(stage) && !choices[stage.key]) {
+                    return { status: 200, body: { ok: false, reason: 'choose', stage: finalIdx } };
+                }
 
                 const current = num(char[stage.metric]);
                 if (!questStageComplete(num(sealed.baseline), current, stage.count)) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
                 }
 
-                const ryo = questBookRyo(num(char.level) || 1, entry.weight);
+                // Apply sealed branch effects to the reward.
+                const fx = aggregateChoiceEffects(entry, choices);
+                const ryo = Math.round(questBookRyo(num(char.level) || 1, entry.weight) * fx.ryoMult);
+                const fateAward = entry.fateShards + fx.bonusFateShards;
+                const awardTitle = fx.titleOverride ?? entry.award;
                 const totalRyo = num(char.ryo) + ryo;
-                const fateShards = num(char.fateShards) + entry.fateShards;
+                const fateShards = num(char.fateShards) + fateAward;
                 const prevTitles = Array.isArray(char.questTitles) ? (char.questTitles as string[]).filter(t => typeof t === 'string') : [];
-                const questTitles = prevTitles.includes(entry.award) ? prevTitles : [...prevTitles, entry.award];
-                const updated = { ...char, ryo: totalRyo, fateShards, questTitles, activeQuestbook: null };
+                const questTitles = prevTitles.includes(awardTitle) ? prevTitles : [...prevTitles, awardTitle];
+                const prevStandings = Array.isArray(char.questStandings) ? (char.questStandings as string[]).filter(t => typeof t === 'string') : [];
+                const questStandings = [...prevStandings];
+                for (const s of fx.standings) if (!questStandings.includes(s)) questStandings.push(s);
+
+                const updated = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null };
                 await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
                 await kv.del(questKey).catch(() => undefined);
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
-                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: entry.fateShards, title: entry.award } };
+                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
