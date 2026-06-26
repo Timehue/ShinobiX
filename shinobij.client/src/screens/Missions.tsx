@@ -20,6 +20,8 @@ import { gainXp } from "../App";
 import { grantTerritoryScrolls } from "../lib/world-state";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
+import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
 
 export function Missions({
     character,
@@ -119,9 +121,17 @@ export function Missions({
     const todayMissions = dailyMissionsCompleted(character);
     // Tab state: default to Profession for players who have one, Combat otherwise.
     const hasProfession = !!character.profession;
-    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly">(
+    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field" | "weekly" | "wandering">(
         hasProfession ? "profession" : "combat"
     );
+    // Wandering quests (taken from sector wanderers): the single bounty + the active
+    // multi-stage epic. Display-only here — you continue/claim out at a Wandering Sage.
+    const wanderEpic = character.activeQuestbook ?? null;
+    const wanderEpicEntry = wanderEpic ? questbookEntry(wanderEpic.id) : null;
+    const wanderEpicStage = wanderEpic && wanderEpicEntry ? questbookStage(wanderEpic.id, wanderEpic.stage) : null;
+    const wanderBounty = character.activeWandererQuest ?? null;
+    const wanderBountyDef = wanderBounty ? WANDERER_QUEST_CATALOG.find((q) => q.id === wanderBounty.id) : null;
+    const hasWanderingQuest = !!(wanderEpicEntry || wanderBounty);
 
     return (
         <div className="card mission-hall">
@@ -183,6 +193,9 @@ export function Missions({
                 </button>
                 <button className={activeMissionTab === "weekly" ? "active" : ""} onClick={() => setActiveMissionTab("weekly")}>
                     🗓️ Weekly
+                </button>
+                <button className={activeMissionTab === "wandering" ? "active" : ""} onClick={() => setActiveMissionTab("wandering")}>
+                    🧭 Wandering{hasWanderingQuest ? " •" : ""}
                 </button>
             </div>
 
@@ -311,6 +324,65 @@ export function Missions({
                         </div>
                     ))
                 }
+            </section>
+            )}
+
+            {/* -- Wandering Quests tab (sector-wanderer bounties + epics) -- */}
+            {activeMissionTab === "wandering" && (
+            <section className="mh-section">
+                <h3 className="mh-section-title">🧭 Wandering Quests</h3>
+                <p className="hint">Quests taken from wanderers on the roads. Wanderers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (📜, the quest-giver) out on the World Map to continue or claim. Epic boss stages start from the Sage's journal.</p>
+                {!hasWanderingQuest && <p className="hint">You haven't taken any wandering quests yet. Look for a Wandering Sage in the sectors and accept one.</p>}
+
+                {wanderEpic && wanderEpicEntry && wanderEpicStage && (() => {
+                    const metric = wanderEpicStage.metric;
+                    const got = Math.max(0, ((character[metric] as number | undefined) ?? 0) - wanderEpic.baseline);
+                    const isChoice = !!wanderEpicStage.choice;
+                    const isBoss = !!wanderEpicStage.bossId && metric === "totalAiKills";
+                    const pct = Math.min(100, (Math.min(got, wanderEpicStage.count) / Math.max(1, wanderEpicStage.count)) * 100);
+                    return (
+                        <div className="mh-fetch-card">
+                            <div className="mh-fetch-info">
+                                <strong>📖 {wanderEpicEntry.title}</strong>
+                                <span className="mh-fetch-meta">Epic · Stage {wanderEpic.stage + 1} of {wanderEpicEntry.stages.length}</span>
+                                <span className="mh-fetch-meta">{wanderEpicStage.text}</span>
+                            </div>
+                            <div className="mh-fetch-progress-wrap">
+                                <div className="mh-fetch-progress-label">
+                                    {isChoice
+                                        ? <span>A choice awaits — decide at a Wandering Sage.</span>
+                                        : <span>{Math.min(got, wanderEpicStage.count)} / {wanderEpicStage.count} {metricLabel(metric)}</span>}
+                                </div>
+                                {!isChoice && <div className="mission-progress"><span style={{ width: `${pct}%` }} /></div>}
+                            </div>
+                            <span className="hint">{isBoss ? "Start the boss fight from a Wandering Sage's journal." : "Continue at any Wandering Sage out in the sectors."}</span>
+                        </div>
+                    );
+                })()}
+
+                {wanderBounty && (() => {
+                    const metric = questMetricForId(wanderBounty.id);
+                    const got = Math.max(0, ((character[metric] as number | undefined) ?? 0) - wanderBounty.baseline);
+                    const done = got >= wanderBounty.target;
+                    const pct = Math.min(100, (Math.min(got, wanderBounty.target) / Math.max(1, wanderBounty.target)) * 100);
+                    return (
+                        <div className={`mh-fetch-card${done ? " mh-fetch-complete" : ""}`}>
+                            <div className="mh-fetch-info">
+                                <strong>📜 {wanderBountyDef?.label ?? "Wanderer bounty"}</strong>
+                                <span className="mh-fetch-meta">Bounty from a Wandering Sage</span>
+                            </div>
+                            <div className="mh-fetch-progress-wrap">
+                                <div className="mh-fetch-progress-label"><span>{Math.min(got, wanderBounty.target)} / {wanderBounty.target} {metricLabel(metric)}</span></div>
+                                <div className="mission-progress"><span style={{ width: `${pct}%` }} /></div>
+                            </div>
+                            <span className="hint">{done ? "Done — return to any Wandering Sage to claim your reward." : "Return to a Wandering Sage once complete to claim."}</span>
+                        </div>
+                    );
+                })()}
+
+                <div style={{ marginTop: 12 }}>
+                    <button onClick={() => setScreen("worldMap")}>🗺️ Go to the World Map</button>
+                </div>
             </section>
             )}
         </div>
