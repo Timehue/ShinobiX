@@ -174,6 +174,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
                 const rawCharacter = livePresence?.character ?? save?.character;
                 const character = rosterProjection(rawCharacter);
+                // The Nindo creed + its banner preset live only in the full save,
+                // not the slim presence character preferred above for online
+                // players — graft them back so they show regardless of online
+                // status. Display-only; safe to surface publicly.
+                const fullChar = save?.character as Record<string, unknown> | undefined;
+                if (character && typeof character === 'object' && fullChar) {
+                    for (const k of ['nindo', 'nindoBg']) {
+                        const v = fullChar[k];
+                        if (typeof v === 'string' && v) (character as Record<string, unknown>)[k] = v;
+                    }
+                }
                 players.push({
                     name: entry.name ?? '',
                     level: entry.level ?? 1,
