@@ -39,10 +39,11 @@
 >   `api/sector/_questbook.ts` + `questbook.ts`: one active epic at a time, sealed
 >   `{id,stage,baseline}`, accept/advance/claim/abandon, reward = ryo + sealed fate
 >   shard + a cosmetic title into `character.questTitles`, 3-day re-roll cooldown).
->   Three first epics ("The Bell That Doesn't Ring", "The Hollow Caravan", "The
->   Coliseum Gauntlet"); foe-kill boss stages launch a scaled bestiary boss in the
->   arena, travel/pet/card stages are counter objectives. More epics are pure data
->   additions.
+>   **All six §11 epics** shipped: "The Bell That Doesn't Ring", "The Hollow Caravan",
+>   "The Frostfang Defector" (war-gated), "The Coliseum Gauntlet", "The Gambler's Debt",
+>   and the rivalry-gated capstone "Ashes of the Ashbound" (claiming it ends your
+>   nemesis rivalry). Foe-kill boss stages launch a scaled bestiary boss in the arena,
+>   travel/pet/card stages are counter objectives. More epics are pure data additions.
 > - **Quest Book — branches & timers** *(§11, shipped):* epics now fork. A **CHOICE
 >   stage** seals the player's pick (`choices` map) and recomputes the reward at claim:
 >   the Bell's "carry it raw vs cleanse" (raw wakes the boss enraged for a bonus fate
@@ -58,10 +59,17 @@
 >   (`api/village/hire-mercenary.ts` + `_mercenaries.ts`): cost recomputed from a
 >   sealed table, deducted under the save lock, war damage applied under the war-record
 >   lock and **floored at 1** so a merc can't end a war alone.
-> - **Not yet built** from the depth layer below: the full §12 bestiary with bespoke
->   boss art, more branching epics (e.g. the war-gated "Frostfang Defector"), the
->   bounty-board framing, and the broad reputation/standing layer (the per-epic
->   `questStandings` flags exist, but nothing reacts to them yet). `dist/` is left to a canonical rebuild before enabling
+> - **§12 bestiary art** *(shipped):* all ten bosses the epics use now have bespoke
+>   gpt-image-1 portraits (`assets/wanderers/bosses/`, keyed by bossId in
+>   `wanderer-art.ts`), shown in the arena fight.
+> - **Standing reactions** *(shipped):* the world now *reads* `questStandings` — a
+>   spared Goro buys occasional safe passage from his old gang ("Pass in peace"), an
+>   executed Goro earns cold words; `lib/wanderer-standing.ts`. Flavor + a small mercy
+>   dividend; never touches reward rates or combat math.
+> - **Not yet built** from the depth layer below: a richer reputation system that
+>   *gates content* on standings (beyond the current dialog reactions), the bounty-board
+>   framing, and Q6's authored stateful Kazan scaling (the capstone reuses the generic
+>   nemesis fight rather than a per-rivalry-escalated boss). `dist/` is left to a canonical rebuild before enabling
 >   cPanel (Railway builds from source).
 >
 > The rest of this doc is the **original design plan** (more ambitious than what
