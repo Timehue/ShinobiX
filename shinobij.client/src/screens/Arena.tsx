@@ -2752,7 +2752,7 @@ export function Arena({
                 }
             }
 
-            if (["Clear Prevent", "Stun Prevent", "Overclock", "Increase Heal"].includes(tagName)) {
+            if (["Clear Prevent", "Overclock", "Increase Heal"].includes(tagName)) {
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s ${tagName} was prevented`);
                 else {
                     const statusRounds = tagName === "Overclock" ? 1 : 2;
@@ -2760,13 +2760,18 @@ export function Arena({
                     effectLines.push(`${character.name} gains ${tagName} for ${statusRounds} round${statusRounds === 1 ? "" : "s"}${tagTimingText}`);
                 }
             }
+            // Defensive self-Prevents (Stun Prevent, Debuff Prevent) are NOT blocked
+            // by Buff Prevent — api/pvp/move.ts applies them unconditionally so a
+            // buff-prevented fighter can still self-protect. (Clear Prevent /
+            // Overclock / Increase Heal stay buff-prevent-gated, matching the server.)
+            if (tag.name === "Stun Prevent") {
+                queuePlayerStatus({ name: "Stun Prevent", rounds: 2, percent: pct, kind: "positive" });
+                effectLines.push(`Stun Prevent: ${character.name} is immune to Stun for 2 rounds${tagTimingText}.`);
+            }
 
             if (tag.name === "Debuff Prevent") {
-                if (playerBuffPrevented) effectLines.push(`${character.name}'s Debuff Prevent was prevented`);
-                else {
-                    queuePlayerStatus({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
-                    effectLines.push(`Debuff Prevent: ${character.name} cannot be debuffed for 2 rounds${tagTimingText}.`);
-                }
+                queuePlayerStatus({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
+                effectLines.push(`Debuff Prevent: ${character.name} cannot be debuffed for 2 rounds${tagTimingText}.`);
             }
             if (tag.name === "Elemental Seal") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Elemental Seal`);
@@ -2790,26 +2795,32 @@ export function Arena({
             }
 
             if (tag.name === "Push") {
-                const pushDist = Math.max(1, Number(jutsu.range) || 1);
-                let newPos = enemyPos;
-                for (let step = 0; step < pushDist; step++) {
-                    const away = hexNeighbors(newPos).filter((t) => distance(t, playerPos) > distance(newPos, playerPos) && t !== playerPos && t >= 0 && t < gridWidth * gridHeight);
-                    if (away.length === 0) break;
-                    newPos = away[0];
+                if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Push`);
+                else {
+                    const pushDist = Math.max(1, Number(jutsu.range) || 1);
+                    let newPos = enemyPos;
+                    for (let step = 0; step < pushDist; step++) {
+                        const away = hexNeighbors(newPos).filter((t) => distance(t, playerPos) > distance(newPos, playerPos) && t !== playerPos && t >= 0 && t < gridWidth * gridHeight);
+                        if (away.length === 0) break;
+                        newPos = away[0];
+                    }
+                    if (newPos !== enemyPos) setEnemyPos(newPos);
+                    effectLines.push(`${opponentName} is pushed ${pushDist} tile(s) away.`);
                 }
-                if (newPos !== enemyPos) setEnemyPos(newPos);
-                effectLines.push(`${opponentName} is pushed ${pushDist} tile(s) away.`);
             }
             if (tag.name === "Pull") {
-                const pullDist = Math.max(1, Number(jutsu.range) || 1);
-                let newPos = enemyPos;
-                for (let step = 0; step < pullDist; step++) {
-                    const toward = hexNeighbors(newPos).filter((t) => distance(t, playerPos) < distance(newPos, playerPos) && t !== playerPos && t >= 0 && t < gridWidth * gridHeight);
-                    if (toward.length === 0) break;
-                    newPos = toward[0];
+                if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Pull`);
+                else {
+                    const pullDist = Math.max(1, Number(jutsu.range) || 1);
+                    let newPos = enemyPos;
+                    for (let step = 0; step < pullDist; step++) {
+                        const toward = hexNeighbors(newPos).filter((t) => distance(t, playerPos) < distance(newPos, playerPos) && t !== playerPos && t >= 0 && t < gridWidth * gridHeight);
+                        if (toward.length === 0) break;
+                        newPos = toward[0];
+                    }
+                    if (newPos !== enemyPos) setEnemyPos(newPos);
+                    effectLines.push(`${opponentName} is pulled ${pullDist} tile(s) closer.`);
                 }
-                if (newPos !== enemyPos) setEnemyPos(newPos);
-                effectLines.push(`${opponentName} is pulled ${pullDist} tile(s) closer.`);
             }
         });
 
@@ -3468,7 +3479,7 @@ export function Arena({
                 }
             }
 
-            if (["Clear Prevent", "Stun Prevent", "Overclock", "Increase Heal"].includes(normalizeTagName(tag.name))) {
+            if (["Clear Prevent", "Overclock", "Increase Heal"].includes(normalizeTagName(tag.name))) {
                 const statusName = normalizeTagName(tag.name);
                 const statusRounds = statusName === "Overclock" ? 1 : 2;
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s ${statusName} was prevented`);
@@ -3477,12 +3488,15 @@ export function Arena({
                     effectLines.push(`${opponentName} gains ${statusName} for ${statusRounds} round${statusRounds === 1 ? "" : "s"}`);
                 }
             }
+            // Defensive self-Prevents are unconditional (see api/pvp/move.ts) — not
+            // gated by Buff Prevent, matching the player path.
+            if (tag.name === "Stun Prevent") {
+                queueToEnemy({ name: "Stun Prevent", rounds: 2, percent: pct, kind: "positive" });
+                effectLines.push(`${opponentName} gains Stun Prevent for 2 rounds`);
+            }
             if (tag.name === "Debuff Prevent") {
-                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Debuff Prevent was prevented`);
-                else {
-                    queueToEnemy({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
-                    effectLines.push(`${opponentName} gains Debuff Prevent for 2 rounds`);
-                }
+                queueToEnemy({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
+                effectLines.push(`${opponentName} gains Debuff Prevent for 2 rounds`);
             }
             if (tagMatchesName(tag.name, "Lag")) {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents Lag`);
@@ -3490,6 +3504,46 @@ export function Arena({
                     queueToPlayer({ name: "Lag", rounds: 1, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name} suffers Lag for 1 round`);
                 }
+            }
+            // Displacement — the enemy moves the PLAYER (Push away / Pull toward)
+            // or repositions itself (Move). Mirrors the player cast path (inverted
+            // source/target) and gates Push/Pull on the player's Debuff Prevent,
+            // matching api/pvp/move.ts. Previously absent: an AI jutsu carrying
+            // these tags silently did nothing.
+            if (tag.name === "Push") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists Push`);
+                else {
+                    const pushDist = Math.max(1, Number(jutsu.range) || 1);
+                    let newPos = playerPos;
+                    for (let step = 0; step < pushDist; step++) {
+                        const away = hexNeighbors(newPos).filter((t) => distance(t, enemyPos) > distance(newPos, enemyPos) && t !== enemyPos && t >= 0 && t < gridWidth * gridHeight);
+                        if (away.length === 0) break;
+                        newPos = away[0];
+                    }
+                    if (newPos !== playerPos) setPlayerPos(newPos);
+                    effectLines.push(`${character.name} is pushed ${pushDist} tile(s) away.`);
+                }
+            }
+            if (tag.name === "Pull") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists Pull`);
+                else {
+                    const pullDist = Math.max(1, Number(jutsu.range) || 1);
+                    let newPos = playerPos;
+                    for (let step = 0; step < pullDist; step++) {
+                        const toward = hexNeighbors(newPos).filter((t) => distance(t, enemyPos) < distance(newPos, enemyPos) && t !== enemyPos && t >= 0 && t < gridWidth * gridHeight);
+                        if (toward.length === 0) break;
+                        newPos = toward[0];
+                    }
+                    if (newPos !== playerPos) setPlayerPos(newPos);
+                    effectLines.push(`${character.name} is pulled ${pullDist} tile(s) closer.`);
+                }
+            }
+            if (tag.name === "Move") {
+                const stepToward = hexNeighbors(enemyPos)
+                    .filter((t) => t !== playerPos && t >= 0 && t < gridWidth * gridHeight)
+                    .sort((a, b) => distance(a, playerPos) - distance(b, playerPos))[0];
+                if (stepToward !== undefined && stepToward !== enemyPos) setEnemyPos(stepToward);
+                effectLines.push(`${opponentName} shifts position`);
             }
         });
 
@@ -3855,14 +3909,19 @@ export function Arena({
         setEnemyStatuses((s) => tickStatuses(s));
         const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
         pendingPlayerStunApPenaltyRef.current = false;
-        const tickedPlayerStatuses = tickStatuses(withoutStun(playerStatuses).filter((s) => (s.activeRound ?? turn) <= turn));
+        // DoT damage is summed from statuses ACTIVE this turn at their CURRENT
+        // rounds — NOT pre-ticked. Mirrors api/pvp/move.ts applyDoTs, which reads
+        // activeStatuses() and applies tick damage separately from the round
+        // decrement (the setPlayerStatuses below). Pre-ticking here dropped the
+        // final tick, so a 2-round bleed hit only once instead of twice.
+        const activeDotPlayerStatuses = withoutStun(playerStatuses).filter((s) => (s.activeRound ?? turn) <= turn);
         // FUNCTIONAL set: ticks the LIVE committed state so debuffs queued this
         // turn (Poison/Drain/Ignition/Seal/Lag/Recoil) are preserved and ticked.
         setPlayerStatuses((prev) => tickStatuses(withoutStun(prev)));
-        const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), tickedPlayerStatuses);
+        const playerDotMit = dotMitigationPVE(armorFactorToRawDr(playerArmorFactor), activeDotPlayerStatuses);
         let pDotDamage = 0;
         let pDrainChakra = 0;
-        tickedPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
+        activeDotPlayerStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
             if (s.name === "Wound") pDotDamage += Math.floor((s.amount || 0) * playerDotMit);
             if (s.name === "Drain") {
                 const amt = Math.floor((s.amount ?? 50) * playerDotMit);
@@ -3932,7 +3991,7 @@ export function Arena({
             addCombatLog(`Stun: ${opponentName} starts their turn with ${STUN_AP_PENALTY} less AP.`, "stun", opponentName);
         }
         if (enemyCompressed) {
-            addCombatLog(`Lag: ${opponentName}'s actions cost 10 more AP this turn.`, "lag", opponentName);
+            addCombatLog(`Lag: ${opponentName}'s actions cost ${enemyLagStatus?.percent || 20}% more AP this turn.`, "lag", opponentName);
         }
 
         // Ground zones: the player's lingering patches re-apply their debuffs to
@@ -3964,10 +4023,16 @@ export function Arena({
         // armor + Decrease Damage Taken stacks. Without this PvE DoTs landed
         // raw while the same Wound/Poison/Drain stack was DR-mitigated server-
         // side — heavy-armor PvE enemies took ~2× the DoT they would in PvP.
-        const enemyDotMit = dotMitigationPVE(armorFactorToRawDr(enemyArmorFactor), enemyStatuses);
+        // Tick only statuses ACTIVE this turn (mirrors the player DoT path above +
+        // server applyDoTs). A debuff the player applied THIS round is deferred via
+        // activeRound, so reading the raw list bled the enemy a round early — a
+        // 2-round bleed hit 3× instead of 2×. (Round decrement still happens
+        // unconditionally in endEnemyTurn's setEnemyStatuses(tickStatuses).)
+        const activeDotEnemyStatuses = activeStatuses(enemyStatuses);
+        const enemyDotMit = dotMitigationPVE(armorFactorToRawDr(enemyArmorFactor), activeDotEnemyStatuses);
         let dotDamage = 0;
         let drainChakra = 0;
-        enemyStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
+        activeDotEnemyStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
             if (s.name === "Wound") dotDamage += Math.floor((s.amount || 0) * enemyDotMit);
             if (s.name === "Drain") {
                 // Match PvP: Drain hits HP + chakra only (never stamina). Jutsu drain
