@@ -3878,6 +3878,16 @@ export default function App() {
                 const data = await res.json() as { _saveVersion?: number };
                 if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
             } catch { /* server may return 200 with an empty body; ignore */ }
+            // #25: this immediate save just committed `characterToSave` at the
+            // version we advanced above. If no NEWER local change has landed since
+            // (live ref still points at the saved object), clear the dirty flag and
+            // cancel the pending debounced autosave so it doesn't re-POST the same
+            // state and self-409 against our just-advanced version. If a newer
+            // change DID land mid-flight, leave dirty set so it still saves.
+            if (characterRef.current === characterToSave) {
+                charDirtyRef.current = false;
+                if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; }
+            }
         }
     }
 

@@ -147,7 +147,7 @@ function autoRoleTeam(pets: Pet[], count: number): ArenaSlot[] {
     return pets.slice(0, Math.max(1, count)).map((pet) => ({ pet, role: (pet.role ?? derivePetRole(pet).role) as ArenaRole }));
 }
 
-export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void }) {
+export function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, pendingArenaMatch, onPendingArenaMatchStarted, pendingArenaResponse, onArenaResponseHandled, onClanWarBattleEnd, onBattleActiveChange }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; pendingArenaMatch?: { blue: Pet[]; red: Pet[]; size: 2 | 4; seed: number } | null; onPendingArenaMatchStarted?: () => void; pendingArenaResponse?: DuelChallenge | null; onArenaResponseHandled?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void; onBattleActiveChange?: (active: boolean) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -606,7 +606,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // battleSeed makes reportKey refresh-replay-safe; ranked pet battles
             // are intentionally NOT persisted for resume (see acceptPetChallenge),
             // so this effect fires once and can't double the local counters.
-            const reportRankedPet = (outcome: "win" | "loss", fallbackRating: number, counters: Partial<Character>) => {
+            // counters carry RELATIVE deltas (e.g. +1 win) applied off `prev`
+            // inside the updater so a regen/heartbeat setState landing during the
+            // await fetch can't be clobbered — and the deltas aren't double-baked
+            // onto a stale snapshot. petRankedRating is absolute (server-owned).
+            const reportRankedPet = (outcome: "win" | "loss", fallbackRating: number, applyCounters: (prev: Character) => Partial<Character>) => {
                 void (async () => {
                     let newRating = fallbackRating;
                     try {
@@ -620,23 +624,23 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             if (data.rating?.field === "petRankedRating" && Number.isFinite(data.rating.value)) newRating = data.rating.value;
                         }
                     } catch { /* offline → keep the local fallback */ }
-                    updateCharacter({ ...character, ...counters, petRankedRating: newRating, pets: clearConsumablePets([myPet.id]) });
+                    updateCharacter((prev) => prev ? ({ ...prev, ...applyCounters(prev), petRankedRating: newRating, pets: clearConsumablePets([myPet.id]) }) : prev);
                 })();
             };
             if (myResult === "win") {
                 const gain = rankedDelta(myRating, oppRating);
-                reportRankedPet("win", myRating + gain, {
-                    petRankedWins: (character.petRankedWins ?? 0) + 1,
-                    totalPetWins: (character.totalPetWins ?? 0) + 1,
-                    dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                reportRankedPet("win", myRating + gain, (prev) => ({
+                    petRankedWins: (prev.petRankedWins ?? 0) + 1,
+                    totalPetWins: (prev.totalPetWins ?? 0) + 1,
+                    dailyPetWins: (prev.dailyPetWins ?? 0) + 1,
                     lastDailyReset: currentDateKey(),
-                });
+                }));
                 setBattleLog([`🏆 Ranked pet victory! +${gain} Elo — now ${myRating + gain}.`]);
             } else if (myResult === "loss") {
                 const drop = rankedDelta(oppRating, myRating);
-                reportRankedPet("loss", Math.max(0, myRating - drop), {
-                    petRankedLosses: (character.petRankedLosses ?? 0) + 1,
-                });
+                reportRankedPet("loss", Math.max(0, myRating - drop), (prev) => ({
+                    petRankedLosses: (prev.petRankedLosses ?? 0) + 1,
+                }));
                 setBattleLog([`Ranked pet defeat. -${drop} Elo — now ${Math.max(0, myRating - drop)}.`]);
             } else {
                 if (character.pets.find((p) => p.id === myPet.id)?.loadout?.consumable) {
@@ -702,38 +706,42 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     });
                     if (r.ok) {
                         const data = await r.json() as { reward?: number; totalPetWins?: number; dailyPetWins?: number; capped?: boolean };
-                        updateCharacter({
-                            ...character,
-                            ryo: character.ryo + (data.reward ?? 0),
-                            totalPetWins: data.totalPetWins ?? ((character.totalPetWins ?? 0) + 1),
-                            dailyPetWins: data.dailyPetWins ?? ((character.dailyPetWins ?? 0) + 1),
+                        // Functional updater: this write lands AFTER the await, so a
+                        // concurrent regen/heartbeat setState could otherwise be
+                        // clobbered. ryo is a RELATIVE credit read off `prev`; the
+                        // server-authoritative totals fall back to a +1 off `prev`.
+                        updateCharacter((prev) => prev ? ({
+                            ...prev,
+                            ryo: prev.ryo + (data.reward ?? 0),
+                            totalPetWins: data.totalPetWins ?? ((prev.totalPetWins ?? 0) + 1),
+                            dailyPetWins: data.dailyPetWins ?? ((prev.dailyPetWins ?? 0) + 1),
                             lastDailyReset: currentDateKey(),
                             // Preserve the consumable-clear from before the battle —
                             // re-spreading the stale `character` would restore it.
                             pets: clearConsumablePets([selectedPet.id]),
-                        });
+                        }) : prev);
                         if (data.capped) {
                             setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
                         }
                     } else {
                         // Server refused — DON'T grant ryo locally. Stats stay client-side as before.
-                        updateCharacter({
-                            ...character,
-                            totalPetWins: (character.totalPetWins ?? 0) + 1,
-                            dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                        updateCharacter((prev) => prev ? ({
+                            ...prev,
+                            totalPetWins: (prev.totalPetWins ?? 0) + 1,
+                            dailyPetWins: (prev.dailyPetWins ?? 0) + 1,
                             lastDailyReset: currentDateKey(),
                             pets: clearConsumablePets([selectedPet.id]),
-                        });
+                        }) : prev);
                     }
                 } catch {
                     // Network error — record the win locally for counter UX, skip ryo.
-                    updateCharacter({
-                        ...character,
-                        totalPetWins: (character.totalPetWins ?? 0) + 1,
-                        dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                    updateCharacter((prev) => prev ? ({
+                        ...prev,
+                        totalPetWins: (prev.totalPetWins ?? 0) + 1,
+                        dailyPetWins: (prev.dailyPetWins ?? 0) + 1,
                         lastDailyReset: currentDateKey(),
                         pets: clearConsumablePets([selectedPet.id]),
-                    });
+                    }) : prev);
                 }
             })();
             // Old point-based clan war pet-battle credit removed — the new
