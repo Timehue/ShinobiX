@@ -41,9 +41,16 @@
 >   shard + a cosmetic title into `character.questTitles`, 3-day re-roll cooldown).
 >   Three first epics ("The Bell That Doesn't Ring", "The Hollow Caravan", "The
 >   Coliseum Gauntlet"); foe-kill boss stages launch a scaled bestiary boss in the
->   arena, travel/pet/card stages are counter objectives. v1 is **linear** — the
->   branches/timers and the full §12 bestiary remain design intent; more epics are
->   pure data additions.
+>   arena, travel/pet/card stages are counter objectives. More epics are pure data
+>   additions.
+> - **Quest Book — branches & timers** *(§11, shipped):* epics now fork. A **CHOICE
+>   stage** seals the player's pick (`choices` map) and recomputes the reward at claim:
+>   the Bell's "carry it raw vs cleanse" (raw wakes the boss enraged for a bonus fate
+>   shard) and the Caravan's "spare vs execute Goro" (+50% ryo & a −standing flag, or a
+>   +standing one). Effects: bonus ryo %, fate shards, a **mutually-exclusive title**,
+>   a later boss's difficulty, and a persistent `character.questStandings` flag. A
+>   **TIMED stage** seals a real-time `deadline` and resets if it lapses — the Bell's
+>   cursed carry runs a 30-min clock with a live countdown. Both fully server-enforced.
 > - **War mercenaries** *(faction/war depth, shipped — lives in the Town Hall, not a
 >   sector):* a "Mercenaries" tab where a war participant spends **Honor Seals** to
 >   throw mercenary bands at the enemy village. Five tiers (lvl 75/80/85/95/100),
@@ -51,9 +58,10 @@
 >   (`api/village/hire-mercenary.ts` + `_mercenaries.ts`): cost recomputed from a
 >   sealed table, deducted under the save lock, war damage applied under the war-record
 >   lock and **floored at 1** so a merc can't end a war alone.
-> - **Not yet built** from the depth layer below: epic **branches/timers** + the full
->   §12 bestiary with bespoke boss art, the bounty-board framing, and the
->   reputation/standing layer. `dist/` is left to a canonical rebuild before enabling
+> - **Not yet built** from the depth layer below: the full §12 bestiary with bespoke
+>   boss art, more branching epics (e.g. the war-gated "Frostfang Defector"), the
+>   bounty-board framing, and the broad reputation/standing layer (the per-epic
+>   `questStandings` flags exist, but nothing reacts to them yet). `dist/` is left to a canonical rebuild before enabling
 >   cPanel (Railway builds from source).
 >
 > The rest of this doc is the **original design plan** (more ambitious than what
