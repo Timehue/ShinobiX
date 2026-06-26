@@ -259,11 +259,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const questStandings = [...prevStandings];
                 for (const s of fx.standings) if (!questStandings.includes(s)) questStandings.push(s);
 
-                const updated = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null };
+                const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null };
+                // The capstone ends the rivalry for good (its whole point).
+                if (entry.clearsRivalry) updated.wandererNemesis = null;
                 await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
                 await kv.del(questKey).catch(() => undefined);
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
-                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings } };
+                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
