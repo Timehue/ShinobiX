@@ -1,4 +1,5 @@
 import { K_AMP_PVE } from "../lib/combat-math";
+import { isImageAvatar } from "../lib/avatar";
 
 // Tags that feed the diminishing-returns soft-cap pools in combat (see
 // combat-math.ts). For these, stacking is NOT linear — the HUD surfaces the
@@ -122,7 +123,7 @@ export function CombatSideHud({
             </div>
 
             <div className="combat-avatar">
-                {avatar.startsWith("data:image") || avatar.startsWith("blob:") || avatar.startsWith("/api/img") ? (
+                {isImageAvatar(avatar) ? (
                     <img src={avatar} alt={name} />
                 ) : (
                     avatar
