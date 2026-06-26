@@ -8,12 +8,11 @@ import { CardVisual } from "../components/Marks";
 import { DAILY_MISSION_LIMIT, EXAM_LEVEL_GATES } from "../constants/game";
 import { mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
-import { baseStats, rankFromLevel } from "../lib/stats";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { getCharacterElements } from "../lib/elements";
 import { hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
+import { buildLogbookObjectives, objectiveComplete, type LogbookObjective, type ObjectiveRequirement } from "../lib/logbook-objectives";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "../lib/claim-mission";
 import { weatherForBiome } from "../data/sectors";
 import {
@@ -62,15 +61,7 @@ export function Logbook({
     // celebrate with a modal instead of a bare alert().
     const [ceremonyTitle, setCeremonyTitle] = useState<string | null>(null);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    const ownedElements = getCharacterElements(character);
-    const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
-    const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
-    const statsTrained = Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
     const defeatedAiIds = character.defeatedAiIds ?? [];
-    const examProctor = creatorAis.find((ai) => ai.id === "builtin-ai-exam-proctor");
-    const rogueNinja = creatorAis.find((ai) => ai.id === "builtin-ai-rogue-ninja");
-    type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string; goScreen?: Screen; goLabel?: string };
-    type ExamLogbookMission = { title: string; examKey: string; unlockLevel: number; requirements: ExamRequirement[] };
     const availableLogbookMissions = mergeBuiltinMissions(creatorMissions);
     const assignedMissions = acceptedMissionIds
         .map((id) => availableLogbookMissions.find((mission) => mission.id === id))
@@ -89,80 +80,21 @@ export function Logbook({
         complete: todayWarCompleted > index,
     }));
     const missingMissionIds = acceptedMissionIds.filter((id) => !availableLogbookMissions.some((mission) => mission.id === id));
-    const maybeExamMissions: Array<ExamLogbookMission | null> = [
-        character.level >= 11 ? {
-            title: "Genin Exam",
-            examKey: "genin",
-            unlockLevel: 11,
-            requirements: [
-                { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
-                { label: "Train 400 stats", progress: statsTrained, target: 400 },
-                { label: "Complete 20 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 20 },
-                { label: "Kill 20 AI", progress: character.totalAiKills ?? 0, target: 20 },
-                { label: "Explore 50 tiles", progress: character.totalTilesExplored ?? 0, target: 50 },
-                { label: "Sharpen a jutsu to Lv 3", progress: Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level))), target: 3, detail: "Use a jutsu in battle to level it" },
-            ],
-        } : null,
-        character.level >= 21 ? {
-            title: "Chunin Exam",
-            examKey: "chunin",
-            unlockLevel: 21,
-            requirements: [
-                { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
-                { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
-                { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },
-                // Solo-clearable on a low-population server: founding your own clan
-                // satisfies this just as well as joining one — no invite needed (L-2).
-                { label: "Join or found a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "Join one, or create your own at the Clan Hall — no invite needed", goScreen: "clan", goLabel: "Go Clan" },
-                { label: "Defeat Exam Proctor", progress: defeatedAiIds.includes("builtin-ai-exam-proctor") ? 1 : 0, target: 1, detail: examProctor ? "Level 25 arena AI" : "Exam Proctor missing", aiId: "builtin-ai-exam-proctor" },
-            ],
-        } : null,
-        character.level >= 41 ? {
-            title: "Jonin Exam",
-            examKey: "jonin",
-            unlockLevel: 41,
-            requirements: [
-                { label: "Get 10 PvP kills", progress: character.totalPvpKills ?? 0, target: 10 },
-                { label: "Raid a village 20 times", progress: character.totalVillageRaids ?? 0, target: 20 },
-                { label: "Defeat Rogue Ninja", progress: defeatedAiIds.includes("builtin-ai-rogue-ninja") ? 1 : 0, target: 1, detail: rogueNinja ? "Level 47 arena AI" : "Rogue Ninja missing", aiId: "builtin-ai-rogue-ninja" },
-            ],
-        } : null,
-        character.level >= 80 ? (() => {
-            const villageState = loadVillageState(character.village);
-            const isKage = villageState.seatedKage?.toLowerCase() === character.name.toLowerCase();
-            const isElder = Boolean(character.elderFocus);
-            return {
-            title: "Special Jonin Exam",
-            examKey: "specialJonin",
-            unlockLevel: 80,
-            requirements: [
-                { label: "Kill 100 players in PvP", progress: character.totalPvpKills ?? 0, target: 100 },
-                { label: "Become Kage or Elder", progress: (isKage || isElder) ? 1 : 0, target: 1, detail: isKage ? `Seated Kage of ${character.village}` : isElder ? `${character.elderFocus} Elder` : "Not a Kage or Elder" },
-            ],
-        };})() : null,
-    ];
-    const examMissions = maybeExamMissions.filter((mission): mission is ExamLogbookMission => mission !== null);
-
-    // Academy Training checklist — the level 1-14 onboarding guidance that fills
-    // the gap before the first rank exam (Genin) appears. Soft, teach-by-doing
-    // goals that each read an existing counter; hidden once claimed or once the
-    // player outgrows Academy rank. Same row format as the exams.
-    const highestJutsuMastery = Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level)));
-    const academyChecklist: { title: string; requirements: ExamRequirement[] } | null =
-        (!character.academyChecklistClaimed && rankFromLevel(character.level) === "Academy Student")
-            ? {
-                title: "Academy Training",
-                requirements: [
-                    { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "Free roll at Level 2", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
-                    { label: "Equip your jutsu loadout", progress: character.equippedJutsuIds.length, target: 4, detail: "Add a 4th jutsu", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
-                    { label: "Win your first battle", progress: character.totalAiKills ?? 0, target: 1, detail: "Fight in the Arena or a hunt", goScreen: "battleArena", goLabel: "Go Arena" },
-                    { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
-                    { label: "Complete your first mission", progress: character.totalMissionsCompleted ?? 0, target: 1, detail: "Accept a D-rank mission below", goScreen: "missions", goLabel: "Go to Mission Hall" },
-                    { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it", goScreen: "battleArena", goLabel: "Go Arena" },
-                ],
-            }
-            : null;
-    const academyComplete = academyChecklist ? academyChecklist.requirements.every((r) => r.progress >= r.target) : false;
+    // Structured progression objectives (Academy checklist + rank exams) are
+    // built by the shared lib so the Daily Briefing surfaces the same data and
+    // the requirement definitions live in one place. Only the env facts the pure
+    // builder can't derive from the save are supplied here.
+    const objectives = buildLogbookObjectives(character, {
+        examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
+        rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),
+        isKage: character.level >= 80 && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
+        isElder: Boolean(character.elderFocus),
+    });
+    const academyChecklist = objectives.find((o) => o.kind === "academy") ?? null;
+    const academyComplete = academyChecklist ? objectiveComplete(academyChecklist) : false;
+    const examMissions = objectives.filter(
+        (o): o is LogbookObjective & { examKey: string } => o.kind === "exam" && o.examKey !== undefined,
+    );
 
     // Server-authoritative for built-in field missions; creator-authored missions
     // fall back to the legacy client payout (clientFallback). Mirrors Missions.claimFetchMission.
@@ -262,7 +194,7 @@ export function Logbook({
         setScreen("arena");
     }
 
-    function renderRequirement(requirement: ExamRequirement) {
+    function renderRequirement(requirement: ObjectiveRequirement) {
         const complete = requirement.progress >= requirement.target;
         const progressText = requirement.target === 1
             ? complete ? "Complete" : "Incomplete"
