@@ -20,6 +20,7 @@ import bellWraithImg from "../assets/wanderers/bosses/bell-wraith.webp";
 import banditCaptainGoroImg from "../assets/wanderers/bosses/bandit-captain-goro.webp";
 import puppeteerItoguchiImg from "../assets/wanderers/bosses/puppeteer-itoguchi.webp";
 import raijuStormHoundImg from "../assets/wanderers/bosses/raiju-storm-hound.webp";
+import hunterShirakawaImg from "../assets/wanderers/bosses/hunter-shirakawa.webp";
 
 /** Portrait for the ambush boss (Bandit Warlord). */
 export const WANDERER_BOSS_PORTRAIT = bossImg;
@@ -33,6 +34,7 @@ const QUEST_BOSS_PORTRAITS: Record<string, string> = {
     "bandit-captain-goro": banditCaptainGoroImg,
     "puppeteer-itoguchi": puppeteerItoguchiImg,
     "raiju-storm-hound": raijuStormHoundImg,
+    "hunter-shirakawa": hunterShirakawaImg,
 };
 export function questBossPortrait(bossId: string | null | undefined): string | null {
     return bossId && Object.prototype.hasOwnProperty.call(QUEST_BOSS_PORTRAITS, bossId)
