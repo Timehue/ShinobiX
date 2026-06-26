@@ -66,10 +66,13 @@
 >   spared Goro buys occasional safe passage from his old gang ("Pass in peace"), an
 >   executed Goro earns cold words; `lib/wanderer-standing.ts`. Flavor + a small mercy
 >   dividend; never touches reward rates or combat math.
+> - **Capstone rivalry scaling** *(shipped):* the Q6 Kazan is now stateful — his
+>   promoted form escalates with the player's `wandererNemesis.tier` (extra level +
+>   stat, capped; rises as "…Risen" at tier ≥ 4), so the final boss reflects each
+>   player's own grudge. `rivalryEscalation()` in `lib/questbook.ts`.
 > - **Not yet built** from the depth layer below: a richer reputation system that
->   *gates content* on standings (beyond the current dialog reactions), the bounty-board
->   framing, and Q6's authored stateful Kazan scaling (the capstone reuses the generic
->   nemesis fight rather than a per-rivalry-escalated boss). `dist/` is left to a canonical rebuild before enabling
+>   *gates content* on standings (a deliberately-skipped idea — shallow on six sparse
+>   flags), and the bounty-board reskin. `dist/` is left to a canonical rebuild before enabling
 >   cPanel (Railway builds from source).
 >
 > The rest of this doc is the **original design plan** (more ambitious than what
