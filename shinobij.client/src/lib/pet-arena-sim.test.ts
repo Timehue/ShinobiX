@@ -173,17 +173,81 @@ test("R1 — the blackboard never turtles a near-even match into a stalemate", (
     assert.ok(capped <= seeds.length * 0.35, `${capped}/${seeds.length} matches hit the time cap — the AI is over-defending`);
 });
 
-// ── Control zone (king-of-the-hill) + neutral boss + carry teeth ───────────────
-test("the control zone scores and relocates (king-of-the-hill objective)", () => {
-    // A dominant team should win the hill repeatedly; the hill must also move (B3).
-    const r = runPetArenaMatch(roster(COMP, { hp: 1200, attack: 150 }), roster(COMP, { hp: 320, attack: 30 }), 7);
-    assert.ok(r.events.some((e) => e.type === "zonescore"), "no team ever held the zone");
-    assert.ok(r.events.some((e) => e.type === "zonemove"), "the hill never relocated");
-    // Every snapshot exposes the zone readout, holdFrac in [-1,1].
-    for (const s of r.snapshots) {
-        assert.ok(s.zone && Number.isFinite(s.zone.holdFrac) && Math.abs(s.zone.holdFrac) <= 1.0001, `bad zone holdFrac ${s.zone?.holdFrac}`);
-        assert.ok(["blue", "red", null].includes(s.zone.lead));
+// ── Neutral boss (Arena Warden) + carry teeth ──────────────────────────────────
+test("the Warden telegraphs every slam with a wind-up before the AoE lands", () => {
+    // Each slam is now preceded by a `bosswindup` (the rear-up telegraph), and the AoE
+    // `bossslam` resolves only after the wind-up — so every slam has a matching earlier
+    // wind-up. Guards the dodge-window contract the renderer's telegraph relies on.
+    const seeds = Array.from({ length: 10 }, (_, i) => i * 41 + 3);
+    let sawSlam = false;
+    for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed);
+        const windups = r.events.filter((e) => e.type === "bosswindup").map((e) => e.t);
+        for (const e of r.events) {
+            if (e.type !== "bossslam") continue;
+            sawSlam = true;
+            assert.ok(windups.some((wt) => wt < e.t && e.t - wt <= ARENA_TPS), `slam at t=${e.t} had no preceding wind-up (seed ${seed})`);
+        }
     }
+    assert.ok(sawSlam, "the Warden never slammed in any even match");
+});
+
+test("the Warden deals real damage — a short-range swipe chips meleeing pets", () => {
+    // The Warden now has TWO moves: a slow telegraphed slam (dodge-able) and a fast
+    // short-range SWIPE with no wind-up (the reliable chip). Across even matches it both
+    // swipes and lands boss-sourced damage on pets (actorId "boss").
+    const seeds = Array.from({ length: 10 }, (_, i) => i * 41 + 3);
+    let sawSwipe = false, sawBossDmg = false;
+    for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed);
+        if (r.events.some((e) => e.type === "bossswipe")) sawSwipe = true;
+        if (r.events.some((e) => e.type === "hit" && e.actorId === "boss")) sawBossDmg = true;
+    }
+    assert.ok(sawSwipe, "the Warden never swiped (its short-range basic move)");
+    assert.ok(sawBossDmg, "the Warden never dealt damage to a pet");
+});
+
+test("the Warden lunges to close on kiting pets", () => {
+    // The short-lunge gap-closer fires when the nearest pet hovers beyond slam reach — so a
+    // ranged squad can't infinitely chip from range. Across a spread of even matches it
+    // should leap at least once.
+    const seeds = Array.from({ length: 12 }, (_, i) => i * 37 + 1);
+    const lunged = seeds.some((seed) =>
+        runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed).events.some((e) => e.type === "bosslunge"));
+    assert.ok(lunged, "the Warden never lunged at a kiting pet");
+});
+
+test("shrines rotate in, get claimed, and pay out (power buff / mend heal) — never score", () => {
+    // The rotating buff shrine replaces the old zone: it spawns, is claimed by a short
+    // channel, and grants a tactical edge (power = team attack buff, mend = heal + shield).
+    // It must NOT score — the win condition stays scroll caps + the Warden. Flavours
+    // alternate, so across a spread both a power buff and a mend heal show up.
+    const seeds = Array.from({ length: 12 }, (_, i) => i * 29 + 5);
+    let sawSpawn = false, sawClaim = false, sawPowerBuff = false, sawMendHeal = false;
+    for (const seed of seeds) {
+        const r = runPetArenaMatch(roster(COMP, { attack: 100 }), roster(COMP), seed);
+        for (const s of r.snapshots) {
+            assert.ok(s.shrine && (s.shrine.kind === "power" || s.shrine.kind === "mend"), "missing shrine readout");
+            assert.ok(s.shrine.channelFrac >= 0 && s.shrine.channelFrac <= 1.0001, `bad shrine channelFrac ${s.shrine?.channelFrac}`);
+        }
+        for (const e of r.events) {
+            if (e.type === "shrinespawn") sawSpawn = true;
+            if (e.type === "shrineclaim") {
+                sawClaim = true;
+                if (e.kind === "power") {
+                    // a power claim BEFORE the Warden can spawn (32 s) isolates the shrine buff from the boss-kill buff
+                    const after = r.snapshots[Math.min(r.snapshots.length - 1, e.t + 1)];
+                    if (e.t < ARENA_TPS * 30 && after.actors.some((a) => a.team === e.team && a.statuses.includes("buff"))) sawPowerBuff = true;
+                } else if (e.kind === "mend") {
+                    if (r.events.some((h) => h.type === "heal" && h.t === e.t)) sawMendHeal = true;   // applyShrine heals on the claim tick
+                }
+            }
+        }
+    }
+    assert.ok(sawSpawn, "no shrine ever spawned");
+    assert.ok(sawClaim, "no shrine was ever claimed");
+    assert.ok(sawPowerBuff, "a power shrine never granted a team attack buff");
+    assert.ok(sawMendHeal, "a mend shrine never healed its team");
 });
 
 test("the neutral boss spawns mid-match and can be slain for a reward", () => {

@@ -1,0 +1,3 @@
+shrine:mend
+
+A mystical healing spring shrine object for a 2D anime shinobi RPG arena: an ancient carved jade-stone basin altar on a small rune-etched pedestal, glowing emerald-green restorative water welling up and gently overflowing, soft floating green light motes and a few drifting leaves, gentle jade rim light, ornate shinobi engravings glowing soft green. Viewed at a slight three-quarter top-down angle as a grounded game prop, centered. Clean painterly cel-shaded game-sprite art, crisp edges, soft luminous glow, fully transparent background, single object only, no ground, no shadow, no text.
