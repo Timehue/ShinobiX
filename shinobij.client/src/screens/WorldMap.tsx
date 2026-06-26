@@ -13,7 +13,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
@@ -499,11 +499,23 @@ export function WorldMap({
     // calls startWandererAttack, which launches a fight through the SAME arena AI
     // path the village-guard raid uses — no new combat/endpoint/currency surface.
     const sectorWanderers = useMemo(
-        () => (isWanderersEnabled() && selectedSector != null
-            ? rollWanderers(selectedSector, wandererDayBucket(new Date()))
-            : []),
-        [selectedSector],
+        () => {
+            if (!isWanderersEnabled() || selectedSector == null) return [];
+            const now = Date.now();
+            const cd = character.wandererCooldowns;
+            // Hide NPCs you've already taken a reward from (fight/gift/pet/card) for a
+            // few hours so they can't be farmed. Sages (quests) are never cooled — a
+            // quest is one-at-a-time already and you need a sage to continue an epic.
+            return rollWanderers(selectedSector, wandererDayBucket(new Date()))
+                .filter(w => w.verb === "quest" || !isWandererOnCooldown(cd, w.id, now));
+        },
+        [selectedSector, character.wandererCooldowns],
     );
+    // Put a wanderer on its anti-spam cooldown (functional update — composes with any
+    // reward update in the same handler without clobbering it).
+    function coolWanderer(id: string) {
+        updateCharacter(prev => prev ? ({ ...prev, wandererCooldowns: withWandererCooldown(prev.wandererCooldowns, id, Date.now()) }) : prev);
+    }
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
     // All wanderer combat scales to the PLAYER's level (never impossible). Fending
     // off robbers builds character.robberStreak; at 5, the next bandit springs an
@@ -541,6 +553,7 @@ export function WorldMap({
     }
     function startWandererAttack(w: Wanderer, nemesis = false) {
         if (selectedSector == null) return;
+        coolWanderer(w.id); // you've engaged this bandit — it won't be here to re-fight for a few hours
         // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. (A nemesis duel
         // is its own special encounter and skips the ambush.)
         if (!nemesis && (character.robberStreak ?? 0) >= 5) {
@@ -684,6 +697,7 @@ export function WorldMap({
                 gift?: { ryo: number; fateShards: number; boneCharms: number };
                 totals?: { ryo: number; fateShards: number; boneCharms: number };
             };
+            coolWanderer(w.id); // pilgrim has given (or had nothing left) — gone for a few hours
             if (data.ok && data.gift && data.totals) {
                 updateCharacter(prev => prev ? ({ ...prev, ryo: data.totals!.ryo, fateShards: data.totals!.fateShards, boneCharms: data.totals!.boneCharms }) : prev);
                 const parts = [`${data.gift.ryo} ryo`];
@@ -710,6 +724,7 @@ export function WorldMap({
         // Date.now() in the component) — fine for a casual duel.
         let seed = (sectorPlayerPos + 1) >>> 0;
         for (let i = 0; i < w.id.length; i++) seed = (Math.imul(seed, 31) + w.id.charCodeAt(i)) >>> 0;
+        coolWanderer(w.id); // beast duelled — gone for a few hours
         setPendingPetBattleOpponent({
             owner: w.name,
             pet: { ...tmpl.pet, jutsus: tmpl.pet.jutsus.map((j) => ({ ...j })) },
@@ -721,7 +736,7 @@ export function WorldMap({
     }
     function startWandererCardDuel(w: Wanderer) {
         // The gambler deals you straight into a Card Clash match in the Card Hall.
-        void w;
+        coolWanderer(w.id); // gambler dealt you in — gone for a few hours
         requestCardChallenge();
         setWandererDialog(null);
         setScreen("shinobiTiles");

@@ -277,6 +277,10 @@ export type Character = {
     // Persistent world-standing flags from epic branch choices (e.g. "goro-spared").
     // Additive/optional — drives later flavor reactions.
     questStandings?: string[];
+    // Per-NPC anti-spam cooldowns for sector wanderers (wanderer id → expiry ms).
+    // Set when you take a repeatable reward from a wanderer (fight/gift/pet/card) so
+    // that NPC vanishes for a few hours. Additive/optional; expired entries are pruned.
+    wandererCooldowns?: Record<string, number>;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
