@@ -169,6 +169,15 @@ export type Character = {
     rankTitle: string;
     customTitle?: string;
     storyTitle?: string;
+    // Player-authored "Nindo" — a customizable profile creed written in a safe
+    // BBCode subset ([b]/[i]/[color]/[img]/[url]/…), rendered to React nodes by
+    // lib/nindo-bbcode (never raw HTML). Shown on the player's own Profile and on
+    // every viewer's UserView. Public by default (not in ROSTER_STRIP_CHAR_FIELDS);
+    // moderated + length-capped server-side in api/save.
+    nindo?: string;
+    // Chosen Nindo banner preset id (see lib/nindo-backgrounds). Cosmetic + public;
+    // server allowlists it in api/save. Absent/"" = plain card.
+    nindoBg?: string;
     storyTraits?: string[];
     storyProgress: number;
     storyVillage: string;

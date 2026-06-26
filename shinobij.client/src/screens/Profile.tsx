@@ -7,8 +7,7 @@ import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } fr
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
-import { ProfessionRankBar } from "../screens/ProfessionRankBar";
-import { MasteryPanel } from "../components/MasteryPanel";
+import { NindoEditor } from "../components/NindoEditor";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { capStat, xpNeeded } from "../lib/stats";
@@ -309,13 +308,6 @@ export function Profile({
                         <p><strong>Bloodline:</strong> {equippedBloodline?.name || character.bloodline}</p>
                         <p><strong>Specialty:</strong> {playerLensDiscipline(character)}</p>
                         <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
-                        {character.profession && (
-                            <p>
-                                <strong>Profession:</strong>{" "}
-                                {character.profession === "healer" ? "✚ Healer" : character.profession === "vanguard" ? "⚔ Vanguard" : "🐾 Pet Tamer"}
-                                <span style={{ marginLeft: 6, color: "#94a3b8" }}>· Rank {character.professionRank ?? 1} · {(character.professionXp ?? 0).toLocaleString()} XP</span>
-                            </p>
-                        )}
                         {equippedBloodline?.specialElement && <p><strong>Bloodline Element:</strong> {equippedBloodline.specialElement}</p>}
                         {equippedBloodline?.image && <div className="admin-event-list-preview"><img src={equippedBloodline.image} alt={equippedBloodline.name} /></div>}
                     </div>
@@ -402,13 +394,13 @@ export function Profile({
                 </div>
             </section>
 
-            {character.profession && (
-                <section className="profile-build-panel">
-                    <h2>Profession</h2>
-                    <ProfessionRankBar character={character} />
-                    <MasteryPanel character={character} updateCharacter={updateCharacter} />
-                </section>
-            )}
+            {/* Nindo — the player's customizable profile creed. Replaces the old
+                Profession/Mastery panel, which now lives solely on the Professions
+                tab (right menu → profession hub). */}
+            <NindoEditor
+                value={{ nindo: character.nindo ?? "", nindoBg: character.nindoBg }}
+                onSave={(v) => updateCharacter((prev) => prev ? { ...prev, ...v } : prev)}
+            />
 
             {onDeleteCharacter && (
                 <section className="profile-build-panel">

@@ -262,6 +262,28 @@ function sanitizeCharacterSave(incoming, existing) {
     if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
         char.customTitle = (0, _text_moderation_js_1.sanitizeUserText)(char.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
     }
+    // ── Nindo (player-authored profile creed) ──────────────────────
+    // BBCode subset, rendered SAFELY client-side by lib/nindo-bbcode (never raw
+    // HTML). Server job here is storage hygiene: strip control chars, cap length,
+    // and blank the whole creed if its visible text (tags stripped) trips the
+    // profanity gate. We always WRITE a string when `nindo` is present in the
+    // incoming save — so clearing it (empty string) actually persists through the
+    // image-preserving merge instead of being treated as "field omitted".
+    if ('nindo' in char) {
+        const NINDO_MAX_LEN = 2000;
+        let v = typeof char.nindo === 'string' ? char.nindo : '';
+        v = v.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').slice(0, NINDO_MAX_LEN);
+        const visibleText = v.replace(/\[\/?[a-z*]{1,8}(?:=[^\]\n]{0,256})?\]/gi, ' ');
+        if (v.trim() && !(0, _text_moderation_js_1.isCleanText)(visibleText))
+            v = '';
+        char.nindo = v;
+    }
+    // Nindo banner preset — allowlist only (mirror lib/nindo-backgrounds
+    // NINDO_BACKGROUND_IDS). Cosmetic; reject anything else to ''.
+    if ('nindoBg' in char) {
+        const NINDO_BG_IDS = new Set(['', 'ember', 'frost', 'verdant', 'shadow', 'royal', 'sakura']);
+        char.nindoBg = (typeof char.nindoBg === 'string' && NINDO_BG_IDS.has(char.nindoBg)) ? char.nindoBg : '';
+    }
     // Level: monotonic. Cap upward gain at +MAX_LEVEL_GAIN/save and hard-cap at
     // LEVEL_CAP — but ALSO floor at the existing level so a stale/frozen client
     // save (e.g. one replayed after a silent token-expiry) can never REGRESS a
