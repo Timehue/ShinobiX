@@ -26,7 +26,7 @@ export function HealerHub({
     playerRoster,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     setScreen: (s: Screen) => void;
     onBack: () => void;
     playerRoster: PlayerRecord[];

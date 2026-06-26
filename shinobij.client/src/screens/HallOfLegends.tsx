@@ -27,7 +27,7 @@ type WeeklyBossLb = {
 };
 
 export 
-function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: (c: Character) => void }) {
+function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
     const [tab, setTab] = useState<LbTab>("ranked");
     const [professionFilter, setProfessionFilter] = useState<Profession>("healer");
     const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
@@ -101,7 +101,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         if ((character.ryo ?? 0) < bountyAmount) return alert("You don't have enough ryo.");
         const res = await placeBounty(character.name, target, bountyAmount);
         if (!res.ok) return alert(res.error || "Could not place the bounty.");
-        updateCharacter({ ...character, ryo: (character.ryo ?? 0) - bountyAmount });
+        updateCharacter((prev) => prev ? ({ ...prev, ryo: (prev.ryo ?? 0) - bountyAmount }) : prev);
         if (res.bounties) setBounties(res.bounties);
         setBountyTarget("");
         alert(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);

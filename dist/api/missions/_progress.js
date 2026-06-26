@@ -12,6 +12,7 @@ exports.loadOrIssueNewbieDailies = loadOrIssueNewbieDailies;
 exports.reportNewbieEvent = reportNewbieEvent;
 const _storage_js_1 = require("../_storage.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _pool_js_1 = require("./_pool.js");
 // Healer uses a 1.5× XP curve; baseline used by Vanguard. Keep in sync with
 // the client-side getProfessionRankForXp in shinobij.client/src/App.tsx.
@@ -96,6 +97,7 @@ async function awardProfessionXp(playerName, profession, amount) {
                 professionRank: nextRank,
             },
         };
+        (0, _save_version_js_1.bumpSaveVersion)(updated);
         await _storage_js_1.kv.set(saveKey, updated);
         return { xp: nextXp, rank: nextRank };
     });
@@ -246,6 +248,7 @@ async function awardNewbieRyo(playerName, amount) {
             ...record,
             character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
         };
+        (0, _save_version_js_1.bumpSaveVersion)(updated);
         await _storage_js_1.kv.set(saveKey, updated);
     });
 }

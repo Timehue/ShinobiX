@@ -50,3 +50,30 @@ const _save_version_js_1 = require("./_save-version.js");
         node_assert_1.strict.equal(a, b);
     });
 });
+(0, node_test_1.describe)('bumpSaveVersion (server-credit optimistic-concurrency bump)', () => {
+    (0, node_test_1.it)('increments _saveVersion by 1 from the stored value', () => {
+        const rec = { _saveVersion: 4, character: { ryo: 100 } };
+        (0, _save_version_js_1.bumpSaveVersion)(rec);
+        node_assert_1.strict.equal(rec._saveVersion, 5);
+    });
+    (0, node_test_1.it)('treats an absent _saveVersion as 0 → first bump is 1', () => {
+        const rec = { character: { ryo: 0 } };
+        (0, _save_version_js_1.bumpSaveVersion)(rec);
+        node_assert_1.strict.equal(rec._saveVersion, 1);
+    });
+    (0, node_test_1.it)('stamps a numeric _saveAt and returns the same object reference', () => {
+        const rec = { _saveVersion: 0 };
+        const out = (0, _save_version_js_1.bumpSaveVersion)(rec);
+        node_assert_1.strict.equal(out, rec);
+        node_assert_1.strict.equal(typeof rec._saveAt, 'number');
+    });
+    (0, node_test_1.it)('forces a stale-tab 409: post-bump version exceeds the tab\'s base version', () => {
+        // A client tab loaded at version 3; a server credit then bumps the stored
+        // record. The next autosave echoes _baseSaveVersion:3, which must now be
+        // BELOW stored → the save handler 409s and the client refetches the credit.
+        const stored = { _saveVersion: 3, character: {} };
+        (0, _save_version_js_1.bumpSaveVersion)(stored);
+        const tabBaseVersion = 3;
+        node_assert_1.strict.ok(tabBaseVersion < Number(stored._saveVersion), 'stale tab must 409 after a credit');
+    });
+});
