@@ -124,6 +124,7 @@ import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
+import sectorQuestbookHandler         from './api/sector/questbook.js';
 // PvP — realtime + rewards + queues
 import pvpChatHandler           from './api/pvp/chat.js';
 import pvpSpectateHandler       from './api/pvp/spectate.js';
@@ -647,6 +648,7 @@ route('/missions/claim-mission',    missionsClaimMissionHandler);
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);
 route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
+route('/sector/questbook',          sectorQuestbookHandler);
 
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic
