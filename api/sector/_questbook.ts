@@ -76,6 +76,10 @@ export interface QuestBookEntry {
     award: string;
     /** only offered while the player's village is in an active war (client-gated availability) */
     requiresWar?: boolean;
+    /** only offered while the player carries a wanderer nemesis (client-gated availability) */
+    requiresRivalry?: boolean;
+    /** on claim, ends the player's wanderer rivalry (the capstone's whole point) */
+    clearsRivalry?: boolean;
     stages: QuestStage[];
 }
 
@@ -132,6 +136,28 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
         stages: [
             { key: "gauntlet", text: "Win three coliseum pet duels against Tomoe's wandering beasts.", metric: "totalPetWins", count: 3 },
             { key: "stormhound", text: "Face the finale — Raijū, the Storm-Hound — and win.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
+        ],
+    },
+    // Q5 — band any, MEDIUM. Card-flavored but cheat-safe: the real reward hangs on a
+    // verifiable bodyguard duel, not the (unprovable) card games.
+    "qb-debt": {
+        id: "qb-debt", title: "The Gambler's Debt", giver: "Saji Two-Coins",
+        bandMin: 1, bandMax: 100, weight: 5, fateShards: 0, award: "House Breaker",
+        stages: [
+            { key: "table", text: "Saji owes 'The House'. Buy him time — win two rounds of Shinobi Card Clash against the patron's enforcers.", metric: "cardClashWins", count: 2 },
+            { key: "collection", text: "The House calls the debt anyway and sends its bodyguard, Kuroban, to collect it from Saji's hide — and yours.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
+        ],
+    },
+    // Q6 — CAPSTONE, rivalry-gated, VERY HARD. The nemesis arc delivered as a quest;
+    // claiming it ends the rivalry for good.
+    "qb-ashes": {
+        id: "qb-ashes", title: "Ashes of the Ashbound", giver: "Old Hermit Roku",
+        bandMin: 50, bandMax: 100, weight: 12, fateShards: 1, award: "Ash-Ender",
+        requiresRivalry: true, clearsRivalry: true,
+        stages: [
+            { key: "cinder", text: "Burn down Kazan's promoted lieutenant Cinder, a glass-cannon firebrand, in a volcano sector.", metric: "totalAiKills", count: 1, bossId: "ashbound-cinder" },
+            { key: "slag",   text: "Break Slag, the stone wall who guards the lair road.", metric: "totalAiKills", count: 1, bossId: "ashbound-slag" },
+            { key: "kazan",  text: "End it. Kazan the Ashbound, in his promoted form, waits in the lair. Settle the rivalry for good.", metric: "totalAiKills", count: 1, bossId: "kazan-ashbound" },
         ],
     },
 };

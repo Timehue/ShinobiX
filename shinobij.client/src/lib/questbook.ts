@@ -45,6 +45,8 @@ export interface QuestBookEntry {
     fateShards: number;
     award: string;
     requiresWar?: boolean;
+    requiresRivalry?: boolean;
+    clearsRivalry?: boolean;
     stages: QuestStage[];
 }
 
@@ -98,6 +100,24 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
             { key: "stormhound", text: "Face the finale — Raijū, the Storm-Hound — and win a pet duel.", metric: "totalPetWins", count: 1, bossId: "raiju-storm-hound" },
         ],
     },
+    "qb-debt": {
+        id: "qb-debt", title: "The Gambler's Debt", giver: "Saji Two-Coins",
+        bandMin: 1, bandMax: 100, weight: 5, fateShards: 0, award: "House Breaker",
+        stages: [
+            { key: "table", text: "Saji owes 'The House'. Buy him time — win two rounds of Shinobi Card Clash against the patron's enforcers.", metric: "cardClashWins", count: 2 },
+            { key: "collection", text: "The House calls the debt anyway and sends its bodyguard, Kuroban, to collect it from Saji's hide — and yours.", metric: "totalAiKills", count: 1, bossId: "house-kuroban" },
+        ],
+    },
+    "qb-ashes": {
+        id: "qb-ashes", title: "Ashes of the Ashbound", giver: "Old Hermit Roku",
+        bandMin: 50, bandMax: 100, weight: 12, fateShards: 1, award: "Ash-Ender",
+        requiresRivalry: true, clearsRivalry: true,
+        stages: [
+            { key: "cinder", text: "Burn down Kazan's promoted lieutenant Cinder, a glass-cannon firebrand, in a volcano sector.", metric: "totalAiKills", count: 1, bossId: "ashbound-cinder" },
+            { key: "slag",   text: "Break Slag, the stone wall who guards the lair road.", metric: "totalAiKills", count: 1, bossId: "ashbound-slag" },
+            { key: "kazan",  text: "End it. Kazan the Ashbound, in his promoted form, waits in the lair. Settle the rivalry for good.", metric: "totalAiKills", count: 1, bossId: "kazan-ashbound" },
+        ],
+    },
 };
 
 export interface QuestBossSpec {
@@ -118,6 +138,10 @@ export const QUEST_BOSSES: Record<string, QuestBossSpec> = {
     "puppeteer-itoguchi":  { name: "Itoguchi, the Hand",   icon: "🎭", statBonus: 5, loadoutId: "boss",    levelOffset: 2, portraitKey: "nemesis", boss: true },
     "raiju-storm-hound":   { name: "Raijū, the Storm-Hound", icon: "⚡", statBonus: 4, loadoutId: "boss",  levelOffset: 2, portraitKey: "beast", boss: true },
     "hunter-shirakawa":    { name: "Hunter-Nin Shirakawa",  icon: "🥷", statBonus: 6, loadoutId: "burst", levelOffset: 2, portraitKey: "nemesis", boss: true },
+    "house-kuroban":       { name: "Kuroban, the Bodyguard", icon: "🗡️", statBonus: 4, loadoutId: "bruiser",  levelOffset: 1, portraitKey: "boss", boss: true },
+    "ashbound-cinder":     { name: "Cinder",                 icon: "🔥", statBonus: 3, loadoutId: "burst",    levelOffset: 0, portraitKey: "bandit2" },
+    "ashbound-slag":       { name: "Slag",                   icon: "🪨", statBonus: 4, loadoutId: "defender", levelOffset: 0, portraitKey: "bandit3" },
+    "kazan-ashbound":      { name: "Kazan the Ashbound",     icon: "🌋", statBonus: 8, loadoutId: "boss",     levelOffset: 3, portraitKey: "boss", boss: true },
 };
 
 export function questbookEntry(id: string | null | undefined): QuestBookEntry | null {
@@ -136,10 +160,12 @@ export function questbookStage(id: string | null | undefined, stage: number): Qu
  * The (stable) epic a given sage offers — band-matched, deterministic from its id.
  * War-gated epics (requiresWar) are only offered while the player's village is at war.
  */
-export function epicForWanderer(wandererId: string, level: number, opts?: { atWar?: boolean }): QuestBookEntry | null {
+export function epicForWanderer(wandererId: string, level: number, opts?: { atWar?: boolean; hasRivalry?: boolean }): QuestBookEntry | null {
     const lvl = Math.floor(Number(level) || 1);
     const atWar = !!opts?.atWar;
-    const matching = Object.values(QUEST_BOOK).filter(q => lvl >= q.bandMin && lvl <= q.bandMax && (!q.requiresWar || atWar));
+    const hasRivalry = !!opts?.hasRivalry;
+    const matching = Object.values(QUEST_BOOK).filter(q =>
+        lvl >= q.bandMin && lvl <= q.bandMax && (!q.requiresWar || atWar) && (!q.requiresRivalry || hasRivalry));
     if (matching.length === 0) return null;
     let h = 0;
     for (let i = 0; i < wandererId.length; i++) h = (Math.imul(h, 31) + wandererId.charCodeAt(i)) >>> 0;

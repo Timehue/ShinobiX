@@ -863,14 +863,15 @@ export function WorldMap({
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: "claim", playerName: character.name }),
             });
-            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; fateShards?: number; title?: string };
+            const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; fateShards?: number; title?: string; clearedRivalry?: boolean };
             if (data.ok && typeof data.totalRyo === "number") {
                 const titles = character.questTitles ?? [];
                 const nextTitles = data.title && !titles.includes(data.title) ? [...titles, data.title] : titles;
-                updateCharacter({ ...character, ryo: data.totalRyo, fateShards: (character.fateShards ?? 0) + (data.fateShards ?? 0), questTitles: nextTitles, activeQuestbook: null });
+                updateCharacter({ ...character, ryo: data.totalRyo, fateShards: (character.fateShards ?? 0) + (data.fateShards ?? 0), questTitles: nextTitles, activeQuestbook: null, ...(data.clearedRivalry ? { wandererNemesis: null } : {}) });
                 const bits = [`${data.ryo} ryo`];
                 if (data.fateShards) bits.push(`${data.fateShards} fate shard${data.fateShards === 1 ? "" : "s"}`);
                 if (data.title) bits.push(`the title “${data.title}”`);
+                if (data.clearedRivalry) bits.push("and your rivalry ends at last");
                 setWandererDialog({ w, msg: `Epic complete! You earn ${bits.join(", ")}.` });
             } else if (data.reason === "incomplete") {
                 setWandererDialog({ w, msg: "“The tale isn't finished yet.”" });
@@ -1934,7 +1935,7 @@ export function WorldMap({
                                                 );
                                             }
                                             const def = questForWanderer(wandererDialog.w);
-                                            const offer = epicForWanderer(wandererDialog.w.id, character.level, { atWar: activeVillageWarsFor(character.village).length > 0 });
+                                            const offer = epicForWanderer(wandererDialog.w.id, character.level, { atWar: activeVillageWarsFor(character.village).length > 0, hasRivalry: !!character.wandererNemesis });
                                             return (
                                                 <>
                                                     <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
