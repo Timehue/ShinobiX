@@ -33,7 +33,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
-import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
+import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter, scaleWandererPetOpponent } from "../lib/pet-balance";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
@@ -714,11 +714,16 @@ export function WorldMap({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
-        // A wild beast brings a tuned arena pet (matched to its tier). Reuses the
-        // existing Pet Coliseum entry + its server-safe casual reward path — no new
-        // endpoint, no balance tuning.
-        const tmpl = w.level < 20 ? genericPetArenaOpponents[0]
-            : w.level < 45 ? genericPetArenaOpponents[1]
+        // The beast fields a pet SCALED to the player's active pet so the duel is a
+        // real fight, not a pushover. Reuses the Pet Coliseum entry + its server-safe
+        // casual reward path — no new endpoint.
+        const pets = character.pets ?? [];
+        const activePet = pets.find((p) => p.id === character.activePetId) ?? pets[0];
+        const targetLevel = Math.max(1, Math.min(100, activePet?.level ?? Math.round(character.level * 0.4) ?? 10));
+        // Pick the template tier by the player's PET level (not the wanderer's), then
+        // scale it to match — so a strong player faces the apex template, not a sparrow.
+        const tmpl = targetLevel < 20 ? genericPetArenaOpponents[0]
+            : targetLevel < 45 ? genericPetArenaOpponents[1]
             : genericPetArenaOpponents[2];
         // Deterministic seed from the wanderer + the player's tile (no impure
         // Date.now() in the component) — fine for a casual duel.
@@ -727,7 +732,7 @@ export function WorldMap({
         coolWanderer(w.id); // beast duelled — gone for a few hours
         setPendingPetBattleOpponent({
             owner: w.name,
-            pet: { ...tmpl.pet, jutsus: tmpl.pet.jutsus.map((j) => ({ ...j })) },
+            pet: scaleWandererPetOpponent(tmpl.pet, targetLevel),
             battleSeed: seed,
             returnScreen: "worldMap",
         });
