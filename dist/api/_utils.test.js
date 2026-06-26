@@ -122,4 +122,27 @@ const _utils_js_1 = require("./_utils.js");
         // Sanity check: the helper is for object/array merge, not a universal preserver.
         node_assert_1.strict.equal((0, _utils_js_1.mergePreservingImages)(null, { foo: 'bar' }), null);
     });
+    (0, node_test_1.it)('FULL-REPLACES the equipment subtree so an unequipped slot is dropped (audit #3)', () => {
+        // The client clears a slot by ABSENCE (delete/undefined → omitted from JSON).
+        // Without the replace-subtree rule, the stored slot would be re-injected from
+        // `existing` and the gear would "come back" on reload (and dupe weapons/armor).
+        const existing = { character: { equipment: { hand: 'sword', head: 'helm', gloves: 'mitts' } } };
+        const incoming = { character: { equipment: { head: 'helm', gloves: 'mitts' } } }; // unequipped hand
+        const merged = (0, _utils_js_1.mergePreservingImages)(incoming, existing);
+        node_assert_1.strict.deepEqual(merged.character.equipment, { head: 'helm', gloves: 'mitts' }, 'cleared hand slot must NOT be re-injected');
+    });
+    (0, node_test_1.it)('FULL-REPLACES a pet loadout subtree so a spent consumable does not reappear (audit #3)', () => {
+        const existing = { pets: [{ id: 'p1', loadout: { consumable: 'pill', pve: 'charm' } }] };
+        const incoming = { pets: [{ id: 'p1', loadout: { pve: 'charm' } }] }; // consumable used up
+        const merged = (0, _utils_js_1.mergePreservingImages)(incoming, existing);
+        node_assert_1.strict.deepEqual(merged.pets[0].loadout, { pve: 'charm' }, 'spent consumable must not be re-injected');
+    });
+    (0, node_test_1.it)('still preserves equipment when a PARTIAL payload omits the key entirely (no regression)', () => {
+        // A foreign/public projection has no `equipment` key at all → the replace
+        // branch never fires and the stored equipment is preserved (the save-wipe defense).
+        const existing = { character: { ryo: 5, equipment: { hand: 'sword' } } };
+        const incoming = { character: { ryo: 9 } };
+        const merged = (0, _utils_js_1.mergePreservingImages)(incoming, existing);
+        node_assert_1.strict.deepEqual(merged.character.equipment, { hand: 'sword' }, 'omitted equipment stays preserved');
+    });
 });

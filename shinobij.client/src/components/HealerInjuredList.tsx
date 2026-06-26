@@ -29,7 +29,7 @@ export function HealerInjuredList({
     playerRoster,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     playerRoster: PlayerRecord[];
 }) {
     const isHealer = character.profession === "healer";
@@ -92,13 +92,16 @@ export function HealerInjuredList({
             // Server returns the authoritative post-credit XP/rank (mission XP included).
             const finalXp = Number(data.professionXp ?? (character.professionXp ?? 0) + xpGained);
             const finalRank = Number(data.professionRank ?? prevRank);
-            updateCharacter({
-                ...character,
+            // Functional updater (write happens after `await fetch('/api/player/heal')`):
+            // a concurrent regen/heartbeat setState during the await would otherwise be
+            // clobbered. professionXp/Rank are server-authoritative absolutes; chakra
+            // deducts off the LATEST prev so a concurrent chakra change survives.
+            updateCharacter((prev) => prev ? ({
+                ...prev,
                 professionXp: finalXp,
                 professionRank: finalRank,
-                // Healing costs the Healer chakra (server-deducted); reflect it locally.
-                chakra: Math.max(0, (character.chakra ?? 0) - Number(data.chakraCost ?? 0)),
-            });
+                chakra: Math.max(0, (prev.chakra ?? 0) - Number(data.chakraCost ?? 0)),
+            }) : prev);
             const rankedUp = finalRank > prevRank;
             const totalXp = xpGained + missionXp;
             let msg = `✅ Healed! +${totalXp} XP`;

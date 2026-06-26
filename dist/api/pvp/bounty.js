@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _bounty_js_1 = require("./_bounty.js");
 /*
@@ -91,7 +92,7 @@ async function handler(req, res) {
                     const result = (0, _bounty_js_1.placeBounty)({ placerName: identity.admin ? playerName : (char.name ?? playerName), targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
                     if (!result.ok)
                         return { ok: false, reason: result.reason };
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }, rec));
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }), rec));
                     return { ok: true, board: result.board, debited: result.amount };
                 }, { failClosed: true });
                 if (!debit.ok)
@@ -109,7 +110,7 @@ async function handler(req, res) {
                             const rec = await _storage_js_1.kv.get(`save:${playerName}`);
                             const char = (rec?.character ?? null);
                             if (rec && char)
-                                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }, rec));
+                                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }), rec));
                         }, { failClosed: true });
                     }
                     catch (refundErr) {
@@ -167,7 +168,7 @@ async function handler(req, res) {
                     const char = (rec?.character ?? null);
                     if (!rec || !char)
                         return { ok: false };
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }, rec));
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }), rec));
                     return { ok: true };
                 }, { failClosed: true });
                 if (!credit.ok) {

@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useState } from "react";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { HealerInjuredList } from "../components/HealerInjuredList";
@@ -11,7 +12,7 @@ import {
 } from "../App";
 
 export
-function Hospital({ character, updateCharacter, setScreen, playerRoster }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+function Hospital({ character, updateCharacter, setScreen, playerRoster }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
@@ -61,16 +62,19 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     // leave for the village. Clears the hospital stamps too so a later re-open
     // can't read a stale timer.
     function applyDischargeAndLeave(chargedRyo: number) {
-        updateCharacter({
-            ...character,
-            ryo: Math.max(0, character.ryo - chargedRyo),
-            hp: character.maxHp,
-            chakra: character.maxChakra,
-            stamina: character.maxStamina,
+        // Functional updater: this runs after an await in discharge()/freeCheckout(),
+        // so merge the discharge delta onto the latest state to avoid clobbering a
+        // concurrent setState (regen tick, image hydration) that landed mid-await.
+        updateCharacter(prev => prev ? ({
+            ...prev,
+            ryo: Math.max(0, prev.ryo - chargedRyo),
+            hp: prev.maxHp,
+            chakra: prev.maxChakra,
+            stamina: prev.maxStamina,
             hospitalized: false,
             hospitalizedUntil: 0,
             hospitalizedAt: 0,
-        });
+        }) : prev);
         // Confirm a paid discharge (chargedRyo > 0). Free checkouts and Healer
         // self-discharges (chargedRyo === 0) leave silently as before.
         if (chargedRyo > 0) {

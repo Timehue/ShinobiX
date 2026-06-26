@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type React from "react";
 import type { Biome, WeatherType, Screen } from "../types/core";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -40,7 +41,7 @@ export function Logbook({
     setScreen,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorAis: CreatorAi[];
     creatorMissions: CreatorMission[];
     creatorEvents: CreatorEvent[];
@@ -108,7 +109,7 @@ export function Logbook({
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied) {
-            updateCharacter(applyServerMissionReward(character, result, gainXp));
+            updateCharacter(prev => prev ? applyServerMissionReward(prev, result, gainXp) : prev);
             setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
             setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
@@ -119,12 +120,15 @@ export function Logbook({
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3);
-        updateCharacter(markMissionCompleted({
-            ...leveled,
-            ryo: leveled.ryo + boostedRyo,
-            stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina),
-        }));
+        updateCharacter(prev => {
+            if (!prev) return prev;
+            const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards), 3);
+            return markMissionCompleted({
+                ...leveled,
+                ryo: leveled.ryo + boostedRyo,
+                stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina),
+            });
+        });
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
         setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
         alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);

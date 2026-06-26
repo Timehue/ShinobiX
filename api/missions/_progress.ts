@@ -1,5 +1,6 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     type Profession,
     type MissionKind,
@@ -118,6 +119,7 @@ export async function awardProfessionXp(
                 professionRank: nextRank,
             },
         };
+        bumpSaveVersion(updated);
         await kv.set(saveKey, updated);
         return { xp: nextXp, rank: nextRank };
     });
@@ -317,6 +319,7 @@ async function awardNewbieRyo(playerName: string, amount: number): Promise<void>
             ...record,
             character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
         };
+        bumpSaveVersion(updated);
         await kv.set(saveKey, updated);
     });
 }

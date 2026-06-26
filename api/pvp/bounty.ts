@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import type { PvpSession } from './session.js';
 import { normalizeBoard, placeBounty, claimBounty, type BountyBoard } from './_bounty.js';
@@ -90,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!rec || !char) return { ok: false, reason: 'Your save was not found.' };
                     const result = placeBounty({ placerName: identity.admin ? playerName : (char.name as string ?? playerName), targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
                     if (!result.ok) return { ok: false, reason: result.reason };
-                    await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }, rec));
+                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }), rec));
                     return { ok: true, board: result.board, debited: result.amount };
                 }, { failClosed: true });
                 if (!debit.ok) return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
@@ -105,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await withKvLock<void>(`save:${playerName}`, async () => {
                             const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                             const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                            if (rec && char) await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }, rec));
+                            if (rec && char) await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }), rec));
                         }, { failClosed: true });
                     } catch (refundErr) {
                         console.error('[pvp/bounty] place credit-back failed', refundErr);
@@ -157,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false };
-                    await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }, rec));
+                    await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }), rec));
                     return { ok: true };
                 }, { failClosed: true });
                 if (!credit.ok) {
