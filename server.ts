@@ -81,6 +81,7 @@ import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js';
 import villageClaimMapControlHandler from './api/village/claim-map-control.js';
+import hireMercenaryHandler from './api/village/hire-mercenary.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -577,6 +578,9 @@ route('/village/claim-daily-agenda', villageClaimDailyAgendaHandler);
 // Village map-control — server-authoritative PERSONAL daily reward (server counts
 // owned world:territory:* sectors, computes payout, credits once/day via NX marker).
 route('/village/claim-map-control', villageClaimMapControlHandler);
+// Village war mercenaries — server-authoritative Honor Seal sink: hire a tiered
+// merc band (once/war/tier) that lands sealed war damage on the enemy village.
+route('/village/hire-mercenary', hireMercenaryHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
