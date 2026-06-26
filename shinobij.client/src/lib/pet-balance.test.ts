@@ -10,9 +10,11 @@ import {
     applyAuthoredPetJutsus,
     capPetStats,
     gainPetXp,
+    scaleWandererPetOpponent,
     PET_LEVEL_GROWTH,
     type PetTemplateArchetype,
 } from "./pet-balance";
+import { genericPetArenaOpponents } from "../data/pet-arena-opponents";
 import { rawPetPool } from "../data/pet-pool";
 import { petStatCaps, balancedPetBaseStats } from "../data/pet-stats";
 
@@ -23,6 +25,26 @@ const BUDGET: Record<PetRarity, number> = { standard: 0, rare: 1, legendary: 2, 
 const pool = rawPetPool.map(balanceBuiltInPetTemplate);
 const byRarity = (r: PetRarity) => pool.filter(p => p.rarity === r);
 const newMechCount = (p: Pet) => p.jutsus.filter(j => NEW_MECH.has(j.kind)).length;
+
+// ── scaleWandererPetOpponent ─────────────────────────────────────────────
+
+test("scaleWandererPetOpponent scales a generic arena pet toward a target level", () => {
+    const sparrow = genericPetArenaOpponents[0].pet; // level 8
+    const up = scaleWandererPetOpponent(sparrow, 40);
+    assert.equal(up.level, 40);
+    assert.equal(up.id, sparrow.id, "keeps the template id so PvE detection still works");
+    assert.ok(up.hp > sparrow.hp && up.attack > sparrow.attack, "scaled up");
+    assert.ok(up.jutsus.every(j => j.currentCooldown === 0), "cooldowns reset");
+    assert.ok(up.speed <= Math.round(sparrow.speed * 1.5), "speed capped at 1.5x");
+    // multiplier capped at 4x even for a huge level gap
+    const huge = scaleWandererPetOpponent(sparrow, 100);
+    assert.ok(huge.attack <= sparrow.attack * 4 + 1, "attack mult capped at ~4x");
+    // scaling DOWN is floored at 0.7x and stays weaker than the base
+    const apex = genericPetArenaOpponents[2].pet; // level 35
+    const down = scaleWandererPetOpponent(apex, 1);
+    assert.equal(down.level, 1);
+    assert.ok(down.attack < apex.attack && down.attack >= Math.round(apex.attack * 0.7) - 1, "down floored ~0.7x");
+});
 
 // ── petTemplateArchetype ─────────────────────────────────────────────────
 
