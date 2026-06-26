@@ -58,7 +58,16 @@ import { readFileSync } from "node:fs";
 // the pending debounced autosave after a successful immediate save [same-ref
 // guarded so a concurrent change isn't dropped], eliminating the redundant
 // immediate-save→autosave self-409. Lives in the App save core — cannot move out.
-const MAX_LINES = 10_156;
+// → 10,172 (+16 perf-audit load-speed wiring, NOT feature regrowth — this is a
+// DRAIN in spirit: ten heavy nav screens (ClanHall/StoryHall/StoryBoss/Training/
+// JutsuTrainingHall/Shop/GrandMarketplace/Dungeon×2/Bank/Profile/Missions/
+// HunterBoard/GuidesLibrary) converted from eager `import` to `lazyWithRetry`
+// dynamic imports, cutting the initial index chunk 2014KB→1102KB (−913KB) by
+// moving them + their data catalogs (storylines/guides) into on-demand chunks.
+// The lazy-const declarations must live at App's module top (+4). Also the
+// navigate/logoutPlayer latest-ref memo stabilizers (+6) and the clan-war poller
+// clan-gate (+1) — all reference App-local state, cannot move to a module.
+const MAX_LINES = 10_172;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
