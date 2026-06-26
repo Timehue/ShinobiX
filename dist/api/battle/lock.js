@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 // 1h — matches the client ArenaBattlePersister TTL so the lock and the
 // resumable state expire TOGETHER. If the lock outlived the resumable state
 // there'd be a window where a refresh finds a lock but no resume state and
@@ -116,7 +117,7 @@ async function handler(req, res) {
                                 ...fresh,
                                 character: { ...freshChar, hp: 0, hospitalized: true },
                             };
-                            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
+                            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)(updated), fresh));
                         }
                         await _storage_js_1.kv.del(key).catch(() => undefined);
                     });

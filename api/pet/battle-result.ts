@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 
 // Server-authoritative Pet Arena win recorder. Replaces the client-trusted
@@ -193,7 +194,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const placed = await kv.set(`pet:ranked-settled:${slug}:${matchToken}`, { role, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS } as never);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind: 'pet' });
                 if (placed) {
-                    await kv.set(sk, mergePreservingImages({ ...record, character: { ...char, ...r.patch } }, record));
+                    const updated = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
+                    await kv.set(sk, mergePreservingImages(updated, record));
                     return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
                 }
                 const cur = Number(char.petRankedRating);
@@ -278,6 +280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastDailyReset: today,
             };
             const updated = { ...record, character: updatedChar };
+            bumpSaveVersion(updated);
             await kv.set(saveKey, mergePreservingImages(updated, record));
             return {
                 ok: true,

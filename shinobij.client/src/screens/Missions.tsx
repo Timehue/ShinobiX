@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type React from "react";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
@@ -35,7 +36,7 @@ export function Missions({
     onMissionBattleStart,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorAis: CreatorAi[];
     creatorMissions: CreatorMission[];
     acceptedMissionIds: string[];
@@ -63,7 +64,7 @@ export function Missions({
         const result = await postClaimMission(character.name, "combat", mission.key);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (!result.applied) return alert(claimReasonMessage(result.reason));
-        updateCharacter(applyServerMissionReward(character, result, gainXp));
+        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo. +${result.reward.territoryScrolls} Territory Control Scroll${result.reward.territoryScrolls === 1 ? "" : "s"}.`);
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
@@ -73,7 +74,7 @@ export function Missions({
         const result = await postClaimMission(character.name, "academy-trial", "academy-trial");
         if (result === null) return alert("Could not reach the server. Try again.");
         if (!result.applied) return alert(claimReasonMessage(result.reason));
-        updateCharacter(applyServerMissionReward(character, result, gainXp));
+        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         alert(`Academy Trial complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina. Now open your Logbook to see your goals.`);
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
@@ -92,7 +93,7 @@ export function Missions({
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied) {
-            updateCharacter(applyServerMissionReward(character, result, gainXp));
+            updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
             setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
@@ -103,8 +104,11 @@ export function Missions({
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3);
-        updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) }));
+        updateCharacter((prev) => {
+            if (!prev) return prev;
+            const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards), 3);
+            return markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) });
+        });
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
         setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
         alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);

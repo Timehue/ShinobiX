@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _map_control_reward_js_1 = require("../_map-control-reward.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 /*
  * /api/village/claim-map-control  — POST only
  *
@@ -125,7 +126,8 @@ async function handler(req, res) {
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     fateShards: num(char.fateShards) + granted.fateShards,
                 };
-                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: nextChar }, rec));
+                const next = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
+                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, rec));
                 return { alreadyClaimed: false, granted };
             }, { failClosed: true });
             if ('error' in out)

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PODIUM_AURA_STONES = exports.CHAMPION_RELIC_ID = exports.SEASON_LENGTH_MS = exports.SEASON_ARCHIVE_PREFIX = exports.SEASON_CURRENT_KEY = void 0;
+exports.PODIUM_AURA_STONES = exports.CHAMPION_RELIC_ID = exports.SEASON_LENGTH_MS = exports.SEASON_REWARDED_PREFIX = exports.SEASON_ARCHIVE_PREFIX = exports.SEASON_CURRENT_KEY = void 0;
 exports.softResetRating = softResetRating;
 exports.leaderboard = leaderboard;
 exports.rewardPodium = rewardPodium;
@@ -33,9 +33,13 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _lock_js_1 = require("../_lock.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const SAVE_PREFIX = 'save:';
 exports.SEASON_CURRENT_KEY = 'ranked:season:current';
 exports.SEASON_ARCHIVE_PREFIX = 'ranked:season:archive:';
+// Per-season-per-player NX once-marker so a crash/restart between crediting some
+// podiums and advancing the season clock can't re-pay the additive reward.
+exports.SEASON_REWARDED_PREFIX = 'ranked:season:rewarded:';
 exports.SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000;
 const ARCHIVE_TTL_SECONDS = 400 * 24 * 60 * 60;
 const SEASON_LOCK_KEY = 'ranked:season:rollover-lock';
@@ -196,11 +200,23 @@ async function performRollover(fresh, now) {
                 const oldPet = num(char.petRankedRating ?? _ranked_rating_js_1.DEFAULT_RANKED_RATING);
                 const newP = softResetRating(oldP);
                 const newPet = softResetRating(oldPet);
-                // Skip a write when nothing changes (untouched 1000/1000, no reward).
-                if (newP === oldP && newPet === oldPet && !reward)
+                // The additive reward is non-idempotent (aura/relics/seasonsWon
+                // accumulate). A crash/restart between crediting some podiums and
+                // advancing the season clock (below) would re-run the whole
+                // rollover and double-pay. Gate the reward on a per-season-per-
+                // player NX once-marker: kv.set(...,{nx:true}) returns 'OK' only
+                // the first time, null thereafter. The soft reset stays ungated —
+                // it's idempotent (pulling 1000 → 1000 is a no-op).
+                let payReward = !!reward;
+                if (reward) {
+                    const marked = await _storage_js_1.kv.set(`${exports.SEASON_REWARDED_PREFIX}${fresh.id}:${slug}`, '1', { nx: true, ex: ARCHIVE_TTL_SECONDS }).catch(() => null);
+                    payReward = marked === 'OK';
+                }
+                // Skip a write when nothing changes (untouched 1000/1000, no reward to pay).
+                if (newP === oldP && newPet === oldPet && !payReward)
                     return;
                 const next = { ...char, rankedRating: newP, petRankedRating: newPet };
-                if (reward) {
+                if (reward && payReward) {
                     if (reward.auraStones > 0)
                         next.auraStones = num(char.auraStones) + reward.auraStones;
                     if (reward.relics > 0) {
@@ -209,9 +225,10 @@ async function performRollover(fresh, now) {
                         next.rankedSeasonsWon = num(char.rankedSeasonsWon) + reward.championOf.length;
                     }
                 }
-                await _storage_js_1.kv.set(`${SAVE_PREFIX}${slug}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: next }, rec));
+                const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: next });
+                await _storage_js_1.kv.set(`${SAVE_PREFIX}${slug}`, (0, _utils_js_1.mergePreservingImages)(updated, rec));
                 resetCount += 1;
-                if (reward)
+                if (reward && payReward)
                     rewardedCount += 1;
             }, { failClosed: true }).catch(() => undefined);
         };

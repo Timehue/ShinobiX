@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _bank_interest_js_1 = require("../_bank-interest.js");
 /*
  * /api/bank/claim-interest  — POST only
@@ -62,7 +63,8 @@ async function handler(req, res) {
                 }
                 const nextBankRyo = (Number(char.bankRyo) || 0) + result.interest;
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
-                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: nextChar }, rec));
+                const nextRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
+                await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(nextRecord, rec));
                 return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + _bank_interest_js_1.BANK_INTEREST_WINDOW_MS };
             }, { failClosed: true });
         }

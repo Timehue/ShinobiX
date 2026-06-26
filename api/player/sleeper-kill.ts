@@ -18,6 +18,7 @@ import {
     rankFromXp,
 } from '../pvp/_vanguard-rewards.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
@@ -238,7 +239,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
 
-                await kv.set(`save:${attackerSlug}`, mergePreservingImages({ ...aRec, character: updatedAttacker }, aRec));
+                const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker });
+                await kv.set(`save:${attackerSlug}`, mergePreservingImages(attackerRecord, aRec));
             }
 
             // KO the victim: HP 0 + hospitalized for the standard duration, and
@@ -254,7 +256,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hospitalizedUntil: now + HOSPITAL_DURATION_MS,
                 hospitalizedAt: now,
             };
-            await kv.set(`save:${targetSlug}`, mergePreservingImages({ ...tRec, currentSector: 0, character: koChar }, tRec));
+            const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, character: koChar });
+            await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
 
             return {
                 status: 200 as const,

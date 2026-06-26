@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
+import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, bumpSaveVersion } from './_save-version.js';
 
 describe('parseBaseSaveVersion', () => {
     it('returns the number for a valid finite version (including 0)', () => {
@@ -58,5 +58,36 @@ describe('saveVersionTelemetryKey', () => {
         const a = saveVersionTelemetryKey('2026-06-01T00:00:00.000Z');
         const b = saveVersionTelemetryKey('2026-06-01T23:59:59.999Z');
         assert.equal(a, b);
+    });
+});
+
+describe('bumpSaveVersion (server-credit optimistic-concurrency bump)', () => {
+    it('increments _saveVersion by 1 from the stored value', () => {
+        const rec = { _saveVersion: 4, character: { ryo: 100 } };
+        bumpSaveVersion(rec);
+        assert.equal(rec._saveVersion, 5);
+    });
+
+    it('treats an absent _saveVersion as 0 → first bump is 1', () => {
+        const rec: Record<string, unknown> = { character: { ryo: 0 } };
+        bumpSaveVersion(rec);
+        assert.equal(rec._saveVersion, 1);
+    });
+
+    it('stamps a numeric _saveAt and returns the same object reference', () => {
+        const rec = { _saveVersion: 0 } as Record<string, unknown>;
+        const out = bumpSaveVersion(rec);
+        assert.equal(out, rec);
+        assert.equal(typeof rec._saveAt, 'number');
+    });
+
+    it('forces a stale-tab 409: post-bump version exceeds the tab\'s base version', () => {
+        // A client tab loaded at version 3; a server credit then bumps the stored
+        // record. The next autosave echoes _baseSaveVersion:3, which must now be
+        // BELOW stored → the save handler 409s and the client refetches the credit.
+        const stored = { _saveVersion: 3, character: {} };
+        bumpSaveVersion(stored);
+        const tabBaseVersion = 3;
+        assert.ok(tabBaseVersion < Number(stored._saveVersion), 'stale tab must 409 after a credit');
     });
 });

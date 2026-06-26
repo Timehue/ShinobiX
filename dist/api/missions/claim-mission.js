@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Server-authoritative mission claim. Replaces the old client-side reward math
@@ -86,6 +87,8 @@ async function handler(req, res) {
                 const def = (0, _mission_catalog_js_1.combatMissionByKey)(missionId);
                 if (!def)
                     return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (Number(char.level ?? 1) < def.min)
+                    return { applied: false, reason: 'level' };
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims : [];
                 if (!pending.includes(def.key))
                     return { applied: false, reason: 'not-queued' };
@@ -208,6 +211,7 @@ async function handler(req, res) {
             if (academyTrialClaimed)
                 next = { ...next, academyTrialClaimed: true };
             const updated = { ...record, character: next };
+            (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             return {
                 applied: true,

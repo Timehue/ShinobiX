@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _weekly_board_js_1 = require("./_weekly-board.js");
 /*
  * /api/missions/weekly-board — GET (board + your progress) + POST (claim)
@@ -91,7 +92,8 @@ async function handler(req, res) {
             };
             const nextRecord = { baseline: record.baseline, claimed: [...record.claimed, mission.id] };
             await _storage_js_1.kv.set(key, nextRecord, { ex: RECORD_TTL_SECONDS });
-            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...save, character: nextChar }, save));
+            const updatedSave = (0, _save_version_js_1.bumpSaveVersion)({ ...save, character: nextChar });
+            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(updatedSave, save));
             return { status: 200, body: { ok: true, reward: r, missionId: mission.id } };
         }, { failClosed: true });
         if (out.status === 200 && out.body.ok && !out.body.alreadyClaimed) {

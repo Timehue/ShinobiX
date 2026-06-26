@@ -6,6 +6,7 @@ import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     reportMissionEvent,
     awardProfessionXp,
@@ -171,6 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
                     },
                 };
+                bumpSaveVersion(healed);
                 await kv.set(targetKey, mergePreservingImages(healed, fresh));
             });
             return res.status(200).json({ ok: true, kind: 'self', chargedRyo });
@@ -319,7 +321,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!fresh || !fChar) return { ok: false };
                 const have = Number(fChar.chakra ?? 0);
                 if (have < chakraCost) return { ok: false };
-                await kv.set(healerKey, mergePreservingImages({ ...fresh, character: { ...fChar, chakra: have - chakraCost } }, fresh));
+                const charged = bumpSaveVersion({ ...fresh, character: { ...fChar, chakra: have - chakraCost } });
+                await kv.set(healerKey, mergePreservingImages(charged, fresh));
                 return { ok: true };
             });
             if (!paid.ok) {
@@ -355,6 +358,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
                 },
             };
+            bumpSaveVersion(healedTarget);
             await kv.set(targetKey, mergePreservingImages(healedTarget, fresh));
         });
 

@@ -137,4 +137,30 @@ describe('mergePreservingImages', () => {
         // Sanity check: the helper is for object/array merge, not a universal preserver.
         assert.equal(mergePreservingImages(null, { foo: 'bar' }), null);
     });
+
+    it('FULL-REPLACES the equipment subtree so an unequipped slot is dropped (audit #3)', () => {
+        // The client clears a slot by ABSENCE (delete/undefined → omitted from JSON).
+        // Without the replace-subtree rule, the stored slot would be re-injected from
+        // `existing` and the gear would "come back" on reload (and dupe weapons/armor).
+        const existing = { character: { equipment: { hand: 'sword', head: 'helm', gloves: 'mitts' } } };
+        const incoming = { character: { equipment: { head: 'helm', gloves: 'mitts' } } }; // unequipped hand
+        const merged = mergePreservingImages(incoming, existing) as Record<string, Record<string, Record<string, unknown>>>;
+        assert.deepEqual(merged.character.equipment, { head: 'helm', gloves: 'mitts' }, 'cleared hand slot must NOT be re-injected');
+    });
+
+    it('FULL-REPLACES a pet loadout subtree so a spent consumable does not reappear (audit #3)', () => {
+        const existing = { pets: [{ id: 'p1', loadout: { consumable: 'pill', pve: 'charm' } }] };
+        const incoming = { pets: [{ id: 'p1', loadout: { pve: 'charm' } }] }; // consumable used up
+        const merged = mergePreservingImages(incoming, existing) as { pets: Array<{ loadout: Record<string, unknown> }> };
+        assert.deepEqual(merged.pets[0]!.loadout, { pve: 'charm' }, 'spent consumable must not be re-injected');
+    });
+
+    it('still preserves equipment when a PARTIAL payload omits the key entirely (no regression)', () => {
+        // A foreign/public projection has no `equipment` key at all → the replace
+        // branch never fires and the stored equipment is preserved (the save-wipe defense).
+        const existing = { character: { ryo: 5, equipment: { hand: 'sword' } } };
+        const incoming = { character: { ryo: 9 } };
+        const merged = mergePreservingImages(incoming, existing) as Record<string, Record<string, unknown>>;
+        assert.deepEqual(merged.character.equipment, { hand: 'sword' }, 'omitted equipment stays preserved');
+    });
 });

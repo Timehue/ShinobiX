@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { computeMapControlReward } from '../_map-control-reward.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 /*
  * /api/village/claim-map-control  — POST only
@@ -127,7 +128,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     fateShards: num(char.fateShards) + granted.fateShards,
                 };
-                await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: nextChar }, rec));
+                const next = bumpSaveVersion({ ...rec, character: nextChar });
+                await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
                 return { alreadyClaimed: false, granted };
             }, { failClosed: true });
             if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });

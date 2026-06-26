@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import { fetchWeeklyBoard, claimWeeklyMission, rewardText, type WeeklyBoard as Board } from "../lib/weekly-board";
 
-export function WeeklyBoard({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character) => void }) {
+export function WeeklyBoard({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void }) {
     const [board, setBoard] = useState<Board | null>(null);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState<string | null>(null);
@@ -26,11 +26,15 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
         setBusy(null);
         if (!res.ok) { alert(res.error || "Could not claim."); return; }
         if (res.reward) {
-            updateCharacter({
-                ...character,
-                ryo: character.ryo + (res.reward.ryo ?? 0),
-                fateShards: (character.fateShards ?? 0) + (res.reward.fateShards ?? 0),
-                boneCharms: (character.boneCharms ?? 0) + (res.reward.boneCharms ?? 0),
+            const reward = res.reward;
+            updateCharacter((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    ryo: prev.ryo + (reward.ryo ?? 0),
+                    fateShards: (prev.fateShards ?? 0) + (reward.fateShards ?? 0),
+                    boneCharms: (prev.boneCharms ?? 0) + (reward.boneCharms ?? 0),
+                };
             });
             alert(`Reward claimed: ${rewardText(res.reward)}.`);
         }

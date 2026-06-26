@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
 // Server-authoritative Pet Arena win recorder. Replaces the client-trusted
 // ryo + totalPetWins increment that lived in the PetArena component.
@@ -194,7 +195,8 @@ async function handler(req, res) {
                 const placed = await _storage_js_1.kv.set(`pet:ranked-settled:${slug}:${matchToken}`, { role, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS });
                 const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind: 'pet' });
                 if (placed) {
-                    await _storage_js_1.kv.set(sk, (0, _utils_js_1.mergePreservingImages)({ ...record, character: { ...char, ...r.patch } }, record));
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, ...r.patch } });
+                    await _storage_js_1.kv.set(sk, (0, _utils_js_1.mergePreservingImages)(updated, record));
                     return { field: 'petRankedRating', value: r.newRating, delta: r.delta };
                 }
                 const cur = Number(char.petRankedRating);
@@ -276,6 +278,7 @@ async function handler(req, res) {
                 lastDailyReset: today,
             };
             const updated = { ...record, character: updatedChar };
+            (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             return {
                 ok: true,

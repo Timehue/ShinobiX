@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
 
 /*
@@ -60,7 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(questKey, { id: questId, baseline, at: Date.now() }, { ex: QUEST_TTL_SECONDS });
                 // Display mirror on the save (server never trusts this back).
                 const updated = { ...char, activeWandererQuest: { id: questId, target: def.target, baseline } };
-                await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
+                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                 return { status: 200, body: { ok: true, id: questId, target: def.target, baseline } };
             }, { failClosed: true });
 
@@ -89,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const reward = wandererQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
-                await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
+                await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                 await kv.del(questKey).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
             }, { failClosed: true });

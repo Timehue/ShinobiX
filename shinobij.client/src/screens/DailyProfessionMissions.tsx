@@ -43,6 +43,12 @@ export function DailyProfessionMissions({ character }: { character: Character })
     // Track which mission IDs we've already seen as completed so we don't
     // double-toast on subsequent polls.
     const seenCompletedRef = useRef<Set<string>>(new Set());
+    // Whether the first poll for this profession/name has completed. Used to
+    // decide if a completion is pre-existing (seed silently) vs newly earned
+    // (toast). A ref — not `data` — so the long-lived poll closure observes the
+    // real seeded state rather than the stale `data === null` captured at
+    // effect-creation time.
+    const seededRef = useRef(false);
 
     useEffect(() => {
         // Fetch for everyone — players without a profession get the new-shinobi
@@ -53,6 +59,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
         // and new completions silently fail to toast because they're
         // marked as "already seen".
         seenCompletedRef.current = new Set();
+        seededRef.current = false;
         let cancelled = false;
         async function fetchMissions() {
             try {
@@ -67,7 +74,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                 // Detect newly-completed missions vs prior view and toast.
                 // First poll seeds the ref so existing completions don't fire.
                 const incoming = json.missions ?? [];
-                const isFirstPoll = seenCompletedRef.current.size === 0 && !data;
+                const isFirstPoll = !seededRef.current;
                 for (const m of incoming) {
                     if (!m.completedAt) continue;
                     if (seenCompletedRef.current.has(m.id)) continue;
@@ -78,6 +85,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
                         }));
                     }
                 }
+                seededRef.current = true;
                 setData(json);
                 setLoading(false);
             } catch {
@@ -92,7 +100,6 @@ export function DailyProfessionMissions({ character }: { character: Character })
         // shows up without requiring a full screen refresh.
         const stop = visiblePoll(() => void fetchMissions(), 30_000);
         return () => { cancelled = true; stop(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.profession, character.name]);
 
     const prof = character.profession;

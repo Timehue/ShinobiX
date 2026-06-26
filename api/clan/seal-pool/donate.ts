@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import { bumpSaveVersion } from '../../save/_save-version.js';
 import { loadPool, savePool } from './_storage.js';
 
 // Vanguards donate Honor Seals to their clan's pool. Per-day cumulative cap
@@ -94,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyDonationDate: today,
                 },
             };
+            bumpSaveVersion(updatedRecord);
             await kv.set(saveKey, mergePreservingImages(updatedRecord, record));
 
             // Credit the shared clan pool under the pool's OWN lock. The outer

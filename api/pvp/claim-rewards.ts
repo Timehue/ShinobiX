@@ -9,6 +9,7 @@ import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
 import { patchBattleSettlement } from '../_receipts.js';
 import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
@@ -162,15 +163,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (claimerRole && Object.keys(usedByClaimer).length > 0) {
             try {
                 await withSavesLocked([playerName], async () => {
+                    // Exactly-once is enforced by the save: lock (concurrent claims
+                    // for this player serialize here) + an idempotency receipt READ
+                    // before the work. The receipt is only SET after the save write
+                    // succeeds (#19): if the write throws, the receipt is never
+                    // placed, so a retry re-does the deduction instead of skipping
+                    // it and letting the player keep items the server marked used.
                     const consumedKey = `pvp:items-consumed:${playerName}:${battleId}`;
-                    const placed = await kv.set(consumedKey, { ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-                    if (!placed) return; // already deducted on a prior claim
+                    const already = await kv.get(consumedKey);
+                    if (already) return; // already deducted on a prior claim
                     const saveKey = `save:${playerName}`;
                     const record = await kv.get<Record<string, unknown>>(saveKey);
                     const char = record?.character as Record<string, unknown> | undefined;
                     if (!record || !char) return;
                     const updated = deductUsedItems(char, usedByClaimer);
-                    await kv.set(saveKey, mergePreservingImages({ ...record, character: updated }, record));
+                    const next = bumpSaveVersion({ ...record, character: updated });
+                    await kv.set(saveKey, mergePreservingImages(next, record));
+                    // Receipt set ONLY after the write lands — retry-safe deduction.
+                    await kv.set(consumedKey, { ts: Date.now() }, { ex: CLAIM_TTL_SECONDS } as never);
                 });
             } catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
         }
@@ -238,7 +248,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const placed = await kv.set(`pvp:ranked-rating:${slug}:${battleId}`, { role, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
                 if (placed) {
-                    await kv.set(saveKey, mergePreservingImages({ ...record, character: { ...char, ...r.patch } }, record));
+                    const next = bumpSaveVersion({ ...record, character: { ...char, ...r.patch } });
+                    await kv.set(saveKey, mergePreservingImages(next, record));
                     return { field: ratingField, value: r.newRating, delta: r.delta };
                 }
                 const cur = Number(char[ratingField]);
@@ -268,7 +279,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const dXp = Math.max(0, Math.floor(xpGain * decay));
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = creditPvpWinBase(char, dXp, dRyo);
-                    await kv.set(saveKey, mergePreservingImages({ ...record, character: credit.char }, record));
+                    const next = bumpSaveVersion({ ...record, character: credit.char });
+                    await kv.set(saveKey, mergePreservingImages(next, record));
                     return credit.summary;
                 }
                 return {

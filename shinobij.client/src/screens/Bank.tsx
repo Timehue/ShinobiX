@@ -8,7 +8,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 // figure shown here matches the server's authoritative payout. Keep in lockstep.
 const BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
 
-export function Bank({ character, updateCharacter, onBack }: { character: Character; updateCharacter: (character: Character) => void; onBack: () => void }) {
+export function Bank({ character, updateCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
     // ── Direct transfer (player-to-player send) state ──
     const [sendTo, setSendTo] = useState("");
@@ -32,7 +32,10 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         if (!res.ok) return alert(res.error || "Could not send.");
         if (res.duplicate) return alert("That transfer was already sent.");
         // Server is authoritative — reflect the debit locally so autosave converges.
-        updateCharacter({ ...character, [sendCurr]: sendBalance - (res.debit ?? value) });
+        // Functional updater: deduct off the LATEST character, not the stale render
+        // capture, so a concurrent currency change isn't clobbered.
+        const debit = res.debit ?? value;
+        updateCharacter((prev) => prev ? ({ ...prev, [sendCurr]: Math.max(0, Math.floor(Number((prev as unknown as Record<string, unknown>)[sendCurr] ?? 0)) - debit) }) : prev);
         setSendAmount(0);
         setSendTo("");
         alert(`Sent ${(res.debit ?? value).toLocaleString()} ${TRADE_CURRENCY_LABELS[sendCurr]} to ${res.toPlayer ?? to}. They received ${(res.credit ?? 0).toLocaleString()} (${(res.burned ?? 0).toLocaleString()} burned as tax).`);
@@ -85,7 +88,9 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
         if (!data.eligible || !data.claimed || data.claimed <= 0) {
             return alert("Bank interest isn't available yet — try again later.");
         }
-        updateCharacter({ ...character, bankRyo: character.bankRyo + data.claimed, lastBankInterestAt: data.lastBankInterestAt ?? Date.now() });
+        const claimed = data.claimed;
+        const claimedAt = data.lastBankInterestAt ?? Date.now();
+        updateCharacter((prev) => prev ? ({ ...prev, bankRyo: prev.bankRyo + claimed, lastBankInterestAt: claimedAt }) : prev);
         alert(`Bank interest claimed: +${data.claimed.toLocaleString()} ryo.`);
     }
 
