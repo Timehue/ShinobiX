@@ -20,16 +20,25 @@
 >   baseline + verified clear + daily cap).
 > - **Gift** (pilgrim): server-rolled bundle — small ryo + an occasional fate shard
 >   + 1–5 bone charms, daily-capped (`api/sector/wanderer-gift.ts`).
-> - **Quest** (sage): 5 varied, server-verified objectives (win battles / pet duels
->   / card rounds / scout tiles) with sealed baseline + reward
->   (`api/sector/wanderer-quest.ts`).
+> - **Quest** (sage): **9** varied, server-verified objectives (win battles / pet
+>   duels / card rounds / scout tiles, at two difficulty tiers each) with sealed
+>   baseline + reward (`api/sector/wanderer-quest.ts`).
 > - **Pet duel** (beast) → existing Pet Coliseum; **Card clash** (gambler) → existing
 >   Card Hall. Both reuse those modes' existing, server-safe reward paths.
-> - **Not yet built** from the depth layer below: the full multi-stage quest book
->   (§11 of the content doc), the persistent nemesis/bounty-board rivalry, the
->   reputation/standing layer, faction/war reactivity, and bespoke boss art (no
->   image-gen keys in the build env). `dist/` is left to a canonical rebuild before
->   enabling cPanel (Railway builds from source).
+> - **Nemesis rivalry** *(depth layer, shipped):* a bandit who beats you in a sector
+>   duel becomes your **nemesis** (`character.wandererNemesis` — name + escalating
+>   tier). While you carry a rival, a bandit you meet has ~45% chance of *being* that
+>   rival, back for more — its own **scarred portrait**, a grudge line, and a fight
+>   scaled to `player + tier`. Beat it and the rivalry ends ("Revenge."); lose and it
+>   grows bolder. Client-only, reusing the arena fight + the win/loss handoff.
+> - **Distinct gang faces** *(shipped):* the three ambush robbers wear three bespoke
+>   gpt-image-1 portraits (no more cloned bandit), and the boss + nemesis have their
+>   own art.
+> - **Not yet built** from the depth layer below: the full multi-stage quest *book*
+>   (§11 of the content doc — these are single-objective bounties, not chained
+>   arcs), the bounty-board framing, the reputation/standing layer, and faction/war
+>   reactivity. `dist/` is left to a canonical rebuild before enabling cPanel
+>   (Railway builds from source).
 >
 > The rest of this doc is the **original design plan** (more ambitious than what
 > shipped); keep it as the north star for future passes.
