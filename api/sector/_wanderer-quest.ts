@@ -28,11 +28,15 @@ export interface WandererQuestDef {
 }
 
 export const WANDERER_QUESTS: Record<string, WandererQuestDef> = {
-    "wq-cull":   { metric: "totalAiKills",       target: 3,  weight: 3 },
-    "wq-purge":  { metric: "totalAiKills",       target: 6,  weight: 6 },
-    "wq-beasts": { metric: "totalPetWins",       target: 2,  weight: 4 },
-    "wq-cards":  { metric: "cardClashWins",      target: 2,  weight: 2 },
-    "wq-scout":  { metric: "totalTilesExplored", target: 10, weight: 3 },
+    "wq-cull":       { metric: "totalAiKills",       target: 3,  weight: 3 },
+    "wq-purge":      { metric: "totalAiKills",       target: 6,  weight: 6 },
+    "wq-warpath":    { metric: "totalAiKills",       target: 10, weight: 9 },
+    "wq-beasts":     { metric: "totalPetWins",       target: 2,  weight: 4 },
+    "wq-menagerie":  { metric: "totalPetWins",       target: 4,  weight: 7 },
+    "wq-cards":      { metric: "cardClashWins",      target: 2,  weight: 2 },
+    "wq-highroller": { metric: "cardClashWins",      target: 4,  weight: 4 },
+    "wq-scout":      { metric: "totalTilesExplored", target: 10, weight: 3 },
+    "wq-trailblaze": { metric: "totalTilesExplored", target: 25, weight: 6 },
 };
 
 export function isWandererQuestId(id: string): boolean {

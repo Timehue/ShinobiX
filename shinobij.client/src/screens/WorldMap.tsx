@@ -14,7 +14,7 @@ import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
-import { wandererAvatar, WANDERER_BOSS_PORTRAIT } from "../lib/wanderer-art";
+import { wandererAvatar, wandererRobberPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { createPortal } from "react-dom";
@@ -511,10 +511,10 @@ export function WorldMap({
     // own existing (server-safe) rewards, so there's no new currency surface.
     const WANDERER_PENDING_KEY = "wandererFight.pending.v1";
 
-    function buildRobberAi(level: number, tag: string): CreatorAi {
+    function buildRobberAi(level: number, tag: string, stage = 0): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
         const ai = makeBuiltinAi(`wanderer-rob-${tag}-${lvl}`, "Road Bandit", "🥷", lvl, "Wandering Road", [], 0, undefined, "bruiser");
-        ai.image = wandererAvatar("bandit");
+        ai.image = wandererRobberPortrait(stage); // a different face per gang member
         return ai;
     }
     function buildBossAi(level: number): CreatorAi {
@@ -543,7 +543,7 @@ export function WorldMap({
         // is its own special encounter and skips the ambush.)
         if (!nemesis && (character.robberStreak ?? 0) >= 5) {
             fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", playerName: character.name }) }).catch(() => { /* ignore */ });
-            launchWandererArenaFight(buildRobberAi(character.level, "amb0"), "ambush", 0, selectedSector);
+            launchWandererArenaFight(buildRobberAi(character.level, "amb0", 0), "ambush", 0, selectedSector);
             return;
         }
         // A lone robber that fights as THIS wanderer — or your returning nemesis,
@@ -553,13 +553,13 @@ export function WorldMap({
         const name = nem ? nem.name : w.name;
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
         const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
-        ai.image = nem ? wandererAvatar("bandit") : wandererAvatar(w.avatarKey);
+        ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
         launchWandererArenaFight(ai, "single", 0, selectedSector, { name, level: lvl, nemesis: !!nem });
     }
     function launchAmbushStage(stage: number, sector: number) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
         // scaled to the player so the gauntlet is hard, not impossible.
-        const ai = stage >= 3 ? buildBossAi(character.level + 3) : buildRobberAi(character.level + stage, `amb${stage}`);
+        const ai = stage >= 3 ? buildBossAi(character.level + 3) : buildRobberAi(character.level + stage, `amb${stage}`, stage);
         launchWandererArenaFight(ai, "ambush", stage, sector);
     }
     async function claimAmbushReward() {
