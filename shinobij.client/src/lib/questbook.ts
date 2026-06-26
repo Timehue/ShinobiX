@@ -129,6 +129,8 @@ export interface QuestBossSpec {
     /** key WorldMap maps to a portrait image (reuses the wanderer art for now) */
     portraitKey: "bandit2" | "bandit3" | "boss" | "nemesis" | "beast";
     boss?: boolean;
+    /** the capstone boss escalates with the player's wanderer-rivalry tier */
+    scalesWithRivalry?: boolean;
 }
 
 export const QUEST_BOSSES: Record<string, QuestBossSpec> = {
@@ -141,7 +143,7 @@ export const QUEST_BOSSES: Record<string, QuestBossSpec> = {
     "house-kuroban":       { name: "Kuroban, the Bodyguard", icon: "🗡️", statBonus: 4, loadoutId: "bruiser",  levelOffset: 1, portraitKey: "boss", boss: true },
     "ashbound-cinder":     { name: "Cinder",                 icon: "🔥", statBonus: 3, loadoutId: "burst",    levelOffset: 0, portraitKey: "bandit2" },
     "ashbound-slag":       { name: "Slag",                   icon: "🪨", statBonus: 4, loadoutId: "defender", levelOffset: 0, portraitKey: "bandit3" },
-    "kazan-ashbound":      { name: "Kazan the Ashbound",     icon: "🌋", statBonus: 8, loadoutId: "boss",     levelOffset: 3, portraitKey: "boss", boss: true },
+    "kazan-ashbound":      { name: "Kazan the Ashbound",     icon: "🌋", statBonus: 8, loadoutId: "boss",     levelOffset: 3, portraitKey: "boss", boss: true, scalesWithRivalry: true },
 };
 
 export function questbookEntry(id: string | null | undefined): QuestBookEntry | null {
@@ -205,6 +207,17 @@ export function bossStatBonusFromChoices(
         if (opt?.bossStatBonus) bonus += opt.bossStatBonus;
     }
     return bonus;
+}
+
+/**
+ * The capstone's Kazan reflects YOUR specific rivalry: the more times your nemesis
+ * has bested you on the road (wandererNemesis.tier), the harder his promoted form —
+ * extra level + stat bonus, both capped so it stays very-hard, not impossible. A
+ * fresh tier-1 rivalry barely bumps him; a long-running grudge makes him a wall.
+ */
+export function rivalryEscalation(tier: number | null | undefined): { level: number; stat: number } {
+    const t = Math.max(0, Math.floor(Number(tier) || 0));
+    return { level: Math.min(12, t * 2), stat: Math.min(8, t * 2) };
 }
 
 /** mm:ss left on a timed stage, or null if no deadline / already expired. */
