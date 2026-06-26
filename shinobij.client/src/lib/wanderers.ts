@@ -67,7 +67,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         verb: "gamble",
         weight: 0.2,
         tellTint: "#ffd24a",
-        names: ["Saji Two-Coins", "Lady Miraa", "Old Tatsu", "Kael of Sixes"],
+        names: ["Saji Two-Coins", "Miraa the Sly", "Old Tatsu", "Kael of Sixes"],
         greetings: [
             "Care for a hand of cards, friend?",
             "Three locations, one purse. You in?",
@@ -78,7 +78,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         verb: "gift",
         weight: 0.2,
         tellTint: "#7be0a3",
-        names: ["Sister Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
+        names: ["Brother Yuki", "Brother Mibu", "Wandering Aki", "Old Doteki"],
         greetings: [
             "Rest a moment, traveler. The road is long.",
             "A blessing for the road — take it.",
@@ -100,7 +100,7 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         verb: "quest",
         weight: 0.15,
         tellTint: "#8fd0ff",
-        names: ["Wandering Sage", "Old Hermit Roku", "Sister Kaede", "The Grey Pilgrim", "Master Tobei"],
+        names: ["Wandering Sage", "Old Hermit Roku", "Hermit Kaede", "The Grey Pilgrim", "Master Tobei"],
         greetings: [
             "These roads aren't safe, traveler. Lend your blade to a task?",
             "The wilds grow bold. I'd ask a favor of a capable shinobi.",
