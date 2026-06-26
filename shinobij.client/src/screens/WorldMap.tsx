@@ -523,7 +523,7 @@ export function WorldMap({
         ai.image = WANDERER_BOSS_PORTRAIT;
         return ai;
     }
-    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush", stage: number, sector: number) {
+    function launchWandererArenaFight(ai: CreatorAi, mode: "single" | "ambush", stage: number, sector: number, extra: Record<string, unknown> = {}) {
         const b = biomeForSector(sector);
         registerWandererAi(ai);
         setCurrentSector(sector);
@@ -533,25 +533,28 @@ export function WorldMap({
         setPendingAiProfileId(ai.id);
         setRaidBattleKind("raidAi");
         try {
-            localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode, stage, sector, baselineKills: character.totalAiKills ?? 0, at: Date.now() }));
+            localStorage.setItem(WANDERER_PENDING_KEY, JSON.stringify({ mode, stage, sector, baselineKills: character.totalAiKills ?? 0, at: Date.now(), ...extra }));
         } catch { /* private mode — chain just won't auto-continue */ }
         setScreen("arena");
     }
-    function startWandererAttack(w: Wanderer) {
+    function startWandererAttack(w: Wanderer, nemesis = false) {
         if (selectedSector == null) return;
-        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss.
-        if ((character.robberStreak ?? 0) >= 5) {
-            // Seal the boss-reward baseline server-side (fire-and-forget; if it
-            // fails the fights still pay, just no boss-clear bonus).
+        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. (A nemesis duel
+        // is its own special encounter and skips the ambush.)
+        if (!nemesis && (character.robberStreak ?? 0) >= 5) {
             fetch("/api/sector/wanderer-ambush", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start", playerName: character.name }) }).catch(() => { /* ignore */ });
             launchWandererArenaFight(buildRobberAi(character.level, "amb0"), "ambush", 0, selectedSector);
             return;
         }
-        // A lone robber that fights as THIS wanderer, scaled to the player (+1).
-        const lvl = Math.max(1, Math.min(100, character.level + 1));
-        const ai = makeBuiltinAi(`wanderer-${w.id}`, w.name, "🥷", lvl, "Wandering Road", [], 0, undefined, w.archetype === "bandit" ? "bruiser" : "balanced");
-        ai.image = wandererAvatar(w.avatarKey);
-        launchWandererArenaFight(ai, "single", 0, selectedSector);
+        // A lone robber that fights as THIS wanderer — or your returning nemesis,
+        // escalated by its tier — always scaled to the player.
+        const nem = nemesis ? (character.wandererNemesis ?? null) : null;
+        const lvl = Math.max(1, Math.min(100, character.level + (nem ? Math.max(1, nem.tier) : 1)));
+        const name = nem ? nem.name : w.name;
+        const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
+        const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
+        ai.image = nem ? wandererAvatar("bandit") : wandererAvatar(w.avatarKey);
+        launchWandererArenaFight(ai, "single", 0, selectedSector, { name, level: lvl, nemesis: !!nem });
     }
     function launchAmbushStage(stage: number, sector: number) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
@@ -575,15 +578,32 @@ export function WorldMap({
         updateCharacter({ ...character, robberStreak: 0 });
         setTimeout(() => alert("You broke the ambush and felled their warlord! The roads are yours again."), 40);
     }
-    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number }) {
+    function resolveWandererFight(p: { mode: string; stage: number; sector: number; baselineKills: number; name?: string; level?: number; nemesis?: boolean }) {
         const won = (character.totalAiKills ?? 0) > (p.baselineKills ?? 0);
         if (p.mode === "single") {
             if (won) {
-                const next = (character.robberStreak ?? 0) + 1;
-                updateCharacter({ ...character, robberStreak: next });
-                if (next === 5) setTimeout(() => alert("You've fended off 5 robbers. They're gathering against you — the next bandit you cross will spring an ambush."), 40);
-            } else if ((character.robberStreak ?? 0) !== 0) {
-                updateCharacter({ ...character, robberStreak: 0 });
+                if (p.nemesis) {
+                    // Revenge complete — the rival is gone for good.
+                    updateCharacter({ ...character, wandererNemesis: null, robberStreak: (character.robberStreak ?? 0) + 1 });
+                    setTimeout(() => alert(`You put your rival ${p.name ?? "the bandit"} in the dirt at last. Revenge.`), 40);
+                } else {
+                    const next = (character.robberStreak ?? 0) + 1;
+                    updateCharacter({ ...character, robberStreak: next });
+                    if (next === 5) setTimeout(() => alert("You've fended off 5 robbers. They're gathering against you — the next bandit you cross will spring an ambush."), 40);
+                }
+            } else {
+                const cur = character.wandererNemesis;
+                if (p.nemesis && cur) {
+                    // The rival beats you again and grows bolder.
+                    updateCharacter({ ...character, wandererNemesis: { ...cur, tier: (cur.tier ?? 1) + 1 }, robberStreak: 0 });
+                    setTimeout(() => alert(`${cur.name} bests you again, and grows bolder. This isn't over.`), 40);
+                } else if (!cur && p.name) {
+                    // A bandit who beats you becomes your nemesis — they'll be back.
+                    updateCharacter({ ...character, wandererNemesis: { name: p.name, level: p.level ?? character.level, tier: 1 }, robberStreak: 0 });
+                    setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name — and they'll be back.`), 40);
+                } else if ((character.robberStreak ?? 0) !== 0) {
+                    updateCharacter({ ...character, robberStreak: 0 });
+                }
             }
             return;
         }
@@ -613,16 +633,23 @@ export function WorldMap({
         let raw: string | null;
         try { raw = localStorage.getItem(WANDERER_PENDING_KEY); if (raw) localStorage.removeItem(WANDERER_PENDING_KEY); } catch { return; }
         if (!raw) return;
-        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number };
+        let p: { mode: string; stage: number; sector: number; baselineKills: number; at: number; name?: string; level?: number; nemesis?: boolean };
         try { p = JSON.parse(raw); } catch { return; }
         if (!p || Date.now() - (p.at || 0) > 30 * 60 * 1000) return;
         resolveWandererFight(p);
     }, []);
-    // Non-combat wanderer interaction (gift now; gamble/quest hooks land in later
-    // slices). The dialog is the only UI; rewards are server-authoritative.
-    type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean };
+    // Wanderer interaction dialog. `nemesis` flags a bandit encounter that's
+    // actually your returning rival. The dialog is the only UI; rewards are
+    // server-authoritative.
+    type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
     function handleWandererEngage(w: Wanderer) {
+        // A bandit you face while you have a rival has a chance of BEING that rival,
+        // back for more.
+        if (w.verb === "attack" && character.wandererNemesis && Math.random() < 0.45) {
+            setWandererDialog({ w, nemesis: true });
+            return;
+        }
         // Every wanderer — bandits included — opens a dialog first (a threat line
         // + Fight/Flee for bandits; greetings + actions for the rest).
         setWandererDialog({ w });
@@ -1643,12 +1670,12 @@ export function WorldMap({
                                             alt={wandererDialog.w.name}
                                             style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
                                         />
-                                        <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
-                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv {wandererDialog.w.level}</p>
-                                        <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
+                                        <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
+                                        <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
+                                        <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time — you won't this time."` : wandererDialog.w.greeting)}</p>
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                                <button onClick={() => startWandererAttack(wandererDialog.w)}>Fight</button>
+                                                <button onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
                                                 <button onClick={() => setWandererDialog(null)}>Flee</button>
                                             </div>
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
