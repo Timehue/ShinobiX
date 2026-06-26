@@ -251,6 +251,9 @@ export type Character = {
     // Consecutive sector-wanderer robbers fended off. At 5 the next bandit springs
     // an ambush (3 robbers + a boss); resets to 0 on a loss or after the ambush.
     robberStreak?: number;
+    // A bandit who beat you becomes your rival — it returns (escalating with each
+    // win over you) until you put it down. Additive/optional. tier = times it bested you.
+    wandererNemesis?: { name: string; level: number; tier: number } | null;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
