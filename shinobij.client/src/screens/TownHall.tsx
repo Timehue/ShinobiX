@@ -47,7 +47,7 @@ function formatObligation(ms: number): string {
     return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void }) {
+export function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
@@ -207,7 +207,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         if (character.ryo < amount) return alert("Not enough ryo.");
         const treasury = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
         if (!treasury) return;
-        updateCharacter({ ...character, ryo: character.ryo - amount });
+        updateCharacter(prev => prev ? ({ ...prev, ryo: prev.ryo - amount }) : prev);
         updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
     }
     async function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) {
@@ -215,7 +215,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         if (current < 1) return alert(`Not enough ${currency}.`);
         const treasury = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
         if (!treasury) return;
-        updateCharacter({ ...character, [currency]: current - 1 } as Character);
+        updateCharacter(prev => prev ? ({ ...prev, [currency]: (prev[currency] ?? 0) - 1 } as Character) : prev);
         updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
     }
     async function donateVillageItem() {
@@ -223,7 +223,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         if (!ownsItem(character, villageDonateItemId)) return alert("You do not have that item.");
         const treasury = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
         if (!treasury) return;
-        updateCharacter(removeItem(character, villageDonateItemId, 1));
+        updateCharacter(prev => prev ? removeItem(prev, villageDonateItemId, 1) : prev);
         updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
     }
     async function sendVillageCurrency() {
@@ -259,7 +259,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         // If the recipient is the actor (Kage gifting themselves), credit
         // their in-memory character too so the UI updates immediately.
         if (villageSendPlayer === character.name) {
-            updateCharacter({ ...character, [villageSendCurrency]: (character[villageSendCurrency] ?? 0) + amount } as Character);
+            updateCharacter(prev => prev ? ({ ...prev, [villageSendCurrency]: (prev[villageSendCurrency] ?? 0) + amount } as Character) : prev);
         }
         updateVillageState(addNotice(`${character.name} gifted ${amount.toLocaleString()} ${villageSendCurrency} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, [villageSendCurrency]: state.treasury[villageSendCurrency] - amount } }));
     }
@@ -286,11 +286,11 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             return alert(`Transfer failed: ${(err as Error).message}`);
         }
         if (villageSendPlayer === character.name) {
-            updateCharacter(addItem(character, villageSendItemId, 1));
+            updateCharacter(prev => prev ? addItem(prev, villageSendItemId, 1) : prev);
         }
         updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
     }
-    async function toggleTownGuard() { const queued = character.guardQueued ?? false; setGuardBusy(true); if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter({ ...character, guardQueued: false }); updateVillageState(addNotice(`${character.name} left the Village Guard queue.`)); } else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter({ ...character, guardQueued: true }); updateVillageState(addNotice(`${character.name} joined the Village Guard queue with +${getTownDefenseGuardBonus(character).toFixed(1)}% defense.`)); } setGuardBusy(false); }
+    async function toggleTownGuard() { const queued = character.guardQueued ?? false; setGuardBusy(true); if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter(prev => prev ? ({ ...prev, guardQueued: false }) : prev); updateVillageState(addNotice(`${character.name} left the Village Guard queue.`)); } else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter(prev => prev ? ({ ...prev, guardQueued: true }) : prev); updateVillageState(addNotice(`${character.name} joined the Village Guard queue with +${getTownDefenseGuardBonus(character).toFixed(1)}% defense.`)); } setGuardBusy(false); }
     const isSeatedKage = state.seatedKage === character.name;
     const hollowGateOpen = isHollowGateUnlocked(state);
     const hollowGateUntil = state.hollowGateUnlockedUntil ?? 0;
@@ -331,7 +331,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         // Reflect the server-side 500-seal debit locally; the autosave re-asserts
         // the debited balance and the two converge (same pattern as the agenda /
         // map-control reward endpoints).
-        updateCharacter({ ...character, honorSeals: Math.max(0, (character.honorSeals ?? 0) - KAGE_CHALLENGE_SEAL_COST) });
+        updateCharacter(prev => prev ? ({ ...prev, honorSeals: Math.max(0, (prev.honorSeals ?? 0) - KAGE_CHALLENGE_SEAL_COST) }) : prev);
         setServerKage(prev => prev ? { ...prev, challenge: data.challenge ?? prev.challenge } : prev);
         alert(`Challenge declared against ${seatedKage}. Catch them online and send the official duel — they must accept it or forfeit the seat.`);
     }
@@ -456,15 +456,15 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
             const nextState = normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, contributionPoints: state.contributionPoints + 15, treasury: serverTreasury });
             updateVillageState(addNotice(`${character.name} completed today's village agenda. Village treasury gained Honor Seals, ryo, and Bone Charms.`, nextState));
         }
-        updateCharacter({
-            ...character,
+        updateCharacter(prev => prev ? ({
+            ...prev,
             claimedVillageAgendaDate: agenda.date,
             ...(grant ? {
-                ryo: character.ryo + grant.ryo,
-                honorSeals: (character.honorSeals ?? 0) + grant.honorSeals,
-                boneCharms: (character.boneCharms ?? 0) + grant.boneCharms,
+                ryo: prev.ryo + grant.ryo,
+                honorSeals: (prev.honorSeals ?? 0) + grant.honorSeals,
+                boneCharms: (prev.boneCharms ?? 0) + grant.boneCharms,
             } : {}),
-        });
+        }) : prev);
         if (data.alreadyClaimed && !grant) return alert("Today's village agenda was already claimed.");
     }
     const mapControlClaimed = character.claimedMapControlDate === currentDateKey();
@@ -496,16 +496,16 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         }
         const grant = (!data.alreadyClaimed && data.granted) ? data.granted : null;
         const serverSectors = Math.max(0, Math.floor(Number(data.sectors ?? 0)));
-        updateCharacter({
-            ...character,
+        updateCharacter(prev => prev ? ({
+            ...prev,
             claimedMapControlDate: currentDateKey(),
             ...(grant ? {
-                ryo: character.ryo + grant.ryo,
-                honorSeals: (character.honorSeals ?? 0) + grant.honorSeals,
-                boneCharms: (character.boneCharms ?? 0) + grant.boneCharms,
-                fateShards: (character.fateShards ?? 0) + grant.fateShards,
+                ryo: prev.ryo + grant.ryo,
+                honorSeals: (prev.honorSeals ?? 0) + grant.honorSeals,
+                boneCharms: (prev.boneCharms ?? 0) + grant.boneCharms,
+                fateShards: (prev.fateShards ?? 0) + grant.fateShards,
             } : {}),
-        });
+        }) : prev);
         if (grant) {
             updateVillageState(addNotice(`${character.name} claimed map control rewards from ${serverSectors} village sector${serverSectors === 1 ? "" : "s"}.`, { ...state, contributionPoints: state.contributionPoints + serverSectors }));
         } else if (data.alreadyClaimed) {
@@ -542,11 +542,11 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         } finally {
             setMercBusy(null);
         }
-        updateCharacter({
-            ...character,
-            honorSeals: typeof data.balance === "number" ? data.balance : character.honorSeals,
-            warMercs: data.warMercs ?? character.warMercs,
-        });
+        updateCharacter(prev => prev ? ({
+            ...prev,
+            honorSeals: typeof data.balance === "number" ? data.balance : prev.honorSeals,
+            warMercs: data.warMercs ?? prev.warMercs,
+        }) : prev);
         alert(`The ${tier.name} joins the fight — ${(data.dealt ?? tier.warDamage).toLocaleString()} war damage struck against ${data.enemy ?? activeWarEnemyVillage}.`);
     }
     return <div className="card town-hall-screen">

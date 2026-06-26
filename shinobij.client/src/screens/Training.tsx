@@ -6,6 +6,7 @@
  * file-wide eslint-disable mirrors App.tsx for the verbatim-moved logic.
  */
 /* eslint-disable react-hooks/purity */
+import type React from "react";
 import { useState, useEffect } from "react";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
@@ -166,7 +167,7 @@ function JutsuSealPanel({
     setActiveJutsuTraining,
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     selectedJutsu: Jutsu | null;
     selectedMastery: JutsuMastery | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
@@ -197,16 +198,21 @@ function JutsuSealPanel({
                 setBusy(false);
                 return;
             }
-            // Mirror server-side mutations locally.
-            const existing = character.jutsuMastery?.length ? character.jutsuMastery : [];
-            const newMastery = [
-                ...existing.filter(m => m.jutsuId !== selectedJutsu.id),
-                { jutsuId: selectedJutsu.id, level: Number(data.newLevel), xp: 0 },
-            ];
-            updateCharacter({
-                ...character,
-                honorSeals: Number(data.honorSealsRemaining),
-                jutsuMastery: newMastery,
+            // Mirror server-side mutations locally. Functional updater: the
+            // write lands after an await, so merge onto the latest state to
+            // avoid clobbering a concurrent setState (regen tick, hydration).
+            updateCharacter(prev => {
+                if (!prev) return prev;
+                const existing = prev.jutsuMastery?.length ? prev.jutsuMastery : [];
+                const newMastery = [
+                    ...existing.filter(m => m.jutsuId !== selectedJutsu.id),
+                    { jutsuId: selectedJutsu.id, level: Number(data.newLevel), xp: 0 },
+                ];
+                return {
+                    ...prev,
+                    honorSeals: Number(data.honorSealsRemaining),
+                    jutsuMastery: newMastery,
+                };
             });
             setMsg(`✅ ${selectedJutsu.name} → Lv ${data.newLevel} (spent ${data.sealsSpent} Seals)`);
         } catch {
@@ -237,7 +243,7 @@ function JutsuSealPanel({
                 ...activeJutsuTraining,
                 endsAt: Math.max(Date.now(), activeJutsuTraining.endsAt - reductionMs),
             });
-            updateCharacter({ ...character, honorSeals: Number(data.honorSealsRemaining) });
+            updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
             setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
         } catch {
             setMsg('❌ Network error');
@@ -300,7 +306,7 @@ export function JutsuTrainingHall({
     onBack,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     activeJutsuTraining: ActiveJutsuTraining | null;

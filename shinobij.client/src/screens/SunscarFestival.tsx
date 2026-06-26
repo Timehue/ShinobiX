@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type { Character } from "../types/character";
 import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
@@ -19,7 +20,7 @@ export function SunscarFestival({
     creatorCards,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: Dispatch<SetStateAction<Character | null>>;
     creatorCards: TileCard[];
 }) {
     const [diceResult, setDiceResult] = useState<string[]>([]);
@@ -57,14 +58,14 @@ export function SunscarFestival({
         const reward = res.reward;
         // Server already debited the cost + credited the payout. Apply the same
         // net delta locally so the autosave converges.
-        updateCharacter({
-            ...character,
-            ryo: character.ryo - (res.cost ?? BLACK_MARKET_COST) + reward.ryo,
-            fateShards: (character.fateShards ?? 0) + reward.fateShards,
-            boneCharms: (character.boneCharms ?? 0) + reward.boneCharms,
-            auraStones: (character.auraStones ?? 0) + reward.auraStones,
-            mythicSeals: (character.mythicSeals ?? 0) + reward.mythicSeals,
-        });
+        updateCharacter(prev => prev ? ({
+            ...prev,
+            ryo: prev.ryo - (res.cost ?? BLACK_MARKET_COST) + reward.ryo,
+            fateShards: (prev.fateShards ?? 0) + reward.fateShards,
+            boneCharms: (prev.boneCharms ?? 0) + reward.boneCharms,
+            auraStones: (prev.auraStones ?? 0) + reward.auraStones,
+            mythicSeals: (prev.mythicSeals ?? 0) + reward.mythicSeals,
+        }) : prev);
         if (typeof res.dailyUsed === "number") setBmUsed(res.dailyUsed);
         setBmReveal(reward); // tap-to-open crate reveal
         const flourish = reward.tier === "jackpot" ? "💥 " : "";

@@ -28,7 +28,7 @@ export function Profile({
     onDeleteCharacter,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
@@ -83,7 +83,7 @@ export function Profile({
                         alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
                         return;
                     }
-                    updateCharacter({ ...character, avatarImage: img });
+                    updateCharacter((prev) => prev ? ({ ...prev, avatarImage: img }) : prev);
                 };
                 const dataUrl = String(reader.result);
                 if (animated) {
