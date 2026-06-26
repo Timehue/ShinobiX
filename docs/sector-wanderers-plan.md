@@ -34,11 +34,27 @@
 > - **Distinct gang faces** *(shipped):* the three ambush robbers wear three bespoke
 >   gpt-image-1 portraits (no more cloned bandit), and the boss + nemesis have their
 >   own art.
-> - **Not yet built** from the depth layer below: the full multi-stage quest *book*
->   (§11 of the content doc — these are single-objective bounties, not chained
->   arcs), the bounty-board framing, the reputation/standing layer, and faction/war
->   reactivity. `dist/` is left to a canonical rebuild before enabling cPanel
->   (Railway builds from source).
+> - **Quest Book — multi-stage epics** *(§11, shipped):* sage wanderers now also
+>   offer **chained, multi-stage "epics"** (server-authoritative engine in
+>   `api/sector/_questbook.ts` + `questbook.ts`: one active epic at a time, sealed
+>   `{id,stage,baseline}`, accept/advance/claim/abandon, reward = ryo + sealed fate
+>   shard + a cosmetic title into `character.questTitles`, 3-day re-roll cooldown).
+>   Three first epics ("The Bell That Doesn't Ring", "The Hollow Caravan", "The
+>   Coliseum Gauntlet"); foe-kill boss stages launch a scaled bestiary boss in the
+>   arena, travel/pet/card stages are counter objectives. v1 is **linear** — the
+>   branches/timers and the full §12 bestiary remain design intent; more epics are
+>   pure data additions.
+> - **War mercenaries** *(faction/war depth, shipped — lives in the Town Hall, not a
+>   sector):* a "Mercenaries" tab where a war participant spends **Honor Seals** to
+>   throw mercenary bands at the enemy village. Five tiers (lvl 75/80/85/95/100),
+>   hireable **once per war per tier** (resets each war), server-authoritative sink
+>   (`api/village/hire-mercenary.ts` + `_mercenaries.ts`): cost recomputed from a
+>   sealed table, deducted under the save lock, war damage applied under the war-record
+>   lock and **floored at 1** so a merc can't end a war alone.
+> - **Not yet built** from the depth layer below: epic **branches/timers** + the full
+>   §12 bestiary with bespoke boss art, the bounty-board framing, and the
+>   reputation/standing layer. `dist/` is left to a canonical rebuild before enabling
+>   cPanel (Railway builds from source).
 >
 > The rest of this doc is the **original design plan** (more ambitious than what
 > shipped); keep it as the north star for future passes.
