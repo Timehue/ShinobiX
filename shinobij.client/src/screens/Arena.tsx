@@ -25,6 +25,7 @@ import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPve
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
+import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
@@ -4137,7 +4138,7 @@ export function Arena({
                     >
                         {isBarrierTile ? "🛡"
                             : i === playerPos ? (character.avatarImage ? "" : "🥷")
-                            : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:") || opponentAvatar.startsWith("/api/img")) ? "" : opponentAvatar)
+                            : i === enemyPos ? (isImageAvatar(opponentAvatar) ? "" : opponentAvatar)
                                 : ""}
                     </button>
                 );
@@ -4792,7 +4793,7 @@ export function Arena({
                                     <>
                                         {character.avatarImage && orbForPos(playerPos, false, character.avatarImage, character.name)}
                                         {summonedPet && petOrbForPos(playerPos, summonedPet)}
-                                        {(opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:") || opponentAvatar.startsWith("/api/img")) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
+                                        {isImageAvatar(opponentAvatar) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
                                     </>
                                 );
                             })()}
