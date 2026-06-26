@@ -30,6 +30,8 @@ import { getUnreadMail, subscribeUnreadMail } from "../lib/mail-unread";
 import { useSharedNow } from "../lib/use-shared-now";
 import { petDisplayName } from "../lib/pet";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
+import { currentLogbookObjective } from "../lib/logbook-objectives";
+import { loadVillageState } from "../lib/world-state";
 import {
     buildRecommendations,
     recommendedMission,
@@ -133,6 +135,18 @@ export function DailyBriefingModal({
 
     const wars = worldReport(now);
 
+    // The rank exam / Academy checklist the player is currently working toward.
+    // Kage standing (Special Jonin) is the only env fact the pure helper needs;
+    // the rest of the requirement progress comes straight off the save.
+    const objective = currentLogbookObjective(character, {
+        isKage: character.level >= 80
+            && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
+    });
+    const objIncomplete = objective ? objective.requirements.filter((r) => r.progress < r.target) : [];
+    const objDone = objective ? objective.requirements.length - objIncomplete.length : 0;
+    const objTotal = objective ? objective.requirements.length : 0;
+    const objPct = objTotal ? Math.round((objDone / objTotal) * 100) : 0;
+
     return createPortal(
         <div className="daily-briefing-backdrop" role="dialog" aria-modal="true" aria-label="Daily Briefing" onClick={close}>
             <div
@@ -196,6 +210,44 @@ export function DailyBriefingModal({
                                     ))}
                                 </div>
                             </section>
+
+                            {/* ── Current logbook objective ─────────────────── */}
+                            {objective && (
+                                <section className="db-section">
+                                    <h3>Logbook</h3>
+                                    <div className="db-objective">
+                                        <div className="db-objective-head">
+                                            <span className="db-objective-title">{objective.title}</span>
+                                            <span className="db-objective-count">{objDone}/{objTotal} done</span>
+                                        </div>
+                                        <div className="mission-progress db-objective-bar"><span style={{ width: `${objPct}%` }} /></div>
+                                        {objIncomplete.length === 0 ? (
+                                            <p className="db-objective-ready">
+                                                {objective.kind === "academy"
+                                                    ? "✓ All goals met — claim your reward in the Logbook"
+                                                    : "✓ All requirements met — pass it in your Logbook"}
+                                            </p>
+                                        ) : (
+                                            <ul className="db-list db-objective-reqs">
+                                                {objIncomplete.slice(0, 3).map((r) => (
+                                                    <li className="db-list-row" key={r.label}>
+                                                        <span className="db-list-key">○ {r.label}</span>
+                                                        <span className="db-list-val">
+                                                            {r.target === 1 ? "To do" : `${Math.min(r.progress, r.target)}/${r.target}`}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                                {objIncomplete.length > 3 && (
+                                                    <li className="db-list-row"><span className="db-list-key">+{objIncomplete.length - 3} more</span></li>
+                                                )}
+                                            </ul>
+                                        )}
+                                        <button type="button" className="db-list-go db-objective-cta" onClick={() => go("logbook")}>
+                                            View in Logbook ›
+                                        </button>
+                                    </div>
+                                </section>
+                            )}
 
                             <div className="db-grid">
                                 {/* ── Training timers ───────────────────────── */}
