@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { canAssignStudent, claimableMilestones, mentorPayout } from './_mentor.js';
 
@@ -140,7 +141,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const r = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const c = (r?.character ?? null) as Record<string, unknown> | null;
                     if (!r || !c) return false;
-                    await kv.set(`save:${playerName}`, mergePreservingImages({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } }, r));
+                    const next = bumpSaveVersion({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(next, r));
                     return true;
                 }, { failClosed: true });
                 if (!senseiOk) return { status: 404, body: { error: 'Your save was not found.' } };
@@ -149,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await withKvLock<void>(`save:${studentName}`, async () => {
                     const r = await kv.get<Record<string, unknown>>(`save:${studentName}`);
                     const c = (r?.character ?? null) as Record<string, unknown> | null;
-                    if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }, r));
+                    if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }), r));
                 }, { failClosed: true });
 
                 for (const m of claimable) entry.claimed[m] = now;

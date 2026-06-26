@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin, bodyNameMatchesAuth } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { checkEvolve, evolvePet, type PetLike } from './_evolution.js';
 
 // Server-authoritative starter-pet evolution.
@@ -80,6 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const updatedChar = { ...char, pets: nextPets, inventory: nextInventory };
             const updated = { ...record, character: updatedChar };
+            bumpSaveVersion(updated);
             await kv.set(saveKey, mergePreservingImages(updated, record));
             return { ok: true as const, pet: evolved, stage: check.nextStage };
         }, { failClosed: true });

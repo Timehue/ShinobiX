@@ -22,6 +22,7 @@
 import { kv as realKv } from '../_storage.js';
 import { withKvLock as realWithKvLock } from '../_lock.js';
 import { mergePreservingImages } from '../_utils.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { gainXp, type XpCharacter } from '../_xp-engine.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
 import { getFloor } from './_floor-catalog.js';
@@ -202,7 +203,7 @@ export async function settleFloorForMember(
             }
             const updated = creditFloorClear(char, reward, score, floor.id);
             try {
-                await kv.set(saveKey, mergePreservingImages({ ...record, character: updated }, record));
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
             } catch (e) {
                 // save (disk overlay) write failed AFTER the receipts (base store) committed →
                 // roll back both so the earned reward isn't permanently lost; a retry settles.
@@ -264,7 +265,7 @@ export async function settleAssistForAlly(
                 battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
             };
             try {
-                await kv.set(saveKey, mergePreservingImages({ ...record, character: updated }, record));
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
             } catch (e) {
                 await kv.del(receipt).catch(() => undefined);
                 throw e;

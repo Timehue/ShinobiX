@@ -22,10 +22,14 @@ import { kv } from '../_storage.js';
 import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 const SAVE_PREFIX = 'save:';
 export const SEASON_CURRENT_KEY = 'ranked:season:current';
 export const SEASON_ARCHIVE_PREFIX = 'ranked:season:archive:';
+// Per-season-per-player NX once-marker so a crash/restart between crediting some
+// podiums and advancing the season clock can't re-pay the additive reward.
+export const SEASON_REWARDED_PREFIX = 'ranked:season:rewarded:';
 export const SEASON_LENGTH_MS = 30 * 24 * 60 * 60 * 1000;
 const ARCHIVE_TTL_SECONDS = 400 * 24 * 60 * 60;
 const SEASON_LOCK_KEY = 'ranked:season:rollover-lock';
@@ -210,10 +214,26 @@ async function performRollover(fresh: RankedSeason, now: number): Promise<Season
                 const oldPet = num(char.petRankedRating ?? DEFAULT_RANKED_RATING);
                 const newP = softResetRating(oldP);
                 const newPet = softResetRating(oldPet);
-                // Skip a write when nothing changes (untouched 1000/1000, no reward).
-                if (newP === oldP && newPet === oldPet && !reward) return;
-                const next: Record<string, unknown> = { ...char, rankedRating: newP, petRankedRating: newPet };
+                // The additive reward is non-idempotent (aura/relics/seasonsWon
+                // accumulate). A crash/restart between crediting some podiums and
+                // advancing the season clock (below) would re-run the whole
+                // rollover and double-pay. Gate the reward on a per-season-per-
+                // player NX once-marker: kv.set(...,{nx:true}) returns 'OK' only
+                // the first time, null thereafter. The soft reset stays ungated —
+                // it's idempotent (pulling 1000 → 1000 is a no-op).
+                let payReward = !!reward;
                 if (reward) {
+                    const marked = await kv.set(
+                        `${SEASON_REWARDED_PREFIX}${fresh.id}:${slug}`,
+                        '1',
+                        { nx: true, ex: ARCHIVE_TTL_SECONDS },
+                    ).catch(() => null);
+                    payReward = marked === 'OK';
+                }
+                // Skip a write when nothing changes (untouched 1000/1000, no reward to pay).
+                if (newP === oldP && newPet === oldPet && !payReward) return;
+                const next: Record<string, unknown> = { ...char, rankedRating: newP, petRankedRating: newPet };
+                if (reward && payReward) {
                     if (reward.auraStones > 0) next.auraStones = num(char.auraStones) + reward.auraStones;
                     if (reward.relics > 0) {
                         const inv = Array.isArray(char.inventory) ? (char.inventory as unknown[]) : [];
@@ -221,9 +241,10 @@ async function performRollover(fresh: RankedSeason, now: number): Promise<Season
                         next.rankedSeasonsWon = num(char.rankedSeasonsWon) + reward.championOf.length;
                     }
                 }
-                await kv.set(`${SAVE_PREFIX}${slug}`, mergePreservingImages({ ...rec, character: next }, rec));
+                const updated = bumpSaveVersion({ ...rec, character: next });
+                await kv.set(`${SAVE_PREFIX}${slug}`, mergePreservingImages(updated, rec));
                 resetCount += 1;
-                if (reward) rewardedCount += 1;
+                if (reward && payReward) rewardedCount += 1;
             }, { failClosed: true }).catch(() => undefined);
         };
         for (let i = 0; i < playerKeys.length; i += MAX_PARALLEL) {

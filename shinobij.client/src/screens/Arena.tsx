@@ -577,6 +577,12 @@ export function Arena({
         easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
+    // In-flight guard for the weekly-boss "Log Damage & Return" button. The handler
+    // (onWeeklyBossLogDamage) fires a logFight POST and navigates away, so a fast
+    // double-click would otherwise submit two attempts and double-count the damage.
+    // Set on click, disable the button while true; the handler leaves the screen so
+    // no reset is needed.
+    const [logging, setLogging] = useState(false);
     // True only for an explore-ambush win. winBattle sets it (the exploreAmbushActive
     // prop is cleared by onExploreAmbushWon in the same call, so we capture it here)
     // and the victory overlay reads it to offer a single "Return to Sector" exit
@@ -1790,7 +1796,7 @@ export function Arena({
             character.name
         );
 
-        if (enemyHp - enemyNet <= 0) return winBattle();
+        if (enemyHp - enemyNet <= 0) return winBattle({ ...character, stamina: Math.max(0, character.stamina - 10) });
 
         // Player can kill THEMSELVES via Recoil + the enemy's Reflect on their own
         // swing — register the defeat instead of silently dropping to 0 HP.
@@ -2032,14 +2038,15 @@ export function Arena({
         if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
         // Spend one thrown weapon from inventory on the throw (melee weapons aren't consumed).
         const afterThrow = isThrown ? removeItem(character, item.id, 1) : character;
-        updateCharacter({ ...afterThrow, stamina: Math.max(0, afterThrow.stamina - staminaCost) });
+        const postThrowCharacter: Character = { ...afterThrow, stamina: Math.max(0, afterThrow.stamina - staminaCost) };
+        updateCharacter(postThrowCharacter);
 
         if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
 
         const effectSuffix = effectLines.length ? ` ${effectLines.join(" ")}` : "";
         addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${wEnemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${wEnemyAbsorbed > 0 ? ` Absorb: ${opponentName} absorbs ${wEnemyAbsorbed} damage.` : ""}${wEnemyReflected > 0 ? ` Reflect: ${opponentName} returns ${wEnemyReflected} damage.` : ""}${wStatusLsHeal > 0 ? ` Lifesteal restores ${wStatusLsHeal} HP.` : ""}${weaponLsHeal > 0 ? ` Gear lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
 
-        if (enemyHp - wEnemyNet <= 0) return winBattle();
+        if (enemyHp - wEnemyNet <= 0) return winBattle(postThrowCharacter);
 
         // Player self-KO via Recoil + enemy Reflect on their own swing.
         if (playerHp + wHeal - wSelfDamage <= 0) {
@@ -2264,7 +2271,16 @@ export function Arena({
         setLog(`${character.name} was defeated. Ranked -${loss} Elo.`);
     }
 
-    function winBattle() {
+    function winBattle(baseCharacter?: Character) {
+        // The reward character must be composed off the POST-action character so a
+        // FINISHING move's own mutations (a killing jutsu's gainJutsuXp mastery
+        // increment + chakra/stamina cost, a killing basic attack's -10 stamina, a
+        // killing thrown weapon's removeItem + stamina cost) survive into the win
+        // payout instead of being clobbered by the stale `character` prop. Each
+        // finishing path threads its already-computed object in via baseCharacter;
+        // every other caller (pet attack, enemy-turn reflect, DoT) has no pre-win
+        // spend to preserve and falls back to `character`.
+        const base = baseCharacter ?? character;
         if (pendingStoryBattle) {
             const rewardLog = onPendingStoryBattleWin?.(playerHp) ?? `${opponentName} defeated. Story battle complete.`;
             setBattleEnded(true);
@@ -2307,10 +2323,10 @@ export function Arena({
             ? combatMissionByAiId(pendingAiProfile?.id ?? "")
             : undefined;
         if (combatMission) {
-            const queued = (character.pendingCombatMissionClaims ?? []).includes(combatMission.key)
-                ? (character.pendingCombatMissionClaims ?? [])
-                : [...(character.pendingCombatMissionClaims ?? []), combatMission.key];
-            updateCharacter({ ...character, hp: playerHp, pendingCombatMissionClaims: queued });
+            const queued = (base.pendingCombatMissionClaims ?? []).includes(combatMission.key)
+                ? (base.pendingCombatMissionClaims ?? [])
+                : [...(base.pendingCombatMissionClaims ?? []), combatMission.key];
+            updateCharacter({ ...base, hp: playerHp, pendingCombatMissionClaims: queued });
             setBattleEnded(true);
             setBattleResult("win");
             setRaidBattleKind("none");
@@ -2333,14 +2349,14 @@ export function Arena({
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
         const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
-        const leveled = gainXp({ ...character, hp: playerHp }, xpGain);
-        const defeatedAiIds = pendingAiProfile?.id && !(character.defeatedAiIds ?? []).includes(pendingAiProfile.id)
-            ? [...(character.defeatedAiIds ?? []), pendingAiProfile.id]
-            : character.defeatedAiIds ?? [];
+        const leveled = gainXp({ ...base, hp: playerHp }, xpGain);
+        const defeatedAiIds = pendingAiProfile?.id && !(base.defeatedAiIds ?? []).includes(pendingAiProfile.id)
+            ? [...(base.defeatedAiIds ?? []), pendingAiProfile.id]
+            : base.defeatedAiIds ?? [];
         // Per-AI kill count for the Bestiary (kill-count tiers).
         const aiKills = pendingAiProfile?.id
-            ? { ...(character.aiKills ?? {}), [pendingAiProfile.id]: ((character.aiKills ?? {})[pendingAiProfile.id] ?? 0) + 1 }
-            : (character.aiKills ?? {});
+            ? { ...(base.aiKills ?? {}), [pendingAiProfile.id]: ((base.aiKills ?? {})[pendingAiProfile.id] ?? 0) + 1 }
+            : (base.aiKills ?? {});
         const territoryScrollReward = 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
@@ -2876,12 +2892,13 @@ export function Arena({
 
         setJutsuCooldowns((c) => ({ ...c, [jutsu.id]: jutsu.cooldown }));
 
-        updateCharacter({
+        const postJutsuCharacter: Character = {
             ...gainJutsuXp(character, jutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
             hp: Math.max(0, character.hp - scaled.healthCost),
             chakra: Math.max(0, character.chakra - scaled.chakraCost),
             stamina: Math.max(0, character.stamina - scaled.staminaCost),
-        });
+        };
+        updateCharacter(postJutsuCharacter);
 
         const flavorText = interpolateFlavor(
             jutsu.battleDescription?.trim() ||
@@ -2926,7 +2943,7 @@ export function Arena({
             isKO: enemyHp - castEnemyNet <= 0,
         });
 
-        if (enemyHp - castEnemyNet <= 0) return winBattle();
+        if (enemyHp - castEnemyNet <= 0) return winBattle(postJutsuCharacter);
 
         // Player self-KO via Recoil + enemy Reflect on their own jutsu.
         if (playerHp + healing - recoilDamage - castEnemyReflected <= 0) {
@@ -5199,7 +5216,8 @@ export function Arena({
                                         </p>
                                         <button
                                             style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#facc15" }}
-                                            onClick={() => onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp)}
+                                            disabled={logging}
+                                            onClick={() => { setLogging(true); onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp); }}
                                         >
                                             📋 Log Damage & Return
                                         </button>

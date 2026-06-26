@@ -1,3 +1,4 @@
+import type React from "react";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission } from "../types/missions";
@@ -26,7 +27,7 @@ export function HunterBoard({
     setScreen,
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorAis: CreatorAi[];
     acceptedMissionIds: string[];
     setAcceptedMissionIds: (ids: string[]) => void;
@@ -87,7 +88,7 @@ export function HunterBoard({
         const result = await postClaimMission(character.name, "hunt", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied) {
-            updateCharacter(applyServerMissionReward(character, result, gainXp));
+            updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
             setMissionProgress({ ...missionProgress, [mission.id]: 0 });
             alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina.${materialNamesLine(result.reward.items ?? [])}`);
@@ -99,10 +100,13 @@ export function HunterBoard({
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-        const withCurrencies = applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards);
-        const withItems = { ...withCurrencies, inventory: [...withCurrencies.inventory, ...(mission.itemRewards ?? [])] };
-        const leveled = grantTerritoryScrolls(withItems, 3);
-        updateCharacter(markHuntCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) }));
+        updateCharacter((prev) => {
+            if (!prev) return prev;
+            const withCurrencies = applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards);
+            const withItems = { ...withCurrencies, inventory: [...withCurrencies.inventory, ...(mission.itemRewards ?? [])] };
+            const leveled = grantTerritoryScrolls(withItems, 3);
+            return markHuntCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) });
+        });
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
         setMissionProgress({ ...missionProgress, [mission.id]: 0 });
         alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.${materialNamesLine(mission.itemRewards ?? [])}`);

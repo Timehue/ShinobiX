@@ -48,3 +48,32 @@ export function isVersionlessPlayerSave(
 ): boolean {
     return !isClanSave && !!identityName && baseVersion === null;
 }
+
+/**
+ * Bump the optimistic-concurrency version on a player `save:<name>` record that a
+ * SERVER-side credit/mutation endpoint is about to write. Mutates and returns the
+ * SAME record object (so it can be inlined into the kv.set argument).
+ *
+ * WHY every server credit must call this (audit 2026-06-26, root cause #2):
+ * the autosave guard in api/save/[name].ts only 409s a client write whose echoed
+ * `_baseSaveVersion` is BELOW the stored `_saveVersion`. If a server credit writes
+ * the save but leaves `_saveVersion` unchanged, an open client tab still holding
+ * the pre-credit version sails through the guard and its stale autosave clobbers
+ * the just-credited values (ryo/currency via the sanitizer's Math.min favouring
+ * the lower stale number; inventory via verbatim array overwrite). Bumping the
+ * version forces that next stale autosave to 409 → the client's
+ * refetchAfterSaveConflict reapplies the credited snapshot. Mirrors the handler's
+ * own increment semantics (`Number(stored ?? 0) + 1`, `_saveAt: Date.now()`).
+ *
+ * Call AFTER building the record and BEFORE kv.set, under the same lock as the
+ * write. Pass the record that ALREADY carries the stored `_saveVersion` (e.g.
+ * `{ ...freshRecord, character: {...} }`) so the +1 is relative to what's stored.
+ * Do NOT call for clan/pool records (those use the field-delta validator, not a
+ * version stamp) or for admin-save writes (the handler already bumps those).
+ */
+export function bumpSaveVersion<T extends Record<string, unknown>>(record: T): T {
+    const r = record as Record<string, unknown>;
+    r._saveVersion = Number(r._saveVersion ?? 0) + 1;
+    r._saveAt = Date.now();
+    return record;
+}

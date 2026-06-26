@@ -8,6 +8,7 @@ const _lock_js_1 = require("../_lock.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const notify_js_1 = require("../_realtime/notify.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("../missions/_progress.js");
 // Per-target cooldown is now rank-scaled via healerPerTargetCooldownMs(rank).
 // Baseline (rank 1) is 5 min; rank 10 is 1.5 min. See api/missions/_progress.ts.
@@ -165,6 +166,7 @@ async function handler(req, res) {
                         ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
                     },
                 };
+                (0, _save_version_js_1.bumpSaveVersion)(healed);
                 await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healed, fresh));
             });
             return res.status(200).json({ ok: true, kind: 'self', chargedRyo });
@@ -303,7 +305,8 @@ async function handler(req, res) {
                 const have = Number(fChar.chakra ?? 0);
                 if (have < chakraCost)
                     return { ok: false };
-                await _storage_js_1.kv.set(healerKey, (0, _utils_js_1.mergePreservingImages)({ ...fresh, character: { ...fChar, chakra: have - chakraCost } }, fresh));
+                const charged = (0, _save_version_js_1.bumpSaveVersion)({ ...fresh, character: { ...fChar, chakra: have - chakraCost } });
+                await _storage_js_1.kv.set(healerKey, (0, _utils_js_1.mergePreservingImages)(charged, fresh));
                 return { ok: true };
             });
             if (!paid.ok) {
@@ -338,6 +341,7 @@ async function handler(req, res) {
                     ...(targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
                 },
             };
+            (0, _save_version_js_1.bumpSaveVersion)(healedTarget);
             await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healedTarget, fresh));
         });
         // If this heal actually discharged a hospitalized player, queue a one-shot

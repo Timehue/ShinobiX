@@ -102,7 +102,12 @@ export function ClanSealPool({
             if (!res.ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
             } else {
-                updateCharacter({ ...character, honorSeals: Number(data.honorSealsRemaining) });
+                updateCharacter({
+                    ...character,
+                    honorSeals: Number(data.honorSealsRemaining),
+                    dailyDonatedSeals: Number(data.dailyDonatedToday),
+                    dailyDonationDate: todayUtc,
+                });
                 setMsg(`✅ Donated ${data.donated} Seals`);
                 void fetchPool();
             }

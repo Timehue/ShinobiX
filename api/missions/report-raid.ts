@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { reportMissionEvent, type CompletedMissionInfo } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
 
@@ -240,6 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             honorSeals: Number(freshChar.honorSeals ?? 0) + bonusSeals,
                         },
                     };
+                    bumpSaveVersion(updated);
                     await kv.set(saveKey, mergePreservingImages(updated, fresh));
                 });
             }

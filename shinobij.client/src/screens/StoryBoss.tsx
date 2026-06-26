@@ -160,7 +160,7 @@ function StoryBossPersister(props: {
     return null;
 }
 
-export function StoryBoss({ character, updateCharacter, setScreen }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (screen: Screen) => void }) {
+export function StoryBoss({ character, updateCharacter, setScreen }: { character: Character; updateCharacter: (next: Character | ((prev: Character | null) => Character)) => void; setScreen: (screen: Screen) => void }) {
     const storyStep = getCurrentStory(character);
     const [bossHp, setBossHp] = useState(storyStep?.bossHp ?? 100);
     const [playerHp, setPlayerHp] = useState(character.hp);
@@ -175,22 +175,34 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
     const basicAttackDamage = boostAmount(Math.floor(35 + getOffenseStat(character.stats, character.specialty) * 0.08), activeAuraBonuses.pveDamagePercent);
     const chakraStrikeDamage = boostAmount(Math.floor(65 + getOffenseStat(character.stats, character.specialty) * 0.12), activeAuraBonuses.pveDamagePercent);
-    function winBossFight(newPlayerHp: number) {
-        const leveled = gainXp({ ...character, hp: newPlayerHp }, storyStep.rewardXp);
-        let nextCharacter: Character = {
-            ...leveled,
-            ryo: leveled.ryo + storyStep.rewardRyo,
-            auraDust: (leveled.auraDust ?? 0) + 12,
-            hp: Math.min(leveled.maxHp, newPlayerHp + 25),
-            stamina: Math.min(leveled.maxStamina, leveled.stamina + 20),
-            chakra: Math.min(leveled.maxChakra, leveled.chakra + 20),
-            storyProgress: character.storyProgress + 1,
-        };
+    // currentChakra threads the post-spend chakra of the killing-blow action
+    // (e.g. Chakra Strike's -20) so the reward respread doesn't rebuild from the
+    // stale pre-spend value and refund the cost. Functional so the base picks up
+    // any chakra already committed by the action that triggered this win; when no
+    // explicit override is passed (e.g. a pet follow-up kill), the latest committed
+    // chakra is used as-is rather than reverting to the stale closure value.
+    function winBossFight(newPlayerHp: number, currentChakra?: number) {
+        updateCharacter((prev) => {
+            const base = prev ?? character;
+            const chakra = currentChakra ?? base.chakra;
+            const leveled = gainXp({ ...base, hp: newPlayerHp, chakra }, storyStep.rewardXp);
+            let nextCharacter: Character = {
+                ...leveled,
+                ryo: leveled.ryo + storyStep.rewardRyo,
+                auraDust: (leveled.auraDust ?? 0) + 12,
+                hp: Math.min(leveled.maxHp, newPlayerHp + 25),
+                stamina: Math.min(leveled.maxStamina, leveled.stamina + 20),
+                chakra: Math.min(leveled.maxChakra, leveled.chakra + 20),
+                storyProgress: character.storyProgress + 1,
+            };
+            if (storyStep.kageFinale) {
+                nextCharacter = { ...nextCharacter, storyTitle: storyStep.liberatorTitle ?? nextCharacter.storyTitle, rankTitle: storyStep.liberatorTitle ?? nextCharacter.rankTitle };
+            }
+            return nextCharacter;
+        });
         if (storyStep.kageFinale) {
             unlockVillageKageSystem(character.village, character.name);
-            nextCharacter = { ...nextCharacter, storyTitle: storyStep.liberatorTitle ?? nextCharacter.storyTitle, rankTitle: storyStep.liberatorTitle ?? nextCharacter.rankTitle };
         }
-        updateCharacter(nextCharacter);
         setLog(`${storyStep.bossName} defeated. +${effectiveCharacterXpGain(character, storyStep.rewardXp)} XP, +${storyStep.rewardRyo} ryo, +12 Aura Dust. Story advanced.`);
     }
     function summonBossPet() {
@@ -251,7 +263,10 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
                 const healedHp = Math.min(character.maxHp, currentPlayerHp + heal);
                 if (healedHp > currentPlayerHp) {
                     setPlayerHp(healedHp);
-                    updateCharacter({ ...character, hp: healedHp });
+                    // Functional so this HP write doesn't clobber chakra (or any
+                    // other field) committed by the player action that triggered
+                    // this follow-up — e.g. Chakra Strike's -20.
+                    updateCharacter((prev) => ({ ...(prev ?? character), hp: healedHp }));
                     healNote = ` It channels ${heal} HP back to you.`;
                 }
             }
@@ -261,13 +276,15 @@ export function StoryBoss({ character, updateCharacter, setScreen }: { character
         const friendlyDamage = Math.max(1, Math.floor(damage * 0.65));
         const nextPlayerHp = Math.max(0, currentPlayerHp - friendlyDamage);
         setPlayerHp(nextPlayerHp);
-        updateCharacter({ ...character, hp: nextPlayerHp });
+        // Functional so this HP write preserves chakra committed by the player
+        // action that triggered this follow-up (e.g. Chakra Strike's -20).
+        updateCharacter((prev) => ({ ...(prev ?? character), hp: nextPlayerHp }));
         setEffect("💥");
         setLog(`${petName}'s low happiness backfires. It attacks you for ${friendlyDamage} damage.`);
     }
     function bossCounter() { if (bossHp <= 0) return; const damage = Math.max(5, storyStep.bossDamage + Math.floor(turn * 2)); const afterHit = Math.max(0, playerHp - damage); setPlayerHp(afterHit); updateCharacter({ ...character, hp: afterHit }); if (afterHit <= 0) return setLog(`${storyStep.bossName} defeated you. Visit the Hospital and try again.`); setTurn((t) => t + 1); setAp(100); setLog(`${storyStep.bossName} counters for ${damage} damage.`); }
     function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("💥"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); bossPetFollowUp(newBossHp, playerHp); }
-    function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💥"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
+    function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💥"); const postSpendChakra = Math.max(0, character.chakra - 20); updateCharacter({ ...character, chakra: postSpendChakra }); if (newBossHp <= 0) return winBossFight(playerHp, postSpendChakra); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
     function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("🛡️"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
     function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("💥"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
     return <div className="card cinematic-card"><StoryBossPersister characterName={character.name} storyProgress={character.storyProgress} active={bossHp > 0 && playerHp > 0} bossHp={bossHp} playerHp={playerHp} ap={ap} turn={turn} summonedPetId={summonedPetId} log={log} onRestore={(saved) => { setBossHp(saved.bossHp); setPlayerHp(saved.playerHp); setAp(saved.ap); setTurn(saved.turn); setSummonedPetId(saved.summonedPetId); setLog("⚔ Battle resumed — the fight continues where you left off."); }} /><BattleLockKeeper active={bossHp > 0 && playerHp > 0} kind="storyBoss" screen="storyBoss" playerName={character.name} /><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">🌀</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">✚</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon">🐾</span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => { if (bossHp > 0 && playerHp > 0) { if (!confirm("Forfeit this boss fight? You'll be downed and make no story progress.")) return; updateCharacter({ ...character, hp: 0 }); } setScreen("storyHall"); }}>{bossHp > 0 && playerHp > 0 ? "Forfeit (take the loss)" : "Back to Story"}</button></div><div className="log">{log}</div></div></div>;

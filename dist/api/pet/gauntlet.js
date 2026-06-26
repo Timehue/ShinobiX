@@ -7,6 +7,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 /*
  * /api/pet/gauntlet — Pet Gauntlet rewards + weekly leaderboard.
  *
@@ -46,6 +47,36 @@ const LB_MAX = 1000;
 // BANKED if the run cleared round 9, and at most ONCE per UTC day per currency
 // (a server NX flag — the client can never mint premium currency on its own).
 const PREMIUM_ROUNDS_CLEARED = 9;
+// Valor COST of each premium buy, mirrored from the client engine
+// (GAUNTLET_SHARD_COST / GAUNTLET_CHARM_COST in lib/pet-gauntlet.ts). The grant is
+// gated on the run being able to AFFORD the buy server-side, not on a client flag.
+const SHARD_VALOR_COST = 15;
+const CHARM_VALOR_COST = 10;
+// In-run Valor economy (mirrored from lib/pet-gauntlet.ts) so the server can bound
+// the MAXIMUM Valor a run could have banked by the round it cleared — the ceiling a
+// premium buy is validated against. A tampered client that never spent the Valor
+// (or never had it) is rejected here even if it sets boughtFateShard/boughtBoneCharm.
+const START_VALOR = 10; // GAUNTLET_START_VALOR
+const LOSS_VALOR = 3; // GAUNTLET_LOSS_VALOR (consolation per surviving loss)
+const MERCHANT_VALOR_PER_ROUND = 3; // best passive Valor/round from a single relic (Merchant's Charm)
+const valorWinReward = (round) => 4 + round; // valorRewardForRound(round)
+/**
+ * Upper bound on the Valor a run could possibly hold by the time it has cleared
+ * `roundsCleared` rounds — start Valor + every round-win reward (rounds 1..N) +
+ * the consolation Valor from the most losses a 3-heart run can survive (2) + the
+ * most passive relic income reachable (Merchant's Charm bought round 1, paying out
+ * on entering rounds 2..N). This INTENTIONALLY ignores spending, so it never
+ * under-counts a legitimate run; it exists only to reject buys a run with this seed
+ * could not have funded under any play. Premium buys only unlock at round 9.
+ */
+function maxReachableValor(roundsCleared, startHearts) {
+    let wins = 0;
+    for (let r = 1; r <= roundsCleared; r++)
+        wins += valorWinReward(r);
+    const maxLosses = Math.max(0, startHearts - 1); // the final heart-loss ends the run
+    const passive = Math.max(0, roundsCleared - 1) * MERCHANT_VALOR_PER_ROUND;
+    return START_VALOR + wins + maxLosses * LOSS_VALOR + passive;
+}
 // Epoch-Monday week index (Jan 1 2024 was a Monday) → stable weekly reset, UTC.
 const EPOCH_MONDAY = Date.UTC(2024, 0, 1);
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -146,8 +177,19 @@ async function handler(req, res) {
             }
             // Premium-currency buys (Fate Shard / Bone Charm) bank ONLY if the run
             // cleared round 9, and at most once/day each (the NX claim flags below).
-            const wantShard = body.boughtFateShard === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
-            const wantCharm = body.boughtBoneCharm === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
+            // SERVER-AUTHORITATIVE on the COST: the run must have been able to AFFORD
+            // the requested buy(s) — we never derive the grant from client booleans
+            // alone. Both buys spend from the same run-local Valor pool, so their
+            // costs are summed against the maximum Valor this run could have banked by
+            // the round it cleared (maxReachableValor). A tampered body that flags both
+            // buys but whose run could never have funded them is rejected here.
+            const reqShard = body.boughtFateShard === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
+            const reqCharm = body.boughtBoneCharm === true && roundsCleared >= PREMIUM_ROUNDS_CLEARED;
+            const valorCeiling = maxReachableValor(roundsCleared, sealed.startHearts);
+            const requestedCost = (reqShard ? SHARD_VALOR_COST : 0) + (reqCharm ? CHARM_VALOR_COST : 0);
+            const affordable = requestedCost <= valorCeiling;
+            const wantShard = reqShard && affordable;
+            const wantCharm = reqCharm && affordable;
             const day = dayStamp();
             let name = me;
             let village;
@@ -185,7 +227,8 @@ async function handler(req, res) {
                         fateShards: Number(char.fateShards ?? 0) + grantedFateShards,
                         boneCharms: Number(char.boneCharms ?? 0) + grantedBoneCharms,
                     };
-                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: next }, record));
+                    const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: next });
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
                 }
             }, { failClosed: true });
             // ── Update the weekly leaderboard (best-per-player). ────────────────

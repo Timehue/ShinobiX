@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 // Replay window for PvP-flavored raid reports — keyed off the same 24h
 // window report-pvp-win uses (session KV TTL is typically 1h but a player
@@ -238,6 +239,7 @@ async function handler(req, res) {
                             honorSeals: Number(freshChar.honorSeals ?? 0) + bonusSeals,
                         },
                     };
+                    (0, _save_version_js_1.bumpSaveVersion)(updated);
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
                 });
             }

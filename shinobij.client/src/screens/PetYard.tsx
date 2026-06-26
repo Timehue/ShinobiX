@@ -17,7 +17,7 @@ import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
 import { useWarLossDebuff } from "../lib/war-debuff";
 import { masteryBonus } from "../lib/profession-mastery";
 
-export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
+export function PetYard({ character, updateCharacter, setScreen, onBack, onImmediateSave }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen) => void; onBack: () => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
     const warDebuff = useWarLossDebuff(character.village);
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
@@ -101,10 +101,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // don't accidentally double-dip on payouts.
         const speedPct = petTamerTrainingSpeedPct(character);
         const effectiveDuration = Math.max(60_000, Math.floor(trainingDuration * Math.max(0.5, 1 - speedPct / 100)));
-        updateCharacter({
+        const nextCharacter: Character = {
             ...character,
             pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + effectiveDuration, durationMs: trainingDuration } } : p),
-        });
+        };
+        updateCharacter(nextCharacter);
+        onImmediateSave?.(nextCharacter);
     }
 
     async function startExpedition() {
@@ -144,12 +146,19 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             }
         }
 
-        updateCharacter({
+        const nextCharacter: Character = {
             ...character,
-            activePetId: character.activePetId === selectedPet.id ? undefined : character.activePetId,
+            // Clear the active-pet pointer with `null` (not undefined): undefined
+            // is dropped from the save JSON and the old id gets re-injected on
+            // reload, whereas null persists and reads as falsy everywhere. The
+            // cast keeps the literal valid against the string-typed field while
+            // emitting the null the save layer needs.
+            activePetId: (character.activePetId === selectedPet.id ? null : character.activePetId) as string | undefined,
             activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : character.activePetId2v2,
             pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
-        });
+        };
+        updateCharacter(nextCharacter);
+        onImmediateSave?.(nextCharacter);
         alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
     }
 
@@ -243,16 +252,27 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 const foundBone = Number(data.foundBone ?? 0);
                 const foundAura = Number(data.foundAura ?? 0);
                 const foundFate = Number(data.foundFate ?? 0);
-                const escortConsumed = character.petEscortBonusReady && data.expeditionXp > 0;
-                updateCharacter({
-                    ...character,
-                    ryo: (character.ryo ?? 0) + ryoEarned,
-                    boneCharms: (character.boneCharms ?? 0) + foundBone,
-                    auraStones: (character.auraStones ?? 0) + foundAura,
-                    fateShards: (character.fateShards ?? 0) + foundFate,
-                    professionXp: typeof data.professionXp === 'number' ? data.professionXp : (character.professionXp ?? 0),
-                    professionRank: typeof data.professionRank === 'number' ? data.professionRank : (character.professionRank ?? 1),
-                    petEscortBonusReady: escortConsumed ? false : character.petEscortBonusReady,
+                // Layer ONLY the server-authoritative currencies onto whatever
+                // live state exists now. Spreading the render-captured `character`
+                // here would re-introduce the pet's pre-collection state (the
+                // expedition would reappear, the stat/XP gains and
+                // lastExpeditionClaimDate/expeditionsClaimedToday would revert),
+                // and the autosave would persist that regression — so use a
+                // functional updater and read escort state off `prev`.
+                let escortConsumed = false;
+                updateCharacter(prev => {
+                    if (!prev) return prev;
+                    escortConsumed = !!prev.petEscortBonusReady && data.expeditionXp > 0;
+                    return {
+                        ...prev,
+                        ryo: (prev.ryo ?? 0) + ryoEarned,
+                        boneCharms: (prev.boneCharms ?? 0) + foundBone,
+                        auraStones: (prev.auraStones ?? 0) + foundAura,
+                        fateShards: (prev.fateShards ?? 0) + foundFate,
+                        professionXp: typeof data.professionXp === 'number' ? data.professionXp : (prev.professionXp ?? 0),
+                        professionRank: typeof data.professionRank === 'number' ? data.professionRank : (prev.professionRank ?? 1),
+                        petEscortBonusReady: escortConsumed ? false : prev.petEscortBonusReady,
+                    };
                 });
                 // Update the result modal so the player sees the actual Ryo/drops earned.
                 setExpeditionResult(prev => prev ? ({ ...prev, ryo: ryoEarned, foundBone, foundAura, foundFate }) : prev);

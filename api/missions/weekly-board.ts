@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { pickWeeklyBoard, weekKey, weekEndsAt, computeProgress, snapshotCounters, type WeeklyMission } from './_weekly-board.js';
 
 /*
@@ -92,7 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const nextRecord: WeeklyRecord = { baseline: record.baseline, claimed: [...record.claimed, mission.id] };
             await kv.set(key, nextRecord, { ex: RECORD_TTL_SECONDS } as never);
-            await kv.set(`save:${playerName}`, mergePreservingImages({ ...save, character: nextChar }, save));
+            const updatedSave = bumpSaveVersion({ ...save, character: nextChar });
+            await kv.set(`save:${playerName}`, mergePreservingImages(updatedSave, save));
             return { status: 200, body: { ok: true, reward: r, missionId: mission.id } };
         }, { failClosed: true });
 

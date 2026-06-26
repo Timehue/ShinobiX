@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 // Honor Seal training speedup. Each Seal reduces the current training timer
 // by 10 minutes. 10 Seals = effectively instant (cap at 100 minutes per call
@@ -115,6 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
                 },
             };
+            bumpSaveVersion(updated);
             await kv.set(key, mergePreservingImages(updated, record));
 
             return {

@@ -38,7 +38,12 @@ export function Inventory({
     creatorCards,
 }: {
     character: Character;
-    updateCharacter: (character: Character) => void;
+    // Accepts a plain replacement OR a functional updater (computing the next
+    // character from the latest `prev`). The migration effects below use the
+    // functional form so two of them firing in one commit don't clobber each
+    // other (each derives `nextEquipment` from `prev.equipment`, not a stale
+    // captured `character`). Assignable from the parent's `setCharacter`.
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorItems: GameItem[];
     creatorCards: TileCard[];
 }) {
@@ -64,9 +69,17 @@ export function Inventory({
         if (!handId || character.equipment.gloves) return;
         const handItem = getItemById(allItems, handId);
         if (!handItem || !isGloveItem(handItem)) return;
-        const nextEquipment = { ...character.equipment, gloves: handId };
-        delete nextEquipment.hand;
-        updateCharacter({ ...character, equipment: nextEquipment });
+        updateCharacter((prev) => {
+            if (!prev) return prev;
+            // Re-check against the LATEST equipment, not the captured snapshot,
+            // so a sibling migration effect in the same commit isn't clobbered.
+            const equipment = prev.equipment;
+            const id = equipment.hand;
+            if (!id || equipment.gloves || id !== handId) return prev;
+            const nextEquipment = { ...equipment, gloves: id };
+            delete nextEquipment.hand;
+            return { ...prev, equipment: nextEquipment };
+        });
     }, [character, allItems, updateCharacter]);
 
     // One-time migration: combat items used to share a single "item" equipment
@@ -77,17 +90,23 @@ export function Inventory({
     // Non-consuming, so no inventory stack changes. Self-terminating — once the
     // legacy key is cleared the guard fails.
     useEffect(() => {
-        const legacyId = character.equipment.item;
-        if (!legacyId) return;
-        const nextEquipment = { ...character.equipment };
-        delete nextEquipment.item;
-        const open = COMBAT_ITEM_SLOTS.find((s) => !nextEquipment[s]);
-        const already = COMBAT_ITEM_SLOTS.some((s) => nextEquipment[s] === legacyId);
-        const legacyItem = getItemById(allItems, legacyId);
-        if (open && !already && legacyItem && isCombatConsumable(legacyItem)) {
-            nextEquipment[open] = legacyId;
-        }
-        updateCharacter({ ...character, equipment: nextEquipment });
+        if (!character.equipment.item) return;
+        updateCharacter((prev) => {
+            if (!prev) return prev;
+            // Derive from the LATEST equipment so a sibling migration effect in
+            // the same commit isn't overwritten by a stale-snapshot write.
+            const legacyId = prev.equipment.item;
+            if (!legacyId) return prev;
+            const nextEquipment = { ...prev.equipment };
+            delete nextEquipment.item;
+            const open = COMBAT_ITEM_SLOTS.find((s) => !nextEquipment[s]);
+            const already = COMBAT_ITEM_SLOTS.some((s) => nextEquipment[s] === legacyId);
+            const legacyItem = getItemById(allItems, legacyId);
+            if (open && !already && legacyItem && isCombatConsumable(legacyItem)) {
+                nextEquipment[open] = legacyId;
+            }
+            return { ...prev, equipment: nextEquipment };
+        });
     }, [character, allItems, updateCharacter]);
 
     // A consumable equip slot is just a pointer at a backpack stack (single
@@ -96,17 +115,22 @@ export function Inventory({
     // and leave the slot empty. Self-terminating: once cleared the guard no
     // longer matches, so this writes at most once per depletion.
     useEffect(() => {
-        const equipment = character.equipment;
-        const nextEquipment = { ...equipment };
-        let changed = false;
-        for (const slot of combatConsumableSlots) {
-            const id = equipment[slot];
-            if (id && countItem(character, id) <= 0) {
-                nextEquipment[slot] = undefined;
-                changed = true;
+        updateCharacter((prev) => {
+            if (!prev) return prev;
+            // Recompute against the LATEST character/equipment so a sibling
+            // migration effect in the same commit isn't clobbered.
+            const equipment = prev.equipment;
+            const nextEquipment = { ...equipment };
+            let changed = false;
+            for (const slot of combatConsumableSlots) {
+                const id = equipment[slot];
+                if (id && countItem(prev, id) <= 0) {
+                    nextEquipment[slot] = undefined;
+                    changed = true;
+                }
             }
-        }
-        if (changed) updateCharacter({ ...character, equipment: nextEquipment });
+            return changed ? { ...prev, equipment: nextEquipment } : prev;
+        });
     }, [character, updateCharacter]);
 
     const tileCardStacks = Object.values(

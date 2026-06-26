@@ -6,6 +6,7 @@ const _utils_js_1 = require("../../_utils.js");
 const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
+const _save_version_js_1 = require("../../save/_save-version.js");
 const _storage_js_2 = require("./_storage.js");
 // Vanguards donate Honor Seals to their clan's pool. Per-day cumulative cap
 // of 50% of (currentBalance + alreadyDonatedToday) — i.e. you can move up to
@@ -93,6 +94,7 @@ async function handler(req, res) {
                     dailyDonationDate: today,
                 },
             };
+            (0, _save_version_js_1.bumpSaveVersion)(updatedRecord);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updatedRecord, record));
             // Credit the shared clan pool under the pool's OWN lock. The outer
             // lock above is the DONOR's `save:<name>` lock, which does NOT

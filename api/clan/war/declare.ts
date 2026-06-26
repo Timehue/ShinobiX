@@ -4,6 +4,7 @@ import { cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import { bumpSaveVersion } from '../../save/_save-version.js';
 import {
     CLAN_WAR_HP_MAX,
     clanInActiveWar,
@@ -114,39 +115,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (await clanInActiveWar(fromClan)) return res.status(409).json({ error: `${fromClan} is already in a clan war.` });
         if (await clanInActiveWar(toClan)) return res.status(409).json({ error: `${toClan} is already in a clan war.` });
 
-        // Honor-seal cost (non-admin). Charged off the declaring player's
-        // save. Read-modify-write held under lock:save:<name> so a
-        // concurrent auto-save can't undo the debit.
-        if (!identity.admin) {
-            const saveKey = `save:${identity.name}`;
-            const debitError = await withKvLock(saveKey, async () => {
-                const record = await kv.get<Record<string, unknown>>(saveKey);
-                const char = record?.character as Record<string, unknown> | undefined;
-                if (!char) return { status: 404 as const, body: { error: 'Declaring character not found.' } };
-                const balance = Number(char.honorSeals ?? 0);
-                if (balance < CLAN_WAR_DECLARATION_COST) {
-                    return {
-                        status: 400 as const,
-                        body: {
-                            error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
-                            cost: CLAN_WAR_DECLARATION_COST,
-                            balance,
-                        },
-                    };
-                }
-                const updated = {
-                    ...record,
-                    character: {
-                        ...char,
-                        honorSeals: balance - CLAN_WAR_DECLARATION_COST,
-                    },
-                };
-                await kv.set(saveKey, updated);
-                return null;
-            });
-            if (debitError) return res.status(debitError.status).json(debitError.body);
-        }
-
         // War Room clan-upgrade: each clan's starting HP pool is the base plus
         // its own War Room bonus. toClanRecord is already loaded; load fromClan's
         // record for its upgrades (cheap — declare is a rare action).
@@ -166,6 +134,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (existing && !existing.endedAt) {
                 return { status: 409 as const, body: { error: 'War already exists for this clan pair.', war: existing } };
             }
+
+            // Honor-seal cost (non-admin). Charged off the declaring player's
+            // save INSIDE the war-create critical section, AFTER the existing-war
+            // re-check and BEFORE writing the war record. This guarantees no seal
+            // is charged unless the war is successfully created (mirrors the
+            // village-war declaration in api/world-state.ts and the Kage
+            // challenge in api/village/kage-challenge.ts). The nested
+            // read-modify-write is held under lock:save:<name> with
+            // { failClosed: true } so a concurrent auto-save can't undo the
+            // debit and contention can't run the RMW unlocked (free war).
+            if (!identity.admin) {
+                const saveKey = `save:${identity.name}`;
+                const debitError = await withKvLock(saveKey, async () => {
+                    const record = await kv.get<Record<string, unknown>>(saveKey);
+                    const char = record?.character as Record<string, unknown> | undefined;
+                    if (!char) return { status: 404 as const, body: { error: 'Declaring character not found.' } };
+                    const balance = Number(char.honorSeals ?? 0);
+                    if (balance < CLAN_WAR_DECLARATION_COST) {
+                        return {
+                            status: 400 as const,
+                            body: {
+                                error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
+                                cost: CLAN_WAR_DECLARATION_COST,
+                                balance,
+                            },
+                        };
+                    }
+                    const updated = {
+                        ...record,
+                        character: {
+                            ...char,
+                            honorSeals: balance - CLAN_WAR_DECLARATION_COST,
+                        },
+                    };
+                    // Bump _saveVersion so a stale declarer tab can't refund the
+                    // debit (a free war) via its next autosave (audit #2 class).
+                    bumpSaveVersion(updated);
+                    await kv.set(saveKey, updated);
+                    return null;
+                }, { failClosed: true });
+                if (debitError) return debitError;
+            }
+
             const now = Date.now();
             const war: ClanWar = {
                 id,
@@ -191,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             await kv.set(key, war);
             return { status: 200 as const, body: { war } };
-        });
+        }, { failClosed: true });
         return res.status(result.status).json(result.body);
     } catch (err) {
         console.error('[clan/war/declare]', err);

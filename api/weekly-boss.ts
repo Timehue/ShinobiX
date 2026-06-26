@@ -3,6 +3,8 @@ import { kv } from './_storage.js';
 import { cors, mergePreservingImages } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { withKvLock } from './_lock.js';
+import { gainXp, type XpCharacter } from './_xp-engine.js';
+import { bumpSaveVersion } from './save/_save-version.js';
 
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
@@ -282,15 +284,30 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                         : [];
                     if (entry.gotCore) currentInventory.push(WEEKLY_BOSS_CORE_ID);
                     if (entry.gotKey) currentInventory.push(DUNGEON_KEY_ID);
+                    // Credit XP through the server gainXp() port (same engine the
+                    // mission/tower credits use): a raw `char.xp += entry.xp` is
+                    // per-level progress that the client clamps to level*100 on
+                    // load, so the headline XP would be silently lost. gainXp
+                    // applies the ×3 multiplier itself (pass entry.xp directly
+                    // like the other callers), levels the character up, and
+                    // returns the leveled level/xp/maxHp/maxChakra/maxStamina/
+                    // rankTitle fields which we spread back in.
+                    const leveled = gainXp(freshChar as unknown as XpCharacter, entry.xp) as unknown as Record<string, unknown>;
                     const updated = {
                         ...fresh,
                         character: {
                             ...freshChar,
+                            level: leveled.level,
+                            xp: leveled.xp,
+                            maxHp: leveled.maxHp,
+                            maxChakra: leveled.maxChakra,
+                            maxStamina: leveled.maxStamina,
+                            rankTitle: leveled.rankTitle,
                             ryo: Math.max(0, Number(freshChar.ryo ?? 0)) + entry.ryo,
-                            xp: Math.max(0, Number(freshChar.xp ?? 0)) + entry.xp,
                             inventory: currentInventory,
                         },
                     };
+                    bumpSaveVersion(updated);
                     await kv.set(saveKey, mergePreservingImages(updated, fresh));
                     return true;
                 } catch (creditErr) {

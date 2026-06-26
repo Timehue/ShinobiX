@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
 import { masteryHasCapstone } from '../_profession-mastery.js';
 
@@ -219,6 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
                 };
+                bumpSaveVersion(updated);
                 await kv.set(saveKey, mergePreservingImages(updated, record));
             });
 

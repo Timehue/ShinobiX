@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _mentor_js_1 = require("./_mentor.js");
 const AUDIT_PREFIX = 'audit:clan-mentor:';
@@ -133,7 +134,8 @@ async function handler(req, res) {
                     const c = (r?.character ?? null);
                     if (!r || !c)
                         return false;
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } }, r));
+                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } });
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, r));
                     return true;
                 }, { failClosed: true });
                 if (!senseiOk)
@@ -143,7 +145,7 @@ async function handler(req, res) {
                     const r = await _storage_js_1.kv.get(`save:${studentName}`);
                     const c = (r?.character ?? null);
                     if (r && c)
-                        await _storage_js_1.kv.set(`save:${studentName}`, (0, _utils_js_1.mergePreservingImages)({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }, r));
+                        await _storage_js_1.kv.set(`save:${studentName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }), r));
                 }, { failClosed: true });
                 for (const m of claimable)
                     entry.claimed[m] = now;

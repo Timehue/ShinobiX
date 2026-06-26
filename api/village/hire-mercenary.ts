@@ -21,6 +21,7 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { MERCENARY_TIERS, mercenaryById, applyMercenaryDamage } from './_mercenaries.js';
 
 // These mirror api/world-state.ts (keep in sync). The war record is the source of
@@ -108,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { warId: war.id, tiers: [] as string[] };
             if (!warMercs.tiers.includes(tier.id)) warMercs.tiers.push(tier.id);
             fc.warMercs = warMercs;
-            await kv.set(saveKey, fresh);
+            await kv.set(saveKey, bumpSaveVersion(fresh as Record<string, unknown>));
             return { ok: true as const, balance: fc.honorSeals as number, warMercs };
         },
         { failClosed: true },
@@ -154,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (wm && wm.warId === war.id && Array.isArray(wm.tiers)) {
                 wm.tiers = wm.tiers.filter(t => t !== tier.id);
             }
-            await kv.set(saveKey, fresh);
+            await kv.set(saveKey, bumpSaveVersion(fresh as Record<string, unknown>));
         }, { failClosed: true }).catch(() => 0);
         await kv.del(marker).catch(() => 0);
         return res.status(503).json({ error: 'The war front is busy — your seals were not spent. Try again.' });

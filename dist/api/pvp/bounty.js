@@ -92,11 +92,31 @@ async function handler(req, res) {
                     if (!result.ok)
                         return { ok: false, reason: result.reason };
                     await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }, rec));
-                    return { ok: true, board: result.board };
+                    return { ok: true, board: result.board, debited: result.amount };
                 }, { failClosed: true });
                 if (!debit.ok)
                     return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
-                await _storage_js_1.kv.set(BOUNTY_KEY, debit.board);
+                try {
+                    await _storage_js_1.kv.set(BOUNTY_KEY, debit.board);
+                }
+                catch (boardErr) {
+                    // The ryo is already debited but the board never recorded the
+                    // escrow. Best-effort re-credit the placer's ryo (under their
+                    // save lock) so the stake isn't lost to a vanished bounty,
+                    // then surface the failure so the client can retry.
+                    try {
+                        await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                            const rec = await _storage_js_1.kv.get(`save:${playerName}`);
+                            const char = (rec?.character ?? null);
+                            if (rec && char)
+                                await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }, rec));
+                        }, { failClosed: true });
+                    }
+                    catch (refundErr) {
+                        console.error('[pvp/bounty] place credit-back failed', refundErr);
+                    }
+                    throw boardErr;
+                }
                 return { status: 200, body: { ok: true, bounties: debit.board.bounties } };
             }, { failClosed: true });
             if (out.status === 200)
@@ -129,11 +149,15 @@ async function handler(req, res) {
                     return res.status(403).json({ error: 'Bounty not paid: you and that player share a connection.' });
             }
             catch { /* fail open */ }
-            // Per-battle idempotency — a single duel pays a bounty at most once.
-            const placed = await _storage_js_1.kv.set(`pvp:bounty-claimed:${battleId}`, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS });
-            if (!placed)
-                return res.status(200).json({ ok: true, alreadyClaimed: true, amount: 0 });
             const out = await (0, _lock_js_1.withKvLock)(BOUNTY_KEY, async () => {
+                // Per-battle idempotency — a single duel pays a bounty at most
+                // once. Reserved INSIDE the failClosed lock (mirrors
+                // claim-rewards.ts ordering) so lock contention / KV failure can
+                // never leave the receipt placed while the winner goes unpaid and
+                // a retry short-circuits to alreadyClaimed.
+                const placed = await _storage_js_1.kv.set(`pvp:bounty-claimed:${battleId}`, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS });
+                if (!placed)
+                    return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0 } };
                 const board = (0, _bounty_js_1.normalizeBoard)(await _storage_js_1.kv.get(BOUNTY_KEY));
                 const result = (0, _bounty_js_1.claimBounty)(board, loserName);
                 if (!result.ok)
@@ -146,8 +170,12 @@ async function handler(req, res) {
                     await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }, rec));
                     return { ok: true };
                 }, { failClosed: true });
-                if (!credit.ok)
+                if (!credit.ok) {
+                    // Winner's save vanished — release the idempotency receipt so a
+                    // later retry can settle, rather than locking the bounty out.
+                    await _storage_js_1.kv.del(`pvp:bounty-claimed:${battleId}`).catch(() => undefined);
                     return { status: 404, body: { error: 'Your save was not found.' } };
+                }
                 await _storage_js_1.kv.set(BOUNTY_KEY, result.board);
                 return { status: 200, body: { ok: true, amount: result.amount, target: loserName }, paid: result.amount };
             }, { failClosed: true });
