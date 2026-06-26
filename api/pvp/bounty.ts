@@ -84,17 +84,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const out = await withKvLock<{ status: number; body: unknown }>(BOUNTY_KEY, async () => {
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard }>(`save:${playerName}`, async () => {
+                const debit = await withKvLock<{ ok: boolean; reason?: string; board?: BountyBoard; debited?: number }>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return { ok: false, reason: 'Your save was not found.' };
                     const result = placeBounty({ placerName: identity.admin ? playerName : (char.name as string ?? playerName), targetName: targetDisplay, amount, placerRyo: num(char.ryo), targetExists, board }, now);
                     if (!result.ok) return { ok: false, reason: result.reason };
                     await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: num(char.ryo) - result.amount } }, rec));
-                    return { ok: true, board: result.board };
+                    return { ok: true, board: result.board, debited: result.amount };
                 }, { failClosed: true });
                 if (!debit.ok) return { status: 400, body: { error: debit.reason ?? 'Could not place the bounty.' } };
-                await kv.set(BOUNTY_KEY, debit.board);
+                try {
+                    await kv.set(BOUNTY_KEY, debit.board);
+                } catch (boardErr) {
+                    // The ryo is already debited but the board never recorded the
+                    // escrow. Best-effort re-credit the placer's ryo (under their
+                    // save lock) so the stake isn't lost to a vanished bounty,
+                    // then surface the failure so the client can retry.
+                    try {
+                        await withKvLock<void>(`save:${playerName}`, async () => {
+                            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                            const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                            if (rec && char) await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: num(char.ryo) + (debit.debited ?? 0) } }, rec));
+                        }, { failClosed: true });
+                    } catch (refundErr) {
+                        console.error('[pvp/bounty] place credit-back failed', refundErr);
+                    }
+                    throw boardErr;
+                }
                 return { status: 200, body: { ok: true, bounties: debit.board!.bounties } };
             }, { failClosed: true });
 
@@ -125,11 +142,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // rule as ranked rating. Bounty pool stays for a legitimate hunter.
             try { if (await hasRecentIpOrFpOverlap(winnerName, loserName)) return res.status(403).json({ error: 'Bounty not paid: you and that player share a connection.' }); } catch { /* fail open */ }
 
-            // Per-battle idempotency — a single duel pays a bounty at most once.
-            const placed = await kv.set(`pvp:bounty-claimed:${battleId}`, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
-            if (!placed) return res.status(200).json({ ok: true, alreadyClaimed: true, amount: 0 });
-
             const out = await withKvLock<{ status: number; body: unknown; paid?: number }>(BOUNTY_KEY, async () => {
+                // Per-battle idempotency — a single duel pays a bounty at most
+                // once. Reserved INSIDE the failClosed lock (mirrors
+                // claim-rewards.ts ordering) so lock contention / KV failure can
+                // never leave the receipt placed while the winner goes unpaid and
+                // a retry short-circuits to alreadyClaimed.
+                const placed = await kv.set(`pvp:bounty-claimed:${battleId}`, { ts: now }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
+                if (!placed) return { status: 200, body: { ok: true, alreadyClaimed: true, amount: 0 } };
                 const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
                 const result = claimBounty(board, loserName);
                 if (!result.ok) return { status: 200, body: { ok: true, amount: 0 } }; // no bounty on the loser — harmless no-op
@@ -140,7 +160,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: { ...char, ryo: num(char.ryo) + result.amount } }, rec));
                     return { ok: true };
                 }, { failClosed: true });
-                if (!credit.ok) return { status: 404, body: { error: 'Your save was not found.' } };
+                if (!credit.ok) {
+                    // Winner's save vanished — release the idempotency receipt so a
+                    // later retry can settle, rather than locking the bounty out.
+                    await kv.del(`pvp:bounty-claimed:${battleId}`).catch(() => undefined);
+                    return { status: 404, body: { error: 'Your save was not found.' } };
+                }
                 await kv.set(BOUNTY_KEY, result.board);
                 return { status: 200, body: { ok: true, amount: result.amount, target: loserName }, paid: result.amount };
             }, { failClosed: true });

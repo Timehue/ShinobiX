@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'];
 const PROFESSION_UNLOCK_LEVEL = 13;
 async function handler(req, res) {
@@ -67,6 +68,7 @@ async function handler(req, res) {
                     professionChosenAt: Date.now(),
                 },
             };
+            (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(updated, existing));
             return { status: 200, body: { ok: true, profession } };
         });

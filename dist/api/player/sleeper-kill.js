@@ -14,6 +14,7 @@ const _reward_farm_js_1 = require("../pvp/_reward-farm.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _vanguard_rewards_js_1 = require("../pvp/_vanguard-rewards.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
 // visible, attackable target there (see api/player/roster.ts, which reports
@@ -220,7 +221,8 @@ async function handler(req, res) {
                         sealsGained = grant.seals;
                     }
                 }
-                await _storage_js_1.kv.set(`save:${attackerSlug}`, (0, _utils_js_1.mergePreservingImages)({ ...aRec, character: updatedAttacker }, aRec));
+                const attackerRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...aRec, character: updatedAttacker });
+                await _storage_js_1.kv.set(`save:${attackerSlug}`, (0, _utils_js_1.mergePreservingImages)(attackerRecord, aRec));
             }
             // KO the victim: HP 0 + hospitalized for the standard duration, and
             // relocate to the village (sector 0). The save validator in
@@ -235,7 +237,8 @@ async function handler(req, res) {
                 hospitalizedUntil: now + HOSPITAL_DURATION_MS,
                 hospitalizedAt: now,
             };
-            await _storage_js_1.kv.set(`save:${targetSlug}`, (0, _utils_js_1.mergePreservingImages)({ ...tRec, currentSector: 0, character: koChar }, tRec));
+            const targetKoRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...tRec, currentSector: 0, character: koChar });
+            await _storage_js_1.kv.set(`save:${targetSlug}`, (0, _utils_js_1.mergePreservingImages)(targetKoRecord, tRec));
             return {
                 status: 200,
                 character: updatedAttacker,

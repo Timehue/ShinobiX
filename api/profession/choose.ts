@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
 type Profession = typeof VALID_PROFESSIONS[number];
@@ -72,6 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
             };
 
+            bumpSaveVersion(updated);
             await kv.set(key, mergePreservingImages(updated, existing));
             return { status: 200 as const, body: { ok: true, profession } };
         });

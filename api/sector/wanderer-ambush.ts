@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 
 /*
@@ -57,10 +58,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!sealed) return res.status(200).json({ ok: false, reason: 'none' });
 
             const today = utcDateKey();
-            const claimedToday = await kv.incr(`wanderer-ambush-count:${playerName}:${today}`, { ex: 25 * 60 * 60 });
-            if (claimedToday > AMBUSH_REWARDS_PER_DAY) {
-                return res.status(200).json({ ok: false, reason: 'daily-cap' });
-            }
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
                 const fresh = await kv.get<{ baseline: number }>(tokenKey);
@@ -74,6 +71,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'incomplete' } };
                 }
 
+                // Burn a daily slot only now that the claim is verified, inside the
+                // lock and immediately before payout — failures never consume a slot.
+                const claimedToday = await kv.incr(`wanderer-ambush-count:${playerName}:${today}`, { ex: 25 * 60 * 60 });
+                if (claimedToday > AMBUSH_REWARDS_PER_DAY) {
+                    return { status: 200, body: { ok: false, reason: 'daily-cap' } };
+                }
+
                 const reward = rollAmbushReward(num(char.level) || 1, Math.random);
                 const updated = {
                     ...char,
@@ -81,7 +85,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     fateShards: num(char.fateShards) + reward.fateShards,
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
                 };
-                await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
+                const record = bumpSaveVersion({ ...rec, character: updated });
+                await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
                 await kv.del(tokenKey).catch(() => undefined);
                 return {
                     status: 200,

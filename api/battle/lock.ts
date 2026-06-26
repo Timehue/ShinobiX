@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 /*
  * /api/battle/lock  — POST only, multiplexed by `action`
@@ -155,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 ...fresh,
                                 character: { ...freshChar, hp: 0, hospitalized: true },
                             };
-                            await kv.set(`save:${playerName}`, mergePreservingImages(updated, fresh));
+                            await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion(updated), fresh));
                         }
                         await kv.del(key).catch(() => undefined);
                     });

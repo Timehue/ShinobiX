@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import { bumpSaveVersion } from '../../save/_save-version.js';
 import { loadPool, savePool } from './_storage.js';
 
 // Clan leader (clanFounder = true) distributes Honor Seals from the clan
@@ -115,6 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
                 },
             };
+            bumpSaveVersion(updatedRecipient);
             await kv.set(recipientSaveKey, mergePreservingImages(updatedRecipient, freshRecord));
         });
 

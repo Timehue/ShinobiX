@@ -9,6 +9,7 @@ import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { KNOWN_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
 import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
+import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -310,14 +311,6 @@ export function sanitizeCharacterSave(
         char[key] = Math.min(inVal, exVal + maxGain);
     }
 
-    // Profession mastery: clamp the allocation to the budget the player's mastery
-    // LEVEL allows (derived from profession XP past rank 10), legal node ranks, and
-    // satisfied capstone gates. Anti-tamper — a forged masterySpec can't grant
-    // unearned capstones or over-spend. PvE/utility effects only.
-    if (char.masterySpec !== undefined) {
-        char.masterySpec = sanitizeMasterySpec(char.profession, char.masterySpec, masteryBudget(char.profession, char.professionXp));
-    }
-
     // Hollow Gate Shrine Attunement: node ranks. Anti-tamper — clamp every rank
     // to its catalog maxRank (mirrors ATTUNEMENT_NODES in
     // shinobij.client/src/lib/hollow-gate-attunement.ts) and drop unknown node
@@ -373,6 +366,19 @@ export function sanitizeCharacterSave(
     } else {
         // No profession yet → strip any client-supplied rank too.
         char.professionRank = 0;
+    }
+
+    // Profession mastery: clamp the allocation to the budget the player's mastery
+    // LEVEL allows (derived from profession XP past rank 10), legal node ranks, and
+    // satisfied capstone gates. Anti-tamper — a forged masterySpec can't grant
+    // unearned capstones or over-spend. PvE/utility effects only.
+    //
+    // (#17 ordering) This MUST run AFTER char.profession is locked to exChar's
+    // value and char.professionXp is capped above — otherwise masteryBudget()
+    // would see the still-raw client professionXp and validate an over-spent
+    // tree (or a forged profession). Reads char.professionXp (the capped value).
+    if (char.masterySpec !== undefined) {
+        char.masterySpec = sanitizeMasterySpec(char.profession, char.masterySpec, masteryBudget(char.profession, char.professionXp));
     }
 
     // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.
@@ -456,6 +462,14 @@ export function sanitizeCharacterSave(
         // achievements but never decreased through legitimate play.
         totalStatsTrained: 100,
         totalMissionsCompleted: 5,
+        // Shinobi Card Clash lifetime tallies — feed quest metrics (e.g. the
+        // Card Hall progression). Client-incremented per duel, so without a
+        // per-save clamp a tampered save could jump these 0 → 999K to
+        // auto-complete a "win N card games" quest. A single save can only
+        // resolve a handful of duels, so +5 each tracks legit pacing (audit #26).
+        cardClashWins: 5,
+        cardClashLosses: 5,
+        cardClashDraws: 5,
     };
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
@@ -651,6 +665,38 @@ export function sanitizeCharacterSave(
     }
     char.examsPassed = validatedExams.slice(0, 4);
 
+    // ─── pendingCombatMissionClaims validation ────────────────────────────────
+    // Combat-mission rewards are claimed via api/missions/claim-mission.ts, which
+    // pays out the catalog ryo/XP/scrolls only when missionId is present in
+    // char.pendingCombatMissionClaims (queued by an Arena win, consumed on claim).
+    // It is the trust anchor for that payout — so a tampered save that injects
+    // arbitrary keys here could queue (and then claim) combat missions the player
+    // never fought (audit #4). Validate: keep only entries that are real catalog
+    // mission keys AT/ABOVE the player's level (combatMissionByKey is a cheap find
+    // over a 6-entry constant array, and each def carries its `min` level), dedupe,
+    // and cap the list length. Mirrors the examsPassed validator above. The claim
+    // endpoint still re-checks level + queued-membership, so this is defense in
+    // depth that also keeps the stored field clean.
+    if (char.pendingCombatMissionClaims !== undefined) {
+        const PENDING_COMBAT_CLAIMS_CAP = 50;
+        const rawPending = Array.isArray(char.pendingCombatMissionClaims)
+            ? (char.pendingCombatMissionClaims as unknown[])
+            : [];
+        const validatedPending: string[] = [];
+        const seenPending = new Set<string>();
+        for (const raw of rawPending) {
+            const key = String(raw ?? '');
+            if (!key || seenPending.has(key)) continue;
+            const def = combatMissionByKey(key);
+            if (!def) continue;                  // not a real catalog mission key
+            if (charLevel < def.min) continue;   // below the mission's level gate
+            validatedPending.push(key);
+            seenPending.add(key);
+            if (validatedPending.length >= PENDING_COMBAT_CLAIMS_CAP) break;
+        }
+        char.pendingCombatMissionClaims = validatedPending;
+    }
+
     // ─── savedBloodlines normalization ────────────────────────────────────────
     // Players author custom bloodlines client-side; without server validation
     // a forged save can POST bloodlines with jutsus { effectPower: 9999, ap: 0,
@@ -838,6 +884,31 @@ export function sanitizeCharacterSave(
             // been set by a legit prior pass through this same check).
             char[field] = exChar[field] ?? '';
         }
+    }
+
+    // War-Ground bounty server floor (audit #21). The bounty (+500 ryo, +1 Fate
+    // Shard) is gated client-side by warGroundBountyDate. The date-stamp lock
+    // above stops BACKDATING the stamp, but a tampered client could keep the
+    // stamp at today AND re-add the +500 ryo / +1 fate shard to its wallet on a
+    // later autosave — a within-day re-mint. Defense-in-depth: if the SERVER-
+    // stored save already shows the bounty claimed today
+    // (exChar.warGroundBountyDate === SERVER_UTC_DATE), ryo and fateShards may
+    // not GROW from this save (mirrors the dailyHollowGateRuns / dailyMissions-
+    // Completed monotonic-floor pattern, but in the can't-grow direction — the
+    // bounty already paid out today). Decreases (spending) pass through freely.
+    // On a real new day exChar's stamp != today so this is skipped and the
+    // fresh bounty claim is untouched. NOTE: legit non-bounty ryo/fateShard
+    // gains (mission/fight rewards) that land in the SAME save as a duplicate
+    // bounty attempt are also held to the stored value here — but those
+    // currencies flow through server-authoritative endpoints under the save lock
+    // (claim-mission, pvp/claim-rewards), so by the time an autosave runs the
+    // stored value already reflects them and this clamp is a no-op re-assert for
+    // honest play.
+    if (exChar.warGroundBountyDate === SERVER_UTC_DATE) {
+        const exRyoFloor = Math.max(0, Number(exChar.ryo ?? 0));
+        char.ryo = Math.min(Math.max(0, Number(char.ryo) || 0), exRyoFloor);
+        const exFateFloor = Math.max(0, Number(exChar.fateShards ?? 0));
+        char.fateShards = Math.min(Math.max(0, Number(char.fateShards) || 0), exFateFloor);
     }
 
     // Hollow Gate daily run cap (dailyHollowGateRuns) is gated client-side via

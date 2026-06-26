@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
 
 /*
@@ -76,12 +77,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Optional idempotency: a client-supplied nonce makes a retried send a
-        // no-op instead of a double-debit. NX-set BEFORE the transfer so a
-        // concurrent retry loses the race and returns the harmless duplicate.
+        // no-op instead of a double-debit. The nonce receipt is written ONLY
+        // after a successful commit (see below) and stores the original receipt,
+        // so a genuine retry replays that receipt rather than re-running the
+        // transfer. Checking it here is read-only — a request that failed AFTER
+        // a pre-commit nonce write (e.g. lock contention 500, insufficient funds,
+        // missing save) never persisted a nonce, so its retry runs for real.
         const nonce = typeof body.nonce === 'string' ? body.nonce.slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, '') : '';
-        if (nonce) {
-            const placed = await kv.set(`trade:nonce:${playerName}:${nonce}`, { ts: Date.now() }, { nx: true, ex: NONCE_TTL_SECONDS } as never);
-            if (!placed) return res.status(200).json({ ok: true, duplicate: true });
+        const nonceKey = nonce ? `trade:nonce:${playerName}:${nonce}` : '';
+        if (nonceKey) {
+            const prior = await kv.get<Record<string, unknown>>(nonceKey);
+            if (prior?.receipt) return res.status(200).json({ ...(prior.receipt as Record<string, unknown>), duplicate: true });
         }
 
         const now = Date.now();
@@ -104,19 +110,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const plan = planTrade(currency, amount, num(senderChar[currency]));
                 if (!plan.ok) return { status: 400, body: { error: plan.reason } };
 
-                await kv.set(senderKey, mergePreservingImages(
-                    { ...senderRec, character: { ...senderChar, [currency]: num(senderChar[currency]) - plan.debit } },
-                    senderRec,
-                ));
-                await kv.set(recipientKey, mergePreservingImages(
-                    { ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } },
-                    recipientRec,
-                ));
+                const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: num(senderChar[currency]) - plan.debit } });
+                await kv.set(senderKey, mergePreservingImages(senderUpdated, senderRec));
+                const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } });
+                await kv.set(recipientKey, mergePreservingImages(recipientUpdated, recipientRec));
                 return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay } };
             }, { failClosed: true }),
         { failClosed: true });
 
         if (out.status === 200) {
+            // Record the idempotency receipt only on success: a retry of THIS
+            // committed transfer replays it; a retry of a failed attempt (which
+            // wrote no nonce) runs for real.
+            if (nonceKey) {
+                await kv.set(nonceKey, { ts: now, receipt: out.body }, { ex: NONCE_TTL_SECONDS } as never).catch(() => undefined);
+            }
             await kv.set(`${AUDIT_PREFIX}${now}`, { ts: now, from: playerName, to: toSlug, currency, debit: out.body.debit, credit: out.body.credit, burned: out.body.burned }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         }
         return res.status(out.status).json(out.body);

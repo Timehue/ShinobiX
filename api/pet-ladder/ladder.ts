@@ -157,9 +157,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (lastTarget && targetId === lastTarget) return res.status(409).json({ error: 'You just challenged this opponent — pick someone else.' });
             if (!canChallenge(order0, me, targetId, lastTarget)) return res.status(409).json({ error: 'That opponent is not available to challenge.' });
 
-            // Consume one of the day's challenges only once the target is valid.
-            const used = await kv.incr(dailyKey(mode, me, dayStamp()), { ex: 36 * 3600 });
-            if (used > DAILY_CHALLENGES) return res.status(429).json({ error: `Out of challenges today (${DAILY_CHALLENGES}/day). Come back tomorrow.` });
+            // Fail fast if already out of challenges — but DON'T consume a slot yet.
+            // The atomic incr is deferred until the fight is actually resolved and the
+            // rank committed inside the order lock, so a 404 defender / resolve-throw /
+            // lock-contention no-op can't burn a daily challenge (#18).
+            const dKey = dailyKey(mode, me, dayStamp());
+            const usedBefore = Number((await kv.get<number>(dKey)) ?? 0);
+            if (usedBefore >= DAILY_CHALLENGES) return res.status(429).json({ error: `Out of challenges today (${DAILY_CHALLENGES}/day). Come back tomorrow.` });
 
             // Load the defender's SEALED roster (AI pool or the human's def doc).
             let targetDef: DefenseDoc | null;
@@ -178,15 +182,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let rank: number | null = null;
             let notifySlug: string | null = null;
+            let committed = false;
+            let used = usedBefore;
             await withKvLock(orderKey(mode), async () => {
                 const order = (await kv.get<LadderEntry[]>(orderKey(mode))) ?? [];
                 if (!canChallenge(order, me, targetId)) { const i = order.findIndex((e) => e.slug === me); rank = i >= 0 ? i + 1 : null; return; }
+                // Re-check the daily cap inside the lock (no-op early-returns above never reach here).
+                used = await kv.incr(dKey, { ex: 36 * 3600 });
+                if (used > DAILY_CHALLENGES) { const i = order.findIndex((e) => e.slug === me); rank = i >= 0 ? i + 1 : null; return; }
                 const applied = applyChallenge(order, myEntry, targetId, won);
                 await kv.set(orderKey(mode), applied.order.slice(0, 1000));
+                committed = true;
                 notifySlug = applied.notifySlug;
                 const i = applied.order.findIndex((e) => e.slug === me);
                 rank = i >= 0 ? i + 1 : null;
             }, { failClosed: true });
+
+            // Lost a daily-cap race inside the lock — the incr already burned the slot,
+            // so it counts, but the fight was not committed. Tell the client they're out.
+            if (used > DAILY_CHALLENGES && !committed) return res.status(429).json({ error: `Out of challenges today (${DAILY_CHALLENGES}/day). Come back tomorrow.` });
 
             // Notify the offline human defender (lightweight notify + realtime nudge).
             if (notifySlug && !isAiId(notifySlug)) {

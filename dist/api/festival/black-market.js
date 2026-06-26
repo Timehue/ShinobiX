@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _black_market_js_1 = require("./_black-market.js");
 /*
  * /api/festival/black-market — POST (one ryo-gamble pull)
@@ -70,7 +71,7 @@ async function handler(req, res) {
                 auraStones: num(char.auraStones) + reward.auraStones,
                 mythicSeals: num(char.mythicSeals) + reward.mythicSeals,
             };
-            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: nextChar }, rec));
+            await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar }), rec));
             await _storage_js_1.kv.set(countKey, used + 1, { ex: COUNT_TTL_SECONDS });
             return { status: 200, body: { ok: true, cost: _black_market_js_1.BLACK_MARKET_COST, reward, dailyUsed: used + 1, dailyCap: _black_market_js_1.BLACK_MARKET_DAILY_CAP, balanceRyo: num(nextChar.ryo) } };
         }, { failClosed: true });

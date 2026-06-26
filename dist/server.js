@@ -82,6 +82,7 @@ const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.j
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
 const claim_daily_agenda_js_1 = __importDefault(require("./api/village/claim-daily-agenda.js"));
 const claim_map_control_js_1 = __importDefault(require("./api/village/claim-map-control.js"));
+const hire_mercenary_js_1 = __importDefault(require("./api/village/hire-mercenary.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -120,6 +121,10 @@ const report_raid_js_1 = __importDefault(require("./api/missions/report-raid.js"
 const report_pvp_win_js_1 = __importDefault(require("./api/missions/report-pvp-win.js"));
 const report_pet_event_js_1 = __importDefault(require("./api/missions/report-pet-event.js"));
 const claim_mission_js_1 = __importDefault(require("./api/missions/claim-mission.js"));
+const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
+const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
+const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
+const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
 // PvP — realtime + rewards + queues
 const chat_js_2 = __importDefault(require("./api/pvp/chat.js"));
 const spectate_js_1 = __importDefault(require("./api/pvp/spectate.js"));
@@ -530,6 +535,9 @@ route('/village/claim-daily-agenda', claim_daily_agenda_js_1.default);
 // Village map-control — server-authoritative PERSONAL daily reward (server counts
 // owned world:territory:* sectors, computes payout, credits once/day via NX marker).
 route('/village/claim-map-control', claim_map_control_js_1.default);
+// Village war mercenaries — server-authoritative Honor Seal sink: hire a tiered
+// merc band (once/war/tier) that lands sealed war damage on the enemy village.
+route('/village/hire-mercenary', hire_mercenary_js_1.default);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', claim_interest_js_1.default);
@@ -582,6 +590,11 @@ route('/missions/report-raid', report_raid_js_1.default);
 route('/missions/report-pvp-win', report_pvp_win_js_1.default);
 route('/missions/report-pet-event', report_pet_event_js_1.default);
 route('/missions/claim-mission', claim_mission_js_1.default);
+// Sector Wanderers — server-authoritative gift (recompute + daily cap)
+route('/sector/wanderer-gift', wanderer_gift_js_1.default);
+route('/sector/wanderer-quest', wanderer_quest_js_1.default);
+route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
+route('/sector/questbook', questbook_js_1.default);
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic
 // route() wrapper passes res straight through so the handlers stream normally.

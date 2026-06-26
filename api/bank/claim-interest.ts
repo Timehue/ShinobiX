@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeBankInterest, BANK_INTEREST_WINDOW_MS } from '../_bank-interest.js';
 
 /*
@@ -65,7 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const nextBankRyo = (Number(char.bankRyo) || 0) + result.interest;
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
-                await kv.set(saveKey, mergePreservingImages({ ...rec, character: nextChar }, rec));
+                const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
+                await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
                 return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS };
             }, { failClosed: true });
         } catch (e) {

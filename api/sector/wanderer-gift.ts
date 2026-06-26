@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './_wanderer-gift.js';
 
 /*
@@ -39,16 +40,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'wanderer-gift', 12, 60_000, identity.name))) return;
 
-        // Atomic daily counter. incr returns the post-increment count, so
-        // claimsSoFar (count BEFORE this gift) = countAfter - 1.
         const dayKey = `wanderer-gift:${playerName}:${utcDateKey()}`;
-        const countAfter = await kv.incr(dayKey, { ex: 25 * 60 * 60 });
-        const claimsSoFar = Math.max(0, countAfter - 1);
 
         const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
             const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const char = (rec?.character ?? null) as Record<string, unknown> | null;
             if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+
+            // Burn a daily slot only now that the save is verified, inside the lock
+            // and immediately before payout — failures never consume a slot. incr
+            // returns the post-increment count, so claimsSoFar (count BEFORE this
+            // gift) = countAfter - 1.
+            const countAfter = await kv.incr(dayKey, { ex: 25 * 60 * 60 });
+            const claimsSoFar = Math.max(0, countAfter - 1);
 
             const decision = decideWandererGift(claimsSoFar);
             if (!decision.ok) {
@@ -62,7 +66,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 fateShards: Number(char.fateShards ?? 0) + gift.fateShards,
                 boneCharms: Number(char.boneCharms ?? 0) + gift.boneCharms,
             };
-            await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: updated }, rec));
+            const record = bumpSaveVersion({ ...rec, character: updated });
+            await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
             return {
                 status: 200,
                 body: {

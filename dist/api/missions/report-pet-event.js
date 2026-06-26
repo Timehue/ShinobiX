@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 // Server-side Tamer XP for completed expeditions. Matches the client-side
@@ -219,6 +220,7 @@ async function handler(req, res) {
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
                 };
+                (0, _save_version_js_1.bumpSaveVersion)(updated);
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             });
             // Daily cap reached — short-circuit cleanly with the same shape

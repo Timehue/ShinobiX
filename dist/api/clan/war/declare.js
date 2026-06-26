@@ -6,6 +6,7 @@ const _utils_js_1 = require("../../_utils.js");
 const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
+const _save_version_js_1 = require("../../save/_save-version.js");
 const _storage_js_2 = require("./_storage.js");
 // POST /api/clan/war/declare
 // Body: { toClan: string }
@@ -106,40 +107,6 @@ async function handler(req, res) {
             return res.status(409).json({ error: `${fromClan} is already in a clan war.` });
         if (await (0, _storage_js_2.clanInActiveWar)(toClan))
             return res.status(409).json({ error: `${toClan} is already in a clan war.` });
-        // Honor-seal cost (non-admin). Charged off the declaring player's
-        // save. Read-modify-write held under lock:save:<name> so a
-        // concurrent auto-save can't undo the debit.
-        if (!identity.admin) {
-            const saveKey = `save:${identity.name}`;
-            const debitError = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
-                const record = await _storage_js_1.kv.get(saveKey);
-                const char = record?.character;
-                if (!char)
-                    return { status: 404, body: { error: 'Declaring character not found.' } };
-                const balance = Number(char.honorSeals ?? 0);
-                if (balance < CLAN_WAR_DECLARATION_COST) {
-                    return {
-                        status: 400,
-                        body: {
-                            error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
-                            cost: CLAN_WAR_DECLARATION_COST,
-                            balance,
-                        },
-                    };
-                }
-                const updated = {
-                    ...record,
-                    character: {
-                        ...char,
-                        honorSeals: balance - CLAN_WAR_DECLARATION_COST,
-                    },
-                };
-                await _storage_js_1.kv.set(saveKey, updated);
-                return null;
-            });
-            if (debitError)
-                return res.status(debitError.status).json(debitError.body);
-        }
         // War Room clan-upgrade: each clan's starting HP pool is the base plus
         // its own War Room bonus. toClanRecord is already loaded; load fromClan's
         // record for its upgrades (cheap — declare is a rare action).
@@ -156,6 +123,49 @@ async function handler(req, res) {
             const existing = await _storage_js_1.kv.get(key);
             if (existing && !existing.endedAt) {
                 return { status: 409, body: { error: 'War already exists for this clan pair.', war: existing } };
+            }
+            // Honor-seal cost (non-admin). Charged off the declaring player's
+            // save INSIDE the war-create critical section, AFTER the existing-war
+            // re-check and BEFORE writing the war record. This guarantees no seal
+            // is charged unless the war is successfully created (mirrors the
+            // village-war declaration in api/world-state.ts and the Kage
+            // challenge in api/village/kage-challenge.ts). The nested
+            // read-modify-write is held under lock:save:<name> with
+            // { failClosed: true } so a concurrent auto-save can't undo the
+            // debit and contention can't run the RMW unlocked (free war).
+            if (!identity.admin) {
+                const saveKey = `save:${identity.name}`;
+                const debitError = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
+                    const record = await _storage_js_1.kv.get(saveKey);
+                    const char = record?.character;
+                    if (!char)
+                        return { status: 404, body: { error: 'Declaring character not found.' } };
+                    const balance = Number(char.honorSeals ?? 0);
+                    if (balance < CLAN_WAR_DECLARATION_COST) {
+                        return {
+                            status: 400,
+                            body: {
+                                error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
+                                cost: CLAN_WAR_DECLARATION_COST,
+                                balance,
+                            },
+                        };
+                    }
+                    const updated = {
+                        ...record,
+                        character: {
+                            ...char,
+                            honorSeals: balance - CLAN_WAR_DECLARATION_COST,
+                        },
+                    };
+                    // Bump _saveVersion so a stale declarer tab can't refund the
+                    // debit (a free war) via its next autosave (audit #2 class).
+                    (0, _save_version_js_1.bumpSaveVersion)(updated);
+                    await _storage_js_1.kv.set(saveKey, updated);
+                    return null;
+                }, { failClosed: true });
+                if (debitError)
+                    return debitError;
             }
             const now = Date.now();
             const war = {
@@ -182,7 +192,7 @@ async function handler(req, res) {
             };
             await _storage_js_1.kv.set(key, war);
             return { status: 200, body: { war } };
-        });
+        }, { failClosed: true });
         return res.status(result.status).json(result.body);
     }
     catch (err) {

@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { masteryBonus } from '../_profession-mastery.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 
 // jutsuId must be a sane slug — lowercase letters/digits/dashes only, length-
 // bounded. Stops injection of weird KV keys or path-traversal-ish values.
@@ -125,6 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     jutsuMastery: newMastery,
                 },
             };
+            bumpSaveVersion(updated);
             await kv.set(key, mergePreservingImages(updated, record));
 
             return {

@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { gainXp } from '../_xp-engine.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { utcDateKey, reportNewbieEvent } from './_progress.js';
 import {
     combatMissionByKey,
@@ -119,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
                 if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
+                if (Number(char.level ?? 1) < def.min) return { applied: false, reason: 'level' };
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
                 if (!pending.includes(def.key)) return { applied: false, reason: 'not-queued' };
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
@@ -221,6 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
 
             const updated = { ...record, character: next };
+            bumpSaveVersion(updated);
             await kv.set(saveKey, mergePreservingImages(updated, record));
 
             return {

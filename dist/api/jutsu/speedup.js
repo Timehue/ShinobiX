@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 // Honor Seal training speedup. Each Seal reduces the current training timer
 // by 10 minutes. 10 Seals = effectively instant (cap at 100 minutes per call
 // to keep the math simple — the client can chain calls for longer skips).
@@ -112,6 +113,7 @@ async function handler(req, res) {
                     endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
                 },
             };
+            (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(updated, record));
             return {
                 status: 200,
