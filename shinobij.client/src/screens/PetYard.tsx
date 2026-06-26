@@ -146,19 +146,28 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             }
         }
 
-        const nextCharacter: Character = {
-            ...character,
-            // Clear the active-pet pointer with `null` (not undefined): undefined
-            // is dropped from the save JSON and the old id gets re-injected on
-            // reload, whereas null persists and reads as falsy everywhere. The
-            // cast keeps the literal valid against the string-typed field while
-            // emitting the null the save layer needs.
-            activePetId: (character.activePetId === selectedPet.id ? null : character.activePetId) as string | undefined,
-            activePetId2v2: character.activePetId2v2 === selectedPet.id ? undefined : character.activePetId2v2,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
-        };
-        updateCharacter(nextCharacter);
-        onImmediateSave?.(nextCharacter);
+        // For Pet Tamers this write lands AFTER the expedition-start await, so a
+        // concurrent regen/heartbeat/achievement setState could clobber it. Build
+        // the next character from the LATEST `prev` (not the render capture) and
+        // capture the result so onImmediateSave persists exactly what we wrote.
+        let nextCharacter: Character | null = null;
+        updateCharacter(prev => {
+            if (!prev) return prev;
+            const built: Character = {
+                ...prev,
+                // Clear the active-pet pointer with `null` (not undefined): undefined
+                // is dropped from the save JSON and the old id gets re-injected on
+                // reload, whereas null persists and reads as falsy everywhere. The
+                // cast keeps the literal valid against the string-typed field while
+                // emitting the null the save layer needs.
+                activePetId: (prev.activePetId === selectedPet.id ? null : prev.activePetId) as string | undefined,
+                activePetId2v2: prev.activePetId2v2 === selectedPet.id ? undefined : prev.activePetId2v2,
+                pets: prev.pets.map((p) => p.id === selectedPet.id ? { ...p, expedition: { type: option.type, startedAt: Date.now(), endsAt: Date.now() + option.durationMs, durationMs: option.durationMs, token } } : p),
+            };
+            nextCharacter = built;
+            return built;
+        });
+        if (nextCharacter) onImmediateSave?.(nextCharacter);
         alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
     }
 
@@ -470,14 +479,22 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
             // Pet Yard portrait, and the arena sprite at once.
             const evoArt = `/pet-evos/${petVisualId(data.pet)}.webp`;
             const evolved: Pet = { ...data.pet, image: evoArt, bodyImage: evoArt };
-            const invIdx = character.inventory.indexOf(next.requiredItem);
-            const nextInventory = invIdx >= 0
-                ? [...character.inventory.slice(0, invIdx), ...character.inventory.slice(invIdx + 1)]
-                : character.inventory;
-            updateCharacter({
-                ...character,
-                inventory: nextInventory,
-                pets: character.pets.map((p) => (p.id === selectedPet.id ? evolved : p)),
+            // This write lands AFTER the /api/pet/evolve await, so a concurrent
+            // regen/heartbeat/image-hydration setState could clobber it (reverting
+            // currency or other live state). Rebuild from the LATEST `prev`: drop
+            // exactly one consumed stone and swap in the evolved pet, both read off
+            // prev's inventory/pets rather than the stale render capture.
+            updateCharacter(prev => {
+                if (!prev) return prev;
+                const invIdx = prev.inventory.indexOf(next.requiredItem);
+                const nextInventory = invIdx >= 0
+                    ? [...prev.inventory.slice(0, invIdx), ...prev.inventory.slice(invIdx + 1)]
+                    : prev.inventory;
+                return {
+                    ...prev,
+                    inventory: nextInventory,
+                    pets: prev.pets.map((p) => (p.id === selectedPet.id ? evolved : p)),
+                };
             });
             if (petEvolveCutsceneEnabled()) {
                 setEvolveCutscene({ pet: evolved, oldName, oldImage });
