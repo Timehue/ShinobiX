@@ -5,6 +5,7 @@ import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
+import { bumpSaveVersion } from './save/_save-version.js';
 import { resolveClaimedWarSupply } from './_territory-supply.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
 
@@ -805,10 +806,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     if (!fresh || !freshChar) return false;
                                     const freshSeals = Number(freshChar.honorSeals ?? 0);
                                     if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return false; // raced
-                                    await kv.set(`save:${identity.name}`, {
+                                    await kv.set(`save:${identity.name}`, bumpSaveVersion({
                                         ...fresh,
                                         character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
-                                    });
+                                    }));
                                     return true;
                                 });
                                 if (!deductOk) {

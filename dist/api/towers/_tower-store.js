@@ -36,6 +36,7 @@ exports.settleAssistForAlly = settleAssistForAlly;
 const _storage_js_1 = require("../_storage.js");
 const _lock_js_1 = require("../_lock.js");
 const _utils_js_1 = require("../_utils.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _tower_rewards_js_1 = require("./_tower-rewards.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
@@ -189,7 +190,7 @@ async function settleFloorForMember(params, deps = {}) {
             }
             const updated = creditFloorClear(char, reward, score, floor.id);
             try {
-                await kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: updated }, record));
+                await kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...record, character: updated }), record));
             }
             catch (e) {
                 // save (disk overlay) write failed AFTER the receipts (base store) committed →
@@ -253,7 +254,7 @@ async function settleAssistForAlly(params, deps = {}) {
                 battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
             };
             try {
-                await kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: updated }, record));
+                await kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...record, character: updated }), record));
             }
             catch (e) {
                 await kv.del(receipt).catch(() => undefined);

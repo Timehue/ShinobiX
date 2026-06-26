@@ -12,6 +12,7 @@ const _xp_engine_js_1 = require("../_xp-engine.js");
 const _receipts_js_1 = require("../_receipts.js");
 const _reward_farm_js_1 = require("./_reward-farm.js");
 const _player_ips_js_1 = require("../_player-ips.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
 // the evidence by 23+ hours. 2 hours gives players with bad connections,
@@ -159,9 +160,15 @@ async function handler(req, res) {
         if (claimerRole && Object.keys(usedByClaimer).length > 0) {
             try {
                 await withSavesLocked([playerName], async () => {
+                    // Exactly-once is enforced by the save: lock (concurrent claims
+                    // for this player serialize here) + an idempotency receipt READ
+                    // before the work. The receipt is only SET after the save write
+                    // succeeds (#19): if the write throws, the receipt is never
+                    // placed, so a retry re-does the deduction instead of skipping
+                    // it and letting the player keep items the server marked used.
                     const consumedKey = `pvp:items-consumed:${playerName}:${battleId}`;
-                    const placed = await _storage_js_1.kv.set(consumedKey, { ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
-                    if (!placed)
+                    const already = await _storage_js_1.kv.get(consumedKey);
+                    if (already)
                         return; // already deducted on a prior claim
                     const saveKey = `save:${playerName}`;
                     const record = await _storage_js_1.kv.get(saveKey);
@@ -169,7 +176,10 @@ async function handler(req, res) {
                     if (!record || !char)
                         return;
                     const updated = deductUsedItems(char, usedByClaimer);
-                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: updated }, record));
+                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: updated });
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(next, record));
+                    // Receipt set ONLY after the write lands — retry-safe deduction.
+                    await _storage_js_1.kv.set(consumedKey, { ts: Date.now() }, { ex: CLAIM_TTL_SECONDS });
                 });
             }
             catch { /* lock contention (failClosed) → skip; a later claim retry settles */ }
@@ -236,7 +246,8 @@ async function handler(req, res) {
                 const placed = await _storage_js_1.kv.set(`pvp:ranked-rating:${slug}:${battleId}`, { role, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
                 const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind });
                 if (placed) {
-                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: { ...char, ...r.patch } }, record));
+                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: { ...char, ...r.patch } });
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(next, record));
                     return { field: ratingField, value: r.newRating, delta: r.delta };
                 }
                 const cur = Number(char[ratingField]);
@@ -266,7 +277,8 @@ async function handler(req, res) {
                     const dXp = Math.max(0, Math.floor(xpGain * decay));
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = (0, _xp_engine_js_1.creditPvpWinBase)(char, dXp, dRyo);
-                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: credit.char }, record));
+                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: credit.char });
+                    await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(next, record));
                     return credit.summary;
                 }
                 return {

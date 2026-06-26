@@ -155,9 +155,13 @@ async function handler(req, res) {
                 return res.status(409).json({ error: 'You just challenged this opponent — pick someone else.' });
             if (!(0, _core_js_1.canChallenge)(order0, me, targetId, lastTarget))
                 return res.status(409).json({ error: 'That opponent is not available to challenge.' });
-            // Consume one of the day's challenges only once the target is valid.
-            const used = await _storage_js_1.kv.incr(dailyKey(mode, me, dayStamp()), { ex: 36 * 3600 });
-            if (used > _core_js_1.DAILY_CHALLENGES)
+            // Fail fast if already out of challenges — but DON'T consume a slot yet.
+            // The atomic incr is deferred until the fight is actually resolved and the
+            // rank committed inside the order lock, so a 404 defender / resolve-throw /
+            // lock-contention no-op can't burn a daily challenge (#18).
+            const dKey = dailyKey(mode, me, dayStamp());
+            const usedBefore = Number((await _storage_js_1.kv.get(dKey)) ?? 0);
+            if (usedBefore >= _core_js_1.DAILY_CHALLENGES)
                 return res.status(429).json({ error: `Out of challenges today (${_core_js_1.DAILY_CHALLENGES}/day). Come back tomorrow.` });
             // Load the defender's SEALED roster (AI pool or the human's def doc).
             let targetDef;
@@ -178,6 +182,8 @@ async function handler(req, res) {
                 ?? { slug: me, name: myDef.name, village: myDef.village, record: { wins: 0, losses: 0, defended: 0, defeated: 0 }, summary: myDef.pets.map(_core_js_1.petLite), updatedAt: now };
             let rank = null;
             let notifySlug = null;
+            let committed = false;
+            let used = usedBefore;
             await (0, _lock_js_1.withKvLock)(orderKey(mode), async () => {
                 const order = (await _storage_js_1.kv.get(orderKey(mode))) ?? [];
                 if (!(0, _core_js_1.canChallenge)(order, me, targetId)) {
@@ -185,12 +191,24 @@ async function handler(req, res) {
                     rank = i >= 0 ? i + 1 : null;
                     return;
                 }
+                // Re-check the daily cap inside the lock (no-op early-returns above never reach here).
+                used = await _storage_js_1.kv.incr(dKey, { ex: 36 * 3600 });
+                if (used > _core_js_1.DAILY_CHALLENGES) {
+                    const i = order.findIndex((e) => e.slug === me);
+                    rank = i >= 0 ? i + 1 : null;
+                    return;
+                }
                 const applied = (0, _core_js_1.applyChallenge)(order, myEntry, targetId, won);
                 await _storage_js_1.kv.set(orderKey(mode), applied.order.slice(0, 1000));
+                committed = true;
                 notifySlug = applied.notifySlug;
                 const i = applied.order.findIndex((e) => e.slug === me);
                 rank = i >= 0 ? i + 1 : null;
             }, { failClosed: true });
+            // Lost a daily-cap race inside the lock — the incr already burned the slot,
+            // so it counts, but the fight was not committed. Tell the client they're out.
+            if (used > _core_js_1.DAILY_CHALLENGES && !committed)
+                return res.status(429).json({ error: `Out of challenges today (${_core_js_1.DAILY_CHALLENGES}/day). Come back tomorrow.` });
             // Notify the offline human defender (lightweight notify + realtime nudge).
             if (notifySlug && !(0, _core_js_1.isAiId)(notifySlug)) {
                 await appendNotify(notifySlug, { from: myDef.name, mode, won, at: now });

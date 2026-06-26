@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const _evolution_js_1 = require("./_evolution.js");
 // Server-authoritative starter-pet evolution.
 //
@@ -83,6 +84,7 @@ async function handler(req, res) {
             nextPets[idx] = evolved;
             const updatedChar = { ...char, pets: nextPets, inventory: nextInventory };
             const updated = { ...record, character: updatedChar };
+            (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             return { ok: true, pet: evolved, stage: check.nextStage };
         }, { failClosed: true });

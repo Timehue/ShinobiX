@@ -40,6 +40,20 @@ function isImageField(key, value) {
         key === 'leftImage' ||
         key === 'rightImage') && typeof value === 'string';
 }
+// Object subtrees that must FULL-REPLACE rather than key-union-merge (audit
+// 2026-06-26, root cause #3). The generic object merge below seeds `merged` from
+// `existing`, so a key the client legitimately DELETED (an unequipped gear slot,
+// a cleared pet loadout item) is absent from the incoming payload and gets
+// silently re-injected from the stored record on reload — visibly "didn't save",
+// and for weapons/armor a reload-triggered dupe (the item is also returned to
+// inventory[]) that even feeds back into PvP combat hydration. For these keys we
+// recurse with NO existing baseline, so the incoming object replaces the stored
+// one verbatim (a missing inner key genuinely means "cleared"). Safe because the
+// client always sends the COMPLETE current map for these, and foreign/public
+// projections omit the key entirely (so this branch never fires for them — the
+// partial-payload protection is preserved). Scalars cleared to undefined (e.g.
+// activePetId) are handled client-side by sending `null` instead of omitting.
+const REPLACE_SUBTREE_KEYS = new Set(['equipment', 'loadout']);
 function mergePreservingImages(incoming, existing) {
     // Arrays: take the incoming sequence verbatim (preserving order +
     // intentional deletions), but per-item recurse so embedded images and
@@ -82,7 +96,7 @@ function mergePreservingImages(incoming, existing) {
             continue;
         }
         merged[key] = value && typeof value === 'object'
-            ? mergePreservingImages(value, ex[key])
+            ? mergePreservingImages(value, REPLACE_SUBTREE_KEYS.has(key) ? undefined : ex[key])
             : value;
     }
     return merged;

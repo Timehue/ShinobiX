@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL } from './_daily-login.js';
 
 /*
@@ -76,7 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     loginStreak: reward.streak,
                     lastLoginRewardDate: today,
                 };
-                await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: nextChar }, rec));
+                const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
+                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return reward;
             }, { failClosed: true });
         } catch (e) {

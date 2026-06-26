@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 // jutsuId must be a sane slug — lowercase letters/digits/dashes only, length-
 // bounded. Stops injection of weird KV keys or path-traversal-ish values.
 const JUTSU_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
@@ -129,6 +130,7 @@ async function handler(req, res) {
                     jutsuMastery: newMastery,
                 },
             };
+            (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(updated, record));
             return {
                 status: 200,

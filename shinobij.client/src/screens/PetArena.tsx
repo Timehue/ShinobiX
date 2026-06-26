@@ -708,6 +708,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             totalPetWins: data.totalPetWins ?? ((character.totalPetWins ?? 0) + 1),
                             dailyPetWins: data.dailyPetWins ?? ((character.dailyPetWins ?? 0) + 1),
                             lastDailyReset: currentDateKey(),
+                            // Preserve the consumable-clear from before the battle —
+                            // re-spreading the stale `character` would restore it.
+                            pets: clearConsumablePets([selectedPet.id]),
                         });
                         if (data.capped) {
                             setBattleLog([...logs, "Daily Pet Coliseum reward cap reached — wins still count, but no more ryo today."]);
@@ -719,6 +722,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                             totalPetWins: (character.totalPetWins ?? 0) + 1,
                             dailyPetWins: (character.dailyPetWins ?? 0) + 1,
                             lastDailyReset: currentDateKey(),
+                            pets: clearConsumablePets([selectedPet.id]),
                         });
                     }
                 } catch {
@@ -728,6 +732,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                         totalPetWins: (character.totalPetWins ?? 0) + 1,
                         dailyPetWins: (character.dailyPetWins ?? 0) + 1,
                         lastDailyReset: currentDateKey(),
+                        pets: clearConsumablePets([selectedPet.id]),
                     });
                 }
             })();
@@ -744,7 +749,9 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // returnScreen; not hospitalized, not run-ending.
             const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
             const nextHp = Math.max(1, character.hp - dmg);
-            updateCharacter({ ...character, hp: nextHp });
+            // Preserve the consumable-clear from before the battle — re-spreading
+            // the stale `character` would restore the spent consumable.
+            updateCharacter({ ...character, hp: nextHp, pets: clearConsumablePets([selectedPet.id]) });
             setBattleLog([...logs, `${character.name} took ${dmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
         }
         if (pendingClanPetBattle) savePendingClanPetBattle(null);

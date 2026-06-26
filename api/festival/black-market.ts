@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollBlackMarket, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP } from './_black-market.js';
 
 /*
@@ -72,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 auraStones: num(char.auraStones) + reward.auraStones,
                 mythicSeals: num(char.mythicSeals) + reward.mythicSeals,
             };
-            await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: nextChar }, rec));
+            await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: nextChar }), rec));
             await kv.set(countKey, used + 1, { ex: COUNT_TTL_SECONDS } as never);
 
             return { status: 200, body: { ok: true, cost: BLACK_MARKET_COST, reward, dailyUsed: used + 1, dailyCap: BLACK_MARKET_DAILY_CAP, balanceRyo: num(nextChar.ryo) } };

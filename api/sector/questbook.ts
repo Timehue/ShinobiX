@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     QUEST_BOOK,
     isQuestBookId,
@@ -71,7 +72,7 @@ function mirrorOf(sealed: Sealed) {
 async function persist(player: string, saveKey: string, rec: Record<string, unknown>, char: Record<string, unknown>, sealed: Sealed) {
     await kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS });
     const updated = { ...char, activeQuestbook: mirrorOf(sealed) };
-    await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
+    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -262,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null };
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry) updated.wandererNemesis = null;
-                await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
+                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                 await kv.del(questKey).catch(() => undefined);
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
@@ -279,7 +280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (rec && char) {
                     const updated = { ...char, activeQuestbook: null };
-                    await kv.set(saveKey, mergePreservingImages({ ...rec, character: updated }, rec));
+                    await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                 }
                 return { status: 200, body: { ok: true } };
             }, { failClosed: true });

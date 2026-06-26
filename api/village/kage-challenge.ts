@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { bumpSaveVersion } from '../save/_save-version.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import type { PvpSession } from '../pvp/session.js';
 import {
@@ -108,7 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!rec || !c) return { ok: false };
                     if (num(c.honorSeals) < KAGE_DECLARE_SEAL_COST) return { ok: false };
                     const nextChar = { ...c, honorSeals: num(c.honorSeals) - KAGE_DECLARE_SEAL_COST };
-                    await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: nextChar }, rec));
+                    const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
+                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
                     return { ok: true };
                 }, { failClosed: true });
                 if (!debit.ok) return { status: 400, body: { error: `Challenging costs ${KAGE_DECLARE_SEAL_COST} Honor Seals.` } };

@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const _save_version_js_1 = require("../save/_save-version.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
 const _kage_challenge_js_1 = require("./_kage-challenge.js");
 /*
@@ -104,7 +105,8 @@ async function handler(req, res) {
                     if (num(c.honorSeals) < _kage_challenge_js_1.KAGE_DECLARE_SEAL_COST)
                         return { ok: false };
                     const nextChar = { ...c, honorSeals: num(c.honorSeals) - _kage_challenge_js_1.KAGE_DECLARE_SEAL_COST };
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)({ ...rec, character: nextChar }, rec));
+                    const nextRec = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
+                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(nextRec, rec));
                     return { ok: true };
                 }, { failClosed: true });
                 if (!debit.ok)

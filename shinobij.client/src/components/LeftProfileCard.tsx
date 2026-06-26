@@ -47,7 +47,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
     activeJutsuTraining,
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     currentSector: number;
     setScreen: (s: Screen) => void;
     activeTraining: ActiveTraining | null;

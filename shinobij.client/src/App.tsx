@@ -4,6 +4,7 @@ import type * as React from "react";
 import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
+import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
@@ -3404,6 +3405,7 @@ export default function App() {
             setMissionProgress(snap.missionProgress ?? {});
             setTriggeredEvents(snap.triggeredEvents ?? []);
             setPendingAiProfileId(snap.pendingAiProfileId ?? "");
+            lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central"]);
             applySnapshotSectorWithGuard(snap.currentSector ?? 40);
             if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
             if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
@@ -4626,6 +4628,11 @@ export default function App() {
     // Guard so we only run one conflict-recovery refetch at a time even if
     // multiple autosave timers fire 409s in close succession.
     const conflictRefetchInFlightRef = useRef<boolean>(false);
+    // #23: surface a banner when a save is persistently rejected (a payload too
+    // large [413] or a sustained 5xx) so the player knows before they refresh —
+    // persistSave otherwise retries silently forever. Cleared on the next success.
+    const saveFailCountRef = useRef(0);
+    const [saveBlocked, setSaveBlocked] = useState(false);
 
     async function refetchAfterSaveConflict(accountName: string) {
         if (conflictRefetchInFlightRef.current) return;
@@ -4675,14 +4682,22 @@ export default function App() {
                 } catch { /* server may return 200 with empty body; ignore */ }
                 // Mirror to localStorage so the next login can paint instantly.
                 writeSavePreview(accountName, { ...snap.payload, _saveVersion: latestSaveVersionRef.current });
+                // Recovered — clear any save-error banner + failure streak.
+                if (saveFailCountRef.current) { saveFailCountRef.current = 0; setSaveBlocked(false); }
             } else {
                 // Rejected (401/403/413/426/5xx). Don't silently drop it — warn
-                // and re-arm the dirty flag so the next tick retries.
+                // and re-arm the dirty flag so the next tick retries. A 413 (too
+                // large) or a sustained streak won't self-recover, so surface a
+                // banner rather than retrying invisibly forever (#23).
                 console.warn(`[autosave] server rejected save (status ${res.status})`);
                 charDirtyRef.current = true;
+                saveFailCountRef.current += 1;
+                if (res.status === 413 || saveFailCountRef.current >= 4) setSaveBlocked(true);
             }
         } catch {
             charDirtyRef.current = true; // restore so next tick retries
+            saveFailCountRef.current += 1;
+            if (saveFailCountRef.current >= 6) setSaveBlocked(true);
         }
     }
 
@@ -4696,6 +4711,9 @@ export default function App() {
     // we seed prevCharRef so the load itself isn't counted as a local change.
     const prevCharRef = useRef<Character | null>(null);
     const charDirtyRef = useRef(false);
+    // Signature of the last snapshot-applied mission/biome state — lets the
+    // standalone-state dirty effect tell a local change from a snapshot reapply.
+    const lastSnapshotMissionSigRef = useRef<string | null>(null);
     // Set by the training screens (via the *Now setters below) to request an
     // immediate save on the next commit rather than waiting for the 3s/15s
     // autosave. Players reported starting a training on one device and not
@@ -4736,6 +4754,19 @@ export default function App() {
         charDirtyRef.current = true;
         lastLocalSectorChangeRef.current = Date.now();
     }, [currentSector, character, currentAccountName]);
+
+    // Mark the save dirty when standalone top-level state (acceptedMissionIds /
+    // missionProgress / triggeredEvents / currentBiome) changes locally — these
+    // are in buildPlayerSavePayload but touch neither the character ref nor
+    // currentSector, so the autosave timers never scheduled a save (accept a
+    // contract then close the tab → lost it). The signature guard skips changes a
+    // server snapshot just reapplied so a load doesn't falsely flip dirty.
+    useEffect(() => {
+        if (!character || !currentAccountName) return;
+        const sig = JSON.stringify([acceptedMissionIds, missionProgress, triggeredEvents, currentBiome]);
+        if (lastSnapshotMissionSigRef.current === sig) { lastSnapshotMissionSigRef.current = null; return; }
+        charDirtyRef.current = true;
+    }, [acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, character, currentAccountName]);
 
     // Debounced auto-save — whenever the character state changes, schedule a
     // server save within 3 seconds. This ensures currency gains, mission
@@ -4906,6 +4937,7 @@ export default function App() {
         setMissionProgress(snap.missionProgress ?? {});
         setTriggeredEvents(snap.triggeredEvents ?? []);
         setPendingAiProfileId(snap.pendingAiProfileId ?? "");
+        lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central"]);
         applySnapshotSectorWithGuard(snap.currentSector ?? 40);
         if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
         if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
@@ -7026,7 +7058,11 @@ export default function App() {
                                             }
                                             const trait = rollPetTrait(encounter.rarity);
                                             const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
-                                            setCharacter({ ...character, pets: [...character.pets, petWithTrait] });
+                                            const updated = { ...character, pets: [...character.pets, petWithTrait] };
+                                            setCharacter(updated);
+                                            // Flush now (mirrors starter-pet path) so a refresh/close inside the 3s
+                                            // autosave debounce can't lose a freshly befriended rare/mythic pet.
+                                            void pushSaveToServer(updated, currentAccountName || character.name).catch(() => {});
                                             pushHollowGateLog(`${encounter.name} joined you! Trait: ${trait}.`);
                                             setHollowGateEvent(null);
                                         },
@@ -7257,6 +7293,7 @@ export default function App() {
             }}
         >
             <GameAlertHost />
+            <SaveErrorBanner visible={saveBlocked} />
             {sessionExpired && (
                 <div
                     style={{

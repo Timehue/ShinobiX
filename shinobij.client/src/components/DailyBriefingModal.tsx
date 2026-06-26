@@ -53,7 +53,7 @@ export function DailyBriefingModal({
     activeJutsuTraining,
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
+    updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void;
     navigate: (s: Screen) => void;
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
@@ -88,12 +88,15 @@ export function DailyBriefingModal({
             if (!res) { claimingRef.current = false; return; } // let the player retry on error
             setClaim(res);
             if (!res.alreadyClaimed && (res.granted.ryo || res.granted.fateShards)) {
-                updateCharacter({
-                    ...character,
-                    ryo: character.ryo + res.granted.ryo,
-                    fateShards: (character.fateShards ?? 0) + res.granted.fateShards,
-                    loginStreak: res.streak,
-                    lastLoginRewardDate: today,
+                updateCharacter((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        ryo: prev.ryo + res.granted.ryo,
+                        fateShards: (prev.fateShards ?? 0) + res.granted.fateShards,
+                        loginStreak: res.streak,
+                        lastLoginRewardDate: today,
+                    };
                 });
             }
         });

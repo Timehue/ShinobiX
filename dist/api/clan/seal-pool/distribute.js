@@ -6,6 +6,7 @@ const _utils_js_1 = require("../../_utils.js");
 const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
+const _save_version_js_1 = require("../../save/_save-version.js");
 const _storage_js_2 = require("./_storage.js");
 // Clan leader (clanFounder = true) distributes Honor Seals from the clan
 // pool to a clan member. Recipient must be in the same clan.
@@ -116,6 +117,7 @@ async function handler(req, res) {
                     honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
                 },
             };
+            (0, _save_version_js_1.bumpSaveVersion)(updatedRecipient);
             await _storage_js_1.kv.set(recipientSaveKey, (0, _utils_js_1.mergePreservingImages)(updatedRecipient, freshRecord));
         });
         return res.status(200).json({

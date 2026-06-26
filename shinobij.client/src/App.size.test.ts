@@ -47,7 +47,14 @@ import { readFileSync } from "node:fs";
 // NOT here. Hospital.tsx was also slimmed by reusing HealerInjuredList).
 // What remains is the App() core (~150 hooks) and its
 // module-level wiring — decompose via hooks, not moves.
-const MAX_LINES = 10_134;
+// → 10,146 (+12 save-core safety fixes from the 2026-06-26 audit that
+// inherently live in the App save core, NOT regrowth: the standalone-state
+// dirty-tracking effect [accept-a-contract-then-close no longer loses it], the
+// persistent-save-failure counter that drives the new SaveErrorBanner component
+// [the banner JSX itself lives in src/components/SaveErrorBanner.tsx], and the
+// Hollow Gate befriend immediate-save flush. These touch component refs/state +
+// inline render handlers, so they cannot be extracted to a screen/helper module.
+const MAX_LINES = 10_146;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
