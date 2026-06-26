@@ -43,7 +43,7 @@ import { projectileVisual, type ProjectileVisual, type ProjTexKind } from "../li
 import { petFramePace, tileDistance } from "../lib/pet-battle-sim";
 import { beatTimeline, beatChoreoMs, lerp, shakeAmpForBeat, lungeReach, tileToWorld, spreadPositions, arenaObstaclePlacements, cameraForCombatants, TILE_WORLD_W, TILE_WORLD_D, spriteBoundsFromAlpha, groundedSpriteLayout, DEFAULT_SPRITE_BOUNDS, classifyMoveChoreo, moveChoreoMods, moveFxKey, meleeContactFx, meleeTrailSpec, meleeLungeReach, type MoveChoreoKind, type MoveChoreoMods, type SpriteBounds, type ObstaclePlacement } from "../lib/pet-coliseum-scene";
 import { runPetDuel, runPetPartyDuel, DUEL_TPS, ARENA_X, ARENA_Y, type DuelResult, type DuelState, type DuelActorSnap } from "../lib/pet-duel-sim";
-import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, ZONE_RADIUS, BOSS_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
+import { runPetArenaMatch, ARENA_TPS, WIN_SCORE, BASE_SCORE_RANGE, BOSS_RADIUS, BOSS_ATK_RADIUS, type ArenaResult, type ArenaSnapshot, type ArenaState, type ArenaRole, type ArenaSlot } from "../lib/pet-arena-sim";
 import { POSED_PET_IDS, POSED_RUN_IDS, POSED_MOVE_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { petVisualId } from "../data/pet-evolutions";
 import { usePetBattleFrameSfx } from "../lib/use-pet-battle-sfx";
@@ -328,6 +328,26 @@ function shadowTexture(): THREE.CanvasTexture {
     _shadowTexture = new THREE.CanvasTexture(c);
     _shadowTexture.colorSpace = THREE.SRGBColorSpace;
     return _shadowTexture;
+}
+
+// A WHITE soft radial — usable with additive blending + a material color to paint a
+// glowing aura/shockwave (the black shadowTexture contributes nothing under additive).
+let _glowTexture: THREE.CanvasTexture | null = null;
+function glowTexture(): THREE.CanvasTexture {
+    if (_glowTexture) return _glowTexture;
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
+    const g = c.getContext("2d")!;
+    const rad = g.createRadialGradient(S / 2, S / 2, 1, S / 2, S / 2, S / 2);
+    rad.addColorStop(0, "rgba(255,255,255,1)");
+    rad.addColorStop(0.45, "rgba(255,255,255,0.55)");
+    rad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = rad;
+    g.fillRect(0, 0, S, S);
+    _glowTexture = new THREE.CanvasTexture(c);
+    _glowTexture.colorSpace = THREE.SRGBColorSpace;
+    return _glowTexture;
 }
 
 
@@ -1546,15 +1566,31 @@ const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors
 // imgW:imgH, a sim field point lands on the same screen pixel as the painting it
 // represents. (No 3D floor: the painting already has all the depth.)
 const DIORAMA_URL = new URL("../assets/coliseum/tactics-diorama.webp", import.meta.url).href;
-// The neutral boss (Arena Warden) sprite — a transparent cutout generated the same way
-// as the pets (gpt-image-1). Loaded once as a shared texture.
-const BOSS_URL = new URL("../assets/coliseum/boss-warden.webp", import.meta.url).href;
-let _bossTex: THREE.Texture | null = null;
-function bossTexture(): THREE.Texture {
-    if (_bossTex) return _bossTex;
-    _bossTex = new THREE.TextureLoader().load(BOSS_URL);
-    _bossTex.colorSpace = THREE.SRGBColorSpace;
-    return _bossTex;
+// The rotating buff shrines — transparent cutouts (gpt-image-1), one per flavour.
+const SHRINE_URLS: Record<"power" | "mend", string> = {
+    power: new URL("../assets/coliseum/shrine-power.webp", import.meta.url).href,
+    mend: new URL("../assets/coliseum/shrine-mend.webp", import.meta.url).href,
+};
+const _shrineTex: Partial<Record<"power" | "mend", THREE.Texture>> = {};
+function shrineTexture(kind: "power" | "mend"): THREE.Texture {
+    let t = _shrineTex[kind];
+    if (!t) { t = new THREE.TextureLoader().load(SHRINE_URLS[kind]); t.colorSpace = THREE.SRGBColorSpace; _shrineTex[kind] = t; }
+    return t;
+}
+// The Warden's animation frames (fal Nano-Banana img2img off the base sprite) — a
+// flipbook the renderer swaps by state (idle / walk / wind-up / slam), the "pet treatment".
+type WardenFrame = "idle" | "walk" | "windup" | "slam";
+const WARDEN_FRAME_URLS: Record<WardenFrame, string> = {
+    idle: new URL("../assets/coliseum/warden-idle.webp", import.meta.url).href,
+    walk: new URL("../assets/coliseum/warden-walk.webp", import.meta.url).href,
+    windup: new URL("../assets/coliseum/warden-windup.webp", import.meta.url).href,
+    slam: new URL("../assets/coliseum/warden-slam.webp", import.meta.url).href,
+};
+const _wardenTex: Partial<Record<WardenFrame, THREE.Texture>> = {};
+function wardenFrame(f: WardenFrame): THREE.Texture {
+    let t = _wardenTex[f];
+    if (!t) { t = new THREE.TextureLoader().load(WARDEN_FRAME_URLS[f]); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; _wardenTex[f] = t; }
+    return t;
 }
 // The diorama is a fixed 1536×1024 MAP-SPACE reference (the SpriteFlow arena).
 // All pet positions are computed in map-space, then projected to the world layer
@@ -3110,44 +3146,62 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
     );
 }
 
-/** The control zone (king-of-the-hill). A team-tinted ground ring at the current hill
- *  with a pulsing intensity that tracks the hold meter, plus a floating capture-arc +
- *  flag so you can read who's winning the space at a glance. Reads snap.zone, never the
- *  sim. The hill RELOCATES (B3) — this just follows snap.zone.x/y each frame. */
-function ArenaZone({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
-    const ring = useRef<THREE.Mesh>(null);
-    const ringMat = useRef<THREE.MeshBasicMaterial>(null);
-    const arcRef = useRef<HTMLDivElement>(null);
-    const flagRef = useRef<HTMLDivElement>(null);
+/** The rotating buff SHRINE — a grounded glowing relic (Chakra Font = orange power,
+ *  Mending Spring = green heal) with a type-tinted ground glow, a claim ring that fills
+ *  while a pet channels it, a floating label, and a pop-in on (re)spawn. Reads
+ *  snap.shrine, never the sim. */
+function ArenaShrine({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
     const grp = useRef<THREE.Group>(null);
+    const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const glow = useRef<THREE.Mesh>(null);
+    const glowMat = useRef<THREE.MeshBasicMaterial>(null);
+    const ringRef = useRef<HTMLDivElement>(null);
+    const labelRef = useRef<HTMLDivElement>(null);
+    const [kind, setKind] = useState<"power" | "mend">("power");
+    const [visible, setVisible] = useState(false);
+    const spawnAt = useRef<number | null>(null);
+    const prevActive = useRef(false);
+    const H = ARENA_SPRITE_H * 1.45;
     useFrame((state) => {
         const snaps = result.snapshots;
         const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
-        const z = snaps[i].zone;
-        const c0 = arenaPlace(z.x, z.y), cR = arenaPlace(z.x + ZONE_RADIUS, z.y);
-        const worldR = Math.max(0.6, Math.abs(cR.wx - c0.wx));
-        const lead = z.lead;
-        const color = lead === "blue" ? "#3b82f6" : lead === "red" ? "#ef4444" : "#fbbf24";
-        const mag = Math.min(1, Math.abs(z.holdFrac));
-        if (ring.current && ringMat.current) {
-            const pulse = 0.5 + Math.abs(Math.sin(state.clock.elapsedTime * 2.4)) * 0.5;
-            ring.current.position.set(c0.wx, c0.wy - 0.04 * c0.depth, c0.zo - 0.13);
-            const rw = worldR * 2; ring.current.scale.set(rw, rw * 0.5, 1);
-            ringMat.current.color.set(color);
-            ringMat.current.opacity = 0.16 + mag * 0.34 + pulse * 0.1;   // brighter as the hold builds
+        const sh = snaps[i].shrine;
+        const vis = sh.state === "active";
+        if (vis !== visible) setVisible(vis);
+        if (sh.kind !== kind) setKind(sh.kind);
+        const now = state.clock.elapsedTime;
+        if (vis && !prevActive.current) spawnAt.current = now;     // pop-in each time it (re)appears
+        prevActive.current = vis;
+        if (!vis || !grp.current) return;
+        const sp = spawnAt.current !== null ? Math.min(1, (now - spawnAt.current) / 0.4) : 1;
+        const p = arenaPlace(sh.x, sh.y);
+        const bob = Math.abs(Math.sin(now * 2)) * 0.08 * p.depth;
+        grp.current.position.set(p.wx, p.wy + H * 0.5 * p.depth + bob, p.zo + 0.02);
+        grp.current.scale.setScalar(p.depth * (0.55 + 0.45 * sp));   // grow in
+        const color = sh.kind === "power" ? "#fb923c" : "#34d399";
+        if (mat.current) mat.current.opacity = sp;
+        if (glow.current && glowMat.current) {
+            const pulse = 0.5 + Math.abs(Math.sin(now * 2.6)) * 0.5;
+            const fr = arenaPlace(sh.x + 1.0, sh.y); const worldR = Math.max(0.7, Math.abs(fr.wx - p.wx));
+            glow.current.position.set(p.wx, p.wy - 0.04 * p.depth, p.zo - 0.1);
+            const gw = worldR * (2.0 + pulse * 0.6) * p.depth; glow.current.scale.set(gw, gw * 0.5, 1);
+            glowMat.current.color.set(color);
+            glowMat.current.opacity = sp * (0.28 + pulse * 0.22 + sh.channelFrac * 0.45);   // brighter while being claimed
         }
-        if (grp.current) grp.current.position.set(c0.wx, c0.wy + 0.6 * c0.depth, c0.zo + 0.05);
-        if (arcRef.current) arcRef.current.style.background = `conic-gradient(${color} ${mag * 360}deg, rgba(0,0,0,0.4) 0deg)`;
-        if (flagRef.current) flagRef.current.style.color = color;
+        if (ringRef.current) { ringRef.current.style.opacity = sh.channelFrac > 0 ? "1" : "0"; ringRef.current.style.background = `conic-gradient(${color} ${sh.channelFrac * 360}deg, rgba(0,0,0,0.35) 0deg)`; }
+        if (labelRef.current) labelRef.current.style.color = color;
     });
+    if (!visible) return null;
+    const color = kind === "power" ? "#fb923c" : "#34d399";
     return (
         <group>
-            <mesh ref={ring} renderOrder={-2}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={ringMat} map={shadowTexture()} color="#fbbf24" transparent opacity={0.3} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
+            <mesh ref={glow} renderOrder={-1}><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={glowMat} map={glowTexture()} color={color} transparent opacity={0.4} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
             <group ref={grp}>
-                <Html center pointerEvents="none" zIndexRange={[28, 0]}>
-                    <div style={{ position: "relative", width: 34, height: 34, display: "grid", placeItems: "center" }}>
-                        <div ref={arcRef} style={{ position: "absolute", inset: 0, borderRadius: "50%", opacity: 0.9 }} />
-                        <div ref={flagRef} style={{ fontSize: 20, filter: "drop-shadow(0 1px 3px #000)" }}>⚑</div>
+                <mesh><planeGeometry args={[H, H]} /><meshBasicMaterial ref={mat} map={shrineTexture(kind)} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} /></mesh>
+                <Html center position={[0, H * 0.6, 0]} pointerEvents="none" zIndexRange={[29, 0]}>
+                    <div style={{ position: "relative", width: 56, height: 44, display: "grid", placeItems: "center" }}>
+                        <div ref={ringRef} style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 26, height: 26, borderRadius: "50%", opacity: 0 }} />
+                        <div ref={labelRef} style={{ position: "absolute", bottom: 0, whiteSpace: "nowrap", font: "800 9px Inter, system-ui, sans-serif", color, textShadow: "0 1px 3px #000" }}>{kind === "power" ? "⚡ Chakra Font" : "✚ Mending Spring"}</div>
                     </div>
                 </Html>
             </group>
@@ -3155,16 +3209,34 @@ function ArenaZone({ result, clock }: { result: ArenaResult; clock: { current: D
     );
 }
 
-/** The neutral boss (Arena Warden, B4). A big grounded billboard at the centre pit while
- *  active, with a chunky HP bar. Fades out on death. Reads snap.boss, never the sim. */
+/** The neutral boss (Arena Warden, B4). A big grounded billboard at the centre pit, now
+ *  ALIVE: it faces its quarry, lumbers with a walk-bob, REARS UP (with a hot ground
+ *  warning ring) before each telegraphed slam and SQUASHES on impact, rises from the
+ *  earth on spawn, and topples on death. Drives all of this off snap.boss
+ *  (faceX / winding / state) + the bossslam timing — never the sim. */
 function ArenaBoss({ result, clock }: { result: ArenaResult; clock: { current: DuelClock } }) {
     const grp = useRef<THREE.Group>(null);
+    const body = useRef<THREE.Group>(null);
     const mat = useRef<THREE.MeshBasicMaterial>(null);
+    const auraMat = useRef<THREE.MeshBasicMaterial>(null);
     const shadow = useRef<THREE.Mesh>(null);
+    const warn = useRef<THREE.Group>(null);
+    const warnMat = useRef<THREE.MeshBasicMaterial>(null);
     const hpFill = useRef<HTMLDivElement>(null);
     const wrap = useRef<HTMLDivElement>(null);
     const [visible, setVisible] = useState(false);
-    const tex = bossTexture();
+    // animation state (refs so it survives frames without re-rendering)
+    const prevState = useRef<string>("inactive");
+    const prevWinding = useRef(false);
+    const spawnAt = useRef<number | null>(null);
+    const deadAt = useRef<number | null>(null);
+    const windStart = useRef<number | null>(null);
+    const slamAt = useRef<number | null>(null);
+    // Flipbook state: the strike ticks (swipe + slam) drive the "slam" attack frame, and a
+    // position delta picks walk vs idle. curFrame avoids redundant texture swaps.
+    const attackTicks = useMemo(() => result.events.filter((e) => e.type === "bossswipe" || e.type === "bossslam").map((e) => e.t).sort((a, b) => a - b), [result]);
+    const prevPos = useRef<{ x: number; y: number } | null>(null);
+    const curFrame = useRef<WardenFrame>("idle");
     // The sprite is a near-square cutout; show it big and grounded so it reads as a boss.
     const H = ARENA_SPRITE_H * 2.6;
     useFrame((state) => {
@@ -3173,15 +3245,80 @@ function ArenaBoss({ result, clock }: { result: ArenaResult; clock: { current: D
         const b = snaps[i].boss;
         const vis = b.state !== "inactive";
         if (vis !== visible) setVisible(vis);
+        const now = state.clock.elapsedTime;
+        // ── state-transition stamps (spawn rise / death topple / slam) ──
+        if (b.state !== prevState.current) {
+            if (b.state === "active" && prevState.current === "inactive") spawnAt.current = now;
+            if (b.state === "dead") deadAt.current = now;
+            prevState.current = b.state;
+        }
+        if (b.winding && !prevWinding.current) windStart.current = now;     // wind-up began
+        if (!b.winding && prevWinding.current) slamAt.current = now;        // wind-up ended → the stomp landed
+        prevWinding.current = b.winding;
         if (!vis || !grp.current) return;
+
         const p = arenaPlace(b.x, b.y);
-        const breathe = b.state === "active" ? Math.abs(Math.sin(state.clock.elapsedTime * 1.5)) * 0.05 : 0;
+        const sp = spawnAt.current !== null ? Math.min(1, (now - spawnAt.current) / 0.6) : 1;          // 0→1 spawn rise
+        const dp = deadAt.current !== null ? Math.min(1, (now - deadAt.current) / 0.8) : 0;            // 0→1 death topple
+        const wp = b.winding && windStart.current !== null ? Math.min(1, (now - windStart.current) / 0.45) : 0;  // rear-up progress
+        const sq = slamAt.current !== null ? Math.max(0, 1 - (now - slamAt.current) / 0.34) : 0;        // 1→0 slam squash decay
+
         grp.current.position.set(p.wx, p.wy + H * 0.5 * p.depth, p.zo + 0.02);
-        grp.current.scale.setScalar(p.depth * (1 + breathe));
-        if (mat.current) mat.current.opacity = b.state === "dead" ? Math.max(0, mat.current.opacity - 0.04) : 1;
+        grp.current.scale.setScalar(p.depth);
+
+        if (body.current) {
+            const breathe = b.state === "active" && !b.winding ? Math.abs(Math.sin(now * 1.5)) * 0.04 : 0;
+            const rear = wp * 0.14;                                  // grows taller as it winds up
+            const sx = (1 + sq * 0.26);                              // splat wider on impact
+            const sy = (1 + breathe + rear - sq * 0.30) * (0.55 + 0.45 * sp);   // squash on impact, grow in on spawn
+            const face = b.faceX < 0 ? -1 : 1;
+            body.current.scale.set(face * sx * (0.6 + 0.4 * sp), sy, 1);
+            // rear up then stomp DOWN; topple sideways on death; gentle walk sway otherwise.
+            const sway = b.state === "active" && !b.winding ? Math.sin(now * 6) * 0.03 : 0;
+            body.current.rotation.z = -dp * 1.15 * face + sway * (1 - wp);
+            const lift = (1 - sp) * -H * 0.45 + rear * H * 0.18 - sq * H * 0.06 - dp * H * 0.12;   // rise from ground / rear / dip / sink
+            body.current.position.y = lift;
+        }
+        // ── Flipbook: pick the animation frame by state (idle / walk / wind-up / slam) ──
+        const tNow = clock.current.t;
+        let striking = false;
+        for (let k = attackTicks.length - 1; k >= 0; k--) { const at = attackTicks[k]; if (at > tNow) continue; if (tNow - at <= 7) { striking = true; } break; }   // a swipe/slam within ~0.23 s → strike pose
+        const moved = prevPos.current ? (Math.abs(b.x - prevPos.current.x) + Math.abs(b.y - prevPos.current.y)) > 0.02 : false;
+        prevPos.current = { x: b.x, y: b.y };
+        const want: WardenFrame = b.state === "dead" ? "idle" : b.winding ? "windup" : striking ? "slam" : moved ? "walk" : "idle";
+        if (mat.current && want !== curFrame.current) { mat.current.map = wardenFrame(want); mat.current.needsUpdate = true; curFrame.current = want; }
+        if (mat.current) {
+            mat.current.opacity = b.state === "dead" ? Math.max(0, 1 - dp) : sp;
+            // flash hot while rearing back, ember-warm normally, ashen on death.
+            const r = 1, gC = b.state === "dead" ? 0.42 : 1 - wp * 0.45, bC = b.state === "dead" ? 0.42 : 1 - wp * 0.55;
+            mat.current.color.setRGB(r, gC, bC);
+        }
+        // Aura glow behind the Warden — green menace, flaring orange + bright as it winds up.
+        if (auraMat.current) {
+            const pulse = 0.5 + Math.abs(Math.sin(now * 2.2)) * 0.5;
+            const base = b.state === "dead" ? Math.max(0, 1 - dp) : sp;
+            auraMat.current.opacity = base * (0.18 + pulse * 0.12 + wp * 0.5);
+            auraMat.current.color.set(wp > 0.05 ? "#fb7a32" : "#34d399");
+        }
         // Ground footprint sized to the boss's sim collision radius, parked at its feet.
         const fr = arenaPlace(b.x + BOSS_RADIUS, b.y); const worldR = Math.max(0.8, Math.abs(fr.wx - p.wx));
         if (shadow.current) { shadow.current.position.set(p.wx, p.wy - 0.05 * p.depth, p.zo - 0.1); shadow.current.scale.set(worldR * 2.4 * p.depth, worldR * 0.9 * p.depth, 1); }
+        // Hot warning ring on the ground = the slam's AoE footprint, filling in as it winds up
+        // so players can read (and the AI's victims sit in) the danger zone before it lands.
+        if (warn.current && warnMat.current) {
+            const show = wp > 0 || sq > 0;
+            warn.current.visible = show;
+            if (show) {
+                // honest footprint: the actual slam reach (BOSS_ATK_RADIUS + BOSS_RADIUS) in world units
+                const aoeR = arenaPlace(b.x + (BOSS_ATK_RADIUS + BOSS_RADIUS), b.y);
+                const aoe = Math.max(1, Math.abs(aoeR.wx - p.wx)) * 2;
+                const s = (wp > 0 ? 0.5 + 0.5 * wp : 1) + sq * 0.4;        // grow during wind-up, kick out on impact
+                warn.current.position.set(p.wx, p.wy - 0.04 * p.depth, p.zo - 0.08);
+                warn.current.scale.set(aoe * s * p.depth, aoe * 0.5 * s * p.depth, 1);
+                warnMat.current.color.set(sq > 0 ? "#fff1c2" : "#f97316");
+                warnMat.current.opacity = (wp > 0 ? 0.25 + 0.5 * wp : 0.6 * sq);
+            }
+        }
         if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, b.hpFrac * 100))}%`;
         if (wrap.current) wrap.current.style.opacity = b.state === "active" ? "1" : "0";
     });
@@ -3189,8 +3326,18 @@ function ArenaBoss({ result, clock }: { result: ArenaResult; clock: { current: D
     return (
         <group>
             <mesh ref={shadow} position={[0, 0, 0]} renderOrder={-2}><planeGeometry args={[1, 1]} /><meshBasicMaterial map={shadowTexture()} transparent opacity={0.45} depthWrite={false} depthTest={false} toneMapped={false} /></mesh>
+            {/* slam-AoE warning ring (only visible while winding / on impact) */}
+            <group ref={warn} renderOrder={-1}>
+                <mesh><planeGeometry args={[1, 1]} /><meshBasicMaterial ref={warnMat} map={glowTexture()} color="#f97316" transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
+            </group>
             <group ref={grp}>
-                <mesh><planeGeometry args={[H, H]} /><meshBasicMaterial ref={mat} map={tex} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} /></mesh>
+                <group ref={body}>
+                    {/* aura behind the sprite */}
+                    <mesh position={[0, 0, -0.05]}><planeGeometry args={[H * 1.5, H * 1.5]} /><meshBasicMaterial ref={auraMat} map={glowTexture()} color="#34d399" transparent opacity={0.2} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
+                    <mesh><planeGeometry args={[H, H]} /><meshBasicMaterial ref={mat} map={wardenFrame("idle")} transparent alphaTest={0.02} depthWrite={false} toneMapped={false} /></mesh>
+                </group>
+                {/* drifting embers around the Warden while it's up */}
+                <Sparkles count={18} scale={[H * 0.8, H * 0.9, 1.5]} position={[0, 0, 0.1]} size={3} speed={0.3} opacity={0.5} color="#7df0c0" noise={1.5} />
                 <Html center position={[0, H * 0.62, 0]} pointerEvents="none" zIndexRange={[34, 0]}>
                     <div ref={wrap} style={{ width: 132, textAlign: "center", transition: "opacity 0.3s" }}>
                         <div style={{ font: "800 11px Inter, system-ui, sans-serif", color: "#d6f5e6", textShadow: "0 1px 3px #000", marginBottom: 2, letterSpacing: 0.5 }}>⛰ ARENA WARDEN</div>
@@ -3315,23 +3462,45 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     triggerHitstop(90); triggerSlowmo(matchPoint ? 460 : 280, 0.38); triggerShake(1.4);
                 } else if (e.type === "pickup" && e.actorId) {
                     pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
-                } else if (e.type === "zonescore" && e.team) {
-                    const z = snapAt.zone; spawnFx({ x: z.x, z: z.y, key: "power", scale: 3.4, dur: 620 });
-                    const matchPoint = (e.team === "blue" ? snapAt.scoreBlue : snapAt.scoreRed) >= WIN_SCORE;
-                    pushFeed(`⚑ ${e.team === "blue" ? "Blue" : "Red"} held the zone!`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                    pushBanner(matchPoint ? `${e.team === "blue" ? "BLUE" : "RED"} WINS! ⚑` : `${e.team === "blue" ? "BLUE" : "RED"} HOLDS! ⚑`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.42)" : "rgba(239,68,68,0.42)");
-                    triggerHitstop(70); triggerSlowmo(matchPoint ? 440 : 220, 0.42); triggerShake(1.1);
+                } else if (e.type === "shrinespawn") {
+                    const sh = snapAt.shrine; const c = sh.kind === "power" ? "#fb923c" : "#34d399";
+                    spawnFx({ x: sh.x, z: sh.y, key: sh.kind === "power" ? "spark" : "heal", scale: 2.2, dur: 540 });
+                    pushFeed(sh.kind === "power" ? "⚡ A Chakra Font rises" : "✚ A Mending Spring rises", c);
+                } else if (e.type === "shrineclaim" && e.team) {
+                    // A claimed shrine — a team-colored burst + the flavour's FX. Tactical, not a
+                    // score, so a lighter touch than a capture (no banner/slow-mo).
+                    const sh = snapAt.shrine; const c = e.team === "blue" ? "#60a5fa" : "#f87171";
+                    spawnFx({ x: sh.x, z: sh.y, key: "power", scale: 3.0, dur: 600 });
+                    spawnFx({ x: sh.x, z: sh.y, key: e.kind === "power" ? "spark" : "heal", scale: 2.4, dur: 460 });
+                    pushFeed(`${e.kind === "power" ? "⚡" : "✚"} ${e.team === "blue" ? "Blue" : "Red"} claimed the ${e.kind === "power" ? "Chakra Font" : "Mending Spring"}`, c);
+                    triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.26)" : "rgba(239,68,68,0.26)");
+                    triggerShake(0.55);
                 } else if (e.type === "bossspawn") {
                     const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 4.6, dur: 820 });
                     pushFeed("⛰ The Arena Warden awakens!", "#34d399");
                     pushBanner("⛰ THE WARDEN AWAKENS", "#34d399");
                     triggerHitstop(90); triggerShake(1.6);
+                } else if (e.type === "bossswipe") {
+                    // The Warden's fast melee swipe — a quick claw-spark + a small jolt. (Damage
+                    // floaters on the struck pet carry the rest; per-swipe so no feed spam.)
+                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "spark", scale: 1.8, dur: 280 });
+                    triggerShake(0.4);
+                } else if (e.type === "bosslunge") {
+                    // The Warden LEAPS to close on a kiter — a launch puff + a quick jolt.
+                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 2.0, dur: 320 });
+                    triggerShake(0.5);
+                } else if (e.type === "bosswindup") {
+                    // The Warden REARS UP for its slam — a dark anticipatory sigil under it + a
+                    // low rumble. ArenaBoss draws the hot AoE warning ring; this adds the weight.
+                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "shadow", scale: 2.6, dur: 440 });
+                    triggerShake(0.35);
                 } else if (e.type === "bossslam") {
-                    // The Warden stomps the pit — a grounded shockwave + a little weight. (No feed
+                    // The Warden stomps the pit — a grounded shockwave + real weight. (No feed
                     // spam: slams fire on a ~1.5 s cadence; the per-pet damage floaters carry it.)
-                    const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 2.9, dur: 460 }); spawnDecal(b.x, b.y);
-                    triggerHitstop(40); triggerShake(0.8);
+                    const b = snapAt.boss;
+                    spawnFx({ x: b.x, z: b.y, key: "power", scale: 3.6, dur: 520 });
+                    spawnFx({ x: b.x, z: b.y, key: "spark", scale: 2.2, dur: 300 }); spawnDecal(b.x, b.y);
+                    triggerHitstop(70); triggerSlowmo(150, 0.5); triggerShake(1.4);
                 } else if (e.type === "bosskill" && e.team) {
                     const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 5.2, dur: 900 }); spawnFx({ x: b.x, z: b.y, key: "spark", scale: 3.0, dur: 460 });
                     pushFeed(`⛰ ${e.team === "blue" ? "Blue" : "Red"} slew the Warden! (+buff)`, e.team === "blue" ? "#60a5fa" : "#f87171");
@@ -3556,9 +3725,9 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                     {/* Accumulating scorch decals where pets fell — the board remembers the fight. */}
                     {decals.map((d) => (<mesh key={d.id} position={d.pos} renderOrder={-3}><planeGeometry args={[d.w, d.w * 0.55]} /><meshBasicMaterial map={shadowTexture()} color="#2a1d12" transparent opacity={0.5} depthWrite={false} depthTest={false} toneMapped={false} /></mesh>))}
                     {/* Spawn seals + center paw are painted into the diorama — no ring overlays. */}
-                    <ArenaZone result={result} clock={clock} />
                     {roster.map((r) => (<ArenaStandee key={r.id} result={result} clock={clock} id={r.id} pet={r.pet} sharedImages={sharedImages} />))}
                     <ArenaBoss result={result} clock={clock} />
+                    <ArenaShrine result={result} clock={clock} />
                     <ArenaScroll result={result} clock={clock} />
                     <ArenaObjectiveHud result={result} clock={clock} textRef={objTextRef} barWrapRef={objBarWrapRef} barRef={objBarRef} />
                     {fxList.map((fx) => (<FxAnim key={fx.id} frames={fx.frames} from={fx.pos} durationMs={fx.dur} scale={fx.scale} onDone={() => setFxList((p) => p.filter((x) => x.id !== fx.id))} />))}
