@@ -15,6 +15,7 @@ import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel } from "../lib/questbook";
+import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -650,7 +651,7 @@ export function WorldMap({
     // Wanderer interaction dialog. `nemesis` flags a bandit encounter that's
     // actually your returning rival. The dialog is the only UI; rewards are
     // server-authoritative.
-    type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean };
+    type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean; standingLine?: string; peace?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
     function handleWandererEngage(w: Wanderer) {
         // A bandit you face while you have a rival has a chance of BEING that rival,
@@ -659,9 +660,16 @@ export function WorldMap({
             setWandererDialog({ w, nemesis: true });
             return;
         }
+        // The world remembers your Quest Book choices (character.questStandings): a
+        // spared Goro's old gang may wave you through; colder choices earn cold words.
+        const react = standingReaction(w.archetype, character.questStandings, Math.random());
+        if (w.verb === "attack" && react?.peace) {
+            setWandererDialog({ w, standingLine: react.line, peace: true });
+            return;
+        }
         // Every wanderer — bandits included — opens a dialog first (a threat line
         // + Fight/Flee for bandits; greetings + actions for the rest).
-        setWandererDialog({ w });
+        setWandererDialog({ w, standingLine: react?.line });
     }
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
@@ -1828,11 +1836,19 @@ export function WorldMap({
                                         <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
                                         <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
                                         <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time — you won't this time."` : wandererDialog.w.greeting)}</p>
+                                        {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "#86efac" : "#cbd5e1", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
-                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                                <button onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
-                                                <button onClick={() => setWandererDialog(null)}>Flee</button>
-                                            </div>
+                                            wandererDialog.peace ? (
+                                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                    <button onClick={() => setWandererDialog(null)}>Pass in peace</button>
+                                                    <button onClick={() => startWandererAttack(wandererDialog.w, false)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Fight anyway</button>
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                    <button onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
+                                                    <button onClick={() => setWandererDialog(null)}>Flee</button>
+                                                </div>
+                                            )
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
                                             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                 <button disabled={wandererDialog.busy} onClick={() => claimWandererGift(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take it"}</button>
