@@ -18,6 +18,7 @@ import { type Achievement, ACHIEVEMENTS } from "../constants/achievements";
 import { getCharacterElements } from "../lib/elements";
 import { sendStandardDuel } from "../lib/duel-challenge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
+import { NindoCard } from "../components/NindoCard";
 
 export function UserView({
     viewingName,
@@ -150,6 +151,8 @@ export function UserView({
                         </div>
                     </div>
                 </section>
+
+                <NindoCard nindo={viewedCharacter.nindo} nindoBg={viewedCharacter.nindoBg} />
             </div>
 
             {/* ── Achievements ─────────────────────────── */}
