@@ -74,6 +74,8 @@ export interface QuestBookEntry {
     fateShards: number;
     /** cosmetic title granted on completion (a choice may override it) */
     award: string;
+    /** only offered while the player's village is in an active war (client-gated availability) */
+    requiresWar?: boolean;
     stages: QuestStage[];
 }
 
@@ -107,6 +109,20 @@ export const QUEST_BOOK: Record<string, QuestBookEntry> = {
                     { key: "execute", label: "Execute Goro", blurb: "Justice — and a heavier purse, taken now. The wilds grow colder toward you. (−standing)", bonusRyoPct: 50, standing: "goro-executed" },
                 ] } },
             { key: "strings", text: "Cut the strings: defeat the genjutsu puppeteer Itoguchi who drove the captain.", metric: "totalAiKills", count: 1, bossId: "puppeteer-itoguchi" },
+        ],
+    },
+    // Q3 — band ~40–65, WAR-GATED. A heavy moral branch with two mutually-exclusive
+    // titles, then an elite assassin. Only offered while your village is at war.
+    "qb-defector": {
+        id: "qb-defector", title: "The Frostfang Defector", giver: "The Defector",
+        bandMin: 40, bandMax: 65, weight: 9, fateShards: 1, award: "Frostfang Survivor", requiresWar: true,
+        stages: [
+            { key: "offer", text: "A defector from the enemy village offers war-turning intel — for safe passage. What do you do?", metric: "totalAiKills", count: 0,
+                choice: { prompt: "“Get me out and the war is yours. Or turn me in for your Kage's coin. Choose — they're already hunting me.”", options: [
+                    { key: "trust",  label: "Trust the defector", blurb: "Escort them out. Their intel feeds your village's war effort. Earns the title Border-Walker.", title: "Border-Walker", standing: "defector-trusted" },
+                    { key: "turnin", label: "Turn them in",      blurb: "A bounty from your Kage — and the enmity of every sympathizer. +ryo, the title Kage's Blade.", title: "Kage's Blade", bonusRyoPct: 40, standing: "defector-turned" },
+                ] } },
+            { key: "silencer", text: "Either way, an elite Hunter-Nin — Shirakawa — is sent to erase the defector, and now you. End them.", metric: "totalAiKills", count: 1, bossId: "hunter-shirakawa" },
         ],
     },
     // Q4 — pet-mode campaign. Scales to the player's pets; ends on a mythic boss pet.

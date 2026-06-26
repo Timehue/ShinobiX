@@ -1934,7 +1934,7 @@ export function WorldMap({
                                                 );
                                             }
                                             const def = questForWanderer(wandererDialog.w);
-                                            const offer = epicForWanderer(wandererDialog.w.id, character.level);
+                                            const offer = epicForWanderer(wandererDialog.w.id, character.level, { atWar: activeVillageWarsFor(character.village).length > 0 });
                                             return (
                                                 <>
                                                     <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
