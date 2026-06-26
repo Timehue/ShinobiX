@@ -1,0 +1,3 @@
+shrine:power
+
+A mystical chakra power shrine object for a 2D anime shinobi RPG arena: an ancient carved stone brazier altar on a small rune-etched pedestal, a swirling column of glowing amber-and-orange chakra fire rising from its bowl, floating ember sparks, warm orange rim light, ornate shinobi engravings glowing hot. Viewed at a slight three-quarter top-down angle as a grounded game prop, centered. Clean painterly cel-shaded game-sprite art, crisp edges, dramatic rim light, fully transparent background, single object only, no ground, no shadow, no text.

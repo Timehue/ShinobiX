@@ -280,29 +280,6 @@ function makeRng(seed: number): () => number {
     return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 
-// ── Control Zone (king-of-the-hill — the always-on tactical anchor + B3 rotation) ──
-// A contested hill both teams want to STAND on. Net presence (more alive bodies in the
-// ring than the enemy) ticks a signed hold meter; an uncontested hold to ZONE_TO_SCORE
-// scores a point. A contested OR empty ring decays the meter back toward neutral, so a
-// point requires actually WINNING the space — not just touching it. That's the lever
-// that turns the dead time between scroll cycles into positioning play instead of a
-// brawl. The hill RELOCATES on a timer and after each score (B3) so the squads rotate
-// across the map instead of camping one tile (which also relieves the old single-point
-// crowding). All integer / quantised → deterministic byte-identical replays.
-export const ZONE_RADIUS = 2.6;                  // a pet within this of the hill centre contests it
-const ZONE_TO_SCORE = ARENA_TPS * 9;             // ~9 s of net-uncontested hold = a zone point (was 7 s — slowed so the hill churn doesn't outpace the Warden beat)
-const ZONE_DECAY = 2;                            // contested/empty → meter eases toward neutral this fast (>build, so you must hold it clean)
-const ZONE_RELOCATE = ARENA_TPS * 34;            // the hill moves every ~34 s even without a score (was 28 s — fewer relocations so objectives don't fire on top of each other)
-const ZONE_SCORE_COOLDOWN = ARENA_TPS * 3;       // a short lull after a hold scores before the next can build
-// The hill cycles through these painted, centre-connected spots (snapMain keeps each one
-// reachable from the centre region — the same load-bearing rule as spawns/nav goals).
-const ZONE_SPOTS: [number, number][] = [
-    ARENA_CENTER,
-    snapMain(-5.0, -1.0),
-    snapMain(5.0, -1.0),
-    snapMain(0.0, 2.4),
-];
-
 // ── Neutral boss (B4 — the Arena Warden) ──────────────────────────────────────
 // A fat neutral PvE bruiser that appears mid-match in the centre pit. It is now an
 // ACTIVE threat, not a sponge: it STRIDES toward the nearest pet and SLAMS the ground
@@ -325,17 +302,55 @@ const BOSS_BUFF_ATK = 1.2;                       // +20% attack while buffed (th
 // eats what it signed up for.
 const BOSS_MOVE_SPEED = 2.0 / ARENA_TPS;         // units/tick — a slow menacing stride, clearly slower than a pet (kiteable)
 const BOSS_AGGRO_RANGE = 8.5;                    // chases a pet within this; otherwise ambles back to the centre pit
-const BOSS_ATK_RANGE = 2.2;                      // a pet within this of the boss BODY (+BOSS_RADIUS) is in slam reach
-const BOSS_ATK_RADIUS = 2.6;                     // slam AoE: every pet within this of the boss centre eats the stomp
-const BOSS_ATK_CD = Math.round(ARENA_TPS * 1.5); // ~1.5 s between slams
-const BOSS_ATK_DMG = 140;                        // base slam damage (def-reduced, shield-aware) — chunky but survivable, not a one-shot
+const BOSS_ATK_RANGE = 2.6;                      // a pet within this of the boss BODY (+BOSS_RADIUS) commits a slam (a touch longer so it catches near-range pokers)
+export const BOSS_ATK_RADIUS = 3.3;             // slam AoE — widened so RANGED pets can't sit just outside and chip for free; the renderer's warning ring tracks this exact reach
+const BOSS_ATK_CD = Math.round(ARENA_TPS * 2.6); // ~2.6 s between SLAMS (the heavy, telegraphed move — slower now that the swipe carries the steady pressure)
+const BOSS_ATK_DMG = 200;                        // SLAM damage (def-reduced, shield-aware) — a real punish for getting caught in the AoE; dodge-able via the wind-up
+const BOSS_WINDUP = Math.round(ARENA_TPS * 0.45);// the Warden REARS UP for ~0.45 s before a slam lands — a real telegraph (the renderer reads `winding`; the AoE only resolves when the windup ends, so it's dodge-able) and the slam's reach is checked AT RESOLUTION, not at commit
+// The Warden's BASIC move (the "smaller range move"): a fast SHORT-range single-target
+// swipe with no wind-up — the reliable, un-dodge-able chip that makes the Warden a constant
+// threat to anything in melee of it (its slam is now the slower, dodge-able heavy hit).
+const BOSS_SWIPE_RANGE = 1.5;                    // melee reach for the swipe (a pet within this of the boss BODY +BOSS_RADIUS)
+const BOSS_SWIPE_CD = Math.round(ARENA_TPS * 0.8);// ~0.8 s between swipes
+const BOSS_SWIPE_DMG = 95;                       // swipe damage (single target, def/shield-aware) — steady pressure, not a one-shot
+// SHORT LUNGE — a fast cd-gated gap-closer so a kiting ranged pet can't infinitely peel
+// away: the Warden picks a target just out of melee and LEAPS to it, then swipes/slams. No
+// damage on the leap itself (it's a reposition); the follow-up attack does the work.
+const BOSS_LUNGE_RANGE = 6.0;                    // will lunge at a target beyond swipe reach but within this
+const BOSS_LUNGE_TICKS = 8;                      // ~0.27 s leap
+const BOSS_LUNGE_SPEED = 0.5;                    // units/tick during the leap → ~4 units closed (a real gap-close, ~7× its stride)
+const BOSS_LUNGE_CD = Math.round(ARENA_TPS * 3.5);// ~3.5 s between lunges (a commitment, not a spam)
 
-// ── Pacing: escalating objective value ────────────────────────────────────────
-// Later holds are worth more so the match builds to a climax instead of being decided
-// in the opening — capped low (×2, not Unite's match-erasing ×2-plus-boss) so the early
-// game still counts. Keyed off the tick only → deterministic.
-const ZONE_LATE_AT = ARENA_TPS * 160;            // past ~2.7 min a held hill is worth double
-function zoneValue(t: number): number { return t >= ZONE_LATE_AT ? 2 : 1; }
+// ── Shrines (the always-on, movement-POSITIVE tactical beat) ───────────────────
+// Replaces the old king-of-the-hill zone, which made pets stagnate (camp a tile and
+// grind a meter). Modern MOBA design (Dota 7.38 shrines, Pokémon-Unite Regi-buffs,
+// Deadlock runes) converged on the same shape: ONE contested pickup at a time, claimed
+// by a SHORT CHANNEL, that ROTATES across the map and grants a timed buff — so squads
+// keep MOVING (grab-and-go) instead of holding ground. Shrines give a tactical edge,
+// NOT score — scoring stays clean (scroll captures + the Warden). Two flavours alternate:
+//   • power (Chakra Font)   → the claimer's whole team gets a timed ATTACK buff
+//   • mend  (Mending Spring) → the claimer + nearby allies heal + a small shield
+// All integer / quantised, lowest-id tiebreaks, no rng → deterministic replays.
+export type ShrineKind = "power" | "mend";
+const SHRINE_FIRST_SPAWN = ARENA_TPS * 14;   // first shrine at 14 s — an early beat BEFORE the 20 s scroll
+const SHRINE_RESPAWN = ARENA_TPS * 20;       // a new shrine ~20 s after the last is claimed → fills the lulls between scroll cycles
+const SHRINE_CHANNEL = ARENA_TPS * 1.5;      // 1.5 s channel to claim (short — contesting is a skirmish, not a meter-grind)
+const SHRINE_CLAIM_RANGE = 1.4;              // how close a pet must be to channel a shrine (== scroll PICKUP_RANGE)
+const SHRINE_BUFF_TICKS = ARENA_TPS * 12;    // power: 12 s team attack buff (shorter than the Warden's 18 s — a shrine is far easier to get)
+const SHRINE_HEAL_PCT = 0.18;                // mend: heal this fraction of max HP…
+const SHRINE_SHIELD_PCT = 0.10;              // …plus a small shield (mirrors the Unite "buff + small shield" pattern)
+const SHRINE_HEAL_RADIUS = 4.0;              // mend reaches the claimer + allies within this
+// Rotating, centre-connected spawn spots (snapMain keeps each reachable). Deliberately
+// NOT the centre paw — that belongs to the scroll/Warden; shrines pull the fight outward.
+const SHRINE_SPOTS: [number, number][] = [
+    snapMain(-5.0, -1.0),
+    snapMain(5.0, -1.0),
+    snapMain(0.0, 2.4),
+    snapMain(-3.0, -3.2),
+    snapMain(3.0, -3.2),
+];
+
+// ── Pacing: anti-snowball / comeback ──────────────────────────────────────────
 // Anti-snowball / comeback: a team trailing by a clear margin hits a little harder, so a
 // lead is defensible but not a runaway. Capped low (the leader's own play should decide
 // it, per Riot's comeback note) and re-evaluated every tick from the live score.
@@ -414,11 +429,10 @@ interface Scroll {
     x: number; y: number; carrierId: string | null;
     channelById: string | null; channelLeft: number; spawnTimer: number; dropTimer: number;
 }
-// ── Objective (the control zone / king-of-the-hill) ───────────────────────────
-// hold is SIGNED: +ZONE_TO_SCORE = a blue point, −ZONE_TO_SCORE = a red point.
-interface Zone { x: number; y: number; idx: number; hold: number; relocTimer: number; coolTimer: number; }
 // ── Objective (the neutral boss — B4) ─────────────────────────────────────────
-interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; hp: number; maxHp: number; spawnTimer: number; atkCd: number; lastHitTeam: "blue" | "red" | null; }
+interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; faceX: number; hp: number; maxHp: number; spawnTimer: number; atkCd: number; swipeCd: number; windUp: number; lungeLeft: number; lungeCd: number; lungeDx: number; lungeDy: number; lastHitTeam: "blue" | "red" | null; }
+// ── Shrine (the rotating buff pickup) ─────────────────────────────────────────
+interface Shrine { state: "inactive" | "active"; kind: ShrineKind; x: number; y: number; idx: number; channelById: string | null; channelLeft: number; spawnTimer: number; }
 
 // ── Snapshots + events ───────────────────────────────────────────────────────
 export interface ArenaActorSnap {
@@ -431,8 +445,8 @@ export interface ArenaActorSnap {
 export interface ArenaSnapshot {
     t: number; actors: ArenaActorSnap[];
     scroll: { state: Scroll["state"]; x: number; y: number; carrierId: string | null; channelFrac: number; spawnSecs: number };   // spawnSecs: whole seconds until (re)spawn while inactive (0 otherwise) — readout only
-    zone: { x: number; y: number; holdFrac: number; lead: "blue" | "red" | null };   // holdFrac signed −1..1 (sign = leading team); lead = who is currently building/holding
-    boss: { state: Boss["state"]; x: number; y: number; hpFrac: number; spawnSecs: number };   // neutral boss readout (state inactive until it spawns)
+    shrine: { state: Shrine["state"]; kind: ShrineKind; x: number; y: number; channelFrac: number; spawnSecs: number };   // rotating buff pickup (power/mend); channelFrac drives the claim ring
+    boss: { state: Boss["state"]; x: number; y: number; faceX: number; hpFrac: number; spawnSecs: number; winding: boolean };   // neutral boss readout (state inactive until it spawns; faceX/winding drive the renderer's facing + slam telegraph)
     scoreBlue: number; scoreRed: number;
 }
 export type ArenaEvent =
@@ -441,7 +455,8 @@ export type ArenaEvent =
     | { t: number; type: "kill"; targetId: string; actorId: string; team: "blue" | "red" }
     | { t: number; type: "ability"; actorId: string; kind: AbilityKind }
     | { t: number; type: "pickup" | "drop" | "capture" | "scrollspawn" | "respawn"; actorId?: string; team?: "blue" | "red" }
-    | { t: number; type: "zonescore" | "zonemove" | "bossspawn" | "bosskill" | "bosshit" | "bossslam"; team?: "blue" | "red"; actorId?: string };
+    | { t: number; type: "shrinespawn" | "shrineclaim"; kind?: ShrineKind; team?: "blue" | "red"; actorId?: string }
+    | { t: number; type: "bossspawn" | "bosskill" | "bosshit" | "bossslam" | "bosswindup" | "bossswipe" | "bosslunge"; team?: "blue" | "red"; actorId?: string };
 export interface ArenaResult {
     winner: "blue" | "red" | "draw"; scoreBlue: number; scoreRed: number; ticks: number;
     snapshots: ArenaSnapshot[]; events: ArenaEvent[];
@@ -722,7 +737,7 @@ function criticalAlly(f: AF, fs: AF[]): AF | null {
 }
 
 interface Plan { gx: number; gy: number; stopAt: number; target: AF | null; channel: boolean; boss?: boolean; }
-type CandKind = "objective" | "zone" | "boss" | "escort" | "protectCarrier" | "interceptCarrier" | "interceptAssassin" | "protectSage" | "protectAlly" | "hunt" | "frontline" | "regroup" | "retreat" | "support";
+type CandKind = "objective" | "shrine" | "boss" | "dodge" | "escort" | "protectCarrier" | "interceptCarrier" | "interceptAssassin" | "protectSage" | "protectAlly" | "hunt" | "frontline" | "regroup" | "retreat" | "support";
 interface Cand { score: number; plan: Plan; kind: CandKind; }
 const huntP = (f: AF, e: AF, neutral: number): Plan => ({ ...spreadGoal(f, e, neutral), target: e, channel: false });
 const diveP = (e: AF, stop: number): Plan => ({ gx: e.x, gy: e.y, stopAt: stop, target: e, channel: false });
@@ -754,13 +769,26 @@ function contestP(f: AF, fs: AF[], scroll: Scroll): Plan {
     const ex = scroll.x + (f.team === "blue" ? -off : off), ey = scroll.y + (f.slot % 2 ? off : -off);
     return { gx: off ? ex : scroll.x, gy: off ? ey : scroll.y, stopAt: off ? 0.5 : 0, target: nearestEnemy(f, fs), channel: false };
 }
-/** Hold the control hill: ring up around the zone centre (a role offset so the squad
- *  spreads across the ring instead of stacking one tile) and fight whoever contests it. */
-function zoneP(f: AF, fs: AF[], zone: Zone): Plan {
-    const off = f.role === "assassin" ? 1.7 : f.role === "sage" ? 2.2 : f.role === "tracker" ? 1.2 : 0.6;
-    const gx = zone.x + (f.team === "blue" ? -off : off), gy = zone.y + (f.slot % 2 ? off : -off);
+/** Go claim the shrine, contesting smartly (mirrors the scroll's contest logic): break an
+ *  ENEMY's channel by rushing the channeler, ESCORT an ally's channel by ringing up around
+ *  it, else stand on it and claim. The claim resolves by proximity in stepShrine. A carrier
+ *  ignores shrines (it runs the scroll home). */
+function shrineP(f: AF, fs: AF[], shrine: Shrine): Plan {
+    const channeler = shrine.channelById ? fs.find((g) => g.id === shrine.channelById) ?? null : null;
+    // An ENEMY is claiming it → rush the channeler to BREAK the claim (reaching/killing it
+    // cancels the channel). Denying an enemy buff is the urgent play.
+    if (channeler && channeler.team !== f.team) return { gx: channeler.x, gy: channeler.y, stopAt: 0.2, target: channeler, channel: false };
+    const dS = distPt(f, shrine.x, shrine.y);
+    // In range + nobody else (or it's me) channelling → stand and claim.
+    if (dS <= SHRINE_CLAIM_RANGE && (channeler === null || channeler.id === f.id)) return { gx: f.x, gy: f.y, stopAt: 0, target: nearestEnemy(f, fs), channel: true };
+    // An ALLY is claiming → ring up around it (role offset) and fight whoever contests.
+    if (channeler && channeler.team === f.team) {
+        const off = f.role === "assassin" ? 1.8 : f.role === "sage" ? 2.4 : 1.2;
+        return { gx: shrine.x + (f.team === "blue" ? -off : off), gy: shrine.y + (f.slot % 2 ? off : -off), stopAt: 0.4, target: nearestEnemy(f, fs), channel: false };
+    }
+    // Free shrine → approach + claim.
     const block = nearestEnemy(f, fs);
-    return { gx, gy, stopAt: 0.4, target: block && dist(f, block) < f.atkRange + 1.5 ? block : null, channel: false };
+    return { gx: shrine.x, gy: shrine.y, stopAt: 0, target: block && dist(f, block) < f.atkRange ? block : null, channel: false };
 }
 /** Attack the neutral boss: close to striking range and whack it (boss damage is applied
  *  in tickExecute via the plan.boss flag — the boss is neutral, not an AF target). */
@@ -813,7 +841,7 @@ const PEEL_SCORE: Record<ArenaRole, { carrier: number; diver: number }> = {
 
 /** Build the role's scored candidate intents (handoff priority numbers) layered with
  *  squad awareness: focus-fire, rescue, and regroup-when-outnumbered. */
-function candidates(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, ctx: Ctx, squad: Squad): Cand[] {
+function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss, ctx: Ctx, squad: Squad): Cand[] {
     const cfg = ROLE_CFG[f.role];
     const enemies = enemiesAlive(f, fs);
     const cands: Cand[] = [];
@@ -876,23 +904,42 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, ctx
         cands.push({ score, kind: "objective", plan: ctx.scrollOpen ? contestP(f, fs, scroll) : anticipateP(f, fs, scroll) });
     }
 
-    // Control zone (ALWAYS on): stand on the hill to tick the meter. Weighted BELOW the
-    // open scroll (which adds a big in-range bonus), so the scroll owns priority while it's
-    // live and the zone is the DEFAULT thing to do between scroll cycles — that's what
-    // converts the old dead-time brawl into positioning play. A carrier ignores it (runs home).
-    if (!f.carrying) {
-        const dZ = distPt(f, zone.x, zone.y);
-        const inZone = dZ <= ZONE_RADIUS;
-        const base = f.role === "defender" ? 60 : f.role === "tracker" ? 58 : f.role === "sage" ? 44 : 40;
-        const losing = (f.team === "blue" && zone.hold < 0) || (f.team === "red" && zone.hold > 0);   // enemy is taking the hill → push harder
-        // While the Warden is up it OWNS the centre: the hill yields priority so the squad
-        // actually commits to the boss instead of being pulled off it by the always-on zone.
-        const bossUp = boss.state === "active" ? -16 : 0;
-        const zScore = (inZone ? base + 16 : base - dZ * 0.7) + (losing ? 12 : 0) + bossUp;
-        cands.push({ score: zScore, kind: "zone", plan: zoneP(f, fs, zone) });
+    // Shrine (the between-cycle, movement-positive beat): go CLAIM the rotating buff
+    // pickup. Weighted BELOW the open scroll (which adds a big in-range bonus), so the
+    // scroll owns priority while it's live and the shrine is the DEFAULT thing to do in
+    // the lulls — but you GRAB it and move on (no camping). A power font pulls the whole
+    // squad a little; a mending spring pulls a HURT pet hard (the lower its HP, the more
+    // it wants the heal). A carrier ignores it (runs the scroll home).
+    if (shrine.state === "active" && !f.carrying) {
+        const dS = distPt(f, shrine.x, shrine.y);
+        const inRange = dS <= SHRINE_CLAIM_RANGE;
+        const channeler = shrine.channelById ? fs.find((g) => g.id === shrine.channelById) ?? null : null;
+        const enemyClaiming = channeler !== null && channeler.team !== f.team;
+        const allyClaiming = channeler !== null && channeler.team === f.team;
+        let base = shrine.kind === "power"
+            ? (f.role === "tracker" ? 50 : f.role === "defender" ? 46 : 42)
+            : 28 + (1 - hpFrac(f)) * 72;                         // mend: the more hurt I am, the harder I rush it
+        if (enemyClaiming) base += 26;                          // DENY — don't let the enemy walk off with a buff
+        else if (allyClaiming && !inRange) base -= 14;          // an ally's already on it → screen, don't all pile on
+        const score = base + (inRange ? 30 : -dS * 0.6);
+        cands.push({ score, kind: "shrine", plan: shrineP(f, fs, shrine) });
+    }
+    // DODGE the Warden's telegraphed slam: while it winds up, a pet caught in the AoE steps
+    // straight out of the danger zone. Squishies always bail; a defender mostly TANKS it
+    // (its HP/shield eats the slam to screen the backline) — readable, skill-expressing play
+    // AND the reason the slam is the dodge-able heavy hit while the swipe is the reliable chip.
+    if (boss.state === "active" && boss.windUp > 0 && !f.carrying) {
+        const dB = distPt(f, boss.x, boss.y);
+        const danger = BOSS_ATK_RADIUS + BOSS_RADIUS;
+        if (dB <= danger + 0.5) {
+            const ux = f.x - boss.x, uy = f.y - boss.y, ul = Math.sqrt(ux * ux + uy * uy) || 1, out = danger + 1.6;
+            const plan: Plan = { gx: boss.x + (ux / ul) * out, gy: boss.y + (uy / ul) * out, stopAt: 0, target: null, channel: false };
+            const score = f.role === "defender" ? 28 : f.role === "tracker" ? 96 : 132;   // defenders tank, squishies bail
+            cands.push({ score, kind: "dodge", plan });
+        }
     }
     // Neutral boss (only while active): race for the killing blow. Value starts high enough
-    // to out-pull the hill the moment it spawns (so the Warden is actually fought, not
+    // to pull the squad onto the Warden the moment it spawns (so it's actually fought, not
     // ignored), climbs as the boss nears death (don't let the enemy steal the last hit),
     // and rises further when behind on the scoreboard. Assassins value it most (burst/
     // execute); a carrier ignores it.
@@ -900,7 +947,10 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, ctx
         const dB = distPt(f, boss.x, boss.y);
         const lowBoss = 1 - boss.hp / boss.maxHp;
         const base = f.role === "assassin" ? 66 : f.role === "tracker" ? 60 : f.role === "defender" ? 56 : 46;
-        const bScore = base + lowBoss * 44 - dB * 0.6 + (ctx.phase === "comeback" ? 14 : 0);
+        // Don't feed the Warden: a low-HP pet (its swipe/slam now bite) backs off the pit
+        // unless it's the comeback team desperate for the swing.
+        const lowSelf = hpFrac(f) < 0.35 && ctx.phase !== "comeback" ? 34 : 0;
+        const bScore = base + lowBoss * 44 - dB * 0.6 + (ctx.phase === "comeback" ? 14 : 0) - lowSelf;
         cands.push({ score: bScore, kind: "boss", plan: bossP(f, boss) });
     }
 
@@ -969,16 +1019,16 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, ctx
 // match point → the objective + the enemy carrier are everything.
 const PHASE_ADJ: Record<MatchPhase, Partial<Record<CandKind, number>>> = {
     normal: {},
-    closeit: { escort: 18, protectCarrier: 18, protectAlly: 14, protectSage: 12, regroup: 12, support: 8, zone: 8, hunt: -10, frontline: -8 },
-    comeback: { objective: 16, zone: 14, boss: 16, hunt: 12, interceptCarrier: 14, frontline: 8, retreat: -14, regroup: -10 },
-    emergency: { objective: 30, zone: 22, boss: 18, protectCarrier: 30, interceptCarrier: 36, escort: 24, hunt: -16, frontline: -16, support: -8 },
+    closeit: { escort: 18, protectCarrier: 18, protectAlly: 14, protectSage: 12, regroup: 12, support: 8, hunt: -10, frontline: -8 },
+    comeback: { objective: 16, shrine: 10, boss: 16, hunt: 12, interceptCarrier: 14, frontline: 8, retreat: -14, regroup: -10 },
+    emergency: { objective: 30, boss: 18, protectCarrier: 30, interceptCarrier: 36, escort: 24, hunt: -16, frontline: -16, support: -8 },
 };
 // Power POSTURE (R3): the commander's board read nudges intent KINDs — PRESS to
 // CONVERT a winning board (collapse on kills + push the objective, stop disengaging),
 // REGROUP to re-form a losing one at the rally. Modest like TRAIT_ADJ; stacks with the
 // score-based PHASE_ADJ (orthogonal axes: scoreboard vs board-strength).
 const POSTURE_ADJ: Record<Posture, Partial<Record<CandKind, number>>> = {
-    press: { hunt: 9, frontline: 7, interceptCarrier: 10, objective: 8, zone: 8, boss: 8, escort: 4, retreat: -9, regroup: -10 },
+    press: { hunt: 9, frontline: 7, interceptCarrier: 10, objective: 8, shrine: 6, boss: 8, escort: 4, retreat: -9, regroup: -10 },
     even: {},
     regroup: { regroup: 10, protectAlly: 6, support: 4, hunt: -5, frontline: -5 },
 };
@@ -995,7 +1045,7 @@ const TRAIT_ADJ: Record<string, Partial<Record<CandKind, number>>> = {
 };
 
 const COMMIT_MARGIN = 12;   // keep last tick's target unless another beats it by this much
-function decide(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: { blue: number; red: number }, squad: Squad): Plan {
+function decide(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss, score: { blue: number; red: number }, squad: Squad): Plan {
     const cfg = ROLE_CFG[f.role];
     if (f.carrying) return carryHome(f, fs);                                            // carrier behavior tree
     if (f.tauntLeft > 0 && f.tauntBy) {                                                 // forced taunt overrides
@@ -1003,7 +1053,7 @@ function decide(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: 
         if (tn) { f.aiTargetId = tn.id; return { gx: tn.x, gy: tn.y, stopAt: cfg.neutral, target: tn, channel: false }; }
     }
     const ctx = makeCtx(f, fs, scroll, score);
-    const cands = candidates(f, fs, scroll, zone, boss, ctx, squad);
+    const cands = candidates(f, fs, scroll, shrine, boss, ctx, squad);
     const adj = PHASE_ADJ[ctx.phase];
     for (const c of cands) { const a = adj[c.kind]; if (a) c.score += a; }              // match-state rubber-band (scoreboard)
     const padj = POSTURE_ADJ[squad.posture[f.team]];                                    // commander posture (board strength)
@@ -1080,7 +1130,7 @@ function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: 
 // board, then all pets EXECUTE. If decide+move+act ran per-pet in one pass, the
 // team processed second would react to the first team's same-tick moves — a
 // second-mover edge that, with reactive AI, snowballs into a lopsided win rate.
-function tickDecide(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: { blue: number; red: number }, squad: Squad) {
+function tickDecide(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss, score: { blue: number; red: number }, squad: Squad) {
     // CLEANSE consumable: the first tick under any DoT/control, purge it all (once).
     if (f.itemsOn && f.cCleanse > 0 && (f.dotLeft > 0 || f.slowLeft > 0 || f.markLeft > 0 || f.tauntLeft > 0)) {
         f.dotLeft = 0; f.dotDmg = 0; f.slowLeft = 0; f.markLeft = 0; f.tauntLeft = 0; f.tauntBy = null; f.cCleanse = 0;
@@ -1099,7 +1149,7 @@ function tickDecide(f: AF, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, sco
     f.decisionCd--;
     const tgt = f.plan?.target ?? null;
     const stale = f.plan === null || f.decisionCd <= 0 || f.carrying || (tgt !== null && !alive(tgt));   // carrier re-routes every tick; target died → re-pick now
-    if (stale) { f.plan = decide(f, fs, scroll, zone, boss, score, squad); f.decisionCd = DECISION_TICKS + (f.slot & 3); }
+    if (stale) { f.plan = decide(f, fs, scroll, shrine, boss, score, squad); f.decisionCd = DECISION_TICKS + (f.slot & 3); }
 }
 
 function tickExecute(f: AF, fs: AF[], scroll: Scroll, boss: Boss, rng: () => number, t: number, events: ArenaEvent[]) {
@@ -1174,28 +1224,58 @@ function stepScroll(scroll: Scroll, fs: AF[], center: [number, number], t: numbe
     }
 }
 
-// ── Control-zone lifecycle ─────────────────────────────────────────────────────
-/** Tick the king-of-the-hill: net presence builds a signed hold meter, a contested or
- *  empty ring decays it back toward neutral (so you must hold the space CLEAN to score),
- *  a full hold scores + relocates, and a timer relocates it anyway so the squads rotate. */
-function stepZone(zone: Zone, fs: AF[], t: number, events: ArenaEvent[], score: { blue: number; red: number }, zoneValue: number) {
-    if (zone.coolTimer > 0) zone.coolTimer--;
-    let bn = 0, rn = 0;
-    for (const g of fs) { if (!alive(g) || distPt(g, zone.x, zone.y) > ZONE_RADIUS) continue; if (g.team === "blue") bn++; else rn++; }
-    const net = zone.coolTimer > 0 ? 0 : (bn > rn ? 1 : rn > bn ? -1 : 0);
-    if (net > 0) zone.hold = Math.min(ZONE_TO_SCORE, zone.hold + 1);
-    else if (net < 0) zone.hold = Math.max(-ZONE_TO_SCORE, zone.hold - 1);
-    else if (zone.hold > 0) zone.hold = Math.max(0, zone.hold - ZONE_DECAY);
-    else if (zone.hold < 0) zone.hold = Math.min(0, zone.hold + ZONE_DECAY);
-    if (zone.hold >= ZONE_TO_SCORE) { score.blue += zoneValue; events.push({ t, type: "zonescore", team: "blue" }); relocateZone(zone, t, events); return; }
-    if (zone.hold <= -ZONE_TO_SCORE) { score.red += zoneValue; events.push({ t, type: "zonescore", team: "red" }); relocateZone(zone, t, events); return; }
-    zone.relocTimer--; if (zone.relocTimer <= 0) relocateZone(zone, t, events);
+// ── Shrine lifecycle ───────────────────────────────────────────────────────────
+/** Tick the rotating buff shrine: spawn on a timer, claim by a proximity-channel (same
+ *  shape as the scroll pickup — closest in range, lowest-id tiebreak), pay out the buff,
+ *  then respawn at the NEXT spot with the ALTERNATE flavour. No score — tactical only. */
+function stepShrine(shrine: Shrine, fs: AF[], t: number, events: ArenaEvent[]) {
+    if (shrine.state === "inactive") {
+        if (shrine.spawnTimer > 0) shrine.spawnTimer--;
+        if (shrine.spawnTimer <= 0) {
+            shrine.state = "active";
+            shrine.x = SHRINE_SPOTS[shrine.idx][0]; shrine.y = SHRINE_SPOTS[shrine.idx][1];
+            shrine.channelById = null; shrine.channelLeft = 0;
+            events.push({ t, type: "shrinespawn", kind: shrine.kind });
+        }
+        return;
+    }
+    // active → channelling to claim (mirrors stepScroll's center/dropped branch). Carriers
+    // can't claim (they're committed to running the scroll home).
+    const chan = shrine.channelById ? fs.find((g) => g.id === shrine.channelById) : null;
+    if (chan && (!alive(chan) || chan.carrying || distPt(chan, shrine.x, shrine.y) > SHRINE_CLAIM_RANGE + 0.2)) { shrine.channelById = null; shrine.channelLeft = 0; }
+    if (!shrine.channelById) {
+        const cands = fs.filter((g) => alive(g) && !g.carrying && distPt(g, shrine.x, shrine.y) <= SHRINE_CLAIM_RANGE).sort((a, b) => (a.id < b.id ? -1 : 1));
+        if (cands.length) { shrine.channelById = cands[0].id; shrine.channelLeft = SHRINE_CHANNEL; }
+    }
+    if (shrine.channelById) {
+        shrine.channelLeft--;
+        if (shrine.channelLeft <= 0) {
+            const c = fs.find((g) => g.id === shrine.channelById)!;
+            applyShrine(shrine, c, fs, t, events);
+            events.push({ t, type: "shrineclaim", kind: shrine.kind, team: c.team, actorId: c.id });
+            shrine.state = "inactive"; shrine.spawnTimer = SHRINE_RESPAWN;              // respawn cycle
+            shrine.idx = (shrine.idx + 1) % SHRINE_SPOTS.length;                        // …at the next spot
+            shrine.kind = shrine.kind === "power" ? "mend" : "power";                   // …with the alternate flavour
+            shrine.channelById = null; shrine.channelLeft = 0;
+        }
+    }
 }
-function relocateZone(zone: Zone, t: number, events: ArenaEvent[]) {
-    zone.idx = (zone.idx + 1) % ZONE_SPOTS.length;
-    zone.x = ZONE_SPOTS[zone.idx][0]; zone.y = ZONE_SPOTS[zone.idx][1];
-    zone.hold = 0; zone.relocTimer = ZONE_RELOCATE; zone.coolTimer = ZONE_SCORE_COOLDOWN;
-    events.push({ t, type: "zonemove" });
+/** Pay out a claimed shrine: power → the claimer's whole living team gets a timed attack
+ *  buff (reuses AF.buffLeft, the Warden-kill buff lane → consistent renderer "buff"); mend
+ *  → the claimer + nearby allies heal a fraction of max HP + a small shield. Deterministic. */
+function applyShrine(shrine: Shrine, claimer: AF, fs: AF[], t: number, events: ArenaEvent[]) {
+    if (shrine.kind === "power") {
+        for (const g of fs) if (g.team === claimer.team && alive(g)) g.buffLeft = Math.max(g.buffLeft, SHRINE_BUFF_TICKS);
+        return;
+    }
+    for (const g of fs) {
+        if (g.team !== claimer.team || !alive(g)) continue;
+        if (g.id !== claimer.id && distPt(g, claimer.x, claimer.y) > SHRINE_HEAL_RADIUS) continue;
+        const heal = Math.round(g.maxHp * SHRINE_HEAL_PCT);
+        g.hp = Math.min(g.maxHp, g.hp + heal);
+        g.shieldHp = Math.max(g.shieldHp, Math.round(g.maxHp * SHRINE_SHIELD_PCT));
+        events.push({ t, type: "heal", targetId: g.id, actorId: claimer.id, amount: heal });
+    }
 }
 
 // ── Neutral boss lifecycle ─────────────────────────────────────────────────────
@@ -1256,19 +1336,68 @@ function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, eve
         if (dd < bd || (dd === bd && tgt !== null && g.id < tgt.id)) { bd = dd; tgt = g; }
     }
     const dTgt = tgt ? Math.sqrt(bd) : Infinity;
+    // Face the current quarry — the renderer flips the sprite + leans the Warden into its slam.
+    if (tgt) { const fdx = tgt.x - boss.x; if (Math.abs(fdx) > 0.05) boss.faceX = fdx < 0 ? -1 : 1; }
+    // ── Active LUNGE: a committed fast leap along the stored direction (no steering / no
+    // attacks mid-leap), wall-sliding so it never wedges. Closes on a kiter; the follow-up
+    // swipe/slam (next ticks, now in range) does the damage.
+    if (boss.lungeLeft > 0) {
+        boss.lungeLeft--;
+        const nx = boss.x + boss.lungeDx * BOSS_LUNGE_SPEED, ny = boss.y + boss.lungeDy * BOSS_LUNGE_SPEED;
+        if (walkableAt(nx, ny)) { boss.x = nx; boss.y = ny; }
+        else if (walkableAt(nx, boss.y)) boss.x = nx;
+        else if (walkableAt(boss.x, ny)) boss.y = ny;
+        else boss.lungeLeft = 0;                                  // hit a wall → stop the leap
+        boss.x = quant(clamp(boss.x, -ARENA_X, ARENA_X)); boss.y = quant(clamp(boss.y, -ARENA_Y, ARENA_Y));
+        return;
+    }
+    if (boss.lungeCd > 0) boss.lungeCd--;
+    // ── Wind-up → SLAM. The Warden REARS UP (BOSS_WINDUP ticks, planted in place) before
+    // every stomp: a real telegraph the renderer reads (`winding`) AND a window pets can
+    // step out of, because the AoE is resolved against live positions when the wind-up
+    // ENDS, not when it began. Committed — it doesn't stride while rearing back.
+    if (boss.windUp > 0) {
+        boss.windUp--;
+        if (boss.windUp <= 0) {                                   // the stomp lands NOW
+            boss.atkCd = BOSS_ATK_CD;
+            events.push({ t, type: "bossslam" });
+            for (const g of fs) if (alive(g) && distPt(g, boss.x, boss.y) <= BOSS_ATK_RADIUS + BOSS_RADIUS) bossHitPet(g, BOSS_ATK_DMG, t, events);
+        }
+        return;
+    }
     // Stride toward an in-aggro pet; otherwise amble back to the centre pit so it never wanders off.
     if (tgt && dTgt <= BOSS_AGGRO_RANGE) bossStep(boss, tgt.x, tgt.y);
     else bossStep(boss, center[0], center[1]);
-    // Slam on cooldown: an AoE stomp on every pet within reach of the impact.
     if (boss.atkCd > 0) boss.atkCd--;
+    if (boss.swipeCd > 0) boss.swipeCd--;
+    // HEAVY move — commit to a SLAM when a pet is in reach + the slam cooldown is up: begin
+    // the wind-up telegraph (the AoE resolves when it ends, so it's dodge-able).
     if (tgt && boss.atkCd <= 0 && dTgt <= BOSS_ATK_RANGE + BOSS_RADIUS) {
-        boss.atkCd = BOSS_ATK_CD;
-        events.push({ t, type: "bossslam" });
-        for (const g of fs) if (alive(g) && distPt(g, boss.x, boss.y) <= BOSS_ATK_RADIUS + BOSS_RADIUS) bossHitPet(g, BOSS_ATK_DMG, t, events);
+        boss.windUp = BOSS_WINDUP;
+        events.push({ t, type: "bosswindup" });
+        return;
+    }
+    // BASIC move — a fast SHORT-range SWIPE on a melee'd pet: no wind-up, single target, the
+    // reliable chip that keeps the Warden a real threat to anything standing in its face.
+    if (tgt && boss.swipeCd <= 0 && dTgt <= BOSS_SWIPE_RANGE + BOSS_RADIUS) {
+        boss.swipeCd = BOSS_SWIPE_CD;
+        events.push({ t, type: "bossswipe" });
+        bossHitPet(tgt, BOSS_SWIPE_DMG, t, events);
+        return;
+    }
+    // GAP-CLOSER — a target hovering beyond slam reach (the classic ranged kite) + the lunge
+    // is off cooldown → LEAP at it so the next ticks land in melee. Reposition only (no leap
+    // damage); the swipe/slam that follows is the punish for kiting.
+    if (tgt && boss.lungeCd <= 0 && dTgt > BOSS_ATK_RANGE + BOSS_RADIUS && dTgt <= BOSS_LUNGE_RANGE) {
+        const dx = tgt.x - boss.x, dy = tgt.y - boss.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        boss.lungeDx = dx / d; boss.lungeDy = dy / d;
+        boss.lungeLeft = BOSS_LUNGE_TICKS; boss.lungeCd = BOSS_LUNGE_CD;
+        boss.faceX = dx < 0 ? -1 : 1;
+        events.push({ t, type: "bosslunge" });
     }
 }
 
-function snap(t: number, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score: { blue: number; red: number }): ArenaSnapshot {
+function snap(t: number, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss, score: { blue: number; red: number }): ArenaSnapshot {
     return {
         t,
         actors: fs.map((f) => {
@@ -1278,8 +1407,8 @@ function snap(t: number, fs: AF[], scroll: Scroll, zone: Zone, boss: Boss, score
             return { id: f.id, team: f.team, slot: f.slot, role: f.role, element: f.element, x: quant(f.x), y: quant(f.y), faceX: quant(f.faceX), faceY: quant(f.faceY), hp: Math.max(0, Math.round(f.hp)), maxHp: f.maxHp, energy: Math.round(f.energy), lives: f.lives, state: f.state, carrying: f.carrying, statuses, respawnSecs: f.state === "respawning" ? Math.ceil(f.respawnLeft / ARENA_TPS) : 0, abilityReady: f.abilityCd <= 0 && f.energy >= ROLE_CFG[f.role].abilityCost };
         }),
         scroll: { state: scroll.state, x: quant(scroll.x), y: quant(scroll.y), carrierId: scroll.carrierId, channelFrac: scroll.channelById ? 1 - scroll.channelLeft / SCROLL_CHANNEL : 0, spawnSecs: scroll.state === "inactive" ? Math.ceil(scroll.spawnTimer / ARENA_TPS) : 0 },
-        zone: { x: quant(zone.x), y: quant(zone.y), holdFrac: quant(zone.hold / ZONE_TO_SCORE), lead: zone.hold > 0 ? "blue" : zone.hold < 0 ? "red" : null },
-        boss: { state: boss.state, x: quant(boss.x), y: quant(boss.y), hpFrac: boss.maxHp > 0 ? Math.max(0, quant(boss.hp / boss.maxHp)) : 0, spawnSecs: boss.state === "inactive" ? Math.ceil(boss.spawnTimer / ARENA_TPS) : 0 },
+        shrine: { state: shrine.state, kind: shrine.kind, x: quant(shrine.x), y: quant(shrine.y), channelFrac: shrine.channelById ? 1 - shrine.channelLeft / SHRINE_CHANNEL : 0, spawnSecs: shrine.state === "inactive" ? Math.ceil(shrine.spawnTimer / ARENA_TPS) : 0 },
+        boss: { state: boss.state, x: quant(boss.x), y: quant(boss.y), faceX: boss.faceX, hpFrac: boss.maxHp > 0 ? Math.max(0, quant(boss.hp / boss.maxHp)) : 0, spawnSecs: boss.state === "inactive" ? Math.ceil(boss.spawnTimer / ARENA_TPS) : 0, winding: boss.windUp > 0 },
         scoreBlue: score.blue, scoreRed: score.red,
     };
 }
@@ -1296,8 +1425,8 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
     const center = ARENA_CENTER;   // on the painted center paw (measured off the art)
     const sepX = new Array(fs.length).fill(0), sepY = new Array(fs.length).fill(0);   // per-tick body-separation accumulators (reused; see the declump pass)
     const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: SCROLL_FIRST_SPAWN, dropTimer: 0 };
-    const zone: Zone = { x: ZONE_SPOTS[0][0], y: ZONE_SPOTS[0][1], idx: 0, hold: 0, relocTimer: ZONE_RELOCATE, coolTimer: 0 };
-    const boss: Boss = { state: "inactive", x: center[0], y: center[1], hp: BOSS_HP, maxHp: BOSS_HP, spawnTimer: BOSS_SPAWN_AT, atkCd: 0, lastHitTeam: null };
+    const shrine: Shrine = { state: "inactive", kind: "power", x: SHRINE_SPOTS[0][0], y: SHRINE_SPOTS[0][1], idx: 0, channelById: null, channelLeft: 0, spawnTimer: SHRINE_FIRST_SPAWN };
+    const boss: Boss = { state: "inactive", x: center[0], y: center[1], faceX: -1, hp: BOSS_HP, maxHp: BOSS_HP, spawnTimer: BOSS_SPAWN_AT, atkCd: 0, swipeCd: 0, windUp: 0, lungeLeft: 0, lungeCd: 0, lungeDx: 0, lungeDy: 0, lastHitTeam: null };
     const score = { blue: 0, red: 0 };
     const snapshots: ArenaSnapshot[] = []; const events: ArenaEvent[] = [];
     let winner: "blue" | "red" | "draw" = "draw"; let ticks = 0;
@@ -1315,7 +1444,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         // real matches — player pets vs AI pets, never identical — are decided by
         // pet quality, not side.
         const squad = buildSquad(fs, scroll);   // shared squad awareness (focus + call + peels) + commander (posture + rally) — built once per tick
-        for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, zone, boss, score, squad);
+        for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, shrine, boss, score, squad);
         for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, boss, rng, t, events); }
         // Separate overlapping bodies. Accumulate every pair's push from the FROZEN
         // start-of-pass positions, then apply once and DAMPED — so a dense scrum (3-4
@@ -1354,9 +1483,9 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         }
         for (const f of fs) { f.x = quant(clamp(f.x, -ARENA_X, ARENA_X)); f.y = quant(clamp(f.y, -ARENA_Y, ARENA_Y)); }
         stepScroll(scroll, fs, center, t, events, score);
-        stepZone(zone, fs, t, events, score, zoneValue(t));
+        stepShrine(shrine, fs, t, events);
         stepBoss(boss, fs, center, t, events, score);
-        snapshots.push(snap(t, fs, scroll, zone, boss, score));
+        snapshots.push(snap(t, fs, scroll, shrine, boss, score));
 
         // win checks
         if (score.blue >= WIN_SCORE || score.red >= WIN_SCORE) { winner = score.blue >= WIN_SCORE ? "blue" : "red"; break; }
