@@ -88,7 +88,9 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
             setAvailableClans(clans);
             const acceptedClan = clans.find((clan) => clan.members.some((member) => member.name === character.name));
             if (acceptedClan && !character.clan) {
-                updateCharacter({ ...character, clan: acceptedClan.name, clanFounder: acceptedClan.founderName === character.name });
+                // Functional updater: this write lands after the fetch awaits, so a
+                // concurrent regen/heartbeat setState could otherwise be clobbered.
+                updateCharacter((prev) => prev ? ({ ...prev, clan: acceptedClan.name, clanFounder: acceptedClan.founderName === prev.name }) : prev);
             }
         } catch {
             setAvailableClans([]);
@@ -116,7 +118,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
             // per-character bonus helpers can apply the clan member-passives
             // (training/pet XP, shop/hospital discounts). Only write on change.
             if (JSON.stringify(character.clanUpgradeLevels ?? {}) !== JSON.stringify(synced.upgrades) || character.clanDoctrine !== synced.doctrine) {
-                updateCharacter({ ...character, clanUpgradeLevels: synced.upgrades, clanDoctrine: synced.doctrine });
+                // Functional updater: runs inside the fetchClanDataDetailed().then
+                // callback, after the fetch resolved — a concurrent regen/heartbeat
+                // setState could otherwise be clobbered by the stale capture.
+                updateCharacter((prev) => prev ? ({ ...prev, clanUpgradeLevels: synced.upgrades, clanDoctrine: synced.doctrine }) : prev);
             }
             // Background member-sync write — non-fatal if it fails (the next
             // clan load re-syncs), so don't let a rejection block setLoading.
@@ -167,7 +172,9 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         if (!r.ok) return alert(r.error ?? "Could not claim mentor rewards.");
         if (r.claimed === 0) { fetchMentorView(character.name).then(setMentorView); return alert("No new milestones to claim yet."); }
         // Reflect the server-credited sensei reward locally; the autosave converges.
-        updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) + r.seals, clanEventContrib: (character.clanEventContrib ?? 0) + r.contrib });
+        // Functional updater: this credit lands after the claimMentor await, so a
+        // concurrent regen/heartbeat setState could otherwise drop it (relative add).
+        updateCharacter((prev) => prev ? ({ ...prev, honorSeals: (prev.honorSeals ?? 0) + r.seals, clanEventContrib: (prev.clanEventContrib ?? 0) + r.contrib }) : prev);
         fetchMentorView(character.name).then(setMentorView);
         alert(`Mentor reward for ${student}'s progress: +${r.seals} Honor Seals, +${r.contrib} clan contribution.`);
     }
@@ -194,7 +201,9 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         // player pointing at a clan that doesn't exist ("can't reach clan server").
         try { await writeClanData(newClan); }
         catch (e) { return alert(e instanceof Error ? e.message : "Couldn't create the clan. Please retry."); }
-        updateCharacter({ ...character, clan: name, clanFounder: true }); setClanData(newClan);
+        // Functional updater: lands after the writeClanData await, so a concurrent
+        // regen/heartbeat setState could otherwise be clobbered by the stale capture.
+        updateCharacter((prev) => prev ? ({ ...prev, clan: name, clanFounder: true }) : prev); setClanData(newClan);
     }
     async function requestJoinClan(targetClan: EnhancedClanData) {
         if (targetClan.village !== character.village) return alert("You can only request clans from your own village.");
@@ -252,7 +261,9 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
             await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }))
                 .catch(() => { /* non-fatal */ });
         }
-        updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false });
+        // Functional updater: lands after the fetchClanData/writeClanData awaits,
+        // so a concurrent regen/heartbeat setState could otherwise be clobbered.
+        updateCharacter((prev) => prev ? ({ ...prev, clan: undefined, clanFounder: false, guardQueued: false }) : prev);
         setClanData(null);
     }
     // Reclaim a clan name that exists on the player's character but has been
@@ -272,7 +283,6 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
             setClanLoadStatus("ok");
             return;
         }
-        const founderCharacter = { ...character, clan: targetName, clanFounder: true };
         const newClan = enhanceClanData({
             name: targetName,
             image: "",
@@ -283,7 +293,9 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         });
         try { await writeClanData(newClan); }
         catch (e) { return alert(e instanceof Error ? e.message : "Couldn't reclaim the clan. Please retry."); }
-        updateCharacter(founderCharacter);
+        // Functional updater: lands after the fetchClanData/writeClanData awaits,
+        // so a concurrent regen/heartbeat setState could otherwise be clobbered.
+        updateCharacter((prev) => prev ? ({ ...prev, clan: targetName, clanFounder: true }) : prev);
         setClanData(newClan);
         setClanLoadStatus("ok");
     }
@@ -291,13 +303,17 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         if (!character.clan || !character.clanFounder) return;
         if (!window.confirm(`Delete "${character.clan}"? This permanently removes the clan for all members and cannot be undone.`)) return;
         await fetch(`/api/save/${clanSlug(character.clan)}`, { method: "DELETE" }).catch(() => {});
-        updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false });
+        // Functional updater: lands after the DELETE await, so a concurrent
+        // regen/heartbeat setState could otherwise be clobbered by the stale capture.
+        updateCharacter((prev) => prev ? ({ ...prev, clan: undefined, clanFounder: false, guardQueued: false }) : prev);
         setClanData(null);
     }
     async function toggleGuard() {
         const queued = character.guardQueued ?? false; setGuardBusy(true);
-        if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter({ ...character, guardQueued: false }); }
-        else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter({ ...character, guardQueued: true }); }
+        // Functional updaters: both writes land after the postGuardQueue await,
+        // so a concurrent regen/heartbeat setState could otherwise be clobbered.
+        if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter((prev) => prev ? ({ ...prev, guardQueued: false }) : prev); }
+        else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter((prev) => prev ? ({ ...prev, guardQueued: true }) : prev); }
         setGuardBusy(false);
     }
     async function donateRyo() {
@@ -392,7 +408,10 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         // clan state (no redundant clan write) and credit the actor's in-memory
         // character if they gifted themselves.
         if (clanSendPlayer === character.name) {
-            updateCharacter({ ...character, [clanSendCurrency]: (character[clanSendCurrency] ?? 0) + amount } as Character);
+            // Functional updater: this self-gift credit lands after the transfer
+            // await, so a concurrent regen/heartbeat setState could otherwise drop
+            // it (relative add off the latest character).
+            updateCharacter((prev) => prev ? ({ ...prev, [clanSendCurrency]: (prev[clanSendCurrency] ?? 0) + amount } as Character) : prev);
         }
         setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } }));
         alert(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);

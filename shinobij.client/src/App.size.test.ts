@@ -54,7 +54,11 @@ import { readFileSync } from "node:fs";
 // [the banner JSX itself lives in src/components/SaveErrorBanner.tsx], and the
 // Hollow Gate befriend immediate-save flush. These touch component refs/state +
 // inline render handlers, so they cannot be extracted to a screen/helper module.
-const MAX_LINES = 10_146;
+// → 10,156 (+10 audit #25: pushSaveToServer now clears the dirty flag + cancels
+// the pending debounced autosave after a successful immediate save [same-ref
+// guarded so a concurrent change isn't dropped], eliminating the redundant
+// immediate-save→autosave self-409. Lives in the App save core — cannot move out.
+const MAX_LINES = 10_156;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
