@@ -254,6 +254,10 @@ export type Character = {
     // A bandit who beat you becomes your rival — it returns (escalating with each
     // win over you) until you put it down. Additive/optional. tier = times it bested you.
     wandererNemesis?: { name: string; level: number; tier: number } | null;
+    // War mercenaries hired this war (display mirror; the server's NX marker is the
+    // real once-per-war-per-tier guard). When warId ≠ the active war, the contract
+    // has reset and the client shows none hired. Additive/optional.
+    warMercs?: { warId: string; tiers: string[] } | null;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
