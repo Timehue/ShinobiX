@@ -15,7 +15,7 @@ import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
 import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel } from "../lib/questbook";
-import { wandererAvatar, wandererRobberPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
+import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { createPortal } from "react-dom";
@@ -895,7 +895,7 @@ export function WorldMap({
         // A branch choice (e.g. carrying the cursed bell raw) can wake the boss harder.
         const bonus = spec.statBonus + bossStatBonusFromChoices(active.id, active.choices);
         const ai = makeBuiltinAi(`questboss-${stage.bossId}`, spec.name, spec.icon, lvl, "Wandering Road", [], bonus, undefined, spec.loadoutId, !!spec.boss);
-        ai.image = epicBossPortrait(spec.portraitKey);
+        ai.image = questBossPortrait(stage.bossId) ?? epicBossPortrait(spec.portraitKey);
         setWandererDialog(null);
         launchWandererArenaFight(ai, "questboss", 0, selectedSector, { questbook: true });
     }

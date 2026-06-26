@@ -14,9 +14,31 @@ import pilgrimImg from "../assets/wanderers/pilgrim.webp";
 import sageImg from "../assets/wanderers/sage.webp";
 import beastImg from "../assets/coliseum/demo-emberfox.webp";
 import bossImg from "../assets/wanderers/bandit-warlord.webp";
+// Bespoke Quest Book bestiary bosses (gpt-image-1), keyed by bossId.
+import ashboundRaiderImg from "../assets/wanderers/bosses/ashbound-raider.webp";
+import bellWraithImg from "../assets/wanderers/bosses/bell-wraith.webp";
+import banditCaptainGoroImg from "../assets/wanderers/bosses/bandit-captain-goro.webp";
+import puppeteerItoguchiImg from "../assets/wanderers/bosses/puppeteer-itoguchi.webp";
+import raijuStormHoundImg from "../assets/wanderers/bosses/raiju-storm-hound.webp";
 
 /** Portrait for the ambush boss (Bandit Warlord). */
 export const WANDERER_BOSS_PORTRAIT = bossImg;
+
+// Each Quest Book bestiary boss has its own painted portrait. Keyed by the bossId
+// in api/sector/_questbook.ts. WorldMap falls back to the generic wanderer art if a
+// bossId ever lacks a bespoke face.
+const QUEST_BOSS_PORTRAITS: Record<string, string> = {
+    "ashbound-raider": ashboundRaiderImg,
+    "bell-wraith": bellWraithImg,
+    "bandit-captain-goro": banditCaptainGoroImg,
+    "puppeteer-itoguchi": puppeteerItoguchiImg,
+    "raiju-storm-hound": raijuStormHoundImg,
+};
+export function questBossPortrait(bossId: string | null | undefined): string | null {
+    return bossId && Object.prototype.hasOwnProperty.call(QUEST_BOSS_PORTRAITS, bossId)
+        ? QUEST_BOSS_PORTRAITS[bossId]
+        : null;
+}
 
 /** The recurring rival's own scarred face — distinct from a common bandit. */
 export const WANDERER_NEMESIS_PORTRAIT = nemesisImg;
