@@ -144,10 +144,17 @@ export function SectorWanderer({
             const prow = rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
             const armed = ts >= armedAtRef.current;
+            // Bandits HUNT: once armed they path to the player from anywhere in the
+            // sector and confront them. Everyone else is passive — they only turn
+            // toward you once you come close, then greet.
+            const isHunter = wanderer.verb === "attack";
+            // Slipping out of notice range re-arms the meeting, so a hunter you've
+            // outrun can confront you again when it catches back up.
+            if (distPlayer > NOTICE_TILES) greetedRef.current = false;
 
             let tCol: number, tRow: number;
 
-            if (armed && distPlayer <= NOTICE_TILES) {
+            if (armed && (isHunter || distPlayer <= NOTICE_TILES)) {
                 // ── Approach: walk up to the player ──────────────────────────
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
@@ -164,7 +171,6 @@ export function SectorWanderer({
                 tCol = pcol; tRow = prow;
             } else {
                 // ── Patrol: amble between waypoints ──────────────────────────
-                greetedRef.current = false;
                 const cur = wps[wpIndexRef.current % wps.length];
                 const atWp = Math.hypot(colOf(cur) - p.col, rowOf(cur) - p.row) < 0.06;
                 if (atWp) {
