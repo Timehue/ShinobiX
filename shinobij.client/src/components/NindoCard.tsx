@@ -11,20 +11,23 @@
 import { renderNindo } from "../lib/nindo-bbcode";
 import { nindoBgStyle } from "../lib/nindo-backgrounds";
 
-export function NindoCard({ nindo, nindoBg }: { nindo?: string; nindoBg?: string }) {
+export function NindoCard({ nindo, nindoBg, ownerName }: { nindo?: string; nindoBg?: string; ownerName?: string }) {
     const trimmed = (nindo ?? "").trim();
-    if (!trimmed) return null;
     const bg = nindoBgStyle(nindoBg);
     const hasBg = Object.keys(bg).length > 0;
     return (
         <section className="profile-build-panel nindo-card">
             <h2>Nindo</h2>
-            <div
-                className="nindo-body"
-                style={hasBg ? { ...bg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(250,204,21,.22)" } : undefined}
-            >
-                {renderNindo(trimmed)}
-            </div>
+            {trimmed ? (
+                <div
+                    className="nindo-body"
+                    style={hasBg ? { ...bg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(250,204,21,.22)" } : undefined}
+                >
+                    {renderNindo(trimmed)}
+                </div>
+            ) : (
+                <p className="hint">{ownerName ? `${ownerName} hasn't written a Nindo yet.` : "This player has no Nindo yet."}</p>
+            )}
         </section>
     );
 }
