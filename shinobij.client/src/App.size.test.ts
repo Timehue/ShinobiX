@@ -67,7 +67,13 @@ import { readFileSync } from "node:fs";
 // The lazy-const declarations must live at App's module top (+4). Also the
 // navigate/logoutPlayer latest-ref memo stabilizers (+6) and the clan-war poller
 // clan-gate (+1) — all reference App-local state, cannot move to a module.
-const MAX_LINES = 10_172;
+// → 10,176 (+4 mandatory WIRING for the jutsu-training queue: the lib import (+1)
+// and the global useJutsuTrainingQueueRunner hook call (+3, incl. its 2-line
+// rationale). The feature — queue a 2nd ryo training that auto-promotes the instant
+// the first finishes — lives entirely in lib/jutsu-training-queue.ts +
+// screens/Training.tsx; only the global hook MOUNT must run from App so the queue
+// advances on any screen, like the other timer wiring here. Not regrowth.
+const MAX_LINES = 10_176;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

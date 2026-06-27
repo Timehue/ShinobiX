@@ -47,6 +47,7 @@ import type {
 import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
+import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
 import {
     jutsuEffectInfo,
     jutsuDisplayAtLevel,
@@ -4744,6 +4745,9 @@ export default function App() {
         setActiveJutsuTraining(t);
         flushSaveRef.current = true;
     }, []);
+    // Global wiring: auto-promote a queued 2nd jutsu training (activeJutsuTraining.next)
+    // the instant the active one finishes — works on any screen. Logic in lib/jutsu-training-queue.
+    useJutsuTrainingQueueRunner(activeJutsuTraining, setActiveJutsuTrainingNow, setCharacter);
 
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
