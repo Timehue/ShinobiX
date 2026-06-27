@@ -149,6 +149,22 @@ export function UserView({
                             <p><strong>Bloodline:</strong> {equippedBloodline?.name || viewedCharacter.bloodline}</p>
                             <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
                         </div>
+
+                        <div>
+                            <h3>Record</h3>
+                            {viewedCharacter.clan && <p><strong>Clan:</strong> {viewedCharacter.clan}{viewedCharacter.clanFounder ? " (Leader)" : ""}</p>}
+                            {viewedCharacter.profession && (
+                                <p><strong>Profession:</strong> {viewedCharacter.profession === "healer" ? "✚ Healer" : viewedCharacter.profession === "vanguard" ? "⚔ Vanguard" : "🐾 Pet Tamer"}{viewedCharacter.professionRank ? ` · Rank ${viewedCharacter.professionRank}` : ""}</p>
+                            )}
+                            {(viewedCharacter.rankedRating ?? 0) > 0 && <p><strong>Ranked Rating:</strong> {viewedCharacter.rankedRating}</p>}
+                            {(viewedCharacter.totalPvpKills ?? 0) > 0 && <p><strong>PvP Kills:</strong> {viewedCharacter.totalPvpKills}</p>}
+                            {(viewedCharacter.battleTowerBestFloor ?? 0) > 0 && <p><strong>Battle Tower:</strong> Floor {viewedCharacter.battleTowerBestFloor}</p>}
+                            {(viewedCharacter.warsWon ?? 0) > 0 && <p><strong>Wars Won:</strong> {viewedCharacter.warsWon}</p>}
+                            {(viewedCharacter.pets?.length ?? 0) > 0 && <p><strong>Pets:</strong> {viewedCharacter.pets?.length}</p>}
+                            {!viewedCharacter.clan && !viewedCharacter.profession && !viewedCharacter.rankedRating && !viewedCharacter.totalPvpKills && !viewedCharacter.battleTowerBestFloor && (
+                                <p className="hint">No public record yet.</p>
+                            )}
+                        </div>
                     </div>
                 </section>
 
