@@ -7,7 +7,7 @@ import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } 
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
 import type { Pet } from "../types/pet";
-import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY } from "../constants/game";
+import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
@@ -29,7 +29,7 @@ import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
-import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXp, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
+import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
@@ -1616,7 +1616,7 @@ export function Arena({
             setJutsuCooldowns((c) => ({ ...c, [pendingTargetJutsu.id]: pendingTargetJutsu.cooldown }));
 
             updateCharacter({
-                ...gainJutsuXp(character, pendingTargetJutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
+                ...gainJutsuXpForRank(character, pendingTargetJutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent)),
                 hp: Math.max(0, character.hp - scaled.healthCost),
                 chakra: Math.max(0, character.chakra - scaled.chakraCost),
                 stamina: Math.max(0, character.stamina - scaled.staminaCost),
@@ -2483,6 +2483,10 @@ export function Arena({
         }
 
         const mastery = getJutsuMastery(character, jutsu.id);
+        // Rank cap: the jutsu's EFFECTIVE combat level is clamped to the player's
+        // rank ceiling (mirrors the server clamp in api/pvp/move.ts applyJutsu).
+        // Stored mastery is untouched; costs intentionally keep the true level.
+        const effMasteryLevel = Math.min(mastery.level, jutsuLevelCapForLevel(character.level));
         const scaled = scaleJutsuCostsForCharacter(jutsu, mastery.level, character);
 
         if (activeStatuses(playerStatuses).some((s) => s.name === "Elemental Seal") && jutsu.element && jutsu.element !== "None") {
@@ -2534,7 +2538,7 @@ export function Arena({
             // turn was already amplified (946 → 1378 with two 21% amps).
             activeStatuses(playerStatuses),
             activeStatuses(enemyStatuses),
-            mastery.level,
+            effMasteryLevel,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -2576,7 +2580,7 @@ export function Arena({
             if (!groundHitEnemy && enemyAffectingTags.has(tagName)) {
                 return;
             }
-            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, mastery.level);
+            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, effMasteryLevel);
 
             if (tag.name === "Increase Damage Given") {
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Damage Given was prevented`);
@@ -2730,7 +2734,7 @@ export function Arena({
                 else {
                     // Match PvP (api/pvp/move.ts): mastery-scaled 50–300 per tick,
                     // draining HP + chakra only (was a flat 250 incl. stamina).
-                    const drainAmt = drainTickPVE(mastery.level);
+                    const drainAmt = drainTickPVE(effMasteryLevel);
                     queueEnemyStatus({ name: "Drain", rounds: 2, amount: drainAmt, kind: "negative" });
                     effectLines.push(`${opponentName} is drained — loses ${drainAmt} HP and chakra/round for 2 rounds${tagTimingText}`);
                 }
@@ -2853,7 +2857,7 @@ export function Arena({
         let recoilDamage = 0;
 
         postDamageTags.forEach((tag) => {
-            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, mastery.level);
+            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, effMasteryLevel);
             if (tag.name === "Wound" && !enemyDebuffPrevented) {
                 // Rank-cap the wound % to match PvP (api/pvp/move.ts woundCapForJutsu):
                 // "Wound" isn't in cappedDamageTags, so effectiveTagPercent leaves pct
@@ -2904,7 +2908,7 @@ export function Arena({
         setJutsuCooldowns((c) => ({ ...c, [jutsu.id]: jutsu.cooldown }));
 
         const postJutsuCharacter: Character = {
-            ...gainJutsuXp(character, jutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
+            ...gainJutsuXpForRank(character, jutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent)),
             hp: Math.max(0, character.hp - scaled.healthCost),
             chakra: Math.max(0, character.chakra - scaled.chakraCost),
             stamina: Math.max(0, character.stamina - scaled.staminaCost),
@@ -5083,7 +5087,10 @@ export function Arena({
 
                                 {inspectedJutsu && (() => {
                                     const mastery = getJutsuMastery(character, inspectedJutsu.id);
-                                    const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                    // Show the EFFECTIVE (rank-capped) level so the displayed EP/effects
+                                    // match what actually lands in combat (see the castJutsu clamp above).
+                                    const effLevel = Math.min(mastery.level, jutsuLevelCapForLevel(character.level));
+                                    const scaled = scaleJutsuByLevel(inspectedJutsu, effLevel);
                                     const cooldown = jutsuCooldowns[inspectedJutsu.id] ?? 0;
                                     const cleanTarget = inspectedJutsu.target.toLowerCase().replaceAll("_", " ");
                                     const cleanMethod = inspectedJutsu.method.toLowerCase().replaceAll("_", " ");
@@ -5093,7 +5100,7 @@ export function Arena({
                                             <div className="combat-jutsu-detail-header">
                                                 <div>
                                                     <strong>{inspectedJutsu.name}</strong>
-                                                    <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small>
+                                                    <small>Level {mastery.level} / {JUTSU_MAX_LEVEL}{mastery.level > effLevel ? ` · combat-capped to ${effLevel} at your rank` : ""}</small>
                                                 </div>
 
                                                 <button
@@ -5124,7 +5131,7 @@ export function Arena({
                                             )}
 
                                             <div className="combat-jutsu-effects-list">
-                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
+                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={effLevel} lensDiscipline={playerLensDiscipline(character)} />
                                             </div>
                                         </div>
                                     );
