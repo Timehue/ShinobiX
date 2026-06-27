@@ -11,7 +11,7 @@
  * Extracted from App.tsx.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import type { Character, ServerPlayerSummary, PlayerRecord } from "../types/character";
 import type { SavedBloodline, Jutsu } from "../types/combat";
 import { type Achievement, ACHIEVEMENTS } from "../constants/achievements";
@@ -19,6 +19,29 @@ import { getCharacterElements } from "../lib/elements";
 import { sendStandardDuel } from "../lib/duel-challenge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
+
+const ELEMENT_COLORS: Record<string, string> = {
+    fire: "#f87171", water: "#60a5fa", earth: "#d4a574", lightning: "#fbbf24",
+    wind: "#5eead4", ice: "#a5f3fc", wood: "#86efac", lava: "#fb923c",
+    storm: "#818cf8", sand: "#e7c08b", crystal: "#c4b5fd", shadow: "#a78bfa",
+    light: "#fde68a", dark: "#a78bfa",
+};
+const RARITY_COLORS: Record<string, string> = {
+    common: "#94a3b8", uncommon: "#86efac", rare: "#60a5fa",
+    epic: "#c084fc", legendary: "#fbbf24", mythic: "#f472b6",
+};
+const PROFESSION_LABEL: Record<string, string> = {
+    healer: "✚ Healer", vanguard: "⚔ Vanguard", petTamer: "🐾 Pet Tamer",
+};
+const elementColor = (el: string) => ELEMENT_COLORS[el.toLowerCase()] ?? "#cbd5e1";
+const rarityColor = (r: string) => RARITY_COLORS[(r ?? "").toLowerCase()] ?? "#94a3b8";
+function chipStyle(accent: string): CSSProperties {
+    return {
+        display: "inline-flex", alignItems: "center", gap: 4,
+        background: `${accent}1f`, color: accent, border: `1px solid ${accent}55`,
+        borderRadius: 999, padding: "4px 10px", fontSize: "0.82rem", fontWeight: 600,
+    };
+}
 
 export function UserView({
     viewingName,
@@ -91,6 +114,22 @@ export function UserView({
         alert(r.ok ? `Challenge sent to ${viewingName}.` : (r.error ?? "Challenge could not be sent."));
     }
 
+    const bloodlineName = equippedBloodline?.name || viewedCharacter.bloodline;
+    const professionLabel = viewedCharacter.profession ? PROFESSION_LABEL[viewedCharacter.profession] : "";
+    const pets = viewedCharacter.pets ?? [];
+    const metrics: { label: string; value: string | number }[] = [
+        { label: "Ranked Rating", value: viewedCharacter.rankedRating ?? 0 },
+        { label: "PvP Kills", value: viewedCharacter.totalPvpKills ?? 0 },
+        { label: "Battle Tower", value: (viewedCharacter.battleTowerBestFloor ?? 0) > 0 ? `Floor ${viewedCharacter.battleTowerBestFloor}` : "—" },
+        { label: "Pets", value: pets.length },
+    ];
+    if (((viewedCharacter.rankedWins ?? 0) + (viewedCharacter.rankedLosses ?? 0)) > 0)
+        metrics.push({ label: "Ranked W/L", value: `${viewedCharacter.rankedWins ?? 0}–${viewedCharacter.rankedLosses ?? 0}` });
+    if ((viewedCharacter.warsWon ?? 0) > 0) metrics.push({ label: "Wars Won", value: viewedCharacter.warsWon ?? 0 });
+    if ((viewedCharacter.totalVillageRaids ?? 0) > 0) metrics.push({ label: "Village Raids", value: viewedCharacter.totalVillageRaids ?? 0 });
+    if ((viewedCharacter.totalTournamentsCompleted ?? 0) > 0) metrics.push({ label: "Tournaments", value: viewedCharacter.totalTournamentsCompleted ?? 0 });
+    if ((viewedCharacter.loginStreak ?? 0) > 0) metrics.push({ label: "Login Streak", value: `${viewedCharacter.loginStreak}d` });
+
     return (
         <div className="card profile-page-card">
             <nav className="profile-mobile-tabs">
@@ -129,46 +168,61 @@ export function UserView({
                     </div>
                 )}
 
-                <section className="profile-overview-panel">
-                    <div className="profile-avatar-upload-box">
-                        <div className="profile-big-avatar">
-                            {avatar
-                                ? <img src={avatar} alt={viewedCharacter.name} />
-                                : <span>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
-                        </div>
+                <section className="profile-build-panel" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid #facc15", boxShadow: "0 0 0 3px rgba(250,204,21,0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
+                        {avatar
+                            ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            : <span style={{ fontSize: "2rem", fontWeight: 700, color: "#facc15" }}>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
                     </div>
-
-                    <div className="profile-info-grid">
-                        <div>
-                            <h3>General</h3>
-                            <p><strong>Name:</strong> {viewedCharacter.name}</p>
-                            <p><strong>Village:</strong> {viewedCharacter.village}</p>
-                            <p><strong>Rank:</strong> {viewedCharacter.rankTitle}</p>
-                            {viewedCharacter.customTitle && <p><strong>Title:</strong> <span style={{ color: "#facc15" }}>{viewedCharacter.customTitle}</span></p>}
-                            <p><strong>Level:</strong> {viewedCharacter.level}/100</p>
-                            <p><strong>Bloodline:</strong> {equippedBloodline?.name || viewedCharacter.bloodline}</p>
-                            <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#f8fafc" }}>{viewedCharacter.name}</span>
+                            {viewedCharacter.customTitle && <span style={{ color: "#facc15", fontWeight: 700, fontSize: "0.95rem" }}>«{viewedCharacter.customTitle}»</span>}
                         </div>
-
-                        <div>
-                            <h3>Record</h3>
-                            {viewedCharacter.clan && <p><strong>Clan:</strong> {viewedCharacter.clan}{viewedCharacter.clanFounder ? " (Leader)" : ""}</p>}
-                            {viewedCharacter.profession && (
-                                <p><strong>Profession:</strong> {viewedCharacter.profession === "healer" ? "✚ Healer" : viewedCharacter.profession === "vanguard" ? "⚔ Vanguard" : "🐾 Pet Tamer"}{viewedCharacter.professionRank ? ` · Rank ${viewedCharacter.professionRank}` : ""}</p>
-                            )}
-                            {(viewedCharacter.rankedRating ?? 0) > 0 && <p><strong>Ranked Rating:</strong> {viewedCharacter.rankedRating}</p>}
-                            {(viewedCharacter.totalPvpKills ?? 0) > 0 && <p><strong>PvP Kills:</strong> {viewedCharacter.totalPvpKills}</p>}
-                            {(viewedCharacter.battleTowerBestFloor ?? 0) > 0 && <p><strong>Battle Tower:</strong> Floor {viewedCharacter.battleTowerBestFloor}</p>}
-                            {(viewedCharacter.warsWon ?? 0) > 0 && <p><strong>Wars Won:</strong> {viewedCharacter.warsWon}</p>}
-                            {(viewedCharacter.pets?.length ?? 0) > 0 && <p><strong>Pets:</strong> {viewedCharacter.pets?.length}</p>}
-                            {!viewedCharacter.clan && !viewedCharacter.profession && !viewedCharacter.rankedRating && !viewedCharacter.totalPvpKills && !viewedCharacter.battleTowerBestFloor && (
-                                <p className="hint">No public record yet.</p>
-                            )}
+                        <div style={{ color: "#94a3b8", marginTop: 4, fontSize: "0.95rem" }}>
+                            {viewedCharacter.village} · {viewedCharacter.rankTitle} · Lv {viewedCharacter.level}/100
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                            <span style={chipStyle("#a78bfa")}>🩸 {bloodlineName}</span>
+                            {ownedElements.map((el) => <span key={el} style={chipStyle(elementColor(el))}>{el}</span>)}
+                            {viewedCharacter.clan && <span style={chipStyle("#facc15")}>🏳 {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
+                            {professionLabel && <span style={chipStyle("#38bdf8")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
                         </div>
                     </div>
                 </section>
 
-                <NindoCard nindo={viewedCharacter.nindo} nindoBg={viewedCharacter.nindoBg} />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginTop: 12 }}>
+                    {metrics.map((m) => (
+                        <div key={m.label} style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(250,204,21,0.18)", borderRadius: 10, padding: "12px 14px" }}>
+                            <div style={{ color: "#94a3b8", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</div>
+                            <div style={{ color: "#f8fafc", fontSize: "1.3rem", fontWeight: 700, marginTop: 2 }}>{m.value}</div>
+                        </div>
+                    ))}
+                </div>
+
+                {pets.length > 0 && (
+                    <section className="profile-build-panel" style={{ marginTop: 12 }}>
+                        <h3 style={{ margin: "0 0 10px" }}>Pets</h3>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                            {pets.slice(0, 8).map((p) => {
+                                const petImg = sharedImages['pet:' + String(p.id).toLowerCase()] || p.image || "";
+                                return (
+                                    <div key={String(p.id)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
+                                        <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                            {petImg ? <img src={petImg} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: "1.2rem" }}>🐾</span>}
+                                        </div>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ color: "#f8fafc", fontWeight: 600, fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                                            <div style={{ color: rarityColor(p.rarity), fontSize: "0.76rem" }}>{p.rarity} · Lv {p.level}{p.element ? ` · ${p.element}` : ""}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
+                <NindoCard nindo={viewedCharacter.nindo} nindoBg={viewedCharacter.nindoBg} ownerName={viewedCharacter.name} />
             </div>
 
             {/* ── Achievements ─────────────────────────── */}
