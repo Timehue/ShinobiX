@@ -154,6 +154,18 @@ export type ActiveTraining = {
     durationMs?: number;
 };
 
+// A 2nd jutsu training lined up behind the active one. Ryo is paid up-front at
+// queue time and the duration is locked then (training bonuses baked in), so when
+// the active training completes the queue auto-promotes with no further cost.
+export type QueuedJutsuTraining = {
+    jutsuId: string;
+    label: string;
+    fromLevel: number;
+    toLevel: number;
+    ryoCost: number;
+    durationMs: number;
+};
+
 export type ActiveJutsuTraining = {
     jutsuId: string;
     label: string;
@@ -162,4 +174,7 @@ export type ActiveJutsuTraining = {
     ryoCost: number;
     startedAt: number;
     endsAt: number;
+    // Optional queued 2nd training; auto-promotes to active on completion.
+    // See lib/jutsu-training-queue.ts (global runner) + screens/Training.tsx (UI).
+    next?: QueuedJutsuTraining | null;
 };
