@@ -5,7 +5,7 @@ import {
 } from "../App";
 
 export
-function VillageTavern({ character, onBack, sharedImages }: { character: Character; onBack: () => void; sharedImages: Record<string, string> }) {
+function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void }) {
     const [messages, setMessages] = useState<TavernMessage[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
@@ -127,7 +127,12 @@ function VillageTavern({ character, onBack, sharedImages }: { character: Charact
                     return (
                         <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
                             <div className="tavern-avatar-col">
-                                <div className="tavern-avatar">
+                                <div
+                                    className="tavern-avatar"
+                                    onClick={() => onViewProfile?.(m.author)}
+                                    style={onViewProfile ? { cursor: "pointer" } : undefined}
+                                    title={onViewProfile ? `View ${m.author}'s profile` : undefined}
+                                >
                                     {avatar
                                         ? <img src={avatar} alt={m.author} />
                                         : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
@@ -136,7 +141,15 @@ function VillageTavern({ character, onBack, sharedImages }: { character: Charact
                             </div>
                             <div className="tavern-body">
                                 <div className="tavern-meta">
-                                    <span className="tavern-author">{m.author}</span>
+                                    <span
+                                        className="tavern-author"
+                                        onClick={() => onViewProfile?.(m.author)}
+                                        role={onViewProfile ? "button" : undefined}
+                                        tabIndex={onViewProfile ? 0 : undefined}
+                                        onKeyDown={(e) => { if (onViewProfile && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onViewProfile(m.author); } }}
+                                        style={onViewProfile ? { cursor: "pointer" } : undefined}
+                                        title={onViewProfile ? `View ${m.author}'s profile` : undefined}
+                                    >{m.author}</span>
                                     {m.customTitle && <span className="tavern-custom-title">«{m.customTitle}»</span>}
                                     {m.rank && <span className="tavern-rank">{m.rank}</span>}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
