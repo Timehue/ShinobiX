@@ -10,7 +10,7 @@
  */
 
 import { effectiveTagPercent } from "./tags";
-import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC } from "../constants/game";
+import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC, jutsuLevelCapForLevel } from "../constants/game";
 import type { Jutsu, JutsuMastery } from "../types/combat";
 import type { Character } from "../types/character";
 
@@ -47,6 +47,15 @@ export function gainJutsuXp(character: Character, jutsuId: string, amount: numbe
         xp = 0;
     }
     return { ...character, jutsuMastery: [...existing.filter((j) => j.jutsuId !== jutsuId), { jutsuId, level, xp }] };
+}
+
+// Rank-capped XP gain. Stops accruing once the jutsu reaches the player's rank
+// jutsu-level cap, and NEVER downgrades a jutsu already above the cap (saves from
+// before the cap existed are grandfathered — it just stops adding). Save-safe.
+export function gainJutsuXpForRank(character: Character, jutsuId: string, amount: number): Character {
+    const cap = jutsuLevelCapForLevel(Number(character.level) || 1);
+    if (getJutsuMastery(character, jutsuId).level >= cap) return character;
+    return gainJutsuXp(character, jutsuId, amount, cap);
 }
 
 export function scaleJutsuByLevel(jutsu: Jutsu, level: number) {
