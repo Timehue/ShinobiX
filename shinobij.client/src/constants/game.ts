@@ -40,6 +40,25 @@ export const JUTSU_TRAINING_CAP = 30;
 // under-leveled jutsu hit softer. Mirrored in api/pvp/move.ts (parity-pinned).
 export const MASTERY_MIN_DAMAGE_FRAC = 0.3;
 
+// Per-rank jutsu mastery-level cap (anti-twink). A jutsu's EFFECTIVE combat level
+// is clamped to the player's rank ceiling, so a low-rank player can't grind one
+// jutsu to 50 and one-shot same-rank peers. Bands match rankFromLevel (Academy
+// <15, Genin 15–29, Chunin 30–49, Jonin/Special Jonin 50+). The cap only bites
+// Academy/Genin/Chunin; Jonin+ get the global max (no endgame change). Mirrored in
+// api/pvp/move.ts and pinned by api/_combat-formula-parity.test.ts. Save-safe: it
+// clamps the value the damage/tag/drain formula uses, never the STORED mastery.
+export const JUTSU_LEVEL_CAP_ACADEMY = 10;
+export const JUTSU_LEVEL_CAP_GENIN = 20;
+export const JUTSU_LEVEL_CAP_CHUNIN = 30;
+export const JUTSU_LEVEL_CAP_JONIN = 50; // Jonin (50–79) + Special Jonin (80+) = global max
+export function jutsuLevelCapForLevel(level: number): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    if (lvl >= 50) return JUTSU_LEVEL_CAP_JONIN;
+    if (lvl >= 30) return JUTSU_LEVEL_CAP_CHUNIN;
+    if (lvl >= 15) return JUTSU_LEVEL_CAP_GENIN;
+    return JUTSU_LEVEL_CAP_ACADEMY;
+}
+
 // ── Storage keys for localStorage ────────────────────────────────────────
 export const STORAGE = "ninjav-admin-build-v1";
 export const PLAYER_ACCOUNTS_STORAGE = "ninjav-player-accounts-v1";
