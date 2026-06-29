@@ -97,13 +97,14 @@ export function formatStatName(name: string) {
         .replace(/^./, (c) => c.toUpperCase());
 }
 
-// XP to advance from `level` to `level + 1`. Quadratic-per-level (the `3` is the
-// master pacing dial — fast early, slow late; ~90 days L1→90 for a daily-active
-// player). Cumulative is cubic. Keep in lock-step with api/_xp-engine.ts and the
-// inline replica in api/_xp-engine.test.ts (parity-pinned).
+// XP to advance from `level` to `level + 1`. Quadratic-per-level (the `6` is the
+// master pacing dial — fast early, slow late; ~90 days L1→90 for an engaged
+// daily-active player, fit to the REAL faucets — see the pacing guardrail in
+// stats.test.ts). Cumulative is cubic. Keep in lock-step with api/_xp-engine.ts and
+// the inline replica in api/_xp-engine.test.ts (parity-pinned).
 export function xpNeeded(level: number) {
     if (level >= MAX_LEVEL) return 0;
-    return Math.round(3 * level * level);
+    return Math.round(6 * level * level);
 }
 
 // (The old cumulative-XP helpers — TOTAL_XP_TO_MAX_LEVEL / totalXpBeforeLevel /

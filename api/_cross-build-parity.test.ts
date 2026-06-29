@@ -142,10 +142,10 @@ describe('parity: XP engine constants + formulas (game.ts + stats.ts ⇄ api/_xp
             assert.equal(singleNum(GAME, name), singleNum(XPENGINE, name), `${name} drifted between game.ts and _xp-engine.ts`);
         });
     }
-    it('xpNeeded uses the same 3·L² curve on both sides', () => {
-        const curve = 'Math.round(3 * level * level)';
-        assert.ok(STATS.includes(curve), 'client lib/stats.ts lost the 3·L² xpNeeded curve');
-        assert.ok(XPENGINE.includes(curve), 'server api/_xp-engine.ts lost the 3·L² xpNeeded curve');
+    it('xpNeeded uses the same 6·L² curve on both sides', () => {
+        const curve = 'Math.round(6 * level * level)';
+        assert.ok(STATS.includes(curve), 'client lib/stats.ts lost the 6·L² xpNeeded curve');
+        assert.ok(XPENGINE.includes(curve), 'server api/_xp-engine.ts lost the 6·L² xpNeeded curve');
     });
     it('statBudgetAtLevel uses the same linear formula on both sides', () => {
         const formula = 'STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP)';
