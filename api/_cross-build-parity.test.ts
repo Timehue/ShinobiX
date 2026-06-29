@@ -29,6 +29,16 @@ const PETCONFIG = read('shinobij.client', 'src', 'data', 'pet-config.ts');
 const GAME = read('shinobij.client', 'src', 'constants', 'game.ts');
 const STATS = read('shinobij.client', 'src', 'lib', 'stats.ts');
 const XPENGINE = read('api', '_xp-engine.ts');
+const VILLAGE_UP = read('shinobij.client', 'src', 'lib', 'village-upgrades.ts');
+const BANK_INT = read('api', '_bank-interest.ts');
+const BANK_SCREEN = read('shinobij.client', 'src', 'screens', 'Bank.tsx');
+
+// Extract a (possibly underscore-grouped) number captured by `pattern`.
+function numFrom(src: string, pattern: RegExp, label: string): number {
+    const m = src.match(pattern);
+    assert.ok(m, `${label} not found`);
+    return Number(String(m![1]).replace(/_/g, ''));
+}
 
 function numArray(src: string, name: string): number[] {
     const m = src.match(new RegExp(name + '\\s*=\\s*\\[([^\\]]*)\\]'));
@@ -141,5 +151,18 @@ describe('parity: XP engine constants + formulas (game.ts + stats.ts ⇄ api/_xp
         const formula = 'STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP)';
         assert.ok(STATS.includes(formula), 'client lib/stats.ts statBudgetAtLevel formula drifted');
         assert.ok(XPENGINE.includes(formula), 'server api/_xp-engine.ts statBudgetAtLevel formula drifted');
+    });
+});
+
+describe('parity: bank interest rate + cap (village-upgrades.ts + Bank.tsx ⇄ api/_bank-interest.ts)', () => {
+    it('the per-level bank interest rate matches across build roots', () => {
+        const client = numFrom(VILLAGE_UP, /key:\s*"bank"[^}]*?perLevel:\s*([\d.]+)/, 'client bank perLevel');
+        const server = numFrom(BANK_INT, /BANK_UPGRADE_PER_LEVEL\s*=\s*([\d.]+)/, 'server BANK_UPGRADE_PER_LEVEL');
+        assert.equal(client, server, 'bank interest rate drifted between village-upgrades.ts and _bank-interest.ts');
+    });
+    it('the interest-earning principal cap matches across build roots', () => {
+        const client = numFrom(BANK_SCREEN, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'client BANK_INTEREST_PRINCIPAL_CAP');
+        const server = numFrom(BANK_INT, /BANK_INTEREST_PRINCIPAL_CAP\s*=\s*([\d_]+)/, 'server BANK_INTEREST_PRINCIPAL_CAP');
+        assert.equal(client, server, 'bank principal cap drifted between Bank.tsx and _bank-interest.ts');
     });
 });
