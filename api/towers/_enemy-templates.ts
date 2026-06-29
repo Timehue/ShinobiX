@@ -20,6 +20,15 @@ export type EnemyTemplate = {
     specialty: EnemySpecialty;
     hp: number;
     stats: Record<string, number>;
+    /**
+     * Rank-band level for the per-rank STAT CAP (api/pvp/move.ts perRankStatCap):
+     * tower combat routes through applyJutsu, which clamps each fighter's stats to
+     * statCapForLevel(level). REQUIRED so a template's hand-tuned stats are never
+     * silently gutted to the Academy ceiling (350) by a missing level. Set so the
+     * band cap ≥ the template's biggest stat: grunts are Chunin (cap 1300 ≥ their
+     * ≤850), bosses are Special Jonin (80+ = uncapped) for their ≤1500.
+     */
+    level: number;
     /** client sprite key (cosmetic; never touches combat math) */
     visual: string;
     /** the client renders bosses larger + with a phase ring */
@@ -28,43 +37,43 @@ export type EnemyTemplate = {
 
 const TEMPLATES: Record<string, EnemyTemplate> = {
     'grunt-bandit': {
-        name: 'Bandit', specialty: 'Taijutsu', hp: 500, visual: 'bandit',
+        name: 'Bandit', specialty: 'Taijutsu', level: 40, hp: 500, visual: 'bandit',
         stats: { taijutsuOffense: 600, taijutsuDefense: 500, strength: 200, speed: 200 },
     },
     'grunt-archer': {
-        name: 'Archer', specialty: 'Bukijutsu', hp: 450, visual: 'archer',
+        name: 'Archer', specialty: 'Bukijutsu', level: 40, hp: 450, visual: 'archer',
         stats: { bukijutsuOffense: 650, bukijutsuDefense: 400, intelligence: 200, strength: 150 },
     },
     'grunt-blocker': {
-        name: 'Shieldman', specialty: 'Taijutsu', hp: 850, visual: 'blocker',
+        name: 'Shieldman', specialty: 'Taijutsu', level: 40, hp: 850, visual: 'blocker',
         stats: { taijutsuOffense: 400, taijutsuDefense: 850, strength: 300, speed: 100 },
     },
     'grunt-brute': {
-        name: 'Brute', specialty: 'Taijutsu', hp: 950, visual: 'brute',
+        name: 'Brute', specialty: 'Taijutsu', level: 40, hp: 950, visual: 'brute',
         stats: { taijutsuOffense: 800, taijutsuDefense: 600, strength: 400, speed: 120 },
     },
     'grunt-acolyte': {
-        name: 'Acolyte', specialty: 'Ninjutsu', hp: 420, visual: 'acolyte',
+        name: 'Acolyte', specialty: 'Ninjutsu', level: 40, hp: 420, visual: 'acolyte',
         stats: { ninjutsuOffense: 750, ninjutsuDefense: 350, willpower: 250, intelligence: 200 },
     },
     'boss-warden': {
-        name: 'Spire Warden', specialty: 'Ninjutsu', hp: 4200, visual: 'warden', boss: true,
+        name: 'Spire Warden', specialty: 'Ninjutsu', level: 80, hp: 4200, visual: 'warden', boss: true,
         stats: { ninjutsuOffense: 1200, ninjutsuDefense: 950, willpower: 450, speed: 300 },
     },
     'boss-ravager': {
-        name: 'Pit Ravager', specialty: 'Taijutsu', hp: 4800, visual: 'ravager', boss: true,
+        name: 'Pit Ravager', specialty: 'Taijutsu', level: 80, hp: 4800, visual: 'ravager', boss: true,
         stats: { taijutsuOffense: 1300, taijutsuDefense: 1000, strength: 500, speed: 260 },
     },
     'boss-revenant': {
-        name: 'Hollow Revenant', specialty: 'Genjutsu', hp: 5200, visual: 'revenant', boss: true,
+        name: 'Hollow Revenant', specialty: 'Genjutsu', level: 80, hp: 5200, visual: 'revenant', boss: true,
         stats: { genjutsuOffense: 1300, genjutsuDefense: 1050, willpower: 500, intelligence: 350 },
     },
     'boss-sovereign': {
-        name: 'Spire Sovereign', specialty: 'Ninjutsu', hp: 6200, visual: 'sovereign', boss: true,
+        name: 'Spire Sovereign', specialty: 'Ninjutsu', level: 80, hp: 6200, visual: 'sovereign', boss: true,
         stats: { ninjutsuOffense: 1500, ninjutsuDefense: 1150, willpower: 550, speed: 350 },
     },
     'npc-genin': {
-        name: 'Allied Genin', specialty: 'Taijutsu', hp: 600, visual: 'genin',
+        name: 'Allied Genin', specialty: 'Taijutsu', level: 40, hp: 600, visual: 'genin',
         stats: { taijutsuOffense: 350, taijutsuDefense: 350 },
     },
 };
@@ -72,7 +81,7 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
 // Defensive fallback so a misconfigured aiId yields a weak grunt rather than crashing
 // the encounter build (the catalog validator + test are the real guard).
 const FALLBACK: EnemyTemplate = {
-    name: 'Shade', specialty: 'Taijutsu', hp: 300, visual: 'bandit',
+    name: 'Shade', specialty: 'Taijutsu', level: 40, hp: 300, visual: 'bandit',
     stats: { taijutsuOffense: 300, taijutsuDefense: 300 },
 };
 
