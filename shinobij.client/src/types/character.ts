@@ -356,6 +356,10 @@ export type Character = {
     // how many Hollow Gate Keys the player has banked — the shrine itself
     // refuses to open more than twice between dawns. Tied to lastDailyReset.
     dailyHollowGateRuns?: number;
+    // Raw (pre-decay) Endless-Tower character-XP banked today. Beyond a daily soft
+    // cap (towerDailyXpSoftCap) further tower XP is sharply diminished so the tower
+    // can't bypass the level curve. Tied to lastDailyReset.
+    dailyTowerXp?: number;
     lastDailyReset?: string;
     // Daily login-streak reward (server-authoritative, api/player/daily-login.ts).
     // loginStreak = consecutive UTC days claimed; lastLoginRewardDate = the UTC
