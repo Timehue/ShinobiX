@@ -67,7 +67,11 @@ import { readFileSync } from "node:fs";
 // The lazy-const declarations must live at App's module top (+4). Also the
 // navigate/logoutPlayer latest-ref memo stabilizers (+6) and the clan-war poller
 // clan-gate (+1) — all reference App-local state, cannot move to a module.
-const MAX_LINES = 10_172;
+// → 10,176 (+4 for VN trait-branching: the vnPages choice type gains
+// requireTrait/forbidTrait (+2), the addStoryTrait import (+1), and the onChoice
+// persist wiring on the live TriggeredVisualNovel usage (+1) — all reference
+// App-local state (setCharacter) so they cannot move to a module).
+const MAX_LINES = 10_176;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

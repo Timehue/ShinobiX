@@ -9,6 +9,7 @@ import type { Pet } from "../types/pet";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
+import { addStoryTrait } from "../lib/character-progress";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
@@ -1521,7 +1522,7 @@ export function WorldMap({
         );
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} sharedImages={sharedImages} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -1608,8 +1609,7 @@ export function WorldMap({
                         <div className="vn-backdrop">
                             {!chestPageImage && <span className="vn-village-silhouette" />}
                         </div>
-                        <div className="vn-character mentor-character">🧙</div>
-                        <div className="vn-character hero-character">
+                        <div className="vn-character mentor-character">
                             {(() => {
                                 const playerAvatar = sharedImages?.['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || "";
                                 return playerAvatar
@@ -1617,6 +1617,7 @@ export function WorldMap({
                                     : character.name.slice(0, 2).toUpperCase();
                             })()}
                         </div>
+                        <div className="vn-character hero-character"><img src="/portraits/narrator.webp" alt="The Narrator" /></div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -2658,8 +2659,8 @@ export function WorldMap({
                                 <div className="vn-backdrop">
                                     {!chestPageImg && <span className="vn-village-silhouette" />}
                                 </div>
-                                <div className="vn-character mentor-character">🧙</div>
-                                <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                                <div className="vn-character mentor-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                                <div className="vn-character hero-character"><img src="/portraits/narrator.webp" alt="The Narrator" /></div>
                                 <div className="vn-scene-card">{page.scene}</div>
                                 <div className="vn-dialogue">
                                     <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
