@@ -655,17 +655,18 @@ mid-game stat desert**, while keeping the reference's best parts (one engine for
 players+AI, maxed-at-100 by construction, per-rank caps). Everything else here
 hangs off this.
 
-### PX-2. Combat IS progression — seamless stat growth
-Adopt the reference's **combat-XP-into-the-stats-you-used**: every PvP/PvE/arena
-fight grows the offense/defense stats of the jutsu *types you actually used* that
-fight (on top of the XP→level gain), proportional to usage. Playing the game *is*
-building your character — far more seamless than "stop, open Training, pick a stat,
-wait." Keep focused idle training too (for *control* over your build); combat gives
-*organic* growth. We already have the precedent (jutsu **mastery** grows from
-casting at +20/cast) — this extends the same "use it to grow it" feel to stats.
-**Balance-flagged** (it's a combat change): gate the combat-stat XP through the
-*same* `statBudget`/per-rank-cap so it can't outpace the curve, and keep it a
-modest fraction of a fight's reward so idle training stays relevant.
+### PX-2. Combat-driven stat growth — CUT (doesn't fit our model)
+The reference grows stats by combat because *stats ARE experience* there — no
+separate allocation step. **Our model is different and already clean:** XP → a
+level-capped budget → allocated by the player via **idle training** (control) or the
+unspent pool. Combat already feeds that budget (combat XP grows it). The only thing
+"combat-driven growth" would add is *auto-allocating* combat's budget into whatever
+jutsu types you swung with — which **removes the deliberate allocation the idle-
+training loop provides** (the same re-engagement loop we chose to protect by
+rejecting auto-queue). So it's redundant with our budget+training system and works
+against the game's control-based identity. **Cut.** The "seamless" goal is met by
+the unified budget (combat XP → budget → allocate) without an auto-allocator. Easy
+to revisit if the training loop is ever deprecated.
 
 ### PX-3. Rank-up = a real, earned power spike
 Per-rank stat caps (§6.5) + the level-budget mean a character accumulates budget it
@@ -761,49 +762,53 @@ hits `D(L)`.
 Apple "reprice" RETRACTED (it's a Fate-Shard item, not ryo — §8.3). Wealth-scaling
 vanity sink deferred (additive content).
 
-**Phase 4 — Drops & pity.** Mythic-pet pity; black-market pity; re-verify
-fate-shard income vs evolution arc.
+**Phase 4 — Drops & pity: CUT.** Pity systems dropped (owner: "no pity system").
+With the existing rarity odds judged reasonable, the drop-rate work needs no further
+change. Fate-shard faucet timing is premium → left as-is per direction. (Nothing to
+ship here.)
 
-**Phase 5 — Seamless-gameplay layer (§10A).** Rank-up power spike (PX-3 — now
-AUTOMATIC: the per-rank stat caps un-clamp stored stats on rank-up; only the
-celebration UI remains); no-dead-time polish (short first timer, training
-offline-accrual framing — PX-4; auto-queue REJECTED, see §10A); progression-legibility
-UI (PX-6, extend the Logbook). PX-5 rested-XP **CUT** (redundant with idle training —
-§7.3). Pure UI — no curve change.
+**Phase 5 — Seamless-gameplay layer (§10A): UI-only, remaining.** Rank-up power
+spike (PX-3 — mechanic AUTOMATIC from the per-rank caps; only a celebration moment
+remains); short first-timer + offline-accrual framing (PX-4; auto-queue REJECTED,
+§10A); progression-legibility UI (PX-6). PX-5 rested-XP **CUT** (§7.3). Pure UI/UX —
+no curve/balance change — best built with the app running (visual iteration).
 
-**Phase 6 — Combat-driven stat growth (PX-2, balance-flagged).** Fights grow the
-stats you used, gated through the shared `statBudget`/per-rank cap so it can't
-outpace the curve. Ship last and behind a flag — it's the one change that touches
-combat reward math; A/B it before defaulting on.
+**Phase 6 — Combat-driven stat growth: CUT** (PX-2) — redundant with our
+budget+training allocation model and removes player control; doesn't fit our
+control-based identity (§10A PX-2). Not shipping.
 
-**Optional / as-needed.** Piecewise curve band factors; combat-XP tuning — only if
-playtest/telemetry call for them.
+**Optional / as-needed.** Wealth-scaling vanity ryo sink (needs a cosmetic/display
+to be effective; the bank-interest cut already de-inflates, so this is polish, not
+required); economy telemetry layer (`economy-telemetry-plan.md`) to *measure* the
+de-inflation; piecewise curve band factors — all only if playtest/telemetry call
+for them.
 
 Each phase: run `npm test` (API) + `npm run lint` (client); rebuild + commit
 `dist/` for any `api/`/`server.ts`/curve change; keep Railway + cPanel in parity.
 
 ---
 
-## 13. Decisions needed (sign-off gates)
+## 13. Decisions — RESOLVED (built on branch `claude/beautiful-mclean-656dcc`)
 
-1. **XP coefficient:** ship `3·L²` as the headline? (3 = ~90 days for daily-active
-   at the assumed income; 2.5 ≈ 75 days, 3.5 ≈ 105.)
-2. **Unify AI onto the player stat budget (§6.2):** THE key change — rebuild
-   `aiStatsForLevel` to distribute the same `statBudget(level)` players get, so
-   player↔AI are matched at every level and both max at L100. (Confirm.)
-3. **Stat-budget shape (§6.4):** *coupled* (reference-exact, back-loaded) vs
-   *linear* (smoother power; recommended if we ship the steep `3·L²` curve). Both
-   max at L100 and apply to players + AI identically.
-4. **Per-rank stat caps (§6.5):** confirm adding a per-rank ceiling on each stat
-   (anti-twink, mirrors the per-rank jutsu cap; applies to players + AI).
-5. **Endless-Tower XP cap (§7.1):** confirm a daily character-XP soft-cap is
-   acceptable (tower stays the best *ryo/material* farm, just not an XP bypass).
-6. **Bank interest target (§8.1):** confirm cutting max daily rate 12.5% → ~2–3%.
-   This visibly lowers rich players' passive income.
-7. **Pity systems (§9):** confirm adding mythic-pet + black-market pity.
-8. **Combat-driven stat growth (PX-2):** adopt the reference's "fighting grows the
-   stats you used" (seamless), gated through the shared budget? Yes / flagged-A-B /
-   no. *Recommended yes, behind a flag (Phase 6).*
+> **Status:** #1–6 SHIPPED + reviewed, #7–9 CUT, #10 is the only remaining work (UI).
+> The mechanical/economic/XP/stat/drop redesign is complete; details per item below.
+
+1. **XP coefficient: SHIPPED `3·L²`** (~90 days L1→90 for a daily-active player;
+   tune the `3` for 2.5 ≈ 75d / 3.5 ≈ 105d).
+2. **Unify AI onto the player stat budget (§6.2): SHIPPED** — `aiStatsForLevel`
+   distributes the same `statBudget(level)`; player↔AI matched at every level, both
+   max at L100.
+3. **Stat-budget shape (§6.4): SHIPPED `linear`** (smooth power, no mid-game sag).
+4. **Per-rank stat caps (§6.5): SHIPPED** (anti-twink, players + AI; the rank-up
+   power spike falls out of this).
+5. **Endless-Tower XP cap (§7.1): SHIPPED** (daily soft-cap; tower stays the best
+   ryo/material farm, just not an XP bypass).
+6. **Bank interest (§8.1): SHIPPED** — cut 12.5% → 0.5%/day (deeper than the doc's
+   first-draft 2–3%, which still paid a salary). ~1.25M/day → ~50k/day for a whale.
+7. **Pity systems: CUT** (owner: "no pity system"). Existing rarity odds kept as-is.
+8. **Combat-driven stat growth (PX-2): CUT** — redundant with our budget+training
+   allocation and removes player control; fits the reference's model, not ours
+   (§10A PX-2).
 9. **Catch-up — rested XP (PX-5): RESOLVED → CUT.** Redundant with idle training +
    offline expeditions + daily-cap reset (§7.3). The one-at-a-time idle limit is
    intentional (a re-engagement touchpoint) — **auto-queue also rejected** (it would
