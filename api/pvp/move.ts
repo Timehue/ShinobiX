@@ -82,6 +82,37 @@ function jutsuLevelCapForLevel(level: number): number {
     if (lvl >= 15) return JUTSU_LEVEL_CAP_GENIN;
     return JUTSU_LEVEL_CAP_ACADEMY;
 }
+// Per-rank STAT cap (anti-twink) — the stat analogue of jutsuLevelCapForLevel.
+// Mirrors shinobij.client/src/constants/game.ts (parity-pinned by
+// api/_combat-formula-parity.test.ts). Clamps the value the damage/defense formula
+// READS for each of the 12 stats, never the stored/sealed stat. Special Jonin (80+)
+// = MAX_STAT, so endgame PvP is unchanged.
+const STAT_CAP_ACADEMY = 350;
+const STAT_CAP_GENIN = 700;
+const STAT_CAP_CHUNIN = 1300;
+const STAT_CAP_JONIN = 2100;
+const STAT_CAP_SPECIAL_JONIN = 2500;
+const STAT_CAP_FIELDS = [
+    'strength', 'speed', 'intelligence', 'willpower',
+    'bukijutsuOffense', 'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
+    'genjutsuOffense', 'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense',
+];
+function statCapForLevel(level: number): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    if (lvl >= 80) return STAT_CAP_SPECIAL_JONIN;
+    if (lvl >= 50) return STAT_CAP_JONIN;
+    if (lvl >= 30) return STAT_CAP_CHUNIN;
+    if (lvl >= 15) return STAT_CAP_GENIN;
+    return STAT_CAP_ACADEMY;
+}
+function perRankStatCap(stats: Record<string, number>, level: number): Record<string, number> {
+    const cap = statCapForLevel(level);
+    const out: Record<string, number> = { ...stats };
+    for (const k of STAT_CAP_FIELDS) {
+        if (typeof out[k] === 'number') out[k] = Math.min(out[k], cap);
+    }
+    return out;
+}
 const K_DR = 0.5;                      // DR pool soft cap: effDR = raw / (raw + K_DR)
 // Damage-amplification soft-cap pool. Mirrors K_DR: IDG (attacker), IDT
 // (defender), and Ignition (defender) all feed one pool with diminishing
@@ -764,8 +795,15 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     // stored value is untouched (save-safe); ranking up unlocks the rest.
     const masteryLevel = Math.min(storedMastery, jutsuLevelCapForLevel(Number(self.character.level) || 1));
 
-    // Phase 1 — base damage + defensive DR pool (reads ORIGINAL fighters).
-    const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(self, opponent, jutsu, wMult, biome, round, masteryLevel);
+    // Per-rank STAT cap (anti-twink): clamp the stats the DAMAGE FORMULA reads to each
+    // fighter's rank ceiling — never the stored/sealed stat. Only the offStats/defStats
+    // read (statFactor + the returned offStats that feeds pierce) sees the capped copy;
+    // status mutation + HP application below keep the ORIGINAL fighters.
+    const cappedSelf = { ...self, character: { ...self.character, stats: perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1) } };
+    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, Number(opponent.character.level) || 1) } };
+
+    // Phase 1 — base damage + defensive DR pool (reads the rank-capped fighters).
+    const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(cappedSelf, cappedOpp, jutsu, wMult, biome, round, masteryLevel);
     const healBoost = increaseHealMult(self, round);
 
     // Phase 2 — statuses + instant movement; surfaces healing/shield/pierce.

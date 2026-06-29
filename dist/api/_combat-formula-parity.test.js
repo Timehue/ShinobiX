@@ -184,4 +184,21 @@ const PAIRS = [
             node_assert_1.strict.equal(num(SERVER, cap), num(CLIENT_GAME_CONSTS, cap), `${cap} diverged between server move.ts and client constants/game.ts — PvE and PvP would cap jutsu mastery differently by rank`);
         });
     }
+    // Per-rank STAT caps (anti-twink, progression redesign). The stats the damage
+    // formula reads are clamped to the fighter's rank ceiling; the server (move.ts)
+    // and client (constants/game.ts) statCapForLevel tables must agree or PvE and PvP
+    // would cap stats differently for the same rank.
+    for (const cap of ['STAT_CAP_ACADEMY', 'STAT_CAP_GENIN', 'STAT_CAP_CHUNIN', 'STAT_CAP_JONIN', 'STAT_CAP_SPECIAL_JONIN']) {
+        (0, node_test_1.it)(`${cap} (server) === ${cap} (client constants/game.ts)`, () => {
+            node_assert_1.strict.equal(num(SERVER, cap), num(CLIENT_GAME_CONSTS, cap), `${cap} diverged between server move.ts and client constants/game.ts — PvE and PvP would cap stats differently by rank`);
+        });
+    }
+    // Guard the per-rank stat cap is actually CONSUMED on both sides (not a dead
+    // constant, like the wound-cap regression of 2026-06-05): PvP feeds rank-capped
+    // fighters into resolveBaseDamage; PvE wraps the combat-stat objects in Arena.tsx.
+    (0, node_test_1.it)('per-rank stat cap is consumed on both sides (not dead)', () => {
+        node_assert_1.strict.match(CLIENT_GAME_CONSTS, /export function perRankStatCap/, 'perRankStatCap missing from constants/game.ts');
+        node_assert_1.strict.ok(SERVER.includes('resolveBaseDamage(cappedSelf'), 'move.ts no longer feeds rank-capped fighters into resolveBaseDamage — the PvP stat cap is dead');
+        node_assert_1.strict.ok(CLIENT_APP.includes('perRankStatCap('), 'Arena.tsx no longer calls perRankStatCap — the PvE stat cap is dead');
+    });
 });
