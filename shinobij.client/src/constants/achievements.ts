@@ -125,3 +125,37 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
 export function achievementReward(a: Achievement): { ryo: number; fateShards: number } {
     return a.hidden ? { ryo: 3000, fateShards: 1 } : { ryo: 2000, fateShards: 0 };
 }
+
+// ─── Earned titles ────────────────────────────────────────────────────────
+// The subset of achievements that confer a *wearable* title (the achievement's
+// own name). Earning one adds its name to character.earnedTitles, which the
+// player can then select for free as their displayed title in Profile — turning
+// the achievement list from a thin currency checklist into a real bragging-
+// rights / status chase. Titles are permanent once earned (union-merged, never
+// removed) and, unlike the one-time ryo/shard reward, ARE backfilled for
+// existing players (a title isn't currency, so there's no windfall).
+export const TITLE_ACHIEVEMENT_IDS: ReadonlySet<string> = new Set<string>([
+    "level-100", "pve-2500", "pvp-250", "pvp-1000",
+    "ranked-1800", "ranked-2200", "ranked-season-champ",
+    "mission-1000", "explore-5000", "ryo-5m", "honor-500", "fate-2500",
+    "aura-300", "raid-250", "tournament-3", "tower-25", "pet-100", "clan-founder",
+    "secret-bestiary-200", "secret-elements-3", "secret-weekly-bosses-5", "secret-war-vet-50",
+]);
+
+/** The wearable title an achievement confers, or null if it grants none. */
+export function achievementTitle(a: Achievement): string | null {
+    return TITLE_ACHIEVEMENT_IDS.has(a.id) ? a.name : null;
+}
+
+/** Collect the wearable titles for a set of unlocked achievement ids (deduped). */
+export function titlesForAchievementIds(ids: Iterable<string>): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const id of ids) {
+        if (!TITLE_ACHIEVEMENT_IDS.has(id) || seen.has(id)) continue;
+        seen.add(id);
+        const a = ACHIEVEMENTS.find((x) => x.id === id);
+        if (a) out.push(a.name);
+    }
+    return out;
+}

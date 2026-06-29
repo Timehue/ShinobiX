@@ -195,7 +195,10 @@ async function readGainsWindow(name) {
     try {
         return await _storage_js_1.kv.get(`ratelimit:save:${name}:gains`);
     }
-    catch {
+    catch (e) {
+        // best-effort — but log: a silent read failure resets the anti-farm
+        // window to "fresh", quietly weakening the per-minute gain caps.
+        console.error(`[save gains-window] read failed for ${name}:`, e);
         return null;
     }
 }
@@ -203,8 +206,10 @@ async function writeGainsWindow(name, w) {
     try {
         await _storage_js_1.kv.set(`ratelimit:save:${name}:gains`, w, { ex: Math.ceil(GAIN_WINDOW_MS / 1000) * 2 });
     }
-    catch {
-        // best-effort
+    catch (e) {
+        // best-effort — but log: dropping the window write degrades the anti-farm
+        // limiter invisibly.
+        console.error(`[save gains-window] write failed for ${name}:`, e);
     }
 }
 function freshWindow() {

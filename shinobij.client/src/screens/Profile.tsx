@@ -179,6 +179,14 @@ export function Profile({
         setTitleInput("");
     }
 
+    // Wear an earned title (free) — earned titles come from title-granting
+    // achievements (see TITLE_ACHIEVEMENT_IDS), distinct from the paid free-text
+    // custom title below.
+    function equipTitle(title: string) {
+        updateCharacter({ ...character, customTitle: title });
+        setTitleInput(title);
+    }
+
     function toggleJutsu(id: string) {
         const equipped = character.equippedJutsuIds.includes(id);
         const mastery = getJutsuMastery(character, id);
@@ -390,6 +398,35 @@ export function Profile({
 
             <section className="summary-box profile-title-panel">
                 <div>
+                    {(character.earnedTitles?.length ?? 0) > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                            <p className="act-label">Earned Titles</p>
+                            <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.6rem" }}>
+                                Earned from achievements — tap one to wear it (free).
+                            </p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {character.earnedTitles!.map((t) => {
+                                    const active = character.customTitle === t;
+                                    return (
+                                        <button
+                                            key={t}
+                                            onClick={() => equipTitle(t)}
+                                            title={active ? "Currently worn" : `Wear "${t}"`}
+                                            style={{
+                                                padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+                                                cursor: "pointer", whiteSpace: "nowrap",
+                                                color: active ? "#0b1020" : "#facc15",
+                                                background: active ? "#facc15" : "rgba(250,204,21,.12)",
+                                                border: "1px solid rgba(250,204,21,.45)",
+                                            }}
+                                        >
+                                            {active ? "★ " : ""}{t}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                     <p className="act-label">Custom Title</p>
                     <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
                         {character.customTitle

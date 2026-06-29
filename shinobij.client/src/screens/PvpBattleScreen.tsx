@@ -1690,7 +1690,7 @@ export function PvpBattleScreen({
                         )}
                     </div>
 
-                    <div ref={logRef} className="combat-text-log combat-timeline">
+                    <div ref={logRef} className="combat-text-log combat-timeline" aria-live="polite" aria-label="Battle log">
                         <div className="combat-log-header">
                             <strong>Battle Log</strong>
                             <span>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>

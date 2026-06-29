@@ -9,7 +9,7 @@ import { petFramePace, pickBestPartyOrder, scorePetMatchup, type PetPartyBattleR
 import { runPetDuel, runPetPartyDuel, type DuelResult } from "../lib/pet-duel-sim";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { isPetOnExpedition, petDisplayName, pickArenaTeam } from "../lib/pet";
-import { derivePetRole, ROLE_META, type PetRole } from "../lib/pet-roles";
+import { derivePetRole, ROLE_META, ROLE_BEATS, type PetRole } from "../lib/pet-roles";
 import { ROLE_ICON } from "../lib/role-icons";
 import { ELEMENT_ICON } from "../lib/element-icons";
 import { primePetSfx } from "../lib/pet-sfx";
@@ -105,6 +105,7 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
                             <img src={ROLE_ICON[r]} alt="" aria-hidden="true" />
                             <span className="bp-role-name">{m.label}</span>
                             <span className="bp-role-count">×{counts[r]}</span>
+                            <span className="bp-role-beats" title={`Strong vs ${ROLE_META[ROLE_BEATS[r]].label} (role counter)`} style={{ fontSize: 10, opacity: 0.8, whiteSpace: "nowrap" }}>▲ {ROLE_META[ROLE_BEATS[r]].label}</span>
                         </div>
                     );
                 })}

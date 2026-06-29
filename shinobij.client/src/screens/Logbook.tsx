@@ -198,6 +198,20 @@ export function Logbook({
         setScreen("arena");
     }
 
+    // Academy graduation capstone — one-time, server-authoritative reward for
+    // finishing all of the Academy Training goals. Mirrors claimAcademyTrial in
+    // Missions.tsx: the client posts only the type/id, the server resolves the
+    // sealed reward (XP + ryo + stamina + Fate Shards), enforces the one-time
+    // latch, and returns the amounts we mirror locally.
+    async function claimAcademyReward() {
+        const result = await postClaimMission(character.name, "academy-checklist", "academy-checklist");
+        if (result === null) return alert("Could not reach the server. Try again.");
+        if (!result.applied) return alert(claimReasonMessage(result.reason));
+        updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
+        const shards = result.reward.currency?.fateShards ?? 0;
+        alert(`Academy Training complete! +${result.reward.xpBoosted} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina${shards ? `, +${shards} Fate Shards` : ""}. You're ready for the Genin Exam.`);
+    }
+
     function renderRequirement(requirement: ObjectiveRequirement) {
         const complete = requirement.progress >= requirement.target;
         const progressText = requirement.target === 1
@@ -236,7 +250,7 @@ export function Logbook({
                         <div className="location-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
                         {academyComplete && (
                             <div className="menu">
-                                <button onClick={() => updateCharacter({ ...character, academyChecklistClaimed: true })}>Claim Academy Reward</button>
+                                <button onClick={claimAcademyReward}>Claim Academy Reward</button>
                             </div>
                         )}
                     </section>

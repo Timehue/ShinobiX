@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { Pet } from "../types/pet";
 import {
     derivePetRole, petRoleOf, roleStatMult, ROLE_OF_SUBROLE, ROLE_RANGE,
+    ROLE_BEATS, ROLE_EDGE, roleMultiplier, roleMatchup,
     type PetRole,
 } from "./pet-roles";
 import { rawPetPool } from "../data/pet-pool";
@@ -11,6 +12,34 @@ import { STARTER_PETS } from "../data/starter-pets";
 
 const ROLES: PetRole[] = ["defender", "tracker", "assassin", "sage"];
 const pool = rawPetPool.map(balanceBuiltInPetTemplate);
+
+test("ROLE_BEATS is a strict 4-cycle (no dominant or dead role)", () => {
+    for (const r of ROLES) assert.notEqual(ROLE_BEATS[r], r); // no self-counter
+    // every role is beaten by exactly one other (covers all four, no 2+2 split)
+    assert.equal(new Set(Object.values(ROLE_BEATS)).size, 4);
+    // following the cycle visits all 4 before returning to the start
+    let cur: PetRole = "assassin";
+    const seen = new Set<PetRole>();
+    for (let i = 0; i < 4; i++) { seen.add(cur); cur = ROLE_BEATS[cur]; }
+    assert.equal(seen.size, 4);
+    assert.equal(cur, "assassin");
+});
+
+test("roleMultiplier: advantaged +edge, countered −edge, mirror 1, and symmetric", () => {
+    for (const a of ROLES) {
+        for (const d of ROLES) {
+            const m = roleMultiplier(a, d);
+            if (a === d) assert.equal(m, 1);
+            else if (ROLE_BEATS[a] === d) assert.ok(Math.abs(m - (1 + ROLE_EDGE)) < 1e-9);
+            else if (ROLE_BEATS[d] === a) assert.ok(Math.abs(m - (1 - ROLE_EDGE)) < 1e-9);
+            else assert.equal(m, 1);
+            // matchup sign mirrors the multiplier direction
+            assert.equal(roleMatchup(a, d), m > 1 ? 1 : m < 1 ? -1 : 0);
+        }
+    }
+    // The edge stays UNDER the 15% element edge (element is the primary axis).
+    assert.ok(ROLE_EDGE < 0.15);
+});
 
 function tally(pets: Pick<Pet, "id" | "name" | "element" | "rarity">[]): Record<PetRole, number> {
     const out: Record<PetRole, number> = { defender: 0, tracker: 0, assassin: 0, sage: 0 };

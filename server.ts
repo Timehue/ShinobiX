@@ -20,6 +20,7 @@ import { startSnapshotCron } from './api/cron/_scheduler.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
@@ -107,6 +108,8 @@ import clanTreasuryTransferHandler   from './api/clan/treasury/transfer.js';
 import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.js';
 // Clan — upgrade tree purchase (server-authoritative spend from treasury)
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
+// Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
+import clanMissionClaimHandler       from './api/clan/mission/claim.js';
 // Clan — membership: kick (server-authoritative cross-save removal)
 import clanKickHandler               from './api/clan/kick.js';
 import clanMentorHandler             from './api/clan/mentor.js';
@@ -158,6 +161,8 @@ import adminBattleReceiptsHandler from './api/admin/battle-receipts.js';
 // Admin: asset-registry report + per-domain audit-log reader (diagnostics)
 import adminAssetReportHandler from './api/admin/asset-report.js';
 import adminAuditLogHandler from './api/admin/audit-log.js';
+// Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
+import adminEconomyHandler from './api/admin/economy.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual } from './api/_auth.js';
@@ -212,6 +217,22 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     return jsonDefault(req, res, next);
 });
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+
+// Per-request correlation id — a short, greppable token on every request,
+// echoed in the x-request-id response header (visible in the browser network
+// tab even cross-origin) and included in the 500 error log + body. Lets a
+// player's "it broke" screenshot be matched to the exact server log line — the
+// single biggest observability lift for a one-person ops team. Reuses an
+// inbound id if an upstream proxy already set one.
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const inbound = req.headers['x-request-id'];
+    const id = (typeof inbound === 'string' && inbound.length > 0 && inbound.length <= 64)
+        ? inbound
+        : randomUUID().slice(0, 8);
+    (req as Request & { id?: string }).id = id;
+    res.setHeader('x-request-id', id);
+    next();
+});
 
 // Global CORS — restrict to known origins so a malicious site can't initiate
 // authenticated requests from a visitor's browser. The origin predicate is
@@ -625,6 +646,10 @@ route('/clan/territory/collect-supply', clanCollectSupplyHandler);
 // Locks the clan row, debits treasury ryo + warSupply, increments the building.
 route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 
+// ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
+// GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
+route('/clan/mission/claim', clanMissionClaimHandler);
+
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
@@ -697,6 +722,7 @@ route('/admin/battle-receipts', adminBattleReceiptsHandler);
 // ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────
 route('/admin/asset-report', adminAssetReportHandler);
 route('/admin/audit-log', adminAuditLogHandler);
+route('/admin/economy', adminEconomyHandler);
 
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
@@ -769,8 +795,9 @@ app.get(/(.*)/, (_req, res) => {
 
 // ─── Error handler ────────────────────────────────────────────────────────────
 
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('[server error]', err);
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+    const reqId = (req as Request & { id?: string }).id ?? '-';
+    console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).
@@ -778,7 +805,9 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
         try { Sentry.captureException(err); } catch { /* swallow */ }
     }
     if (!res.headersSent) {
-        res.status(500).json({ error: String(err) });
+        // Echo the correlation id so a player can quote it in a bug report and an
+        // admin can grep the exact server log line.
+        res.status(500).json({ error: String(err), requestId: reqId });
     }
 });
 

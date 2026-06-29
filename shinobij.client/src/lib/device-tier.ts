@@ -19,12 +19,25 @@
 
 let cached: boolean | undefined;
 
+/** True when the OS/browser requests reduced motion (WCAG 2.3.3). Read live
+ *  (not cached) — a user can toggle it mid-session. SSR-safe. */
+export function prefersReducedMotion(): boolean {
+    if (typeof window === "undefined") return false;
+    try {
+        return typeof window.matchMedia === "function"
+            && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch { return false; }
+}
+
 function detect(): boolean {
     try {
         const override = window.localStorage?.getItem("liteFx.v1");
         if (override === "1") return true;
         if (override === "0") return false;
     } catch { /* private mode — fall through to auto-detect */ }
+    // Honour an explicit OS "reduce motion" request — drop decorative motion
+    // regardless of hardware (the manual liteFx override above still wins).
+    if (prefersReducedMotion()) return true;
     try {
         const nav = navigator as Navigator & { deviceMemory?: number };
         const mq = typeof window.matchMedia === "function" ? window.matchMedia("(pointer: coarse)") : null;
@@ -63,6 +76,8 @@ function detectLiteCombat(): boolean {
         if (override === "1") return true;
         if (override === "0") return false;
     } catch { /* private mode — fall through to auto-detect */ }
+    // Honour an explicit OS "reduce motion" request before the hardware probe.
+    if (prefersReducedMotion()) return true;
     // Weak phones: reuse the existing touch-primary + weak-hardware check.
     if (isLowEndMobile()) return true;
     // Weak desktops / laptops: the heavy COMBAT layer (a rAF <canvas> particle

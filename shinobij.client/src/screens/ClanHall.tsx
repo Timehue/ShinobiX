@@ -14,7 +14,7 @@ import { CLAN_DOCTRINES, doctrineName, doctrineIcon, type ClanDoctrine } from ".
 import { fetchMentorView, assignStudent, claimMentor, releaseStudent, MENTOR_MILESTONE_LABEL, type MentorView } from "../lib/clan-mentor";
 import { addClanXp, canManageClan, clanBoostTiers, clanContribTotal, clanHallTier, clanMemberBoostPercent, clanRankOf, clanRoleOf, clanUpgradeBonus, clanXpNeeded, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
-import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick } from "../lib/player-api";
+import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, fetchClaimedClanMissions, postClanMissionClaim } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
@@ -40,6 +40,11 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
     const [view, setView] = useState<"roster" | "guard" | "treasury" | "boosts" | "upgrades" | "missions" | "wars" | "territory" | "notices" | "hall" | "mentor">("roster");
     const [loading, setLoading] = useState(false);
     const [clanData, setClanData] = useState<EnhancedClanData | null>(null);
+    // Server-tracked set of clan missions whose one-time reward is already
+    // claimed (api/clan/mission/claim). `territory` is display-only (no concrete
+    // reward), so it's never claimable.
+    const [claimedClanMissions, setClaimedClanMissions] = useState<string[]>([]);
+    const [clanMissionClaimBusy, setClanMissionClaimBusy] = useState<string | null>(null);
     // "ok" while data loaded fine, "notFound" when the server has no record
     // for this clan (e.g. it was wiped by a reset), "error" for transient
     // failures (network down, 5xx). Used to pick a clearer error UI.
@@ -78,6 +83,38 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         try { await writeClanData(enhanced); }
         catch (e) { alert(e instanceof Error ? e.message : "Clan changes couldn't be saved. Please retry."); }
     }
+
+    // Claim a completed clan mission. The server recomputes progress + credits
+    // the shared treasury / clan XP authoritatively; we mirror the returned
+    // treasury + xp/level onto local display state (no writeClanData round-trip —
+    // the server already persisted, so it would only be a zero-delta write).
+    async function claimClanMission(missionKey: string) {
+        if (!clanData) return;
+        setClanMissionClaimBusy(missionKey);
+        try {
+            const result = await postClanMissionClaim(character.name, clanData.name, missionKey);
+            if (!result) return;
+            setClaimedClanMissions(result.claimed);
+            setClanData((prev) => prev ? enhanceClanData({
+                ...prev,
+                xp: result.xp,
+                level: result.level,
+                treasury: { ...prev.treasury, ...(result.treasury as Partial<ClanTreasury>) },
+            }) : prev);
+            const def = clanMissionDefinitions.find((m) => m.key === missionKey);
+            alert(`Clan mission reward claimed!${def ? ` ${def.reward}` : ""}`);
+        } finally {
+            setClanMissionClaimBusy(null);
+        }
+    }
+
+    // Pull the clan's already-claimed missions whenever the loaded clan changes,
+    // so the Missions tab knows which rewards are spent.
+    useEffect(() => {
+        const name = clanData?.name;
+        if (!name) { setClaimedClanMissions([]); return; }
+        fetchClaimedClanMissions(name).then(setClaimedClanMissions);
+    }, [clanData?.name]);
 
     async function loadAvailableClans() {
         setClanListLoading(true);
@@ -676,7 +713,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
                 </div>;
             })}
         </div>}
-        {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
+        {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); const complete = progress >= mission.target; const claimable = mission.key !== "territory"; const claimed = claimedClanMissions.includes(mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p>{claimable && (claimed ? <p className="hint" style={{ color: "#4ade80", fontWeight: 600 }}>✓ Reward claimed</p> : complete && canManageClan(myRole) ? <div className="menu"><button onClick={() => void claimClanMission(mission.key)} disabled={clanMissionClaimBusy === mission.key}>{clanMissionClaimBusy === mission.key ? "Claiming…" : "Claim Reward"}</button></div> : complete ? <p className="hint">Complete — clan leadership can claim.</p> : null)}</div>; })}</div>}
         {view === "wars" && <ClanWarsPanel character={character} clanName={clanData.name} setScreen={setScreen} />}
         {view === "mentor" && <div className="summary-box"><h3>🥋 Mentorship</h3><p className="hint">Take a new clan member (level 15 or below, recently joined) under your wing. You earn Honor Seals + clan contribution as they hit milestones — Academy graduation, level 20/40, first ranked win — and they get a ryo boost. (Rewards void if you share a connection.)</p>{mentorView?.asStudent.sensei && <p>Your sensei: <strong>{mentorView.asStudent.sensei}</strong></p>}<h4>Your Students</h4>{(!mentorView || mentorView.asSensei.students.length === 0) ? <p className="hint">You're not mentoring anyone yet.</p> : <div className="clan-request-list">{mentorView.asSensei.students.map(s => <div className="clan-request-card" key={s.student}><div><strong>{s.student}</strong><small>Claimed: {s.claimed.length === 0 ? "none" : s.claimed.map(m => MENTOR_MILESTONE_LABEL[m] ?? m).join(", ")}</small>{s.claimable.length > 0 && <small style={{ color: "#fde047" }}>Ready to claim: {s.claimable.map(m => MENTOR_MILESTONE_LABEL[m] ?? m).join(", ")}</small>}</div><div className="menu"><button disabled={s.claimable.length === 0} onClick={() => void doClaimMentor(s.student)}>{s.claimable.length > 0 ? "Claim" : "No rewards"}</button><button className="danger-button" onClick={() => void doReleaseStudent(s.student)}>Release</button></div></div>)}</div>}<label>Take on a Student</label><input list="mentor-student-options" value={mentorStudentInput} onChange={e => setMentorStudentInput(e.target.value)} placeholder="New clan member name" /><datalist id="mentor-student-options">{sortedMembers.filter(m => m.name !== character.name && m.level <= 15).map(m => <option key={m.name} value={m.name} />)}</datalist><div className="menu"><button onClick={() => void doAssignStudent()}>Take on Student</button></div></div>}
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1 || donateBusy} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
