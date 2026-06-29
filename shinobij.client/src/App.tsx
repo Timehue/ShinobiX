@@ -47,6 +47,7 @@ import type {
 import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
+import { useJutsuTrainingQueueRunner } from "./lib/jutsu-training-queue";
 import {
     jutsuEffectInfo,
     jutsuDisplayAtLevel,
@@ -4675,6 +4676,9 @@ export default function App() {
         setActiveJutsuTraining(t);
         flushSaveRef.current = true;
     }, []);
+    // Global wiring: auto-promote a queued 2nd jutsu training (activeJutsuTraining.next)
+    // the instant the active one finishes — works on any screen. Logic in lib/jutsu-training-queue.
+    useJutsuTrainingQueueRunner(activeJutsuTraining, setActiveJutsuTrainingNow, setCharacter);
 
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
@@ -8742,7 +8746,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} onBack={() => setScreen("village")} />}
-                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
@@ -8783,7 +8787,7 @@ export default function App() {
                         allServerPlayers={allServerPlayers}
                         playerRoster={playerRoster}
                         sharedImages={sharedImages}
-                        onSelect={(name) => { setViewingUserName(name); setScreen("userView"); }}
+                        onSelect={(name) => { setViewingUserName(name); navigate("userView"); }}
                         onBack={goBack}
                     />
                 )}
@@ -8797,7 +8801,7 @@ export default function App() {
                         creatorJutsus={creatorJutsus}
                         sharedImages={sharedImages}
                         onMessage={() => setScreen("messages")}
-                        onBack={() => setScreen("userHub")}
+                        onBack={goBack}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "profile" && character && (

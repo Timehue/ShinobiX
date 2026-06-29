@@ -23,6 +23,7 @@ import {
     toClashCards,
     indexClashCards,
     validateDeck,
+    buildPlayableDeck,
     createCardClashMatch,
     playCard,
     endTurn,
@@ -95,17 +96,31 @@ export function CardHall({
         if (!character.cardClashTutorialSeen) updateCharacter({ ...character, cardClashTutorialSeen: true });
     }
 
-    function startMatch() {
-        if (!savedDeckValid) { setTab("deck"); return; }
+    // A short-lived nudge shown when we deal a player in on a starter deck.
+    const [starterToast, setStarterToast] = useState(false);
+
+    function beginMatch(deck: string[]) {
         setReward(null);
-        setMatch(createCardClashMatch(savedDeck, allCards, character.level));
+        setMatch(createCardClashMatch(deck, allCards, character.level));
+    }
+    function startMatch() {
+        // Manual "Play" button: bounce to the deck builder if there's no valid deck.
+        if (!savedDeckValid) { setTab("deck"); return; }
+        beginMatch(savedDeck);
     }
 
-    // Wanderer "deal me in" → jump straight into a match (or the deck tab if the
-    // player has no valid deck yet). Consumed once so it doesn't re-fire.
+    // Wanderer "deal me in" → drop straight into a match. If the player has no valid
+    // deck yet, deal them in on a legal STARTER deck (built from their cards, padded
+    // from the catalog) and toast them to build their own — never bounce to a menu.
     function autoStartMatch() {
         setTab("play");
-        startMatch();
+        if (savedDeckValid) {
+            beginMatch(savedDeck);
+        } else {
+            beginMatch(buildPlayableDeck(character.tileCards ?? [], clashById, clashCards));
+            setStarterToast(true);
+            window.setTimeout(() => setStarterToast(false), 7000);
+        }
         onAutoStartConsumed?.();
     }
     // Intentional one-shot: when the gambler wanderer deals the player in, start a
@@ -159,6 +174,16 @@ export function CardHall({
     return (
         <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}>
             <SceneAmbience className="amb-under" biome="shadow" />
+
+            {starterToast && (
+                <div
+                    role="status"
+                    onClick={() => setStarterToast(false)}
+                    style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 9999, maxWidth: 460, padding: "10px 16px", borderRadius: 10, background: "linear-gradient(#1e293b,#0f172a)", border: "1px solid #a78bfa", color: "#e2e8f0", boxShadow: "0 6px 24px rgba(0,0,0,0.45)", fontSize: ".85rem", lineHeight: 1.35, cursor: "pointer", textAlign: "center" }}
+                >
+                    🃏 You're playing a <strong>starter deck</strong>. Build your own in the <strong>Deck Builder</strong> for a real edge. <span style={{ opacity: 0.7 }}>(tap to dismiss)</span>
+                </div>
+            )}
 
             <div className="cc-header">
                 <button className="cc-btn ghost" onClick={onBack}>← Village</button>

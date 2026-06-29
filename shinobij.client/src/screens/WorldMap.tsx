@@ -14,7 +14,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
@@ -34,7 +34,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { SECTOR_DEPTH_THEMES } from "../data/sector-depth-manifest";
 import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
-import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter } from "../lib/pet-balance";
+import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter, scaleWandererPetOpponent } from "../lib/pet-balance";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
@@ -513,9 +513,10 @@ export function WorldMap({
         [selectedSector, character.wandererCooldowns],
     );
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
-    // reward update in the same handler without clobbering it).
-    function coolWanderer(id: string) {
-        updateCharacter(prev => prev ? ({ ...prev, wandererCooldowns: withWandererCooldown(prev.wandererCooldowns, id, Date.now()) }) : prev);
+    // reward update in the same handler without clobbering it). `ms` defaults to the
+    // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
+    function coolWanderer(id: string, ms?: number) {
+        updateCharacter(prev => prev ? ({ ...prev, wandererCooldowns: withWandererCooldown(prev.wandererCooldowns, id, Date.now(), ms) }) : prev);
     }
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
     // All wanderer combat scales to the PLAYER's level (never impossible). Fending
@@ -685,6 +686,16 @@ export function WorldMap({
         // + Fight/Flee for bandits; greetings + actions for the rest).
         setWandererDialog({ w, standingLine: react?.line });
     }
+    // Closing the dialog. Fleeing/declining a BANDIT (you took no reward) puts it on
+    // a short cooldown so it backs off instead of re-confronting you every time you
+    // step back into the sector. Non-bandit dialogs (gift/quest/pet/card) just close
+    // — they cool only when you actually take their interaction. Already-resolved
+    // (`msg`) dialogs just close; the cooldown was set when the action ran.
+    function dismissWandererDialog() {
+        const d = wandererDialog;
+        if (d && !d.msg && d.w.verb === "attack") coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
+        setWandererDialog(null);
+    }
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
         try {
@@ -715,11 +726,14 @@ export function WorldMap({
         }
     }
     function startWandererPetDuel(w: Wanderer) {
-        // A wild beast brings a tuned arena pet (matched to its tier). Reuses the
-        // existing Pet Coliseum entry + its server-safe casual reward path — no new
-        // endpoint, no balance tuning.
-        const tmpl = w.level < 20 ? genericPetArenaOpponents[0]
-            : w.level < 45 ? genericPetArenaOpponents[1]
+        // The beast fields a pet SCALED to the player's CHARACTER level so the duel is
+        // a real fight, not a pushover. Reuses the Pet Coliseum entry + its server-safe
+        // casual reward path — no new endpoint.
+        const targetLevel = Math.max(1, Math.min(100, character.level));
+        // Pick the template tier by character level (not the wanderer's), then scale it
+        // to match — so a strong player faces the apex template, not a sparrow.
+        const tmpl = targetLevel < 20 ? genericPetArenaOpponents[0]
+            : targetLevel < 45 ? genericPetArenaOpponents[1]
             : genericPetArenaOpponents[2];
         // Deterministic seed from the wanderer + the player's tile (no impure
         // Date.now() in the component) — fine for a casual duel.
@@ -728,7 +742,7 @@ export function WorldMap({
         coolWanderer(w.id); // beast duelled — gone for a few hours
         setPendingPetBattleOpponent({
             owner: w.name,
-            pet: { ...tmpl.pet, jutsus: tmpl.pet.jutsus.map((j) => ({ ...j })) },
+            pet: scaleWandererPetOpponent(tmpl.pet, targetLevel),
             battleSeed: seed,
             returnScreen: "worldMap",
         });
@@ -1858,7 +1872,7 @@ export function WorldMap({
                             {wandererDialog && createPortal(
                                 <div
                                     style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}
-                                    onClick={() => setWandererDialog(null)}
+                                    onClick={dismissWandererDialog}
                                 >
                                     <div className="card" style={{ maxWidth: 360, width: "88%", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                                         <img
@@ -1873,13 +1887,13 @@ export function WorldMap({
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
                                             wandererDialog.peace ? (
                                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                                    <button onClick={() => setWandererDialog(null)}>Pass in peace</button>
+                                                    <button onClick={dismissWandererDialog}>Pass in peace</button>
                                                     <button onClick={() => startWandererAttack(wandererDialog.w, false)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Fight anyway</button>
                                                 </div>
                                             ) : (
                                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                     <button onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
-                                                    <button onClick={() => setWandererDialog(null)}>Flee</button>
+                                                    <button onClick={dismissWandererDialog}>Flee</button>
                                                 </div>
                                             )
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
