@@ -177,4 +177,9 @@ export type ActiveJutsuTraining = {
     // Optional queued 2nd training; auto-promotes to active on completion.
     // See lib/jutsu-training-queue.ts (global runner) + screens/Training.tsx (UI).
     next?: QueuedJutsuTraining | null;
+    // Set when this training was auto-promoted from a queued `.next`. Tells the
+    // global runner to also auto-GRANT this training the instant its (back-dated)
+    // timer is up — so a player who queued two trainings collects both levels on
+    // their next login with zero clicks, instead of logging in just to claim.
+    autoClaim?: boolean;
 };
