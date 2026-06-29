@@ -2327,6 +2327,16 @@ button {
     object-fit: cover;
 }
 
+/* Speaker spotlight: the non-speaking portrait dims back so the current speaker
+   stands out. Applied only by TriggeredVisualNovel (vn-speaking / vn-dimmed). */
+.vn-character {
+    transition: opacity 0.25s ease, filter 0.25s ease;
+}
+.vn-character.vn-dimmed {
+    opacity: 0.5;
+    filter: saturate(0.6) brightness(0.82);
+}
+
 .mentor-character {
     left: 8%;
     bottom: 150px;

@@ -29,11 +29,22 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const page = pages[Math.min(pageIndex, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
     const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The scene begins.";
-    const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
+    // Typed-dialogue storage: prefer a structured `lines[lineIndex]` when the page
+    // has them; otherwise parse the legacy "Speaker: text" string. Existing VNs
+    // carry no `lines`, so this resolves identically for them.
+    const typedLine = page.lines?.[lineIndex];
+    const { speaker, text: spoken } = typedLine ?? splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
     const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
     const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
     const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
     const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
+    // Speaker spotlight: dim whichever portrait isn't currently speaking. Match
+    // the line's speaker to the resolved left/right name (case-insensitive); a
+    // narrator line matches neither and dims no one — so it never mis-highlights.
+    const speakerKey = speaker.trim().toLowerCase();
+    const speakingSide = speakerKey && speakerKey === rightName.trim().toLowerCase() ? "right"
+        : speakerKey && speakerKey === leftName.trim().toLowerCase() ? "left"
+        : null;
     const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const leftImage = savedRightWasPlayer
@@ -133,7 +144,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                     <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
                     {!hideLeft && (
-                        <div className="vn-character mentor-character">
+                        <div className={"vn-character mentor-character" + (speakingSide === "left" ? " vn-speaking" : speakingSide === "right" ? " vn-dimmed" : "")}>
                             {leftImage
                                 ? <img src={leftImage} alt={leftName} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                 : null}
@@ -141,7 +152,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         </div>
                     )}
                     {!hideRight && (
-                        <div className="vn-character hero-character">
+                        <div className={"vn-character hero-character" + (speakingSide === "right" ? " vn-speaking" : speakingSide === "left" ? " vn-dimmed" : "")}>
                             {rightImage
                                 ? <img src={rightImage} alt={rightName} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                 : null}
