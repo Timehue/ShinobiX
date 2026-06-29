@@ -8,6 +8,7 @@ import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
+import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
 import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile } from "./lib/presence-store";
@@ -5298,6 +5299,13 @@ export default function App() {
         if (!character) return;
         // Restore in-progress run, or start a new one at wave 1.
         const existing = character.endlessTowerRun;
+        // Fresh-run entry fee (first Endless run each day is free; resuming is free).
+        let base = character;
+        if (!existing || existing.wave <= 0) {
+            const paid = payEndlessEntry(character);
+            if (!paid) return alert(`Entry costs ${endlessEntryCost(character).toLocaleString()} ryo — your first Endless run each day is free. Not enough ryo.`);
+            base = paid;
+        }
         const wave = existing && existing.wave > 0 ? existing.wave : 1;
         const run: EndlessTowerRun = existing ?? {
             wave: 1,
@@ -5305,7 +5313,7 @@ export default function App() {
             bankedXp: 0,
             startedAt: Date.now(),
         };
-        setCharacter({ ...character, endlessTowerRun: run });
+        setCharacter({ ...base, endlessTowerRun: run });
         setEndlessBattleActive(true);
         setEndlessBattleWave(wave);
         setPendingAiProfileId(pickRandomEndlessAi(wave));
@@ -8756,7 +8764,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={() => setScreen("centralHub")} />
+                    <BattleTowers character={character} updateCharacter={setCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={() => setScreen("centralHub")} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WeeklyBossArena
