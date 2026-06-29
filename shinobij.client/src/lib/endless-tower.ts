@@ -5,8 +5,10 @@
  *   • endlessWaveReward           — ryo/xp banked per wave
  *   • endlessTowerMilestoneReward — currency drops on every 5th-kill milestone
  *
- * Pure numeric functions, no dependencies. Extracted from App.tsx (Region A).
+ * Pure numeric functions (plus applyTowerCashOut, type-only Character dep + an
+ * injected gainXp). Extracted from App.tsx (Region A).
  */
+import type { Character, EndlessTowerRun } from "../types/character";
 
 // Endless Tower scaling — wave 1 is baseline; each wave adds a small multiplier,
 // with milestone jumps every 5 and 10 waves.
@@ -28,6 +30,61 @@ export function endlessWaveReward(wave: number, playerLevel: number): { ryo: num
         ryo: Math.floor(baseRyo * factor * milestoneBonus),
         xp: Math.floor(baseXp * factor * milestoneBonus),
         isMilestone,
+    };
+}
+
+// ── Daily character-XP soft-cap (progression redesign Phase 2) ──────────────
+// The tower is the one UNCAPPED, compounding character-XP faucet, so a grinder
+// could blow past the ~90-day level curve. We keep the tower a great ryo/material
+// farm but bound its CHARACTER-XP contribution per day: full rate up to a soft cap
+// (~half a daily-active player's modeled income D(L)=120·L+900), then sharply
+// diminished beyond it. Ryo/material drops are NOT capped. The `dailyTowerXp`
+// counter (raw, pre-decay) resets daily like the other daily counters. These are
+// STARTING values — tune from playtests.
+export const TOWER_XP_DAILY_SOFTCAP_BASE = 450;
+export const TOWER_XP_DAILY_SOFTCAP_PER_LEVEL = 60; // 60·L + 450 ≈ 0.5 × D(L)
+export const TOWER_XP_OVERCAP_FACTOR = 0.2; // XP beyond the soft cap is worth 20%
+
+export function towerDailyXpSoftCap(level: number): number {
+    const lvl = Math.max(1, Math.floor(level || 1));
+    return TOWER_XP_DAILY_SOFTCAP_BASE + lvl * TOWER_XP_DAILY_SOFTCAP_PER_LEVEL;
+}
+
+// Given a run's banked (raw) tower XP, how much already earned from the tower
+// today, and the player's level, return the XP to actually credit (full under the
+// soft cap, decayed above it). `rawEarned` is what to add to the daily counter
+// (always the raw banked amount, so the cap tracks gross earning).
+export function creditTowerXpWithSoftCap(banked: number, earnedToday: number, level: number): { credited: number; rawEarned: number } {
+    const raw = Math.max(0, Math.floor(banked));
+    const cap = towerDailyXpSoftCap(level);
+    const room = Math.max(0, cap - Math.max(0, Math.floor(earnedToday)));
+    const under = Math.min(raw, room);
+    const over = raw - under;
+    return { credited: under + Math.floor(over * TOWER_XP_OVERCAP_FACTOR), rawEarned: raw };
+}
+
+// Cash out a finished tower run onto the character. Credits banked XP through the
+// injected `gainXp` (so it levels up + reconciles the stat budget + respects the
+// exam gate — a raw xp+= would be clamped away by the new, smaller xpNeeded curve)
+// after the daily soft cap, banks the ryo uncapped, advances the daily tower-XP
+// counter, and clears the run. `gainXp` is injected to keep this module free of an
+// App import cycle.
+export function applyTowerCashOut(
+    character: Character,
+    run: EndlessTowerRun,
+    todayKey: string,
+    gainXp: (c: Character, amount: number) => Character,
+): Character {
+    const towerXpToday = character.lastDailyReset === todayKey ? (character.dailyTowerXp ?? 0) : 0;
+    const { credited } = creditTowerXpWithSoftCap(run.bankedXp, towerXpToday, character.level ?? 1);
+    const leveled = gainXp(character, credited);
+    return {
+        ...leveled,
+        ryo: (leveled.ryo ?? 0) + run.bankedRyo,
+        dailyTowerXp: towerXpToday + Math.max(0, Math.floor(run.bankedXp)),
+        lastDailyReset: todayKey,
+        endlessTowerBestWave: Math.max(leveled.endlessTowerBestWave ?? 0, run.wave),
+        endlessTowerRun: null,
     };
 }
 
