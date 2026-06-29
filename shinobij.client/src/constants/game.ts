@@ -62,6 +62,41 @@ export function jutsuLevelCapForLevel(level: number): number {
     return JUTSU_LEVEL_CAP_ACADEMY;
 }
 
+// Per-rank STAT cap (anti-twink) — the stat analogue of jutsuLevelCapForLevel above.
+// Clamps the value the combat damage/defense formula READS for each of the 12 stats
+// to the fighter's rank ceiling — NEVER the stored stat (save-safe), exactly like the
+// jutsu cap. Applies to players AND AI, so a level-L AI mirrors a maxed-stat player of
+// that rank. Only bites Academy/Genin/Chunin/Jonin; Special Jonin (80+) gets the global
+// max (no endgame change). Mirrored in api/pvp/move.ts, pinned by
+// api/_combat-formula-parity.test.ts. Bands match rankFromLevel (80/50/30/15).
+export const STAT_CAP_ACADEMY = 350;
+export const STAT_CAP_GENIN = 700;
+export const STAT_CAP_CHUNIN = 1300;
+export const STAT_CAP_JONIN = 2100;
+export const STAT_CAP_SPECIAL_JONIN = 2500; // = MAX_STAT (endgame uncapped)
+export const STAT_CAP_FIELDS = [
+    "strength", "speed", "intelligence", "willpower",
+    "bukijutsuOffense", "bukijutsuDefense", "taijutsuOffense", "taijutsuDefense",
+    "genjutsuOffense", "genjutsuDefense", "ninjutsuOffense", "ninjutsuDefense",
+] as const;
+export function statCapForLevel(level: number): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    if (lvl >= 80) return STAT_CAP_SPECIAL_JONIN;
+    if (lvl >= 50) return STAT_CAP_JONIN;
+    if (lvl >= 30) return STAT_CAP_CHUNIN;
+    if (lvl >= 15) return STAT_CAP_GENIN;
+    return STAT_CAP_ACADEMY;
+}
+// Returns a NEW object — never mutates the stored save / combat-stats object.
+export function perRankStatCap<T extends Record<string, number>>(stats: T, level: number): T {
+    const cap = statCapForLevel(level);
+    const out = { ...stats } as Record<string, number>;
+    for (const k of STAT_CAP_FIELDS) {
+        if (typeof out[k] === "number") out[k] = Math.min(out[k], cap);
+    }
+    return out as T;
+}
+
 // ── Storage keys for localStorage ────────────────────────────────────────
 export const STORAGE = "ninjav-admin-build-v1";
 export const PLAYER_ACCOUNTS_STORAGE = "ninjav-player-accounts-v1";

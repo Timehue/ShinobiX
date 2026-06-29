@@ -4,6 +4,7 @@ import {
     xpNeeded, statBudgetAtLevel, statPointBudgetForProgress,
     reconcileCharacterStatBudget, allocatedStatPoints, normalizeStats, baseStats, STAT_KEYS,
 } from './stats';
+import { statCapForLevel, perRankStatCap } from '../constants/game';
 import type { Character } from '../types/character';
 
 // Progression redesign guardrails (Phase 0). These pin the *design intent* of the
@@ -93,6 +94,30 @@ describe('migration safety — reconcile keeps levels + spent stats, never goes 
         const after = reconcileCharacterStatBudget(structuredClone(before));
         assert.equal(after.unspentStats, 0);
         assert.equal(allocatedStatPoints(normalizeStats(after.stats)), 5000); // spent stats untouched
+    });
+});
+
+describe('per-rank stat cap (anti-twink) — clamps the value combat reads, save-safe', () => {
+    const all = (v: number) => Object.fromEntries(STAT_KEYS.map((k) => [k, v])) as Record<string, number>;
+    it('statCapForLevel bands match rankFromLevel (350/700/1300/2100/2500)', () => {
+        for (const [lvl, cap] of [[1, 350], [14, 350], [15, 700], [29, 700], [30, 1300], [49, 1300], [50, 2100], [79, 2100], [80, 2500], [100, 2500]] as const) {
+            assert.equal(statCapForLevel(lvl), cap, `L${lvl}`);
+        }
+    });
+    it('clamps every stat to the rank ceiling, returns a NEW object, never mutates the input', () => {
+        const maxed = all(2500);
+        const capped = perRankStatCap(maxed, 10); // Academy
+        for (const k of STAT_KEYS) assert.equal(capped[k], 350, `${k} clamped to Academy`);
+        assert.notEqual(capped, maxed);   // new object
+        assert.equal(maxed.strength, 2500); // original untouched (save-safe)
+    });
+    it('is a no-op at Special Jonin (80+) — endgame uncapped', () => {
+        const capped = perRankStatCap(all(2500), 90);
+        for (const k of STAT_KEYS) assert.equal(capped[k], 2500, `${k} unchanged at endgame`);
+    });
+    it('leaves stats already under the cap alone', () => {
+        const capped = perRankStatCap(all(100), 1); // Academy cap 350
+        for (const k of STAT_KEYS) assert.equal(capped[k], 100);
     });
 });
 

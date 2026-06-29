@@ -15,8 +15,11 @@ function makeActor(id, side, pos, over = {}) {
         ...over,
     };
 }
-const STRONG = { specialty: 'Taijutsu', stats: { taijutsuOffense: 2500, taijutsuDefense: 2500 } };
-const WEAK = { specialty: 'Taijutsu', stats: { taijutsuOffense: 200, taijutsuDefense: 200 } };
+// level: 100 so the per-rank stat cap (move.ts perRankStatCap, Special Jonin = 2500)
+// is a no-op for these fixtures — these engine tests exercise win/loss + scaling with
+// an intended raw stat gap, not the anti-twink clamp (which is unit-tested separately).
+const STRONG = { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 2500, taijutsuDefense: 2500 } };
+const WEAK = { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 200, taijutsuDefense: 200 } };
 function makeFloor(objective, over = {}) {
     return {
         id: 1, name: 'Test', biome: 'forest', objective, roundBudget: 8,

@@ -7,7 +7,7 @@ import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } 
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
 import type { Pet } from "../types/pet";
-import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel } from "../constants/game";
+import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
@@ -240,7 +240,7 @@ export function Arena({
     const equippedShieldBonus = getEquippedItemBonus(character, allItems, "shield");
     const equippedReflectPercent = getEquippedItemBonus(character, allItems, "reflectPercent");
     const playerItemMult = 1 + equippedDamagePercent / 100;
-    const characterCombatStats: Stats = {
+    const characterCombatStats: Stats = perRankStatCap({
         strength: character.stats.strength + getEquippedItemBonus(character, allItems, "strength"),
         speed: character.stats.speed + getEquippedItemBonus(character, allItems, "speed"),
         intelligence: character.stats.intelligence + getEquippedItemBonus(character, allItems, "intelligence"),
@@ -253,7 +253,7 @@ export function Arena({
         genjutsuDefense: character.stats.genjutsuDefense + getEquippedItemBonus(character, allItems, "genjutsuDefense"),
         ninjutsuOffense: character.stats.ninjutsuOffense + getEquippedItemBonus(character, allItems, "ninjutsuOffense"),
         ninjutsuDefense: character.stats.ninjutsuDefense + getEquippedItemBonus(character, allItems, "ninjutsuDefense"),
-    };
+    }, character.level);
     // Build the action-bar list in equippedJutsuIds (loadout) order so the slot
     // arrangement players set in the Profile loadout carries into battle.
     const equippedJutsus = character.equippedJutsuIds
@@ -515,10 +515,10 @@ export function Arena({
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
     const pveDifficultyStatFactor = isStandardPve ? pveDifficultyStatMultiplier(opponentLevel) : 1;
-    const enemyCombatStats = scaleStatsForPveDifficulty(
+    const enemyCombatStats = perRankStatCap(scaleStatsForPveDifficulty(
         opponentCharacter?.stats ?? pendingAiProfile?.stats ?? aiStatsForLevel(opponentLevel),
         pveDifficultyStatFactor,
-    );
+    ), opponentLevel);
     // PvE AI mastery is tied to the enemy's level (was hard-coded to max=50 for
     // every foe, so a level-8 D-rank cast its jutsu with endgame EP + tag%).
     // Real PvP (opponentCharacter) is unaffected — it never routes through these
