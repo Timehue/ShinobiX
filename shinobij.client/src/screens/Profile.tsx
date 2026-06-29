@@ -8,6 +8,7 @@ import { ChangePasswordCard } from "../components/ChangePasswordCard";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
+import { ProgressionPanel } from "../components/ProgressionPanel";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { capStat, xpNeeded } from "../lib/stats";
@@ -415,6 +416,7 @@ export function Profile({
 
             {/* ── Stats tab ────────────────────────────── */}
             <div className={mobileTab !== 'stats' ? 'profile-tab-hidden' : ''}>
+            <ProgressionPanel character={character} />
             <section className="profile-build-panel">
                 <div className="stat-header">
                     <h2>User Stats</h2>

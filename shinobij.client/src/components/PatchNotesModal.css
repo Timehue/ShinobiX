@@ -1,0 +1,42 @@
+/* PatchNotesModal — content styling inside the canonical <Modal> body. */
+
+.patch-notes { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.patch-notes-date {
+    margin: 0;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--slate-500);
+}
+
+.patch-notes-intro {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: #cbd5e1;
+    line-height: var(--lh-base);
+}
+
+.patch-notes-section {
+    border-left: 2px solid rgba(250, 204, 21, .4);
+    padding-left: var(--sp-3);
+}
+.patch-notes-section h4 {
+    margin: 0 0 4px;
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: var(--fw-bold);
+    color: var(--gold);
+}
+.patch-notes-section p {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--slate-300);
+    line-height: var(--lh-base);
+}
+
+.patch-notes-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--sp-2);
+}
