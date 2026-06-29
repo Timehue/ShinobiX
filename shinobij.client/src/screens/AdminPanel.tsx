@@ -225,6 +225,12 @@ export function AdminPanel({
     const [tag4Percent, setTag4Percent] = useState(30);
     const [jutsuDescription, setJutsuDescription] = useState("");
     const [jutsuImage, setJutsuImage] = useState("");
+    // Holds the in-flight jutsu-image compression promise (resolves to the
+    // finished image). Create/Save await this so a click made BEFORE the upload
+    // finishes still saves the picture instead of publishing an empty string.
+    // Cleared the moment the upload settles, so a deliberate (already-previewed)
+    // save stays fully synchronous.
+    const jutsuImagePendingRef = useRef<Promise<string> | null>(null);
     const [itemName, setItemName] = useState("Iron Katana");
     const [itemSlot, setItemSlot] = useState<EquipmentSlot>("hand");
     const [itemRarity, setItemRarity] = useState<GameItem["rarity"]>("common");
@@ -1395,17 +1401,24 @@ export function AdminPanel({
     }
 
     function applyJutsuImage(rawImage: string) {
-        void compressDataUrl(rawImage, 512, 0.82).then((image) => {
+        const pending = compressDataUrl(rawImage, 512, 0.82).then((image) => {
             setJutsuImage(image);
-            if (!editingJutsuId) return;
-            void publishSharedImage('jutsu:' + editingJutsuId, image);
+            // Upload settled — drop the pending marker so a later save doesn't await it.
+            if (jutsuImagePendingRef.current === pending) jutsuImagePendingRef.current = null;
+            if (!editingJutsuId) return image;
+            // Never publish an empty string — the server rejects it (400), and it
+            // would otherwise wipe a stored image.
+            if (image) void publishSharedImage('jutsu:' + editingJutsuId, image);
             const stamp = Date.now();
             setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image, updatedAt: stamp } : j));
             setSavedBloodlines(savedBloodlines.map((bl) => ({
                 ...bl,
                 jutsus: bl.jutsus.map((j) => j.id === editingJutsuId ? { ...j, image, updatedAt: stamp } : j),
             })));
+            return image;
         });
+        jutsuImagePendingRef.current = pending;
+        void pending;
     }
 
     function applyBloodlineImage(rawImage: string) {
@@ -1537,9 +1550,16 @@ export function AdminPanel({
         setTag4Percent(normalized.tags[3]?.percent ?? 30);
     }
 
-    function createAdminJutsu() {
+    async function createAdminJutsu() {
+        // If an image upload is still compressing, wait for it so we don't create
+        // + publish with a half-ready (empty) image. No-op (stays synchronous) once
+        // the preview has appeared, since the upload clears the pending marker.
+        const readyImage = jutsuImagePendingRef.current ? await jutsuImagePendingRef.current.catch(() => "") : null;
         const newJutsu = rebalanceNonBloodlineJutsu(jutsuFromForm());
-        void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image ?? "");
+        // jutsuFromForm read the form state (stale across the await); prefer the
+        // freshly-finished upload when one was in flight.
+        if (readyImage) newJutsu.image = readyImage;
+        if (newJutsu.image) void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image);
 
         setCreatorJutsus([...creatorJutsus, newJutsu]);
 
@@ -1547,10 +1567,15 @@ export function AdminPanel({
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
-    function saveAdminJutsuEdit() {
+    async function saveAdminJutsuEdit() {
         if (!editingJutsuId) return alert("Load an existing admin jutsu first.");
+        // Wait for an in-flight image upload (no-op once the preview has appeared)
+        // so a save made mid-upload still persists the picture.
+        const readyImage = jutsuImagePendingRef.current ? await jutsuImagePendingRef.current.catch(() => "") : null;
         const updatedJutsu = jutsuFromForm(editingJutsuId);
-        void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image ?? "");
+        if (readyImage) updatedJutsu.image = readyImage;
+        // Skip the publish when there's no image — an empty string is rejected (400).
+        if (updatedJutsu.image) void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image);
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
         if (sourceBloodline) {
             setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {

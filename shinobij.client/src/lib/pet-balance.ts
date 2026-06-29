@@ -832,6 +832,27 @@ export function scaleEventPetOpponent(pet: Pet, battle?: EventPetBattleInput): P
 }
 
 /**
+ * Scale a generic arena pet to roughly `targetLevel` — used by the sector-wanderer
+ * beast duel so its pet is a real fight for the PLAYER's current pet instead of a
+ * fixed low-level pushover. Multiplier is clamped so it never trivializes (≥0.7×) or
+ * becomes a wall (≤4×); speed capped at 1.5× like event bosses; cooldowns zeroed.
+ * Keeps the template `id` so the PvE-detection set still classifies it as PvE.
+ */
+export function scaleWandererPetOpponent(pet: Pet, targetLevel: number): Pet {
+    const target = Math.max(1, Math.min(100, Math.round(Number(targetLevel) || 1)));
+    const mult = Math.max(0.7, Math.min(4, target / Math.max(1, pet.level)));
+    return capPetStats({
+        ...pet,
+        level: target,
+        hp: Math.round(pet.hp * mult),
+        attack: Math.round(pet.attack * mult),
+        defense: Math.round(pet.defense * mult),
+        speed: Math.round(pet.speed * Math.min(1.5, mult)),
+        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: Math.round(jutsu.power * mult), currentCooldown: 0 })),
+    });
+}
+
+/**
  * Whether a pet may appear as a random wild befriend in explore-tile
  * encounters. Two independent guards (belt-and-suspenders):
  *   1. An explicit `wildSpawnable: false` flag (set on the starter base forms
