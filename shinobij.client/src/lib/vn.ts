@@ -42,3 +42,89 @@ export function defaultVnScene(eventId?: string | null, biome?: string | null): 
     }
     return "";
 }
+
+/**
+ * Trait-gating predicate for a visual-novel choice. A choice is available when
+ * the player has its requireTrait (if set) and lacks its forbidTrait (if set).
+ * Choices with neither field are always available, so existing VNs — which carry
+ * no trait conditions — behave exactly as before. Used by the VN renderer's
+ * choice filter; pure + unit-tested so the branching rule can't silently change.
+ */
+export function isChoiceAvailable(
+    choice: { requireTrait?: string; forbidTrait?: string },
+    traits: readonly string[],
+): boolean {
+    if (choice.requireTrait && !traits.includes(choice.requireTrait)) return false;
+    if (choice.forbidTrait && traits.includes(choice.forbidTrait)) return false;
+    return true;
+}
+
+export type VnFlowChoice = {
+    text: string;
+    nextPage: number;
+    requireTrait?: string;
+    forbidTrait?: string;
+    trait?: string;
+    battle?: unknown;
+};
+
+export type VnFlowPage = {
+    title?: string;
+    scene: string;
+    dialogue: string;
+    choices?: VnFlowChoice[];
+};
+
+/**
+ * Static analysis of a VN's page graph for the editor's "Story flow" panel.
+ * Walks reachability from page 1 — a page WITH text-choices branches only to
+ * those targets; a page with none auto-advances to the next — then collects
+ * authoring warnings: empty pages, choices that jump out of range, and pages no
+ * path can reach. Pure + unit-tested so the editor's validation can't silently
+ * drift from what the player actually experiences.
+ */
+export function analyzeVnFlow(pages: VnFlowPage[]): { reachable: number[]; warnings: string[] } {
+    const reachable = new Set<number>();
+    const queue = [0];
+    while (queue.length) {
+        const i = queue.shift()!;
+        if (i < 0 || i >= pages.length || reachable.has(i)) continue;
+        reachable.add(i);
+        const picks = (pages[i].choices ?? []).filter((c) => c.text.trim());
+        if (picks.length) picks.forEach((c) => queue.push(c.nextPage));
+        else if (i + 1 < pages.length) queue.push(i + 1);
+    }
+    const warnings: string[] = [];
+    pages.forEach((p, i) => {
+        if (!p.dialogue.trim() && !p.scene.trim()) warnings.push(`Page ${i + 1} has no dialogue or scene text.`);
+        (p.choices ?? []).filter((c) => c.text.trim()).forEach((c) => {
+            if (c.nextPage < 0 || c.nextPage >= pages.length) warnings.push(`Page ${i + 1} choice "${c.text.trim()}" jumps to a page that doesn't exist.`);
+        });
+        if (!reachable.has(i)) warnings.push(`Page ${i + 1} is unreachable — no choice or sequential path leads to it.`);
+    });
+    return { reachable: [...reachable], warnings };
+}
+
+export type DialogueLine = { speaker: string; text: string };
+
+// Parse a stored "Speaker: text" dialogue blob (one entry per line) into
+// structured {speaker, text} rows for the editor. A line with no colon has an
+// empty speaker (the VN renderer attributes it to the page speaker). The first
+// colon splits speaker from text — exactly how the renderer interprets it — so
+// a speakerless narration line containing a colon is the one ambiguous case.
+// Inverse of serializeDialogueLines for well-formed lines (round-trip stable).
+export function parseDialogueString(dialogue: string): DialogueLine[] {
+    return dialogue.split("\n").map((line) => {
+        const i = line.indexOf(":");
+        if (i < 0) return { speaker: "", text: line };
+        const text = line.slice(i + 1);
+        return { speaker: line.slice(0, i), text: text.startsWith(" ") ? text.slice(1) : text };
+    });
+}
+
+// Serialize structured rows back to the "Speaker: text" line format the VN
+// renderers and the save path already consume. An empty speaker is written as
+// the bare text. Storage format is unchanged, so playback is unaffected.
+export function serializeDialogueLines(lines: DialogueLine[]): string {
+    return lines.map((l) => (l.speaker ? `${l.speaker}: ${l.text}` : l.text)).join("\n");
+}

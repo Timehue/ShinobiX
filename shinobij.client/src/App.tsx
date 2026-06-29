@@ -89,6 +89,7 @@ import {
     dailyMissionsCompleted,
     dailyHuntsCompleted,
     rankTitleForLevel,
+    addStoryTrait,
 } from "./lib/character-progress";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 import {
@@ -578,7 +579,9 @@ export type CreatorEvent = {
             text: string;
             nextPage: number;
             conclusion?: string;
-            trait?: string;
+            trait?: string;            // trait GRANTED to the player when this choice is picked (stored in character.storyTraits)
+            requireTrait?: string;     // only show this choice if the player already has this trait
+            forbidTrait?: string;      // hide this choice if the player already has this trait
             battle?: {
                 encounterType?: "ai" | "pet" | "tiles";
                 difficulty?: "easy" | "normal" | "hard" | "impossible";
@@ -7738,6 +7741,7 @@ export default function App() {
                         onCancel={() => setActiveTriggeredEvent(null)}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
+                        onChoice={(c) => { const t = c.trait; if (t) setCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }}
                         sharedImages={sharedImages}
                     />
                 )}
