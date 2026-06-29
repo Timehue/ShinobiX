@@ -73,7 +73,12 @@ import { readFileSync } from "node:fs";
 // the first finishes — lives entirely in lib/jutsu-training-queue.ts +
 // screens/Training.tsx; only the global hook MOUNT must run from App so the queue
 // advances on any screen, like the other timer wiring here. Not regrowth.
-const MAX_LINES = 10_176;
+// → 10,108 (merge of the VN-editor branch: +4 VN trait-branching wiring
+// (requireTrait/forbidTrait choice fields + addStoryTrait import + onChoice persist
+// on the live TriggeredVisualNovel), then −72 DRAIN moving the CreatorEvent +
+// StoryStep VN content types out to ./types/vn (re-exported from App for the
+// "../App" sites; dropped the now-unused CurrencyRewards import) — net vs main).
+const MAX_LINES = 10_108;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

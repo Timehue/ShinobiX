@@ -6,7 +6,7 @@ import type { Character } from "../types/character";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
 import { boostAmount } from "../lib/village-upgrades";
-import { defaultVnPortrait, defaultVnScene } from "../lib/vn";
+import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getOffenseStat } from "../lib/combat-math";
@@ -90,9 +90,7 @@ export function StoryHall({
     if (!current) return <div className="card cinematic-card"><BackToVillageButton onClick={() => setScreen("village")} /><div className="visual-novel"><div className="vn-stage vn-complete"><div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div><div className="vn-dialogue"><div className="vn-speaker">Narrator</div><p>Your village story is complete. The roads beyond level 100 whisper about clan invasions, forbidden bloodlines, and a war waiting under Central.</p></div></div>{creatorVnShelf}</div></div>;
     const locked = character.level < current.levelReq;
     const activeLine = current.dialogue[lineIndex] ?? current.dialogue[0] ?? "The night waits for your answer.";
-    const splitLine = activeLine.includes(":") ? activeLine.split(":") : ["Narrator", activeLine];
-    const speaker = splitLine[0].trim();
-    const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+    const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
     const speakerInitials = speaker === "Narrator" ? "..." : speaker.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const storyBiome: Biome = current.biome ?? (character.village?.toLowerCase().includes("frostfang") ? "snow"
         : character.village?.toLowerCase().includes("stormveil") ? "shadow"

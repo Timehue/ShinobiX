@@ -9,11 +9,12 @@ import type { Pet } from "../types/pet";
 import { TERRITORY_CONTROL_MAX, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
+import { addStoryTrait } from "../lib/character-progress";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
@@ -45,7 +46,7 @@ import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import { SectorPeersLive, type SectorPeer } from "../components/SectorPeers";
 import { playerNameTile } from "../lib/sector-tile";
-import { defaultVnScene } from "../lib/vn";
+import { defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { displayCharacterXpGain, effectiveCharacterXpGain } from "../lib/progression";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { getAllItems } from "../lib/items";
@@ -512,9 +513,10 @@ export function WorldMap({
         [selectedSector, character.wandererCooldowns],
     );
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
-    // reward update in the same handler without clobbering it).
-    function coolWanderer(id: string) {
-        updateCharacter(prev => prev ? ({ ...prev, wandererCooldowns: withWandererCooldown(prev.wandererCooldowns, id, Date.now()) }) : prev);
+    // reward update in the same handler without clobbering it). `ms` defaults to the
+    // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
+    function coolWanderer(id: string, ms?: number) {
+        updateCharacter(prev => prev ? ({ ...prev, wandererCooldowns: withWandererCooldown(prev.wandererCooldowns, id, Date.now(), ms) }) : prev);
     }
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
     // All wanderer combat scales to the PLAYER's level (never impossible). Fending
@@ -683,6 +685,16 @@ export function WorldMap({
         // Every wanderer — bandits included — opens a dialog first (a threat line
         // + Fight/Flee for bandits; greetings + actions for the rest).
         setWandererDialog({ w, standingLine: react?.line });
+    }
+    // Closing the dialog. Fleeing/declining a BANDIT (you took no reward) puts it on
+    // a short cooldown so it backs off instead of re-confronting you every time you
+    // step back into the sector. Non-bandit dialogs (gift/quest/pet/card) just close
+    // — they cool only when you actually take their interaction. Already-resolved
+    // (`msg`) dialogs just close; the cooldown was set when the action ran.
+    function dismissWandererDialog() {
+        const d = wandererDialog;
+        if (d && !d.msg && d.w.verb === "attack") coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
+        setWandererDialog(null);
     }
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
@@ -1406,9 +1418,7 @@ export function WorldMap({
         const page = pages[Math.min(petVnPage, pages.length - 1)];
         const pageDialogue = page.dialogue.length > 0 ? page.dialogue : vn.dialogue;
         const activeLine = pageDialogue[petVnLine] ?? pageDialogue[0] ?? page.scene ?? "A presence stirs nearby.";
-        const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || vn.vnSpeaker || "Narrator", activeLine];
-        const speaker = splitLine[0].trim();
-        const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+        const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || vn.vnSpeaker || "Narrator");
         const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
         const pageImage = page.image || vn.image || activePetEncounter.image || defaultVnScene(vn.id, "forest");
         const canBack = petVnLine > 0 || petVnPage > 0;
@@ -1524,16 +1534,14 @@ export function WorldMap({
         );
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} sharedImages={sharedImages} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
         const page = pages[Math.min(creatorEventPage, pages.length - 1)];
         const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
         const activeLine = pageDialogue[creatorEventLine] ?? pageDialogue[0] ?? page.scene ?? "The scene begins.";
-        const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
-        const speaker = splitLine[0].trim();
-        const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+        const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
         const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
         const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
         const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
@@ -1579,9 +1587,7 @@ export function WorldMap({
         const page = vnPages[Math.min(chestVnPage, vnPages.length - 1)];
         const pageDialogue = page.dialogue;
         const activeLine = pageDialogue[chestVnLine] ?? pageDialogue[0];
-        const splitLine = activeLine.includes(":") ? activeLine.split(":") : ["Narrator", activeLine];
-        const speaker = splitLine[0].trim();
-        const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+        const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
         const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
         const canBack = chestVnLine > 0 || chestVnPage > 0;
         const isLastPage = chestVnPage >= vnPages.length - 1;
@@ -1611,8 +1617,7 @@ export function WorldMap({
                         <div className="vn-backdrop">
                             {!chestPageImage && <span className="vn-village-silhouette" />}
                         </div>
-                        <div className="vn-character mentor-character">🧙</div>
-                        <div className="vn-character hero-character">
+                        <div className="vn-character mentor-character">
                             {(() => {
                                 const playerAvatar = sharedImages?.['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || "";
                                 return playerAvatar
@@ -1620,6 +1625,7 @@ export function WorldMap({
                                     : character.name.slice(0, 2).toUpperCase();
                             })()}
                         </div>
+                        <div className="vn-character hero-character"><img src="/portraits/narrator.webp" alt="The Narrator" /></div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -1866,7 +1872,7 @@ export function WorldMap({
                             {wandererDialog && createPortal(
                                 <div
                                     style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}
-                                    onClick={() => setWandererDialog(null)}
+                                    onClick={dismissWandererDialog}
                                 >
                                     <div className="card" style={{ maxWidth: 360, width: "88%", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                                         <img
@@ -1881,13 +1887,13 @@ export function WorldMap({
                                         {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
                                             wandererDialog.peace ? (
                                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                                    <button onClick={() => setWandererDialog(null)}>Pass in peace</button>
+                                                    <button onClick={dismissWandererDialog}>Pass in peace</button>
                                                     <button onClick={() => startWandererAttack(wandererDialog.w, false)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Fight anyway</button>
                                                 </div>
                                             ) : (
                                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                                     <button onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
-                                                    <button onClick={() => setWandererDialog(null)}>Flee</button>
+                                                    <button onClick={dismissWandererDialog}>Flee</button>
                                                 </div>
                                             )
                                         ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (
@@ -2630,9 +2636,7 @@ export function WorldMap({
                 const page = vnPages[Math.min(chestVnPage, vnPages.length - 1)];
                 const pageDialogue = page.dialogue;
                 const activeLine = pageDialogue[chestVnLine] ?? pageDialogue[0];
-                const splitLine = activeLine.includes(":") ? activeLine.split(":") : ["Narrator", activeLine];
-                const speaker = splitLine[0].trim();
-                const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+                const { speaker, text: spoken } = splitDialogueLine(activeLine, "Narrator");
                 const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
                 const canBack = chestVnLine > 0 || chestVnPage > 0;
                 const isLastPage = chestVnPage >= vnPages.length - 1;
@@ -2661,8 +2665,8 @@ export function WorldMap({
                                 <div className="vn-backdrop">
                                     {!chestPageImg && <span className="vn-village-silhouette" />}
                                 </div>
-                                <div className="vn-character mentor-character">🧙</div>
-                                <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                                <div className="vn-character mentor-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                                <div className="vn-character hero-character"><img src="/portraits/narrator.webp" alt="The Narrator" /></div>
                                 <div className="vn-scene-card">{page.scene}</div>
                                 <div className="vn-dialogue">
                                     <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
