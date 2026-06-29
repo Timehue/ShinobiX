@@ -78,7 +78,11 @@ import { readFileSync } from "node:fs";
 // on the live TriggeredVisualNovel), then −72 DRAIN moving the CreatorEvent +
 // StoryStep VN content types out to ./types/vn (re-exported from App for the
 // "../App" sites; dropped the now-unused CurrencyRewards import) — net vs main).
-const MAX_LINES = 10_108;
+// → 10,114 (+8 Endless Tower ENTRY-FEE wiring — owner-approved budget raise for a
+// ryo sink. The fee logic lives in lib/entry-fee.ts; only the charge-on-fresh-run
+// wiring, which reads App-local character/setCharacter, lives here: the lib import
+// (+1) and the fee block in startEndlessBattle (+7)).
+const MAX_LINES = 10_114;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
