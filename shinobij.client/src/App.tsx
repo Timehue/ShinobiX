@@ -209,13 +209,13 @@ import {
     type ActiveTraining,
     type ActiveJutsuTraining,
 } from "./types/combat";
+import type { CreatorEvent, StoryStep } from "./types/vn";
 import {
     type HollowGateTileKind,
     type HollowGateTerrain,
     type HollowGateTile,
     type HollowGateShrineRun,
     type EndlessTowerRun,
-    type CurrencyRewards,
     type Character,
     type PlayerRecord,
     type ServerPlayerSummary,
@@ -546,65 +546,10 @@ import {
 // GameItem / EquipmentSlots / SavedBloodline / ReviewBloodline /
 // ActiveTraining / ActiveJutsuTraining moved to ./types/combat.
 
-export type CreatorEvent = {
-    id: string;
-    name: string;
-    biome: Biome;
-    targetSector?: number;
-    tileX?: number;  // tile position within sector (0-143)
-    tileY?: number;  // tile position within sector (0-143)
-    icon: string;
-    eventKind?: "reward" | "visualNovel";
-    trigger?: "manual" | "firstBattleArena" | "firstLeaveVillage";
-    vnTitle?: string;
-    vnScene?: string;
-    vnSpeaker?: string;
-    image?: string;
-    avatarImage?: string;
-    aiProfileId?: string;
-    village?: string;
-    kageFinale?: boolean;
-    liberatorTitle?: string;
-    vnPages?: {
-        title: string;
-        scene: string;
-        speaker: string;
-        dialogue: string[];
-        image?: string;
-        leftName?: string;
-        leftImage?: string;
-        rightName?: string;
-        rightImage?: string;
-        choices?: {
-            text: string;
-            nextPage: number;
-            conclusion?: string;
-            trait?: string;            // trait GRANTED to the player when this choice is picked (stored in character.storyTraits)
-            requireTrait?: string;     // only show this choice if the player already has this trait
-            forbidTrait?: string;      // hide this choice if the player already has this trait
-            battle?: {
-                encounterType?: "ai" | "pet" | "tiles";
-                difficulty?: "easy" | "normal" | "hard" | "impossible";
-                bossName?: string;
-                bossIcon?: string;
-                bossHp?: number;
-                bossDamage?: number;
-                aiProfileId?: string;
-                petId?: string;
-                tileDifficulty?: "easy" | "normal" | "hard";
-                backgroundImage?: string;
-                xpReward?: number;
-                ryoReward?: number;
-            };
-        }[];
-    }[];
-    levelReq: number;
-    xpReward: number;
-    ryoReward: number;
-    staminaReward: number;
-    currencyRewards?: CurrencyRewards;
-    dialogue: string[];
-};
+// CreatorEvent + StoryStep (the VN content types) moved to ./types/vn —
+// imported at the top of this file and re-exported here so the many
+// `import { ... CreatorEvent ... } from "../App"` sites keep working unchanged.
+export type { CreatorEvent, StoryStep };
 
 // Creator mission/raid content types (MissionRank, CreatorMission, CreatorRaid)
 // moved to ./types/missions and imported back near the top of this file.
@@ -631,24 +576,7 @@ type PlayerAccountSave = {
 
 type PlayerAccounts = Record<string, PlayerAccountSave>;
 
-export type StoryStep = {
-    levelReq: number;
-    title: string;
-    cinematicTitle: string;
-    scene: string;
-    dialogue: string[];
-    bossName: string;
-    bossIcon: string;
-    bossHp: number;
-    bossDamage: number;
-    rewardXp: number;
-    rewardRyo: number;
-    biome?: Biome;
-    aiProfileId?: string;
-    kageFinale?: boolean;
-    liberatorTitle?: string;
-    pages?: NonNullable<CreatorEvent["vnPages"]>;
-};
+// StoryStep moved to ./types/vn (re-exported with CreatorEvent above).
 
 export type PendingArenaStoryBattle =
     | {
