@@ -150,7 +150,7 @@ export function Profile({
     // clamped — so this client write persists cleanly). HP/Chakra/Stamina pools
     // are untouched (they are not allocatable stats).
     function respecStats() {
-        const RESPEC_COST = 100;
+        const RESPEC_COST = 50;
         if ((character.fateShards ?? 0) < RESPEC_COST) {
             setStatWarning(`Respec costs ${RESPEC_COST} 🔮 Fate Shards — you have ${character.fateShards ?? 0}.`);
             setTimeout(() => setStatWarning(""), 4000);
@@ -447,7 +447,7 @@ export function Profile({
                     <span className={`stat-points-badge ${character.unspentStats === 0 ? "stat-points-empty" : ""}`}>
                         {character.unspentStats} point{character.unspentStats !== 1 ? "s" : ""} available
                     </span>
-                    <button type="button" onClick={respecStats} title="Reset all 12 stats to base and refund your points to re-allocate (costs 100 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Respec — 100 🔮</button>
+                    <button type="button" onClick={respecStats} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Respec — 50 🔮</button>
                 </div>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 
