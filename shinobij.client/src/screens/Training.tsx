@@ -481,8 +481,8 @@ export function JutsuTrainingHall({
             <h3>Active Jutsu Training</h3>
             <p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} → {activeJutsuTraining.toLevel}</p>
             <p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p>
-            <p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : (queued ? "Complete — starting the queued jutsu…" : "Training complete. Claim your level.")}</p>
-            {!queued && <button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button>}
+            <p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : (queued ? "Complete — starting the queued jutsu…" : activeJutsuTraining.autoClaim ? "Complete — claiming your level…" : "Training complete. Claim your level.")}</p>
+            {!queued && !activeJutsuTraining.autoClaim && <button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button>}
             {activeRemaining > 0 && !queued && <button onClick={cancelPaidJutsuTraining} style={{ marginLeft: 8 }}>Cancel (50% ryo back)</button>}
             {queued ? (
                 <div className="summary-box" style={{ marginTop: 8, borderColor: "rgba(96,165,250,0.5)" }}>
