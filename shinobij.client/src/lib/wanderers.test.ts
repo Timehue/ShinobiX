@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, type Wanderer } from "./wanderers";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -106,6 +106,16 @@ describe("per-NPC cooldown", () => {
     });
     it("the cooldown is a few hours", () => {
         assert.ok(WANDERER_NPC_COOLDOWN_MS >= 60 * 60 * 1000 && WANDERER_NPC_COOLDOWN_MS <= 6 * 60 * 60 * 1000);
+    });
+    it("withWandererCooldown honours a custom (shorter) duration", () => {
+        const now = 1_000_000;
+        const fled = withWandererCooldown(null, "bandit", now, WANDERER_FLEE_COOLDOWN_MS);
+        assert.equal(fled.bandit, now + WANDERER_FLEE_COOLDOWN_MS, "cooled for exactly the passed duration");
+        assert.equal(isWandererOnCooldown(fled, "bandit", now), true, "on cooldown right after fleeing");
+        assert.equal(isWandererOnCooldown(fled, "bandit", now + WANDERER_FLEE_COOLDOWN_MS + 1), false, "back after the flee window");
+    });
+    it("the flee back-off is short — present, but well under the anti-farm window", () => {
+        assert.ok(WANDERER_FLEE_COOLDOWN_MS > 0 && WANDERER_FLEE_COOLDOWN_MS < WANDERER_NPC_COOLDOWN_MS);
     });
 });
 
