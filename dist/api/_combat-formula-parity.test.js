@@ -175,4 +175,13 @@ const PAIRS = [
     (0, node_test_1.it)('JUTSU_MAX_LEVEL (server) === JUTSU_MAX_LEVEL (client constants/game.ts)', () => {
         node_assert_1.strict.equal(num(SERVER, 'JUTSU_MAX_LEVEL'), num(CLIENT_GAME_CONSTS, 'JUTSU_MAX_LEVEL'), 'JUTSU_MAX_LEVEL diverged between server move.ts and client constants/game.ts — the mastery ramp denominators would differ');
     });
+    // Per-rank jutsu mastery-level caps (anti-twink, 2026-06-26). The EFFECTIVE
+    // mastery used for EP/tag/drain/pierce scaling is clamped to the caster's rank
+    // ceiling; the server (move.ts) and client (constants/game.ts) jutsuLevelCapForLevel
+    // tables must agree or PvE and PvP would cap mastery differently for the same rank.
+    for (const cap of ['JUTSU_LEVEL_CAP_ACADEMY', 'JUTSU_LEVEL_CAP_GENIN', 'JUTSU_LEVEL_CAP_CHUNIN', 'JUTSU_LEVEL_CAP_JONIN']) {
+        (0, node_test_1.it)(`${cap} (server) === ${cap} (client constants/game.ts)`, () => {
+            node_assert_1.strict.equal(num(SERVER, cap), num(CLIENT_GAME_CONSTS, cap), `${cap} diverged between server move.ts and client constants/game.ts — PvE and PvP would cap jutsu mastery differently by rank`);
+        });
+    }
 });

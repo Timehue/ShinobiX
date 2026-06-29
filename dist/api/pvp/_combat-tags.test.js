@@ -77,9 +77,21 @@ function jutsu(tags, overrides = {}) {
     });
     (0, node_test_1.it)('at mastery 50 it reaches the stored 40 (rank cap)', () => {
         const self = fighter('A');
+        // Rank cap (2026-06-26): mastery 50 is only usable at Jonin+ (level ≥ 50);
+        // give this fighter a max level so the per-rank cap doesn't clamp the mastery.
+        self.character.level = 100;
         self.character.jutsuMastery = [{ jutsuId: 't', level: 50 }];
         const r = (0, move_js_1.applyJutsu)(self, fighter('B'), jutsu([{ name: 'Recoil', percent: 40 }], { bloodlineRank: 'S Rank' }), 1, 'central', 1);
         node_assert_1.strict.equal(r.opponent.statuses.find(s => s.name === 'Recoil')?.percent, 40);
+    });
+    (0, node_test_1.it)('rank cap clamps mastery: a Genin (lvl 20) wielding a stored-50 jutsu hits as mastery 20', () => {
+        // Anti-twink (2026-06-26): even with mastery 50 STORED, a Genin is clamped to
+        // jutsu level 20, so scaledTagPercent(40, 20, Recoil, S) = max(0, 40 - (50-20)×0.2) = 34.
+        const self = fighter('A');
+        self.character.level = 20;
+        self.character.jutsuMastery = [{ jutsuId: 't', level: 50 }];
+        const r = (0, move_js_1.applyJutsu)(self, fighter('B'), jutsu([{ name: 'Recoil', percent: 40 }], { bloodlineRank: 'S Rank' }), 1, 'central', 1);
+        node_assert_1.strict.equal(r.opponent.statuses.find(s => s.name === 'Recoil')?.percent, 34);
     });
     (0, node_test_1.it)('resolves to the exact same percent as Reflect, a sibling capped tag', () => {
         const reflect = (0, move_js_1.applyJutsu)(fighter('A'), fighter('B'), jutsu([{ name: 'Reflect', percent: 40 }], { bloodlineRank: 'S Rank' }), 1, 'central', 1)
