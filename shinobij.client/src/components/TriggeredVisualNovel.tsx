@@ -11,10 +11,12 @@ import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { defaultVnPortrait, defaultVnScene } from "../lib/vn";
+import { defaultVnPortrait, defaultVnScene, isChoiceAvailable } from "../lib/vn";
 import { biomeLabel } from "../data/world";
 
-export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, sharedImages }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; sharedImages?: Record<string, string> }) {
+type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
+
+export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, sharedImages }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice) => void; sharedImages?: Record<string, string> }) {
     // The local character object can drift out of sync with the freshly-
     // uploaded avatar (server saves strip images and re-hydrate from the
     // shared image store). Resolve once via the same path the Tavern uses:
@@ -49,7 +51,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const hideRight = !rightImage && rightName.trim().toLowerCase() === "narrator";
     const canBack = lineIndex > 0 || pageIndex > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
-    const pageChoices = page.choices?.filter((c) => c.text);
+    // Trait-gated branching: a choice with requireTrait only shows if the player
+    // has earned it; forbidTrait hides it once earned. Choices without either
+    // field (i.e. every existing VN) are always shown — no behavior change.
+    const playerTraits = character.storyTraits ?? [];
+    const pageChoices = page.choices?.filter((c) => !!c.text && isChoiceAvailable(c, playerTraits));
     const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
     const [showFinale, setShowFinale] = useState(false);
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number } | null>(null);
@@ -57,7 +63,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const isStoryChapterEvent = event.id.startsWith("story-");
     function previousLine() { if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
     function nextLine() { if (isAtChoicePoint) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
-    function chooseOption(choice: { text: string; nextPage: number; conclusion?: string; trait?: string; battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"] }) {
+    function chooseOption(choice: VnChoice) {
+        // Record the trait this choice grants (additive, deduped) before doing
+        // anything else, so it persists even when the choice leads to a battle.
+        onChoice?.(choice);
         if (choice.battle) {
             onBattle(event, choice.battle);
             return;
