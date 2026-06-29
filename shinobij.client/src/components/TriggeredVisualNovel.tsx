@@ -11,7 +11,7 @@ import type { CreatorEvent } from "../App";
 import type { Character } from "../types/character";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { defaultVnPortrait, defaultVnScene, isChoiceAvailable } from "../lib/vn";
+import { defaultVnPortrait, defaultVnScene, isChoiceAvailable, splitDialogueLine } from "../lib/vn";
 import { biomeLabel } from "../data/world";
 
 type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number];
@@ -29,9 +29,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const page = pages[Math.min(pageIndex, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
     const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The scene begins.";
-    const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
-    const speaker = splitLine[0].trim();
-    const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+    const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
     const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
     const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
     const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
