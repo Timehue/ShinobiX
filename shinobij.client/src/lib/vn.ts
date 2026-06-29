@@ -22,7 +22,7 @@ export function defaultVnPortrait(name: string | undefined | null): string {
     const n = name.trim().toLowerCase();
     if (!n || n === "narrator" || n === "player") return "";
     const slug = n.replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
-    return slug ? `/portraits/${slug}.png` : "";
+    return slug ? `/portraits/${slug}.webp` : "";
 }
 
 /**
