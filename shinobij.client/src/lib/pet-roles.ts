@@ -208,3 +208,35 @@ export function derivePetRole(pet: Pick<Pet, "id" | "name" | "element" | "rarity
 export function petRoleOf(pet: Pick<Pet, "id" | "name" | "element" | "rarity">): PetRole {
     return derivePetRole(pet).role;
 }
+
+// ─── Role-counter web (rock-paper-scissors for the 4 roles) ───────────────────
+// A strict 4-cycle so role selection is a counter-pick puzzle, not just a stat
+// check (docs/pet-role-counter-web-plan.md). Deterministic + pure (function of
+// role only) → ranked-replay-safe, no new save field. The edge is deliberately
+// SMALLER than the 15% element edge so element stays the primary axis.
+//
+//   assassin → sage     (burst deletes the squishy backline)
+//   sage     → defender (sustain out-attrits the wall)
+//   defender → tracker  (armor shrugs off ranged poke)
+//   tracker  → assassin (range/kite kills the melee before it closes)
+export const ROLE_BEATS: Record<PetRole, PetRole> = {
+    assassin: "sage", sage: "defender", defender: "tracker", tracker: "assassin",
+};
+export const ROLE_EDGE = 0.10;
+
+/** Damage multiplier from the attacker's role vs the defender's role: mirror →
+ *  1, advantaged → 1+ROLE_EDGE, countered → 1−ROLE_EDGE. Mirrors elementMultiplier. */
+export function roleMultiplier(attacker: PetRole, defender: PetRole): number {
+    if (attacker === defender) return 1;
+    if (ROLE_BEATS[attacker] === defender) return 1 + ROLE_EDGE;
+    if (ROLE_BEATS[defender] === attacker) return 1 - ROLE_EDGE;
+    return 1;
+}
+
+/** Directional matchup for the picker hint: +1 attacker is strong, −1 weak, 0 neutral. */
+export function roleMatchup(attacker: PetRole, defender: PetRole): -1 | 0 | 1 {
+    if (attacker === defender) return 0;
+    if (ROLE_BEATS[attacker] === defender) return 1;
+    if (ROLE_BEATS[defender] === attacker) return -1;
+    return 0;
+}

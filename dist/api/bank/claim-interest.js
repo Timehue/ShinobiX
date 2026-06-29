@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _bank_interest_js_1 = require("../_bank-interest.js");
+const _economy_js_1 = require("../_economy.js");
 /*
  * /api/bank/claim-interest  — POST only
  *
@@ -82,6 +83,8 @@ async function handler(req, res) {
             actor: identity.admin ? 'admin' : identity.name,
             claimed: out.interest,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        // Economy telemetry — bank interest is the top inflation faucet, so log it.
+        await (0, _economy_js_1.recordEconomyTxn)({ txnId: `bank-interest:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: out.interest, source: 'bank.interest', balanceAfter: out.bankRyo });
         return res.status(200).json({
             ok: true,
             eligible: true,

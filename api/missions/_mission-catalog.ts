@@ -97,6 +97,19 @@ export const ACADEMY_TRIAL = {
     stamina: 5,
 } as const;
 
+// ── Academy Checklist — the one-time capstone reward for finishing ALL of the
+// Academy Training goals (the 6-goal new-shinobi checklist in the Logbook).
+// Bigger than the trial, off the daily cap, one-time (gated by
+// character.academyChecklistClaimed). Grants a small premium (Fate Shards) bonus
+// so the graduation moment actually pays out instead of being a dead-end button.
+export const ACADEMY_CHECKLIST = {
+    id: 'academy-checklist',
+    xp: 150,
+    ryo: 120,
+    stamina: 10,
+    fateShards: 2,
+} as const;
+
 export function combatMissionByKey(key: string): CombatMissionDef | undefined {
     return COMBAT_MISSIONS.find((m) => m.key === key);
 }

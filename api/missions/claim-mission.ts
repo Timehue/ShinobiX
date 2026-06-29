@@ -7,11 +7,13 @@ import { withKvLock } from '../_lock.js';
 import { gainXp } from '../_xp-engine.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { utcDateKey, reportNewbieEvent } from './_progress.js';
+import { recordEconomyTxn } from '../_economy.js';
 import {
     combatMissionByKey,
     fieldMissionById,
     huntMissionById,
     ACADEMY_TRIAL,
+    ACADEMY_CHECKLIST,
     missionRewardBonusPct,
     boostAmount,
     hasDailyMissionSlot,
@@ -67,6 +69,7 @@ type ClaimOutcome =
         combat?: { aiProfileId: string; missionKey: string };
         completion: 'daily' | 'total' | 'none' | 'hunt';
         academyTrialClaimed?: boolean;
+        academyChecklistClaimed?: boolean;
     };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -84,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const missionType = String(body.missionType ?? '');
         const missionId = String(body.missionId ?? '').slice(0, 80);
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial') {
+        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial' && missionType !== 'academy-checklist') {
             return res.status(400).json({ error: 'Invalid mission type.' });
         }
 
@@ -116,6 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let combat: { aiProfileId: string; missionKey: string } | undefined;
             let completion: 'daily' | 'total' | 'none' | 'hunt' = 'daily';
             let academyTrialClaimed = false;
+            let academyChecklistClaimed = false;
 
             if (missionType === 'combat') {
                 const def = combatMissionByKey(missionId);
@@ -146,12 +150,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 scrolls = HUNT_MISSION_SCROLLS; currencyBase = def.currencyRewards;
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
-            } else {
+            } else if (missionType === 'academy-trial') {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed) return { applied: false, reason: 'already-claimed' };
                 baseXp = ACADEMY_TRIAL.xp; baseRyo = ACADEMY_TRIAL.ryo; baseStamina = ACADEMY_TRIAL.stamina;
                 completion = 'total';
                 academyTrialClaimed = true;
+            } else {
+                // academy-checklist — the one-time graduation capstone. Off the
+                // daily cap, doesn't count toward mission totals (completion 'none'),
+                // grants a small premium (Fate Shards) bonus from the sealed catalog.
+                if (char.academyChecklistClaimed) return { applied: false, reason: 'already-claimed' };
+                baseXp = ACADEMY_CHECKLIST.xp; baseRyo = ACADEMY_CHECKLIST.ryo; baseStamina = ACADEMY_CHECKLIST.stamina;
+                currencyBase = { fateShards: ACADEMY_CHECKLIST.fateShards };
+                completion = 'none';
+                academyChecklistClaimed = true;
             }
 
             // Per-mission idempotency for field/hunt claims: each built-in
@@ -221,6 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
             if (academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
+            if (academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
 
             const updated = { ...record, character: next };
             bumpSaveVersion(updated);
@@ -239,6 +253,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 combat,
                 completion,
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
+                ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
             };
         }, { failClosed: true });
 
@@ -255,6 +270,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             } catch (e) {
                 console.error('[claim-mission newbie]', e);
+            }
+            // Economy telemetry — log the server-computed faucet deltas (ryo +
+            // any premium currency) so created-vs-destroyed is measurable.
+            const r = outcome.reward;
+            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${todayKey}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
+            for (const [cur, amt] of Object.entries(r.currency ?? {})) {
+                if (amt) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
         }
 

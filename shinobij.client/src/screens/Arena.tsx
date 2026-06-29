@@ -624,6 +624,13 @@ export function Arena({
     const [activeActor, setActiveActor] = useState<BattleActor>(rollInitiative);
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
+    // Keep the PvE battle log pinned to the newest entry (parity with
+    // PvpBattleScreen.tsx) — without this the latest action scrolls below the
+    // fold in a long fight and the player can't see what just happened.
+    const combatLogRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        if (combatLogRef.current) combatLogRef.current.scrollTop = combatLogRef.current.scrollHeight;
+    }, [battleHistory.length]);
     // Battle-log round accordion: records only the rounds the user
     // has explicitly toggled; default-open is the latest two rounds, computed in
     // render. Keeps long fights from becoming a wall of text.
@@ -5173,7 +5180,7 @@ export function Arena({
                             </>
                         )}
                     </div>
-                    <div className="combat-text-log combat-timeline">
+                    <div className="combat-text-log combat-timeline" ref={combatLogRef} aria-live="polite" aria-label="Battle log">
                         <div className="combat-log-header">
                             <strong>Battle Log</strong>
                             <span>{activeActor === "player" ? `${character.name}'s turn` : `${opponentName}'s turn`}</span>

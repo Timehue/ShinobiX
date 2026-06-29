@@ -43,7 +43,10 @@ import {
 import briefingBg from "../assets/daily-briefing.webp";
 
 const SEEN_KEY = "dailyBriefing.seen.v1";
-const MIN_LEVEL = 5;
+// Cover new players from level 1: the briefing's recommendation engine already
+// special-cases the onboarding step, and gating at 5 meant levels 1–4 got NO
+// daily login reward and no "what next" surface — exactly who needs both most.
+const MIN_LEVEL = 1;
 
 export function DailyBriefingModal({
     character,

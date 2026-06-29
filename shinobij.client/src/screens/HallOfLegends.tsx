@@ -14,6 +14,7 @@ import { loadArenaTournament, loadWarStandings, type WarStandingRecord } from ".
 import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
+import { RankBadge } from "../components/RankBadge";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -112,12 +113,12 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         : [character];
     const me = character.name;
 
-    function Row({ rank, name, value, suffix = "", village }: { rank: number; name: string; value: number | string; suffix?: string; village?: string }) {
+    function Row({ rank, name, value, suffix = "", village, tier = false }: { rank: number; name: string; value: number | string; suffix?: string; village?: string; tier?: boolean }) {
         const isMe = name === me;
         return (
             <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
                 <span className="hol-rank-num">{rank <= 3 ? ["🥇","🥈","🥉"][rank-1] : `#${rank}`}</span>
-                <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}</span>
+                <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}{tier && typeof value === "number" ? <> <RankBadge rating={value} size="xs" /></> : null}</span>
                 <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
             </div>
         );
@@ -221,11 +222,11 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         })()}
                         <p className="hol-board-label">⚔ Ranked Battle Rating (Elo)</p>
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} />
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}>🐾 Pet Ranked Rating (Elo)</p>
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
-                            <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} />
+                            <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Global Pet Ladders — climb by beating the player ranked above you. All-time standings; no season reset.</p>
                         <p className="hol-board-label">🏆 Pet Coliseum Ladder — Top 10</p>

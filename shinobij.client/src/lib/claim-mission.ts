@@ -18,7 +18,7 @@ import { markMissionCompleted, markHuntCompleted } from "./character-progress";
 import { currentMonthKey } from "./utils";
 import type { Character, CurrencyRewards } from "../types/character";
 
-export type MissionType = "combat" | "field" | "hunt" | "academy-trial";
+export type MissionType = "combat" | "field" | "hunt" | "academy-trial" | "academy-checklist";
 
 export type ClaimReward = {
     xpBoosted: number;        // base after the town-hall boost; pass to gainXp
@@ -37,6 +37,7 @@ export type ClaimMissionResult =
         combat?: { aiProfileId: string; missionKey: string };
         completion: "daily" | "total" | "none" | "hunt";
         academyTrialClaimed?: boolean;
+        academyChecklistClaimed?: boolean;
     }
     | { ok: true; applied: false; reason: string; clientFallback?: boolean }
     | null;
@@ -105,6 +106,7 @@ export function applyServerMissionReward(
         };
     }
     if (result.academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
+    if (result.academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
     return next;
 }
 

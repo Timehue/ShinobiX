@@ -1,0 +1,1 @@
+var e=`petBloom.v1`;function t(){try{let t=localStorage.getItem(e);return t===`1`?!0:t===`0`?!1:typeof window<`u`&&!!window.matchMedia&&window.matchMedia(`(pointer: fine)`).matches}catch{return!1}}var n=`petEvolveCutscene.v1`;function r(){try{return localStorage.getItem(n)!==`0`}catch{return!0}}export{r as n,t};

@@ -5,6 +5,8 @@ import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
+import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
+import { NextGoalPin } from "./components/NextGoalPin";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
@@ -308,11 +310,8 @@ import {
 // consumed directly by components/ClanWarsPanel now, no longer by App.
 
 // Achievement table extracted to src/constants/achievements.ts.
-import {
-    type Achievement,
-    ACHIEVEMENTS,
-    achievementReward,
-} from "./constants/achievements";
+import { type Achievement, ACHIEVEMENTS, achievementReward } from "./constants/achievements";
+import { nextEarnedTitles } from "./lib/earned-titles";
 
 // Pet Arena grid + obstacle layouts + type-effectiveness moved to
 // src/constants/pet-arena.ts.
@@ -1852,6 +1851,9 @@ export default function App() {
         const eligibleIds = ACHIEVEMENTS.filter(a => a.check(character)).map(a => a.id);
         const prior = character.unlockedAchievements;
 
+        // Earned titles — union-sync with unlocked title achievements (lib/earned-titles).
+        const newTitles = nextEarnedTitles(character, eligibleIds);
+        if (newTitles) setCharacter(c => c ? { ...c, earnedTitles: newTitles } : c);
         if (!prior) {
             // First load — silent backfill, no toasts
             const now = Date.now();
@@ -7423,11 +7425,9 @@ export default function App() {
                     backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.30), rgba(2, 6, 23, 0.72))`,
                 }}
             >
-                {/* Suspense boundary for lazy-loaded screens (Inventory, Hospital,
-                    HallOfLegends, AdminLogin, etc.). The fallback is intentionally
-                    minimal — screen transitions are quick after first lazy fetch,
-                    and a heavy spinner here would flash on every navigation. */}
+                {/* Suspense for lazy screens; the per-screen ErrorBoundary (keyed by screen) isolates a render crash to one view so the nav stays usable and navigating away clears it. */}
                 <Suspense fallback={<div className="lazy-screen-fallback" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>}>
+                <ScreenErrorBoundary key={screen}>
                 {character && screen !== "start" && (
                     <MobileStatusHUD
                         character={character}
@@ -8440,12 +8440,10 @@ export default function App() {
                     <ScreenHint screen={screen} character={character} updateCharacter={setCharacter} />
                 )}
 
-                {!activeTriggeredEvent && screen === "village" && character && (
-                    <Village
-                        characterVillage={character.village}
-                        setScreen={navigate}
-                    />
-                )}
+                {!activeTriggeredEvent && screen === "village" && character && (<>
+                    <NextGoalPin character={character} navigate={navigate} />
+                    <Village characterVillage={character.village} setScreen={navigate} />
+                </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
                         key={worldMapKey}
@@ -9080,6 +9078,7 @@ export default function App() {
                         onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
                     />
                 )}
+                </ScreenErrorBoundary>
                 </Suspense>
             </main>
 

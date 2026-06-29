@@ -60,7 +60,7 @@ const pill: React.CSSProperties = { display: "inline-block", background: "#2a2a3
 const mono: React.CSSProperties = { fontFamily: "monospace", fontSize: "0.82rem" };
 
 export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
-    const [section, setSection] = useState<"assets" | "receipts" | "audit">("assets");
+    const [section, setSection] = useState<"assets" | "receipts" | "audit" | "economy">("assets");
 
     // ── Battle receipts ──────────────────────────────────────────────────────
     const [battleId, setBattleId] = useState("");
@@ -144,6 +144,33 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
 
     useEffect(() => { if (section === "audit") void loadAudit(auditDomain); }, [section, auditDomain, loadAudit]);
 
+    // Economy telemetry (faucet/sink aggregates + recent currency deltas).
+    type EconSnap = {
+        aggregates: Record<string, { created: number; destroyed: number; net: number }>;
+        recent: Array<{ ts: number; player: string; currency: string; delta: number; source: string }>;
+        duplicateTxnIds: string[];
+    };
+    const [econ, setEcon] = useState<EconSnap | null>(null);
+    const [econStatus, setEconStatus] = useState("");
+    const loadEconomy = useCallback(async () => {
+        if (!adminPw) return;
+        setEconStatus("Loading…");
+        try {
+            const r = await fetch("/api/admin/economy?limit=200", { headers: { "x-admin-password": adminPw } });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            setEcon({
+                aggregates: data.aggregates ?? {},
+                recent: Array.isArray(data.recent) ? data.recent : [],
+                duplicateTxnIds: Array.isArray(data.duplicateTxnIds) ? data.duplicateTxnIds : [],
+            });
+            setEconStatus("");
+        } catch (e) {
+            setEconStatus(`❌ ${(e as Error).message}`);
+        }
+    }, [adminPw]);
+    useEffect(() => { if (section === "economy") void loadEconomy(); }, [section, loadEconomy]);
+
     // ── Render ───────────────────────────────────────────────────────────────
     return (
         <div>
@@ -152,9 +179,9 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                 Read-only operations tools — battle receipts, asset health, and the action audit log.
             </p>
             <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                {(["assets", "receipts", "audit"] as const).map((s) => (
+                {(["assets", "receipts", "audit", "economy"] as const).map((s) => (
                     <button key={s} className={section === s ? "active" : ""} onClick={() => setSection(s)}>
-                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : "Audit Log"}
+                        {s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : "Economy"}
                     </button>
                 ))}
             </div>
@@ -298,6 +325,48 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {section === "economy" && (
+                <div>
+                    <button onClick={() => void loadEconomy()} disabled={!adminPw}>↻ Refresh</button>
+                    {econStatus && <span style={{ marginLeft: 8, color: "#f88" }}>{econStatus}</span>}
+                    {econ && (
+                        <>
+                            <div style={box}>
+                                <strong>Supply per currency (created − destroyed)</strong>
+                                {Object.keys(econ.aggregates).length === 0 && <span style={{ color: "#9aa" }}> — no transactions logged yet.</span>}
+                                {Object.entries(econ.aggregates).map(([cur, a]) => (
+                                    <div key={cur} style={{ marginTop: 4 }}>
+                                        <strong style={{ textTransform: "capitalize" }}>{cur}</strong>{" "}
+                                        <span style={pill}>net {a.net.toLocaleString()}</span>
+                                        <span style={{ ...pill, color: "#7d7" }}>+{a.created.toLocaleString()} created</span>
+                                        <span style={{ ...pill, color: "#e88" }}>−{a.destroyed.toLocaleString()} destroyed</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {econ.duplicateTxnIds.length > 0 && (
+                                <div style={{ ...box, borderColor: "#a33" }}>
+                                    <strong style={{ color: "#f88" }}>⚠ Duplicate txnIds (possible replay): {econ.duplicateTxnIds.length}</strong>
+                                    <div style={mono}>{econ.duplicateTxnIds.map((id) => <span key={id} style={pill}>{id}</span>)}</div>
+                                </div>
+                            )}
+                            <div style={box}>
+                                <strong>Recent transactions ({econ.recent.length})</strong>
+                                <div style={{ maxHeight: 280, overflow: "auto", marginTop: 4 }}>
+                                    {econ.recent.map((t, i) => (
+                                        <div key={i} style={{ borderBottom: "1px solid #2a2a36", padding: "3px 0", ...mono }}>
+                                            <span style={{ color: "#9aa" }}>{fmtTime(t.ts)}</span>{" "}
+                                            <span style={{ color: "#8cf" }}>{t.player}</span>{" "}
+                                            <span style={{ color: t.delta >= 0 ? "#7d7" : "#e88" }}>{t.delta >= 0 ? "+" : ""}{t.delta.toLocaleString()} {t.currency}</span>{" "}
+                                            <span style={{ color: "#caa" }}>{t.source}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>
