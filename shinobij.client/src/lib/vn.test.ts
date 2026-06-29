@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, type VnFlowPage } from "./vn";
+import { isChoiceAvailable, analyzeVnFlow, parseDialogueString, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
 import { addStoryTrait } from "./character-progress";
 import type { Character } from "../types/character";
 
@@ -93,4 +93,17 @@ test("dialogue round-trips and is stable across repeated passes", () => {
     assert.equal(serializeDialogueLines(parseDialogueString(s)), s);
     const once = serializeDialogueLines(parseDialogueString(s));
     assert.equal(serializeDialogueLines(parseDialogueString(once)), once);
+});
+
+test("splitDialogueLine: 'Speaker: text' splits on the first colon", () => {
+    assert.deepEqual(splitDialogueLine("Mira: Wait: listen.", "Narrator"), { speaker: "Mira", text: "Wait: listen." });
+});
+
+test("splitDialogueLine: a colon-less line uses (trimmed) fallback speaker + whole line", () => {
+    assert.deepEqual(splitDialogueLine("The wind howls.", "  Elder Vanta  "), { speaker: "Elder Vanta", text: "The wind howls." });
+});
+
+test("splitDialogueLine: empty after the colon falls back to the whole line; speaker/text trimmed", () => {
+    assert.deepEqual(splitDialogueLine("Mira:", "Narrator"), { speaker: "Mira", text: "Mira:" });
+    assert.deepEqual(splitDialogueLine("  Mira  :  Hello  ", "Narrator"), { speaker: "Mira", text: "Hello" });
 });
