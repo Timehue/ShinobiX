@@ -29,6 +29,19 @@ export function dailyMissionsCompleted(character: Character) {
     return character.lastDailyReset === currentDateKey() ? character.dailyMissionsCompleted ?? 0 : 0;
 }
 
+// Record a story/VN choice trait on the character (additive + deduped). The VN
+// renderer's onChoice callback calls this when a branching choice is picked, so
+// later choices/pages can gate on it (requireTrait / forbidTrait). Pure: only
+// ever appends to storyTraits, never touches another save field — so wiring it
+// into the live renderer can't corrupt a save.
+export function addStoryTrait(character: Character, trait: string): Character {
+    const t = trait.trim();
+    if (!t) return character;
+    const existing = character.storyTraits ?? [];
+    if (existing.includes(t)) return character;
+    return { ...character, storyTraits: [...existing, t] };
+}
+
 export function hasDailyMissionSlot(character: Character) {
     return dailyMissionsCompleted(character) < DAILY_MISSION_LIMIT;
 }

@@ -10,7 +10,7 @@ import { runPetDuel, type DuelResult } from "../lib/pet-duel-sim";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
-import { defaultVnPortrait, defaultVnScene } from "../lib/vn";
+import { defaultVnPortrait, defaultVnScene, splitDialogueLine } from "../lib/vn";
 import { currentDateKey } from "../lib/utils";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
@@ -60,9 +60,7 @@ export function DungeonEncounter({
     const page = pages[Math.min(stagePage, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
     const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The dungeon waits.";
-    const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
-    const speaker = splitLine[0].trim();
-    const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+    const { speaker, text: spoken } = splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
     // Admin-uploaded dungeon art (managed via the Relic Dungeons admin tab)
     // overlays the static event/page fallbacks. Each dungeon has 4 slots:
     // backdrop (VN scene), warden (boss portrait), tilescene (seal 2
