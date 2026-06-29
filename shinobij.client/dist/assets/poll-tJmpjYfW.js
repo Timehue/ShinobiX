@@ -1,0 +1,1 @@
+function e(e,t,n=.1){let r=null,i=!1,a=()=>{if(n<=0)return t;let e=t*n;return t-e+Math.random()*e*2},o=()=>{r=setTimeout(()=>{i||(document.hidden||e(),o())},a())};o();let s=()=>{!document.hidden&&!i&&e()};return document.addEventListener(`visibilitychange`,s),()=>{i=!0,r&&clearTimeout(r),document.removeEventListener(`visibilitychange`,s)}}export{e as t};
