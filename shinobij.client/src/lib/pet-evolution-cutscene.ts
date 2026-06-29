@@ -1,25 +1,32 @@
 /*
  * Pet evolution cutscene — the pure, deterministic TIMELINE (the "engine").
  *
- * Mirrors the digivolution beat structure (see
- * docs/pet-starter-evolution-plan.md §4): the old form charges and rises, a
- * tube of light + silhouette morph engulfs it, a white burst, the new form is
- * revealed with its name, then a full 360° hero spin before it settles.
+ * Digivolution cadence (owner-specified):
+ *   1. the current pet starts to SPIN and washes into a white glow
+ *   2. a big TUBE OF LIGHT rises up around it
+ *   3. it keeps spinning (white silhouette) inside the tube
+ *   4. the EVOLVED form appears (cross-fades in, still spinning)
+ *   5. the spin SLOWS DOWN (still a white glow)
+ *   6. BOOM — a white burst, then the new evolved pet is revealed in colour
  *
- * This module is renderer-agnostic and side-effect-free so it can be unit
- * tested. The view (components/PetEvolutionCutscene.tsx) reads `evolutionPhaseAt`
- * each frame and drives CSS/transform from it. Same split as
- * pet-coliseum-scene.ts (pure) ↔ PetColiseum.tsx (view).
+ * The spin is ONE continuous rotation (accelerate → fast → decelerate) that
+ * lands front-facing for the burst, so the flat sprite is only ever edge-on
+ * while it is a glowing white silhouette (where it reads as energy, not a
+ * paper-thin sprite). The colour frames (charge start, reveal/settle) stay front.
+ *
+ * Renderer-agnostic and side-effect-free so it can be unit tested. The view
+ * (components/PetEvolutionCutscene.tsx) reads `evolutionPhaseAt` each frame and
+ * drives CSS/transform from it.
  */
 
 export type EvolutionBeat =
-    | "charge"     // old form glows, void fades in, old name shown
-    | "ascend"     // old form rises + slow spin
-    | "tube"       // tube of light + silhouette morph (camera "crash-zoom")
-    | "burst"      // white flash at the peak
-    | "reveal"     // new form appears, new name slams in
-    | "turntable"  // new form makes a full 360° hero spin
-    | "settle";    // eases to a hero angle and holds; Continue available
+    | "charge"     // old pet starts to spin, colour → white glow; old name shown
+    | "spinup"     // white silhouette spins up as the big tube of light rises
+    | "morph"      // still spinning; the evolved form cross-fades in (appears)
+    | "slowdown"   // the spin decelerates, still a white glow
+    | "burst"      // BOOM — white flash at the peak
+    | "reveal"     // the new evolved pet's colour floods in; new name slams
+    | "settle";    // holds the new form; Continue available
 
 export interface EvolutionBeatSpec {
     beat: EvolutionBeat;
@@ -27,18 +34,23 @@ export interface EvolutionBeatSpec {
     durationMs: number;
 }
 
-// Beat timings (ms). Tuned to the §4.3 table. Sum === EVOLUTION_TOTAL_MS.
+// Beat timings (ms). Sum === EVOLUTION_TOTAL_MS.
 export const EVOLUTION_BEATS: EvolutionBeatSpec[] = [
     { beat: "charge", startMs: 0, durationMs: 1200 },
-    { beat: "ascend", startMs: 1200, durationMs: 1000 },
-    { beat: "tube", startMs: 2200, durationMs: 1200 },
-    { beat: "burst", startMs: 3400, durationMs: 400 },
-    { beat: "reveal", startMs: 3800, durationMs: 400 },
-    { beat: "turntable", startMs: 4200, durationMs: 2300 },
-    { beat: "settle", startMs: 6500, durationMs: 1500 },
+    { beat: "spinup", startMs: 1200, durationMs: 1400 },
+    { beat: "morph", startMs: 2600, durationMs: 2000 },
+    { beat: "slowdown", startMs: 4600, durationMs: 1400 },
+    { beat: "burst", startMs: 6000, durationMs: 500 },
+    { beat: "reveal", startMs: 6500, durationMs: 900 },
+    { beat: "settle", startMs: 7400, durationMs: 1300 },
 ];
 
-export const EVOLUTION_TOTAL_MS = 8000;
+export const EVOLUTION_TOTAL_MS = 8700;
+
+// The continuous spin runs from the start through the end of `slowdown`, then
+// holds front-facing for the burst/reveal/settle.
+const SPIN_END_MS = 6000;
+const SPIN_TURNS = 6;
 
 export interface EvolutionPhase {
     beat: EvolutionBeat;
@@ -66,65 +78,138 @@ export function evolutionPhaseAt(elapsedMs: number): EvolutionPhase {
     return { beat: "settle", progress: 1, elapsedMs: t, done: true };
 }
 
-const NEW_FORM_BEATS = new Set<EvolutionBeat>(["reveal", "turntable", "settle"]);
-const OLD_FORM_BEATS = new Set<EvolutionBeat>(["charge", "ascend", "tube"]);
+const TAU = Math.PI * 2;
 
-/** The new (evolved) form is on screen from the reveal onward. */
-export function isNewFormVisible(beat: EvolutionBeat): boolean {
-    return NEW_FORM_BEATS.has(beat);
+const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
+/** Cubic ease-in-out: slow start, fast middle, slow end. */
+function easeInOut(e: number): number {
+    const x = clamp01(e);
+    return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+}
+/** Quadratic ease-out: fast start, gentle finish. */
+function easeOut(e: number): number {
+    const x = clamp01(e);
+    return 1 - Math.pow(1 - x, 2);
 }
 
-/** The old form is on screen up to and including the tube of light. */
+// The old form is on stage from charge through the morph (fading OUT across it).
+const OLD_FORM_BEATS = new Set<EvolutionBeat>(["charge", "spinup", "morph"]);
+// The new (evolved) form is on stage from the morph onward (fading IN there).
+const NEW_FORM_BEATS = new Set<EvolutionBeat>(["morph", "slowdown", "burst", "reveal", "settle"]);
+
 export function isOldFormVisible(beat: EvolutionBeat): boolean {
     return OLD_FORM_BEATS.has(beat);
 }
-
-/** Whether the old name caption shows (charge → tube). */
+export function isNewFormVisible(beat: EvolutionBeat): boolean {
+    return NEW_FORM_BEATS.has(beat);
+}
+/** Old name shows while the old form is on stage (charge → morph). */
 export function showOldName(beat: EvolutionBeat): boolean {
     return OLD_FORM_BEATS.has(beat);
 }
-
-/** Whether the new name caption shows (reveal onward). */
+/** New name is held back until the boom reveal (suspense through the spin). */
 export function showNewName(beat: EvolutionBeat): boolean {
-    return NEW_FORM_BEATS.has(beat);
+    return beat === "reveal" || beat === "settle";
 }
-
-const TAU = Math.PI * 2;
-// Hero rest angle after the spin — a slight 3/4 turn reads as "3D", not flat-on.
-const SETTLE_ANGLE = TAU * 0.06;
 
 /**
- * Y-axis rotation (radians) for the hero turntable. One full circle across the
- * `turntable` beat (eased), then a gentle ease into the SETTLE_ANGLE hero pose.
- * Other beats return 0 (the old form's slow ascend spin is handled separately).
+ * The ONE continuous spin (radians). Accelerates from 0, spins fast through the
+ * tube/morph, decelerates across the slowdown, and LANDS on a whole number of
+ * turns (≡ front-facing) at SPIN_END_MS — held there for the burst/reveal/settle
+ * so the colour form faces front. Shared by both the old and new silhouettes.
  */
-export function turntableRotation(phase: EvolutionPhase): number {
-    if (phase.beat === "turntable") {
-        // ease-in-out so the spin starts/ends smooth.
-        const e = phase.progress;
-        const eased = e < 0.5 ? 2 * e * e : 1 - Math.pow(-2 * e + 2, 2) / 2;
-        return eased * TAU;
-    }
-    if (phase.beat === "settle") {
-        // Continue the last bit of rotation into the resting hero angle.
-        return TAU + SETTLE_ANGLE * phase.progress;
-    }
-    return 0;
+export function evolutionSpin(phase: EvolutionPhase): number {
+    const t = Math.min(1, phase.elapsedMs / SPIN_END_MS);
+    return easeInOut(t) * SPIN_TURNS * TAU;
 }
 
-/** Slow ascend spin for the OLD form (radians) — a lazy turn while it rises. */
-export function ascendRotation(phase: EvolutionPhase): number {
-    if (phase.beat === "ascend") return phase.progress * Math.PI;        // half turn
-    if (phase.beat === "tube") return Math.PI + phase.progress * Math.PI; // finishes the turn
-    return 0;
+/**
+ * 0..1 progress of the old→new cross-fade. 0 before the morph, eased across it,
+ * 1 after (the evolved form is fully present from the slowdown on).
+ */
+export function morphProgress(phase: EvolutionPhase): number {
+    if (phase.beat === "morph") return easeInOut(phase.progress);
+    return isNewFormVisible(phase.beat) ? 1 : 0;
 }
 
-/** 0..1 intensity of the white burst flash (peaks mid-burst, fades by reveal). */
+/**
+ * 0..1 "whiteness": 0 = the pet is shown in full COLOUR, 1 = a pure white glow
+ * silhouette. The old pet washes to white over the first half of the charge (so
+ * it is white before the spin turns it edge-on), stays white through the burst,
+ * then the new pet's colour floods in across the reveal.
+ */
+export function whiteness(phase: EvolutionPhase): number {
+    switch (phase.beat) {
+        case "charge": return Math.min(1, phase.progress * 2);   // colour → white over the first half
+        case "spinup":
+        case "morph":
+        case "slowdown":
+        case "burst": return 1;                                  // full white glow
+        case "reveal": return 1 - easeInOut(phase.progress);     // white → colour (the boom reveal)
+        default: return 0;                                       // settle: full colour
+    }
+}
+
+/**
+ * 0..1 brightness of the big TUBE OF LIGHT. Kindles faint in the charge, RISES
+ * to full as the pet spins up (the tube "comes up"), holds through the morph +
+ * slowdown (the pet spins enveloped in it), then collapses with the burst. Gone
+ * by the reveal so the new form steps out onto a clean stage.
+ */
+export function tubeIntensity(phase: EvolutionPhase): number {
+    switch (phase.beat) {
+        case "charge": return 0;                                     // NO tube yet — the pet starts its slow spin first
+        case "spinup": return easeOut(phase.progress);               // tube RISES up once the spin is under way (0 → 1)
+        case "morph":
+        case "slowdown": return 1;                                   // fully up
+        case "burst": return Math.max(0, 1 - phase.progress * 1.4);  // collapses with the boom
+        default: return 0;                                           // reveal / settle: gone
+    }
+}
+
+/** 0..1 of the tube's "rise" — how far up the column has travelled into place. */
+export function tubeRise(phase: EvolutionPhase): number {
+    if (phase.beat === "charge") return 0;                  // hidden — the pet spins up first
+    if (phase.beat === "spinup") return easeOut(phase.progress);
+    return tubeIntensity(phase) > 0 ? 1 : 0;
+}
+
+/**
+ * 0..1 intensity of the rushing data-tunnel backdrop. Builds with the spin/tube,
+ * peaks in the slowdown, fades through the burst, gone by the hero settle.
+ */
+export function tunnelIntensity(phase: EvolutionPhase): number {
+    switch (phase.beat) {
+        case "charge": return 0.1 + phase.progress * 0.2;             // 0.10 → 0.30
+        case "spinup": return 0.3 + phase.progress * 0.4;             // 0.30 → 0.70
+        case "morph": return 0.7 + phase.progress * 0.3;              // 0.70 → 1.00
+        case "slowdown": return 1;
+        case "burst": return Math.max(0, 1 - phase.progress * 0.7);
+        case "reveal": return Math.max(0, 0.4 - phase.progress * 0.4);
+        default: return 0;
+    }
+}
+
+/** 0..1 white burst flash — the BOOM. Peaks in the burst, fades early in reveal. */
 export function burstIntensity(phase: EvolutionPhase): number {
-    if (phase.beat === "burst") {
-        // ramp up over the first half, hold, then start to fall.
-        return Math.min(1, phase.progress * 1.6);
-    }
-    if (phase.beat === "reveal") return Math.max(0, 1 - phase.progress); // fade out
+    if (phase.beat === "burst") return Math.min(1, phase.progress * 1.8);
+    if (phase.beat === "reveal") return Math.max(0, 1 - phase.progress * 1.4);
     return 0;
+}
+
+/**
+ * Scale of the form. Rests at 1, grows a touch as it spins up + morphs, holds
+ * through the burst, then the reveal "pops" it (a slightly bigger boom impact
+ * easing back to 1).
+ */
+export function morphScale(phase: EvolutionPhase): number {
+    switch (phase.beat) {
+        case "charge": return 1;
+        case "spinup": return 1 + easeOut(phase.progress) * 0.06;        // 1 → 1.06
+        case "morph": return 1.06 + easeInOut(phase.progress) * 0.06;    // 1.06 → 1.12
+        case "slowdown":
+        case "burst": return 1.12;
+        case "reveal": return 1.18 - 0.18 * easeOut(phase.progress);     // boom pop 1.18 → 1.0
+        default: return 1;                                               // settle
+    }
 }

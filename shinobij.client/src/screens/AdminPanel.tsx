@@ -16,6 +16,7 @@ import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { KenneyAtlasPicker } from "../components/KenneyAtlasPicker";
 import { TagPicker } from "../components/TagPicker";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
+import { VnDialogueEditor } from "../components/VnDialogueEditor";
 import { biomeForWorldSector, villages, worldSectorOptions } from "../data/sectors";
 import { jutsuElements, jutsuMethods, jutsuTargets, rebalanceNonBloodlineJutsu, specialties, starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import { auraSphereLv9VnEvent, awakeningLv2VnEvent, craftDungeonEvents, hiddenDungeonVnEvent } from "../data/vn-events";
@@ -33,9 +34,10 @@ import { addItem, removeItem, countItem } from "../lib/inventory";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { deletedItemMarker, getAllItems } from "../lib/items";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
+import { analyzeVnFlow } from "../lib/vn";
 import { firstCurrencyReward, rewardCurrencyOptions, rewardSummary, singleCurrencyReward } from "../lib/currency";
 import { jutsuPoints } from "../lib/jutsu-points";
-import { makeId } from "../lib/utils";
+import { clampNumber, makeId } from "../lib/utils";
 import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeJutsuTags, percentageTags } from "../lib/tags";
 import { petDisplayName } from "../lib/pet";
@@ -460,7 +462,11 @@ export function AdminPanel({
     const [aiBulkCustomPrompts, setAiBulkCustomPrompts] = useState<Record<string, string>>({});
 
     function cardFromForm(id?: string): TileCard {
-        return { id: id ?? `card-${makeId()}`, name: cardName, top: cardTop, right: cardRight, bottom: cardBottom, left: cardLeft, element: cardElement, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
+        // Clamp edges to the 1–99 two-digit range the card game uses, so a
+        // blank, negative, or oversized input can't save a card that renders or
+        // compares wrong. Built-in cards (values 15–99) are unaffected.
+        const edge = (v: number) => clampNumber(Number.isFinite(v) ? Math.floor(v) : 1, 1, 99);
+        return { id: id ?? `card-${makeId()}`, name: cardName.trim() || "New Card", top: edge(cardTop), right: edge(cardRight), bottom: edge(cardBottom), left: edge(cardLeft), element: cardElement, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
     }
 
     function loadAdminCard(card: TileCard) {
@@ -608,6 +614,26 @@ export function AdminPanel({
     const [previewVn, setPreviewVn] = useState<CreatorEvent | null>(null);
     const [previewVnPage, setPreviewVnPage] = useState(0);
     const [previewVnLine, setPreviewVnLine] = useState(0);
+    // Reusable VN cast — a per-admin palette of characters (name + small portrait)
+    // kept in localStorage so the same character can be dropped onto any page or
+    // any VN without re-typing/re-uploading. Editor-only: picking one just fills
+    // the per-page leftName/leftImage/rightName/rightImage fields the renderer
+    // already reads, so storage + playback are unchanged.
+    const [vnCast, setVnCast] = useState<{ name: string; image: string }[]>(() => {
+        try {
+            const v = JSON.parse(localStorage.getItem("shinobix:vnCast") || "[]");
+            return Array.isArray(v) ? v.filter((m) => m && typeof m.name === "string").map((m) => ({ name: m.name, image: typeof m.image === "string" ? m.image : "" })) : [];
+        } catch { return []; }
+    });
+    function saveVnCast(next: { name: string; image: string }[]) {
+        setVnCast(next);
+        try { localStorage.setItem("shinobix:vnCast", JSON.stringify(next)); } catch { /* quota or storage disabled — keep in-memory */ }
+    }
+    function addToCast(name?: string, image?: string) {
+        const n = (name ?? "").trim();
+        if (!n) { alert("Give the character a name first, then save it to the cast."); return; }
+        saveVnCast([...vnCast.filter((m) => m.name.toLowerCase() !== n.toLowerCase()), { name: n, image: image ?? "" }]);
+    }
 
     const [eventName, setEventName] = useState("Admin World Event");
     const [editingEventId, setEditingEventId] = useState("");
@@ -705,6 +731,11 @@ export function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
+    // Admin-only filter text for the long content pickers (additive UI; no
+    // effect on saved data or gameplay). Narrows the list as you type.
+    const [aiFindQuery, setAiFindQuery] = useState("");
+    const [itemLibQuery, setItemLibQuery] = useState("");
+    const [cardLibQuery, setCardLibQuery] = useState("");
     // Tabs Admin 2 (content role) is NOT allowed to access. Hidden from the
     // tab switcher AND clamped at state level so a refresh / stale session-
     // storage / manual setState can't slip them in. Server-side, the
@@ -886,6 +917,17 @@ export function AdminPanel({
     async function pmGive() {
         if (!pmSnap) { setPmMsg("Look up a player first."); return; }
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
+        // Summarize the grant and confirm before writing to the player's save.
+        const giftParts: string[] = [];
+        if (pmGivePetId) {
+            const givePet = editablePets.find(p => p.id === pmGivePetId);
+            if (givePet) giftParts.push(`pet: ${petDisplayName(givePet)}`);
+        }
+        for (const [giftKey, giftAmt] of Object.entries(pmGiveAmounts)) {
+            if (giftAmt > 0) giftParts.push(`${giftAmt.toLocaleString()} ${giftKey}`);
+        }
+        if (giftParts.length === 0) { setPmMsg("Nothing to give — pick a pet or set an amount above 0."); return; }
+        if (!window.confirm(`Give ${pmTargetName.trim()}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`)) return;
         const char: Record<string, unknown> = { ...(pmSnap.character as Record<string, unknown>) };
         // Give pet
         if (pmGivePetId) {
@@ -987,11 +1029,14 @@ export function AdminPanel({
         const char = { ...(pmEditSnap.character as Record<string, unknown> ?? {}) };
         const stats = { ...(char.stats as Record<string, number> ?? {}) };
         const statKeys = ["strength","speed","intelligence","willpower","ninjutsuOffense","ninjutsuDefense","taijutsuOffense","taijutsuDefense","bukijutsuOffense","bukijutsuDefense","genjutsuOffense","genjutsuDefense"];
-        for (const key of statKeys) stats[key] = pmEditFields[key] ?? stats[key] ?? 0;
-        char.level = pmEditFields.level;
-        char.xp = pmEditFields.xp;
-        char.ryo = pmEditFields.ryo;
-        char.unspentStats = pmEditFields.unspentStats;
+        // Clamp every edited field to a legal range so a typo (level 999,
+        // negative ryo, an emptied box → NaN) can't corrupt the player's save.
+        const fin = (v: number, fallback: number) => (Number.isFinite(v) ? v : fallback);
+        for (const key of statKeys) stats[key] = capStat(fin(pmEditFields[key], stats[key] ?? 0));
+        char.level = clampNumber(Math.floor(fin(pmEditFields.level, (char.level as number) ?? 1)), 1, MAX_LEVEL);
+        char.xp = Math.max(0, Math.floor(fin(pmEditFields.xp, 0)));
+        char.ryo = Math.max(0, Math.floor(fin(pmEditFields.ryo, 0)));
+        char.unspentStats = Math.max(0, Math.floor(fin(pmEditFields.unspentStats, 0)));
         char.stats = stats;
         const updated = { ...pmEditSnap, character: char };
         await pmEditPatch(updated);
@@ -1610,6 +1655,8 @@ export function AdminPanel({
                         nextPage: c.nextPage,
                         conclusion: c.conclusion?.trim() || undefined,
                         trait: c.trait?.trim() || undefined,
+                        requireTrait: c.requireTrait?.trim() || undefined,
+                        forbidTrait: c.forbidTrait?.trim() || undefined,
                         battle: c.battle,
                     }))
                     : undefined,
@@ -2450,10 +2497,29 @@ export function AdminPanel({
                             <AiImagePrompt label="Right-Side VN Avatar" suggestedPrompt={`${eventVnSpeaker || eventName} shinobi visual novel portrait`} onImage={applyEventAvatarImage} />
                             {eventAvatarImage && (<div className="admin-jutsu-preview admin-event-preview"><img src={eventAvatarImage} alt="VN avatar preview" /><button className="danger-button" onClick={() => applyEventAvatarImage("")}>Remove Avatar</button></div>)}
                             <label>Story Pages (1–10)</label><input type="number" min={1} max={10} value={eventPageCount} onChange={(e) => setEventPageCount(Math.max(1, Math.min(10, Number(e.target.value))))} />
+                            <div className="summary-box" style={{ margin: "6px 0" }}>
+                                <div style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 6 }}>Cast — reusable characters (saved on this device, across all VNs)</div>
+                                {vnCast.length === 0
+                                    ? <p className="hint" style={{ margin: 0 }}>No saved characters yet. Set a page's left/right name + avatar below, then "Save to cast" to reuse them on any page.</p>
+                                    : <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                        {vnCast.map((m) => (
+                                            <span key={m.name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 4px 3px 8px", border: "1px solid #334155", borderRadius: 999 }}>
+                                                {m.image
+                                                    ? <img src={m.image} alt={m.name} style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }} />
+                                                    : <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#1e293b", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{m.name.slice(0, 2).toUpperCase()}</span>}
+                                                <span style={{ fontSize: "0.85rem" }}>{m.name}</span>
+                                                <button type="button" title={`Remove ${m.name} from cast`} className="danger-button" style={{ padding: "0 7px", lineHeight: "20px" }} onClick={() => saveVnCast(vnCast.filter((c) => c.name !== m.name))}>×</button>
+                                            </span>
+                                        ))}
+                                    </div>}
+                            </div>
                             <div className="admin-vn-page-list">
                                 {eventVnPages.slice(0, eventPageCount).map((page, index) => (
-                                    <div className="summary-box admin-vn-page" key={index}>
-                                        <h4>Page {index + 1}</h4>
+                                    <div className="summary-box admin-vn-page" id={`admin-vn-page-${index}`} key={index}>
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                            <h4 style={{ margin: 0 }}>Page {index + 1}</h4>
+                                            <button type="button" onClick={() => { setPreviewVn(eventFromForm()); setPreviewVnPage(index); setPreviewVnLine(0); }}>▶️ Preview from here</button>
+                                        </div>
                                         <label>Page Title</label><input value={page.title} onChange={(e) => updateVnPage(index, { title: e.target.value })} />
                                         <label>Scene</label><textarea rows={2} value={page.scene} onChange={(e) => updateVnPage(index, { scene: e.target.value })} />
                                         <label>Speaker</label><input value={page.speaker} onChange={(e) => updateVnPage(index, { speaker: e.target.value })} />
@@ -2461,6 +2527,22 @@ export function AdminPanel({
                                         <div className="inline-grid">
                                             <input placeholder="Left player name" value={page.leftName ?? ""} onChange={(e) => updateVnPage(index, { leftName: e.target.value })} />
                                             <input placeholder="Right speaker / enemy / narrator" value={page.rightName ?? ""} onChange={(e) => updateVnPage(index, { rightName: e.target.value })} />
+                                        </div>
+                                        {vnCast.length > 0 && (
+                                            <div className="inline-grid">
+                                                <select value="" onChange={(e) => { const m = vnCast.find((c) => c.name === e.target.value); if (m) updateVnPage(index, { leftName: m.name, leftImage: m.image }); }}>
+                                                    <option value="">Use saved character (left)…</option>
+                                                    {vnCast.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+                                                </select>
+                                                <select value="" onChange={(e) => { const m = vnCast.find((c) => c.name === e.target.value); if (m) updateVnPage(index, { rightName: m.name, rightImage: m.image }); }}>
+                                                    <option value="">Use saved character (right)…</option>
+                                                    {vnCast.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+                                                </select>
+                                            </div>
+                                        )}
+                                        <div className="inline-grid">
+                                            <button type="button" onClick={() => addToCast(page.leftName, page.leftImage)}>＋ Save left to cast</button>
+                                            <button type="button" onClick={() => addToCast(page.rightName, page.rightImage)}>＋ Save right to cast</button>
                                         </div>
                                         <label>VN Avatars</label>
                                         <div className="vn-avatar-editor-row">
@@ -2490,7 +2572,17 @@ export function AdminPanel({
                                             </div>
                                         )}
                                         <label>Dialogue Lines</label>
-                                        <textarea rows={4} value={page.dialogue} onChange={(e) => updateVnPage(index, { dialogue: e.target.value })} />
+                                        <VnDialogueEditor
+                                            value={page.dialogue}
+                                            onChange={(next) => updateVnPage(index, { dialogue: next })}
+                                            cast={[page.leftName ?? "", page.rightName ?? "", page.speaker, eventVnSpeaker]}
+                                            idBase={`vnpage-${index}`}
+                                        />
+                                        <p className="hint" style={{ margin: "2px 0 4px" }}>Leave the speaker blank for narration (uses the page speaker). The first colon in a line splits speaker from text.</p>
+                                        <details>
+                                            <summary className="hint">Edit as raw text</summary>
+                                            <textarea rows={4} value={page.dialogue} onChange={(e) => updateVnPage(index, { dialogue: e.target.value })} />
+                                        </details>
                                         <label>Page Image</label>
                                         <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, (image) => updateVnPage(index, { image }), 100); }} />
                                         <AiImagePrompt label={`Page ${index + 1} Image`} suggestedPrompt={`${page.title}, ${page.scene}`} onImage={(image) => updateVnPage(index, { image })} />
@@ -2507,7 +2599,7 @@ export function AdminPanel({
                                         )}
                                         <div className="summary-box">
                                             <h5>Choices (branch at end of page dialogue)</h5>
-                                            <p className="hint">Each choice appears as a button after the last dialogue line. Leave empty to auto-advance. Page numbers are 1-based.</p>
+                                            <p className="hint">Each choice appears as a button after the last dialogue line. Leave empty to auto-advance. Page numbers are 1-based. "Grants trait" records a flag on the player; "show/hide if trait" branches later choices on flags earned earlier in the story.</p>
                                             {page.choices.map((choice, ci) => (
                                                 <div className="vn-choice-editor" key={ci}>
                                                     <div className="inline-grid">
@@ -2522,7 +2614,7 @@ export function AdminPanel({
                                                             max={eventPageCount}
                                                             placeholder="📄 Page"
                                                             value={choice.nextPage + 1}
-                                                            onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, nextPage: Math.max(0, Number(e.target.value) - 1) } : c) })}
+                                                            onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, nextPage: Math.max(0, Math.min(eventPageCount - 1, Number(e.target.value) - 1)) } : c) })}
                                                         />
                                                         <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>🗑️</button>
                                                     </div>
@@ -2533,10 +2625,22 @@ export function AdminPanel({
                                                         onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, conclusion: e.target.value } : c) })}
                                                     />
                                                     <input
-                                                        placeholder="Hidden trait flag (merciful, reckless, suspicious...)"
+                                                        placeholder="Grants trait when picked (merciful, reckless, suspicious...)"
                                                         value={choice.trait ?? ""}
                                                         onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, trait: e.target.value } : c) })}
                                                     />
+                                                    <div className="inline-grid">
+                                                        <input
+                                                            placeholder="Show only if player has trait (optional)"
+                                                            value={choice.requireTrait ?? ""}
+                                                            onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, requireTrait: e.target.value } : c) })}
+                                                        />
+                                                        <input
+                                                            placeholder="Hide if player has trait (optional)"
+                                                            value={choice.forbidTrait ?? ""}
+                                                            onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, forbidTrait: e.target.value } : c) })}
+                                                        />
+                                                    </div>
                                                     <details className="vn-battle-trigger-editor">
                                                         <summary>Optional Encounter Trigger</summary>
                                                         <label>Fight Type</label>
@@ -2593,6 +2697,43 @@ export function AdminPanel({
                                     </div>
                                 ))}
                             </div>
+                            {(() => {
+                                const flowPages = eventVnPages.slice(0, eventPageCount);
+                                // Reachability + authoring warnings come from the pure, unit-tested
+                                // analyzeVnFlow helper so the editor and its tests stay in lockstep.
+                                const { reachable, warnings } = analyzeVnFlow(flowPages);
+                                const reachableSet = new Set(reachable);
+                                return (
+                                    <div className="summary-box">
+                                        <h5 style={{ margin: "0 0 0.3rem" }}>Story flow {warnings.length === 0 ? "✓ no issues" : `— ${warnings.length} warning${warnings.length > 1 ? "s" : ""}`}</h5>
+                                        <ol className="hint" style={{ margin: 0, paddingLeft: "1.2rem" }}>
+                                            {flowPages.map((p, i) => {
+                                                const picks = (p.choices ?? []).filter((c) => c.text.trim());
+                                                return (
+                                                    <li key={i} style={{ opacity: reachableSet.has(i) ? 1 : 0.45 }}>
+                                                        <button
+                                                            type="button"
+                                                            title="Jump to this page in the editor"
+                                                            onClick={() => document.getElementById(`admin-vn-page-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                                                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", font: "inherit", textAlign: "left" }}
+                                                        >
+                                                            <strong>{p.title?.trim() || `Page ${i + 1}`}</strong>
+                                                            {picks.length === 0
+                                                                ? (i + 1 < flowPages.length ? ` → page ${i + 2}` : " → battle / finale")
+                                                                : `: ${picks.map((c) => `“${c.text.trim()}” → p${c.nextPage + 1}${c.battle ? " ⚔" : ""}${c.requireTrait ? ` (if ${c.requireTrait})` : ""}${c.forbidTrait ? ` (unless ${c.forbidTrait})` : ""}${c.trait ? ` [+${c.trait}]` : ""}`).join("  ·  ")}`}
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ol>
+                                        {warnings.length > 0 && (
+                                            <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.2rem" }}>
+                                                {warnings.map((msg, i) => <li key={i} className="hint" style={{ color: "#fcd34d" }}>{msg}</li>)}
+                                            </ul>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                             <p className="hint">Dialogue format: Speaker: Line text. Each line is a separate Next press.</p>
                             <label>Level / XP / Ryo / Stamina Reward</label>
                             <div className="inline-grid"><input type="number" value={eventLevelReq} onChange={(e) => setEventLevelReq(Number(e.target.value))} /><input type="number" value={eventXp} onChange={(e) => setEventXp(Number(e.target.value))} /><input type="number" value={eventRyo} onChange={(e) => setEventRyo(Number(e.target.value))} /><input type="number" value={eventStamina} onChange={(e) => setEventStamina(Number(e.target.value))} /></div>
@@ -2735,8 +2876,11 @@ export function AdminPanel({
                         <label>Find Saved AI</label>
                         {allAdminAis.length === 0 ? <p className="hint">No AI profiles yet. Build one below and save it.</p> : (
                             <>
+                                <input placeholder="🔍 Filter AIs by name / village / level…" value={aiFindQuery} onChange={(e) => setAiFindQuery(e.target.value)} style={{ marginBottom: 6 }} />
                                 <select value={selectedAdminAiProfile?.id ?? ""} onChange={(e) => setSelectedAiId(e.target.value)}>
-                                    {allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level} | {ai.rules.length} rules{builtinAis.some((builtin) => builtin.id === ai.id) ? " | Built-in" : ""}</option>)}
+                                    {allAdminAis
+                                        .filter((ai) => { const q = aiFindQuery.trim().toLowerCase(); return !q || ai.id === selectedAiId || `${ai.name} ${ai.village} lv${ai.level}`.toLowerCase().includes(q); })
+                                        .map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level} | {ai.rules.length} rules{builtinAis.some((builtin) => builtin.id === ai.id) ? " | Built-in" : ""}</option>)}
                                 </select>
                                 {selectedAdminAiProfile && <div className="summary-box ai-selected-preview">{selectedAdminAiProfile.image ? <img src={selectedAdminAiProfile.image} alt={selectedAdminAiProfile.name} /> : <span>{selectedAdminAiProfile.icon}</span>}<div><strong>{selectedAdminAiProfile.name}</strong><p>{selectedAdminAiProfile.village} | Level {selectedAdminAiProfile.level}</p><div className="menu"><button onClick={() => loadAdminAi(selectedAdminAiProfile)}>Load AI</button>{!builtinAis.some((builtin) => builtin.id === selectedAdminAiProfile.id) && <button className="danger-button" onClick={() => setCreatorAis(creatorAis.filter((ai) => ai.id !== selectedAdminAiProfile.id))}>Delete AI</button>}</div></div></div>}
                             </>
@@ -3397,7 +3541,8 @@ export function AdminPanel({
                         })()}
 
                         <h4>All Items</h4>
-                        {getAllItems(creatorItems).map((item) => {
+                        <input placeholder="🔍 Filter items by name / slot / rarity…" value={itemLibQuery} onChange={(e) => setItemLibQuery(e.target.value)} style={{ marginBottom: 6 }} />
+                        {getAllItems(creatorItems).filter((item) => { const q = itemLibQuery.trim().toLowerCase(); return !q || `${item.name} ${equipmentSlotLabel(item.slot)} ${item.rarity}`.toLowerCase().includes(q); }).map((item) => {
                             const isCreator = creatorItems.some((c) => c.id === item.id);
                             return (
                                 <div className={`equipment-item rarity-${item.rarity}`} key={item.id}
@@ -4333,7 +4478,8 @@ export function AdminPanel({
 
                     <section className="summary-box">
                         <h4>All Cards ({[...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))].length})</h4>
-                        {([...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))]).map((card) => {
+                        <input placeholder="🔍 Filter cards by name / element / rarity…" value={cardLibQuery} onChange={(e) => setCardLibQuery(e.target.value)} style={{ marginBottom: 6 }} />
+                        {([...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))]).filter((card) => { const q = cardLibQuery.trim().toLowerCase(); return !q || `${card.name} ${card.element} ${card.rarity}`.toLowerCase().includes(q); }).map((card) => {
                             const isCreator = creatorCards.some((c) => c.id === card.id);
                             return (
                                 <div key={card.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
