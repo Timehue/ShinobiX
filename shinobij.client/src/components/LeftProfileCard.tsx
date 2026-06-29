@@ -31,6 +31,8 @@ import { petDisplayName } from "../lib/pet";
 import { GameIcon } from "./icons/GameIcon";
 import type { GameIconName } from "./icons/GameIcon";
 import { DailyBriefingModal } from "./DailyBriefingModal";
+import { RankUpCelebration } from "./RankUpCelebration";
+import { PatchNotesModal } from "./PatchNotesModal";
 
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
 // ONLY scheduled refresh — parent (App) state churn no longer triggers a
@@ -70,6 +72,12 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 activeTraining={activeTraining}
                 activeJutsuTraining={activeJutsuTraining}
             />
+            {/* Global progression overlays — both portal to <body>, so they show
+                full-screen on desktop AND mobile even though this host card is
+                CSS-hidden on mobile. Hosted here (not App.tsx) to stay within the
+                App.tsx line budget, same pattern as DailyBriefingModal above. */}
+            <RankUpCelebration character={character} />
+            <PatchNotesModal character={character} />
             <div className="left-profile-avatar-wrap">
                 <button
                     className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}
