@@ -29,6 +29,7 @@ import { type VillageWarRecord } from "../lib/world-state";
 import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
+import { NextGoalPin } from "../components/NextGoalPin";
 
 export function CentralHub({
     character,
@@ -660,6 +661,8 @@ export function CentralHub({
                     hunter, and legend crosses paths.
                 </p>
             </div>
+
+            <NextGoalPin character={character} navigate={setScreen} />
 
             <div className="central-log">
                 {centralLog}

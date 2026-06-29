@@ -80,8 +80,10 @@ export async function recordAudit(entry: Omit<AuditEntry, 'ts'> & { ts?: number 
             const existing = (await kv.get<AuditEntry[]>(key)) ?? [];
             await kv.set(key, appendCapped(existing, full));
         });
-    } catch {
-        // best-effort
+    } catch (e) {
+        // best-effort — never fail the calling action, but log: a swallowed
+        // audit write means a content/reward change left no trail.
+        console.error(`[audit] recordAudit failed (${entry.domain}/${entry.action}):`, e);
     }
 }
 

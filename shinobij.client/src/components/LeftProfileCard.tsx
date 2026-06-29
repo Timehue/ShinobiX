@@ -33,6 +33,7 @@ import type { GameIconName } from "./icons/GameIcon";
 import { DailyBriefingModal } from "./DailyBriefingModal";
 import { RankUpCelebration } from "./RankUpCelebration";
 import { PatchNotesModal } from "./PatchNotesModal";
+import { RankBadge } from "./RankBadge";
 
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
 // ONLY scheduled refresh — parent (App) state churn no longer triggers a
@@ -94,6 +95,11 @@ export const LeftProfileCard = memo(function LeftProfileCard({
 
             <div className="left-profile-name">{character.name}</div>
             <div className="left-profile-rank">{character.rankTitle}</div>
+            {((character.rankedWins ?? 0) + (character.rankedLosses ?? 0)) > 0 && (
+                <div className="left-profile-rank" style={{ marginTop: 2 }}>
+                    <RankBadge rating={character.rankedRating ?? 1000} showRating size="xs" />
+                </div>
+            )}
             <div className="left-profile-stat">HP {character.hp}/{character.maxHp}</div>
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>

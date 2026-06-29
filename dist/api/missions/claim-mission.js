@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
+const _economy_js_1 = require("../_economy.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Server-authoritative mission claim. Replaces the old client-side reward math
 // for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
@@ -54,7 +55,7 @@ async function handler(req, res) {
         const missionId = String(body.missionId ?? '').slice(0, 80);
         if (!playerName)
             return res.status(400).json({ error: 'Invalid player name.' });
-        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial') {
+        if (missionType !== 'combat' && missionType !== 'field' && missionType !== 'hunt' && missionType !== 'academy-trial' && missionType !== 'academy-checklist') {
             return res.status(400).json({ error: 'Invalid mission type.' });
         }
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
@@ -83,6 +84,7 @@ async function handler(req, res) {
             let combat;
             let completion = 'daily';
             let academyTrialClaimed = false;
+            let academyChecklistClaimed = false;
             if (missionType === 'combat') {
                 const def = (0, _mission_catalog_js_1.combatMissionByKey)(missionId);
                 if (!def)
@@ -133,7 +135,7 @@ async function handler(req, res) {
                 items = def.itemRewards ?? [];
                 completion = 'hunt';
             }
-            else {
+            else if (missionType === 'academy-trial') {
                 // academy-trial — one-time, off the daily cap.
                 if (char.academyTrialClaimed)
                     return { applied: false, reason: 'already-claimed' };
@@ -142,6 +144,19 @@ async function handler(req, res) {
                 baseStamina = _mission_catalog_js_1.ACADEMY_TRIAL.stamina;
                 completion = 'total';
                 academyTrialClaimed = true;
+            }
+            else {
+                // academy-checklist — the one-time graduation capstone. Off the
+                // daily cap, doesn't count toward mission totals (completion 'none'),
+                // grants a small premium (Fate Shards) bonus from the sealed catalog.
+                if (char.academyChecklistClaimed)
+                    return { applied: false, reason: 'already-claimed' };
+                baseXp = _mission_catalog_js_1.ACADEMY_CHECKLIST.xp;
+                baseRyo = _mission_catalog_js_1.ACADEMY_CHECKLIST.ryo;
+                baseStamina = _mission_catalog_js_1.ACADEMY_CHECKLIST.stamina;
+                currencyBase = { fateShards: _mission_catalog_js_1.ACADEMY_CHECKLIST.fateShards };
+                completion = 'none';
+                academyChecklistClaimed = true;
             }
             // Per-mission idempotency for field/hunt claims: each built-in
             // field/hunt mission is claimable at most once per UTC day (matches
@@ -210,6 +225,8 @@ async function handler(req, res) {
             }
             if (academyTrialClaimed)
                 next = { ...next, academyTrialClaimed: true };
+            if (academyChecklistClaimed)
+                next = { ...next, academyChecklistClaimed: true };
             const updated = { ...record, character: next };
             (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
@@ -226,6 +243,7 @@ async function handler(req, res) {
                 combat,
                 completion,
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
+                ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
             };
         }, { failClosed: true });
         // New-shinobi dailies: a successful mission claim is the main activity
@@ -242,6 +260,15 @@ async function handler(req, res) {
             }
             catch (e) {
                 console.error('[claim-mission newbie]', e);
+            }
+            // Economy telemetry — log the server-computed faucet deltas (ryo +
+            // any premium currency) so created-vs-destroyed is measurable.
+            const r = outcome.reward;
+            if (r.ryo)
+                await (0, _economy_js_1.recordEconomyTxn)({ txnId: `mission:${missionType}:${missionId}:${todayKey}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
+            for (const [cur, amt] of Object.entries(r.currency ?? {})) {
+                if (amt)
+                    await (0, _economy_js_1.recordEconomyTxn)({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
         }
         return res.status(200).json({ ok: true, ...outcome });

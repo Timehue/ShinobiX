@@ -7,6 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/player/trade — POST (direct player-to-player transfer)
@@ -126,6 +127,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(nonceKey, { ts: now, receipt: out.body }, { ex: NONCE_TTL_SECONDS } as never).catch(() => undefined);
             }
             await kv.set(`${AUDIT_PREFIX}${now}`, { ts: now, from: playerName, to: toSlug, currency, debit: out.body.debit, credit: out.body.credit, burned: out.body.burned }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            // Economy telemetry — the 10% trade burn is a real "currency destroyed"
+            // signal (sink), logged as a negative delta.
+            const burned = Number((out.body as { burned?: number }).burned) || 0;
+            if (burned > 0) await recordEconomyTxn({ txnId: `trade-burn:${now}`, player: playerName, currency, delta: -burned, source: 'trade.burn' });
         }
         return res.status(out.status).json(out.body);
     } catch (err) {
