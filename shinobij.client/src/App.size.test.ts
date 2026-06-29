@@ -71,7 +71,10 @@ import { readFileSync } from "node:fs";
 // requireTrait/forbidTrait (+2), the addStoryTrait import (+1), and the onChoice
 // persist wiring on the live TriggeredVisualNovel usage (+1) — all reference
 // App-local state (setCharacter) so they cannot move to a module).
-const MAX_LINES = 10_176;
+// → 10,104 (−72 DRAIN: the CreatorEvent + StoryStep VN content types moved out
+// to ./types/vn, imported back + re-exported from App for the "../App" sites;
+// the now-unused CurrencyRewards type import was dropped too).
+const MAX_LINES = 10_104;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
