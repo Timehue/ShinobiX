@@ -68,11 +68,12 @@ function allocatedStatPoints(stats: Stats): number {
 }
 
 // ── lib/stats.ts — level / XP curve ─────────────────────────────────────────
-// Quadratic-per-level curve (the `3` is the master pacing dial). Cumulative is
-// cubic. VERBATIM port of shinobij.client/src/lib/stats.ts xpNeeded.
+// Quadratic-per-level curve (the `6` is the master pacing dial; fit to real faucets
+// for ~90 days L1→90 for an engaged daily-active player). Cumulative is cubic.
+// VERBATIM port of shinobij.client/src/lib/stats.ts xpNeeded.
 export function xpNeeded(level: number): number {
     if (level >= MAX_LEVEL) return 0;
-    return Math.round(3 * level * level);
+    return Math.round(6 * level * level);
 }
 
 // (The old cumulative-XP helpers are gone here too — the stat budget is now
