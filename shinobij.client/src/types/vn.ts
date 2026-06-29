@@ -35,6 +35,12 @@ export type CreatorEvent = {
         scene: string;
         speaker: string;
         dialogue: string[];
+        // Typed-dialogue storage: structured per-line speaker/text (+ optional
+        // per-line portrait). When present the renderer reads these instead of
+        // parsing the legacy `dialogue` strings; `dialogue` is kept as a mirror
+        // for the line count and for older code paths, so existing VNs (which
+        // have no `lines`) are unaffected.
+        lines?: { speaker: string; text: string; image?: string }[];
         image?: string;
         leftName?: string;
         leftImage?: string;
