@@ -46,7 +46,7 @@
    **stat budget = power** as *independent* dials (fast levels, smooth power, no
    mid-game sag — better than the reference's coupled model). Add per-rank stat
    caps (anti-twink) and the **seamless-gameplay layer** (§10A): combat *is*
-   progression, rank-ups are power spikes, no dead time (idle timers + auto-queue),
+   progression, rank-ups are power spikes, no dead time (idle timers + daily reset),
    legible "XP→stats→power" UI.
 
 Everything below is the detail and the numbers. **The spine is lever 5** — the
@@ -531,10 +531,12 @@ training timers** (set one, log off, collect the XP next login), **pet expeditio
 mission/hunt caps). A rested multiplier would double-dip on absence (idle XP + a
 boost on active play), could pull semi-active players *past* the 90-day target, and
 adds a new system to tune — against the locked "daily caps do the pacing, not
-energy/rested systems" rule. The one real gap (idle training is one-at-a-time, so a
-multi-day absence banks only ~8h) is better closed by **auto-queuing stat training**
-(reuse `lib/jutsu-training-queue.ts`) under PX-4 — no new mechanic. Revisit only if
-*measured* casual-retention data demands it.
+energy/rested systems" rule. And the "one-at-a-time idle training banks only ~8h of a
+long absence" is **not a gap to close** — it's intentional: one-at-a-time forces a
+return to start the next timer (a re-engagement touchpoint), and auto-queue was
+rejected (it would enable ~16h of zero-interaction progression). Net: **no catch-up
+mechanic** — over-rewarding absence isn't a goal; revisit only if *measured*
+casual-retention data demands it.
 
 ---
 
@@ -674,16 +676,19 @@ a title change into a mechanical reward, and gives the slow mid/late game a
 satisfying *staircase* (plateau → exam → spike) instead of a flat grind. Co-tune
 the caps so the banked amount is a *treat*, not a frustrating lockout.
 
-### PX-4. No dead time — always something cooking
+### PX-4. No dead time — already handled by design (mostly)
 The genre's #1 silent killer is "15 minutes, then locked out" (Torn) and the
-post-tutorial cliff (KoL). Our antidote already half-exists; make it the explicit
-policy: **an idle training timer running, a pet expedition accruing offline, a
-queued jutsu training, and daily caps that reset as the come-back hook.** Concrete:
-make the **first** training timer very short (instant first claim), let training
-**auto-queue** the next session (we already queued jutsu training — `[[lib/jutsu-
-training-queue]]`), and frame offline accrual as "your training kept working while
-you were away" (AFK Arena/Melvor). The player should never open the game to
-*nothing to collect and nothing to start.*
+post-tutorial cliff (KoL). Our antidote **already exists**: an idle training timer
+running, a pet expedition accruing offline, and daily caps that reset as the
+come-back hook. Crucially, **stat training stays one-at-a-time on purpose** — that
+forces a return to start the next session, which is a deliberate re-engagement
+touchpoint. **Do NOT auto-queue it** (owner decision): batching timers would let a
+player set-and-forget for ~16h with zero interaction — the "logged-out but
+progressing" hole we're trying to avoid. So PX-4 is *not* a new system; the only
+additive, non-conflicting tweaks are onboarding-flavored: make the **first** training
+timer very short (instant first claim) and frame offline accrual as "your training
+kept working while you were away." The player should never open the game to *nothing
+to collect and nothing to start* — and today they don't.
 
 ### PX-5. Catch-up — CUT (redundant with idle training; see §7.3)
 A rested-XP multiplier was dropped: the idle-training timers + offline pet
@@ -762,9 +767,9 @@ fate-shard income vs evolution arc.
 **Phase 5 — Seamless-gameplay layer (§10A).** Rank-up power spike (PX-3 — now
 AUTOMATIC: the per-rank stat caps un-clamp stored stats on rank-up; only the
 celebration UI remains); no-dead-time polish (short first timer, training
-auto-queue, offline-accrual framing — PX-4); progression-legibility UI (PX-6, extend
-the Logbook). PX-5 rested-XP **CUT** (redundant with idle training — §7.3). Pure UI —
-no curve change.
+offline-accrual framing — PX-4; auto-queue REJECTED, see §10A); progression-legibility
+UI (PX-6, extend the Logbook). PX-5 rested-XP **CUT** (redundant with idle training —
+§7.3). Pure UI — no curve change.
 
 **Phase 6 — Combat-driven stat growth (PX-2, balance-flagged).** Fights grow the
 stats you used, gated through the shared `statBudget`/per-rank cap so it can't
@@ -800,8 +805,9 @@ Each phase: run `npm test` (API) + `npm run lint` (client); rebuild + commit
    stats you used" (seamless), gated through the shared budget? Yes / flagged-A-B /
    no. *Recommended yes, behind a flag (Phase 6).*
 9. **Catch-up — rested XP (PX-5): RESOLVED → CUT.** Redundant with idle training +
-   offline expeditions + daily-cap reset (§7.3). The narrow one-at-a-time idle gap is
-   covered by training auto-queue (PX-4) instead.
+   offline expeditions + daily-cap reset (§7.3). The one-at-a-time idle limit is
+   intentional (a re-engagement touchpoint) — **auto-queue also rejected** (it would
+   enable ~16h of zero-interaction progression). No catch-up mechanic.
 10. **Legibility UI (PX-6):** confirm extending the Logbook with the
     XP→stats→power view + next-rank-unlock (pure UI, high ROI).
 
