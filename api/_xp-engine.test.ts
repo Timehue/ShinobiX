@@ -14,7 +14,7 @@ import {
 // sweep below. If the client formula changes, BOTH this replica and the port
 // must change in lockstep — that's the point (the "server == client" rule).
 
-const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 3;
+const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 1;
 const C_HP_CAP = 10000, C_CHAKRA_CAP = 5000, C_STAMINA_CAP = 5000;
 const C_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -28,17 +28,20 @@ function cNorm(stats?: Record<string, unknown>) {
     return C_KEYS.reduce((n, k) => { n[k] = cCap(stats?.[k] == null ? base[k] : Number(stats[k])); return n; }, { ...base });
 }
 const cAllocated = (s: Record<string, number>) => C_KEYS.reduce((t, k) => t + Math.max(0, cCap(s[k]) - 10), 0);
-const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : lvl * 100;
-const C_TOTAL_XP = ((C_MAX_LEVEL - 1) * C_MAX_LEVEL / 2) * 100;
-const cBeforeLevel = (lvl: number) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return ((l - 1) * l / 2) * 100; };
-const cForProgress = (lvl: number, xp: number) => lvl >= C_MAX_LEVEL ? C_TOTAL_XP : Math.min(C_TOTAL_XP, cBeforeLevel(lvl) + Math.max(0, Math.min(cXpNeeded(lvl), Math.floor(xp))));
+const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : Math.round(3 * lvl * lvl);
 const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
 const cMaxChakra = (lvl: number) => Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl: number) => Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cRankFrom = (lvl: number) => lvl >= 80 ? 'Special Jonin' : lvl >= 50 ? 'Jonin' : lvl >= 30 ? 'Chunin' : lvl >= 15 ? 'Genin' : 'Academy Student';
 const C_TOTAL_PTS = C_KEYS.reduce((t, k) => t + (C_MAX_STAT - cBase()[k]), 0);
 const C_PTS_FROM_XP = C_TOTAL_PTS - C_STARTING;
-const cBudget = (lvl: number, xp: number) => Math.min(C_TOTAL_PTS, C_STARTING + Math.floor((cForProgress(lvl, xp) / C_TOTAL_XP) * C_PTS_FROM_XP));
+const cStatBudgetAtLevel = (lvl: number) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return C_STARTING + Math.round(((l - 1) / (C_MAX_LEVEL - 1)) * C_PTS_FROM_XP); };
+const cBudget = (lvl: number, xp: number) => {
+    if (lvl >= C_MAX_LEVEL) return C_TOTAL_PTS;
+    const base = cStatBudgetAtLevel(lvl), next = cStatBudgetAtLevel(lvl + 1), need = cXpNeeded(lvl);
+    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
+    return Math.min(C_TOTAL_PTS, Math.round(base + (next - base) * frac));
+};
 function cReconcile(ch: Record<string, unknown>) {
     const stats = cNorm(ch.stats as Record<string, unknown>);
     const available = Math.max(0, cBudget(Number(ch.level), Number(ch.xp)) - cAllocated(stats));
@@ -100,14 +103,14 @@ describe('xp-engine sub-formulas match the client', () => {
             assert.equal(rankFromLevel(lvl), cRankFrom(lvl), `rankFromLevel(${lvl})`);
         }
     });
-    it('effectiveCharacterXpGain applies the ×3 boost mult + elder bonus', () => {
-        assert.equal(CHARACTER_XP_GAIN_MULTIPLIER, 3);
+    it('effectiveCharacterXpGain applies the ×1 (real) mult + elder bonus', () => {
+        assert.equal(CHARACTER_XP_GAIN_MULTIPLIER, 1);
         for (const amt of [0, 1, 75, 100, 125, 250]) {
             assert.equal(effectiveCharacterXpGain({}, amt), cEffXp({}, amt), `plain ${amt}`);
             assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, amt), cEffXp({ elderFocus: 'training' }, amt), `training ${amt}`);
         }
-        assert.equal(effectiveCharacterXpGain({}, 100), 300);
-        assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, 100), 330);
+        assert.equal(effectiveCharacterXpGain({}, 100), 100);
+        assert.equal(effectiveCharacterXpGain({ elderFocus: 'training' }, 100), 110);
     });
 });
 
@@ -155,26 +158,29 @@ describe('gainXp golden anchors', () => {
         assert.equal(out.xp, 0);
         assert.equal(out.unspentStats, 20);
     });
-    it('level 1 + 100 base XP (×3 = 300) climbs to level 3, xp 0', () => {
+    it('level 1 + 100 base XP (×1 = 100) climbs to level 5, xp 10', () => {
+        // Under 3·L² the early curve is cheap: xpNeeded 1..4 = 3+12+27+48 = 90,
+        // so 100 XP reaches L5 with 10 left over.
         const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
-        assert.equal(out.level, 3);
-        assert.equal(out.xp, 0);
-        assert.equal(out.maxHp, 700); // maxHpForLevel(3): 500 base + 2×100
-        assert.equal(out.hp, 700);
-        assert.equal(out.maxChakra, 198);
-        assert.equal(out.maxStamina, 198);
+        assert.equal(out.level, 5);
+        assert.equal(out.xp, 10);
+        assert.equal(out.maxHp, 900); // maxHpForLevel(5): 500 base + 4×100
+        assert.equal(out.hp, 900);
+        assert.equal(out.maxChakra, 297);
+        assert.equal(out.maxStamina, 297);
         assert.equal(out.rankTitle, 'Academy Student');
-        assert.equal(out.unspentStats, 38);
+        assert.equal(out.unspentStats, 1266); // linear budget, interpolated at (5, 10)
     });
     it('exam gate clamps level + XP (no genin exam → cap 20)', () => {
         const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 2000);
         assert.equal(out.level, 20);
-        assert.equal(out.xp, 1999); // clamped to xpNeeded(20)-1
+        assert.equal(out.xp, 917); // +2000 overflows L19 (need 1083) by 917; cap-20 stops the loop before the clamp bites
         assert.equal(out.rankTitle, 'Genin');
         assert.equal(out.maxHp, 2400); // maxHpForLevel(20): 500 base + 19×100
     });
     it('clamps to MAX_LEVEL and 0 xp at the top', () => {
-        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 5000);
+        // xpNeeded(99) = 29403 under 3·L², so the amount must exceed it to ding 100.
+        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 30000);
         assert.equal(out.level, MAX_LEVEL);
         assert.equal(out.xp, 0);
     });

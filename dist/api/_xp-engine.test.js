@@ -9,7 +9,7 @@ const _xp_engine_js_1 = require("./_xp-engine.js");
 // copy from api/_xp-engine.ts so a transcription drift on either side fails the
 // sweep below. If the client formula changes, BOTH this replica and the port
 // must change in lockstep — that's the point (the "server == client" rule).
-const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 3;
+const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 1;
 const C_HP_CAP = 10000, C_CHAKRA_CAP = 5000, C_STAMINA_CAP = 5000;
 const C_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -23,17 +23,21 @@ function cNorm(stats) {
     return C_KEYS.reduce((n, k) => { n[k] = cCap(stats?.[k] == null ? base[k] : Number(stats[k])); return n; }, { ...base });
 }
 const cAllocated = (s) => C_KEYS.reduce((t, k) => t + Math.max(0, cCap(s[k]) - 10), 0);
-const cXpNeeded = (lvl) => lvl >= C_MAX_LEVEL ? 0 : lvl * 100;
-const C_TOTAL_XP = ((C_MAX_LEVEL - 1) * C_MAX_LEVEL / 2) * 100;
-const cBeforeLevel = (lvl) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return ((l - 1) * l / 2) * 100; };
-const cForProgress = (lvl, xp) => lvl >= C_MAX_LEVEL ? C_TOTAL_XP : Math.min(C_TOTAL_XP, cBeforeLevel(lvl) + Math.max(0, Math.min(cXpNeeded(lvl), Math.floor(xp))));
+const cXpNeeded = (lvl) => lvl >= C_MAX_LEVEL ? 0 : Math.round(3 * lvl * lvl);
 const cMaxHp = (lvl) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
 const cMaxChakra = (lvl) => Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl) => Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cRankFrom = (lvl) => lvl >= 80 ? 'Special Jonin' : lvl >= 50 ? 'Jonin' : lvl >= 30 ? 'Chunin' : lvl >= 15 ? 'Genin' : 'Academy Student';
 const C_TOTAL_PTS = C_KEYS.reduce((t, k) => t + (C_MAX_STAT - cBase()[k]), 0);
 const C_PTS_FROM_XP = C_TOTAL_PTS - C_STARTING;
-const cBudget = (lvl, xp) => Math.min(C_TOTAL_PTS, C_STARTING + Math.floor((cForProgress(lvl, xp) / C_TOTAL_XP) * C_PTS_FROM_XP));
+const cStatBudgetAtLevel = (lvl) => { const l = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(lvl))); return C_STARTING + Math.round(((l - 1) / (C_MAX_LEVEL - 1)) * C_PTS_FROM_XP); };
+const cBudget = (lvl, xp) => {
+    if (lvl >= C_MAX_LEVEL)
+        return C_TOTAL_PTS;
+    const base = cStatBudgetAtLevel(lvl), next = cStatBudgetAtLevel(lvl + 1), need = cXpNeeded(lvl);
+    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
+    return Math.min(C_TOTAL_PTS, Math.round(base + (next - base) * frac));
+};
 function cReconcile(ch) {
     const stats = cNorm(ch.stats);
     const available = Math.max(0, cBudget(Number(ch.level), Number(ch.xp)) - cAllocated(stats));
@@ -98,14 +102,14 @@ function cGainXp(character, amount) {
             node_assert_1.strict.equal((0, _xp_engine_js_1.rankFromLevel)(lvl), cRankFrom(lvl), `rankFromLevel(${lvl})`);
         }
     });
-    (0, node_test_1.it)('effectiveCharacterXpGain applies the ×3 boost mult + elder bonus', () => {
-        node_assert_1.strict.equal(_xp_engine_js_1.CHARACTER_XP_GAIN_MULTIPLIER, 3);
+    (0, node_test_1.it)('effectiveCharacterXpGain applies the ×1 (real) mult + elder bonus', () => {
+        node_assert_1.strict.equal(_xp_engine_js_1.CHARACTER_XP_GAIN_MULTIPLIER, 1);
         for (const amt of [0, 1, 75, 100, 125, 250]) {
             node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({}, amt), cEffXp({}, amt), `plain ${amt}`);
             node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({ elderFocus: 'training' }, amt), cEffXp({ elderFocus: 'training' }, amt), `training ${amt}`);
         }
-        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({}, 100), 300);
-        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({ elderFocus: 'training' }, 100), 330);
+        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({}, 100), 100);
+        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({ elderFocus: 'training' }, 100), 110);
     });
 });
 // ─── gainXp full-object sweep vs the inline client replica ───────────────────
@@ -151,26 +155,29 @@ function cGainXp(character, amount) {
         node_assert_1.strict.equal(out.xp, 0);
         node_assert_1.strict.equal(out.unspentStats, 20);
     });
-    (0, node_test_1.it)('level 1 + 100 base XP (×3 = 300) climbs to level 3, xp 0', () => {
+    (0, node_test_1.it)('level 1 + 100 base XP (×1 = 100) climbs to level 5, xp 10', () => {
+        // Under 3·L² the early curve is cheap: xpNeeded 1..4 = 3+12+27+48 = 90,
+        // so 100 XP reaches L5 with 10 left over.
         const out = (0, _xp_engine_js_1.gainXp)({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
-        node_assert_1.strict.equal(out.level, 3);
-        node_assert_1.strict.equal(out.xp, 0);
-        node_assert_1.strict.equal(out.maxHp, 700); // maxHpForLevel(3): 500 base + 2×100
-        node_assert_1.strict.equal(out.hp, 700);
-        node_assert_1.strict.equal(out.maxChakra, 198);
-        node_assert_1.strict.equal(out.maxStamina, 198);
+        node_assert_1.strict.equal(out.level, 5);
+        node_assert_1.strict.equal(out.xp, 10);
+        node_assert_1.strict.equal(out.maxHp, 900); // maxHpForLevel(5): 500 base + 4×100
+        node_assert_1.strict.equal(out.hp, 900);
+        node_assert_1.strict.equal(out.maxChakra, 297);
+        node_assert_1.strict.equal(out.maxStamina, 297);
         node_assert_1.strict.equal(out.rankTitle, 'Academy Student');
-        node_assert_1.strict.equal(out.unspentStats, 38);
+        node_assert_1.strict.equal(out.unspentStats, 1266); // linear budget, interpolated at (5, 10)
     });
     (0, node_test_1.it)('exam gate clamps level + XP (no genin exam → cap 20)', () => {
         const out = (0, _xp_engine_js_1.gainXp)({ level: 19, xp: 0, examsPassed: [], stats: {} }, 2000);
         node_assert_1.strict.equal(out.level, 20);
-        node_assert_1.strict.equal(out.xp, 1999); // clamped to xpNeeded(20)-1
+        node_assert_1.strict.equal(out.xp, 917); // +2000 overflows L19 (need 1083) by 917; cap-20 stops the loop before the clamp bites
         node_assert_1.strict.equal(out.rankTitle, 'Genin');
         node_assert_1.strict.equal(out.maxHp, 2400); // maxHpForLevel(20): 500 base + 19×100
     });
     (0, node_test_1.it)('clamps to MAX_LEVEL and 0 xp at the top', () => {
-        const out = (0, _xp_engine_js_1.gainXp)({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 5000);
+        // xpNeeded(99) = 29403 under 3·L², so the amount must exceed it to ding 100.
+        const out = (0, _xp_engine_js_1.gainXp)({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 30000);
         node_assert_1.strict.equal(out.level, _xp_engine_js_1.MAX_LEVEL);
         node_assert_1.strict.equal(out.xp, 0);
     });

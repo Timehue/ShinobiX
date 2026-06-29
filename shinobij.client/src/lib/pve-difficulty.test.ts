@@ -28,13 +28,13 @@ test("difficulty bands use inclusive bracket boundaries", () => {
 // ── Band strength curve: sub-peer bands are weaker; peer is untouched ────────
 // The owner's note was "the AI are too strong in every category besides 90-100".
 // Stat AND HP multipliers must climb monotonically and stay < their peer value
-// below 90, while the peer band (the one that's "supposed to be this strong")
-// keeps its full stat (×1.3) and full HP (×1.0).
-test("stat multiplier weakens sub-peer bands and leaves peer at full strength", () => {
+// below 90. Peer's stat multiplier is now ×1.0 (the AI base is already the full
+// level-budget block, so peer == a maxed player); peer HP stays ×1.0.
+test("stat multiplier weakens sub-peer bands and leaves peer as the full-budget mirror", () => {
     assert.ok(pveDifficultyStatMultiplier(10) < pveDifficultyStatMultiplier(40), "easy < medium");
     assert.ok(pveDifficultyStatMultiplier(40) < pveDifficultyStatMultiplier(70), "medium < hard");
     assert.ok(pveDifficultyStatMultiplier(70) < pveDifficultyStatMultiplier(95), "hard < peer");
-    assert.equal(pveDifficultyStatMultiplier(95), 1.3, "peer keeps its full ×1.3");
+    assert.equal(pveDifficultyStatMultiplier(95), 1.0, "peer mirrors a maxed player (×1.0 on the full base)");
 });
 
 test("HP multiplier makes sub-peer foes less tanky and leaves peer at full HP", () => {

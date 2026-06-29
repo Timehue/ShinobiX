@@ -26,6 +26,9 @@ const EXPEDITION = read('api', 'missions', 'expedition-start.ts');
 const DOCTRINES = read('shinobij.client', 'src', 'lib', 'clan-doctrines.ts');
 const PROFESSION = read('shinobij.client', 'src', 'professionLogic.ts');
 const PETCONFIG = read('shinobij.client', 'src', 'data', 'pet-config.ts');
+const GAME = read('shinobij.client', 'src', 'constants', 'game.ts');
+const STATS = read('shinobij.client', 'src', 'lib', 'stats.ts');
+const XPENGINE = read('api', '_xp-engine.ts');
 
 function numArray(src: string, name: string): number[] {
     const m = src.match(new RegExp(name + '\\s*=\\s*\\[([^\\]]*)\\]'));
@@ -38,6 +41,13 @@ function numArray(src: string, name: string): number[] {
 function singleNum(src: string, name: string): number {
     // \b end so DOCTRINE_HOSPITAL_DISCOUNT doesn't match DOCTRINE_HOSPITAL_DISCOUNT_PCT.
     const m = src.match(new RegExp(name + '\\s*=\\s*(\\d+)'));
+    assert.ok(m, `constant ${name} not found`);
+    return Number(m![1]);
+}
+
+// Like singleNum but tolerates a TS type annotation (e.g. `NAME: number = 1`).
+function annotatedNum(src: string, name: string): number {
+    const m = src.match(new RegExp(name + '(?::\\s*\\w+)?\\s*=\\s*(\\d+)'));
     assert.ok(m, `constant ${name} not found`);
     return Number(m![1]);
 }
@@ -102,5 +112,34 @@ describe('parity: medics doctrine hospital discount (heal.ts ⇄ clan-doctrines.
             singleNum(DOCTRINES, 'DOCTRINE_HOSPITAL_DISCOUNT'),
             'medics hospital discount drifted between heal.ts and clan-doctrines.ts',
         );
+    });
+});
+
+// Guards the BALANCE-CRITICAL XP/level/stat-budget invariant across the two build
+// roots. _xp-engine.test.ts already compares the server port against a hand-copied
+// replica; this closes the THIRD side — the real client modules (constants/game.ts
+// + lib/stats.ts) — so a client-only drift (re-adding the testing boost, changing
+// the curve coefficient, or diverging the budget formula) fails npm test.
+describe('parity: XP engine constants + formulas (game.ts + stats.ts ⇄ api/_xp-engine.ts)', () => {
+    it('CHARACTER_XP_GAIN_MULTIPLIER matches and stays the real ×1 (testing boost off)', () => {
+        const client = annotatedNum(GAME, 'CHARACTER_XP_GAIN_MULTIPLIER');
+        const server = annotatedNum(XPENGINE, 'CHARACTER_XP_GAIN_MULTIPLIER');
+        assert.equal(client, server, 'XP multiplier drifted between game.ts and _xp-engine.ts');
+        assert.equal(client, 1, 'XP multiplier is not 1 — the testing boost must stay off in production');
+    });
+    for (const name of ['MAX_LEVEL', 'MAX_STAT', 'STARTING_STAT_POINTS']) {
+        it(`${name} matches across build roots`, () => {
+            assert.equal(singleNum(GAME, name), singleNum(XPENGINE, name), `${name} drifted between game.ts and _xp-engine.ts`);
+        });
+    }
+    it('xpNeeded uses the same 3·L² curve on both sides', () => {
+        const curve = 'Math.round(3 * level * level)';
+        assert.ok(STATS.includes(curve), 'client lib/stats.ts lost the 3·L² xpNeeded curve');
+        assert.ok(XPENGINE.includes(curve), 'server api/_xp-engine.ts lost the 3·L² xpNeeded curve');
+    });
+    it('statBudgetAtLevel uses the same linear formula on both sides', () => {
+        const formula = 'STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP)';
+        assert.ok(STATS.includes(formula), 'client lib/stats.ts statBudgetAtLevel formula drifted');
+        assert.ok(XPENGINE.includes(formula), 'server api/_xp-engine.ts statBudgetAtLevel formula drifted');
     });
 });

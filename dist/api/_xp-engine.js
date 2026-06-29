@@ -35,7 +35,8 @@ exports.creditPvpWinBase = creditPvpWinBase;
 exports.MAX_LEVEL = 100;
 exports.MAX_STAT = 2500;
 exports.STARTING_STAT_POINTS = 20;
-exports.CHARACTER_XP_GAIN_MULTIPLIER = 3;
+// Real (non-testing) XP rate. Parity-pinned with shinobij.client constants/game.ts.
+exports.CHARACTER_XP_GAIN_MULTIPLIER = 1;
 exports.HP_CAP = 10000;
 exports.CHAKRA_CAP = 5000;
 exports.STAMINA_CAP = 5000;
@@ -72,22 +73,15 @@ function allocatedStatPoints(stats) {
     return exports.STAT_KEYS.reduce((total, key) => total + Math.max(0, capStat(stats[key]) - base[key]), 0);
 }
 // ── lib/stats.ts — level / XP curve ─────────────────────────────────────────
+// Quadratic-per-level curve (the `3` is the master pacing dial). Cumulative is
+// cubic. VERBATIM port of shinobij.client/src/lib/stats.ts xpNeeded.
 function xpNeeded(level) {
     if (level >= exports.MAX_LEVEL)
         return 0;
-    return level * 100;
+    return Math.round(3 * level * level);
 }
-const TOTAL_XP_TO_MAX_LEVEL = ((exports.MAX_LEVEL - 1) * exports.MAX_LEVEL / 2) * 100;
-function totalXpBeforeLevel(level) {
-    const clampedLevel = Math.max(1, Math.min(exports.MAX_LEVEL, Math.floor(level)));
-    return ((clampedLevel - 1) * clampedLevel / 2) * 100;
-}
-function totalXpForProgress(level, xp) {
-    if (level >= exports.MAX_LEVEL)
-        return TOTAL_XP_TO_MAX_LEVEL;
-    const currentLevelXp = Math.max(0, Math.min(xpNeeded(level), Math.floor(xp)));
-    return Math.min(TOTAL_XP_TO_MAX_LEVEL, totalXpBeforeLevel(level) + currentLevelXp);
-}
+// (The old cumulative-XP helpers are gone here too — the stat budget is now
+// LEVEL-based, see statBudgetAtLevel below. Mirrors the client.)
 function maxHpForLevel(level) {
     // Base HP at level 1 is 500 (starter HP); +100 per level thereafter, up to
     // HP_CAP. Shifting only the base keeps the curve balance-neutral — players and
@@ -115,10 +109,20 @@ function rankFromLevel(level) {
 // ── lib/stats.ts — stat budget ──────────────────────────────────────────────
 const TOTAL_STAT_POINTS_TO_CAP = exports.STAT_KEYS.reduce((total, key) => total + (exports.MAX_STAT - baseStats()[key]), 0);
 const STAT_POINTS_FROM_XP_TO_CAP = TOTAL_STAT_POINTS_TO_CAP - exports.STARTING_STAT_POINTS;
+// LINEAR per-level stat budget (full cap at MAX_LEVEL). VERBATIM port of
+// shinobij.client/src/lib/stats.ts statBudgetAtLevel.
+function statBudgetAtLevel(level) {
+    const clampedLevel = Math.max(1, Math.min(exports.MAX_LEVEL, Math.floor(level)));
+    return exports.STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (exports.MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP);
+}
 function statPointBudgetForProgress(level, xp) {
-    const progressXp = totalXpForProgress(level, xp);
-    const earnedFromXp = Math.floor((progressXp / TOTAL_XP_TO_MAX_LEVEL) * STAT_POINTS_FROM_XP_TO_CAP);
-    return Math.min(TOTAL_STAT_POINTS_TO_CAP, exports.STARTING_STAT_POINTS + earnedFromXp);
+    if (level >= exports.MAX_LEVEL)
+        return TOTAL_STAT_POINTS_TO_CAP;
+    const base = statBudgetAtLevel(level);
+    const next = statBudgetAtLevel(level + 1);
+    const need = xpNeeded(level);
+    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
+    return Math.min(TOTAL_STAT_POINTS_TO_CAP, Math.round(base + (next - base) * frac));
 }
 function reconcileCharacterStatBudget(character) {
     const stats = normalizeStats(character.stats);
