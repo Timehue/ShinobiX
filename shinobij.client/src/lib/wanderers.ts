@@ -124,6 +124,11 @@ export function isWanderersEnabled(): boolean {
 // NOT cooled: a quest is one-at-a-time already, and you need a sage to continue an
 // active epic. Keyed by the wanderer's stable id → expiry ms.
 export const WANDERER_NPC_COOLDOWN_MS = 3 * 60 * 60 * 1000; // a few hours
+// A SHORTER "back off" cooldown for when you FLEE/decline a bandit instead of
+// fighting it. You took no reward, so it shouldn't vanish for the full anti-farm
+// window — but it must stop hunting you, or the same bandit re-confronts you every
+// single time you re-enter the sector until the 6h roster rolls over.
+export const WANDERER_FLEE_COOLDOWN_MS = 30 * 60 * 1000; // half an hour
 
 export function isWandererOnCooldown(
     cooldowns: Record<string, number> | null | undefined,
@@ -134,18 +139,20 @@ export function isWandererOnCooldown(
     return typeof exp === "number" && exp > now;
 }
 
-/** A new cooldown map with `id` cooled until now + WANDERER_NPC_COOLDOWN_MS, with
- *  already-expired entries pruned so the map stays tiny on the save. */
+/** A new cooldown map with `id` cooled until now + `ms` (defaults to the full
+ *  anti-farm window; pass WANDERER_FLEE_COOLDOWN_MS for a short flee back-off),
+ *  with already-expired entries pruned so the map stays tiny on the save. */
 export function withWandererCooldown(
     cooldowns: Record<string, number> | null | undefined,
     id: string,
     now: number,
+    ms: number = WANDERER_NPC_COOLDOWN_MS,
 ): Record<string, number> {
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(cooldowns ?? {})) {
         if (typeof v === "number" && v > now) out[k] = v;
     }
-    out[id] = now + WANDERER_NPC_COOLDOWN_MS;
+    out[id] = now + ms;
     return out;
 }
 
