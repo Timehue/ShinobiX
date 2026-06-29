@@ -5,7 +5,7 @@ import { buildTowerEncounter, pickTowerElements, type SquadMemberInput } from '.
 import { runTowerFloor } from './_engine.js';
 import { getActor } from './_tower-session.js';
 import { FLOOR_CATALOG, type TowerFloor } from './_floor-catalog.js';
-import { hasEnemyTemplate, getEnemyTemplate } from './_enemy-templates.js';
+import { hasEnemyTemplate, getEnemyTemplate, ENEMY_TEMPLATE_IDS } from './_enemy-templates.js';
 
 function smallFloor(over: Partial<TowerFloor> = {}): TowerFloor {
     return {
@@ -145,4 +145,30 @@ describe('Battle Towers feature placement (non-overlapping, off the spawn band)'
             }
         }
     });
+});
+
+// Regression guard for the per-rank STAT CAP: tower combat routes through applyJutsu,
+// which clamps each fighter's stats to statCapForLevel(level). Every enemy template MUST
+// carry a level whose rank-band cap is >= its biggest stat, or its hand-tuned stats get
+// gutted to the Academy ceiling in combat (the boss-over-nerf bug). statCapForLevel here
+// mirrors api/pvp/move.ts (and shinobij.client/src/constants/game.ts).
+describe('enemy templates fit their rank-band stat cap (no combat over-clamp)', () => {
+    const statCapForLevel = (level: number) => {
+        const lvl = Math.max(1, Math.floor(Number(level) || 1));
+        if (lvl >= 80) return 2500;
+        if (lvl >= 50) return 2100;
+        if (lvl >= 30) return 1300;
+        if (lvl >= 15) return 700;
+        return 350;
+    };
+    for (const id of ENEMY_TEMPLATE_IDS) {
+        it(`${id}: every stat fits statCapForLevel(level)`, () => {
+            const tpl = getEnemyTemplate(id);
+            assert.ok(typeof tpl.level === 'number' && tpl.level >= 1, `${id} has no level`);
+            const cap = statCapForLevel(tpl.level);
+            for (const [k, v] of Object.entries(tpl.stats)) {
+                assert.ok(v <= cap, `${id}.${k}=${v} exceeds the level-${tpl.level} rank cap ${cap} — it would be clamped in combat; raise the template's level`);
+            }
+        });
+    }
 });
