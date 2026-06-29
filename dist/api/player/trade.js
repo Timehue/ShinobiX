@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _trade_core_js_1 = require("./_trade-core.js");
+const _economy_js_1 = require("../_economy.js");
 /*
  * /api/player/trade — POST (direct player-to-player transfer)
  *
@@ -125,6 +126,11 @@ async function handler(req, res) {
                 await _storage_js_1.kv.set(nonceKey, { ts: now, receipt: out.body }, { ex: NONCE_TTL_SECONDS }).catch(() => undefined);
             }
             await _storage_js_1.kv.set(`${AUDIT_PREFIX}${now}`, { ts: now, from: playerName, to: toSlug, currency, debit: out.body.debit, credit: out.body.credit, burned: out.body.burned }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+            // Economy telemetry — the 10% trade burn is a real "currency destroyed"
+            // signal (sink), logged as a negative delta.
+            const burned = Number(out.body.burned) || 0;
+            if (burned > 0)
+                await (0, _economy_js_1.recordEconomyTxn)({ txnId: `trade-burn:${now}`, player: playerName, currency, delta: -burned, source: 'trade.burn' });
         }
         return res.status(out.status).json(out.body);
     }

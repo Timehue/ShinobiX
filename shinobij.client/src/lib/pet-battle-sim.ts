@@ -13,6 +13,7 @@
 import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, petBushTiles, petShrineSeekGoal, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
 import { petMoveset, jutsuToPetMove } from "./pet-moves";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
+import { roleMultiplier, petRoleOf } from "./pet-roles";
 import {
     applyPetPvpGear,
     petConsumableCharges,
@@ -207,7 +208,7 @@ function estimatePetActionDamage(
 ): number {
     const dmgBonus     = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
     const guardianBlock = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
-    const elementMult  = petElementMultiplier(actor.pet, target.pet);
+    const elementMult  = petMatchupMult(actor.pet, target.pet);
     const absorbMult   = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
     // Item-aware: fold in the same PVP-gear / consumable multipliers the real
     // hit uses so the AI's lethal-detection matches reality — it goes for the
@@ -709,6 +710,15 @@ function petElementMultiplier(attacker: Pet | undefined, defender: Pet | undefin
     if (PET_ELEMENT_BEATS[d] === a) return 0.85;   // −15% resisted
     return 1;
 }
+// Full damage matchup multiplier = element edge × role-counter edge (the
+// rock-paper-scissors role web, ~10% < the element edge). Pure + deterministic
+// (both clients agree) so ranked replays stay consistent. Used at every DAMAGE
+// site; the element-only classifier above still drives super-effective flavour.
+function petMatchupMult(attacker: Pet | undefined, defender: Pet | undefined): number {
+    let m = petElementMultiplier(attacker, defender);
+    if (attacker && defender) m *= roleMultiplier(petRoleOf(attacker), petRoleOf(defender));
+    return m;
+}
 function petElementLabel(mult: number): string {
     if (mult > 1) return "🔆 Super effective!";
     if (mult < 1) return "⛔ Not very effective…";
@@ -1035,7 +1045,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             const tamerMult = actorSide === "player" ? playerDamageMult : 1;
             // Element type effectiveness — Fire > Wind > Lightning > Earth > Water > Fire.
             // Neutral if either pet has no element. Applies to all damage jutsus equally.
-            const elementMult = petElementMultiplier(actor2.pet, target2.pet);
+            const elementMult = petMatchupMult(actor2.pet, target2.pet);
             // PVP gear: attacker's execute bonus vs a low-HP foe, and the
             // target's last-stand damage reduction while it is low. Both read
             // from each pet's own loadout, so synced battles stay deterministic.
@@ -1771,11 +1781,12 @@ export function scorePetMatchup(me: Pet, them: Pet): number {
     const theirPower = (them.attack ?? 1) * Math.max(1, (them.hp ?? 1) / 100);
     const statRatio = myPower / Math.max(1, theirPower);
 
-    // Element multiplier — apply both directions: my advantage vs me, and
-    // their advantage vs them. A double-good matchup (super-effective AND
-    // they're resisted hitting me) is the strongest pick.
-    const mineToThem = petElementMultiplier(me, them);
-    const themToMine = petElementMultiplier(them, me);
+    // Matchup multiplier — element edge × role-counter edge, both directions:
+    // my advantage vs me, and their advantage vs them. Folding the role web in
+    // here makes the AI counter-pick by role too, not just element. A double-good
+    // matchup (advantaged AND they're countered hitting me) is the strongest pick.
+    const mineToThem = petMatchupMult(me, them);
+    const themToMine = petMatchupMult(them, me);
     const elementEdge = mineToThem / Math.max(0.01, themToMine);
 
     // Trait counter penalty — if my elemental special is fully resisted
@@ -2257,7 +2268,7 @@ export function runPetArenaParty(
             }
             const dmgRaw = actor.pet.attack + actor.attackBuff - (damageTarget.pet.defense + damageTarget.defenseBuff) * 0.45;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
-            const elementMult = petElementMultiplier(actor.pet, damageTarget.pet);
+            const elementMult = petMatchupMult(actor.pet, damageTarget.pet);
             // PVP gear: attacker execute vs low-HP foe + target last-stand reduction.
             const executeMult = petGearExecuteMult(actor.pet, damageTarget.hp, damageTarget.pet.hp);
             const lastStandMult = petGearLastStandMult(damageTarget.pet, damageTarget.hp, damageTarget.pet.hp);
@@ -2345,7 +2356,7 @@ export function runPetArenaParty(
             const guardianBlock = target.pet.trait === "Guardian" ? 0.85 : 1.0;
             const absorbMult = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
-            const elementMult = petElementMultiplier(actor.pet, target.pet);
+            const elementMult = petMatchupMult(actor.pet, target.pet);
             // PVP gear: attacker execute vs low-HP foe + target last-stand reduction.
             const executeMult = petGearExecuteMult(actor.pet, target.hp, target.pet.hp);
             const lastStandMult = petGearLastStandMult(target.pet, target.hp, target.pet.hp);

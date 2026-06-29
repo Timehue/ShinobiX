@@ -88,6 +88,38 @@ export async function postClanUpgradePurchase(
     }
 }
 
+// Clan-mission reward claim (api/clan/mission/claim.ts). The server recomputes
+// the mission's progress from the trusted clan record + territory sectors,
+// verifies the target, and credits the shared treasury + clan XP under a lock
+// with a single-use latch. GET lists already-claimed missions so the UI can
+// hide the button.
+export async function fetchClaimedClanMissions(clan: string): Promise<string[]> {
+    try {
+        const res = await fetch(`/api/clan/mission/claim?clan=${encodeURIComponent(clan)}`);
+        const data = await res.json().catch(() => ({})) as { claimed?: string[] };
+        return Array.isArray(data.claimed) ? data.claimed : [];
+    } catch { return []; }
+}
+export async function postClanMissionClaim(
+    playerName: string,
+    clan: string,
+    missionKey: string,
+): Promise<{ treasury: Record<string, unknown>; xp: number; level: number; claimed: string[] } | null> {
+    try {
+        const res = await fetch("/api/clan/mission/claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, clan, missionKey }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; xp?: number; level?: number; claimed?: string[] };
+        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Claim failed. Please try again."); return null; }
+        return { treasury: data.treasury, xp: data.xp ?? 0, level: data.level ?? 1, claimed: Array.isArray(data.claimed) ? data.claimed : [] };
+    } catch {
+        alert("Claim failed. Please try again.");
+        return null;
+    }
+}
+
 // Server-authoritative clan kick (api/clan/kick.ts): removes the member from the
 // shared clan record AND clears their character.clan on their own save (the
 // cross-save write the client can't do, which is why a blob-only "kick" doesn't

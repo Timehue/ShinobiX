@@ -92,8 +92,11 @@ async function writeBattleReceipt(session, opts = {}) {
         await store.set(receiptKey(session.battleId), buildBattleReceipt(session, now), { ex: exports.RECEIPT_TTL_SEC });
         return true;
     }
-    catch {
-        // best-effort — never break the caller
+    catch (e) {
+        // best-effort — never break the caller, but DO surface it: a swallowed
+        // receipt write is exactly what makes a later "I won but got nothing"
+        // dispute unanswerable.
+        console.error(`[receipts] writeBattleReceipt failed for battle ${session.battleId}:`, e);
         return false;
     }
 }
@@ -131,8 +134,10 @@ async function patchBattleSettlement(battleId, patch, opts = {}) {
             return;
         await store.set(receiptKey(battleId), mergeSettlement(existing, patch, now), { ex: exports.RECEIPT_TTL_SEC });
     }
-    catch {
-        // best-effort
+    catch (e) {
+        // best-effort — but log: this patch records what a battle actually paid
+        // out, so a swallowed failure blanks the reward-dispute evidence.
+        console.error(`[receipts] patchBattleSettlement failed for battle ${battleId}:`, e);
     }
 }
 function actionSeqKey(battleId) { return `receipt:seq:${battleId}`; }
@@ -228,8 +233,10 @@ async function writeActionReceipt(input, opts = {}) {
         await store.set(actionReceiptKey(battleId, seq), receipt, { ex: exports.RECEIPT_TTL_SEC });
         return receipt;
     }
-    catch {
-        // best-effort — never break the caller
+    catch (e) {
+        // best-effort — never break the caller, but log so a KV outage that's
+        // silently dropping the per-action replay is at least visible.
+        console.error(`[receipts] writeActionReceipt failed for battle ${battleId}:`, e);
         return null;
     }
 }

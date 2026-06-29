@@ -14,7 +14,7 @@
 // The colocated _mission-catalog.test.ts pins these against an inline replica;
 // a drift on either side must change both (that's the point).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HUNT_MISSION_IDS = exports.ACADEMY_TRIAL = exports.FIELD_MISSIONS = exports.COMBAT_MISSIONS = exports.CURRENCY_KEYS = exports.HUNT_MISSION_SCROLLS = exports.FIELD_MISSION_SCROLLS = exports.VILLAGE_UPGRADE_MAX_LEVEL = exports.DAILY_HUNT_LIMIT = exports.DAILY_MISSION_LIMIT = exports.AURA_SPHERE_ITEM_ID = exports.TERRITORY_CONTROL_SCROLL_ID = void 0;
+exports.HUNT_MISSION_IDS = exports.ACADEMY_CHECKLIST = exports.ACADEMY_TRIAL = exports.FIELD_MISSIONS = exports.COMBAT_MISSIONS = exports.CURRENCY_KEYS = exports.HUNT_MISSION_SCROLLS = exports.FIELD_MISSION_SCROLLS = exports.VILLAGE_UPGRADE_MAX_LEVEL = exports.DAILY_HUNT_LIMIT = exports.DAILY_MISSION_LIMIT = exports.AURA_SPHERE_ITEM_ID = exports.TERRITORY_CONTROL_SCROLL_ID = void 0;
 exports.combatMissionByKey = combatMissionByKey;
 exports.fieldMissionById = fieldMissionById;
 exports.huntMissionById = huntMissionById;
@@ -84,6 +84,18 @@ exports.ACADEMY_TRIAL = {
     xp: 40,
     ryo: 30,
     stamina: 5,
+};
+// ── Academy Checklist — the one-time capstone reward for finishing ALL of the
+// Academy Training goals (the 6-goal new-shinobi checklist in the Logbook).
+// Bigger than the trial, off the daily cap, one-time (gated by
+// character.academyChecklistClaimed). Grants a small premium (Fate Shards) bonus
+// so the graduation moment actually pays out instead of being a dead-end button.
+exports.ACADEMY_CHECKLIST = {
+    id: 'academy-checklist',
+    xp: 150,
+    ryo: 120,
+    stamina: 10,
+    fateShards: 2,
 };
 function combatMissionByKey(key) {
     return exports.COMBAT_MISSIONS.find((m) => m.key === key);

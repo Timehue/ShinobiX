@@ -23,6 +23,7 @@ const _scheduler_js_1 = require("./api/cron/_scheduler.js");
 const compression_1 = __importDefault(require("compression"));
 const express_1 = __importDefault(require("express"));
 const node_http_1 = require("node:http");
+const node_crypto_1 = require("node:crypto");
 const node_path_1 = require("node:path");
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
@@ -107,6 +108,8 @@ const transfer_js_2 = __importDefault(require("./api/clan/treasury/transfer.js")
 const collect_supply_js_1 = __importDefault(require("./api/clan/territory/collect-supply.js"));
 // Clan — upgrade tree purchase (server-authoritative spend from treasury)
 const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"));
+// Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
+const claim_js_1 = __importDefault(require("./api/clan/mission/claim.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
 const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 const mentor_js_1 = __importDefault(require("./api/clan/mentor.js"));
@@ -158,6 +161,8 @@ const battle_receipts_js_1 = __importDefault(require("./api/admin/battle-receipt
 // Admin: asset-registry report + per-domain audit-log reader (diagnostics)
 const asset_report_js_1 = __importDefault(require("./api/admin/asset-report.js"));
 const audit_log_js_1 = __importDefault(require("./api/admin/audit-log.js"));
+// Admin: economy telemetry (faucet/sink aggregates + recent txns + anomalies)
+const economy_js_1 = __importDefault(require("./api/admin/economy.js"));
 // Shared auth helper — constant-time compare for the restart endpoint.
 const _auth_js_1 = require("./api/_auth.js");
 // CORS origin predicate — single source of truth, shared with cors() and the
@@ -209,6 +214,21 @@ app.use((req, res, next) => {
     return jsonDefault(req, res, next);
 });
 app.use(express_1.default.urlencoded({ extended: true, limit: '5mb' }));
+// Per-request correlation id — a short, greppable token on every request,
+// echoed in the x-request-id response header (visible in the browser network
+// tab even cross-origin) and included in the 500 error log + body. Lets a
+// player's "it broke" screenshot be matched to the exact server log line — the
+// single biggest observability lift for a one-person ops team. Reuses an
+// inbound id if an upstream proxy already set one.
+app.use((req, res, next) => {
+    const inbound = req.headers['x-request-id'];
+    const id = (typeof inbound === 'string' && inbound.length > 0 && inbound.length <= 64)
+        ? inbound
+        : (0, node_crypto_1.randomUUID)().slice(0, 8);
+    req.id = id;
+    res.setHeader('x-request-id', id);
+    next();
+});
 // Global CORS — restrict to known origins so a malicious site can't initiate
 // authenticated requests from a visitor's browser. The origin predicate is
 // imported from api/_utils.ts (single source of truth) so this middleware and
@@ -573,6 +593,9 @@ route('/clan/territory/collect-supply', collect_supply_js_1.default);
 // ─── Clan: upgrade tree purchase (server-authoritative spend) ───────────────────
 // Locks the clan row, debits treasury ryo + warSupply, increments the building.
 route('/clan/upgrade/purchase', purchase_js_1.default);
+// ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
+// GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
+route('/clan/mission/claim', claim_js_1.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
@@ -632,6 +655,7 @@ route('/admin/battle-receipts', battle_receipts_js_1.default);
 // ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────
 route('/admin/asset-report', asset_report_js_1.default);
 route('/admin/audit-log', audit_log_js_1.default);
+route('/admin/economy', economy_js_1.default);
 // NOTE: Route parity is guarded by `server-routes.test.ts`, which fails
 // `npm test` if the client calls an /api path that isn't registered here, or if
 // an api/** handler file is never wired in. There is no folder-convention
@@ -700,8 +724,9 @@ app.get(/(.*)/, (_req, res) => {
     res.sendFile((0, node_path_1.join)(staticDir, 'index.html'));
 });
 // ─── Error handler ────────────────────────────────────────────────────────────
-app.use((err, _req, res, _next) => {
-    console.error('[server error]', err);
+app.use((err, req, res, _next) => {
+    const reqId = req.id ?? '-';
+    console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
     // failure mask the 500. No-op when Sentry is disabled (SENTRY_DSN unset).
@@ -712,7 +737,9 @@ app.use((err, _req, res, _next) => {
         catch { /* swallow */ }
     }
     if (!res.headersSent) {
-        res.status(500).json({ error: String(err) });
+        // Echo the correlation id so a player can quote it in a bug report and an
+        // admin can grep the exact server log line.
+        res.status(500).json({ error: String(err), requestId: reqId });
     }
 });
 // ─── Start ────────────────────────────────────────────────────────────────────

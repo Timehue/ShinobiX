@@ -392,6 +392,10 @@ export type Character = {
     examsPassed?: string[];
     unlockedAchievements?: string[];
     achievementUnlockedAt?: Record<string, number>;
+    // Wearable titles earned from title-granting achievements (see
+    // TITLE_ACHIEVEMENT_IDS). Permanent once earned; selectable for free as the
+    // displayed customTitle in Profile. Undefined = not yet backfilled.
+    earnedTitles?: string[];
     // Hollow Gate Shrine — in-progress run saved per-character (so refresh keeps state)
     // and a lifetime Warden-kill counter for telemetry / future achievements.
     hollowGateRun?: HollowGateShrineRun | null;

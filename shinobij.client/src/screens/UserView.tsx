@@ -17,6 +17,7 @@ import type { SavedBloodline, Jutsu } from "../types/combat";
 import { type Achievement, ACHIEVEMENTS } from "../constants/achievements";
 import { getCharacterElements } from "../lib/elements";
 import { sendStandardDuel } from "../lib/duel-challenge";
+import { RankBadge } from "../components/RankBadge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
 
@@ -178,6 +179,9 @@ export function UserView({
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#f8fafc" }}>{viewedCharacter.name}</span>
                             {viewedCharacter.customTitle && <span style={{ color: "#facc15", fontWeight: 700, fontSize: "0.95rem" }}>«{viewedCharacter.customTitle}»</span>}
+                            {((viewedCharacter.rankedWins ?? 0) + (viewedCharacter.rankedLosses ?? 0)) > 0 && (
+                                <RankBadge rating={viewedCharacter.rankedRating ?? 1000} showRating />
+                            )}
                         </div>
                         <div style={{ color: "#94a3b8", marginTop: 4, fontSize: "0.95rem" }}>
                             {viewedCharacter.village} · {viewedCharacter.rankTitle} · Lv {viewedCharacter.level}/100

@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeBankInterest, BANK_INTEREST_WINDOW_MS } from '../_bank-interest.js';
+import { recordEconomyTxn } from '../_economy.js';
 
 /*
  * /api/bank/claim-interest  — POST only
@@ -85,6 +86,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             actor: identity.admin ? 'admin' : identity.name,
             claimed: out.interest,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+
+        // Economy telemetry — bank interest is the top inflation faucet, so log it.
+        await recordEconomyTxn({ txnId: `bank-interest:${playerName}:${now}`, player: playerName, currency: 'ryo', delta: out.interest, source: 'bank.interest', balanceAfter: out.bankRyo });
 
         return res.status(200).json({
             ok: true,
