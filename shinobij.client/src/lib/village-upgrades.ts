@@ -28,7 +28,7 @@ export const villageUpgradeDefinitions: Array<{
         { key: "shop", name: "Shop", icon: "🛒", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
         { key: "townDefense", name: "Town Defense", icon: "🏯", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
         { key: "petYard", name: "Pet Yard", icon: "🐾", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
-        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.25, unit: "%", description: "+0.25% bank interest per level." },
+        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.01, unit: "%", description: "+0.01% daily bank interest per level (max 0.5%/day at level 50)." },
         { key: "missionHall", name: "Mission Hall", icon: "📜", perLevel: 0.5, unit: "%", description: "+0.5% XP, ryo, and stamina mission rewards per level." },
         { key: "hospital", name: "Hospital", icon: "⚕️", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
     ];
