@@ -97,23 +97,19 @@ export function formatStatName(name: string) {
         .replace(/^./, (c) => c.toUpperCase());
 }
 
+// XP to advance from `level` to `level + 1`. Quadratic-per-level (the `3` is the
+// master pacing dial — fast early, slow late; ~90 days L1→90 for a daily-active
+// player). Cumulative is cubic. Keep in lock-step with api/_xp-engine.ts and the
+// inline replica in api/_xp-engine.test.ts (parity-pinned).
 export function xpNeeded(level: number) {
     if (level >= MAX_LEVEL) return 0;
-    return level * 100;
+    return Math.round(3 * level * level);
 }
 
-const TOTAL_XP_TO_MAX_LEVEL = ((MAX_LEVEL - 1) * MAX_LEVEL / 2) * 100;
-
-function totalXpBeforeLevel(level: number) {
-    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    return ((clampedLevel - 1) * clampedLevel / 2) * 100;
-}
-
-function totalXpForProgress(level: number, xp: number) {
-    if (level >= MAX_LEVEL) return TOTAL_XP_TO_MAX_LEVEL;
-    const currentLevelXp = Math.max(0, Math.min(xpNeeded(level), Math.floor(xp)));
-    return Math.min(TOTAL_XP_TO_MAX_LEVEL, totalXpBeforeLevel(level) + currentLevelXp);
-}
+// (The old cumulative-XP helpers — TOTAL_XP_TO_MAX_LEVEL / totalXpBeforeLevel /
+// totalXpForProgress — are gone: the stat budget is now LEVEL-based (statBudgetAtLevel
+// below), not a ratio of cumulative XP, so leveling speed and stat power are
+// independent dials.)
 
 export function maxHpForLevel(level: number) {
     // Base HP at level 1 is 500 (starter HP); +100 per level thereafter, up to
@@ -142,10 +138,28 @@ export function rankFromLevel(level: number) {
 const TOTAL_STAT_POINTS_TO_CAP = STAT_KEYS.reduce((total, key) => total + (MAX_STAT - baseStats()[key]), 0);
 const STAT_POINTS_FROM_XP_TO_CAP = TOTAL_STAT_POINTS_TO_CAP - STARTING_STAT_POINTS;
 
+// Total stat-point budget on first REACHING a level — LINEAR from
+// STARTING_STAT_POINTS at L1 to the full cap (TOTAL_STAT_POINTS_TO_CAP) at
+// MAX_LEVEL, so power tracks level smoothly and a maxed character (L100) has
+// exactly enough to cap all 12 stats. Shared by players AND AI: lib/ai-stats.ts
+// distributes this same budget by archetype, so a level-L AI mirrors a level-L
+// fully-allocated player. Keep in lock-step with api/_xp-engine.ts.
+export function statBudgetAtLevel(level: number) {
+    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+    return STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP);
+}
+
+// Budget at a point WITHIN a level — interpolates between this level's and the
+// next level's budget by in-level XP progress, so earning XP (especially idle
+// training) drips stat points continuously between level-ups, not only on
+// level-up. Keep in lock-step with api/_xp-engine.ts + its test replica.
 export function statPointBudgetForProgress(level: number, xp: number) {
-    const progressXp = totalXpForProgress(level, xp);
-    const earnedFromXp = Math.floor((progressXp / TOTAL_XP_TO_MAX_LEVEL) * STAT_POINTS_FROM_XP_TO_CAP);
-    return Math.min(TOTAL_STAT_POINTS_TO_CAP, STARTING_STAT_POINTS + earnedFromXp);
+    if (level >= MAX_LEVEL) return TOTAL_STAT_POINTS_TO_CAP;
+    const base = statBudgetAtLevel(level);
+    const next = statBudgetAtLevel(level + 1);
+    const need = xpNeeded(level);
+    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
+    return Math.min(TOTAL_STAT_POINTS_TO_CAP, Math.round(base + (next - base) * frac));
 }
 
 export function progressAfterXp(level: number, xp: number, amount: number) {
