@@ -33,8 +33,10 @@
    hold.
 3. **Ryo economy → de-inflate.** **Bank interest is the #1 inflation risk**
    (up to ~1.25M ryo/day passive today). Cut it hard and add wealth-scaling sinks.
-   Fix the **Golden Apple** mispricing (20 ryo → 2000 pet XP). Keep sinks slightly
-   ahead of faucets ("taut").
+   Keep sinks slightly ahead of faucets ("taut"). *(Correction: the "Golden Apple
+   mispriced 20 ryo" item below was a FALSE premise — it's a `legendary` Grand
+   Marketplace item sold in **Fate Shards**, never ryo, so it's not a ryo lever;
+   left as-is per the "leave premium as-is" direction. See §8.3.)*
 4. **Drops → rarity standard + pity.** Keep the existing rarity tiers but pin them
    to published-style odds, add **pity / bad-luck protection** (black market,
    mythic pets), and re-time fate-shard income so pet evolution gates (L50, L90)
@@ -115,9 +117,11 @@ there is. The 10M principal cap helps but 12.5%/day is still enormous.
 
 **Sinks (good, keep):** 10% trade burn (`_trade-core.ts`), black-market gamble
 (50k/pull, 10/day, ~45% EV — net sink), hospital skip (2,500), jutsu training
-costs, shop items, treats. **Mispricing to fix:** Golden Apple = **20 ryo → 2,000
-pet XP** vs Ancient Treat 300 ryo → 500 XP — the apple is ~60× more
-XP-per-ryo than the next tier (a faucet masquerading as a sink).
+costs, shop items, treats. **(Retracted "mispricing":** an earlier draft flagged
+the Golden Apple as "20 ryo → 2,000 pet XP, underpriced 60×." That was WRONG — it's
+a `legendary` item, and `Shop.tsx` only lists legendary/mythic in the **Grand
+Marketplace at Fate Shards**, so its `cost: 20` is 20 *Fate Shards*, not ryo. It was
+never a ryo faucet; left untouched per the premium-as-is direction.)*
 
 ### 1.5 Premium / special currencies
 `ryo` (primary) · `fateShards` (premium; buys evolution stones & legendary/mythic
@@ -552,8 +556,12 @@ keep pace with a daily player per-session, without raising the no-lifer ceiling.
   pair it with the wealth-scaling vanity sink, not just flat fees.
 
 ### 8.3 Targeted fixes
-- **Golden Apple:** reprice to the tier curve (≈ **1,500–2,000 ryo** for 2,000 pet
-  XP, i.e. ~1 ryo/XP like the other treats) — currently 20 ryo is a hole.
+- **Golden Apple: NOT a ryo issue (retracted).** It's a `legendary` Grand
+  Marketplace item priced in **Fate Shards** (`Shop.tsx` lists legendary/mythic at
+  `currency="fateShards"`), so its `cost: 20` is 20 Fate Shards — never a ryo
+  faucet. A Phase-3 attempt to reprice it to 1,500 was reverted (1,500 Fate Shards
+  ≈ 10× an evolution stone = unbuyable). Left at 20 Fate Shards per the
+  "leave premium as-is" direction; any premium pet-feed tuning is a separate pass.
 - **Daily login** `500+100L` cap 8,000: fine; keep. It's a modest return-hook
   faucet, not an inflation driver.
 - **Expedition ryo** is the main Tamer faucet; leave the formula but re-verify
@@ -739,8 +747,9 @@ combat-parity tests; rebuild + commit `dist/`.
 **Phase 2 — Income shaping.** Endless-Tower daily XP soft-cap; verify band income
 hits `D(L)`.
 
-**Phase 3 — Ryo de-inflation.** Bank-interest cut; Golden Apple reprice; add
-wealth-scaling vanity sink.
+**Phase 3 — Ryo de-inflation.** Bank-interest cut (DONE: 12.5%→0.5%/day). Golden
+Apple "reprice" RETRACTED (it's a Fate-Shard item, not ryo — §8.3). Wealth-scaling
+vanity sink deferred (additive content).
 
 **Phase 4 — Drops & pity.** Mythic-pet pity; black-market pity; re-verify
 fate-shard income vs evolution arc.
