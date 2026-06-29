@@ -128,3 +128,17 @@ export function parseDialogueString(dialogue: string): DialogueLine[] {
 export function serializeDialogueLines(lines: DialogueLine[]): string {
     return lines.map((l) => (l.speaker ? `${l.speaker}: ${l.text}` : l.text)).join("\n");
 }
+
+// Render-time parse of one stored dialogue line into the speaker + spoken text a
+// VN renderer displays. Distinct from parseDialogueString (the editor's
+// round-trip parser): this trims for display, attributes a colon-less line to
+// `fallbackSpeaker`, and — matching long-standing renderer behavior — uses the
+// whole line as the spoken text when nothing follows the first colon. Shared by
+// every VN renderer so the formerly-inline copies can't drift apart.
+export function splitDialogueLine(line: string, fallbackSpeaker: string): { speaker: string; text: string } {
+    if (line.includes(":")) {
+        const parts = line.split(":");
+        return { speaker: parts[0].trim(), text: parts.slice(1).join(":").trim() || line };
+    }
+    return { speaker: fallbackSpeaker.trim(), text: line.trim() || line };
+}
