@@ -22,7 +22,8 @@
 export const MAX_LEVEL = 100;
 export const MAX_STAT = 2500;
 export const STARTING_STAT_POINTS = 20;
-export const CHARACTER_XP_GAIN_MULTIPLIER = 3;
+// Real (non-testing) XP rate. Parity-pinned with shinobij.client constants/game.ts.
+export const CHARACTER_XP_GAIN_MULTIPLIER = 1;
 export const HP_CAP = 10000;
 export const CHAKRA_CAP = 5000;
 export const STAMINA_CAP = 5000;
@@ -67,23 +68,15 @@ function allocatedStatPoints(stats: Stats): number {
 }
 
 // ── lib/stats.ts — level / XP curve ─────────────────────────────────────────
+// Quadratic-per-level curve (the `3` is the master pacing dial). Cumulative is
+// cubic. VERBATIM port of shinobij.client/src/lib/stats.ts xpNeeded.
 export function xpNeeded(level: number): number {
     if (level >= MAX_LEVEL) return 0;
-    return level * 100;
+    return Math.round(3 * level * level);
 }
 
-const TOTAL_XP_TO_MAX_LEVEL = ((MAX_LEVEL - 1) * MAX_LEVEL / 2) * 100;
-
-function totalXpBeforeLevel(level: number): number {
-    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    return ((clampedLevel - 1) * clampedLevel / 2) * 100;
-}
-
-function totalXpForProgress(level: number, xp: number): number {
-    if (level >= MAX_LEVEL) return TOTAL_XP_TO_MAX_LEVEL;
-    const currentLevelXp = Math.max(0, Math.min(xpNeeded(level), Math.floor(xp)));
-    return Math.min(TOTAL_XP_TO_MAX_LEVEL, totalXpBeforeLevel(level) + currentLevelXp);
-}
+// (The old cumulative-XP helpers are gone here too — the stat budget is now
+// LEVEL-based, see statBudgetAtLevel below. Mirrors the client.)
 
 export function maxHpForLevel(level: number): number {
     // Base HP at level 1 is 500 (starter HP); +100 per level thereafter, up to
@@ -113,10 +106,20 @@ export function rankFromLevel(level: number): string {
 const TOTAL_STAT_POINTS_TO_CAP = STAT_KEYS.reduce((total, key) => total + (MAX_STAT - baseStats()[key]), 0);
 const STAT_POINTS_FROM_XP_TO_CAP = TOTAL_STAT_POINTS_TO_CAP - STARTING_STAT_POINTS;
 
+// LINEAR per-level stat budget (full cap at MAX_LEVEL). VERBATIM port of
+// shinobij.client/src/lib/stats.ts statBudgetAtLevel.
+function statBudgetAtLevel(level: number): number {
+    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
+    return STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP);
+}
+
 function statPointBudgetForProgress(level: number, xp: number): number {
-    const progressXp = totalXpForProgress(level, xp);
-    const earnedFromXp = Math.floor((progressXp / TOTAL_XP_TO_MAX_LEVEL) * STAT_POINTS_FROM_XP_TO_CAP);
-    return Math.min(TOTAL_STAT_POINTS_TO_CAP, STARTING_STAT_POINTS + earnedFromXp);
+    if (level >= MAX_LEVEL) return TOTAL_STAT_POINTS_TO_CAP;
+    const base = statBudgetAtLevel(level);
+    const next = statBudgetAtLevel(level + 1);
+    const need = xpNeeded(level);
+    const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
+    return Math.min(TOTAL_STAT_POINTS_TO_CAP, Math.round(base + (next - base) * frac));
 }
 
 // Loose character shape — the server operates on the raw KV save object.
