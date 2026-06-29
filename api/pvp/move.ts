@@ -64,6 +64,24 @@ const EP_MULTIPLIER = 32;
 // hit softer.
 const JUTSU_MAX_LEVEL = 50;
 const MASTERY_MIN_DAMAGE_FRAC = 0.3;
+// Per-rank jutsu mastery-level cap (anti-twink). Mirrors
+// shinobij.client/src/constants/game.ts jutsuLevelCapForLevel (parity-pinned by
+// api/_combat-formula-parity.test.ts). The EFFECTIVE mastery used for EP/tag/
+// drain/pierce scaling is clamped to the caster's rank ceiling, so a low-rank
+// player who grinds one jutsu to 50 can't break their bracket. Only bites
+// Academy/Genin/Chunin; Jonin+ (level ≥ 50) get the global max. Save-safe: the
+// STORED mastery is never touched, so ranking up restores the full level.
+const JUTSU_LEVEL_CAP_ACADEMY = 10;
+const JUTSU_LEVEL_CAP_GENIN = 20;
+const JUTSU_LEVEL_CAP_CHUNIN = 30;
+const JUTSU_LEVEL_CAP_JONIN = 50;      // Jonin (50–79) + Special Jonin (80+) = global max
+function jutsuLevelCapForLevel(level: number): number {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    if (lvl >= 50) return JUTSU_LEVEL_CAP_JONIN;
+    if (lvl >= 30) return JUTSU_LEVEL_CAP_CHUNIN;
+    if (lvl >= 15) return JUTSU_LEVEL_CAP_GENIN;
+    return JUTSU_LEVEL_CAP_ACADEMY;
+}
 const K_DR = 0.5;                      // DR pool soft cap: effDR = raw / (raw + K_DR)
 // Damage-amplification soft-cap pool. Mirrors K_DR: IDG (attacker), IDT
 // (defender), and Ignition (defender) all feed one pool with diminishing
@@ -739,7 +757,12 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
     const masteryEntry = jutsuMasteries.find(m => m.jutsuId === jutsu.id);
-    const masteryLevel = Math.max(0, Math.min(50, masteryEntry?.level ?? 0));
+    const storedMastery = Math.max(0, Math.min(50, masteryEntry?.level ?? 0));
+    // Rank cap: clamp the EFFECTIVE mastery (feeds EP/tag/drain/pierce scaling
+    // below) to the caster's rank ceiling. Authoritative anti-twink guard — even a
+    // tampered client that reports mastery 50 can't exceed the rank cap here. The
+    // stored value is untouched (save-safe); ranking up unlocks the rest.
+    const masteryLevel = Math.min(storedMastery, jutsuLevelCapForLevel(Number(self.character.level) || 1));
 
     // Phase 1 — base damage + defensive DR pool (reads ORIGINAL fighters).
     const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(self, opponent, jutsu, wMult, biome, round, masteryLevel);

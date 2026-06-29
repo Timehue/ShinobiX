@@ -56,3 +56,29 @@ test("applies normalize to each incoming character", () => {
   mergePlayerRoster([], [rec("A"), rec("B")], norm);
   assert.equal(calls, 2);
 });
+
+// Regression: the heartbeat ships a MINIMAL character ({ avatarImage: '' }) — it
+// must not wipe rich profile fields (nindo, pets, …) the 60s /api/player/roster
+// snapshot grafted in. Before the fix, an online player's Nindo vanished from
+// their profile ~12s after each poll. The incoming light fields still win.
+test("layers a minimal heartbeat character over the cached rich one (Nindo survives)", () => {
+  const rich = {
+    name: "Naruto",
+    character: { name: "Naruto", level: 50, nindo: "Never give up", nindoBg: "ember", pets: [{ id: "p1" }] },
+  } as unknown as PlayerRecord;
+  const heartbeat = {
+    name: "Naruto",
+    level: 51,
+    character: { avatarImage: "" }, // mirrors toPlayerRecord's minimal character
+  } as unknown as PlayerRecord;
+
+  const out = mergePlayerRoster([rich], [heartbeat], idNorm);
+  const ch = out[0].character as unknown as {
+    nindo?: string; nindoBg?: string; level?: number; pets?: unknown[]; avatarImage?: string;
+  };
+  assert.equal(ch.nindo, "Never give up"); // preserved (heartbeat doesn't carry it)
+  assert.equal(ch.nindoBg, "ember");       // preserved
+  assert.equal(ch.pets?.length, 1);        // preserved
+  assert.equal(ch.level, 50);              // preserved (heartbeat character omits it)
+  assert.equal(ch.avatarImage, "");        // light field the heartbeat DID carry applies
+});

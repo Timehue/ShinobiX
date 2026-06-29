@@ -67,14 +67,18 @@ import { readFileSync } from "node:fs";
 // The lazy-const declarations must live at App's module top (+4). Also the
 // navigate/logoutPlayer latest-ref memo stabilizers (+6) and the clan-war poller
 // clan-gate (+1) — all reference App-local state, cannot move to a module.
-// → 10,176 (+4 for VN trait-branching: the vnPages choice type gains
-// requireTrait/forbidTrait (+2), the addStoryTrait import (+1), and the onChoice
-// persist wiring on the live TriggeredVisualNovel usage (+1) — all reference
-// App-local state (setCharacter) so they cannot move to a module).
-// → 10,104 (−72 DRAIN: the CreatorEvent + StoryStep VN content types moved out
-// to ./types/vn, imported back + re-exported from App for the "../App" sites;
-// the now-unused CurrencyRewards type import was dropped too).
-const MAX_LINES = 10_104;
+// → 10,176 (+4 mandatory WIRING for the jutsu-training queue: the lib import (+1)
+// and the global useJutsuTrainingQueueRunner hook call (+3, incl. its 2-line
+// rationale). The feature — queue a 2nd ryo training that auto-promotes the instant
+// the first finishes — lives entirely in lib/jutsu-training-queue.ts +
+// screens/Training.tsx; only the global hook MOUNT must run from App so the queue
+// advances on any screen, like the other timer wiring here. Not regrowth.
+// → 10,108 (merge of the VN-editor branch: +4 VN trait-branching wiring
+// (requireTrait/forbidTrait choice fields + addStoryTrait import + onChoice persist
+// on the live TriggeredVisualNovel), then −72 DRAIN moving the CreatorEvent +
+// StoryStep VN content types out to ./types/vn (re-exported from App for the
+// "../App" sites; dropped the now-unused CurrencyRewards import) — net vs main).
+const MAX_LINES = 10_108;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

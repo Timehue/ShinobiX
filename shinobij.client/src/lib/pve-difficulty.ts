@@ -32,7 +32,7 @@
  * ×1.0, damage uncapped): that is the one band that is "supposed to be strong".
  * The shared damage math (combat-math.ts / api/pvp/move.ts) is never touched.
  */
-import { MAX_STAT, JUTSU_MAX_LEVEL } from "../constants/game";
+import { MAX_STAT, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from "../constants/game";
 import type { Stats } from "../types/combat";
 
 export type PveDifficultyBand = "easy" | "medium" | "hard" | "peer";
@@ -84,7 +84,10 @@ export function pveDifficultyHpMultiplier(level: number): number {
 // mirroring a maxed player. Combat math (calculateDamage / effectiveTagPercent)
 // is unchanged — this only feeds it an honest mastery number.
 export function pveAiMasteryForLevel(level: number): number {
-    return Math.max(0, Math.min(JUTSU_MAX_LEVEL, Math.floor(level || 1)));
+    // Also obey the per-rank jutsu cap (same rule players get), so a mid-band
+    // enemy can't out-master its own rank — e.g. a level-29 Genin foe is capped
+    // at mastery 20, not 29.
+    return Math.max(0, Math.min(JUTSU_MAX_LEVEL, Math.floor(level || 1), jutsuLevelCapForLevel(level)));
 }
 
 // Per-band ceiling on a single PvE enemy hit, as a fraction of the player's max
