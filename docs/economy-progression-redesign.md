@@ -859,3 +859,46 @@ day 3, Chunin @39 ≈ day 20) sit right where the early blitz would otherwise ru
 The stat budget is LINEAR + decoupled (maxed 29,880 at L100), so it's unaffected by
 the coefficient; AI parity + per-rank caps (§6.5) are the load-bearing stat changes.
 Tune the `6` coefficient to shift overall pacing.)*
+
+---
+
+## 15. Migration & patch notes (communicate to live players)
+
+This redesign changes values that **existing saves already hold**, so live players
+will see retroactive shifts on their next login. Nothing corrupts a save (the
+reconcile is non-destructive — levels read verbatim, spent stats never reduced,
+unspent floored at 0), but the felt experience changes. Send these as patch notes
+before/with the deploy so the changes read as intentional, not as bugs.
+
+**What players will notice (in plain terms):**
+
+1. **Stat points feel more generous mid-game.** The stat budget is now a clean
+   *linear* curve to a full 29,880 at L100 (every stat hits 2,500). Most existing
+   characters gain **unspent stat points** to allocate on login — a one-time
+   windfall. Nobody loses already-spent stats.
+2. **A combat cap now applies per rank (anti-twink).** Below Special Jonin, the
+   stat *value combat reads* is clamped to your rank band (Academy 350 / Genin 700 /
+   Chunin 1,300 / Jonin 2,100; Special Jonin+ uncapped at 2,500). Your stored stats
+   are untouched — the cap only affects the number used in a fight, and it **lifts
+   the moment you rank up**. Players who had poured everything into one stat at a low
+   rank ("twinks") will feel a retroactive combat nerf until they rank up; that's the
+   intended fix, and it's the source of the new **rank-up power spike**.
+3. **Bank interest is much lower.** Cut from ~12.5%/day to ~0.5%/day (≈96% lower).
+   The bank is a safe store of value again, not a salary — earning ryo now comes from
+   *playing*. This was the game's #1 inflation faucet.
+4. **Early levels re-paced.** With the `×3` testing multiplier removed and the curve
+   re-fit, sub-L34 levels take a bit longer per bar but still blitz; the back half is
+   deliberately the long haul (L1→50 ≈ 39 days, L50→90 ≈ 73 days for an engaged
+   daily-active player). Total 1→90 ≈ ~90–110 days as intended.
+5. **Endless Tower XP has a daily soft-cap.** The Tower is still the best ryo/material
+   farm; it's just no longer a way to skip the XP curve. Cash-out XP past the daily
+   cap is heavily reduced, not zero.
+
+**Coupled rollout note:** the `×3` removal (`CHARACTER_XP_GAIN_MULTIPLIER = 1`) and
+the curve re-fit must ship **together** — shipping the `×6` curve while `×3` is still
+live would roughly halve the intended time-to-90. The parity test pins the multiplier
+at 1, so this can't silently regress.
+
+**Deploy reminder:** Railway self-builds from source (live host = correct on merge).
+cPanel serves committed `dist/` verbatim, so the **client `dist/` must be rebuilt +
+committed** before any cPanel deploy or it will serve the old curve.
