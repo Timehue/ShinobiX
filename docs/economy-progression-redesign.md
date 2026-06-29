@@ -46,7 +46,7 @@
    **stat budget = power** as *independent* dials (fast levels, smooth power, no
    mid-game sag — better than the reference's coupled model). Add per-rank stat
    caps (anti-twink) and the **seamless-gameplay layer** (§10A): combat *is*
-   progression, rank-ups are power spikes, no dead time, catch-up for casuals,
+   progression, rank-ups are power spikes, no dead time (idle timers + auto-queue),
    legible "XP→stats→power" UI.
 
 Everything below is the detail and the numbers. **The spine is lever 5** — the
@@ -523,12 +523,18 @@ so the curve can't be blown past, (c) a couple of targeted nudges.
 | **Endless Tower** | **add daily XP soft-cap** | §7.1 — the one real change |
 | Story/Hollow/Weekly boss | as-is | one-time / event cadence |
 
-### 7.3 Optional catch-up (close the casual gap)
-The genre's universal lever is an **offline-accruing XP multiplier** (WoW rested).
-Optional add: a small "Training Rest" pool that accrues while logged off (cap ≈
-1–2 days of `D(L)`) and grants +50–100% XP until spent. Makes a 3×/week player
-keep pace with a daily player per-session, without raising the no-lifer ceiling.
-*Defer to a later pass unless casual retention data demands it.*
+### 7.3 Catch-up — CUT (redundant with the existing idle layer)
+A WoW-style offline-accruing "Training Rest" XP multiplier was considered and
+**dropped** (owner decision). The game already rewards absence three ways — **idle
+training timers** (set one, log off, collect the XP next login), **pet expeditions**
+(accrue offline), and the **daily-cap reset** (a returning player has fresh
+mission/hunt caps). A rested multiplier would double-dip on absence (idle XP + a
+boost on active play), could pull semi-active players *past* the 90-day target, and
+adds a new system to tune — against the locked "daily caps do the pacing, not
+energy/rested systems" rule. The one real gap (idle training is one-at-a-time, so a
+multi-day absence banks only ~8h) is better closed by **auto-queuing stat training**
+(reuse `lib/jutsu-training-queue.ts`) under PX-4 — no new mechanic. Revisit only if
+*measured* casual-retention data demands it.
 
 ---
 
@@ -679,14 +685,13 @@ training-queue]]`), and frame offline accrual as "your training kept working whi
 you were away" (AFK Arena/Melvor). The player should never open the game to
 *nothing to collect and nothing to start.*
 
-### PX-5. Catch-up so casuals keep pace (promote to in-scope)
-Add an **offline-accruing "Training Rest" XP multiplier** (WoW rested-XP): rest
-builds while logged off (cap ≈ 1–2 days of `D(L)`) and grants +50–100% XP until
-spent. A 3×/week player then earns *more per session* than a no-lifer who burned
-their pool — mathematically a no-lifer throttle reframed as a casual bonus. This is
-what keeps the **90-day target honest for the reference player without punishing
-the busy one**, and it's a proven D7/D30 retention lever. (Was "optional"; with the
-player-experience mandate it should ship.)
+### PX-5. Catch-up — CUT (redundant with idle training; see §7.3)
+A rested-XP multiplier was dropped: the idle-training timers + offline pet
+expeditions + daily-cap reset already give absent players a catch-up path, so a
+rested pool would double-dip on absence and add tuning surface for marginal gain.
+The narrow gap (one-at-a-time idle training caps a long absence at ~8h) is covered
+by **auto-queuing stat training** under PX-4 instead. Revisit only on measured
+casual-retention data.
 
 ### PX-6. Legible progression — kill the top churn driver
 "No clear goal/feedback" is the most-cited D1 churn cause. Surface the model the
@@ -754,11 +759,12 @@ vanity sink deferred (additive content).
 **Phase 4 — Drops & pity.** Mythic-pet pity; black-market pity; re-verify
 fate-shard income vs evolution arc.
 
-**Phase 5 — Seamless-gameplay layer (§10A).** Rank-up power spike (PX-3, falls out
-of §6.5 + exam ceremonies); no-dead-time polish (short first timer, training
-auto-queue, offline-accrual framing — PX-4); **rested-XP catch-up (PX-5)**;
-progression-legibility UI (PX-6, extend the Logbook). Mostly UI + the catch-up
-faucet — no curve change.
+**Phase 5 — Seamless-gameplay layer (§10A).** Rank-up power spike (PX-3 — now
+AUTOMATIC: the per-rank stat caps un-clamp stored stats on rank-up; only the
+celebration UI remains); no-dead-time polish (short first timer, training
+auto-queue, offline-accrual framing — PX-4); progression-legibility UI (PX-6, extend
+the Logbook). PX-5 rested-XP **CUT** (redundant with idle training — §7.3). Pure UI —
+no curve change.
 
 **Phase 6 — Combat-driven stat growth (PX-2, balance-flagged).** Fights grow the
 stats you used, gated through the shared `statBudget`/per-rank cap so it can't
@@ -793,8 +799,9 @@ Each phase: run `npm test` (API) + `npm run lint` (client); rebuild + commit
 8. **Combat-driven stat growth (PX-2):** adopt the reference's "fighting grows the
    stats you used" (seamless), gated through the shared budget? Yes / flagged-A-B /
    no. *Recommended yes, behind a flag (Phase 6).*
-9. **Catch-up — rested XP (PX-5):** promote to in-scope (recommended for retention)
-   or defer?
+9. **Catch-up — rested XP (PX-5): RESOLVED → CUT.** Redundant with idle training +
+   offline expeditions + daily-cap reset (§7.3). The narrow one-at-a-time idle gap is
+   covered by training auto-queue (PX-4) instead.
 10. **Legibility UI (PX-6):** confirm extending the Logbook with the
     XP→stats→power view + next-rank-unlock (pure UI, high ROI).
 
