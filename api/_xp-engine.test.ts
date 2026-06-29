@@ -28,7 +28,7 @@ function cNorm(stats?: Record<string, unknown>) {
     return C_KEYS.reduce((n, k) => { n[k] = cCap(stats?.[k] == null ? base[k] : Number(stats[k])); return n; }, { ...base });
 }
 const cAllocated = (s: Record<string, number>) => C_KEYS.reduce((t, k) => t + Math.max(0, cCap(s[k]) - 10), 0);
-const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : Math.round(3 * lvl * lvl);
+const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : Math.round(6 * lvl * lvl);
 const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
 const cMaxChakra = (lvl: number) => Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cMaxStamina = (lvl: number) => Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
@@ -158,29 +158,29 @@ describe('gainXp golden anchors', () => {
         assert.equal(out.xp, 0);
         assert.equal(out.unspentStats, 20);
     });
-    it('level 1 + 100 base XP (×1 = 100) climbs to level 5, xp 10', () => {
-        // Under 3·L² the early curve is cheap: xpNeeded 1..4 = 3+12+27+48 = 90,
-        // so 100 XP reaches L5 with 10 left over.
+    it('level 1 + 100 base XP (×1 = 100) climbs to level 4, xp 16', () => {
+        // Under 6·L² the early curve: xpNeeded 1..3 = 6+24+54 = 84, so 100 XP reaches
+        // L4 with 16 left over (xpNeeded(4)=96 not yet met).
         const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
-        assert.equal(out.level, 5);
-        assert.equal(out.xp, 10);
-        assert.equal(out.maxHp, 900); // maxHpForLevel(5): 500 base + 4×100
-        assert.equal(out.hp, 900);
-        assert.equal(out.maxChakra, 297);
-        assert.equal(out.maxStamina, 297);
+        assert.equal(out.level, 4);
+        assert.equal(out.xp, 16);
+        assert.equal(out.maxHp, 800); // maxHpForLevel(4): 500 base + 3×100
+        assert.equal(out.hp, 800);
+        assert.equal(out.maxChakra, 248);
+        assert.equal(out.maxStamina, 248);
         assert.equal(out.rankTitle, 'Academy Student');
-        assert.equal(out.unspentStats, 1266); // linear budget, interpolated at (5, 10)
+        assert.equal(out.unspentStats, 975); // linear budget, interpolated at (4, 16)
     });
     it('exam gate clamps level + XP (no genin exam → cap 20)', () => {
-        const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 2000);
+        const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 5000);
         assert.equal(out.level, 20);
-        assert.equal(out.xp, 917); // +2000 overflows L19 (need 1083) by 917; cap-20 stops the loop before the clamp bites
+        assert.equal(out.xp, 2399); // clamped to xpNeeded(20)-1 = 6·20² - 1
         assert.equal(out.rankTitle, 'Genin');
         assert.equal(out.maxHp, 2400); // maxHpForLevel(20): 500 base + 19×100
     });
     it('clamps to MAX_LEVEL and 0 xp at the top', () => {
-        // xpNeeded(99) = 29403 under 3·L², so the amount must exceed it to ding 100.
-        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 30000);
+        // xpNeeded(99) = 58806 under 6·L², so the amount must exceed it to ding 100.
+        const out = gainXp({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 60000);
         assert.equal(out.level, MAX_LEVEL);
         assert.equal(out.xp, 0);
     });

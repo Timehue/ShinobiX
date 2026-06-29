@@ -132,10 +132,10 @@ function annotatedNum(src, name) {
             node_assert_1.strict.equal(singleNum(GAME, name), singleNum(XPENGINE, name), `${name} drifted between game.ts and _xp-engine.ts`);
         });
     }
-    (0, node_test_1.it)('xpNeeded uses the same 3·L² curve on both sides', () => {
-        const curve = 'Math.round(3 * level * level)';
-        node_assert_1.strict.ok(STATS.includes(curve), 'client lib/stats.ts lost the 3·L² xpNeeded curve');
-        node_assert_1.strict.ok(XPENGINE.includes(curve), 'server api/_xp-engine.ts lost the 3·L² xpNeeded curve');
+    (0, node_test_1.it)('xpNeeded uses the same 6·L² curve on both sides', () => {
+        const curve = 'Math.round(6 * level * level)';
+        node_assert_1.strict.ok(STATS.includes(curve), 'client lib/stats.ts lost the 6·L² xpNeeded curve');
+        node_assert_1.strict.ok(XPENGINE.includes(curve), 'server api/_xp-engine.ts lost the 6·L² xpNeeded curve');
     });
     (0, node_test_1.it)('statBudgetAtLevel uses the same linear formula on both sides', () => {
         const formula = 'STARTING_STAT_POINTS + Math.round(((clampedLevel - 1) / (MAX_LEVEL - 1)) * STAT_POINTS_FROM_XP_TO_CAP)';

@@ -14,14 +14,14 @@ import type { Character } from '../types/character';
 const MAX_LEVEL = 100;
 const FULL_BUDGET = 12 * (2500 - 10); // 29,880
 
-describe('xpNeeded — 3·L² curve', () => {
+describe('xpNeeded — 6·L² curve', () => {
     it('matches the published anchors and zeroes at the cap', () => {
-        assert.equal(xpNeeded(1), 3);
-        assert.equal(xpNeeded(10), 300);
-        assert.equal(xpNeeded(20), 1200);
-        assert.equal(xpNeeded(50), 7500);
-        assert.equal(xpNeeded(90), 24300);
-        assert.equal(xpNeeded(99), 29403);
+        assert.equal(xpNeeded(1), 6);
+        assert.equal(xpNeeded(10), 600);
+        assert.equal(xpNeeded(20), 2400);
+        assert.equal(xpNeeded(50), 15000);
+        assert.equal(xpNeeded(90), 48600);
+        assert.equal(xpNeeded(99), 58806);
         assert.equal(xpNeeded(100), 0);
     });
     it('is strictly increasing below the cap (no flat/declining levels)', () => {
@@ -121,20 +121,29 @@ describe('per-rank stat cap (anti-twink) — clamps the value combat reads, save
     });
 });
 
-describe('pacing guardrail — daily-active reaches ~L90 in ~90 days, fast early / slow late', () => {
-    // Modeled daily character-XP income (design doc §3.2): a flat idle-training
-    // floor + a level-scaling missions component. NOT a code constant — this test
-    // is the canary that flags if the curve coefficient drifts off the 90-day target.
-    const D = (L: number) => 120 * L + 900;
-    it('cumulative days to reach L90 sits in [80, 100]', () => {
+describe('pacing guardrail — engaged daily-active reaches L90 in ~90-110 days, slow late', () => {
+    // Daily character-XP income modeled from the REAL faucets (api/missions/
+    // _mission-catalog.ts), not a synthetic curve — this is the canary that flags if
+    // the curve coefficient OR the faucet values drift off the 90-day target. An
+    // "engaged daily-active" player: clears each field + hunt mission once (they're
+    // one-per-day, claim-mission.ts:168), ~10 combat fights at the best unlocked tier,
+    // + a daily training session, ~60 explore tiles, and some PvP. Level-gating means
+    // higher tiers unlock at 15/30/50/70, so income steps up there (a mild sawtooth).
+    const income = (L: number): number => {
+        const fetch = [[1, 90], [15, 240], [30, 520], [50, 1100], [70, 2400]].filter(([r]) => L >= r).reduce((s, [, x]) => s + x, 0);
+        const hunts = [[1, 80], [15, 200], [30, 420], [50, 900], [70, 2000]].filter(([r]) => L >= r).reduce((s, [, x]) => s + 2 * x, 0);
+        let bestCombat = 0;
+        for (const [r, x] of [[1, 15], [5, 25], [15, 75], [30, 150], [50, 300], [70, 700]]) if (L >= r) bestCombat = x;
+        return fetch + hunts + 10 * bestCombat + 800 /*training*/ + 60 * 28 /*explore*/ + 700 /*pvp*/;
+    };
+    it('cumulative days to reach L90 sits in [90, 135]', () => {
         let days = 0;
-        for (let L = 1; L < 90; L++) days += xpNeeded(L) / D(L);
-        assert.ok(days >= 80 && days <= 100, `days-to-90 = ${days.toFixed(1)} (expected 80–100)`);
+        for (let L = 1; L < 90; L++) days += xpNeeded(L) / income(L);
+        assert.ok(days >= 90 && days <= 135, `days-to-90 = ${days.toFixed(1)} (expected 90–135 for the engaged daily-active model)`);
     });
-    it('time-per-level strictly increases (fast early, slow late)', () => {
-        for (let L = 1; L < 89; L++) {
-            const t = xpNeeded(L) / D(L), tNext = xpNeeded(L + 1) / D(L + 1);
-            assert.ok(t < tNext, `t(L${L}) < t(L${L + 1})`);
-        }
+    it('is strongly slow-late: the back half (L46-90) takes >2x the front half (L1-45)', () => {
+        let front = 0, back = 0;
+        for (let L = 1; L < 90; L++) { const d = xpNeeded(L) / income(L); if (L <= 45) front += d; else back += d; }
+        assert.ok(back > front * 2, `back ${back.toFixed(1)}d should exceed 2x front ${front.toFixed(1)}d (fast early, slow late)`);
     });
 });
