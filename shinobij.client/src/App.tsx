@@ -68,6 +68,7 @@ import {
     endlessScaleFactor,
     endlessWaveReward,
     endlessTowerMilestoneReward,
+    applyTowerCashOut,
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
@@ -1426,6 +1427,7 @@ export function normalizeCharacter(parsed: Character): Character {
         dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
         dailyHollowGateRuns: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHollowGateRuns ?? 0) : 0,
+        dailyTowerXp: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTowerXp ?? 0) : 0,
         hollowGateRun: parsed.hollowGateRun ?? null,
         hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
         hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
@@ -5457,13 +5459,9 @@ export default function App() {
             setCharacter({ ...character, endlessTowerRun: null });
             return;
         }
-        setCharacter({
-            ...character,
-            ryo: (character.ryo ?? 0) + run.bankedRyo,
-            xp: (character.xp ?? 0) + run.bankedXp,
-            endlessTowerBestWave: Math.max(character.endlessTowerBestWave ?? 0, run.wave),
-            endlessTowerRun: null,
-        });
+        // Credit via gainXp + daily tower-XP soft cap (a raw xp+= would be clamped
+        // away by the new curve, and uncapped tower XP would bypass the level curve).
+        setCharacter(applyTowerCashOut(character, run, currentDateKey(), gainXp));
         setEndlessBattleActive(false);
         setEndlessBattleWave(0);
         setTemporaryStoryAi(null);
