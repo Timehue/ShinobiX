@@ -27,6 +27,21 @@ const SEAL_COSTS_BY_FROM_LEVEL = {
 };
 const MIN_LEVEL = 30;
 const MAX_LEVEL = 40; // Seal path stops at 40 — 40→50 still requires PvP.
+// Per-rank jutsu mastery-level cap (anti-twink) — mirrors api/pvp/move.ts
+// jutsuLevelCapForLevel, the authoritative combat clamp (parity-pinned to the
+// client). Seal training must respect it so a player can't spend Seals raising a
+// jutsu above what their rank can actually use in combat (Chunin caps at 30, so
+// only Jonin+ can Seal-train the 30→40 band).
+function jutsuLevelCapForLevel(level) {
+    const lvl = Math.max(1, Math.floor(Number(level) || 1));
+    if (lvl >= 50)
+        return 50; // Jonin (50–79) + Special Jonin (80+)
+    if (lvl >= 30)
+        return 30; // Chunin
+    if (lvl >= 15)
+        return 20; // Genin
+    return 10; // Academy Student
+}
 // Vanguard Rank 8+ pays 90% of the listed cost (10% discount).
 const VANGUARD_RANK_FOR_DISCOUNT = 8;
 const VANGUARD_DISCOUNT_MULT = 0.9;
@@ -111,6 +126,13 @@ async function handler(req, res) {
             }
             if (fromLevel >= MAX_LEVEL) {
                 return { status: 400, body: { error: `Levels ${MAX_LEVEL}+ still require PvP training.` } };
+            }
+            // Rank cap: a jutsu can't be Seal-trained above the player's rank
+            // ceiling (Chunin 30 / Jonin+ 50). Stored mastery above the cap would
+            // just be clamped in combat anyway — block it so Seals aren't wasted.
+            const rankCap = jutsuLevelCapForLevel(Number(char.level) || 1);
+            if (fromLevel >= rankCap) {
+                return { status: 400, body: { error: `Your rank caps this jutsu at level ${rankCap}. Rank up to train it further.` } };
             }
             const cost = computeCost(fromLevel, char.profession, char.professionRank, char.masterySpec);
             if (cost <= 0)

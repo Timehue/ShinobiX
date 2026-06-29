@@ -82,14 +82,30 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own expeditions.' });
         }
-        // Only Pet Tamers earn expedition currency/Tamer rewards, so only they
-        // need a token. Non-Tamers can still run expeditions client-side (pet
-        // XP/stats), they just never call report-pet-event. Return 200, no token.
+        // Pet Tamers earn FULL expedition currency/Tamer rewards. Non-Tamers earn
+        // nothing from expeditions normally — EXCEPT once a pet is fully maxed
+        // (level >= maxLevel), when it earns HALF a Tamer's base ryo + half the
+        // base drop chances (and no pet XP/stats, which a maxed pet can't gain).
+        // Both paths are token-gated so the currency stays server-authoritative.
         const record = await _storage_js_1.kv.get(`save:${playerName}`);
         const char = record?.character;
-        if (char?.profession !== 'petTamer') {
+        const isTamer = char?.profession === 'petTamer';
+        // Verify the pet's REAL level from the save — never trust body.petLevel —
+        // so a non-Tamer can't fake a maxed pet to farm the half-rate currency.
+        const pets = Array.isArray(char?.pets) ? char.pets : [];
+        const thePet = petId ? pets.find((p) => p && p.id === petId) : undefined;
+        const realLevel = Number(thePet?.level ?? 0);
+        const realMaxLevel = Number(thePet?.maxLevel ?? 100);
+        const petMaxed = !!thePet && realLevel >= realMaxLevel;
+        if (!isTamer && !petMaxed) {
+            // Non-Tamer with a non-maxed (or unknown) pet: no currency path, no token.
             return res.status(200).json({ ok: true, petTamer: false, token: null });
         }
+        // Half rate for the non-Tamer maxed-pet path; full rate for Pet Tamers.
+        const rewardScale = isTamer ? 1 : 0.5;
+        // Seal the level used by the ryo formula: the verified maxed level for the
+        // non-Tamer path, the (clamped) body value for Tamers (unchanged behavior).
+        const sealedPetLevel = isTamer ? petLevel : Math.max(1, Math.min(100, realLevel));
         // Daily mint cap (separate counter from report-pet-event's claim cap;
         // a mint without a redeem still counts so the two can't be played off
         // each other).
@@ -113,16 +129,16 @@ async function handler(req, res) {
             return { capped: false };
         });
         if (capCheck.capped) {
-            return res.status(200).json({ ok: true, petTamer: true, reason: 'daily-mint-cap', token: null });
+            return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'daily-mint-cap', token: null });
         }
         const durationMinutes = EXP_DURATION_MINUTES[expType];
         const mintedAt = Date.now();
         const endsAt = mintedAt + durationMinutes * 60_000;
         // Seal the Pet Tamer mastery reward multipliers (Expeditioner path) into
         // the token so the redeemer can't tamper with them and they're fixed at
-        // launch-time spec. PvE currency only.
-        const expRewardMult = 1 + (0, _profession_mastery_js_1.masteryBonus)(char?.profession, char?.masterySpec, 'expRewardPct') / 100;
-        const expMaterialMult = 1 + (0, _profession_mastery_js_1.masteryBonus)(char?.profession, char?.masterySpec, 'expMaterialPct') / 100;
+        // launch-time spec. PvE currency only. Non-Tamers get no mastery (×1).
+        const expRewardMult = isTamer ? 1 + (0, _profession_mastery_js_1.masteryBonus)(char?.profession, char?.masterySpec, 'expRewardPct') / 100 : 1;
+        const expMaterialMult = isTamer ? 1 + (0, _profession_mastery_js_1.masteryBonus)(char?.profession, char?.masterySpec, 'expMaterialPct') / 100 : 1;
         const tokenId = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
         const tokenKey = `pet-exp-token:${playerName}:${tokenId}`;
         await _storage_js_1.kv.set(tokenKey, {
@@ -130,13 +146,17 @@ async function handler(req, res) {
             petId: petId || undefined,
             expType,
             durationMinutes,
-            petLevel,
+            petLevel: sealedPetLevel,
             mintedAt,
             endsAt,
             expRewardMult,
             expMaterialMult,
+            // Reward scale (1 = full Tamer, 0.5 = non-Tamer maxed pet) and whether
+            // this is a Tamer token, both sealed so the redeemer pays accordingly.
+            rewardScale,
+            tamer: isTamer,
         }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
-        return res.status(200).json({ ok: true, petTamer: true, token: tokenId, durationMinutes, endsAt });
+        return res.status(200).json({ ok: true, petTamer: isTamer, token: tokenId, durationMinutes, endsAt });
     }
     catch (err) {
         console.error('[missions/expedition-start]', err);
