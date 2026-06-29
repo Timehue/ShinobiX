@@ -118,14 +118,17 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         const option = petExpeditionOptions.find(entry => entry.type === expeditionType) ?? petExpeditionOptions[0];
 
         // Pet Tamers mint a single-use server token at launch — the ONLY way to
-        // earn expedition Ryo/drops/Tamer XP on collect (server requires it; no
-        // fallback). Non-Tamers run expeditions for pet XP/stats only and need
-        // no token. On a genuine server/network failure we block (don't waste an
+        // earn full expedition Ryo/drops/Tamer XP on collect (server requires it;
+        // no fallback). A non-Tamer's MAXED pet also mints a token, but earns HALF
+        // a Tamer's ryo + drop chances and no XP/stats (server-verified + scaled).
+        // A non-Tamer's non-maxed pet runs for pet XP/stats only and needs no
+        // token. On a genuine server/network failure we block (don't waste an
         // expedition that would have earned currency). Past the daily reward cap
-        // the trip still runs for pet XP/stats with no token — the same 12/day
-        // currency ceiling as before, so no blocking prompt is needed.
+        // the trip still runs with no token — the same 12/day currency ceiling.
+        const petMaxed = selectedPet.level >= selectedPet.maxLevel;
+        const wantsToken = character.profession === "petTamer" || petMaxed;
         let token: string | undefined;
-        if (character.profession === "petTamer") {
+        if (wantsToken) {
             let data: { token?: string; reason?: string } | null;
             try {
                 const r = await fetch('/api/missions/expedition-start', {
@@ -139,9 +142,11 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                 return alert("Couldn't reach the expedition server. Please try again.");
             }
             token = typeof data?.token === "string" ? data.token : undefined;
-            // No token AND not the daily-cap path means an unexpected response —
-            // don't burn an expedition that should have earned rewards.
-            if (!token && data?.reason !== "daily-mint-cap") {
+            // No token AND not the daily-cap path: for a Tamer that's an unexpected
+            // response — don't burn a currency-earning expedition. For a non-Tamer
+            // it just means the server doesn't see the pet as maxed yet (e.g. a
+            // not-yet-synced save), so let the trip run tokenless rather than trap it.
+            if (!token && data?.reason !== "daily-mint-cap" && character.profession === "petTamer") {
                 return alert("Couldn't start the expedition. Please try again.");
             }
         }
@@ -194,8 +199,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         const firstResult = petTamerClaimFirstExpeditionToday(character, todayKey);
         const firstBonus = firstResult.isFirst ? 2 : 1;
 
-        const xp       = Math.round(120 * durationHours * xpMult * tamerMult * firstBonus);
-        const statGain = Math.max(1, Math.round(durationHours));
+        // A max-level pet can't grow, so its expeditions award 0 pet XP and 0
+        // stats. The server-computed ryo + rare drops below are keyed off pet
+        // level/type and are unaffected — a maxed pet still earns currency.
+        const petMaxed = selectedPet.level >= selectedPet.maxLevel;
+        const xp       = petMaxed ? 0 : Math.round(120 * durationHours * xpMult * tamerMult * firstBonus);
+        const statGain = petMaxed ? 0 : Math.max(1, Math.round(durationHours));
 
         const levelBefore = selectedPet.level;
         const returnedPet = capPetStats(gainPetXp({
@@ -229,8 +238,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         // Tamer XP + daily First Expedition tracking + escort consumption are
         // all server-authoritative now. Client posts durationMinutes; server
         // computes XP and returns the post-grant character snapshot, which we
-        // overlay onto local state to avoid a stale UI lag.
-        if (character.profession === "petTamer") {
+        // overlay onto local state to avoid a stale UI lag. A non-Tamer's maxed
+        // pet also has a token (half-rate currency), so report whenever one exists.
+        if (character.profession === "petTamer" || selectedPet.expedition?.token) {
             const minutes = Math.floor(selectedPet.expedition.durationMs / 60_000);
             const longExpedition = minutes >= 240;
             fetch('/api/missions/report-pet-event', {
@@ -414,6 +424,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (!ownsItem(character, treat.id)) {
             return alert(`You need ${treat.name} to feed ${selectedPet.name}.`);
         }
+        // A max-level pet gains no XP from treats, so don't let it consume one for
+        // nothing (the Feed buttons are also disabled at max level — this guards
+        // the rare race where state changed since render).
+        if (selectedPet.level >= selectedPet.maxLevel) {
+            return alert(`${petDisplayName(selectedPet)} is at max level (${selectedPet.maxLevel}) — treats no longer give XP.`);
+        }
 
         const fedPet = increasePetHappiness(gainPetXp(selectedPet, treat.xp));
         updateCharacter({
@@ -550,16 +566,20 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                 <span className="expedition-reward-label">Ryo</span>
                                 <span className="expedition-reward-value">+{expeditionResult.ryo.toLocaleString()}</span>
                             </div>
-                            <div className="expedition-reward-row">
-                                <span className="expedition-reward-icon">✨</span>
-                                <span className="expedition-reward-label">Pet XP</span>
-                                <span className="expedition-reward-value">+{expeditionResult.xp.toLocaleString()}</span>
-                            </div>
-                            <div className="expedition-reward-row">
-                                <span className="expedition-reward-icon">📈</span>
-                                <span className="expedition-reward-label">Stats</span>
-                                <span className="expedition-reward-value">+{expeditionResult.statGain} ATK / DEF / HP</span>
-                            </div>
+                            {expeditionResult.xp > 0 && (
+                                <div className="expedition-reward-row">
+                                    <span className="expedition-reward-icon">✨</span>
+                                    <span className="expedition-reward-label">Pet XP</span>
+                                    <span className="expedition-reward-value">+{expeditionResult.xp.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {expeditionResult.statGain > 0 && (
+                                <div className="expedition-reward-row">
+                                    <span className="expedition-reward-icon">📈</span>
+                                    <span className="expedition-reward-label">Stats</span>
+                                    <span className="expedition-reward-value">+{expeditionResult.statGain} ATK / DEF / HP</span>
+                                </div>
+                            )}
                             {expeditionResult.foundBone > 0 && (
                                 <div className="expedition-reward-row expedition-reward-rare">
                                     <span className="expedition-reward-icon">🦴</span>
@@ -733,11 +753,16 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                             </div>
                             <section className="pet-feed-panel">
                                 <h4>Feed</h4>
+                                {selectedPet.level >= selectedPet.maxLevel && (
+                                    <p className="hint" style={{ margin: "0 0 6px", color: "#9ca3af" }}>
+                                        {petDisplayName(selectedPet)} is max level — treats no longer give XP.
+                                    </p>
+                                )}
                                 <div className="pet-feed-grid">
                                     {petFeedItems.map((treat) => {
                                         const count = inventoryCount(treat.id);
                                         return (
-                                            <button key={treat.id} onClick={() => feedPet(treat)} disabled={count <= 0}>
+                                            <button key={treat.id} onClick={() => feedPet(treat)} disabled={count <= 0 || selectedPet.level >= selectedPet.maxLevel}>
                                                 <strong>{treat.name}</strong>
                                                 <span>+{treat.xp} XP | Owned {count}</span>
                                             </button>
@@ -993,7 +1018,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         ))}
                                     </select>
                                     <p className="hint">Expected gains: {petTrainingPreview(selectedPet, trainingType, trainingDuration)}</p>
-                                    <button className="admin-button" onClick={startTraining}>Start Training</button>
+                                    <button className="admin-button" onClick={startTraining} disabled={selectedPet.level >= selectedPet.maxLevel}>Start Training</button>
                                 </>
                             )}
                         </div>
@@ -1023,7 +1048,13 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
                                         {petExpeditionOptions.map((option) => <option key={option.type} value={option.type}>{option.label} ({option.durationLabel}) - {option.desc}</option>)}
                                     </select>
                                     <button className="admin-button" onClick={startExpedition}>Send Exploring</button>
-                                    <p className="hint">Expeditions give ryo, pet XP, stat gains, and a chance for Aura Stones, Bone Charms, and Fate Shards.</p>
+                                    <p className="hint">
+                                        {selectedPet.level >= selectedPet.maxLevel
+                                            ? (character.profession === "petTamer"
+                                                ? "Max level — expeditions still earn ryo and rare drops, but no more pet XP or stats."
+                                                : "Max level — expeditions earn half a Pet Tamer's ryo and drop chances (no more pet XP or stats).")
+                                            : "Expeditions give ryo, pet XP, stat gains, and a chance for Aura Stones, Bone Charms, and Fate Shards."}
+                                    </p>
                                 </>
                             )}
                         </div>

@@ -98,12 +98,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only report your own events.' });
         }
 
-        // Verify the player is actually a Pet Tamer. Cheap pre-lock peek; the
-        // authoritative read happens under the lock below.
+        // Cheap pre-lock peek; the authoritative read happens under the lock below.
         const saveKey = `save:${playerName}`;
         const preCheck = await kv.get<Record<string, unknown>>(saveKey);
         const preChar = preCheck?.character as Record<string, unknown> | undefined;
-        if (preChar?.profession !== 'petTamer') {
+        const isTamer = preChar?.profession === 'petTamer';
+        const isExpeditionEvent = event === 'expedition' || event === 'long-expedition';
+        // Pet Tamers get the full flow (currency + XP + missions). Non-Tamers are
+        // allowed ONLY for expedition events, and ONLY with a valid token — which
+        // the server mints solely for a maxed pet — earning half-rate currency,
+        // no Tamer XP and no mission progress. pet-train (and any tokenless path)
+        // from a non-Tamer earns nothing.
+        if (!isTamer && !isExpeditionEvent) {
             return res.status(200).json({ ok: true, petTamer: false });
         }
 
@@ -120,6 +126,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // token at launch (PvE currency only). Default 1 = no bonus.
         let expRewardMult = 1;
         let expMaterialMult = 1;
+        // Reward scale + Tamer flag sealed at mint. Defaults (1 / true) keep tokens
+        // minted before the non-Tamer half-rate path redeeming at full Tamer rate.
+        let rewardScale = 1;
+        let tamerToken = true;
         if (event === 'expedition' || event === 'long-expedition') {
             const tokRaw: string | undefined = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
             const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
@@ -127,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD });
             }
             const tokenKey = `pet-exp-token:${playerName}:${tok}`;
-            const tokenData = await kv.get<{ playerName?: string; expType?: ExpType; durationMinutes?: number; petLevel?: number; endsAt?: number; expRewardMult?: number; expMaterialMult?: number }>(tokenKey);
+            const tokenData = await kv.get<{ playerName?: string; expType?: ExpType; durationMinutes?: number; petLevel?: number; endsAt?: number; expRewardMult?: number; expMaterialMult?: number; rewardScale?: number; tamer?: boolean }>(tokenKey);
             if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
             }
@@ -148,6 +158,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Capture the sealed mastery multipliers (clamped for safety).
             expRewardMult = Math.max(1, Math.min(2, Number(tokenData.expRewardMult ?? 1)));
             expMaterialMult = Math.max(1, Math.min(2, Number(tokenData.expMaterialMult ?? 1)));
+            // Sealed reward scale (clamped 0..1) + Tamer flag. A non-Tamer token
+            // carries rewardScale 0.5 and tamer=false → half currency, no XP/missions.
+            rewardScale = Math.max(0, Math.min(1, Number(tokenData.rewardScale ?? 1)));
+            tamerToken = tokenData.tamer !== false;
         }
 
         // For expedition events, server computes Tamer XP AND the Ryo + drop
@@ -191,19 +205,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const escortReady = !!char.petEscortBonusReady;
                 const rank = Number(char.professionRank ?? 1);
 
-                expeditionXp = tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady });
+                // Tamer XP only on the full Tamer path; a non-Tamer (half-rate
+                // maxed-pet) token earns currency only.
+                expeditionXp = tamerToken ? tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady }) : 0;
 
                 // Ryo + drop calculation (mirrors client formula). Requires expType.
                 if (expType) {
                     const durationHours = Math.max(1, durationMinutes / 60);
-                    const tamerMult = petTamerExpeditionMultFromRank(rank, char.profession);
-                    const firstBonus = isFirstToday ? 2 : 1;
-                    const dropBonus = (tamerMult - 1) + (isFirstToday ? 0.5 : 0);
+                    // Non-Tamer tokens get NO rank mult, NO First-Expedition 2x and
+                    // NO mastery — just the base formula scaled by rewardScale (0.5):
+                    // exactly half a Tamer's base ryo and half the base drop chances.
+                    const tamerMult = tamerToken ? petTamerExpeditionMultFromRank(rank, char.profession) : 1;
+                    const firstBonus = tamerToken && isFirstToday ? 2 : 1;
+                    const dropBonus = tamerToken ? (tamerMult - 1) + (isFirstToday ? 0.5 : 0) : 0;
 
-                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus * expRewardMult);
-                    foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) * expMaterialMult ? 1 : 0;
-                    foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) * expMaterialMult ? 1 : 0;
-                    foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) * expMaterialMult ? 1 : 0;
+                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus * expRewardMult * rewardScale);
+                    foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) * expMaterialMult * rewardScale ? 1 : 0;
+                    foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
+                    foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) * expMaterialMult * rewardScale ? 1 : 0;
                 }
 
                 // Stamp daily tracking + consume escort bonus + apply currencies.
@@ -229,7 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (dailyCapHit) {
                 return res.status(200).json({
                     ok: true,
-                    petTamer: true,
+                    petTamer: isTamer,
                     reason: 'daily-expedition-cap',
                     expeditionXp: 0,
                     ryoEarned: 0,
@@ -248,25 +267,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        const kind = EVENT_TO_KIND[event];
-        const result = await reportMissionEvent({
-            playerName,
-            profession: 'petTamer',
-            kind,
-        });
-        const missionsCompleted: CompletedMissionInfo[] = result.missionsCompleted;
-
-        // For long-expedition events also fire the regular expedition counter
-        // (a 4hr+ expedition counts as both a "completed expedition" and a
-        // "long expedition" toward the relevant missions).
+        // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns
+        // just the half-rate currency credited above (no missions, no XP).
+        let missionsCompleted: CompletedMissionInfo[] = [];
         let extraCompleted: CompletedMissionInfo[] = [];
-        if (event === 'long-expedition') {
-            const extra = await reportMissionEvent({
+        let missionXpAwarded = 0;
+        if (isTamer) {
+            const kind = EVENT_TO_KIND[event];
+            const result = await reportMissionEvent({
                 playerName,
                 profession: 'petTamer',
-                kind: 'pet-tamer-expeditions',
+                kind,
             });
-            extraCompleted = extra.missionsCompleted;
+            missionsCompleted = result.missionsCompleted;
+            missionXpAwarded = result.xpAwarded;
+
+            // For long-expedition events also fire the regular expedition counter
+            // (a 4hr+ expedition counts as both a "completed expedition" and a
+            // "long expedition" toward the relevant missions).
+            if (event === 'long-expedition') {
+                const extra = await reportMissionEvent({
+                    playerName,
+                    profession: 'petTamer',
+                    kind: 'pet-tamer-expeditions',
+                });
+                extraCompleted = extra.missionsCompleted;
+            }
         }
 
         // Re-read for the final post-grant state.
@@ -275,16 +301,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({
             ok: true,
-            petTamer: true,
+            petTamer: isTamer,
             expeditionXp,
             ryoEarned,
             foundBone,
             foundAura,
             foundFate,
-            missionXpAwarded: result.xpAwarded,
+            missionXpAwarded,
             missionsCompleted: [...missionsCompleted, ...extraCompleted],
-            professionXp: Number(finalChar?.professionXp ?? 0),
-            professionRank: Number(finalChar?.professionRank ?? 1),
+            ...(isTamer ? {
+                professionXp: Number(finalChar?.professionXp ?? 0),
+                professionRank: Number(finalChar?.professionRank ?? 1),
+            } : {}),
         });
     } catch (err) {
         console.error('[missions/report-pet-event]', err);
