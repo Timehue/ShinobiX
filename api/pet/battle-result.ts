@@ -17,8 +17,8 @@ import { creditRankedOutcome } from '../_ranked-rating.js';
 //   • Daily cap of 100 arena ryo grants per player (legitimate grinders
 //     never come close)
 //   • opponentLevel clamped to [1, 100] before reward math
-//   • Reward formula identical to the old client one, so we don't inflate
-//     anything legitimate
+//   • Reward formula (level * 2, floor 20) is server-owned; the client just
+//     banks the returned `reward`. Tuned down in the ryo economy rebalance.
 //
 // Combined with the existing per-save ryo cap (1M / save cycle) and rolling
 // gain window, the practical fraud ceiling is meaningfully tight without
@@ -40,7 +40,10 @@ function utcDateKey(): string {
 }
 
 function petArenaRyoReward(opponentLevel: number): number {
-    return Math.max(20, opponentLevel * 5);
+    // Ryo economy rebalance: tuned down from `level * 5` to `level * 2` so the
+    // pet arena — a low-effort, 100/day faucet — stops out-earning the active
+    // mission loop and inflating ryo. Floor of 20 keeps low-level wins worth it.
+    return Math.max(20, opponentLevel * 2);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -70,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Optional opponent name — used to verify the claimed opponentLevel
         // against the opponent's actual saved level. Stops a level-5 player
         // from claiming wins against level-100 opponents to maximize the
-        // `level * 5` ryo formula (500 ryo × 100/day = 50k ryo/day cheat).
+        // `level * 2` ryo formula (200 ryo × 100/day = 20k ryo/day cheat).
         const opponentNameRaw = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
         // Optional reportKey for refresh-replay dedup. Clients pass
         // `${battleSeed}:1v1` or `${battleSeed}:match:${i}`; same key from
@@ -108,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // non-existent opponentName took the `if` branch but found no oppChar, so
         // BOTH the actual-level correction and the myLevel+10 clamp were skipped,
         // letting a level-1 player claim opponentLevel 100 for the full
-        // 500-ryo-per-win formula (× the 100/day cap = 50k ryo/day for no battles).
+        // 200-ryo-per-win formula (× the 100/day cap = 20k ryo/day for no battles).
         let opponentLevel = opponentLevelRaw;
         let verifiedLevel: number | null = null;
         if (opponentNameRaw && opponentNameRaw !== playerName) {
