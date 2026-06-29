@@ -10,7 +10,7 @@ import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
 import { currentDateKey, formatPetTimer } from "../lib/utils";
 import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petExpeditionStories, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions } from "../data/pet-config";
 import { petTamerClaimFirstExpeditionToday, petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../App";
 import { addItem, removeItem, countItem, ownsItem } from "../lib/inventory";
@@ -479,7 +479,12 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`❌ Need ${stoneName} (Grand Marketplace).`); return; }
         if (!confirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`)) return;
         const oldName = petDisplayName(selectedPet);
-        const oldImage = selectedPet.image ?? selectedPet.bodyImage ?? `/pet-poses/${selectedPet.id}-idle.webp`;
+        // POSE-first (transparent cutout) — NOT selectedPet.image, which can be a
+        // published portrait with an opaque background that the cutscene would
+        // render/silhouette as a hard black box. petPoseImage resolves the clean
+        // idle pose for the pet's current stage (-r/-l) and only falls back to a
+        // portrait when no pose exists. See lib/pet-battle-anim.petPoseImage.
+        const oldImage = petPoseImage(selectedPet);
         setEvolveBusy(true); setEvolveMsg("");
         try {
             const res = await fetch("/api/pet/evolve", {
