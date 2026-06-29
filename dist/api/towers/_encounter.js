@@ -111,7 +111,9 @@ function templateActor(id, side, tpl, pos, ownerSlug = null) {
         shield: 0, statuses: [], cooldowns: {}, pos,
         // `visual` (sprite key) + `boss` are cosmetic-only hints the client renders; they
         // never touch combat math. The boss is also tracked authoritatively via phaseState.
-        character: { specialty: tpl.specialty, stats: { ...tpl.stats }, visual: tpl.visual, ...(tpl.boss ? { boss: true } : {}) },
+        // `level` drives the per-rank STAT CAP (applyJutsu perRankStatCap); without it
+        // every tower enemy would clamp to the Academy ceiling. `visual`/`boss` are cosmetic.
+        character: { level: tpl.level, specialty: tpl.specialty, stats: { ...tpl.stats }, visual: tpl.visual, ...(tpl.boss ? { boss: true } : {}) },
     };
 }
 function buildTowerEncounter(p) {

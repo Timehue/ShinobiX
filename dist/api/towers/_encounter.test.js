@@ -136,3 +136,32 @@ function build(floor, squad, over = {}) {
         }
     });
 });
+// Regression guard for the per-rank STAT CAP: tower combat routes through applyJutsu,
+// which clamps each fighter's stats to statCapForLevel(level). Every enemy template MUST
+// carry a level whose rank-band cap is >= its biggest stat, or its hand-tuned stats get
+// gutted to the Academy ceiling in combat (the boss-over-nerf bug). statCapForLevel here
+// mirrors api/pvp/move.ts (and shinobij.client/src/constants/game.ts).
+(0, node_test_1.describe)('enemy templates fit their rank-band stat cap (no combat over-clamp)', () => {
+    const statCapForLevel = (level) => {
+        const lvl = Math.max(1, Math.floor(Number(level) || 1));
+        if (lvl >= 80)
+            return 2500;
+        if (lvl >= 50)
+            return 2100;
+        if (lvl >= 30)
+            return 1300;
+        if (lvl >= 15)
+            return 700;
+        return 350;
+    };
+    for (const id of _enemy_templates_js_1.ENEMY_TEMPLATE_IDS) {
+        (0, node_test_1.it)(`${id}: every stat fits statCapForLevel(level)`, () => {
+            const tpl = (0, _enemy_templates_js_1.getEnemyTemplate)(id);
+            node_assert_1.strict.ok(typeof tpl.level === 'number' && tpl.level >= 1, `${id} has no level`);
+            const cap = statCapForLevel(tpl.level);
+            for (const [k, v] of Object.entries(tpl.stats)) {
+                node_assert_1.strict.ok(v <= cap, `${id}.${k}=${v} exceeds the level-${tpl.level} rank cap ${cap} — it would be clamped in combat; raise the template's level`);
+            }
+        });
+    }
+});
