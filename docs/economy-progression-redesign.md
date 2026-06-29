@@ -21,11 +21,12 @@
 ## 0. TL;DR — the five levers
 
 1. **XP curve → steeper.** Replace the linear-per-level `xpNeeded(L) = 100·L`
-   with a **quadratic-per-level** curve `xpNeeded(L) ≈ 3·L²` (cumulative is
-   cubic). Income grows ~linearly with level, so a requirement that grows
-   quadratically makes *time-per-level rise* → fast early, slow late. The two
-   curves **cross at ~L33**: below it the new curve is *cheaper* than today
-   (faster early game), above it *more expensive* (slower late game).
+   with a **quadratic-per-level** curve `xpNeeded(L) = 6·L²` (cumulative is cubic).
+   Income grows ~linearly with level, so a requirement that grows quadratically
+   makes *time-per-level rise* → fast early, slow late. (SHIPPED coefficient is **6**,
+   re-fit to the REAL faucets — an early draft used `3`, which a recompute showed was
+   ~2× too fast; see §3 banner + the appendix.) The curves cross at ~L17: below it
+   cheaper than today (faster early), above it more expensive (slower late).
 2. **Income → shaped & capped.** Remove the `×3`. Keep per-activity base XP
    roughly as-is but **cap the two uncapped character-XP faucets** (Endless Tower,
    exploration) with daily soft-caps/diminishing returns, so daily income per
@@ -160,7 +161,19 @@ real faucet yet). (`_mission-catalog.ts:30`, `_economy.ts` draft type.)
 
 ## 3. The pacing model — back-solving 90 days
 
-### 3.1 The resulting pace (computed, not hand-allocated)
+> **⚠️ SUPERSEDED NUMBERS — read this first.** The sub-sections below (3.1–3.3) were
+> the initial exploration using coefficient **3** and a *synthetic* income model
+> `D(L)=120·L+900`. The capstone review found that model ~2× too low vs the REAL
+> faucets (field/hunt missions are once-each per day — `claim-mission.ts:168` — and
+> combat repeats via Arena; recomputed from the actual catalog). At coeff 3 an
+> engaged daily-active player hit L90 in ~60 days, not 90. **SHIPPED: coefficient
+> `6`** (owner-chosen "engaged daily-active = ~90 days"), which against the real
+> faucets gives ~90–110 days for that player (hardcore ~72, casual ~150+), strongly
+> slow-late (back half ≈ 2.6× the front). The authoritative numbers are in the §14
+> appendix and the real-faucet pacing guardrail in `stats.test.ts`. Treat 3.1–3.3
+> below as the method/rationale, not the final numbers.
+
+### 3.1 The resulting pace (computed, not hand-allocated) — *coeff-3 draft, superseded*
 Running `xpNeeded=3L²` against the income model (§3.2) gives this **computed**
 cumulative pace — strongly front-loaded, reaching L90 at ~day 87:
 
@@ -793,8 +806,9 @@ Each phase: run `npm test` (API) + `npm run lint` (client); rebuild + commit
 > **Status:** #1–6 SHIPPED + reviewed, #7–9 CUT, #10 is the only remaining work (UI).
 > The mechanical/economic/XP/stat/drop redesign is complete; details per item below.
 
-1. **XP coefficient: SHIPPED `3·L²`** (~90 days L1→90 for a daily-active player;
-   tune the `3` for 2.5 ≈ 75d / 3.5 ≈ 105d).
+1. **XP coefficient: SHIPPED `6·L²`** — re-fit to the REAL faucets after the capstone
+   review found `3` was ~2× too fast (daily-active hit L90 in ~60d, not 90). At `6`:
+   engaged daily-active ~90–110d, hardcore ~72d, casual ~150+. Tune the `6` to shift.
 2. **Unify AI onto the player stat budget (§6.2): SHIPPED** — `aiStatsForLevel`
    distributes the same `statBudget(level)`; player↔AI matched at every level, both
    max at L100.
@@ -820,31 +834,28 @@ Each phase: run `npm test` (API) + `npm run lint` (client); rebuild + commit
 
 ## 14. Appendix — the curve at a glance
 
-**Leveling (time):** `xpNeeded(L) = round(3·L²)` · `cumulative(L) =
-(L−1)·L·(2L−1)/2` · `D(L) ≈ 120·L + 900` · `days_to(L) ≈ Σ xpNeeded(i)/D(i)`.
-**Stats (power, §6):** shared by players + AI, **maxed 29,880 at L100**. Two
-candidate shapes — *coupled* `= 20 + floor(cumulative/985,050 × 29,860)`
-(reference-exact, back-loaded) vs *linear* `= 20 + round((L−1)/99 × 29,860)`
-(recommended if we ship the steep curve).
+**Leveling (time):** `xpNeeded(L) = round(6·L²)` (SHIPPED) · `cumulative(L) =
+(L−1)·L·(2L−1)` · days from the REAL faucet model (engaged daily-active; mirrored in
+the `stats.test.ts` pacing guardrail). **Stats (power, §6):** shared by players + AI,
+**maxed 29,880 at L100**, SHIPPED shape = *linear* `= 20 + round((L−1)/99 × 29,860)`
+(decoupled from the XP curve — unchanged by the coefficient).
 
-| L | xpNeeded | cumulative XP | statBudget (coupled) | statBudget (linear) | ~day reached |
-|---:|---:|---:|---:|---:|---:|
-| 10 | 300 | 855 | 45 | 2,735 | ~0.5 |
-| 20 | 1,200 | 7,410 | 244 | 5,751 | ~3 |
-| 30 | 2,700 | 25,665 | 797 | 8,767 | ~8 |
-| 39 | 4,563 | 57,057 | 1,749 | 11,481 | ~14 |
-| 50 | 7,500 | 121,275 | 3,696 | 14,799 | ~24 |
-| 60 | 10,800 | 210,630 | 6,405 | 17,815 | ~36 |
-| 70 | 14,700 | 335,685 | 10,196 | 20,832 | ~51 |
-| 80 | 19,200 | 502,440 | 15,250 | 23,848 | ~68 |
-| **90** | **24,300** | **716,895** | **21,751** | **26,864** | **~87** |
-| 100 | — | 985,050 | 29,880 | 29,880 | ~109 |
+| L | xpNeeded | cumulative XP | statBudget (linear, SHIPPED) | ~day reached |
+|---:|---:|---:|---:|---:|
+| 10 | 600 | 1,710 | 2,735 | ~1 |
+| 20 | 2,400 | 14,820 | 5,751 | ~3 |
+| 30 | 5,400 | 51,330 | 8,767 | ~11 |
+| 39 | 9,126 | 114,114 | 11,481 | ~20 |
+| 50 | 15,000 | 242,550 | 14,799 | ~39 |
+| 60 | 21,600 | 421,260 | 17,815 | ~54 |
+| 70 | 29,400 | 671,370 | 20,832 | ~76 |
+| 80 | 38,400 | 1,004,880 | 23,848 | ~92 |
+| **90** | **48,600** | **1,433,790** | **26,864** | **~112** |
+| 100 | — | 1,970,100 | 29,880 | ~136 |
 
-*(Values computed, not hand-estimated. Note how front-loaded the **time** is —
-half the levels, 1→50, take ~24 days; the back half, 50→90, takes ~63. That is the
-"fast early / slow late" feel. The Genin exam gate at L20 (~day 3) and Chunin at
-L39 (~day 14) sit right where the blitz would otherwise run away, turning raw speed
-into milestones. Tune the `3` coefficient and the flat training floor to slow/speed
-the early game; L90 stays ~85–90 days. The two statBudget columns are the §6.4
-choice — both hit 29,880 at L100 and both serve players AND AI identically; AI
-parity + per-rank caps (§6.5) are the load-bearing changes regardless of shape.)*
+*(Computed against the REAL faucets (engaged daily-active), not the old synthetic
+model. Strongly slow-late: L1→50 ≈ 39 days, L50→90 ≈ 73 days. Exam gates (Genin @20 ≈
+day 3, Chunin @39 ≈ day 20) sit right where the early blitz would otherwise run away.
+The stat budget is LINEAR + decoupled (maxed 29,880 at L100), so it's unaffected by
+the coefficient; AI parity + per-rank caps (§6.5) are the load-bearing stat changes.
+Tune the `6` coefficient to shift overall pacing.)*
