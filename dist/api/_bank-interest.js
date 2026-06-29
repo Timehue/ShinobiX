@@ -8,7 +8,7 @@
 // lib/village-upgrades.ts):
 //   interestPercent   = getBankInterestPercent(character)
 //                     = villageUpgradeBonus(character,'bank')
-//                     = clamp(floor(villageUpgrades.bank), 0, 50) * 0.25
+//                     = clamp(floor(villageUpgrades.bank), 0, 50) * 0.01
 //   nextClaimAt       = (lastBankInterestAt ?? 0) + 24h
 //   canClaimInterest  = bankRyo > 0 && interestPercent > 0 && now >= nextClaimAt
 //   projectedInterest = max(0, floor(bankRyo * (interestPercent / 100)))
@@ -37,7 +37,7 @@ const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 // wallet+bank), so legitimate players are unaffected. TUNABLE: lower to tighten
 // the faucet. MIRROR: shinobij.client/src/screens/Bank.tsx `projectedInterest`.
 exports.BANK_INTEREST_PRINCIPAL_CAP = 10_000_000;
-/** villageUpgradeBonus(character,'bank') — clamp(floor(level),0,50) * 0.25. */
+/** villageUpgradeBonus(character,'bank') — clamp(floor(level),0,50) * 0.01. */
 function bankInterestPercent(char) {
     const upgrades = (char.villageUpgrades && typeof char.villageUpgrades === 'object')
         ? char.villageUpgrades

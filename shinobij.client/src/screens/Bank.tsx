@@ -111,7 +111,7 @@ export function Bank({ character, updateCharacter, onBack }: { character: Charac
                 <button onClick={withdraw}>Withdraw</button>
                 <button onClick={claimInterest} disabled={!canClaimInterest}>Collect Interest</button>
             </div>
-            <p className="hint">Town Hall Bank upgrade gives +0.25% interest per level. Interest can be collected once every 24 hours.</p>
+            <p className="hint">Town Hall Bank upgrade gives +0.01% interest per level (max 0.5%/day at level 50). Interest can be collected once every 24 hours.</p>
 
             <h3 style={{ marginTop: "1.5rem" }}>Send to Player</h3>
             <p className="hint" style={{ marginTop: 0 }}>Wire ryo or rare currency to another shinobi. A {Math.round(TRADE_TAX_PCT * 100)}% transfer tax is burned on every send.</p>
