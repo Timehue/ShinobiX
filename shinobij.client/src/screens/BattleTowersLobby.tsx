@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
+import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import spireBanner from "../assets/towers/spire.webp";
 
@@ -32,11 +33,13 @@ const BIOME: Record<string, { color: string; icon: string }> = {
 
 export function BattleTowersLobby({
     character,
+    updateCharacter,
     hostLoadout,
     onEnter,
     onBack,
 }: {
     character: Character;
+    updateCharacter: (c: Character) => void;
     hostLoadout?: TowerHostLoadout;
     onEnter: (runId: string, session: TowerSession) => void;
     onBack: () => void;
@@ -65,6 +68,7 @@ export function BattleTowersLobby({
     const rating = character.battleTowerRating ?? 0;
     const cleared = new Set(character.battleTowerClearedFloors ?? []);
     const me = character.name;
+    const entryFee = battleEntryCost(character);
     const availableAllies = following.filter(f =>
         f.toLowerCase() !== me.toLowerCase() && !allies.some(a => a.toLowerCase() === f.toLowerCase()));
 
@@ -92,10 +96,18 @@ export function BattleTowersLobby({
 
     async function enterFloor() {
         if (selected == null || starting) return;
+        // Ryo entry fee (first BATTLE_FREE_FLOORS floors/day free). Charged only on a
+        // SUCCESSFUL start, so a failed entry never costs ryo.
+        if (entryFee > 0 && (character.ryo ?? 0) < entryFee) {
+            setError(`Entry costs ${entryFee.toLocaleString()} ryo after your ${BATTLE_FREE_FLOORS} free floors today — not enough ryo.`);
+            return;
+        }
         setStarting(true);
         setError(null);
         try {
             const { runId, session } = await startTowerRun(me, selected, allies, hostLoadout);
+            const paid = payBattleEntry(character);
+            if (paid) updateCharacter(paid);
             onEnter(runId, session);
         } catch (e) {
             setError(String((e as Error)?.message ?? e));
@@ -117,7 +129,7 @@ export function BattleTowersLobby({
                 <h1 style={{ margin: 0, fontSize: "2.1rem", letterSpacing: 0.5, textShadow: "0 3px 12px rgba(0,0,0,0.9)" }}>⚔️ Battle Towers</h1>
                 <p style={{ margin: "4px 0 0", color: "#cbd5e1", maxWidth: 620, fontSize: "0.9rem", textShadow: "0 2px 6px rgba(0,0,0,0.9)" }}>
                     Curated squad floors — objectives, battlefield gimmicks, and bosses with signature mechanics.
-                    Free to enter, unlimited retries; the gate is tactics, not stamina.
+                    First few floors free daily, then a small ryo toll; unlimited retries — the gate is tactics, not stamina.
                 </p>
             </div>
 
@@ -228,7 +240,7 @@ export function BattleTowersLobby({
                     onClick={enterFloor}
                     disabled={selected == null || starting || loading}
                 >
-                    {starting ? "Entering…" : selFloor ? `▶ Enter Floor ${selFloor.id} — ${selFloor.name}${allies.length ? ` · ${allies.length + 1}-player squad` : ""}` : "Select a floor"}
+                    {starting ? "Entering…" : selFloor ? `▶ Enter Floor ${selFloor.id} — ${selFloor.name}${allies.length ? ` · ${allies.length + 1}-player squad` : ""}${entryFee > 0 ? ` · ${entryFee.toLocaleString()} ryo` : ""}` : "Select a floor"}
                 </button>
                 <button className="back-btn" onClick={onBack}>× Back to Central</button>
             </div>

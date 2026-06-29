@@ -23,6 +23,7 @@ import {
     type GauntletRun, type GauntletBuffs,
 } from "../lib/pet-gauntlet";
 import { startGauntlet, reportGauntlet, type GauntletReward } from "../lib/pet-gauntlet-api";
+import { GAUNTLET_NEW_RUN_FEE, payGauntletNewRun } from "../lib/entry-fee";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
 import { petCardImage } from "../lib/pet-battle-anim";
@@ -302,7 +303,15 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         setFight(null);
     }
 
-    const newRun = () => { setRun(null); setNonce((n) => n + 1); };
+    const newRun = () => {
+        // Ryo entry fee on each fresh run (the first run on entering is free). Charged
+        // on the explicit New Run action — the repeated-grind behavior we want to drain.
+        const paid = payGauntletNewRun(charRef.current);
+        if (!paid) return alert(`A new Gauntlet run costs ${GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo. Not enough ryo.`);
+        updateCharacter(paid);
+        setRun(null);
+        setNonce((n) => n + 1);
+    };
 
     const rosterFull = run.roster.length >= 5;
     const over = run.status === "won" || run.status === "lost";
@@ -329,7 +338,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 <span title="Gauntlet client build — confirms which version the live site is serving" style={{ color: "#475569", fontSize: "0.62rem", fontWeight: 700 }}>build {GAUNTLET_BUILD}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
                     {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}>🛒 Shop</button>}
-                    <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run</button>
+                    <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
                 </span>
             </div>
 

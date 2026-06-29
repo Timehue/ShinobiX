@@ -341,6 +341,15 @@ export function JutsuTrainingHall({
             : 8000 + Math.max(0, level - 10) * 1200;
     }
 
+    // Ryo "finish now": 500 ryo per remaining minute (prorated, so a near-done
+    // training closes out cheap and a fresh 30-min one costs ~15k). A pure ryo
+    // sink — buys time, not power (the trained level is still rank-capped).
+    // Client-authoritative like the rest of ryo training; the Honor-Seal speedup
+    // stays the alternate currency path.
+    function jutsuRyoFinishCost(remainingMs: number) {
+        return Math.max(0, Math.ceil(remainingMs / 60000)) * 500;
+    }
+
     function formatTrainingTime(ms: number) {
         const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
         const minutes = Math.floor(totalSeconds / 60);
@@ -420,6 +429,21 @@ export function JutsuTrainingHall({
         alert(`Training cancelled. Refunded ${refund} ryo.`);
     }
 
+    // Pay ryo to finish the ACTIVE training instantly. Debits ryo client-side
+    // (mirrors the start-cost debit — no server endpoint) and zeroes the timer;
+    // the existing claim button / queue-runner then grants the level (and promotes
+    // any queued 2nd training) exactly as a natural completion would.
+    function finishWithRyo() {
+        if (!activeJutsuTraining) return;
+        const remainingMs = activeJutsuTraining.endsAt - Date.now();
+        if (remainingMs <= 0) return;
+        const cost = jutsuRyoFinishCost(remainingMs);
+        if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost.toLocaleString()} ryo to finish instantly.`);
+        if (!confirm(`Finish ${activeJutsuTraining.label} training now for ${cost.toLocaleString()} ryo?`)) return;
+        updateCharacter({ ...character, ryo: character.ryo - cost });
+        setActiveJutsuTraining({ ...activeJutsuTraining, endsAt: Date.now() });
+    }
+
     // Queue a 2nd jutsu training behind the active one. Ryo is paid + the duration
     // locked NOW; the global runner (lib/jutsu-training-queue) promotes it the moment
     // the active training completes. Stored on activeJutsuTraining.next.
@@ -484,6 +508,7 @@ export function JutsuTrainingHall({
             <p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : (queued ? "Complete — starting the queued jutsu…" : activeJutsuTraining.autoClaim ? "Complete — claiming your level…" : "Training complete. Claim your level.")}</p>
             {!queued && !activeJutsuTraining.autoClaim && <button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button>}
             {activeRemaining > 0 && !queued && <button onClick={cancelPaidJutsuTraining} style={{ marginLeft: 8 }}>Cancel (50% ryo back)</button>}
+            {activeRemaining > 0 && <button onClick={finishWithRyo} disabled={character.ryo < jutsuRyoFinishCost(activeRemaining)} style={{ marginLeft: 8, background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>💰 Finish now ({jutsuRyoFinishCost(activeRemaining).toLocaleString()} ryo)</button>}
             {queued ? (
                 <div className="summary-box" style={{ marginTop: 8, borderColor: "rgba(96,165,250,0.5)" }}>
                     <strong style={{ color: "#60a5fa" }}>⏭️ Up next:</strong> {queued.label} — Level {queued.fromLevel} → {queued.toLevel} <span className="hint">({queued.ryoCost} ryo paid · ~{Math.round(queued.durationMs / 60000)} min)</span>

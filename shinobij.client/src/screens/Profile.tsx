@@ -11,7 +11,7 @@ import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { capStat, xpNeeded } from "../lib/stats";
+import { allocatedStatPoints, baseStats, capStat, reconcileCharacterStatBudget, xpNeeded } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { describeJutsuEffects, jutsuDisplayAtLevel } from "../lib/jutsu-effects";
 import { getAllItems, getItemById } from "../lib/items";
@@ -141,6 +141,30 @@ export function Profile({
             totalStatsTrained: (character.totalStatsTrained ?? 0) + actualAdded,
             stats: { ...character.stats, [stat]: newValue },
         });
+    }
+
+    // Pay Fate Shards to reset all 12 stats to base and refund every allocated
+    // point as unspentStats to re-allocate. Uses the canonical
+    // reconcileCharacterStatBudget so the refunded budget matches what the server
+    // recomputes (the save sanitizer allows stat DECREASES freely — only gains are
+    // clamped — so this client write persists cleanly). HP/Chakra/Stamina pools
+    // are untouched (they are not allocatable stats).
+    function respecStats() {
+        const RESPEC_COST = 100;
+        if ((character.fateShards ?? 0) < RESPEC_COST) {
+            setStatWarning(`Respec costs ${RESPEC_COST} 🔮 Fate Shards — you have ${character.fateShards ?? 0}.`);
+            setTimeout(() => setStatWarning(""), 4000);
+            return;
+        }
+        if (allocatedStatPoints(character.stats) <= 0) {
+            setStatWarning("Nothing to respec — all stats are already at base.");
+            setTimeout(() => setStatWarning(""), 4000);
+            return;
+        }
+        if (!confirm(`Reset all 12 stats to base and refund every allocated point for ${RESPEC_COST} 🔮 Fate Shards? You'll get your full level budget back as unspent points to re-allocate.`)) return;
+        const reset = reconcileCharacterStatBudget({ ...character, stats: baseStats() });
+        setStatWarning("");
+        updateCharacter({ ...reset, fateShards: (character.fateShards ?? 0) - RESPEC_COST });
     }
 
     function purchaseTitle() {
@@ -423,6 +447,7 @@ export function Profile({
                     <span className={`stat-points-badge ${character.unspentStats === 0 ? "stat-points-empty" : ""}`}>
                         {character.unspentStats} point{character.unspentStats !== 1 ? "s" : ""} available
                     </span>
+                    <button type="button" onClick={respecStats} title="Reset all 12 stats to base and refund your points to re-allocate (costs 100 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>🔄 Respec — 100 🔮</button>
                 </div>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 

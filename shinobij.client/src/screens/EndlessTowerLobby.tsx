@@ -1,5 +1,6 @@
 import type { Character } from "../types/character";
 import { endlessWaveReward } from "../lib/endless-tower";
+import { endlessEntryCost } from "../lib/entry-fee";
 
 // ─── Endless Tower Lobby ──────────────────────────────────────────────────────
 // Shows run state (current wave, banked rewards, best wave) and lets the player
@@ -19,6 +20,7 @@ export function EndlessTowerLobby({
     const inProgress = !!run && run.wave > 1;
     const nextWave = run?.wave ?? 1;
     const preview = endlessWaveReward(nextWave, character.level ?? 1);
+    const entryCost = endlessEntryCost(character);
     return (
         <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: "1.4rem" }}>
             <h1 style={{ marginTop: 0 }}>🗼 Endless Tower</h1>
@@ -51,7 +53,7 @@ export function EndlessTowerLobby({
                     style={{ padding: "0.8rem 1rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
                     onClick={onEnter}
                 >
-                    {inProgress ? `▶ Resume — Floor ${nextWave}` : "▶ Enter Tower (Floor 1)"}
+                    {inProgress ? `▶ Resume — Floor ${nextWave}` : `▶ Enter Tower (Floor 1)${entryCost > 0 ? ` — ${entryCost.toLocaleString()} ryo` : " — free today"}`}
                 </button>
                 {inProgress && (
                     <button
