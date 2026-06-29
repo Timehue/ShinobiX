@@ -5,7 +5,7 @@ import { computeBankInterest, bankInterestPercent, BANK_INTEREST_WINDOW_MS } fro
 // Independent inline replica of the client (shinobij.client/src/screens/Bank.tsx
 // + lib/village-upgrades.ts), kept SEPARATE from the port so a drift on either
 // side fails the sweep below. If the client formula changes, both must change.
-const C_PER_LEVEL = 0.25, C_MAX_LEVEL = 50, C_WINDOW = 24 * 60 * 60 * 1000;
+const C_PER_LEVEL = 0.01, C_MAX_LEVEL = 50, C_WINDOW = 24 * 60 * 60 * 1000;
 // Mirror of Bank.tsx BANK_INTEREST_PRINCIPAL_CAP (M-2): interest is paid on at
 // most this much banked ryo.
 const C_PRINCIPAL_CAP = 10_000_000;
@@ -26,13 +26,13 @@ function cClaim(char: Record<string, unknown>, now: number) {
 }
 
 describe('bankInterestPercent (verbatim villageUpgradeBonus bank)', () => {
-    it('0.25% per bank level, clamped to 50', () => {
+    it('0.01% per bank level, clamped to 50 (max 0.5%/day)', () => {
         assert.equal(bankInterestPercent({}), 0);
         assert.equal(bankInterestPercent({ villageUpgrades: { bank: 0 } }), 0);
-        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 1 } }), 0.25);
-        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 20 } }), 5);
-        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 50 } }), 12.5);
-        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 999 } }), 12.5); // clamp
+        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 1 } }), 0.01);
+        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 20 } }), 0.2);
+        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 50 } }), 0.5);
+        assert.equal(bankInterestPercent({ villageUpgrades: { bank: 999 } }), 0.5); // clamp
         assert.equal(bankInterestPercent({ villageUpgrades: { bank: -3 } }), 0);     // floor at 0
     });
 });
@@ -62,26 +62,26 @@ describe('computeBankInterest matches the client across a sweep', () => {
 
 describe('computeBankInterest gate + reasons', () => {
     it('blocks within the 24h window, allows exactly at the boundary', () => {
-        const char = { bankRyo: 1000, lastBankInterestAt: 1_000_000, villageUpgrades: { bank: 20 } }; // 5%
+        const char = { bankRyo: 1000, lastBankInterestAt: 1_000_000, villageUpgrades: { bank: 20 } }; // 0.2%
         assert.equal(computeBankInterest(char, 1_000_000 + BANK_INTEREST_WINDOW_MS - 1).eligible, false);
         assert.equal(computeBankInterest(char, 1_000_000 + BANK_INTEREST_WINDOW_MS - 1).reason, 'cooldown');
         const ok = computeBankInterest(char, 1_000_000 + BANK_INTEREST_WINDOW_MS);
         assert.equal(ok.eligible, true);
-        assert.equal(ok.interest, 50); // floor(1000 * 5/100)
+        assert.equal(ok.interest, 2); // floor(1000 * 0.2/100)
     });
     it('caps the interest-earning principal at 10M ryo (M-2 anti-inflation guardrail)', () => {
         const t = 10 * BANK_INTEREST_WINDOW_MS;
-        // At max bank (12.5%): under the cap scales linearly; at/above the cap the
-        // payout flattens to floor(10M * 12.5%) = 1,250,000 regardless of balance.
-        assert.equal(computeBankInterest({ bankRyo: 8_000_000, villageUpgrades: { bank: 50 } }, t).interest, 1_000_000);
-        assert.equal(computeBankInterest({ bankRyo: 10_000_000, villageUpgrades: { bank: 50 } }, t).interest, 1_250_000);
-        assert.equal(computeBankInterest({ bankRyo: 50_000_000, villageUpgrades: { bank: 50 } }, t).interest, 1_250_000);
+        // At max bank (0.5%): under the cap scales linearly; at/above the cap the
+        // payout flattens to floor(10M * 0.5%) = 50,000 regardless of balance.
+        assert.equal(computeBankInterest({ bankRyo: 8_000_000, villageUpgrades: { bank: 50 } }, t).interest, 40_000);
+        assert.equal(computeBankInterest({ bankRyo: 10_000_000, villageUpgrades: { bank: 50 } }, t).interest, 50_000);
+        assert.equal(computeBankInterest({ bankRyo: 50_000_000, villageUpgrades: { bank: 50 } }, t).interest, 50_000);
     });
     it('reasons: no-upgrade / empty / too-small', () => {
         const t = 10 * BANK_INTEREST_WINDOW_MS;
         assert.equal(computeBankInterest({ bankRyo: 1000, villageUpgrades: { bank: 0 } }, t).reason, 'no-upgrade');
         assert.equal(computeBankInterest({ bankRyo: 0, villageUpgrades: { bank: 20 } }, t).reason, 'empty');
-        // 19 ryo * 0.25% = 0.0475 -> floor 0 -> too-small
+        // 19 ryo * 0.01% = 0.0019 -> floor 0 -> too-small
         assert.equal(computeBankInterest({ bankRyo: 19, villageUpgrades: { bank: 1 } }, t).reason, 'too-small');
     });
     it('never mints on garbage input', () => {
