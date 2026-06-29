@@ -18,8 +18,8 @@
  * Easy (1–30) is a PROTECTED ONBOARDING band: beyond just weaker stats, enemy
  * damage is hit-capped, turn-capped, and mercy-floored so a learning player is
  * pressured but never suddenly killed (see pveGuardedEnemyHit). Peer is "like
- * fighting another player": the ×1.3 factor pushes a high-level enemy's stats
- * toward the cap, so endgame PvE mirrors a maxed PvP fighter and is uncapped.
+ * fighting another player": because aiStatsForLevel now emits the full
+ * level-budget block, peer's ×1.0 already mirrors a maxed PvP fighter (uncapped).
  *
  * The multipliers below are a STARTING curve — tune them from kill-time
  * playtests. A factor < 1 weakens the enemy (early game); > 1 strengthens it
@@ -28,8 +28,8 @@
  *     statFactor is heavily damped, so it only nudges damage a few percent;
  *   • the HP multiplier decides how many hits a foe soaks (the real "tankiness"
  *     dial), and the per-hit / per-turn caps decide how hard a hit lands.
- * The peer band (90+) is intentionally left at full strength (stats ×1.3, HP
- * ×1.0, damage uncapped): that is the one band that is "supposed to be strong".
+ * The peer band (90+) is intentionally left at full strength (stats ×1.0 on the
+ * full-budget base, HP ×1.0, damage uncapped): the one band "supposed to be strong".
  * The shared damage math (combat-math.ts / api/pvp/move.ts) is never touched.
  */
 import { MAX_STAT, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from "../constants/game";
@@ -46,11 +46,16 @@ export function pveDifficultyBand(level: number): PveDifficultyBand {
     return "peer";
 }
 
+// Retuned for the unified stat model: aiStatsForLevel now emits the FULL
+// level-budget block (== a fully-allocated player at that level), so `peer` no
+// longer needs a >1 boost to reach maxed-player strength — peer 1.0 IS the mirror.
+// Sub-peer bands sit below 1 for a forgiving ramp (easy ≈ preserves the old
+// onboarding feel once the higher base is accounted for). Kept strictly monotonic.
 const BAND_STAT_MULTIPLIER: Record<PveDifficultyBand, number> = {
-    easy: 0.7,
-    medium: 0.85,
-    hard: 1.0,
-    peer: 1.3,
+    easy: 0.6,
+    medium: 0.75,
+    hard: 0.9,
+    peer: 1.0,
 };
 
 export function pveDifficultyStatMultiplier(level: number): number {

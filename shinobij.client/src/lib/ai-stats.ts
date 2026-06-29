@@ -7,9 +7,9 @@
  * type modules. Extracted from App.tsx (Region A, character cluster).
  */
 
-import { scaleStat, maxHpForLevel } from "./stats";
+import { scaleStat, maxHpForLevel, statBudgetAtLevel, STAT_KEYS } from "./stats";
 import { clampNumber } from "./utils";
-import { MAX_LEVEL } from "../constants/game";
+import { MAX_LEVEL, MAX_STAT } from "../constants/game";
 import type { Jutsu, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import type { CreatorAi } from "../types/creator-ai";
@@ -25,48 +25,64 @@ export function aiPrimaryJutsuType(jutsus: Jutsu[] = []): JutsuType | undefined 
     return sorted[0]?.[1] ? sorted[0][0] : undefined;
 }
 
+// Per-stat ceiling above the base-10 floor (2490). 12 × this == the full L100 budget.
+const STAT_CAP_OVER_BASE = MAX_STAT - 10;
+
+// Archetype weights (need not sum to 1 — normalized at distribute time). Generals
+// and defenses are favored over raw offense; the AI's primary jutsu type lifts its
+// OWN offense + the relevant generals, so a Ninjutsu mob reads as a caster, a
+// Taijutsu mob as a bruiser, etc. (the old per-type lifts, expressed as weights).
+function aiArchetypeWeights(primary?: JutsuType): Record<keyof Stats, number> {
+    const w: Record<keyof Stats, number> = {
+        strength: 1.1, speed: 1.1, intelligence: 1.1, willpower: 1.1,
+        bukijutsuOffense: 1.0, taijutsuOffense: 1.0, genjutsuOffense: 1.0, ninjutsuOffense: 1.0,
+        bukijutsuDefense: 1.25, taijutsuDefense: 1.25, genjutsuDefense: 1.25, ninjutsuDefense: 1.25,
+    };
+    if (primary && primary !== "Any") {
+        const stem = `${primary[0].toLowerCase()}${primary.slice(1)}`;
+        w[`${stem}Offense` as keyof Stats] = 2.2;
+        w[`${stem}Defense` as keyof Stats] = 1.5;
+        if (primary === "Ninjutsu" || primary === "Genjutsu") { w.intelligence = 1.7; w.willpower = 1.7; }
+        else { w.strength = 1.7; w.speed = 1.7; } // Taijutsu / Bukijutsu
+    }
+    return w;
+}
+
+// Distribute a total stat-point budget across the 12 stats by weight, capping each
+// at the per-stat ceiling and re-spreading overflow to non-capped stats so the
+// WHOLE budget is spent (up to 12×cap). At L100 (budget == 12×cap) every stat
+// reaches MAX_STAT, so a level-100 AI mirrors a fully-maxed player.
+function distributeStatBudget(budget: number, weights: Record<keyof Stats, number>): Stats {
+    const over: Record<string, number> = {};
+    for (const k of STAT_KEYS) over[k] = 0;
+    let remaining = Math.max(0, Math.floor(budget));
+    let active = STAT_KEYS.filter((k) => weights[k] > 0);
+    for (let iter = 0; iter < 24 && remaining > 0 && active.length > 0; iter++) {
+        const wsum = active.reduce((s, k) => s + weights[k], 0);
+        let handed = 0;
+        for (const k of active) {
+            const give = Math.min(STAT_CAP_OVER_BASE - over[k], Math.floor((remaining * weights[k]) / wsum));
+            if (give > 0) { over[k] += give; handed += give; }
+        }
+        remaining -= handed;
+        if (handed === 0) {
+            // rounding stall — hand out the last few points one at a time
+            for (const k of active) { if (remaining <= 0) break; if (over[k] < STAT_CAP_OVER_BASE) { over[k]++; remaining--; } }
+        }
+        active = active.filter((k) => over[k] < STAT_CAP_OVER_BASE);
+    }
+    return STAT_KEYS.reduce((s, k) => { s[k] = scaleStat(10 + over[k]); return s; }, {} as Stats);
+}
+
+// An AI's 12-stat block is the SAME level-budget a player gets (statBudgetAtLevel),
+// distributed by archetype — so a level-L AI equals a level-L fully-allocated
+// player. The PvE difficulty band multiplier (lib/pve-difficulty.ts) is applied
+// SEPARATELY by the encounter; this returns the raw, parity-with-player block.
 export function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
-    const base = 30 + safeLevel * 16;
-    const defenseLift = safeLevel * 5;
-    const primaryLift = safeLevel * 9;
-    const stats: Stats = {
-        strength: scaleStat(base + safeLevel * 3),
-        speed: scaleStat(base + safeLevel * 3),
-        intelligence: scaleStat(base + safeLevel * 3),
-        willpower: scaleStat(base + safeLevel * 3),
-        bukijutsuOffense: scaleStat(base),
-        bukijutsuDefense: scaleStat(base + defenseLift),
-        taijutsuOffense: scaleStat(base),
-        taijutsuDefense: scaleStat(base + defenseLift),
-        genjutsuOffense: scaleStat(base),
-        genjutsuDefense: scaleStat(base + defenseLift),
-        ninjutsuOffense: scaleStat(base),
-        ninjutsuDefense: scaleStat(base + defenseLift),
-    };
-    const primary = aiPrimaryJutsuType(jutsus);
-    if (primary === "Bukijutsu") {
-        stats.bukijutsuOffense = scaleStat(stats.bukijutsuOffense + primaryLift);
-        stats.bukijutsuDefense = scaleStat(stats.bukijutsuDefense + safeLevel * 3);
-        stats.strength = scaleStat(stats.strength + safeLevel * 4);
-        stats.speed = scaleStat(stats.speed + safeLevel * 3);
-    } else if (primary === "Taijutsu") {
-        stats.taijutsuOffense = scaleStat(stats.taijutsuOffense + primaryLift);
-        stats.taijutsuDefense = scaleStat(stats.taijutsuDefense + safeLevel * 3);
-        stats.strength = scaleStat(stats.strength + safeLevel * 4);
-        stats.speed = scaleStat(stats.speed + safeLevel * 4);
-    } else if (primary === "Genjutsu") {
-        stats.genjutsuOffense = scaleStat(stats.genjutsuOffense + primaryLift);
-        stats.genjutsuDefense = scaleStat(stats.genjutsuDefense + safeLevel * 3);
-        stats.intelligence = scaleStat(stats.intelligence + safeLevel * 4);
-        stats.willpower = scaleStat(stats.willpower + safeLevel * 4);
-    } else if (primary === "Ninjutsu") {
-        stats.ninjutsuOffense = scaleStat(stats.ninjutsuOffense + primaryLift);
-        stats.ninjutsuDefense = scaleStat(stats.ninjutsuDefense + safeLevel * 3);
-        stats.intelligence = scaleStat(stats.intelligence + safeLevel * 4);
-        stats.willpower = scaleStat(stats.willpower + safeLevel * 3);
-    }
-    return stats;
+    const budget = statBudgetAtLevel(safeLevel);
+    const weights = aiArchetypeWeights(aiPrimaryJutsuType(jutsus));
+    return distributeStatBudget(budget, weights);
 }
 
 export function aiHpForLevel(level: number, toughness = 0) {
