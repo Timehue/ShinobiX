@@ -83,7 +83,7 @@ export const starterItems: GameItem[] = [
         name: "Golden Apple",
         slot: "item",
         rarity: "legendary",
-        cost: 20,
+        cost: 1500,
         description: "A Grand Marketplace pet feast. Feed to a selected pet for +2000 pet XP.",
         bonuses: {},
     },

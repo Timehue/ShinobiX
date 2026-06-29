@@ -20,9 +20,13 @@ exports.BANK_INTEREST_PRINCIPAL_CAP = exports.BANK_INTEREST_WINDOW_MS = void 0;
 exports.bankInterestPercent = bankInterestPercent;
 exports.computeBankInterest = computeBankInterest;
 exports.BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
-// villageUpgradeDefinitions: { key:'bank', perLevel: 0.25 } and
+// villageUpgradeDefinitions: { key:'bank', perLevel: 0.01 } and
 // VILLAGE_UPGRADE_MAX_LEVEL = 50 (shinobij.client/src/lib/village-upgrades.ts).
-const BANK_UPGRADE_PER_LEVEL = 0.25;
+// De-inflation (progression redesign Phase 3): cut from 0.25 (12.5%/day max) to
+// 0.01 (0.5%/day max) so bank interest is a savings BONUS, not a passive salary
+// that dwarfs active play. MIRROR: village-upgrades.ts 'bank' perLevel (parity-pinned
+// by _cross-build-parity.test.ts). TUNABLE: 0.05 = a lighter 2.5%/day; 0.002 = 0.1%.
+const BANK_UPGRADE_PER_LEVEL = 0.01;
 const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 // Anti-inflation guardrail (gameplay-loop audit M-2). Interest is paid on at
 // most this much principal, so a very large vault earns a FLAT (linear) amount
