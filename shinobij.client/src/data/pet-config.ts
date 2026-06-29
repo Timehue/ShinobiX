@@ -343,16 +343,16 @@ export type PetPveGear = {
 };
 
 export const petPveGear: PetPveGear[] = [
-    { id: "pve-hunters-bond-harness", name: "Hunter's Bond Harness", rarity: "epic", cost: 4800, craftPts: 200, desc: "+20% summon damage",                              summonDmgPct: 20 },
-    { id: "pve-loyal-companion-bell", name: "Loyal Companion Bell",  rarity: "epic", cost: 4800, craftPts: 200, desc: "Your pet never backfires (always strikes the foe)", loyalty: true },
-    { id: "pve-frenzy-claw",          name: "Frenzy Claw",           rarity: "epic", cost: 5600, craftPts: 250, desc: "+30% summon damage",                              summonDmgPct: 30 },
-    { id: "pve-guardians-blessing",   name: "Guardian's Blessing",   rarity: "epic", cost: 5600, craftPts: 250, desc: "Restore 15% of your max HP when you summon",       healOnSummonPctOfMaxHp: 15 },
-    { id: "pve-sanguine-charm",       name: "Sanguine Charm",        rarity: "epic", cost: 6400, craftPts: 250, desc: "Heal for 20% of your pet's attack damage",         playerLifestealPct: 20 },
-    { id: "pve-predators-fang",       name: "Predator's Fang",       rarity: "epic", cost: 7200, craftPts: 300, desc: "+35% summon damage to foes below 40% HP",          executeBelowPct: 40, executeBonusPct: 35 },
-    { id: "pve-avengers-pendant",     name: "Avenger's Pendant",     rarity: "epic", cost: 7200, craftPts: 300, desc: "+30% summon damage while you're below 30% HP",     avengerBelowPct: 30, avengerBonusPct: 30 },
-    { id: "pve-bloodbond-totem",      name: "Bloodbond Totem",       rarity: "epic", cost: 8000, craftPts: 300, desc: "Heal for 35% of your pet's attack damage",         playerLifestealPct: 35 },
-    { id: "pve-pack-alpha-crest",     name: "Pack Alpha Crest",      rarity: "epic", cost: 8800, craftPts: 350, desc: "+18% summon damage and your pet never backfires",   summonDmgPct: 18, loyalty: true },
-    { id: "pve-apex-predator-fang",   name: "Apex Predator Fang",    rarity: "epic", cost: 9600, craftPts: 350, desc: "+25% summon damage, +25% more vs foes below 40% HP", summonDmgPct: 25, executeBelowPct: 40, executeBonusPct: 25 },
+    { id: "pve-hunters-bond-harness", name: "Hunter's Bond Harness", rarity: "epic", cost: 4800, craftPts: 280, desc: "+20% summon damage",                              summonDmgPct: 20 },
+    { id: "pve-loyal-companion-bell", name: "Loyal Companion Bell",  rarity: "epic", cost: 4800, craftPts: 280, desc: "Your pet never backfires (always strikes the foe)", loyalty: true },
+    { id: "pve-frenzy-claw",          name: "Frenzy Claw",           rarity: "epic", cost: 5600, craftPts: 350, desc: "+30% summon damage",                              summonDmgPct: 30 },
+    { id: "pve-guardians-blessing",   name: "Guardian's Blessing",   rarity: "epic", cost: 5600, craftPts: 350, desc: "Restore 15% of your max HP when you summon",       healOnSummonPctOfMaxHp: 15 },
+    { id: "pve-sanguine-charm",       name: "Sanguine Charm",        rarity: "epic", cost: 6400, craftPts: 350, desc: "Heal for 20% of your pet's attack damage",         playerLifestealPct: 20 },
+    { id: "pve-predators-fang",       name: "Predator's Fang",       rarity: "epic", cost: 7200, craftPts: 420, desc: "+35% summon damage to foes below 40% HP",          executeBelowPct: 40, executeBonusPct: 35 },
+    { id: "pve-avengers-pendant",     name: "Avenger's Pendant",     rarity: "epic", cost: 7200, craftPts: 420, desc: "+30% summon damage while you're below 30% HP",     avengerBelowPct: 30, avengerBonusPct: 30 },
+    { id: "pve-bloodbond-totem",      name: "Bloodbond Totem",       rarity: "epic", cost: 8000, craftPts: 420, desc: "Heal for 35% of your pet's attack damage",         playerLifestealPct: 35 },
+    { id: "pve-pack-alpha-crest",     name: "Pack Alpha Crest",      rarity: "epic", cost: 8800, craftPts: 490, desc: "+18% summon damage and your pet never backfires",   summonDmgPct: 18, loyalty: true },
+    { id: "pve-apex-predator-fang",   name: "Apex Predator Fang",    rarity: "epic", cost: 9600, craftPts: 490, desc: "+25% summon damage, +25% more vs foes below 40% HP", summonDmgPct: 25, executeBelowPct: 40, executeBonusPct: 25 },
 ];
 
 // PVE gear is consumable (breaks after PET_PVE_DURABILITY summons), so it
@@ -419,12 +419,12 @@ export type PetConsumable = {
 };
 
 export const petConsumables: PetConsumable[] = [
-    { id: "consum-phantom-charm",     name: "Phantom Charm",     rarity: "uncommon", cost: 960,  craftPts: 120, desc: "Dodges the next attack",                              effect: "dodge",    value: 1 },
-    { id: "consum-smoke-pellet",      name: "Smoke Pellet",      rarity: "uncommon", cost: 960,  craftPts: 120, desc: "The next attack deals 50% less damage",                effect: "mitigate", value: 50 },
-    { id: "consum-cleansing-incense", name: "Cleansing Incense", rarity: "uncommon", cost: 1120, craftPts: 140, desc: "Purges all poisons, burns, and control effects once", effect: "cleanse" },
-    { id: "consum-thornmail-oil",     name: "Thornmail Oil",     rarity: "rare",     cost: 1280, craftPts: 160, desc: "Reflects 40% of the next attack back at the attacker", effect: "thorns",   value: 40 },
-    { id: "consum-lifeline-elixir",   name: "Lifeline Elixir",   rarity: "rare",     cost: 1440, craftPts: 180, desc: "First time below 35% HP, heals 30% of max HP",        effect: "lifeline", value: 30 },
-    { id: "consum-second-wind",       name: "Second Wind",       rarity: "rare",     cost: 1600, craftPts: 200, desc: "Survives one lethal blow (drops to 1 HP)",            effect: "endure" },
+    { id: "consum-phantom-charm",     name: "Phantom Charm",     rarity: "uncommon", cost: 960,  craftPts: 170, desc: "Dodges the next attack",                              effect: "dodge",    value: 1 },
+    { id: "consum-smoke-pellet",      name: "Smoke Pellet",      rarity: "uncommon", cost: 960,  craftPts: 170, desc: "The next attack deals 50% less damage",                effect: "mitigate", value: 50 },
+    { id: "consum-cleansing-incense", name: "Cleansing Incense", rarity: "uncommon", cost: 1120, craftPts: 200, desc: "Purges all poisons, burns, and control effects once", effect: "cleanse" },
+    { id: "consum-thornmail-oil",     name: "Thornmail Oil",     rarity: "rare",     cost: 1280, craftPts: 220, desc: "Reflects 40% of the next attack back at the attacker", effect: "thorns",   value: 40 },
+    { id: "consum-lifeline-elixir",   name: "Lifeline Elixir",   rarity: "rare",     cost: 1440, craftPts: 250, desc: "First time below 35% HP, heals 30% of max HP",        effect: "lifeline", value: 30 },
+    { id: "consum-second-wind",       name: "Second Wind",       rarity: "rare",     cost: 1600, craftPts: 280, desc: "Survives one lethal blow (drops to 1 HP)",            effect: "endure" },
 ];
 
 petConsumables.forEach((c) => stackableItemIds.add(c.id));

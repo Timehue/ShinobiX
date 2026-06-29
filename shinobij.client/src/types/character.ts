@@ -360,6 +360,15 @@ export type Character = {
     // cap (towerDailyXpSoftCap) further tower XP is sharply diminished so the tower
     // can't bypass the level curve. Tied to lastDailyReset.
     dailyTowerXp?: number;
+    // Endless-Tower ENTRY-FEE counters (lib/entry-fee.ts): fresh runs started today
+    // + the UTC date they count for. Kept as their OWN stamp (not lastDailyReset) so
+    // charging the fee never resets the other daily counters above.
+    dailyEndlessRuns?: number;
+    dailyEndlessDate?: string;
+    // Battle-Tower ENTRY-FEE counters (lib/entry-fee.ts): floor-entries today + the
+    // UTC date they count for. Own stamp (not lastDailyReset).
+    dailyBattleFloors?: number;
+    dailyBattleDate?: string;
     lastDailyReset?: string;
     // Daily login-streak reward (server-authoritative, api/player/daily-login.ts).
     // loginStreak = consecutive UTC days claimed; lastLoginRewardDate = the UTC

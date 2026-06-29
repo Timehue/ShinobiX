@@ -30,6 +30,6 @@ window.fetch = ((url: RequestInfo | URL, ...rest: unknown[]) => {
 createRoot(document.getElementById("root")!).render(
     <BattleTowersLobby
         character={{ name: "Rill", battleTowerBestFloor: 4, battleTowerRating: 1840, battleTowerClearedFloors: [1, 2, 3, 4] } as never}
-        onEnter={() => {}} onBack={() => {}}
+        updateCharacter={() => {}} onEnter={() => {}} onBack={() => {}}
     />,
 );
