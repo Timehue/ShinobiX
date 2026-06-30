@@ -5,16 +5,12 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { isWarVillage, homeSectorsForVillage } from '../_war-map-sectors.js';
-import { normalizeVillageWarRecord, villageWarKey, villageWarSlug, SECTOR_CONTROL_HP_PER_WIN } from '../_war-state.js';
+import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
 import { wrMercTierById, WR_MERC_TIERS, mercBandSize } from '../_war-economy.js';
-import { mercHireCost, addOrRefreshLease, claimMercFromBand, MERC_LEASE_MS } from '../_war-merc.js';
+import { mercHireCost, addOrRefreshLease, MERC_LEASE_MS } from '../_war-merc.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
-import { sectorWarKey, applySectorBattleResult } from '../_sector-war.js';
-import { activeContestOnSector, loadSectorWar, saveSectorWar, deleteSectorWar } from '../_sector-war-store.js';
-import { sectorWarDamageMultiplier } from '../_war-structures.js';
-import { captureSectorForVillage } from '../world-state.js';
-import { sealTowerFighter } from '../towers/_seal.js';
-import { resolveMercBattle } from '../towers/_merc-fighters.js';
+import { activeContestOnSector } from '../_sector-war-store.js';
+import { deployOneMerc } from '../_merc-auto.js';
 
 /*
  * /api/village/war-merc — POST only. Village-War mercenaries (Phase 5, §17.5 "B").
@@ -153,49 +149,9 @@ async function doMercAttack(req: VercelRequest, res: VercelResponse, identity: I
         return res.status(403).json({ error: 'That player is not defending this sector.' });
     }
 
-    // Claim one merc from the caller's band atomically (rejects if it's spent).
-    const claim = await withKvLock(villageWarKey(village), async () => {
-        const rec = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(villageWarKey(village))) ?? undefined);
-        const out = claimMercFromBand(rec.mercLeases, tierId, playerName, now);
-        if (!out.claimed) return { claimed: false as const, remaining: 0 };
-        await kv.set(villageWarKey(village), { ...rec, mercLeases: out.leases });
-        return { claimed: true as const, remaining: out.remaining };
-    }, { failClosed: true });
-    if (!claim.claimed) return res.status(409).json({ error: 'You have no active mercenary band of that tier to deploy.' });
-
-    // Hydrate the target player's real combat loadout server-side, then resolve the
-    // merc-vs-player battle (deterministic, seeded).
-    const targetSave = await kv.get<Record<string, unknown>>(`save:${targetPlayer}`);
-    const targetChar = (targetSave?.character ?? null) as Record<string, unknown> | null;
-    if (!targetChar) return res.status(404).json({ error: 'Target player not found.' });
-    const sealed = sealTowerFighter(targetChar, targetSave ?? null, {});
-    const seed = (now ^ (sector * 2654435761)) >>> 0;
-    const battle = resolveMercBattle({ playerName: targetPlayer, playerSlug: targetPlayer, playerSealedChar: sealed, mercLevel: tier.level, seed, now });
-
-    // Apply to the contest Control HP under its lock (mirrors sector-war doResolve).
-    let captured = false;
-    let controlHp = contest.controlHp;
-    if (battle.mercWon || battle.playerWon) {
-        const result = await withKvLock(sectorWarKey(contest.id), async () => {
-            const live = await loadSectorWar(contest.id);
-            if (!live || live.flipped) return { captured: false, controlHp: 0 };
-            const atkRecord = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(villageWarKey(village))) ?? undefined);
-            const damage = Math.round(SECTOR_CONTROL_HP_PER_WIN * sectorWarDamageMultiplier(atkRecord));
-            const outcome = applySectorBattleResult(live, battle.mercWon, { now, damage, mercBattle: true });
-            if (outcome.captured) {
-                await captureSectorForVillage(live.sector, village, now);
-                await deleteSectorWar(live.id);
-            } else {
-                await saveSectorWar(outcome.session);
-            }
-            return { captured: outcome.captured, controlHp: outcome.session.controlHp };
-        }, { failClosed: true });
-        captured = result.captured;
-        controlHp = result.controlHp;
-        if (captured) {
-            void recordWarEcoEvent({ eventId: `merc-capture:${contest.id}:${now}`, village, kind: 'sector.capture', amount: 1, meta: `sector:${sector}` });
-        }
-    }
-
-    return res.status(200).json({ ok: true, winner: battle.winner, captured, controlHp, mercsRemaining: claim.remaining });
+    // Deploy via the shared core (server-auth resolve + contest application), the
+    // same path the autonomous tick uses. Null = the caller's band is spent.
+    const r = await deployOneMerc({ village, tierId, hirer: playerName, sector, targetPlayer, contestId: contest.id, mercLevel: tier.level, now });
+    if (!r) return res.status(409).json({ error: 'You have no active mercenary band of that tier to deploy.' });
+    return res.status(200).json({ ok: true, winner: r.winner, captured: r.captured, controlHp: r.controlHp, mercsRemaining: r.mercsRemaining });
 }
