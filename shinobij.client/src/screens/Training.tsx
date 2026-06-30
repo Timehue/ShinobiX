@@ -11,6 +11,13 @@ import { useState, useEffect } from "react";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+// Fantasy stat/duration glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import {
+    GiBiceps, GiSprint, GiBrain, GiBrainstorm, GiSwirlString, GiWaterSplash,
+    GiPunchBlast, GiBlackBelt, GiEyeball, GiMoon, GiCrossedSwords, GiShield,
+    GiStopwatch, GiAlarmClock, GiSandsOfTime, GiNightSleep,
+    GiRibbonMedal, GiFastForwardButton,
+} from "react-icons/gi";
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { applyJutsuTrainingLevel, jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDisplayAtLevel } from "../lib/jutsu-effects";
@@ -30,19 +37,19 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
     // -10% stat-training XP while the village is "demoralized" from a war loss.
     const warDebuff = useWarLossDebuff(character.village);
-    const STAT_LABELS: Record<string, { label: string; icon: string }> = {
-        strength:         { label: "Strength",      icon: "💪" },
-        speed:            { label: "Speed",          icon: "⚡" },
-        intelligence:     { label: "Intelligence",   icon: "🧠" },
-        willpower:        { label: "Willpower",      icon: "🔮" },
-        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: "🌀" },
-        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: "🌊" },
-        taijutsuOffense:  { label: "Taijutsu Off.",  icon: "👊" },
-        taijutsuDefense:  { label: "Taijutsu Def.",  icon: "🥋" },
-        genjutsuOffense:  { label: "Genjutsu Off.",  icon: "👁️" },
-        genjutsuDefense:  { label: "Genjutsu Def.",  icon: "🌙" },
-        bukijutsuOffense: { label: "Bukijutsu Off.", icon: "⚔️" },
-        bukijutsuDefense: { label: "Bukijutsu Def.", icon: "🛡️" },
+    const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
+        strength:         { label: "Strength",      icon: <GiBiceps /> },
+        speed:            { label: "Speed",          icon: <GiSprint /> },
+        intelligence:     { label: "Intelligence",   icon: <GiBrain /> },
+        willpower:        { label: "Willpower",      icon: <GiBrainstorm /> },
+        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: <GiSwirlString /> },
+        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: <GiWaterSplash /> },
+        taijutsuOffense:  { label: "Taijutsu Off.",  icon: <GiPunchBlast /> },
+        taijutsuDefense:  { label: "Taijutsu Def.",  icon: <GiBlackBelt /> },
+        genjutsuOffense:  { label: "Genjutsu Off.",  icon: <GiEyeball /> },
+        genjutsuDefense:  { label: "Genjutsu Def.",  icon: <GiMoon /> },
+        bukijutsuOffense: { label: "Bukijutsu Off.", icon: <GiCrossedSwords /> },
+        bukijutsuDefense: { label: "Bukijutsu Def.", icon: <GiShield /> },
     };
     const statGroups = [
         { title: "General", description: "Core stats used across combat and progression.", stats: ["strength", "speed", "intelligence", "willpower"] as (keyof Stats)[] },
@@ -50,10 +57,10 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         { title: "Defense", description: "Damage resistance by incoming style.", stats: ["ninjutsuDefense", "taijutsuDefense", "genjutsuDefense", "bukijutsuDefense"] as (keyof Stats)[] },
     ];
     const timers = [
-        { label: "15 Minutes", icon: "⚡", ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 },
-        { label: "1 Hour",     icon: "⏰", ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 },
-        { label: "4 Hours",    icon: "🕓", ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 },
-        { label: "8 Hours",    icon: "🌙", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 },
+        { label: "15 Minutes", icon: <GiStopwatch />, ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 },
+        { label: "1 Hour",     icon: <GiAlarmClock />, ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 },
+        { label: "4 Hours",    icon: <GiSandsOfTime />, ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 },
+        { label: "8 Hours",    icon: <GiNightSleep />, ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 },
     ];
     const trainingXpBonus = getTrainingXpBonus(character);
     function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult)); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms, durationMs: timer.ms }); }
@@ -254,7 +261,7 @@ function JutsuSealPanel({
 
     return (
         <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginBottom: "0.75rem" }}>
-            <strong style={{ color: "#facc15" }}>🏅 Honor Seal Training</strong>
+            <strong style={{ color: "#facc15" }}><GiRibbonMedal style={{ verticalAlign: "-0.12em", marginRight: "0.3rem" }} />Honor Seal Training</strong>
             <span className="hint" style={{ marginLeft: 10 }}>
                 Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
                 {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}
@@ -511,7 +518,7 @@ export function JutsuTrainingHall({
             {activeRemaining > 0 && <button onClick={finishWithRyo} disabled={character.ryo < jutsuRyoFinishCost(activeRemaining)} style={{ marginLeft: 8, background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>💰 Finish now ({jutsuRyoFinishCost(activeRemaining).toLocaleString()} ryo)</button>}
             {queued ? (
                 <div className="summary-box" style={{ marginTop: 8, borderColor: "rgba(96,165,250,0.5)" }}>
-                    <strong style={{ color: "#60a5fa" }}>⏭️ Up next:</strong> {queued.label} — Level {queued.fromLevel} → {queued.toLevel} <span className="hint">({queued.ryoCost} ryo paid · ~{Math.round(queued.durationMs / 60000)} min)</span>
+                    <strong style={{ color: "#60a5fa" }}><GiFastForwardButton style={{ verticalAlign: "-0.12em", marginRight: "0.3rem" }} />Up next:</strong> {queued.label} — Level {queued.fromLevel} → {queued.toLevel} <span className="hint">({queued.ryoCost} ryo paid · ~{Math.round(queued.durationMs / 60000)} min)</span>
                     <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.78rem" }}>Auto-starts the moment the current training finishes.</p>
                     <button onClick={cancelQueuedJutsuTraining}>Remove from queue (full refund)</button>
                 </div>
