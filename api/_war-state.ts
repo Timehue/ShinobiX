@@ -62,7 +62,13 @@ export interface VillageWarRecord {
     mercLeases: MercLease[];
     dormant: boolean;                           // structures suspended (upkeep unpaid)
     lastWarPassDate: string;                    // 'YYYY-MM-DD' UTC daily-pass stamp
+    terrainSetBy: Record<string, string>;       // sectorKey → player who set its terrain (§17.3 quota)
 }
+
+// Terrain-pick quota (§17.3): the Kage may set 3 sectors' terrain, each elder 1.
+export const TERRAIN_QUOTA_KAGE = 3;
+export const TERRAIN_QUOTA_ELDER = 1;
+export type TerrainRole = 'kage' | 'elder' | 'none';
 
 function clampInt(n: unknown, lo: number, hi: number): number {
     const v = Math.floor(Number(n) || 0);
@@ -93,7 +99,7 @@ export function defaultVillageWarRecord(village: string): VillageWarRecord {
             controlHp: SECTOR_CONTROL_HP_MAX,
         };
     });
-    return { warResources: 0, structures, sectors, mercLeases: [], dormant: false, lastWarPassDate: '' };
+    return { warResources: 0, structures, sectors, mercLeases: [], dormant: false, lastWarPassDate: '', terrainSetBy: {} };
 }
 
 /** Normalize a raw record from storage: clamp every value into range, ensure all
@@ -141,6 +147,13 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
         }
     }
 
+    if (raw.terrainSetBy && typeof raw.terrainSetBy === 'object') {
+        for (const key of Object.keys(base.sectors)) {
+            const p = (raw.terrainSetBy as Record<string, unknown>)[key];
+            if (typeof p === 'string' && p) base.terrainSetBy[key] = p;
+        }
+    }
+
     return base;
 }
 
@@ -158,6 +171,28 @@ export function canAssignWinCondition(record: VillageWarRecord, sector: number, 
     if (!cur) return false;            // not a home sector of this village
     if (cur.winCondition === wc) return true;
     return winConditionCounts(record)[wc] < MAX_SECTORS_PER_WIN_CONDITION;
+}
+
+/** How many sectors' terrain a given player currently owns the pick for. */
+export function terrainSetCountFor(record: VillageWarRecord, player: string): number {
+    return Object.values(record.terrainSetBy).filter((p) => p === player).length;
+}
+
+/** Whether `player` (acting as `role`) may set `sector`'s terrain under the
+ *  §17.3 quota: Kage 3 / elder 1. Re-setting a sector you already own is free; an
+ *  elder cannot override a sector another leader picked; the Kage may override. */
+export function canSetTerrain(
+    record: VillageWarRecord, sector: number, player: string, role: TerrainRole,
+): { ok: boolean; error?: 'not-authorized' | 'not-home-sector' | 'set-by-another' | 'quota-reached' } {
+    if (role === 'none') return { ok: false, error: 'not-authorized' };
+    const key = String(Math.floor(Number(sector) || 0));
+    if (!record.sectors[key]) return { ok: false, error: 'not-home-sector' };
+    const current = record.terrainSetBy[key];
+    if (current && current !== player && role !== 'kage') return { ok: false, error: 'set-by-another' };
+    const alreadyMine = current === player;
+    const limit = role === 'kage' ? TERRAIN_QUOTA_KAGE : TERRAIN_QUOTA_ELDER;
+    if (!alreadyMine && terrainSetCountFor(record, player) >= limit) return { ok: false, error: 'quota-reached' };
+    return { ok: true };
 }
 
 /** Merc leases that have not yet expired at `now` (epoch ms). */
