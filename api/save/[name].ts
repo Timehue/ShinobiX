@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
+import { budgetItemBonuses } from '../_item-budget.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
@@ -1212,6 +1213,11 @@ export function sanitizeCharacterSave(
                 // forged item can't ship a 999999 stat (PvP also caps total stats
                 // at MAX_STAT, this is storage hygiene).
                 if (out.bonuses && typeof out.bonuses === 'object') {
+                    // sub-5: clamp custom-item bonuses to the built-in legendary
+                    // baseline (passive %s <=1, shield <=100, vitals <=150, specialty
+                    // total scaled to the per-slot budget) so a forged item can't
+                    // out-scale real gear. Flag-off keeps the legacy [0,1000] clamp.
+                    if (process.env.ITEM_BONUS_BUDGET === '1') return budgetItemBonuses(out);
                     const bonuses = out.bonuses as Record<string, unknown>;
                     for (const k of Object.keys(bonuses)) {
                         bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));

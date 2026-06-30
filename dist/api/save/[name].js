@@ -5,6 +5,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _pet_stat_ceil_js_1 = require("../_pet-stat-ceil.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
+const _item_budget_js_1 = require("../_item-budget.js");
 const _utils_js_1 = require("../_utils.js");
 const player_auth_js_1 = require("../player-auth.js");
 const _auth_js_1 = require("../_auth.js");
@@ -1230,6 +1231,12 @@ function sanitizeCharacterSave(incoming, existing) {
             // forged item can't ship a 999999 stat (PvP also caps total stats
             // at MAX_STAT, this is storage hygiene).
             if (out.bonuses && typeof out.bonuses === 'object') {
+                // sub-5: clamp custom-item bonuses to the built-in legendary
+                // baseline (passive %s <=1, shield <=100, vitals <=150, specialty
+                // total scaled to the per-slot budget) so a forged item can't
+                // out-scale real gear. Flag-off keeps the legacy [0,1000] clamp.
+                if (process.env.ITEM_BONUS_BUDGET === '1')
+                    return (0, _item_budget_js_1.budgetItemBonuses)(out);
                 const bonuses = out.bonuses;
                 for (const k of Object.keys(bonuses)) {
                     bonuses[k] = Math.max(0, Math.min(1000, Number(bonuses[k]) || 0));

@@ -25,6 +25,7 @@ exports.deriveCombatMultipliers = deriveCombatMultipliers;
  * final ceiling.
  */
 const _item_catalog_js_1 = require("./_item-catalog.js");
+const _item_budget_js_1 = require("../_item-budget.js");
 // Armor damage-reduction per quality tier — mirrors armorQualityTiers in
 // shinobij.client/src/lib/equipment.ts. Keep in sync with that table.
 const ARMOR_REDUCTION = {
@@ -48,10 +49,15 @@ const ARMOR_SLOTS = ['head', 'body', 'armor', 'waist', 'legs', 'feet'];
  */
 function buildItemLookup(creatorItems) {
     const custom = new Map();
+    const budgetOn = process.env.ITEM_BONUS_BUDGET === '1';
     if (Array.isArray(creatorItems)) {
         for (const it of creatorItems) {
             if (it && typeof it === 'object' && typeof it.id === 'string') {
-                custom.set(String(it.id), it);
+                // sub-5 defense-in-depth: budget a pre-existing custom item's bonuses
+                // when it loads into combat, so an item saved before ITEM_BONUS_BUDGET
+                // was enabled still can't out-scale built-in gear.
+                const entry = budgetOn ? (0, _item_budget_js_1.budgetItemBonuses)(it) : it;
+                custom.set(String(entry.id), entry);
             }
         }
     }
