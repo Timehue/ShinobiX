@@ -54,6 +54,50 @@ export function setPetEvolveCutsceneEnabled(on: boolean): void {
 }
 
 /*
+ * Pet move ACCURACY / miss-chance flag. Pet moves carry an authored accuracy
+ * (pet-moves.ts KIND_SPECS: 85–95 for offensive/control kinds, 100 for support)
+ * that the battle engines historically never rolled against — so moves never
+ * missed. When ON, the engines roll `rng() < accuracy/100` when a jutsu is cast;
+ * a miss consumes the turn with no effect. NOW DEFAULT ON (rolled out to every
+ * pet engine) — opt OUT with localStorage.setItem("petAccuracy.v1","0"). The
+ * authored accuracy values may still want tuning. Passed INTO the sims as a param
+ * so the deterministic engines stay pure/testable. (Node/no-localStorage falls
+ * back to OFF so the engine golden tests stay deterministic; tests pass explicit
+ * flags to exercise the ON path.)
+ */
+const PET_ACCURACY_KEY = "petAccuracy.v1";
+
+export function petAccuracyEnabled(): boolean {
+    try { return localStorage.getItem(PET_ACCURACY_KEY) !== "0"; } catch { return false; }
+}
+
+export function setPetAccuracyEnabled(on: boolean): void {
+    try { localStorage.setItem(PET_ACCURACY_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
+/*
+ * Account-level RANKED PET challenge flag. The dormant System-B path
+ * (api/pet/ranked-start + the ranked branch of api/pet/battle-result, which
+ * settles both players' `petRankedRating`) is fully built on the accept/resolve
+ * side, but the SEND button (challengePlayer(opponent, "rankedPet")) was never
+ * wired. When ON, a "Ranked Pet Duel" send button appears in the Arena player
+ * list. DEFAULT OFF: this direct-challenge mode has had no two-client testing and
+ * overlaps the already-live Pet Ladder, so it ships dark until a controlled test.
+ * (The Pet Ladder — Arena → Pet Battles tab — is the primary, live pet-ranked
+ * experience and is unaffected by this flag.) Per-device persisted; flip with
+ * localStorage.setItem("petRankedChallenge.v1","1").
+ */
+const PET_RANKED_CHALLENGE_KEY = "petRankedChallenge.v1";
+
+export function petRankedChallengeEnabled(): boolean {
+    try { return localStorage.getItem(PET_RANKED_CHALLENGE_KEY) === "1"; } catch { return false; }
+}
+
+export function setPetRankedChallengeEnabled(on: boolean): void {
+    try { localStorage.setItem(PET_RANKED_CHALLENGE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
+/*
  * Authoritative PvE combat engine flag — the kill-switch for the pet-combat
  * redesign (docs/pet-combat-redesign-plan.md). When ON, NON-RANKED pet battles
  * (Pet Arena 1v1 + 2v2, Hollow Gate / dungeon duels, clan-war pet2v2) resolve

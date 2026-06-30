@@ -1,12 +1,18 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
+import type { ReactElement } from "react";
 import { createPortal } from "react-dom";
 // Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
 import {
     GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
     GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
     GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiRollingDices, GiTrashCan,
+    // Craft-material + recipe glyphs (forge tab).
+    GiSwapBag, GiAnimalHide, GiFeather, GiFangs, GiHornInternal, GiMeat, GiSnowflake1,
+    GiClawSlashes, GiWolfHead, GiFishScales, GiSpikedDragonHead, GiCrystalGrowth,
+    GiSpinalCoil, GiGems, GiCrystalCluster, GiHood,
 } from "react-icons/gi";
+import type { IconType } from "react-icons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 // Inline glyph style for section headers — sized to the heading text, nudged onto the baseline.
@@ -42,6 +48,39 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { NextGoalPin } from "../components/NextGoalPin";
+
+// Fantasy glyph per craft material — gives the forge's material list real
+// imagery instead of plain rows. Tiered by point value (see craftTier) for
+// the chip's accent colour, so rarer mats read as more valuable at a glance.
+const MATERIAL_ICON: Record<string, IconType> = {
+    "hunt-torn-hide": GiAnimalHide,
+    "hunt-wild-feather": GiFeather,
+    "hunt-small-fang": GiFangs,
+    "hunt-cracked-horn": GiHornInternal,
+    "hunt-beast-meat": GiMeat,
+    "hunt-frost-pelt": GiSnowflake1,
+    "hunt-shadow-claw": GiClawSlashes,
+    "hunt-wolf-fang": GiWolfHead,
+    "hunt-ash-scale": GiFishScales,
+    "hunt-ember-scale": GiSpikedDragonHead,
+    "hunt-shadow-pelt": GiAnimalHide,
+    "hunt-ancient-beast-core": GiCrystalGrowth,
+    "hunt-titan-bone": GiSpinalCoil,
+    "hunt-legendary-material": GiGems,
+    [WEEKLY_BOSS_CORE_ID]: GiCrystalCluster,
+    [DUNGEON_LEGENDARY_RELIC_ID]: GiDragonHead,
+    [WARFORGED_RELIC_ID]: GiCrossedSwords,
+    [VEIL_OF_THE_HOLLOW_ID]: GiHood,
+};
+
+// Material rarity band from its craft-point value → chip accent colour.
+function craftTier(pts: number): "common" | "uncommon" | "rare" | "epic" | "legendary" {
+    if (pts <= 5) return "common";
+    if (pts <= 10) return "uncommon";
+    if (pts <= 25) return "rare";
+    if (pts <= 50) return "epic";
+    return "legendary";
+}
 
 export function CentralHub({
     character,
@@ -1092,6 +1131,55 @@ export function CentralHub({
                     })),
                 ];
 
+                // Resolve a recipe item's artwork (published shared image first,
+                // then the item's own image). Empty string = no art → caller draws
+                // a themed fallback glyph instead.
+                const itemImage = (id?: string): string =>
+                    id ? (sharedImages["item:" + id] || allHubItems.find((i) => i.id === id)?.image || "") : "";
+
+                // Themed fallback glyph for a supply recipe with no artwork, picked
+                // from the recipe name so each card still reads at a glance.
+                const supplyGlyph = (name: string): ReactElement => {
+                    const n = name.toLowerCase();
+                    if (n.includes("treat")) return <GiMeat />;
+                    if (n.includes("dust")) return <GiSparkles />;
+                    if (n.includes("charm") || n.includes("bone")) return <GameIcon name="bone" size={30} />;
+                    if (n.includes("pill") || n.includes("potion") || n.includes("elixir")) return <GameIcon name="flask" size={30} />;
+                    if (n.includes("smoke")) return <GiFlame />;
+                    if (n.includes("shuriken") || n.includes("senbon") || n.includes("serpent")) return <GiCrossedSwords />;
+                    return <GiSwapBag />;
+                };
+
+                // Shared, collapsed-by-default materials breakdown — identical in
+                // all three tabs. The summary always shows the craft-point total so
+                // players see their balance without expanding the full list. Each
+                // material gets a fantasy glyph + tier colour so the list reads like
+                // a forge ledger rather than a wall of text.
+                const materialsPanel = (
+                    <details className="crafter-materials">
+                        <summary className="crafter-materials-summary">
+                            <span className="crafter-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="crafter-mat-total">{totalPts} craft pts</span></span>
+                            <span className="crafter-mat-toggle" />
+                        </summary>
+                        <div className="crafter-material-grid">
+                            {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
+                                const count = countItem(character, id);
+                                const pts = CRAFT_POINTS[id] ?? 0;
+                                const Icon = MATERIAL_ICON[id] ?? GiStoneStack;
+                                return (
+                                    <div key={id} className="crafter-mat-chip" data-tier={craftTier(pts)} data-empty={count === 0 ? "1" : undefined}>
+                                        <span className="crafter-mat-ico"><Icon size={20} /></span>
+                                        <span className="crafter-mat-info">
+                                            <span className="crafter-mat-name">{label}</span>
+                                            <span className="crafter-mat-meta"><b>{count}×</b> · {pts} pts</span>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </details>
+                );
+
                 return (
                     <div className="crafter-overlay" onClick={() => setShowCrafter(false)}>
                         <div className="crafter-panel" onClick={(e) => e.stopPropagation()}>
@@ -1100,25 +1188,14 @@ export function CentralHub({
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
                             </div>
                             <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies, weapons, or armor.</p>
-                            <div className="inventory-tabs" style={{ marginBottom: 12 }}>
-                                <button className={crafterTab === "supplies" ? "active" : ""} onClick={() => setCrafterTab("supplies")}>Supplies</button>
-                                <button className={crafterTab === "weapons" ? "active" : ""} onClick={() => setCrafterTab("weapons")}>Weapons</button>
-                                <button className={crafterTab === "armor" ? "active" : ""} onClick={() => setCrafterTab("armor")}>Armor</button>
+                            <div className="crafter-tabs">
+                                <button className={crafterTab === "supplies" ? "active" : ""} onClick={() => setCrafterTab("supplies")}><GiSwapBag />Supplies</button>
+                                <button className={crafterTab === "weapons" ? "active" : ""} onClick={() => setCrafterTab("weapons")}><GiCrossedSwords />Weapons</button>
+                                <button className={crafterTab === "armor" ? "active" : ""} onClick={() => setCrafterTab("armor")}><GiBreastplate />Armor</button>
                             </div>
 
-                            {crafterTab === "supplies" && <><div className="crafter-material-list">
-                                <strong>Your Materials</strong>
-                                {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                    const count = countItem(character, id);
-                                    return (
-                                        <div key={id} className="crafter-material-row">
-                                            <span>{label}</span>
-                                            <span>{count}× <small>({CRAFT_POINTS[id]} pts each)</small></span>
-                                        </div>
-                                    );
-                                })}
-                                <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
-                            </div>
+                            <div className="crafter-body">
+                            {crafterTab === "supplies" && <>{materialsPanel}
 
                             {/* ── Special forges: Hollow Gate Key + Dungeon Legendary Relic ──
                                 Rendered side-by-side in one compact 2-col grid (crafter-special-*)
@@ -1237,13 +1314,23 @@ export function CentralHub({
                                     const owned = recipe.itemId ? countItem(character, recipe.itemId) : 0;
                                     const atCap = cap != null && owned + (recipe.per ?? 1) > cap;
                                     const canAffordOne = totalPts >= recipe.cost;
+                                    const img = itemImage(recipe.itemId);
                                     return (
                                         <div key={recipe.name} className="crafter-recipe-btn">
-                                            <strong>{recipe.name}</strong>
-                                            <small>{recipe.desc}</small>
-                                            {cap != null && (
-                                                <small style={{ color: "#86efac" }}>In bag: {owned} / {cap}</small>
-                                            )}
+                                            <div className="crafter-card-top">
+                                                <div className="crafter-card-thumb">
+                                                    {img
+                                                        ? <img src={img} alt={recipe.name} loading="lazy" />
+                                                        : <span className="crafter-card-thumb-ico">{supplyGlyph(recipe.name)}</span>}
+                                                </div>
+                                                <div className="crafter-card-head">
+                                                    <strong>{recipe.name}</strong>
+                                                    <small>{recipe.desc}</small>
+                                                    {cap != null && (
+                                                        <small style={{ color: "#86efac" }}>In bag: {owned} / {cap}</small>
+                                                    )}
+                                                </div>
+                                            </div>
                                             <div className="crafter-progress-bar">
                                                 <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
@@ -1256,19 +1343,7 @@ export function CentralHub({
                                 })}
                             </div></>}
 
-                            {crafterTab === "weapons" && <><div className="crafter-material-list">
-                                <strong>Your Materials</strong>
-                                {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                    const count = countItem(character, id);
-                                    return (
-                                        <div key={id} className="crafter-material-row">
-                                            <span>{label}</span>
-                                            <span>{count}× <small>({CRAFT_POINTS[id]} pts each)</small></span>
-                                        </div>
-                                    );
-                                })}
-                                <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
-                            </div>
+                            {crafterTab === "weapons" && <>{materialsPanel}
 
                             {weaponInfoItem && createPortal((
                                 // Portaled to <body> + z-index above the fixed side rails
@@ -1309,14 +1384,24 @@ export function CentralHub({
                                     const ryo = craftRyoForRarity(item.rarity);
                                     const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= ryo && totalPts >= costPts;
                                     const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
+                                    const img = itemImage(item.id);
                                     return (
-                                        <div key={item.id} className="crafter-recipe-btn">
-                                            <div className="crafter-recipe-btn-header">
-                                                <strong>{item.name}</strong>
-                                                <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
+                                        <div key={item.id} className="crafter-recipe-btn" data-rarity={item.rarity}>
+                                            <div className="crafter-card-top">
+                                                <div className="crafter-card-thumb" data-rarity={item.rarity}>
+                                                    {img
+                                                        ? <img src={img} alt={item.name} loading="lazy" />
+                                                        : <span className="crafter-card-thumb-ico"><GiCrossedSwords /></span>}
+                                                </div>
+                                                <div className="crafter-card-head">
+                                                    <div className="crafter-recipe-btn-header">
+                                                        <strong>{item.name}</strong>
+                                                        <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
+                                                    </div>
+                                                    <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
+                                                    <small className="crafter-cost-line">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                </div>
                                             </div>
-                                            <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
-                                            <small>{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
                                             <div className="crafter-progress-bar">
                                                 <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
@@ -1329,19 +1414,7 @@ export function CentralHub({
                                 })}
                             </div></>}
 
-                            {crafterTab === "armor" && <><div className="crafter-material-list">
-                                <strong>Your Materials</strong>
-                                {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                    const count = countItem(character, id);
-                                    return (
-                                        <div key={id} className="crafter-material-row">
-                                            <span>{label}</span>
-                                            <span>{count}× <small>({CRAFT_POINTS[id]} pts each)</small></span>
-                                        </div>
-                                    );
-                                })}
-                                <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
-                            </div>
+                            {crafterTab === "armor" && <>{materialsPanel}
                             <div className="crafter-recipe-grid">
                                 {craftableArmor.length === 0 ? (
                                     <p className="hint">No armor recipes available yet — add craftable armor items via the admin item creator.</p>
@@ -1351,13 +1424,21 @@ export function CentralHub({
                                         const ryo = craftRyoForRarity(item.rarity);
                                         const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= ryo && totalPts >= costPts;
                                         const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
+                                        const img = itemImage(item.id);
                                         return (
-                                            <div key={item.id} className="crafter-recipe-btn">
-                                                <div className="crafter-recipe-btn-header">
-                                                    <strong>{item.name}</strong>
+                                            <div key={item.id} className="crafter-recipe-btn" data-rarity={item.rarity}>
+                                                <div className="crafter-card-top">
+                                                    <div className="crafter-card-thumb" data-rarity={item.rarity}>
+                                                        {img
+                                                            ? <img src={img} alt={item.name} loading="lazy" />
+                                                            : <span className="crafter-card-thumb-ico"><GiBreastplate /></span>}
+                                                    </div>
+                                                    <div className="crafter-card-head">
+                                                        <strong>{item.name}</strong>
+                                                        <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
+                                                        <small className="crafter-cost-line">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                    </div>
                                                 </div>
-                                                <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
-                                                <small>{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
                                                 <div className="crafter-progress-bar">
                                                     <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
                                                 </div>
@@ -1703,6 +1784,7 @@ export function CentralHub({
                                     </div>
                                 );
                             })()}
+                            </div>
                         </div>
                     </div>
                 );

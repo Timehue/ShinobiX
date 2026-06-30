@@ -39,7 +39,7 @@ import { CardClashDeckBuilder } from "../components/CardClashDeckBuilder";
 import { CardClashBoard } from "../components/CardClashBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
 
-type Tab = "collection" | "deck" | "play" | "rules";
+type Tab = "collection" | "deck" | "play" | "pvp" | "rules";
 
 export function CardHall({
     character,
@@ -48,6 +48,7 @@ export function CardHall({
     onBack,
     autoStart = false,
     onAutoStartConsumed,
+    onStartFreePlay,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
@@ -57,6 +58,9 @@ export function CardHall({
     // match instead of the menu. Falls back to the deck tab if no valid deck.
     autoStart?: boolean;
     onAutoStartConsumed?: () => void;
+    // Provided by App: stash the minted matchId + route to the live PvP duel screen.
+    // Absent → the Free-Play PvP tab is hidden (e.g. embedded contexts).
+    onStartFreePlay?: (matchId: string) => void;
 }) {
     const allCards = useMemo(() => getAllTileCards(creatorCards), [creatorCards]);
     const clashCards = useMemo(() => toClashCards(allCards), [allCards]);
@@ -79,6 +83,56 @@ export function CardHall({
     const [match, setMatch] = useState<CardClashMatchState | null>(null);
     const [reward, setReward] = useState<CardClashRewardSummary | null>(null);
     const [showTutorial, setShowTutorial] = useState<boolean>(() => !character.cardClashTutorialSeen);
+
+    // ── Free-play PvP matchmaking queue ──────────────────────────────────────
+    // Open queue → on pairing the server mints a matchId; we stash it + route to
+    // the live duel screen (CardClashFreePlay) via onStartFreePlay. Unranked: the
+    // server pays nothing, so no farming incentive. Stale entries auto-evict (60s).
+    const [pvpQueuing, setPvpQueuing] = useState(false);
+    const [pvpQueueSize, setPvpQueueSize] = useState(0);
+    const [pvpError, setPvpError] = useState<string | null>(null);
+    const cardClashOwned = (character.tileCards ?? []).length;
+
+    async function cardQueuePost(action: "join" | "leave" | "poll") {
+        try {
+            const r = await fetch("/api/card-clash/queue", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, action }),
+            });
+            return r.ok ? await r.json() : null;
+        } catch { return null; }
+    }
+    async function startQueue() {
+        setPvpError(null);
+        const res = await cardQueuePost("join");
+        if (!res) { setPvpError("Could not join the queue — try again."); return; }
+        setPvpQueueSize(res.queueSize ?? 1);
+        setPvpQueuing(true);
+    }
+    async function cancelQueue() {
+        setPvpQueuing(false);
+        await cardQueuePost("leave");
+    }
+
+    useEffect(() => {
+        if (!pvpQueuing) return;
+        let alive = true;
+        const tick = async () => {
+            const res = await cardQueuePost("poll");
+            if (!alive || !res) return;
+            if (res.match?.matchId) {
+                setPvpQueuing(false);
+                onStartFreePlay?.(res.match.matchId);
+            } else {
+                setPvpQueueSize(res.queueSize ?? 0);
+            }
+        };
+        const id = setInterval(() => { void tick(); }, 2500);
+        void tick();
+        return () => { alive = false; clearInterval(id); };
+        // cardQueuePost/onStartFreePlay are stable enough; re-run only on toggle.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pvpQueuing]);
 
     const savedDeck = useMemo(() => character.cardClashDeck ?? [], [character.cardClashDeck]);
     const savedDeckValid = useMemo(() => validateDeck(savedDeck, clashById).valid, [savedDeck, clashById]);
@@ -186,7 +240,7 @@ export function CardHall({
             )}
 
             <div className="cc-header">
-                <button className="cc-btn ghost" onClick={onBack}>← Village</button>
+                <button className="cc-btn ghost" onClick={onBack}>← Back</button>
                 <div className="cc-title">
                     <b>Shinobi Card Clash</b>
                     <span>Card Hall</span>
@@ -203,6 +257,7 @@ export function CardHall({
                 <button className={`cc-tab ${tab === "collection" ? "active" : ""}`} onClick={() => setTab("collection")}>Collection</button>
                 <button className={`cc-tab ${tab === "deck" ? "active" : ""}`} onClick={() => setTab("deck")}>Deck Builder</button>
                 <button className={`cc-tab ${tab === "play" ? "active" : ""}`} onClick={() => setTab("play")}>Play vs AI</button>
+                {onStartFreePlay && <button className={`cc-tab ${tab === "pvp" ? "active" : ""}`} onClick={() => setTab("pvp")}>Free-Play PvP</button>}
                 <button className={`cc-tab ${tab === "rules" ? "active" : ""}`} onClick={() => setTab("rules")}>Rules</button>
             </div>
 
@@ -238,6 +293,24 @@ export function CardHall({
                 )}
 
                 {tab === "rules" && <RulesTab />}
+
+                {tab === "pvp" && (
+                    <div className="cc-pvp-tab">
+                        <h3 style={{ marginTop: 0 }}>Free-Play PvP</h3>
+                        <p className="hint">Queue to duel another shinobi live. Free-play is <strong>unranked</strong> — no rewards, no penalties, just bragging rights. Your saved deck is used (an auto-built one if you have none).</p>
+                        {pvpError && <p className="hint" style={{ color: "#f87171" }}>{pvpError}</p>}
+                        {!pvpQueuing ? (
+                            <button className="cc-btn primary" onClick={startQueue} disabled={cardClashOwned === 0}>
+                                {cardClashOwned === 0 ? "Collect cards first" : "⚔ Find a Match"}
+                            </button>
+                        ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                                <span>🔍 Searching for an opponent{pvpQueueSize > 1 ? ` … (${pvpQueueSize} queued)` : "…"}</span>
+                                <button className="cc-btn ghost" onClick={cancelQueue}>Cancel</button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {showTutorial && <CardClashTutorial onClose={closeTutorial} />}

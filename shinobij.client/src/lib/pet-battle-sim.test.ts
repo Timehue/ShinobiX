@@ -100,6 +100,35 @@ test("1v1 survives degenerate pets (no jutsus, 0 speed, missing hp)", () => {
     });
 });
 
+// ── accuracy / miss-chance (flag-gated, default off) ───────────────────────
+
+test("accuracy off (default) never makes a move miss", () => {
+    let off = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+        // Explicit false AND the default (no arg) must both be miss-free, since
+        // node has no localStorage so petAccuracyEnabled() defaults off.
+        const r = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed, 1, 1, false, false);
+        const d = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed);
+        if (r.logs.some(l => /misses/.test(l))) off++;
+        assert.deepEqual(d, r, `seed ${seed}: explicit accuracy=false must equal the default path`);
+    }
+    assert.equal(off, 0, "moves must never miss while the accuracy flag is off");
+});
+
+test("accuracy on makes some moves miss, and stays deterministic", () => {
+    let withMiss = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+        const r = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), "Foe", seed, 1, 1, false, true);
+        if (r.logs.some(l => /misses/.test(l))) withMiss++;
+        assertAllNumbersFinite(r, `acc-on.seed${seed}`);
+    }
+    assert.ok(withMiss > 0, "with accuracy on, some 85–95% moves should miss across 40 seeds");
+    // Determinism is load-bearing for ranked replays — same seed → identical.
+    const a = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b" }), "Foe", 12345, 1, 1, false, true);
+    const b = runPetArenaBattle(makePet({ id: "a" }), makePet({ id: "b" }), "Foe", 12345, 1, 1, false, true);
+    assert.deepEqual(a, b, "accuracy-on battles must be deterministic");
+});
+
 // ── 2v2 ───────────────────────────────────────────────────────────────────
 
 test("2v2 party is deterministic and numerically safe", () => {

@@ -30,6 +30,35 @@ describe("runPetBoardBattle — determinism", () => {
     });
 });
 
+describe("runPetGridBattle — accuracy flag (default off)", () => {
+    const place = (pets: Pet[]) => pets.map((pet, i) => ({ pet, row: 0, col: i }));
+    const sig = (r: ReturnType<typeof runPetGridBattle>) => r.events.map((e) => `${e.t}:${e.type}:${e.dmg ?? ""}`).join("|");
+
+    it("off (default) is byte-identical to the pre-flag path; on changes outcomes and stays deterministic", () => {
+        const kit: Partial<Pet> = { jutsus: [
+            { name: "Frost", power: 60, cooldown: 0, currentCooldown: 0, kind: "freeze" },
+            { name: "Strike", power: 60, cooldown: 2, currentCooldown: 0, kind: "damage" },
+        ] };
+        let differs = false;
+        for (let seed = 1; seed <= 20; seed++) {
+            const p = team(3, kit), e = team(3, kit);
+            const off = runPetGridBattle(place(p), place(e), seed, { accuracy: false });
+            const def = runPetGridBattle(place(p), place(e), seed);
+            const on = runPetGridBattle(place(p), place(e), seed, { accuracy: true });
+            // node has no localStorage → petAccuracyEnabled() === false → default must equal explicit off.
+            assert.equal(sig(def), sig(off), `seed ${seed}: default must equal explicit accuracy=false`);
+            if (sig(on) !== sig(off)) differs = true;
+        }
+        assert.ok(differs, "accuracy on must change some board outcomes (misses fire)");
+        const k = team(3, kit), m = team(3, kit);
+        assert.equal(
+            sig(runPetGridBattle(place(k), place(m), 99, { accuracy: true })),
+            sig(runPetGridBattle(place(k), place(m), 99, { accuracy: true })),
+            "accuracy-on must stay deterministic",
+        );
+    });
+});
+
 describe("runPetBoardBattle — holds a full squad", () => {
     it("resolves a 5v5 to a decisive winner and terminates", () => {
         const r = runPetBoardBattle(team(BOARD_SQUAD_MAX), team(BOARD_SQUAD_MAX), 4242);
