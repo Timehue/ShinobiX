@@ -184,56 +184,6 @@ const PATHS: Record<GameIconName, ReactElement> = {
     bolt: (
         <path d="M13.4 2.3 5.6 13a.65.65 0 0 0 .53 1.03h3.3l-1.2 7a.55.55 0 0 0 1 .42l7.9-11a.65.65 0 0 0-.53-1.03h-3.5l1.5-6.6a.55.55 0 0 0-1-.42Z" />
     ),
-    // Two people, the back one faded — users / roster.
-    users: (
-        <>
-            <circle cx="15.5" cy="8.6" r="2.9" opacity=".5" />
-            <path opacity=".5" d="M15.5 12.4c2.9 0 5 1.7 5 4.2a.7.7 0 0 1-.7.7h-3.9c.1-1.9-.9-3.7-2.5-4.6.7-.2 1.4-.3 2.1-.3Z" />
-            <circle cx="9" cy="8.6" r="3.3" />
-            <path d="M2.7 18.8c0-3.1 2.7-5 6.3-5s6.3 1.9 6.3 5a.8.8 0 0 1-.8.8H3.5a.8.8 0 0 1-.8-.8Z" />
-        </>
-    ),
-    // Envelope with the flap cut out — messages / mail.
-    mail: (
-        <path fillRule="evenodd" clipRule="evenodd" d="M3.5 6h17A1.5 1.5 0 0 1 22 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-17A1.5 1.5 0 0 1 2 16.5v-9A1.5 1.5 0 0 1 3.5 6Zm1.4 2L12 12.6 19.1 8H4.9Z" />
-    ),
-    // Clipboard: a board with a clip + three checklist lines cut out — missions.
-    clipboard: (
-        <>
-            <path fillRule="evenodd" clipRule="evenodd" d="M6.5 4.5h11A1.5 1.5 0 0 1 19 6v13.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5Zm1.5 5.4V11.5h8V9.9H8Zm0 3.3V14.8h8v-1.6H8Zm0 3.3V18.1h5v-1.6H8Z" />
-            <rect x="9" y="2.7" width="6" height="3.2" rx="1.2" />
-        </>
-    ),
-    // Blood drop / teardrop — bloodline.
-    drop: (
-        <path d="M12 2.4c3.7 4.6 6.6 8.1 6.6 11.5a6.6 6.6 0 0 1-13.2 0C5.4 10.5 8.3 7 12 2.4Z" />
-    ),
-    // Open book — two pages over a center spine gap — logbook.
-    book: (
-        <>
-            <path d="M11.2 6.3C9.4 5 6.9 4.5 4.2 4.9A1.2 1.2 0 0 0 3.2 6.1v10.6a1 1 0 0 0 1.2 1c2.3-.3 4.5.1 6.8 1.4V6.3Z" />
-            <path d="M12.8 6.3C14.6 5 17.1 4.5 19.8 4.9A1.2 1.2 0 0 1 20.8 6.1v10.6a1 1 0 0 1-1.2 1c-2.3-.3-4.5.1-6.8 1.4V6.3Z" />
-        </>
-    ),
-    // Ringed compass with a needle — guides.
-    compass: (
-        <>
-            <path fillRule="evenodd" clipRule="evenodd" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 2.2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 0 1 0-13.6Z" />
-            <path d="M15.6 8.4 11 10.7 8.4 15.6 13 13.3Z" />
-        </>
-    ),
-    // Speech bubble with two text lines + a tail — chat / community.
-    chat: (
-        <path fillRule="evenodd" clipRule="evenodd" d="M4 5h16a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 16H9.7l-4 3.4A.6.6 0 0 1 4.7 19v-3H4a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 4 5Zm3 4.2V10.9h10V9.2H7Zm0 3.3V14.2h6.5v-1.7H7Z" />
-    ),
-    // Key (round bow + teeth) — admin access.
-    key: (
-        <path fillRule="evenodd" clipRule="evenodd" d="M14.5 3a6 6 0 0 0-5.8 7.6l-5.4 5.4a1 1 0 0 0-.3.7v2.8a.5.5 0 0 0 .5.5h2.8a1 1 0 0 0 .7-.3l.6-.6v-1.6h1.6v-1.6h1.6l1.2-1.2A6 6 0 1 0 14.5 3Zm1.7 2.8a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4Z" />
-    ),
-    // Floppy disk (label slot + center disc cut out) — logout + save.
-    save: (
-        <path fillRule="evenodd" clipRule="evenodd" d="M5 3.5h11.2a1 1 0 0 1 .7.3l3.3 3.3a1 1 0 0 1 .3.7V19A1.5 1.5 0 0 1 19 20.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5Zm2.5 1.8v3.1a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V5.3H7.5Zm4.5 5.9a3.1 3.1 0 1 0 0 6.2 3.1 3.1 0 0 0 0-6.2Z" />
-    ),
 };
 
 export function GameIcon({
