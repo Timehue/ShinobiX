@@ -193,4 +193,26 @@ describe('handler wiring (no orphaned endpoints)', () => {
             `Only found ${handlerFiles.length} api/ handler files — the scan looks broken.`,
         );
     });
+
+    it('registers (not just imports) every api/ HTTP handler in server.ts', () => {
+        // The import check above proves the `from './api/x.js'` specifier exists,
+        // but an imported-yet-never-route()d handler still 404s. This proves the
+        // imported identifier is referenced again (in a route()/app.* call),
+        // closing the "imported but unwired" gap the import scan alone misses.
+        const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const unwired = handlerFiles.filter((rel) => {
+            const imp = serverSrc.match(new RegExp(`import\\s+(\\w+)\\s+from\\s+['"]\\./api/${esc(rel)}\\.js['"]`));
+            if (!imp) return false;   // a missing import is the previous test's job
+            const ident = imp[1];
+            const uses = (serverSrc.match(new RegExp(`\\b${ident}\\b`, 'g')) ?? []).length;
+            return uses <= 1;         // appears only in its own import → never registered
+        });
+        assert.equal(
+            unwired.length,
+            0,
+            `These api/ handlers are imported but never referenced in a route()/app.* ` +
+            `registration in server.ts, so they 404 despite being imported:\n  - ` +
+            unwired.map((r) => `api/${r}.ts`).join('\n  - '),
+        );
+    });
 });

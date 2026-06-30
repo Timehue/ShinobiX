@@ -28,3 +28,28 @@ export function takeSectorReopen(): number | null {
 export function clearSectorReopen() {
     pendingSectorReopen = null;
 }
+
+/*
+ * One-shot "did the page reload straight into a sector" signal.
+ *
+ * The World Map's open-sector state (selectedSector) is ephemeral React state, so
+ * a browser refresh otherwise drops the player back on the world overview even
+ * though they were standing inside a sector. WorldMap calls this on mount: it
+ * returns true exactly once per page load, and ONLY when that load was a real
+ * browser reload (or a non-cached back/forward) rather than a fresh in-app
+ * navigation. Consumed on the first call so a later in-session trip to the map
+ * still opens on the overview. The caller additionally gates on currentSector
+ * being a real explorable sector, so a hub refresh (currentSector reset to 0)
+ * never reopens anything.
+ */
+let reloadReopenConsumed = false;
+export function consumeReloadIntoSector(): boolean {
+    if (reloadReopenConsumed) return false;
+    reloadReopenConsumed = true;
+    try {
+        const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+        return !!nav && (nav.type === "reload" || nav.type === "back_forward");
+    } catch {
+        return false;
+    }
+}

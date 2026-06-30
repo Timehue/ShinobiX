@@ -27,6 +27,8 @@
 
 import type { Pet, PetJutsu } from "../types/pet";
 import { derivePetRole, type PetRole } from "./pet-roles";
+import { petMoveAccuracy } from "./pet-moves";
+import { petAccuracyEnabled } from "./pet-coliseum-flag";
 
 export const BOARD_SQUAD_MAX = 5;
 export const BOARD_ROWS_PER_SIDE = 3;   // grid depth per side (0 = front … 2 = back)
@@ -230,7 +232,7 @@ function dealDamage(target: Unit, raw: number, events: BoardEvent[], t: number, 
 }
 
 /** Resolve one unit's action this round. */
-function act(u: Unit, units: Unit[], rng: () => number, t: number, events: BoardEvent[], ctx: BoardCtx) {
+function act(u: Unit, units: Unit[], rng: () => number, t: number, events: BoardEvent[], ctx: BoardCtx, accuracyEnabled: boolean) {
     if (!alive(u)) return;
     if (u.stunned) { u.stunned = false; return; }
 
@@ -244,6 +246,13 @@ function act(u: Unit, units: Unit[], rng: () => number, t: number, events: Board
     if (ready) {
         ready.cd = ready.maxCd;
         events.push({ t, type: "ability", actorId: u.id, kind: ready.kind, element: u.element });
+        // Accuracy miss-roll (flag-gated; default off). Support kinds are accuracy
+        // 100 → never miss; offensive/control kinds use the authored per-kind value.
+        // The cast + cooldown are already spent above; a miss just skips the effect.
+        // `accuracyEnabled &&` short-circuits so flag-off draws no rng (deterministic).
+        if (accuracyEnabled && rng() >= petMoveAccuracy(ready.kind) / 100) {
+            return;
+        }
         if (ready.act === "heal") {
             const ally = woundedAlly(units, u.team);
             if (ally) {
@@ -307,8 +316,11 @@ function snapshot(t: number, units: Unit[]): BoardSnapshot {
  * Deterministic from (placements, seed). Returns round-by-round snapshots + the
  * typed event stream + the placed roster.
  */
-export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: number, opts?: { playerMods?: Partial<BoardMods> }): BoardResult {
+export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: number, opts?: { playerMods?: Partial<BoardMods>; accuracy?: boolean }): BoardResult {
     const rng = lcg(seed);
+    // Accuracy miss-chance (flag-gated; default off). Threaded as an opt so the sim
+    // stays pure/testable; defaults to the per-device flag for live play.
+    const accuracyEnabled = opts?.accuracy ?? petAccuracyEnabled();
     const mods: BoardMods = { ...NO_MODS, ...(opts?.playerMods ?? {}) };
     const p = player.slice(0, BOARD_SQUAD_MAX), e = enemy.slice(0, BOARD_SQUAD_MAX);
     const units: Unit[] = [
@@ -328,7 +340,7 @@ export function runPetGridBattle(player: GridUnit[], enemy: GridUnit[], seed: nu
         // Fastest first; ties → front slot → player-before-enemy (id-independent).
         const order = units.filter(alive).sort((a, b) => b.speed - a.speed || a.slot - b.slot || (a.team === b.team ? 0 : a.team === "player" ? -1 : 1));
         for (const u of order) {
-            act(u, units, rng, r, events, ctx);
+            act(u, units, rng, r, events, ctx, accuracyEnabled);
             if (!teamAlive(units, "player") || !teamAlive(units, "enemy")) break;
         }
         for (const u of units) for (const j of u.jutsus) if (j.cd > 0) j.cd -= 1;

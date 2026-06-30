@@ -103,6 +103,7 @@ import { readFileSync } from "node:fs";
 // net-negative; the screens live in their own modules (see those commits).
 // → 10,145 (merge of main + the village-war branch — main's App.tsx plus the branch's
 // net-negative screen wiring; measured post-merge.)
+// → 10,147 (+2: lazy import + render line for the new Card Clash free-play duel screen).
 // → 10,152 (+7 mandatory Sector-War Combat-launch WIRING: the lib import (+1) and the
 // three server-gated call sites that MUST live at the App-local PvP launch/completion
 // points — registerSectorBattle after setPvpBattleId in the sector-attack handler, and
@@ -110,7 +111,10 @@ import { readFileSync } from "node:fs";
 // fire-and-forget call). All sector-war logic lives in lib/village-war-map.ts + the
 // api/village/sector-war handler; these are pure call-sites that read App-local
 // character/pvpBattleId/pvpBattleContext, so they cannot move to a module.)
-const MAX_LINES = 10_152;
+// → 10,154 (merge of origin/main's Card Clash free-play screen + the merc/village-war
+// branch's Sector-War Combat-launch wiring — both net-positive WIRING on the shared
+// 10,145 base; measured post-merge.)
+const MAX_LINES = 10_154;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

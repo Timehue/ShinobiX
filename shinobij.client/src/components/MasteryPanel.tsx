@@ -5,6 +5,7 @@
  * applied elsewhere (Phase 3); this panel only edits character.masterySpec.
  */
 import type React from "react";
+import { gameConfirm } from "./GameAlert";
 import type { Character } from "../types/character";
 import {
     MASTERY_TREES, masteryLevel, masteryPointsAvailable, masteryPointsSpent,
@@ -39,10 +40,10 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
         updateCharacter({ ...character, masterySpec: incrementNode(character, nodeId) });
     }
 
-    function respec() {
+    async function respec() {
         if (spent <= 0) return;
         if (character.ryo < MASTERY_RESPEC_COST) { alert(`Respec costs ${MASTERY_RESPEC_COST.toLocaleString()} ryo.`); return; }
-        if (!confirm(`Refund all mastery points for ${MASTERY_RESPEC_COST.toLocaleString()} ryo?`)) return;
+        if (!(await gameConfirm(`Refund all mastery points for ${MASTERY_RESPEC_COST.toLocaleString()} ryo?`))) return;
         updateCharacter({ ...character, ryo: character.ryo - MASTERY_RESPEC_COST, masterySpec: {} });
     }
 

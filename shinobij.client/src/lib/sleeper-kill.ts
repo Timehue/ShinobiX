@@ -5,6 +5,7 @@
 // hospital + back to their village. Lives here (not App.tsx) per the project's
 // "new helpers go in their own module" rule.
 import type { Dispatch, SetStateAction } from "react";
+import { gameConfirm } from "../components/GameAlert";
 import type { Character, PlayerRecord } from "../types/character";
 
 type SleeperReward = { ryo: number; xp: number; seals: number; rewardEligible: boolean; target: string };
@@ -40,7 +41,7 @@ export async function strikeDownSleeper(opts: {
 }): Promise<void> {
     const { opponent, attackerName, isTraveling, setCharacter, setPlayerRoster } = opts;
     if (isTraveling) { alert("You cannot attack while traveling."); return; }
-    if (!window.confirm(`🌙 ${opponent.name} sleeps, defenseless, in this sector.\n\nStrike them down? They'll wake battered in their village's hospital.`)) return;
+    if (!(await gameConfirm(`🌙 ${opponent.name} sleeps, defenseless, in this sector.\n\nStrike them down? They'll wake battered in their village's hospital.`, { danger: true, confirmLabel: "Strike" }))) return;
 
     try {
         // attackerName lets an admin-authed session (no player identity of its

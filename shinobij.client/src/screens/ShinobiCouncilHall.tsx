@@ -15,7 +15,7 @@ import {
 } from "../App";
 import { loadVillageState, loadVillageWar, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type KageHistoryEntry, type VillageWar } from "../lib/world-state";
 
-export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
+export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle, onBack }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void; onBack: () => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
 
     // --- Village Wars ---
@@ -114,7 +114,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
     return (
         <div className="card council-screen">
             <div className="council-header">
-                <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
+                <button className="back-button" onClick={onBack}>← Back</button>
                 <div>
                     <h2><GiGreekTemple style={SCH_ICON} />Shinobi Council Hall</h2>
                     <p className="council-subtitle">Live war status and the eternal record of village leaders.</p>

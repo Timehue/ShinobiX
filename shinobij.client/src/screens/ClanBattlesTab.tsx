@@ -6,6 +6,7 @@ import type { Screen } from "../types/core";
 import { ClanWarManual } from "../components/ClanWarManual";
 import { CW_DAMAGE, CW_HP_MAX, CW_MODE_ICON, CW_MODE_LABEL } from "../constants/clan";
 import { cwChallengeAction, cwDeclareWar, cwListWars, type CwChallenge, type CwChallengeMode, type CwChallengeResult, type CwWar } from "../lib/clan-war-api";
+import { gameConfirm } from "../components/GameAlert";
 
 export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattle }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
     void setScreen; // navigation now lives inside launchClanWarBattle
@@ -78,7 +79,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     async function handleDeclare() {
         if (!declareTarget) return;
-        if (!window.confirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`)) return;
+        if (!(await gameConfirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`))) return;
         setBusy(true);
         const result = await cwDeclareWar(declareTarget);
         setBusy(false);
