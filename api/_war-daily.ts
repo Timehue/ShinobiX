@@ -18,6 +18,7 @@
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { sectorBenefitSeals } from './_war-economy.js';
+import { recordWarEcoEvent } from './_war-telemetry.js';
 import { WAR_VILLAGES, homeSectorsForVillage } from './_war-map-sectors.js';
 import {
     normalizeVillageWarRecord,
@@ -93,6 +94,14 @@ export async function runVillageWarDailyPass(
                     await store.set(key, next);
                     ran++;
                     ranThisVillage = true;
+                    // Telemetry (best-effort, same store): the day's WR faucet, upkeep
+                    // sink, and any dormancy transition. eventId is keyed per
+                    // village/day so the idempotent pass can't double-count.
+                    const slug = villageWarSlug(village);
+                    if (summary.wrAccrued > 0) void recordWarEcoEvent({ eventId: `wr-earn:${slug}:${today}`, village, kind: 'wr.earn', amount: summary.wrAccrued, ts: now }, { kv: store });
+                    if (summary.maintenancePaid > 0) void recordWarEcoEvent({ eventId: `wr-maint:${slug}:${today}`, village, kind: 'wr.spend.maintenance', amount: summary.maintenancePaid, ts: now }, { kv: store });
+                    if (!record.dormant && summary.dormant) void recordWarEcoEvent({ eventId: `dormancy-enter:${slug}:${today}`, village, kind: 'dormancy.enter', amount: 1, ts: now }, { kv: store });
+                    if (record.dormant && !summary.dormant) void recordWarEcoEvent({ eventId: `dormancy-exit:${slug}:${today}`, village, kind: 'dormancy.exit', amount: 1, ts: now }, { kv: store });
                 }
             });
 
@@ -110,6 +119,7 @@ export async function runVillageWarDailyPass(
                             treasury: { ...treasury, honorSeals: num(treasury.honorSeals) + seals },
                         });
                         sealsAccrued += seals;
+                        void recordWarEcoEvent({ eventId: `seals-earn:${villageWarSlug(village)}:${today}`, village, kind: 'seals.earn', amount: seals, ts: now }, { kv: store });
                     });
                 }
             }

@@ -12,6 +12,7 @@ import {
     STRUCTURE_KEYS,
 } from '../_war-state.js';
 import { applyStructureUpgrade } from '../_war-structures.js';
+import { recordWarEcoEvent } from '../_war-telemetry.js';
 
 /*
  * /api/village/war-structure — POST only
@@ -96,6 +97,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const status = result.error === 'insufficient-seals' ? 402 : result.error === 'max-level' ? 409 : 400;
             return res.status(status).json({ error: result.error, cost: result.cost });
         }
+        // Telemetry (best-effort): treasury seals spent upgrading a war structure.
+        void recordWarEcoEvent({ eventId: `structure:${villageWarSlug(village)}:${structure}:${result.newLevel}`, village, kind: 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
         return res.status(200).json(result);
     } catch (err) {
         console.error('[village/war-structure]', err);
