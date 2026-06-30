@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mercHireCost, addOrRefreshLease, hasActiveLease, consumeLease, MERC_LEASE_MS } from './_war-merc.js';
 import { normalizeVillageWarRecord } from './_war-state.js';
+import { mercBandSize } from './_war-economy.js';
 
 test('mercHireCost applies the comeback discount to the tier base', () => {
     const rec = normalizeVillageWarRecord('Stormveil Village'); // all structures L0 → Barracks mult 1
@@ -22,11 +23,18 @@ test('mercHireCost: Barracks levels reduce the cost', () => {
     assert.ok(discounted > 0, 'a max-Barracks discount is bounded, not free');
 });
 
+test('mercBandSize escalates 3->5 with tier, 0 for unknown', () => {
+    assert.equal(mercBandSize('merc-ronin'), 3);
+    assert.equal(mercBandSize('merc-warlord'), 5);
+    assert.equal(mercBandSize('merc-nope'), 0);
+});
+
 test('addOrRefreshLease keeps one active lease per (tier, player), restarting the clock', () => {
     const now = 1_000_000;
     let leases = addOrRefreshLease([], 'merc-ronin', 'akira', now);
     assert.equal(leases.length, 1);
     assert.equal(leases[0].expiresAt, now + MERC_LEASE_MS);
+    assert.equal(leases[0].count, mercBandSize('merc-ronin')); // a 3-merc band
     // Re-hire the SAME tier → still one lease, the 2-day clock restarted.
     leases = addOrRefreshLease(leases, 'merc-ronin', 'akira', now + 5_000);
     assert.equal(leases.length, 1);

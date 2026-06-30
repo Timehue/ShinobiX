@@ -5,6 +5,7 @@ import {
     newSectorWarSession,
     normalizeSectorWarSession,
     applySectorBattleResult,
+    MERC_DEFENDER_REGEN_FRACTION,
     sectorWarKey,
     sectorWarTokenKey,
     newSectorWarBattleToken,
@@ -87,6 +88,19 @@ describe('sector-war: applySectorBattleResult', () => {
         const atMax = applySectorBattleResult(fresh(), false, { now: NOW });
         assert.equal(atMax.session.controlHp, SECTOR_CONTROL_HP_MAX);
         assert.equal(atMax.hpRegen, 0);
+    });
+
+    it('a player repelling a MERCENARY attacker regenerates only 25% of normal', () => {
+        // chip twice (→ 300), then defend: a merc-battle win regens 25% of 50 = 12,
+        // where a normal defender win would regen the full 50.
+        let s = applySectorBattleResult(fresh(), true, { now: NOW }).session; // 450
+        s = applySectorBattleResult(s, true, { now: NOW }).session;           // 300
+        const merc = applySectorBattleResult(s, false, { now: NOW, mercBattle: true });
+        assert.equal(merc.hpRegen, Math.floor(SECTOR_CONTROL_HP_DEFENDER_REGEN * MERC_DEFENDER_REGEN_FRACTION)); // 12
+        assert.equal(merc.session.controlHp, 312);
+        const normal = applySectorBattleResult(s, false, { now: NOW });
+        assert.equal(normal.hpRegen, SECTOR_CONTROL_HP_DEFENDER_REGEN); // 50
+        assert.equal(normal.session.controlHp, 350);
     });
 
     it('honors a War-Academy-boosted damage value', () => {

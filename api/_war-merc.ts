@@ -10,7 +10,7 @@
  *
  * Behind ENABLE_VILLAGE_WAR — nothing live imports the endpoint until launch.
  */
-import { wrMercTierById, comebackCostMultiplier } from './_war-economy.js';
+import { wrMercTierById, comebackCostMultiplier, mercBandSize } from './_war-economy.js';
 import { mercCostMultiplier } from './_war-structures.js';
 import type { VillageWarRecord, MercLease } from './_war-state.js';
 
@@ -33,7 +33,7 @@ export function mercHireCost(tierId: string, sectorsHeld: number, record: Villag
  *  (tier, player), its 2-day clock restarted on re-hire. Pure. */
 export function addOrRefreshLease(leases: readonly MercLease[], tierId: string, player: string, now: number): MercLease[] {
     const next = leases.filter((l) => !(l.tierId === tierId && l.player === player));
-    next.push({ tierId, player, expiresAt: now + MERC_LEASE_MS });
+    next.push({ tierId, player, expiresAt: now + MERC_LEASE_MS, count: mercBandSize(tierId) });
     return next;
 }
 
