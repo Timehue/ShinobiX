@@ -1,5 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "react-icons/gi";
+const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -68,7 +71,7 @@ export function WeeklyBossArena({
     if (!bossState || !bossState.aiId) {
         return (
             <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>
-                <h1 style={{ marginTop: 0 }}>👹 Weekly Boss</h1>
+                <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
                 <p style={{ color: "#94a3b8" }}>No boss has been summoned this week. Ask an admin to set the weekly boss AI.</p>
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back to Central</button>
             </div>
@@ -108,7 +111,7 @@ export function WeeklyBossArena({
 
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
-            <h1 style={{ marginTop: 0 }}>👹 Weekly Boss</h1>
+            <h1 style={{ marginTop: 0 }}><GiOgre style={WB_ICON} />Weekly Boss</h1>
             <p style={{ color: "#94a3b8", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
@@ -127,7 +130,7 @@ export function WeeklyBossArena({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                             <strong style={{ color: "#f87171", fontSize: "1.05rem" }}>{bossState.bossName ?? bossAi?.name ?? "Weekly Boss"}</strong>
                             <span style={{ fontFamily: "monospace", color: expired ? "#94a3b8" : "#facc15" }}>
-                                {expired ? "🪦 Despawned" : `⏱ ${countdown}`}
+                                {expired ? <><GiTombstone style={WB_ICON} />Despawned</> : `⏱ ${countdown}`}
                             </span>
                         </div>
                         <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
@@ -147,7 +150,7 @@ export function WeeklyBossArena({
                 </span>
             </p>
             <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
-                <div>🏆 <strong>Rewards at despawn</strong></div>
+                <div><GiTrophy style={WB_ICON} /><strong>Rewards at despawn</strong></div>
                 <div>· Top 10 by damage → <strong style={{ color: "#facc15" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "#60a5fa" }}>1 Dungeon Key</strong> each</div>
                 <div>· Every contributor → ryo + XP share by damage (MVP = top 1 gets <strong>×2</strong>)</div>
@@ -172,10 +175,10 @@ export function WeeklyBossArena({
                     }}
                 >
                     {expired
-                        ? "🪦 Despawned"
+                        ? <><GiTombstone style={WB_ICON} />Despawned</>
                         : lockedOut
-                            ? "🔒 No attempts left"
-                            : `⚔ Fight Boss (${attemptsLeft} left · 20 stamina)`}
+                            ? <><GiPadlock style={WB_ICON} />No attempts left</>
+                            : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}
                 </button>
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
             </div>
