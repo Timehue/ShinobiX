@@ -665,7 +665,7 @@ import {
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, hollowGateClawBackPreview } from "./lib/hollow-gate-run";
-import { beginHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly } from "./lib/hollow-gate-server";
+import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly } from "./lib/hollow-gate-server";
 import { wingEntryEffect, wingThemeAt, WING_TINT, WING_GLYPH } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
@@ -6116,6 +6116,8 @@ export default function App() {
             setCurrentBiome("shadow");
             setCurrentWeather(weatherForBiome("shadow"));
             setScreen("hollowGateShrine");
+            // Refreshed mid-pick? re-present the augment picker (never re-mints the token).
+            resumeHollowGateServerRun({ playerName: character.name, run: character.hollowGateRun, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
             return;
         }
 
@@ -6213,6 +6215,7 @@ export default function App() {
             setCurrentBiome("shadow");
             setCurrentWeather(weatherForBiome("shadow"));
             setScreen("hollowGateShrine");
+            resumeHollowGateServerRun({ playerName: character.name, run: character.hollowGateRun, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
             return;
         }
         const run = applyAttunementToRun({ ...generateHollowGateShrineRun(1), entryCurrencies: snapshotHollowGateCurrencies(character) }, character, true);

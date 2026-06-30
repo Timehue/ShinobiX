@@ -15,7 +15,9 @@ import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
  * Body: { playerName, token, augmentId }.
  */
 
-const RUN_TTL_SEC = 60 * 60;
+// Re-seal preserves the token's lifetime: match start.ts's resumable-run TTL so
+// choosing an augment never shortens the window (see start.ts for the rationale).
+const RUN_TTL_SEC = 24 * 60 * 60;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);

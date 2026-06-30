@@ -59,6 +59,21 @@ test('hollowGateRun: server-layer fields (runToken/serverSeed/augmentOffers) sha
     assert.ok(run.augmentOffers.length <= 8, 'augmentOffers length capped');
 });
 
+test('hollowGateRun: HG currencies are NOT frozen while a run token is open (anti-regression — a freeze zeroes the settle payout)', () => {
+    // Load-bearing invariant (docs/hollow-gate-augments.md): the shipped settle is
+    // reconcile-DOWN — settleCurrency returns min(current, entry+credit), so it NEEDS
+    // the live haul present in the save. If a future change "freezes" HG-currency
+    // increases while a run token is open, `current` pins to entry and every payout
+    // becomes zero. This test fails if that freeze is ever introduced.
+    const out = sanitize(
+        // runToken open + a legit in-run accrual (within the +200 hollowShards / +1M ryo per-save caps).
+        { hollowShards: 170, ryo: 9000, hollowGateRun: { floor: 3, keys: 1, runToken: 'live-token', entryCurrencies: { hollowShards: 70, ryo: 5000 } } },
+        { hollowShards: 70, ryo: 5000 },
+    );
+    assert.equal(out.hollowShards, 170, 'shard accrual during an open token run must persist (not frozen to entry) — settle reconciles it down later');
+    assert.equal(out.ryo, 9000, 'ryo accrual during an open token run must persist (not frozen)');
+});
+
 test('hollowGateRun: a legit short token + 3 offers pass through unchanged', () => {
     const out = sanitize(
         { hollowGateRun: { floor: 2, keys: 0, entryCurrencies: {}, runToken: 'abc123', augmentOffers: [{ id: 'keen-edge' }, { id: 'greedy-pact' }, { id: 'warded-step' }] } },
