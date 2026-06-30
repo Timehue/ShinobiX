@@ -5,10 +5,14 @@ import { createPortal } from "react-dom";
 import {
     GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
     GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
-    GiTempleGate,
+    GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiRollingDices, GiTrashCan,
 } from "react-icons/gi";
+// Currency/material rewards reuse the game's own emblem set so they match the HUD.
+import { GameIcon } from "../components/icons/GameIcon";
 // Inline glyph style for section headers — sized to the heading text, nudged onto the baseline.
 const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
+// Small inline glyph for currency/cost lines.
+const COST_ICON = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -805,12 +809,12 @@ export function CentralHub({
                         </div>
                         <div className="celestial-panel-options">
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
-                                <span className="celestial-option-icon">🗼</span>
+                                <span className="celestial-option-icon"><GiStoneTower /></span>
                                 <strong>Enter Celestial Tower</strong>
                                 <small>Fight until you fall. Banked ryo/XP lost on death — milestones survive.</small>
                             </button>
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setScreen("battleTowers"); }}>
-                                <span className="celestial-option-icon">⚔️</span>
+                                <span className="celestial-option-icon"><GiCrossedSwords /></span>
                                 <strong>Battle Towers</strong>
                                 <small>Curated squad floors — objectives, gimmicks, bosses. Free retries; first-clear rewards &amp; a leaderboard.</small>
                             </button>
@@ -921,12 +925,12 @@ export function CentralHub({
 
                         {/* Element roll section */}
                         <div className="awakening-section">
-                            <h3>✨ Elemental Awakening</h3>
+                            <h3><GiSparkles style={HDR_ICON} />Elemental Awakening</h3>
                             <p className="awakening-hint">The stone randomly reveals one of five elements: 💧 Water · 💨 Wind · 🌍 Earth · ⚡ Lightning · 🔥 Fire</p>
                             <div className="awakening-roll-row">
                                 {hasFreeRoll ? (
                                     <button className="awakening-free-btn" onClick={awakeningFreeRoll}>
-                                        ✨ Awaken Element — FREE
+                                        <GiSparkles style={HDR_ICON} />Awaken Element — FREE
                                         <small>{character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID) ? "(Level 20 reward)" : "(Level 2 reward)"}</small>
                                     </button>
                                 ) : (
@@ -936,7 +940,7 @@ export function CentralHub({
                                         disabled={character.fateShards < 10}
                                         title={character.fateShards < 10 ? "Not enough Fate Shards" : ""}
                                     >
-                                        🔮 Reroll Element — 10 Fate Shards
+                                        <GiRollingDices style={HDR_ICON} />Reroll Element — 10 Fate Shards
                                         <small>You have {character.fateShards} Fate Shards</small>
                                     </button>
                                 )}
@@ -945,20 +949,20 @@ export function CentralHub({
 
                         {/* Material balances */}
                         <div className="awakening-section">
-                            <h3>🔮 Ancient Materials</h3>
+                            <h3><GiStoneStack style={HDR_ICON} />Ancient Materials</h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">🦴</span>
+                                    <span className="awakening-material-icon"><GameIcon name="bone" size={20} /></span>
                                     <span className="awakening-material-name">Bone Charms</span>
                                     <span className="awakening-material-count">{character.boneCharms ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">💎</span>
+                                    <span className="awakening-material-icon"><GameIcon name="shard" size={20} /></span>
                                     <span className="awakening-material-name">Aura Stones</span>
                                     <span className="awakening-material-count">{character.auraStones ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">📜</span>
+                                    <span className="awakening-material-icon"><GameIcon name="scroll" size={20} /></span>
                                     <span className="awakening-material-name">Mythic Seals</span>
                                     <span className="awakening-material-count">{character.mythicSeals ?? 0}</span>
                                 </div>
@@ -967,12 +971,12 @@ export function CentralHub({
 
                         {/* Bloodline forge section */}
                         <div className="awakening-section">
-                            <h3>🔥 Bloodline Forge</h3>
+                            <h3><GiFlame style={HDR_ICON} />Bloodline Forge</h3>
                             <p className="awakening-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
                             <div className="awakening-forge-grid">
                                 <div className="awakening-forge-card rank-b">
                                     <div className="awakening-forge-rank">B Rank</div>
-                                    <div className="awakening-forge-cost">💀 100 Bone Charms</div>
+                                    <div className="awakening-forge-cost"><GameIcon name="bone" size={14} style={COST_ICON} />100 Bone Charms</div>
                                     <div className="awakening-forge-have">You have: {character.boneCharms ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -984,7 +988,7 @@ export function CentralHub({
                                 </div>
                                 <div className="awakening-forge-card rank-a">
                                     <div className="awakening-forge-rank">A Rank</div>
-                                    <div className="awakening-forge-cost">✨ 100 Aura Stones</div>
+                                    <div className="awakening-forge-cost"><GameIcon name="crystal" size={14} style={COST_ICON} />100 Aura Stones</div>
                                     <div className="awakening-forge-have">You have: {character.auraStones ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -996,7 +1000,7 @@ export function CentralHub({
                                 </div>
                                 <div className="awakening-forge-card rank-s">
                                     <div className="awakening-forge-rank">S Rank</div>
-                                    <div className="awakening-forge-cost">🔮 100 Mythic Seals</div>
+                                    <div className="awakening-forge-cost"><GameIcon name="sigil" size={14} style={COST_ICON} />100 Mythic Seals</div>
                                     <div className="awakening-forge-have">You have: {character.mythicSeals ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -1154,7 +1158,7 @@ export function CentralHub({
                                 const ownedKeys = countItem(character, HOLLOW_GATE_KEY_ID);
                                 return (
                                     <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
-                                        <strong>⛩ Hollow Gate Key</strong>
+                                        <strong><GiTempleGate style={COST_ICON} />Hollow Gate Key</strong>
                                         <small>Shrine pass. Bypasses village unlock + 2/day cap.</small>
                                         <small>You own: <strong>{ownedKeys}</strong></small>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: "auto" }}>
@@ -1193,7 +1197,7 @@ export function CentralHub({
                                 }
                                 return (
                                     <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#facc15", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
-                                        <strong>💎 Dungeon Legendary Relic</strong>
+                                        <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
                                         <small>Combine Hollow Gate Warden fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
                                         <button style={{ marginTop: "auto" }} onClick={forgeRelicFromFragments} disabled={!canForge}>
@@ -1374,26 +1378,26 @@ export function CentralHub({
                                 return (
                                     <div className="named-weapon-forge">
                                         <div className="named-weapon-forge-header">
-                                            <span className="named-weapon-forge-title">🛡️ Named Armor</span>
+                                            <span className="named-weapon-forge-title"><GiBreastplate style={HDR_ICON} />Named Armor</span>
                                             <small>Roll a unique legendary armor piece. Costs {NW_COST} forge pts.</small>
                                         </div>
 
                                         {/* Currency display — same pool as named weapons */}
                                         <div className="named-weapon-currencies">
                                             <div className="named-weapon-currency-row">
-                                                <span>🪬 Bone Charms</span>
+                                                <span><GameIcon name="bone" size={14} style={COST_ICON} />Bone Charms</span>
                                                 <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>🔮 Fate Shards</span>
+                                                <span><GameIcon name="shard" size={14} style={COST_ICON} />Fate Shards</span>
                                                 <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>💠 Aura Stones</span>
+                                                <span><GameIcon name="crystal" size={14} style={COST_ICON} />Aura Stones</span>
                                                 <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>🔱 Mythic Seals</span>
+                                                <span><GameIcon name="sigil" size={14} style={COST_ICON} />Mythic Seals</span>
                                                 <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-total">
@@ -1418,7 +1422,7 @@ export function CentralHub({
                                         </select>
 
                                         <div className="named-weapon-odds">
-                                            <div className="named-weapon-odds-title">🎲 Roll Odds</div>
+                                            <div className="named-weapon-odds-title"><GameIcon name="dice" size={14} style={COST_ICON} />Roll Odds</div>
                                             <div className="named-weapon-odds-grid">
                                                 <div className="nwo-section">
                                                     <div className="nwo-label">Damage Reduction</div>
@@ -1458,7 +1462,7 @@ export function CentralHub({
                                             onClick={rollNamedArmor}
                                             disabled={naPts < NW_COST}
                                         >
-                                            🎲 Roll Named Armor
+                                            <GameIcon name="dice" size={16} style={HDR_ICON} />Roll Named Armor
                                         </button>
 
                                         {namedArmorRoll && (
@@ -1514,10 +1518,10 @@ export function CentralHub({
 
                                                 <div className="named-weapon-forge-actions">
                                                     <button className="named-weapon-forge-btn" onClick={forgeNamedArmor}>
-                                                        🔨 Forge Armor
+                                                        <GiBlacksmith style={HDR_ICON} />Forge Armor
                                                     </button>
                                                     <button className="danger-button" onClick={() => setNamedArmorRoll(null)}>
-                                                        🗑️ Discard Roll
+                                                        <GiTrashCan style={HDR_ICON} />Discard Roll
                                                     </button>
                                                 </div>
                                             </div>
@@ -1533,26 +1537,26 @@ export function CentralHub({
                                 return (
                                     <div className="named-weapon-forge">
                                         <div className="named-weapon-forge-header">
-                                            <span className="named-weapon-forge-title">⚔️ Named Weapon</span>
+                                            <span className="named-weapon-forge-title"><GiCrossedSwords style={HDR_ICON} />Named Weapon</span>
                                             <small>Roll a unique legendary hand weapon. Costs {NW_COST} forge pts.</small>
                                         </div>
 
                                         {/* Currency display */}
                                         <div className="named-weapon-currencies">
                                             <div className="named-weapon-currency-row">
-                                                <span>🪬 Bone Charms</span>
+                                                <span><GameIcon name="bone" size={14} style={COST_ICON} />Bone Charms</span>
                                                 <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>🔮 Fate Shards</span>
+                                                <span><GameIcon name="shard" size={14} style={COST_ICON} />Fate Shards</span>
                                                 <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>💠 Aura Stones</span>
+                                                <span><GameIcon name="crystal" size={14} style={COST_ICON} />Aura Stones</span>
                                                 <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>🔱 Mythic Seals</span>
+                                                <span><GameIcon name="sigil" size={14} style={COST_ICON} />Mythic Seals</span>
                                                 <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-total">
@@ -1565,7 +1569,7 @@ export function CentralHub({
                                         </div>
 
                                         <div className="named-weapon-odds">
-                                            <div className="named-weapon-odds-title">🎲 Roll Odds</div>
+                                            <div className="named-weapon-odds-title"><GameIcon name="dice" size={14} style={COST_ICON} />Roll Odds</div>
                                             <div className="named-weapon-odds-grid">
                                                 <div className="nwo-section">
                                                     <div className="nwo-label">Damage EP</div>
@@ -1627,7 +1631,7 @@ export function CentralHub({
                                             onClick={rollNamedWeapon}
                                             disabled={nwPts < NW_COST}
                                         >
-                                            🎲 Roll Named Weapon
+                                            <GameIcon name="dice" size={16} style={HDR_ICON} />Roll Named Weapon
                                         </button>
 
                                         {namedWeaponRoll && (
@@ -1688,10 +1692,10 @@ export function CentralHub({
 
                                                 <div className="named-weapon-forge-actions">
                                                     <button className="named-weapon-forge-btn" onClick={forgeNamedWeapon}>
-                                                        🔨 Forge Weapon
+                                                        <GiBlacksmith style={HDR_ICON} />Forge Weapon
                                                     </button>
                                                     <button className="danger-button" onClick={() => setNamedWeaponRoll(null)}>
-                                                        🗑️ Discard Roll
+                                                        <GiTrashCan style={HDR_ICON} />Discard Roll
                                                     </button>
                                                 </div>
                                             </div>
