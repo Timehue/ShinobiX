@@ -51,7 +51,7 @@
 .pet-arena-screen .pet-arena-header h2,
 .pet-yard-screen > h2,
 .pet-arena-screen > h2 {
-    font: 700 18px Cinzel, serif !important;
+    font: 700 18px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: var(--bsv2-gold-bright) !important;
@@ -60,7 +60,7 @@
 }
 .pet-yard-screen h3,
 .pet-arena-screen h3 {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.2em !important;
     text-transform: uppercase !important;
     color: var(--bsv2-player) !important;
@@ -103,7 +103,7 @@
     box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
 }
 .pet-yard-screen .pet-slot-name {
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.08em;
     color: var(--bsv2-gold-bright) !important;
 }
@@ -182,7 +182,7 @@
 }
 .pet-yard-screen .pet-detail-initials,
 .pet-yard-screen .pet-initials {
-    font: 700 28px Cinzel, serif !important;
+    font: 700 28px var(--font-display) !important;
     color: var(--bsv2-gold-bright) !important;
     letter-spacing: 0.05em;
 }
@@ -225,7 +225,7 @@
 }
 .pet-yard-screen .pet-jutsu-row strong {
     color: var(--bsv2-gold-bright) !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.04em !important;
     word-break: normal !important;
     overflow-wrap: anywhere !important;
@@ -242,7 +242,7 @@
     border-radius: 3px !important;
     border-width: 1px !important;
     border-style: solid !important;
-    font: 700 8px Cinzel, serif !important;
+    font: 700 8px var(--font-display) !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
     line-height: 1.1 !important;
@@ -273,7 +273,7 @@
     display: inline-block;
     padding: 3px 10px !important;
     border-radius: 999px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     margin-right: 4px;
@@ -311,7 +311,7 @@
 /* ----- Happiness meter ----- */
 .pet-yard-screen .pet-happiness-meter-top {
     display: flex; justify-content: space-between; align-items: baseline;
-    font: 500 10px/1 Cinzel, serif !important;
+    font: 500 10px/1 var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(232,212,150,0.85) !important;
@@ -342,7 +342,7 @@
     border-radius: 4px !important;
     color: var(--bsv2-gold-bright) !important;
     padding: 8px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     cursor: pointer;
@@ -439,7 +439,7 @@
 }
 .pet-yard-screen .pet-gear-picker label {
     display: block;
-    font: 700 9px Cinzel, serif !important;
+    font: 700 9px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright) !important;
@@ -483,7 +483,7 @@
     line-height: 1;
 }
 .pet-yard-screen .pet-loadout-label {
-    font: 700 9px Cinzel, serif !important;
+    font: 700 9px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright) !important;
@@ -509,7 +509,7 @@
     padding: 12px !important;
 }
 .pet-yard-screen .pet-lock-title {
-    font: 700 13px Cinzel, serif !important;
+    font: 700 13px var(--font-display) !important;
     letter-spacing: 0.08em;
     color: var(--bsv2-gold-bright) !important;
     margin: 0 0 4px !important;
@@ -529,7 +529,7 @@
     color: #fff !important;
     padding: 6px 14px !important;
     border-radius: 4px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     cursor: pointer;
@@ -554,12 +554,12 @@
 /* ----- Training panel state ----- */
 .pet-yard-screen .training-in-progress {
     color: #c4b5fd !important;
-    font: 500 12px Cinzel, serif !important;
+    font: 500 12px var(--font-display) !important;
     letter-spacing: 0.08em;
 }
 .pet-yard-screen .training-complete {
     color: #86efac !important;
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.08em;
 }
 .pet-yard-screen .training-timer {
@@ -602,7 +602,7 @@
     border: 1px solid transparent !important;
     color: rgba(196,162,90,0.65) !important;
     padding: 6px 14px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     border-radius: 4px !important;
@@ -640,7 +640,7 @@
 }
 .pet-arena-screen .pet-arena-card strong {
     color: var(--bsv2-gold-bright) !important;
-    font: 600 13px Cinzel, serif !important;
+    font: 600 13px var(--font-display) !important;
     letter-spacing: 0.08em;
 }
 .pet-arena-screen .pet-arena-jutsu-list {
@@ -651,7 +651,7 @@
     background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
     border-radius: 3px !important;
     padding: 3px 8px !important;
-    font: 600 9px Cinzel, serif !important;
+    font: 600 9px var(--font-display) !important;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     margin: 2px;
@@ -693,7 +693,7 @@
     z-index: 1;
 }
 .pet-arena-screen .pet-arena-hero .hero-title {
-    font: 700 19px Cinzel, serif !important;
+    font: 700 19px var(--font-display) !important;
     letter-spacing: 0.18em !important;
     text-transform: uppercase !important;
     color: var(--bsv2-gold-bright) !important;
@@ -752,7 +752,7 @@
     background: radial-gradient(circle at 50% 40%, #3a465e, #1e2738) !important;
 }
 .pet-arena-screen .pet-pick-name {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.04em;
     color: #e8edf5 !important;
     max-width: 100%;
@@ -808,7 +808,7 @@
     gap: 4px;
     min-height: 132px;
     text-align: center;
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     color: #cbd3e1 !important;
 }
 .pet-arena-screen .pet-pick-auto .pet-pick-auto-glyph {
@@ -840,7 +840,7 @@
 }
 .pet-arena-screen .pet-battle-plan .bp-title {
     margin: 0 0 10px;
-    font: 700 13px Cinzel, serif !important;
+    font: 700 13px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright) !important;
