@@ -7,8 +7,11 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     HG_CLAWBACK_KEYS,
+    HG_HIGH_VALUE_ITEM_ID,
+    maxFragmentsForDepth,
     maxHaulForDepth,
     rewardMultiplierForToken,
+    settleItemCount,
     type HollowGateRunToken,
 } from './_run-token.js';
 
@@ -47,6 +50,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const token = String(body.token ?? '').slice(0, 64);
         const outcome = body.outcome === 'death' ? 'death' : 'extract';
         const haul = (body.haul && typeof body.haul === 'object') ? body.haul as Record<string, unknown> : {};
+        // P0.2c — high-value ITEM drops (e.g. the boss Dungeon Legendary Fragment).
+        // INERT for current clients: they report only the currency `haul`; the credit
+        // below stays 0 until a client rewire defers the inline boss-fragment grant and
+        // reports the run's fragment count here. Server credits min(claimed, ceiling).
+        const items = (body.items && typeof body.items === 'object') ? body.items as Record<string, unknown> : {};
         if (!playerName || !token) return res.status(400).json({ error: 'Missing playerName or token.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
@@ -72,6 +80,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const frac = outcome === 'death' ? 0.5 : 1;
 
         const credited = {} as Record<string, number>;
+        const creditedItems = {} as Record<string, number>;
+        const fragmentCeiling = maxFragmentsForDepth(run.floorDepth);
         const saveKey = `save:${playerName}`;
         const result = await withKvLock(saveKey, async () => {
             const fresh = await kv.get<Record<string, unknown>>(saveKey);
@@ -83,13 +93,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 next[k] = value;
                 credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
             }
+            // High-value item drop — append min(claimed, sealed ceiling) × death-frac
+            // to the inventory. Additive (no entry-snapshot anchor); only fires when a
+            // client reports `items` (inert for current clients → never double-grants
+            // alongside the still-inline boss-fragment grant until the rewire lands).
+            const fragmentCredit = settleItemCount(items[HG_HIGH_VALUE_ITEM_ID], fragmentCeiling, frac);
+            if (fragmentCredit > 0) {
+                const inv = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
+                for (let i = 0; i < fragmentCredit; i++) inv.push(HG_HIGH_VALUE_ITEM_ID);
+                next.inventory = inv;
+                creditedItems[HG_HIGH_VALUE_ITEM_ID] = fragmentCredit;
+            }
             const updated = bumpSaveVersion({ ...fresh, character: next });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
             return { ok: true as const };
         }, { failClosed: true });
 
         if (!result.ok) return res.status(404).json({ error: 'Your save was not found.' });
-        return res.status(200).json({ ok: true, outcome, credited });
+        return res.status(200).json({ ok: true, outcome, credited, creditedItems });
     } catch (err) {
         console.error('[hollow-gate/settle]', err);
         return res.status(500).json({ error: 'Internal server error.' });
