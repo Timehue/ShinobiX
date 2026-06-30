@@ -15,7 +15,9 @@ const _run_token_js_1 = require("./_run-token.js");
  * settle reads it from chosenAugmentId, never from the client.
  * Body: { playerName, token, augmentId }.
  */
-const RUN_TTL_SEC = 60 * 60;
+// Re-seal preserves the token's lifetime: match start.ts's resumable-run TTL so
+// choosing an augment never shortens the window (see start.ts for the rationale).
+const RUN_TTL_SEC = 24 * 60 * 60;
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')

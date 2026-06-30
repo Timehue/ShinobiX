@@ -20,7 +20,12 @@ const _run_token_js_1 = require("./_run-token.js");
  * the existing no-token client path keeps working (token-first invariant).
  */
 const DEFAULT_DAILY_RUN_CAP = 2; // base 2/day; attunement raises it in the client-wiring pass
-const RUN_TTL_SEC = 60 * 60; // 60-min dive window
+// Hollow Gate runs are RESUMABLE across sessions (the run persists on the save), so
+// the token must outlive a dive the player walks away from and finishes later. 24h
+// comfortably covers any same-day resume; a run older than that has already crossed
+// the UTC daily-cap reset, and an expired token just reverts that run to the
+// client-authoritative path (settle no-ops gracefully — never a save break).
+const RUN_TTL_SEC = 24 * 60 * 60;
 function utcDateKey() { return new Date().toISOString().slice(0, 10); }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
