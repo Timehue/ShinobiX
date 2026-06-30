@@ -848,6 +848,20 @@ export function sanitizeCharacterSave(
         const run = char.hollowGateRun as Record<string, unknown>;
         if (run.floor != null) run.floor = Math.max(0, Math.min(50, Math.floor(Number(run.floor) || 0)));
         if (run.keys != null) run.keys = Math.max(0, Math.min(99, Math.floor(Number(run.keys) || 0)));
+        // Server-authoritative run layer (lib/hollow-gate-server + api/hollow-gate/*).
+        // These persist only so a refresh mid-run can resume the open token; bound
+        // their shape so a forged save can't bloat KV via them. We deliberately do
+        // NOT freeze the clawback CURRENCIES while a run token is open: settle is the
+        // authoritative credit (it SETS each balance to min(current, sealed entry +
+        // sealed-ceiling credit), so it relies on the live haul being present), and a
+        // freeze would zero that payout. The unbounded-farming surface stays bounded
+        // by the per-save CURRENCY_CAPS above (the no-token path) plus the settle
+        // ceiling (the token path) — see docs/hollow-gate-augments.md.
+        if (run.runToken != null) run.runToken = String(run.runToken).slice(0, 64);
+        if (run.serverSeed != null) run.serverSeed = String(run.serverSeed).slice(0, 64);
+        if (Array.isArray(run.augmentOffers) && (run.augmentOffers as unknown[]).length > 8) {
+            run.augmentOffers = (run.augmentOffers as unknown[]).slice(0, 8);
+        }
     }
 
     // ─── Battle Towers progress array length caps ─────────────────────────────

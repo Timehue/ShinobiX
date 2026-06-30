@@ -71,6 +71,19 @@ export type HollowGateTile = {
     flavor?: string;
 };
 
+// Display-only shape of a Hollow Gate run augment (server `augmentDisplay`).
+// The reward MULTIPLIER is deliberately absent — it is sealed in the server run
+// token and enforced only at settle, never trusted from the client.
+export type HollowGateAugmentOffer = {
+    id: string;
+    label: string;
+    description: string;
+    rarity: "common" | "rare";
+    riskLabel?: string;
+    // Combat effect = client-side feel only (untrusted; never affects payout).
+    combat?: { kind: string; value: number };
+};
+
 export type HollowGateShrineRun = {
     width: number;
     height: number;
@@ -109,6 +122,19 @@ export type HollowGateShrineRun = {
     wardSteps?: number;
     diviner?: boolean;
     secondWindArmed?: boolean;
+    // ── Server-authoritative run layer (flag `hollowGateServer.v1`, default OFF;
+    //    see lib/hollow-gate-server + api/hollow-gate/*). All optional: a legacy
+    //    or no-token (fallback) run simply omits them and behaves as before.
+    //   runToken      — single-use run token minted by /api/hollow-gate/start;
+    //                   settle credits min(claimed, sealed ceiling) against it.
+    //   serverSeed    — the run seed sealed in the token (Tier-2 regen, later).
+    //   augmentOffers — the 3 display-only augments the SERVER rolled at start.
+    //   chosenAugment — the picked augment (display only; its reward multiplier
+    //                   stays SEALED server-side, never on the client/save).
+    runToken?: string;
+    serverSeed?: string;
+    augmentOffers?: HollowGateAugmentOffer[];
+    chosenAugment?: HollowGateAugmentOffer | null;
 };
 
 // ── Endless Tower run state ───────────────────────────────────────────────
