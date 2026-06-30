@@ -86,6 +86,7 @@ import hireMercenaryHandler from './api/village/hire-mercenary.js';
 import villageWarStructureHandler from './api/village/war-structure.js';
 import villageWarWinConditionHandler from './api/village/war-win-condition.js';
 import villageWarTerrainHandler from './api/village/war-terrain.js';
+import villageSectorWarHandler from './api/village/sector-war.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -620,6 +621,11 @@ route('/village/war-win-condition', villageWarWinConditionHandler);
 // Village War Map — Kage (3 sectors) / elders (1 each) set a home sector's
 // terrain (the defender jutsu-school buff). Server-gated (404 unless flag).
 route('/village/war-terrain', villageWarTerrainHandler);
+// Village War Map — sector-war battle wiring (Phase 4c): the Kage declares a
+// contest (250 WR), a single-use token binds the resulting PvP battle, and
+// resolve applies the authoritative winner to Control HP — flipping the sector's
+// ownerVillage on capture. Server-gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/sector-war', villageSectorWarHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
