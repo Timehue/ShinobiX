@@ -186,7 +186,7 @@ export function CardHall({
             )}
 
             <div className="cc-header">
-                <button className="cc-btn ghost" onClick={onBack}>← Village</button>
+                <button className="cc-btn ghost" onClick={onBack}>← Back</button>
                 <div className="cc-title">
                     <b>Shinobi Card Clash</b>
                     <span>Card Hall</span>
