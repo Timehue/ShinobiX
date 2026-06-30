@@ -36,6 +36,9 @@ async function handler(req, res) {
         const messages = await _storage_js_1.kv.get(key) ?? [];
         const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
         res.setHeader('X-Message-Count', String(fresh.length));
+        // Expose X-Message-Count so cross-origin clients can read it (the client
+        // uses it to skip re-parsing the body when the count is unchanged).
+        res.setHeader('Access-Control-Expose-Headers', 'X-Message-Count');
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(fresh);
     }

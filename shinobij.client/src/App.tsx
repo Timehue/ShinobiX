@@ -7376,7 +7376,7 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         currentSector={currentSector}
-                        setScreen={setScreen}
+                        setScreen={stableNavigate}
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
                     />

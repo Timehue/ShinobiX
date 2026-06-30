@@ -28,6 +28,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { Pet, PetJutsu } from "../types/pet";
 import { WALK_MASK, WALK_COLS, WALK_ROWS } from "./pet-arena-walkmask";
+import { petAccuracyEnabled } from "./pet-coliseum-flag";
 import {
     applyPetPvpGear, petConsumableCharges, petGearStartShield, petGearExecuteMult,
     petGearLastStandMult, petGearDotOnHit, petGearLifestealHeal,
@@ -98,9 +99,22 @@ function abilityClass(kind: PetJutsu["kind"]): AbilityClass {
     return "ranged"; // burn/freeze/confuse/stun/dot/wound/mark/slow/debuff/move/movelock/taunt/push/pull
 }
 
+// Per-kind hit chance (0–100). MUST mirror pet-moves.ts KIND_SPECS accuracy —
+// inlined (not imported) so the server port api/pet-ladder/_duel-sim.ts stays a
+// byte-identical copy. pet-duel-sim.test.ts asserts this matches pet-moves.
+// Support kinds are 100 (never miss); offensive/control kinds are lower.
+export const KIND_ACCURACY: Record<PetJutsu["kind"], number> = {
+    damage: 95, lifesteal: 95, crush: 90, wound: 95, push: 90, pull: 90,
+    dot: 90, burn: 90, debuff: 90, movelock: 90, slow: 90,
+    freeze: 85, confuse: 85, stun: 85,
+    heal: 100, buff: 100, barrier: 100, shield: 100, absorb: 100,
+    move: 100, mark: 100, haste: 100, taunt: 100,
+};
+
 interface Ability {
     name: string;
     kind: PetJutsu["kind"];
+    accuracy: number;
     cls: AbilityClass;
     power: number;
     signature: boolean;
@@ -118,6 +132,7 @@ function buildAbility(j: PetJutsu): Ability {
     return {
         name: j.name,
         kind: j.kind,
+        accuracy: KIND_ACCURACY[j.kind] ?? 100,
         cls,
         power: Math.max(1, j.power || 1),
         signature: !!j.signature,
@@ -764,12 +779,22 @@ function beginCast(f: Fighter, idx: number, targetId: string, t: number, events:
 }
 
 /** Resolve a wind-up that just finished. */
-function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[]) {
+function resolveCast(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[], accuracyEnabled: boolean) {
     const idx = f.pendingIdx;
     const ab = idx >= 0 ? f.abilities[idx] : null;
     if (ab) { ab.cdLeft = ab.cdTicks; f.stamina -= ab.cost; } else { f.basicCdLeft = f.basicCdT; f.stamina -= COST_BASIC; }
 
     if (ab && ab.cls === "support") { castSupport(f, ab, fighters, t, events); return; }
+
+    // Accuracy miss-roll (flag-gated; default off). Only offensive ABILITIES can
+    // miss — basics carry no accuracy, support already returned above. A miss
+    // consumes the cast (cost/cooldown applied above) and emits a whiff: no
+    // projectile, no melee. `accuracyEnabled &&` short-circuits so flag-off draws
+    // no rng (the deterministic stream stays identical).
+    if (accuracyEnabled && ab && rng() >= ab.accuracy / 100) {
+        events.push({ t, type: "whiff", side: f.team, actorId: f.id });
+        return;
+    }
 
     if (ab && ab.cls === "ranged") {
         // Spawn a homing projectile at each target (aoe → all enemies, else one).
@@ -861,7 +886,7 @@ function tickStatuses(f: Fighter) {
     if (s.buffLeft > 0 && --s.buffLeft <= 0) s.buffMag = 0;
 }
 
-function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[]) {
+function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextProjId: { n: number }, rng: () => number, t: number, events: DuelEvent[], accuracyEnabled: boolean) {
     if (f.state === "dead" || f.hp <= 0) return;
     if (f.basicCdLeft > 0) f.basicCdLeft--;
     for (const ab of f.abilities) if (ab.cdLeft > 0) ab.cdLeft--;
@@ -883,7 +908,7 @@ function step(f: Fighter, fighters: Fighter[], projectiles: Projectile[], nextPr
             if (--f.stateLeft <= 0) f.state = "idle";
             break;
         case "windup":
-            if (--f.stateLeft <= 0) { resolveCast(f, fighters, projectiles, nextProjId, rng, t, events); f.state = "strike"; f.stateLeft = 1; }
+            if (--f.stateLeft <= 0) { resolveCast(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled); f.state = "strike"; f.stateLeft = 1; }
             break;
         case "strike":
             if (--f.stateLeft <= 0) { f.state = "recover"; f.stateLeft = f.recovT; }
@@ -923,7 +948,7 @@ function quantizeFighter(f: Fighter) {
 }
 
 /** The shared deterministic core. `fighters` must be in fixed build order. */
-function simulate(fighters: Fighter[], seed: number): DuelResult {
+function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): DuelResult {
     const rng = makeRng(seed);
     const projectiles: Projectile[] = [];
     const nextProjId = { n: 0 };
@@ -935,7 +960,7 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
 
     for (let t = 0; t < MAX_TICKS; t++) {
         ticks = t + 1;
-        for (const f of fighters) step(f, fighters, projectiles, nextProjId, rng, t, events);
+        for (const f of fighters) step(f, fighters, projectiles, nextProjId, rng, t, events, accuracyEnabled);
         stepProjectiles(fighters, projectiles, rng, t, events);
         for (const f of fighters) tickStatuses(f);
         separateAll(fighters);
@@ -979,7 +1004,7 @@ function simulate(fighters: Fighter[], seed: number): DuelResult {
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
-export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false): DuelResult {
+export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled()): DuelResult {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
     // band — to clash in the front-center of the arena.
@@ -988,7 +1013,7 @@ export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDa
         buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems),
         buildFighter(enemyPet, "enemy", 0, 10.2, 2.8, 1, 1, false, applyItems),
     ];
-    return simulate(fighters, seed);
+    return simulate(fighters, seed, accuracyEnabled);
 }
 
 /** 2v2 — player lead+reserve vs enemy lead+reserve. Reserve may be null (→ 2v1).
@@ -998,6 +1023,7 @@ export function runPetPartyDuel(
     playerLead: Pet, playerReserve: Pet | null,
     enemyLead: Pet, enemyReserve: Pet | null,
     seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false,
+    accuracyEnabled = petAccuracyEnabled(),
 ): DuelResult {
     // Two lane duels: the LEAD pair on the FRONT lane (map-space Blue[1]/Red[1]),
     // the RESERVE pair on the BACK lane (Blue[3]/Red[3]) — spread apart so the 2v2
@@ -1008,5 +1034,5 @@ export function runPetPartyDuel(
     if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -9.6, -3.0, playerDamageMult, playerHpMult, false, applyItems));
     fighters.push(buildFighter(enemyLead, "enemy", 0, 10.2, 2.8, 1, 1, false, applyItems));
     if (enemyReserve) fighters.push(buildFighter(enemyReserve, "enemy", 1, 9.6, -3.0, 1, 1, false, applyItems));
-    return simulate(fighters, seed);
+    return simulate(fighters, seed, accuracyEnabled);
 }
