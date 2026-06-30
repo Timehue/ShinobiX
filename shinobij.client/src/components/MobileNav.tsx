@@ -15,7 +15,7 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
-import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
+import { PROFESSION_LABEL } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { GameIcon } from "./icons/GameIcon";
@@ -119,28 +119,28 @@ export const MobileNav = memo(function MobileNav({
                     </div>
 
                     <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("tavern")}>🍶 Tavern</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail<MailUnreadBadge /></button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("tavern")}><GameIcon name="flask" size={18} />Tavern</button>
+                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}><GameIcon name="map" size={18} />Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("userHub")}><GameIcon name="users" size={18} />Users</button>
+                        <button className="mobile-menu-btn" onClick={() => go("messages")}><GameIcon name="mail" size={18} />Mail<MailUnreadBadge /></button>
+                        <button className="mobile-menu-btn" onClick={() => go("missions")}><GameIcon name="clipboard" size={18} />Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}><GameIcon name="dumbbell" size={18} />Training</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")}><GameIcon name="person" size={18} />Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")}><GameIcon name="bag" size={18} />Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}><GameIcon name="bolt" size={18} />Jutsu</button>
+                        <button className="mobile-menu-btn" onClick={() => go("pets")}><GameIcon name="paw" size={18} />Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}><GameIcon name="drop" size={18} />Bloodline</button>
                         <button className="mobile-menu-btn" onClick={() => go("professions")}>
-                            {character.profession ? `${PROFESSION_ICON[character.profession]} ${PROFESSION_LABEL[character.profession]}` : "📜 Professions"}
+                            <GameIcon name="scroll" size={18} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}
                         </button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("guides")}>📖 Guides</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}>💬 Discord</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}>♥ Patreon</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")}><GameIcon name="book" size={18} />Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("guides")}><GameIcon name="compass" size={18} />Guides</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GameIcon name="chat" size={18} />Discord</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}><GameIcon name="hp" size={18} />Patreon</button>
                         {isAdminAccount && (
-                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}>🛠️ Admin</button>
+                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}><GameIcon name="key" size={18} />Admin</button>
                         )}
-                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
+                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><GameIcon name="save" size={18} />Logout + Save</button>
                     </div>
                 </div>
             )}
