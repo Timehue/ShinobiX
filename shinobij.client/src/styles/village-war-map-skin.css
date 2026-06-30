@@ -44,3 +44,81 @@
 @media (max-width: 800px) {
   .vwm-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
+
+/* ── World-map ownership overlay (§10.3) ─────────────────────────────────────
+ * components/SectorOwnershipOverlay.tsx — a pointer-events:none layer over the
+ * existing world-map sector markers. Each owned sector flies the holder's banner
+ * standee with an accent claim-ring at its base; sectors under an active siege
+ * pulse. Per-village accent arrives as the --vw-accent custom property. Composes
+ * over the map without touching its interaction code; the prior atlas war-overlay
+ * was removed for clutter, so this only paints in War-Map mode (caller-gated).
+ */
+.vw-owner-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Just above the z-10 sector/village markers, below any modal chrome. */
+    z-index: 11;
+}
+
+/* Anchored at the sector marker's centre (left/top %); children fan out from it. */
+.vw-sector-claim {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+/* Accent claim-ring glowing at the banner's base, centred on the marker point. */
+.vw-claim-ring {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--vw-accent, #94a3b8);
+    opacity: 0.28;
+    box-shadow: 0 0 8px 1px var(--vw-accent, #94a3b8);
+}
+
+/* The planted banner standee — rises ABOVE the marker (base at the point) so it
+   never covers the sector number painted on the button beneath it. */
+.vw-banner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 22px;
+    height: auto;
+    transform: translate(-50%, -100%);
+    transform-origin: 50% 100%;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+/* Contested sectors: the ring throbs and the banner sways, marking the front line. */
+.vw-sector-claim.contested .vw-claim-ring {
+    animation: vw-claim-pulse 1.4s ease-in-out infinite;
+}
+.vw-sector-claim.contested .vw-banner {
+    animation: vw-banner-sway 1.7s ease-in-out infinite;
+}
+
+@keyframes vw-claim-pulse {
+    0%, 100% { opacity: 0.28; box-shadow: 0 0 6px 1px var(--vw-accent, #94a3b8); }
+    50% { opacity: 0.6; box-shadow: 0 0 15px 5px var(--vw-accent, #94a3b8); }
+}
+@keyframes vw-banner-sway {
+    0%, 100% { transform: translate(-50%, -100%) rotate(-2.5deg); }
+    50% { transform: translate(-50%, -100%) rotate(2.5deg); }
+}
+
+/* Low-end mobile: static markers, no glow or animation. */
+.vw-sector-claim.lite .vw-claim-ring {
+    box-shadow: none;
+    opacity: 0.22;
+    animation: none;
+}
+.vw-sector-claim.lite .vw-banner {
+    filter: none;
+    animation: none;
+}
