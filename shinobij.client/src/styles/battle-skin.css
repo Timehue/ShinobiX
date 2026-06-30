@@ -870,4 +870,35 @@ body:has(.arena-fullscreen) .left-profile-card,
 @media (prefers-reduced-motion: reduce) {
     .arena-fullscreen .hex-tile.jutsu-impact-flash { animation: none; }
     .arena-fullscreen .jutsu-sprite-fx { animation: none; }
+    /* Floating numbers: fade only (no upward drift) under reduced-motion. */
+    .arena-fullscreen .combat-float-num { animation: combatFloatFade 0.9s ease-out forwards !important; }
 }
+
+/* ── Floating combat numbers — damage red / crit gold / heal green / block blue.
+   Spawned at the struck tile's focal point (same basis as the sprite FX): they
+   pop, drift up, and fade, so a hit reads as an event, not just a log line. ── */
+.arena-fullscreen .combat-float-num {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    font-size: 19px;
+    pointer-events: none;
+    z-index: 60;
+    text-shadow: 0 1px 2px #000, 0 0 8px rgba(0, 0, 0, 0.7);
+    animation: combatFloatUp 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+    will-change: transform, opacity;
+}
+.arena-fullscreen .combat-float-dmg   { color: #fda4af; }
+.arena-fullscreen .combat-float-crit  { color: #fbbf24; font-size: 27px; }
+.arena-fullscreen .combat-float-heal  { color: #6ee7b7; }
+.arena-fullscreen .combat-float-block { color: #93c5fd; font-size: 16px; }
+@keyframes combatFloatUp {
+    0%   { opacity: 0; transform: translate(-50%, -70%)  scale(0.7); }
+    18%  { opacity: 1; transform: translate(-50%, -108%) scale(1.08); }
+    100% { opacity: 0; transform: translate(-50%, -185%) scale(1); }
+}
+@keyframes combatFloatFade { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Smooth-drain the combat resource bars (HP/chakra/stamina) instead of snapping. */
+.arena-fullscreen .hud-bar > span { transition: width 0.35s ease-out; }

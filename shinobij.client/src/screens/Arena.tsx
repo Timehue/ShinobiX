@@ -321,7 +321,11 @@ export function Arena({
         return next;
     });
     const combatFxSeq = useRef(0);
-    const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string } | null>(null);
+    const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string; text?: string; numKind?: string } | null>(null);
+    // Floating combat number (damage / heal / block) — positioned at the same
+    // focal point the sprite FX uses, so it inherits correct board-transform
+    // placement. Cleared on its own animationend.
+    const [floatNum, setFloatNum] = useState<{ id: number; x: number; y: number; text: string; kind: string } | null>(null);
     // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
     // the burst effect (its on-screen x/y is read from the live tile DOM rect).
     const [combatSpriteFx, setCombatSpriteFx] = useState<{ id: number; frames: string[]; single: boolean; x: number; y: number; variant?: string } | null>(null);
@@ -333,7 +337,7 @@ export function Arena({
     // visuals — every cast uses the cheap baseline burst. focusPos < 0 → skip.
     const triggerCombatFx = (
         jutsu: Jutsu,
-        opts: { selfCast: boolean; focusPos: number; heavy?: boolean; isKO?: boolean },
+        opts: { selfCast: boolean; focusPos: number; heavy?: boolean; isKO?: boolean; amount?: number; numberKind?: "dmg" | "heal" | "block" },
     ) => {
         // Combat SFX — reuse the pet sound engine, which routes through the global
         // master mute (so it's SILENT by default / whenever audio is muted, and the
@@ -359,7 +363,12 @@ export function Arena({
             single = !!kvFx;
             variant = kvFx ? undefined : pick.variant;
         }
-        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single, variant });
+        // Floating combat number (damage red, crit gold, heal green, block blue).
+        const numText = opts.amount && opts.amount > 0
+            ? (opts.numberKind === "heal" ? `+${opts.amount}` : opts.numberKind === "block" ? String(opts.amount) : `-${opts.amount}`)
+            : undefined;
+        const numKind = opts.numberKind === "heal" ? "heal" : opts.numberKind === "block" ? "block" : opts.heavy ? "crit" : "dmg";
+        setCombatFx({ id: combatFxSeq.current++, focusPos: opts.focusPos, spec, frames, single, variant, text: numText, numKind });
     };
     // Spin up / tear down the canvas particle field when the battlefield mounts.
     // Skipped entirely on weak devices — no canvas, no rAF loop, no lag.
@@ -405,6 +414,8 @@ export function Arena({
             if (combatFx.frames && combatFx.frames.length) {
                 setCombatSpriteFx({ id: combatFx.id, frames: combatFx.frames, single: combatFx.single, x: cx, y: cy, variant: combatFx.variant });
             }
+            // Floating damage/heal number at the same focal point as the sprite FX.
+            if (combatFx.text) setFloatNum({ id: combatFx.id, x: cx, y: cy, text: combatFx.text, kind: combatFx.numKind ?? "dmg" });
         }
         return () => { window.clearTimeout(clear); };
     }, [combatFx]);
@@ -2976,6 +2987,8 @@ export function Arena({
                 : (groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE")) ? targetTile : enemyPos,
             heavy: totalDamage >= enemyMaxHp * 0.18,
             isKO: enemyHp - castEnemyNet <= 0,
+            amount: castEnemyNet > 0 ? castEnemyNet : healing > 0 ? healing : blocked,
+            numberKind: castEnemyNet > 0 ? "dmg" : healing > 0 ? "heal" : "block",
         });
 
         if (enemyHp - castEnemyNet <= 0) return winBattle(postJutsuCharacter);
@@ -3642,6 +3655,8 @@ export function Arena({
             focusPos: isSelfSupportJutsu(jutsu) ? enemyPos : playerPos,
             heavy: playerNetTaken >= Math.max(1, character.maxHp) * 0.18,
             isKO: playerHp - playerNetTaken <= 0,
+            amount: playerNetTaken,
+            numberKind: "dmg",
         });
         setLog(`${opponentName} used ${jutsu.name}.`);
 
@@ -4934,6 +4949,14 @@ export function Arena({
                                 variant={combatSpriteFx.variant}
                                 onDone={() => setCombatSpriteFx((s) => (s && s.id === combatSpriteFx.id ? null : s))}
                             />
+                        )}
+                        {floatNum && (
+                            <span
+                                key={floatNum.id}
+                                className={`combat-float-num combat-float-${floatNum.kind}`}
+                                style={{ left: floatNum.x, top: floatNum.y }}
+                                onAnimationEnd={() => setFloatNum((n) => (n && n.id === floatNum.id ? null : n))}
+                            >{floatNum.text}</span>
                         )}
                     </div>
 
