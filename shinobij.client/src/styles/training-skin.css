@@ -13,7 +13,7 @@
 }
 
 .card:has(.stat-group-list) > h2 {
-    font: 700 18px Cinzel, serif !important;
+    font: 700 18px var(--font-display) !important;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #e8d496 !important;
@@ -33,7 +33,7 @@
 }
 
 .card:has(.stat-group-list) > h3 {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.24em;
     text-transform: uppercase;
     color: #4ea8ff !important;
@@ -82,7 +82,7 @@
     padding-bottom: 8px !important;
 }
 .card:has(.stat-group-list) .stat-group-heading h3 {
-    font: 700 13px Cinzel, serif !important;
+    font: 700 13px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: #e8d496 !important;
@@ -113,7 +113,7 @@
         inset 0 1px 0 rgba(255,255,255,0.06),
         inset 0 -2px 0 rgba(0,0,0,0.5),
         0 2px 4px rgba(0,0,0,0.5) !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em !important;
     text-transform: uppercase !important;
     cursor: pointer;
@@ -171,7 +171,7 @@
     color: #e8edf5 !important;
 }
 .card:has(.stat-group-list) .summary-box h3 {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: #4ea8ff !important;
@@ -183,7 +183,7 @@
     color: #fff !important;
     padding: 6px 14px !important;
     border-radius: 3px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     cursor: pointer;
