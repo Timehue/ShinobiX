@@ -20,7 +20,7 @@
 .arena-fullscreen .arena-title-panel,
 .arena-fullscreen .arena-title-panel h1,
 .arena-fullscreen .arena-title-panel h2 {
-    font-family: 'Cinzel', serif !important;
+    font-family: var(--font-display) !important;
     letter-spacing: 0.22em;
     color: var(--bsv2-gold-bright);
     text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 24px rgba(196,162,90,0.25);
@@ -41,7 +41,7 @@
 .arena-fullscreen .twp-strip {
     border-top: 1px solid var(--bsv2-gold-faint);
     border-bottom: 1px solid var(--bsv2-gold-faint);
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-display);
     letter-spacing: 0.05em;
     color: rgba(232,212,150,0.85);
 }
@@ -76,7 +76,7 @@
     border-color: var(--bsv2-gold-soft);
 }
 .arena-fullscreen .round-timer-display .round-timer-num {
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-display);
     color: var(--bsv2-gold-bright);
 }
 
@@ -85,7 +85,7 @@
     border: 1px solid var(--bsv2-gold-soft) !important;
     border-radius: 4px;
     color: var(--bsv2-gold-bright) !important;
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-display);
     letter-spacing: 0.18em;
     text-transform: uppercase;
     box-shadow:
@@ -175,7 +175,7 @@
         inset 0 0 24px rgba(0,0,0,0.55);
 }
 .arena-fullscreen .combat-jutsu-name {
-    font-family: 'Cinzel', serif !important;
+    font-family: var(--font-display) !important;
     color: #f4e6c4;
     letter-spacing: 0.06em;
     text-shadow: 0 1px 2px #000, 0 0 8px rgba(0,0,0,0.9);
@@ -214,13 +214,13 @@
     color: var(--bsv2-gold-bright, #e8d496) !important;
     border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22));
     padding: 8px 14px !important;
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-display);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     font-size: 12.5px;
 }
 .arena-fullscreen .combat-log-header strong {
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-display);
     font-weight: 600;
     color: var(--bsv2-gold-bright, #e8d496);
 }
@@ -257,7 +257,7 @@
     background: rgba(196,162,90,0.06) !important;
     color: var(--bsv2-gold-bright, #e8d496) !important;
     padding: 4px 14px !important;
-    font: 600 11px 'Cinzel', serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     border: none !important;
@@ -424,7 +424,7 @@
 }
 .arena-fullscreen .timeline-entry-head strong {
     color: var(--bsv2-gold-bright, #e8d496) !important;
-    font-family: 'Cinzel', serif;
+    font-family: var(--font-display);
     margin-right: 4px;
     letter-spacing: 0.04em;
 }
@@ -481,7 +481,7 @@
     box-shadow: 0 0 16px rgba(224,68,68,0.25), 0 8px 24px rgba(0,0,0,0.5) !important;
 }
 .arena-fullscreen .combat-hud-header h3 {
-    font: 600 14px/1.2 Cinzel, serif !important;
+    font: 600 14px/1.2 var(--font-display) !important;
     color: var(--bsv2-gold-bright, #e8d496) !important;
     letter-spacing: 0.1em;
     margin: 0 !important;
@@ -492,7 +492,7 @@
     letter-spacing: 0.06em;
 }
 .arena-fullscreen .combat-hud-turn-badge {
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     padding: 3px 8px !important;
@@ -517,7 +517,7 @@
 }
 .arena-fullscreen .resource-line { margin-bottom: 8px !important; }
 .arena-fullscreen .resource-label {
-    font: 500 10px/1 Cinzel, serif !important;
+    font: 500 10px/1 var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(232,212,150,0.85) !important;
@@ -533,7 +533,7 @@
 .arena-fullscreen .stamina-bar > span { background: linear-gradient(90deg,#3aa166,#6fd49a) !important; box-shadow: 0 0 6px rgba(111,212,154,0.5); }
 .arena-fullscreen .shield-bar > span  { background: linear-gradient(90deg,#7c5cff,#a78bfa) !important; box-shadow: 0 0 6px rgba(167,139,250,0.5); }
 .arena-fullscreen .combat-hud-meta {
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: rgba(196,162,90,0.7) !important;
@@ -545,7 +545,7 @@
     margin-top: 8px !important;
 }
 .arena-fullscreen .combat-effect-panel h4 {
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: rgba(196,162,90,0.85) !important;
@@ -572,7 +572,7 @@
 }
 .arena-fullscreen .effect-pill strong {
     color: var(--bsv2-gold-bright, #e8d496) !important;
-    font-family: Cinzel, serif;
+    font-family: var(--font-display);
     font-weight: 600;
     letter-spacing: 0.05em;
     font-size: 11px;
@@ -592,7 +592,7 @@
     color: var(--bsv2-gold-bright, #e8d496) !important;
     border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
     padding: 8px 12px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     display: flex;
@@ -606,7 +606,7 @@
     width: 22px; height: 22px;
     padding: 0 !important;
     border-radius: 3px !important;
-    font: 700 12px/1 Cinzel, serif;
+    font: 700 12px/1 var(--font-display);
     cursor: pointer;
 }
 .arena-fullscreen .battle-chat-toggle:hover { border-color: #e8d496 !important; }
@@ -645,7 +645,7 @@
 }
 .arena-fullscreen .battle-chat-msg:last-child { border-bottom: none; }
 .arena-fullscreen .battle-chat-msg strong {
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.06em;
     margin-right: 6px;
 }
@@ -679,7 +679,7 @@
     color: var(--bsv2-gold-bright, #e8d496) !important;
     padding: 0 14px !important;
     border-radius: 3px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     cursor: pointer;
@@ -698,22 +698,22 @@
     color: var(--bsv2-gold-bright, #e8d496) !important;
 }
 .pvp-countdown-name {
-    font: 600 16px Cinzel, serif !important;
+    font: 600 16px var(--font-display) !important;
     color: #e8edf5 !important;
     letter-spacing: 0.06em;
 }
 .pvp-countdown-badge {
-    font: 700 20px Cinzel, serif !important;
+    font: 700 20px var(--font-display) !important;
     color: var(--bsv2-gold-bright, #e8d496) !important;
     letter-spacing: 0.2em;
 }
 .pvp-countdown-number {
-    font: 700 64px Cinzel, serif !important;
+    font: 700 64px var(--font-display) !important;
     color: var(--bsv2-gold-bright, #e8d496) !important;
     text-shadow: 0 0 24px rgba(196,162,90,0.55), 0 4px 8px rgba(0,0,0,0.8);
 }
 .pvp-countdown-label {
-    font: 500 12px Cinzel, serif !important;
+    font: 500 12px var(--font-display) !important;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: rgba(196,162,90,0.75) !important;
@@ -733,18 +733,18 @@
 .arena-fullscreen .battle-result-win {
     color: #6fd47a !important;
     text-shadow: 0 0 18px rgba(111,212,122,0.45);
-    font-family: Cinzel, serif !important;
+    font-family: var(--font-display) !important;
     letter-spacing: 0.22em;
 }
 .arena-fullscreen .battle-result-loss {
     color: var(--bsv2-enemy, #e04444) !important;
     text-shadow: 0 0 18px rgba(224,68,68,0.45);
-    font-family: Cinzel, serif !important;
+    font-family: var(--font-display) !important;
     letter-spacing: 0.22em;
 }
 .arena-fullscreen .battle-result-fled {
     color: var(--bsv2-gold-bright, #e8d496) !important;
-    font-family: Cinzel, serif !important;
+    font-family: var(--font-display) !important;
     letter-spacing: 0.22em;
 }
 
@@ -756,7 +756,7 @@
     color: var(--bsv2-gold-bright, #e8d496) !important;
 }
 .arena-fullscreen .hex-zoom-label {
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.12em;
     color: rgba(196,162,90,0.85) !important;
 }
@@ -779,7 +779,7 @@
 }
 .arena-fullscreen .combat-jutsu-detail-header {
     color: var(--bsv2-gold-bright, #e8d496) !important;
-    font: 600 13px Cinzel, serif !important;
+    font: 600 13px var(--font-display) !important;
     letter-spacing: 0.08em;
     border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22));
 }
