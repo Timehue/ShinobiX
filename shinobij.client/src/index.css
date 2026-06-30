@@ -17012,59 +17012,199 @@ button.combat-jutsu-button,
 }
 
 .crafter-panel {
+    position: relative;
     width: min(640px, 96vw);
     max-height: 88vh;
-    overflow-y: auto;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
-    border: 1px solid rgba(250,204,21,.3);
+    /* Header + tabs stay pinned; only .crafter-body scrolls (see below). */
+    overflow: hidden;
+    /* Forge interior — warm soot gradient under a banked-ember glow (::before). */
+    background:
+        radial-gradient(135% 90% at 50% -10%, rgba(124,45,18,.30), transparent 55%),
+        linear-gradient(150deg, #14100c 0%, #0f172a 45%, #1e293b 100%);
+    border: 1px solid rgba(234,179,8,.34);
     border-radius: 16px;
     padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.6);
+    gap: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(250,204,21,.12);
 }
+
+    /* Banked-ember light spilling from the forge mouth at the top. */
+    .crafter-panel::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 130px;
+        background: radial-gradient(120% 100% at 50% 0, rgba(249,115,22,.22), rgba(250,204,21,.07) 42%, transparent 72%);
+        pointer-events: none;
+    }
+
+    .crafter-panel > * { position: relative; z-index: 1; }
+
+    .crafter-panel .archives-header h2 {
+        color: #fbbf24;
+        text-shadow: 0 0 16px rgba(249,115,22,.35);
+    }
 
 .crafter-subtitle {
     margin: 0;
-    color: #94a3b8;
+    color: #b6a892;
     font-size: 0.85rem;
 }
 
-.crafter-material-list {
+/* Scrolling region beneath the pinned header/tabs. min-height:0 lets it shrink
+   inside the flex column so the tabs above never scroll out of view. The
+   negative side margins let the scrollbar ride the panel edge without clipping
+   card shadows. */
+.crafter-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 12px 14px;
+    gap: 14px;
+    margin: 0 -6px;
+    padding: 2px 6px 4px;
+}
+
+/* Crafter tabs — dedicated, stronger styling than the generic .inventory-tabs
+   pills so the three modes read as a clear segmented control that never
+   collapses. */
+.crafter-tabs {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+    .crafter-tabs button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        flex: 1 1 0;
+        min-height: 42px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(148,163,184,.30);
+        background: linear-gradient(180deg, rgba(30,41,59,.85), rgba(15,23,42,.9));
+        color: #cbb89a;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: .01em;
+        cursor: pointer;
+        transition: background .15s, border-color .15s, color .15s;
+    }
+
+        .crafter-tabs button svg { width: 18px; height: 18px; opacity: .85; }
+
+        .crafter-tabs button:hover {
+            border-color: rgba(250,204,21,.5);
+            color: #fef3c7;
+        }
+
+        .crafter-tabs button.active {
+            background: linear-gradient(135deg, #b45309, #7c2d12 55%, #172554);
+            color: #fff7e6;
+            border-color: #facc15;
+            box-shadow: 0 0 16px rgba(250,204,21,.28), inset 0 1px 0 rgba(255,255,255,.12);
+        }
+
+        .crafter-tabs button.active svg { opacity: 1; color: #fde68a; }
+
+/* Collapsible "Your Materials" panel — compact summary (always shows the craft
+   point total) that expands into a multi-column grid, so the materials list no
+   longer pushes the recipes far down the page. */
+.crafter-materials {
     border: 1px solid rgba(148,163,184,.2);
     border-radius: 10px;
     background: rgba(2,6,23,.5);
+    overflow: hidden;
 }
 
-    .crafter-material-list strong {
-        color: #facc15;
-        margin-bottom: 4px;
-    }
-
-.crafter-material-row {
+.crafter-materials-summary {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    font-size: 0.83rem;
-    color: #e2e8f0;
-    padding: 2px 0;
-}
-
-    .crafter-material-row small {
-        color: #64748b;
-    }
-
-.crafter-total-pts {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(148,163,184,.2);
+    gap: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
     font-size: 0.85rem;
-    color: #93c5fd;
 }
+
+    .crafter-materials-summary::-webkit-details-marker { display: none; }
+
+    .crafter-materials-summary strong { color: #facc15; }
+
+.crafter-mat-sum { display: flex; align-items: center; gap: 7px; }
+.crafter-mat-sum svg { width: 18px; height: 18px; color: #d8a13a; flex: none; }
+
+.crafter-mat-total { color: #93c5fd; font-weight: 600; }
+
+.crafter-mat-toggle { color: #64748b; font-size: 0.74rem; }
+
+.crafter-materials[open] .crafter-materials-summary {
+    border-bottom: 1px solid rgba(148,163,184,.18);
+}
+
+.crafter-materials[open] .crafter-mat-toggle::after { content: "Hide"; }
+.crafter-materials:not([open]) .crafter-mat-toggle::after { content: "Show all"; }
+
+.crafter-material-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: 8px;
+    padding: 12px 14px 14px;
+}
+
+/* One material as a glyph chip. --tier is set by the data-tier rules below and
+   tints both the icon and the left accent bar. */
+.crafter-mat-chip {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px solid rgba(148,163,184,.16);
+    border-left: 3px solid var(--tier, #64748b);
+    border-radius: 8px;
+    background: rgba(15,23,42,.55);
+}
+
+    .crafter-mat-chip[data-empty] { opacity: .45; }
+
+.crafter-mat-ico {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 7px;
+    background: rgba(0,0,0,.34);
+    color: var(--tier, #94a3b8);
+}
+
+    .crafter-mat-ico svg { width: 20px; height: 20px; }
+
+.crafter-mat-info { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+
+.crafter-mat-name {
+    font-size: 0.8rem;
+    color: #e7eaf0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crafter-mat-meta { font-size: 0.72rem; color: #6b7689; }
+.crafter-mat-meta b { color: #cbd5e1; font-weight: 700; }
+
+.crafter-mat-chip[data-tier="common"]    { --tier: #94a3b8; }
+.crafter-mat-chip[data-tier="uncommon"]  { --tier: #4ade80; }
+.crafter-mat-chip[data-tier="rare"]      { --tier: #60a5fa; }
+.crafter-mat-chip[data-tier="epic"]      { --tier: #c084fc; }
+.crafter-mat-chip[data-tier="legendary"] { --tier: #facc15; }
 
 .crafter-recipe-grid {
     display: grid;
@@ -17079,7 +17219,7 @@ button.combat-jutsu-button,
     padding: 14px;
     border: 1px solid rgba(148,163,184,.22);
     border-radius: 12px;
-    background: rgba(15,23,42,.8);
+    background: linear-gradient(165deg, rgba(30,41,59,.78), rgba(15,23,42,.85));
 }
 
     .crafter-recipe-btn strong {
@@ -17091,6 +17231,52 @@ button.combat-jutsu-button,
         color: #94a3b8;
         font-size: 0.78rem;
     }
+
+/* Recipe card head: artwork thumbnail beside the name/meta block. */
+.crafter-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+}
+
+.crafter-card-thumb {
+    width: 54px;
+    height: 54px;
+    flex: none;
+    border-radius: 10px;
+    border: 1px solid rgba(148,163,184,.25);
+    background: rgba(0,0,0,.35);
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    color: #94a3b8;
+}
+
+    .crafter-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+    .crafter-card-thumb-ico { display: grid; place-items: center; color: inherit; }
+    .crafter-card-thumb-ico svg { width: 30px; height: 30px; }
+
+.crafter-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+    .crafter-card-head .crafter-recipe-btn-header { margin: 0; }
+
+.crafter-cost-line { color: #d8a13a !important; font-weight: 600; }
+
+/* Rarity accents — tint the card border + thumbnail to match the item grade. */
+.crafter-recipe-btn[data-rarity="rare"]      { border-color: rgba(59,130,246,.42); }
+.crafter-recipe-btn[data-rarity="epic"]      { border-color: rgba(168,85,247,.42); }
+.crafter-recipe-btn[data-rarity="legendary"] { border-color: rgba(234,179,8,.48); box-shadow: 0 0 16px rgba(234,179,8,.10); }
+
+.crafter-card-thumb[data-rarity="rare"]      { border-color: rgba(59,130,246,.5);  background: rgba(59,130,246,.13);  color: #93c5fd; }
+.crafter-card-thumb[data-rarity="epic"]      { border-color: rgba(168,85,247,.5);  background: rgba(168,85,247,.13);  color: #d8b4fe; }
+.crafter-card-thumb[data-rarity="legendary"] { border-color: rgba(234,179,8,.55);  background: rgba(234,179,8,.13);   color: #facc15; }
 
 /* Compact side-by-side cards for the two special forges (Hollow Gate Key +
    Dungeon Legendary Relic). Smaller padding/fonts than a normal recipe card
