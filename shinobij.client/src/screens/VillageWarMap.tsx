@@ -9,13 +9,19 @@ import {
     setSectorWinCondition,
     setSectorTerrain,
     upgradeWarStructure,
+    hireMerc,
+    listMercs,
+    deployMerc,
     villageAccent,
     WAR_STRUCTURES,
     WAR_TERRAINS,
     type WarMapResponse,
     type SectorWarContest,
     type WinCondition,
+    type WrMercTierView,
+    type MercLeaseView,
 } from "../lib/village-war-map";
+import { mercPortrait } from "../lib/merc-ai";
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
 // The "command surface" beside the existing VillageWarScreen (§10/§11b.6): each
@@ -38,6 +44,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [error, setError] = useState("");
     const [disabled, setDisabled] = useState(false);
     const [busy, setBusy] = useState("");
+    const [mercData, setMercData] = useState<{ tiers: WrMercTierView[]; leases: MercLeaseView[] } | null>(null);
+    const [deploySector, setDeploySector] = useState<Record<string, number>>({});
+    const [deployTarget, setDeployTarget] = useState<Record<string, string>>({});
+    const [mercMsg, setMercMsg] = useState("");
 
     const myVillage = (character.village ?? "").trim();
 
@@ -77,7 +87,14 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         }
     }, []);
 
-    useEffect(() => { void refresh(); return visiblePoll(refresh, 15000); }, [refresh]);
+    const loadMercs = useCallback(async () => {
+        try {
+            const m = (await listMercs(character.name, myVillage)) as { tiers?: WrMercTierView[]; leases?: MercLeaseView[] };
+            setMercData({ tiers: m.tiers ?? [], leases: m.leases ?? [] });
+        } catch { /* mercs are best-effort (feature gated off / not a war village) */ }
+    }, [character.name, myVillage]);
+
+    useEffect(() => { void refresh(); void loadMercs(); return visiblePoll(refresh, 15000); }, [refresh, loadMercs]);
 
     const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage) ?? null, [data, myVillage]);
     const contestBySector = useMemo(() => {
@@ -85,6 +102,11 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         for (const c of data?.contests ?? []) m[c.sector] = c;
         return m;
     }, [data]);
+    // Combat sieges THIS village is running — where a merc can be deployed.
+    const myCombatContests = useMemo(
+        () => (data?.contests ?? []).filter((c) => c.attackerVillage === myVillage && c.winCondition === "combat"),
+        [data, myVillage],
+    );
 
     const act = useCallback(async (label: string, fn: () => Promise<unknown>) => {
         setBusy(label);
@@ -144,6 +166,48 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 </div>
                             )}
                             {!isKage && <p className="hint">Only the seated Kage can declare sector wars, set sector rules, and upgrade structures.</p>}
+                        </div>
+                    )}
+
+                    {isKage && mercData && (
+                        <div className="card vwm-mercs">
+                            <h3>Mercenaries</h3>
+                            <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're besieging. Fights resolve server-side — a merc win chips Control HP, a loss gives the defender only 25% back.</p>
+                            <div className="vwm-merc-tiers">
+                                {mercData.tiers.map((t) => {
+                                    const band = mercData.leases.find((l) => l.tierId === t.id);
+                                    const portrait = mercPortrait(t.id);
+                                    const sectorSel = deploySector[t.id] ?? myCombatContests[0]?.sector ?? 0;
+                                    return (
+                                        <div key={t.id} className="vwm-merc-tier">
+                                            {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
+                                            <div className="vwm-merc-name">{t.id} · L{t.level}</div>
+                                            <button disabled={!!busy} onClick={() => act(`hire-${t.id}`, async () => { await hireMerc(character.name, myVillage, t.id); await loadMercs(); })}>
+                                                Hire · {t.costWr} WR
+                                            </button>
+                                            {band && <div className="vwm-merc-band">{band.count} merc{band.count === 1 ? "" : "s"} ready</div>}
+                                            {band && band.count > 0 && myCombatContests.length > 0 && (
+                                                <div className="vwm-merc-deploy">
+                                                    <select value={sectorSel} disabled={!!busy} onChange={(e) => setDeploySector((s) => ({ ...s, [t.id]: Number(e.target.value) }))}>
+                                                        {myCombatContests.map((c) => <option key={c.sector} value={c.sector}>Sector {c.sector}</option>)}
+                                                    </select>
+                                                    <input placeholder="target player" value={deployTarget[t.id] ?? ""} disabled={!!busy} onChange={(e) => setDeployTarget((s) => ({ ...s, [t.id]: e.target.value }))} />
+                                                    <button
+                                                        disabled={!!busy || !(deployTarget[t.id] ?? "").trim() || !sectorSel}
+                                                        onClick={() => act(`deploy-${t.id}`, async () => {
+                                                            const r = (await deployMerc(character.name, myVillage, t.id, sectorSel, (deployTarget[t.id] ?? "").trim())) as { winner?: string; captured?: boolean; controlHp?: number; mercsRemaining?: number };
+                                                            setMercMsg(r.captured ? `⚑ Captured sector ${sectorSel}!` : `Sector ${sectorSel}: ${r.winner ?? "?"} won — Control HP ${r.controlHp ?? "?"}, ${r.mercsRemaining ?? 0} merc(s) left.`);
+                                                            await loadMercs();
+                                                        })}
+                                                    >Deploy</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {mercMsg && <p className="vwm-merc-msg">{mercMsg}</p>}
+                            {myCombatContests.length === 0 && <p className="hint">Declare a Combat sector war first, then deploy mercs at its defenders.</p>}
                         </div>
                     )}
 
