@@ -1,0 +1,1 @@
+import{t as e}from"./react-vendor-B5ZEWdOX.js";var t=e();function n({onClick:e,style:n,label:r=`← Village`}){return(0,t.jsx)(`button`,{type:`button`,className:`back-button village-back-button`,onClick:e,style:n,children:r})}export{n as t};
