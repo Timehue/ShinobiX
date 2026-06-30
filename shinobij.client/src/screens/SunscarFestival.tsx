@@ -1,5 +1,9 @@
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0). NOTE: the dice/slot symbols
+// (🦂🪙👁️⚔️🌙⭐) are gameplay data the win-check compares — left as emoji on purpose.
+import { GiSun, GiDiceSixFacesSix, GiCampfire } from "react-icons/gi";
+const SF_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import type { Character } from "../types/character";
 import { type TileCard } from "../data/tile-cards";
 import { FestivalPortrait } from "../components/Pills";
@@ -210,7 +214,7 @@ export function SunscarFestival({
                     backgroundPosition: "center",
                 }}
             >
-                <h1>☀️ Sunscar Festival</h1>
+                <h1><GiSun style={SF_ICON} />Sunscar Festival</h1>
                 <p>
                     Sector 35 — a permanent desert festival of lanterns, caravans,
                     sandstone arches, and fate-bound dice.
@@ -229,7 +233,7 @@ export function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card dice-card">
-                    <h2>🎲 Dice of Fate</h2>
+                    <h2><GiDiceSixFacesSix style={SF_ICON} />Dice of Fate</h2>
 
                     <div className="dice-row">
                         {(diceResult.length ? diceResult : ["🎲", "🎲", "🎲"]).map((die, index) => (
@@ -272,7 +276,7 @@ export function SunscarFestival({
                 <section className="sunscar-card">
                     <h2>Festival Grounds</h2>
                     <div className="festival-visual">
-                        <span>🏕️</span>
+                        <span><GiCampfire /></span>
                         <span>🔥</span>
                         <span>🥁</span>
                         <span>🎭</span>

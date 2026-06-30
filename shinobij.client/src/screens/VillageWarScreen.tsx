@@ -1,5 +1,8 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useCallback } from "react";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import { GiCrossedSwords, GiScrollUnfurled, GiTrophy, GiEyeball, GiBlackFlag } from "react-icons/gi";
+const VW_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character, PlayerRecord } from "../types/character";
 import { TERRITORY_HP_MAX, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
@@ -201,7 +204,7 @@ export function VillageWarScreen({
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.5rem" }}>
-                <h1 style={{ margin: 0 }}>⚔ Village War</h1>
+                <h1 style={{ margin: 0 }}><GiCrossedSwords style={VW_ICON} />Village War</h1>
                 <button
                     type="button"
                     onClick={() => setShowWarManual(v => !v)}
@@ -214,7 +217,7 @@ export function VillageWarScreen({
             {showWarManual && (
                 <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                        <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Village War Manual</strong>
+                        <strong style={{ color: "#fde047", fontSize: "1rem" }}><GiScrollUnfurled style={VW_ICON} />Village War Manual</strong>
                         <button type="button" onClick={() => setShowWarManual(false)} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
                     </div>
                     <p style={{ margin: "0 0 0.5rem" }}>
@@ -274,7 +277,7 @@ export function VillageWarScreen({
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             {claimable.length > 0 && (
                 <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
-                    <strong style={{ color: "#4ade80" }}>🏆 Victory rewards available</strong>
+                    <strong style={{ color: "#4ade80" }}><GiTrophy style={VW_ICON} />Victory rewards available</strong>
                     {claimable.map(w => (
                         <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                             <span>vs {w.villages.find(v => v !== myVillage) ?? "?"} — won {new Date(w.endedAt!).toLocaleDateString()}</span>
@@ -316,7 +319,7 @@ export function VillageWarScreen({
                         return (
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: "1rem" }}>
                                 <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.6rem" }}>
-                                    <strong style={{ color: "#4ade80" }}>🏆 {myVillage} Top Raiders</strong>
+                                    <strong style={{ color: "#4ade80" }}><GiTrophy style={VW_ICON} />{myVillage} Top Raiders</strong>
                                     {mySide.length === 0
                                         ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>No raids yet. Be the first.</p>
                                         : mySide.map((c, i) => (
@@ -327,7 +330,7 @@ export function VillageWarScreen({
                                         ))}
                                 </div>
                                 <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem" }}>
-                                    <strong style={{ color: "#f87171" }}>⚔ {enemyVillage} Top Raiders</strong>
+                                    <strong style={{ color: "#f87171" }}><GiCrossedSwords style={VW_ICON} />{enemyVillage} Top Raiders</strong>
                                     {enemySide.length === 0
                                         ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>Enemy hasn't raided yet.</p>
                                         : enemySide.map((c, i) => (
@@ -342,7 +345,7 @@ export function VillageWarScreen({
                     })()}
                     <h3>Enemy Sectors — Raid to drain control</h3>
                     <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
-                        ⚑ Raiding the <strong>war-ground sector ({activeWar.warGroundSector})</strong> flips capture + drains enemy HP +500 ryo +1 Fate Shard daily bounty. The war ends when the enemy village HP hits 0.
+                        <GiBlackFlag style={VW_ICON} />Raiding the<strong>war-ground sector ({activeWar.warGroundSector})</strong> flips capture + drains enemy HP +500 ryo +1 Fate Shard daily bounty. The war ends when the enemy village HP hits 0.
                     </p>
                     <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
                         {territories
@@ -355,7 +358,7 @@ export function VillageWarScreen({
                                         disabled={t.hp <= 0}
                                         style={{ padding: "0.3rem 0.7rem", background: t.hp > 0 ? "linear-gradient(#7f1d1d,#450a0a)" : "#333", borderColor: "#f87171", fontSize: "0.85rem" }}
                                     >
-                                        {t.hp > 0 ? "⚔ Raid (-500 HP)" : "Captured"}
+                                        {t.hp > 0 ? <><GiCrossedSwords style={VW_ICON} />Raid (-500 HP)</> : "Captured"}
                                     </button>
                                 </div>
                             ))}
@@ -407,7 +410,7 @@ export function VillageWarScreen({
                 if (otherWars.length === 0) return null;
                 return (
                     <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #334155" }}>
-                        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "#94a3b8" }}>👁 Other Active Wars</h3>
+                        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "#94a3b8" }}><GiEyeball style={VW_ICON} />Other Active Wars</h3>
                         <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 0, marginBottom: "0.7rem" }}>
                             Wars not involving your village. Spectate only.
                         </p>
@@ -433,8 +436,8 @@ export function VillageWarScreen({
                                         </div>
                                         {(topA || topB) && (
                                             <div style={{ display: "flex", gap: 16, fontSize: "0.78rem", marginTop: 4, color: "#94a3b8" }}>
-                                                {topA && <span>🏆 {vA}: <strong>{topA.name}</strong> ({topA.damage} dmg)</span>}
-                                                {topB && <span>🏆 {vB}: <strong>{topB.name}</strong> ({topB.damage} dmg)</span>}
+                                                {topA && <span><GiTrophy style={VW_ICON} />{vA}:<strong>{topA.name}</strong> ({topA.damage} dmg)</span>}
+                                                {topB && <span><GiTrophy style={VW_ICON} />{vB}:<strong>{topB.name}</strong> ({topB.damage} dmg)</span>}
                                             </div>
                                         )}
                                     </div>

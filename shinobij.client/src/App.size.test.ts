@@ -94,16 +94,16 @@ import { readFileSync } from "node:fs";
 // hollowGateAugmentEffects() maps the chosen augment to enemy-clone HP/stat/shave
 // mults + run flags; applied ONLY to the per-dive enemy in startHollowGateBattle and
 // the Keeper-heal / Leave-tile handlers — never the shared combat engine.)
-// → 10,137 (−2 net for the Village War Map screen: +2 mandatory WIRING (the lazy
-// import + the 1-line render branch; the screen lives in src/screens/VillageWarMap.tsx)
-// OFFSET by a −4 DRAIN — the clan-war auto-launch in-battle guard now reuses the
-// canonical BATTLE_SCREENS set from lib/screen-guards instead of an inline 5-line
-// OR-chain (it additionally folds in eventPetBattle, which that set already lists).)
-// → 10,132 (−5 net for the Sector War Card Battle screen: +2 WIRING (lazy import +
-// render branch; the screen is screens/SectorWarCardBattle.tsx, a thin wrapper over
-// the parameterized CardClashDuelScreen) OFFSET by −7 — the VillageWarScreen render
-// branch was collapsed from an 8-line block to the project's standard 1-liner form.)
-const MAX_LINES = 10_132;
+// → 10,152 (+13 Hollow Gate server daily-cap HARD-block, audit #7: enterHollowGate
+// is now async and AWAITS startHollowGateServerRun before spending the Key, so a
+// 'daily-cap' reply blocks the dive (was soft). Lib split: attachStartedRun() shared
+// by the awaited live entry + the background admin entry. Flag-off → unchanged.)
+// → village-war branch: Village War Map (+2 WIRING / −4 BATTLE_SCREENS drain) and
+// Sector War Card Battle (+2 WIRING / −7 VillageWarScreen 1-liner) screens — each
+// net-negative; the screens live in their own modules (see those commits).
+// → 10,145 (merge of main + the village-war branch — main's App.tsx plus the branch's
+// net-negative screen wiring; measured post-merge.)
+const MAX_LINES = 10_145;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
