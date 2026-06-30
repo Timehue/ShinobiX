@@ -87,9 +87,10 @@ import {
     type SharedPvpBattleContext,
 } from "../App";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
-import { isVillageWarMapEnabled } from "../lib/village-war-map";
+import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis } from "../lib/merc-ai";
+import { homeVillageForSector } from "../data/war-map-sectors";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -1055,6 +1056,15 @@ export function WorldMap({
         { id: 56, x: 44, y: 47 }, { id: 57, x: 54, y: 48 }, { id: 58, x: 48, y: 55 }, { id: 59, x: 55, y: 58 }, { id: 60, x: 49, y: 64 },
         { id: 99, x: 51, y: 10 },
     ];
+
+    // When the War Map is on, a sector owned by a village glows in that village's
+    // accent colour (live owner from the territory cache, else its home village).
+    const warMapOn = isVillageWarMapEnabled();
+    function sectorOwnerAccent(id: number): string | undefined {
+        if (!warMapOn) return undefined;
+        const owner = loadSectorTerritory(id).ownerVillage || homeVillageForSector(id);
+        return owner ? villageAccent(owner) : undefined;
+    }
 
     function biomeForSector(sector: number): Biome {
         if (sector === 99) return "volcano"; // Death's Gate — cursed volcanic frontier
@@ -2542,7 +2552,9 @@ export function WorldMap({
                 <div className="atlas-region-label label-forest">Land of Swamps</div>
                 <div className="atlas-region-label label-fire">Land of Fire</div>
                 <div className="atlas-region-label label-ice">Land of Glaciers</div>
-                {sectorPoints.map((sector) => (
+                {sectorPoints.map((sector) => {
+                    const oa = sectorOwnerAccent(sector.id);
+                    return (
                     <button
                         key={sector.id}
                         className={
@@ -2550,7 +2562,7 @@ export function WorldMap({
                                 ? "atlas-sector atlas-sector-deaths-gate"
                                 : "atlas-sector atlas-sector-" + biomeForSector(sector.id)
                         }
-                        style={{ left: sector.x + "%", top: sector.y + "%" }}
+                        style={{ left: sector.x + "%", top: sector.y + "%", ...(oa ? { boxShadow: `0 0 0 2px ${oa}, 0 0 7px ${oa}` } : {}) }}
                         onClick={() => triggerTravelPoint(sector.id)}
                         title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
                     >
@@ -2562,7 +2574,7 @@ export function WorldMap({
                             >🔴{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
                         )}
                     </button>
-                ))}
+                ); })}
 
                 {/* Village War Map ownership: holder banners + siege pulses over the
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,

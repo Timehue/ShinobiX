@@ -17,9 +17,10 @@
  * use) and renders <SectorOwnershipOverlay> inside .anime-world-map. No new war
  * engine — pure view over the existing server state.
  */
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { fetchWarMap, villageAccent } from "../lib/village-war-map";
 import { loadSectorTerritory } from "../lib/world-state";
+import { HOME_SECTORS } from "../data/war-map-sectors";
 import { isLowEndMobile } from "../lib/device-tier";
 import ashenBanner from "../assets/village-war/owned-sector-ashenleaf.webp";
 import frostBanner from "../assets/village-war/owned-sector-frostfang.webp";
@@ -37,34 +38,31 @@ const BANNER_BY_VILLAGE: Record<string, string> = {
 type SectorPoint = { id: number; x: number; y: number };
 
 export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonly SectorPoint[] }) {
-    const [ownerBySector, setOwnerBySector] = useState<Map<number, string>>(new Map());
-    const [contested, setContested] = useState<Set<number>>(new Set());
+    // Base ownership = each village's static home sectors (the client mirror, so it
+    // works with no server), overridden by any captured sector from the local
+    // territory cache so a flipped sector flies the conqueror's banner. Pure derived
+    // (static table + cache read) — no effect needed.
+    const ownerBySector = useMemo(() => {
+        const owners = new Map<number, string>();
+        for (const [village, sectors] of Object.entries(HOME_SECTORS)) {
+            for (const s of sectors) owners.set(s, village);
+        }
+        for (const s of [...owners.keys()]) {
+            const owner = loadSectorTerritory(s).ownerVillage;
+            if (owner) owners.set(s, owner);
+        }
+        return owners;
+    }, []);
 
+    // Active sieges drive the pulse — best-effort from the server; simply absent when
+    // the war feature is off server-side (the ownership banners still show).
+    const [contested, setContested] = useState<Set<number>>(new Set());
     useEffect(() => {
         let alive = true;
         fetchWarMap()
-            .then((view) => {
-                if (!alive || !view.enabled) return;
-                // Default ownership = each village's static home sectors, then
-                // override with any captured sector from the local territory cache
-                // so a flipped sector flies the conqueror's banner.
-                const owners = new Map<number, string>();
-                for (const v of view.villages) {
-                    for (const s of v.homeSectors) owners.set(s, v.village);
-                }
-                for (const s of [...owners.keys()]) {
-                    const owner = loadSectorTerritory(s).ownerVillage;
-                    if (owner) owners.set(s, owner);
-                }
-                setOwnerBySector(owners);
-                setContested(new Set(view.contests.map((c) => c.sector)));
-            })
-            .catch(() => {
-                /* overlay is best-effort; the base world map renders regardless */
-            });
-        return () => {
-            alive = false;
-        };
+            .then((view) => { if (alive && view.enabled) setContested(new Set(view.contests.map((c) => c.sector))); })
+            .catch(() => { /* no live sieges available */ });
+        return () => { alive = false; };
     }, []);
 
     if (ownerBySector.size === 0) return null;
