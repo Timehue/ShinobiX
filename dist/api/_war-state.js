@@ -50,9 +50,10 @@ function asTerrain(v, fallback) {
 }
 /** A fresh war-state for a village: empty WR, all structures L0, every home
  *  sector secure (full Control HP), biome terrain. Win-conditions default to a
- *  valid, diverse spread that uses only the v1-ready battle types — they
- *  alternate Combat / Card (4 each), so the max-7 diversity rule holds from the
- *  start and no sector defaults to Pet before its server sim is wired (§17.2). */
+ *  valid, diverse spread that alternates Combat / Pet (4 each) — Pet's server
+ *  sim is now wired (api/village/sector-pet), so it is a first-class default.
+ *  Card remains a Kage-selectable option but is not a default. The max-7
+ *  per-type diversity rule holds from the start. */
 function defaultVillageWarRecord(village) {
     const biome = (0, _war_map_sectors_js_1.isWarVillage)(village) ? _war_map_sectors_js_1.VILLAGE_BIOME[village] : 'central';
     const structures = Object.fromEntries(exports.STRUCTURE_KEYS.map((k) => [k, 0]));
@@ -60,7 +61,7 @@ function defaultVillageWarRecord(village) {
     const home = _war_map_sectors_js_1.HOME_SECTORS[village] ?? [];
     home.forEach((s, i) => {
         sectors[String(s)] = {
-            winCondition: i % 2 === 0 ? 'combat' : 'card',
+            winCondition: i % 2 === 0 ? 'combat' : 'pet',
             terrain: biome,
             controlHp: exports.SECTOR_CONTROL_HP_MAX,
         };
