@@ -7,6 +7,8 @@ import {
     canAssignWinCondition,
     activeMercLeases,
     totalUpkeepWr,
+    canSetTerrain,
+    terrainSetCountFor,
     STRUCTURE_KEYS,
     SECTOR_CONTROL_HP_MAX,
     MAX_SECTORS_PER_WIN_CONDITION,
@@ -133,5 +135,50 @@ describe('war-state: merc leases + upkeep', () => {
         assert.equal(totalUpkeepWr(r), 0); // all L0
         for (const k of STRUCTURE_KEYS) r.structures[k] = 5;
         assert.equal(totalUpkeepWr(r), 90); // 6 × round(2·5^1.25)=15
+    });
+});
+
+describe('war-state: terrain quota (Kage 3 / elder 1)', () => {
+    it('a fresh record has no terrain picks', () => {
+        const r = defaultVillageWarRecord('Frostfang Village');
+        assert.deepEqual(r.terrainSetBy, {});
+        assert.equal(terrainSetCountFor(r, 'kageguy'), 0);
+    });
+    it('the Kage may set up to 3 sectors, then is blocked', () => {
+        const r = defaultVillageWarRecord('Frostfang Village');
+        const home = Object.keys(r.sectors); // 8 home sectors
+        for (let i = 0; i < 3; i++) {
+            assert.equal(canSetTerrain(r, Number(home[i]), 'kage', 'kage').ok, true);
+            r.terrainSetBy[home[i]] = 'kage';
+        }
+        assert.equal(canSetTerrain(r, Number(home[3]), 'kage', 'kage').error, 'quota-reached');
+        // Re-setting one already theirs is still free.
+        assert.equal(canSetTerrain(r, Number(home[0]), 'kage', 'kage').ok, true);
+    });
+    it('an elder may set 1 sector, then is blocked', () => {
+        const r = defaultVillageWarRecord('Frostfang Village');
+        const home = Object.keys(r.sectors);
+        assert.equal(canSetTerrain(r, Number(home[0]), 'elder', 'elder').ok, true);
+        r.terrainSetBy[home[0]] = 'elder';
+        assert.equal(canSetTerrain(r, Number(home[1]), 'elder', 'elder').error, 'quota-reached');
+    });
+    it('elders cannot override another leader\'s pick; the Kage can', () => {
+        const r = defaultVillageWarRecord('Frostfang Village');
+        const home = Object.keys(r.sectors);
+        r.terrainSetBy[home[0]] = 'kage';
+        assert.equal(canSetTerrain(r, Number(home[0]), 'elder', 'elder').error, 'set-by-another');
+        assert.equal(canSetTerrain(r, Number(home[0]), 'kage', 'kage').ok, true);
+    });
+    it('rejects a non-authorized actor and a non-home sector', () => {
+        const r = defaultVillageWarRecord('Frostfang Village');
+        assert.equal(canSetTerrain(r, Number(Object.keys(r.sectors)[0]), 'x', 'none').error, 'not-authorized');
+        assert.equal(canSetTerrain(r, 99, 'kage', 'kage').error, 'not-home-sector');
+    });
+    it('normalize keeps terrainSetBy only for home sectors', () => {
+        const r = normalizeVillageWarRecord('Frostfang Village', {
+            terrainSetBy: { '47': 'kage', '99': 'hacker' } as never,
+        });
+        assert.equal(r.terrainSetBy['47'], 'kage'); // 47 is a Frostfang home sector
+        assert.equal(r.terrainSetBy['99'], undefined); // foreign sector dropped
     });
 });
