@@ -87,6 +87,7 @@ import villageWarStructureHandler from './api/village/war-structure.js';
 import villageWarWinConditionHandler from './api/village/war-win-condition.js';
 import villageWarTerrainHandler from './api/village/war-terrain.js';
 import villageSectorWarHandler from './api/village/sector-war.js';
+import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
@@ -636,6 +637,10 @@ route('/village/sector-card', villageSectorCardHandler);
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
 route('/village/war-map', villageWarMapHandler);
+// Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
+// 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
+// sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/war-merc', villageWarMercHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
