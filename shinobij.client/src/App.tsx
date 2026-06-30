@@ -665,7 +665,7 @@ import {
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, hollowGateClawBackPreview } from "./lib/hollow-gate-run";
-import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly } from "./lib/hollow-gate-server";
+import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects } from "./lib/hollow-gate-server";
 import { wingEntryEffect, wingThemeAt, WING_TINT, WING_GLYPH } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
@@ -6424,15 +6424,21 @@ export default function App() {
                 stamina: character.maxStamina,
             });
         }
-        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * (eliteAffix?.hpMult ?? 1)));
+        // Augment combat-feel (HG-only; no-op without a chosen augment) — applied
+        // ONLY to this per-dive enemy clone, never the shared engine. Composes with
+        // the elite affix + pet pre-damage already factored above.
+        const aug = hollowGateAugmentEffects(hollowGateRun);
+        const augStatMult = (eliteAffix?.statMult ?? 1) * aug.enemyStatMult;
+        const totalHpShave = Math.min(0.9, hpShavePct + aug.enemyHpShavePct);
+        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier * (eliteAffix?.hpMult ?? 1) * aug.enemyHpMult));
         const shrineAi: CreatorAi = {
             ...baseAi,
             id: `hollow-gate-${baseAi.id}-${Date.now()}`,
             name: encounterName,
             level: rebasedLevel,
             isBossAi: Boolean(opts.isBoss),
-            stats: eliteAffix ? scaleAffixStats(baseAi.stats, eliteAffix.statMult) : baseAi.stats,
-            hp: hpShavePct > 0 ? Math.max(1, Math.floor(scaledHp * (1 - hpShavePct))) : scaledHp,
+            stats: augStatMult !== 1 ? scaleAffixStats(baseAi.stats, augStatMult) : baseAi.stats,
+            hp: totalHpShave > 0 ? Math.max(1, Math.floor(scaledHp * (1 - totalHpShave))) : scaledHp,
         } as CreatorAi;
         if (petAssists && pet) {
             pushHollowGateLog(`${pet.name} steadies you — HP, chakra, and stamina restored to full.`);
@@ -6843,9 +6849,10 @@ export default function App() {
                     body: `${flavor}\n\n"Choose your gift, traveler. The shrine offers what it can spare."`,
                     kind: "npc",
                     choices: [
-                        {
+                        // Treasure Sense ("fewer healing tiles") seals the Keeper's heal — HG-only.
+                        ...(hollowGateAugmentEffects(hollowGateRun).noKeeperHeal ? [] : [{
                             label: "Restore HP (33% of max)",
-                            tone: "primary",
+                            tone: "primary" as const,
                             onSelect: () => {
                                 if (!character) return;
                                 // NOTE: healing is normally forbidden in the shrine, but a
@@ -6855,7 +6862,7 @@ export default function App() {
                                 pushHollowGateLog(`The Shrine Keeper restores ${heal} HP.`);
                                 setHollowGateEvent(null);
                             },
-                        },
+                        }]),
                         {
                             label: "Refill Torch of Reiki",
                             onSelect: () => {
@@ -6887,21 +6894,27 @@ export default function App() {
                 // the shrine. Stepping on it ends the run and returns to worldMap.
                 // The saved run is cleared; re-entering costs another Hollow Gate Key.
                 pushHollowGateLog(flavor);
+                // Berserker's Gamble ("no retreat") seals the Leave tile for the run (HG-only).
+                const noRetreat = hollowGateAugmentEffects(hollowGateRun).noRetreat;
                 setHollowGateEvent({
-                    title: "Leave the Hollow Gate",
-                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    title: noRetreat ? "The Gate Holds You" : "Leave the Hollow Gate",
+                    body: noRetreat
+                        ? `${flavor}\n\nBerserker's Gamble binds you — the torii will not open backward. Clear the Hollow Gate or fall.`
+                        : `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
                     kind: "exit",
-                    choices: [
-                        {
-                            label: "Leave Shrine",
-                            tone: "danger",
-                            onSelect: () => {
-                                setHollowGateEvent(null);
-                                leaveHollowGateShrine();
+                    choices: noRetreat
+                        ? [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }]
+                        : [
+                            {
+                                label: "Leave Shrine",
+                                tone: "danger",
+                                onSelect: () => {
+                                    setHollowGateEvent(null);
+                                    leaveHollowGateShrine();
+                                },
                             },
-                        },
-                        { label: "Step Back", onSelect: () => setHollowGateEvent(null) },
-                    ],
+                            { label: "Step Back", onSelect: () => setHollowGateEvent(null) },
+                        ],
                 });
                 // Don't mark resolved — players can step back and approach later
                 // (the tile still works on re-entry).
