@@ -9,6 +9,7 @@ import type { MissionRank } from "../constants/hunter";
 import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { EmptyState } from "../components/ui/EmptyState";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
@@ -261,7 +262,7 @@ export function Missions({
             <section className="mh-section">
                 <h3 className="mh-section-title">📍 Field Missions</h3>
                 {groupedFetchMissions.length === 0
-                    ? <p className="hint">No field missions posted yet.</p>
+                    ? <EmptyState icon="📍">No field missions posted yet.</EmptyState>
                     : groupedFetchMissions.map((group) => (
                         <div className="mh-fetch-group" key={group.rank}>
                             <div className="mh-fetch-group-label" style={{ borderColor: rankColor[group.rank] ?? "#475569", color: rankColor[group.rank] ?? "#94a3b8" }}>
