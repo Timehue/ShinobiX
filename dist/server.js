@@ -84,6 +84,12 @@ const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"))
 const claim_daily_agenda_js_1 = __importDefault(require("./api/village/claim-daily-agenda.js"));
 const claim_map_control_js_1 = __importDefault(require("./api/village/claim-map-control.js"));
 const hire_mercenary_js_1 = __importDefault(require("./api/village/hire-mercenary.js"));
+const war_structure_js_1 = __importDefault(require("./api/village/war-structure.js"));
+const war_win_condition_js_1 = __importDefault(require("./api/village/war-win-condition.js"));
+const war_terrain_js_1 = __importDefault(require("./api/village/war-terrain.js"));
+const sector_war_js_1 = __importDefault(require("./api/village/sector-war.js"));
+const sector_card_js_1 = __importDefault(require("./api/village/sector-card.js"));
+const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -562,6 +568,29 @@ route('/village/claim-map-control', claim_map_control_js_1.default);
 // Village war mercenaries — server-authoritative Honor Seal sink: hire a tiered
 // merc band (once/war/tier) that lands sealed war damage on the enemy village.
 route('/village/hire-mercenary', hire_mercenary_js_1.default);
+// Village War Map structures — Kage-only server-authoritative upgrade: debits
+// Honor Seals from the village treasury, raises a shared structure level.
+// Server-gated (404 unless ENABLE_VILLAGE_WAR=1) — inert until launch.
+route('/village/war-structure', war_structure_js_1.default);
+// Village War Map — Kage sets a home sector's sector-war win-condition (Combat/
+// Card; max-7 diversity rule). Server-gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/war-win-condition', war_win_condition_js_1.default);
+// Village War Map — Kage (3 sectors) / elders (1 each) set a home sector's
+// terrain (the defender jutsu-school buff). Server-gated (404 unless flag).
+route('/village/war-terrain', war_terrain_js_1.default);
+// Village War Map — sector-war battle wiring (Phase 4c): the Kage declares a
+// contest (250 WR), a single-use token binds the resulting PvP battle, and
+// resolve applies the authoritative winner to Control HP — flipping the sector's
+// ownerVillage on capture. Server-gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/sector-war', sector_war_js_1.default);
+// Village War Map — sector-war "Card" win-condition (Phase 4c-2): an interactive
+// 6-turn Card Clash between an attacker- and defender-village member, settling
+// the same contest Control HP (forked clan-war engine). Gated (404 unless flag).
+route('/village/sector-card', sector_card_js_1.default);
+// Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
+// WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
+// GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/war-map', war_map_js_1.default);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', claim_interest_js_1.default);
