@@ -5,6 +5,7 @@ exports.trimPvpLog = trimPvpLog;
 exports.sanitizeJutsuList = sanitizeJutsuList;
 exports.sanitizePvpItems = sanitizePvpItems;
 exports.stripNonCombatFields = stripNonCombatFields;
+exports.resolveEquippedLoadout = resolveEquippedLoadout;
 exports.hydrateCharacterFromSave = hydrateCharacterFromSave;
 exports.ownedItemCount = ownedItemCount;
 exports.sealItemCharges = sealItemCharges;
@@ -399,9 +400,31 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
     if (save) {
         const bloodlines = save.savedBloodlines;
         if (Array.isArray(bloodlines)) {
+            // Stamp each bloodline's rank onto its jutsu so combat reads the correct
+            // per-rank Wound/amp caps (move.ts woundCapForJutsu / ampTagCapForRank).
+            // The rank lives on the bloodline OBJECT, not the per-jutsu objects, and
+            // is taken from the AUTHORITATIVE save (the client body is never trusted).
+            // Without this, A/S bloodline jutsu fall through to the BASIC caps
+            // (Wound 25 / amp 30) instead of their rank's (A 30/35, S 35/40) — so the
+            // four built-in A-rank bloodlines currently under-apply their tags.
+            // Gated by BLOODLINE_RANK_CAPS so the (small) A/S cap lift rolls out
+            // deliberately; flag-off leaves rank unstamped → basic caps, byte-
+            // identical to today. Pair with BLOODLINE_RANK_ENTITLEMENT so a forged
+            // rank can't claim higher caps than the player legitimately earned.
+            const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
             for (const b of bloodlines) {
-                if (b && typeof b === 'object')
-                    jutsuObjectsById(extra, b.jutsus);
+                if (!b || typeof b !== 'object')
+                    continue;
+                const bl = b;
+                const jutsus = bl.jutsus;
+                if (stampRank && Array.isArray(jutsus) && typeof bl.rank === 'string') {
+                    jutsuObjectsById(extra, jutsus.map((j) => j && typeof j === 'object'
+                        ? { ...j, bloodlineRank: bl.rank }
+                        : j));
+                }
+                else {
+                    jutsuObjectsById(extra, jutsus);
+                }
             }
         }
         jutsuObjectsById(extra, save.creatorJutsus);
