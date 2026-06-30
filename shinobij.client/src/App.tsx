@@ -665,6 +665,7 @@ import {
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, hollowGateClawBackPreview } from "./lib/hollow-gate-run";
+import { beginHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly } from "./lib/hollow-gate-server";
 import { wingEntryEffect, wingThemeAt, WING_TINT, WING_GLYPH } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
@@ -3544,6 +3545,9 @@ export default function App() {
                             if (hgRun) { setHollowGateRun(null); setHollowGateEvent(null); setHollowGateHiddenChamber(null); setHollowGateLog([]); }
                             const downed = hgRun ? { ...clawBackHollowGateLoot(normalized, hgRun, 1 - attunementLootRetention(normalized)), hollowGateRun: null } : normalized;
                             setCharacter({ ...downed, hp: 0, hospitalized: true });
+                            // If this KO recovery is the first to settle the run's token, reconcile
+                            // to the server credit (single-use → a no-op if the live device already did).
+                            if (hgRun) settleHollowGateRunOnly(hgRun, "death", normalized, setCharacter);
                             void postBattleLock({ action: "resolve", playerName: normalized.name, battleId: bootLock.battleId, outcome: "loss" });
                             setScreen("hospital");
                         } else if (bootLock.kind === "hollowGateTiles") {
@@ -6080,7 +6084,7 @@ export default function App() {
                 setHollowGateEvent(null);
                 setHollowGateHiddenChamber(null);
                 setHollowGateLog([]);
-                setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun, 1 - attunementLootRetention(prev)) : prev), hollowGateRun: null } : prev);
+                if (character) finalizeHollowGateRunEnd({ run: deadRun, outcome: "death", character, lootRetention: attunementLootRetention(character), setCharacter });
                 setScreen("hospital"); // run cleared → the shrine would render blank, so send the downed delver to the hospital, not the empty Gate
                 return;
             }
@@ -6164,6 +6168,9 @@ export default function App() {
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
+        // Server-authoritative run layer (flag `hollowGateServer.v1`, OFF by default):
+        // background-mint a sealed run token + augment offers; token-less no-op if off.
+        void beginHollowGateServerRun({ playerName: character.name, floorDepth: HOLLOW_GATE_MAX_FLOOR, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
     function adminHollowGateForceUnlock(unlock: boolean) {
@@ -6223,6 +6230,8 @@ export default function App() {
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
+        // Same server run layer as the live entry (flag-gated; no-op when off).
+        void beginHollowGateServerRun({ playerName: character.name, floorDepth: HOLLOW_GATE_MAX_FLOOR, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // Weighted-random ambush — triggered when the threat meter hits the
     // ambush threshold (default 100). Picks one of three encounter types:
@@ -7157,14 +7166,15 @@ export default function App() {
         }
     }
     function leaveHollowGateShrine(opts?: { death?: boolean }) {
-        // Death exit claws back 50% of the run's haul; a voluntary exit keeps it
-        // all. Functional setCharacter so a stale closure can't revert hp:0.
-        const deadRun = opts?.death ? hollowGateRun : null;
+        // Death claws back the run's haul; a voluntary exit keeps it all.
+        // finalizeHollowGateRunEnd applies that locally (functional setState — a stale
+        // closure can't revert hp:0) + reconciles to the server settle credit if tokened.
+        const endingRun = hollowGateRun;
         setHollowGateRun(null);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
         setHollowGateLog([]);
-        setCharacter(prev => prev ? { ...(deadRun ? clawBackHollowGateLoot(prev, deadRun, 1 - attunementLootRetention(prev)) : prev), hollowGateRun: null } : prev);
+        if (character) finalizeHollowGateRunEnd({ run: endingRun, outcome: opts?.death ? "death" : "extract", character, lootRetention: attunementLootRetention(character), setCharacter });
         setScreen("worldMap");
     }
     function onHollowGateBattleWin() {
