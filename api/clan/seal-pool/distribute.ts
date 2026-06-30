@@ -89,36 +89,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // Credit recipient. Hold `lock:save:<recipient>` for the read-
-        // modify-write so a concurrent player auto-save can't drop the
-        // credit. Pool was already debited; if the recipient lookup or
-        // write fails inside the lock we surface the error so the leader
-        // can retry — Seals don't vanish silently. (Refunds on failure
-        // are noted as a TODO; pool itself is already debited at this
-        // point. Investigate when claim-back is needed.)
-        //
-        // Deliberately NOT failClosed (unlike the pool lock above): the pool is
-        // already debited here, so throwing on lock contention would lose the
-        // Seals (pool down, recipient not credited). Falling through to run the
-        // credit unlocked still credits the recipient — the lesser evil until
-        // proper refund-on-failure exists.
+        // Credit recipient. Hold `lock:save:<recipient>` (failClosed) for the
+        // read-modify-write so neither a concurrent player auto-save nor lock
+        // contention can drop the credit — on contention the lock THROWS rather
+        // than running an unlocked RMW, and we refund below.
         const recipientSaveKey = `save:${recipientName}`;
-        await withKvLock(recipientSaveKey, async () => {
-            // Re-read inside the lock to grab any updates that landed
-            // between the membership check above and this point.
-            const freshRecord = await kv.get<Record<string, unknown>>(recipientSaveKey);
-            const freshChar = freshRecord?.character as Record<string, unknown> | undefined;
-            if (!freshChar) return;
-            const updatedRecipient = {
-                ...freshRecord,
-                character: {
-                    ...freshChar,
-                    honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
-                },
-            };
-            bumpSaveVersion(updatedRecipient);
-            await kv.set(recipientSaveKey, mergePreservingImages(updatedRecipient, freshRecord));
-        });
+        let credited = false;
+        try {
+            await withKvLock(recipientSaveKey, async () => {
+                // Re-read inside the lock to grab any updates that landed
+                // between the membership check above and this point.
+                const freshRecord = await kv.get<Record<string, unknown>>(recipientSaveKey);
+                const freshChar = freshRecord?.character as Record<string, unknown> | undefined;
+                if (!freshChar) return;   // recipient vanished → credited stays false → refund
+                const updatedRecipient = {
+                    ...freshRecord,
+                    character: {
+                        ...freshChar,
+                        honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
+                    },
+                };
+                bumpSaveVersion(updatedRecipient);
+                await kv.set(recipientSaveKey, mergePreservingImages(updatedRecipient, freshRecord));
+                credited = true;          // only reachable after the atomic set resolved
+            }, { failClosed: true });
+        } catch (creditErr) {
+            console.error('[clan/seal-pool/distribute] credit failed, refunding pool', creditErr);
+        }
+
+        // Refund-on-failure: the pool was already debited, so if the recipient
+        // was never credited (vanished record or a storage/lock fault) the Seals
+        // must go back to the pool instead of evaporating. `credited` can only be
+        // true after the single atomic kv.set resolved, so this branch can never
+        // double-pay (mint) a recipient that actually received the Seals.
+        if (!credited) {
+            await withKvLock(poolKey, async () => {
+                const pool = await loadPool(clanName);
+                pool.balance += amount;
+                pool.log.unshift({
+                    kind: 'distribute-refund',
+                    by: leaderName,
+                    to: recipientName,
+                    amount,
+                    at: Date.now(),
+                });
+                await savePool(pool);
+            }, { failClosed: true });
+            return res.status(409).json({
+                error: 'Could not credit the recipient — the Seals were returned to the clan pool. Please try again.',
+                requested: amount,
+            });
+        }
 
         return res.status(200).json({
             ok: true,

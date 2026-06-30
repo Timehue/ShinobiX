@@ -5,7 +5,7 @@ import { visiblePoll } from "../lib/poll";
 import type { Character } from "../App";
 
 type LogEntry = {
-    kind: "donate" | "distribute";
+    kind: "donate" | "distribute" | "distribute-refund";
     by: string;
     to?: string;
     amount: number;
@@ -256,7 +256,9 @@ export function ClanSealPool({
                             <div key={i} style={{ padding: "3px 0", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>
                                 {e.kind === "donate"
                                     ? <>📥 {e.by} donated <strong>{e.amount}</strong> Seals</>
-                                    : <>📤 {e.by} gave <strong>{e.amount}</strong> Seals to {e.to}</>}
+                                    : e.kind === "distribute-refund"
+                                        ? <>↩️ <strong>{e.amount}</strong> Seals returned to the pool ({e.to} could not be credited)</>
+                                        : <>📤 {e.by} gave <strong>{e.amount}</strong> Seals to {e.to}</>}
                                 <span className="hint" style={{ marginLeft: 6, fontSize: "0.72rem" }}>
                                     {new Date(e.at).toLocaleString()}
                                 </span>
