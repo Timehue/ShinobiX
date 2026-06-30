@@ -14,7 +14,7 @@ import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js'
 // byte-for-byte the legacy behavior.
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
-import { homeSectorsForVillage } from './_war-map-sectors.js';
+import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
 
 function villageWarEnabled(): boolean {
     return process.env.ENABLE_VILLAGE_WAR === '1';
@@ -295,9 +295,74 @@ function warCooldownKey(villageA: string, villageB: string): string {
 
 // Returns true if either village is currently in an active (non-ended)
 // war. Used to enforce the one-war-at-a-time rule on war creation.
-async function villageHasActiveWar(village: string): Promise<boolean> {
+// Exported for the sector-war endpoint (api/village/sector-war.ts): a village in
+// an active village war cannot run sector wars, and vice-versa (§17.1 mutual
+// exclusion). Same predicate the declare path uses for the one-war-at-a-time rule.
+export async function villageHasActiveWar(village: string): Promise<boolean> {
     const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
     return wars.some(w => !w.endedAt && w.villages.includes(village));
+}
+
+/**
+ * Sector War (Phase 4c) — flip a sector's persistent owner to the capturing
+ * village once its Control-HP siege breaks (api/_sector-war.ts applySectorBattleResult
+ * → captured). Writes `world:territory:<sector>.ownerVillage` under the per-territory
+ * lock, clears any stale clan owner, marks the sector freshly secured (full territory
+ * HP — it must be defended anew), and resets War Supply for the new owner via
+ * resolveClaimedWarSupply (anti-mint, same as the claiming-write path). Only ever
+ * reached from the ENABLE_VILLAGE_WAR-gated sector-war endpoint.
+ */
+export async function captureSectorForVillage(
+    sector: number,
+    ownerVillage: string,
+    now: number = Date.now(),
+): Promise<SectorTerritory> {
+    const s = Math.floor(Number(sector) || 0);
+    const key = `${TERRITORY_KEY_PREFIX}${s}`;
+    return await withKvLock(key, async () => {
+        const prev = await kv.get<SectorTerritory>(key);
+        const next = normalizeSectorTerritory({
+            ...(prev ?? defaultSectorTerritory(s)),
+            ownerVillage,
+            ownerClan: undefined,
+            hp: TERRITORY_HP_MAX,
+            updatedAt: now,
+        });
+        const owned = resolveClaimedWarSupply(prev ?? null, next, now);
+        next.warSupply = owned.warSupply;
+        next.lastSupplyAt = owned.lastSupplyAt;
+        await kv.set(key, next);
+        return next;
+    }, { failClosed: true });
+}
+
+/**
+ * Sector War (Phase 4d) — one-time, idempotent seed of home-sector ownership.
+ * For each of the 32 home war sectors, if its territory record has no ownerVillage
+ * yet, set it to the sector's home village (preserving HP / supply / guards /
+ * everything else) so the war map starts from a defined ownership state. A sector
+ * already owned by anyone is left untouched. Admin-triggered via the gated endpoint.
+ */
+export async function seedHomeSectorOwnership(now: number = Date.now()): Promise<{ seeded: number; sectors: number[] }> {
+    const seeded: number[] = [];
+    for (const village of WAR_VILLAGES) {
+        for (const sector of homeSectorsForVillage(village)) {
+            const key = `${TERRITORY_KEY_PREFIX}${sector}`;
+            const changed = await withKvLock(key, async () => {
+                const prev = await kv.get<SectorTerritory>(key);
+                if (prev && String(prev.ownerVillage ?? '').trim()) return false; // already owned
+                const next = normalizeSectorTerritory({
+                    ...(prev ?? defaultSectorTerritory(sector)),
+                    ownerVillage: village,
+                    updatedAt: now,
+                });
+                await kv.set(key, next);
+                return true;
+            }, { failClosed: true });
+            if (changed) seeded.push(sector);
+        }
+    }
+    return { seeded: seeded.length, sectors: seeded };
 }
 
 // Minimum damage contribution required to qualify for the loss-
