@@ -1,5 +1,9 @@
 "use strict";
 /*
+ * PARKED / UNWIRED FUTURE LEVER — pure math with no production importer yet (only
+ * its own _war-tax.test.ts imports it). Intentionally kept as the ready-to-wire
+ * ryo-burn sink for the Village War economy; do NOT flag as dead code or delete.
+ *
  * Village War Map — the lazy per-player tax (pure core, Phase 1). §6.4 / §8.2
  *
  * Applied lazily when a village member is active (the IO call-site — gated by

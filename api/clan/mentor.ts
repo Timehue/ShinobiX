@@ -136,16 +136,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (claimable.length === 0) return { status: 200, body: { ok: true, claimed: 0 } };
                 const payout = mentorPayout(claimable.length);
 
+                // Verify the sensei save exists BEFORE marking claimed — we must not
+                // mark a milestone paid if there's no save to credit (preserves the
+                // old "credit only if both saves exist" guard).
+                const senseiPre = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                if (!senseiPre || !senseiPre.character) return { status: 404, body: { error: 'Your save was not found.' } };
+
+                // Mark the milestones claimed and persist the mentor record FIRST,
+                // before crediting. Cross-key credits (sensei + student saves) can't
+                // be atomic with this mark, so we choose the safe direction: a crash
+                // or contention-throw after this point loses a payout (rare) but can
+                // NEVER leave a milestone paid-but-unmarked → re-claimable (a mint).
+                for (const m of claimable) entry.claimed[m] = now;
+                await kv.set(senseiKey(playerName), rec);
+
                 // Credit the sensei (Honor Seals + clan contribution) under their save lock.
-                const senseiOk = await withKvLock<boolean>(`save:${playerName}`, async () => {
+                await withKvLock<void>(`save:${playerName}`, async () => {
                     const r = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const c = (r?.character ?? null) as Record<string, unknown> | null;
-                    if (!r || !c) return false;
-                    const next = bumpSaveVersion({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(next, r));
-                    return true;
+                    if (r && c) await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } }), r));
                 }, { failClosed: true });
-                if (!senseiOk) return { status: 404, body: { error: 'Your save was not found.' } };
 
                 // Boost the student (ryo) under their save lock.
                 await withKvLock<void>(`save:${studentName}`, async () => {
@@ -154,8 +164,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (r && c) await kv.set(`save:${studentName}`, mergePreservingImages(bumpSaveVersion({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }), r));
                 }, { failClosed: true });
 
-                for (const m of claimable) entry.claimed[m] = now;
-                await kv.set(senseiKey(playerName), rec);
                 return { status: 200, body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable }, paid: claimable.length };
             }, { failClosed: true });
 

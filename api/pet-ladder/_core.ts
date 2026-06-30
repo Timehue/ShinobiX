@@ -19,7 +19,7 @@
  *     replay, never the source of truth.
  */
 
-import { petStatCeil } from "../_pet-stat-ceil.js";
+import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
 import { runPetDuel } from "./_duel-sim.js";
 import { runPetArenaMatch, type ArenaRole, type ArenaSlot } from "./_arena-sim.js";
 import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetTrait } from "./_pet-types.js";
@@ -82,11 +82,14 @@ const JUTSU_KINDS = new Set<PetJutsu["kind"]>([
     "absorb", "burn", "freeze", "confuse", "stun", "crush", "wound", "mark", "slow", "haste", "taunt", "push", "pull",
 ]);
 
-function snapshotJutsu(raw: Record<string, unknown>): PetJutsu {
+function snapshotJutsu(raw: Record<string, unknown>, rarity: unknown): PetJutsu {
     const kind = JUTSU_KINDS.has(raw.kind as PetJutsu["kind"]) ? (raw.kind as PetJutsu["kind"]) : "damage";
     return {
         name: String(raw.name ?? "Strike").slice(0, 40),
-        power: clampStat(raw.power, 1, 1000, 80),
+        // Per-rarity jutsu-power ceiling (anti-tamper). Was a flat 1000 (~2-3× a
+        // legit cap); mirrors client petStatCaps[*].jutsuPower so an honest pet is
+        // unaffected and a forged pet can't seal an absurd jutsu into the duel.
+        power: clampStat(raw.power, 1, petJutsuPowerCeil(rarity), 80),
         cooldown: clampStat(raw.cooldown, 0, 60, 0),
         kind,
         ...(typeof raw.rounds === "number" ? { rounds: clampStat(raw.rounds, 1, 20, 1) } : {}),
@@ -100,8 +103,8 @@ export function snapshotLadderPet(raw: Record<string, unknown>): LadderPet {
     const loadoutRaw = (raw.loadout && typeof raw.loadout === "object" ? raw.loadout : {}) as Record<string, unknown>;
     const pvp = typeof loadoutRaw.pvp === "string" ? loadoutRaw.pvp : undefined;
     const consumable = typeof loadoutRaw.consumable === "string" ? loadoutRaw.consumable : undefined;
-    const jutsus = Array.isArray(raw.jutsus) ? raw.jutsus.slice(0, 4).map((j) => snapshotJutsu((j ?? {}) as Record<string, unknown>)) : [];
     const rarity = String(raw.rarity ?? "standard");
+    const jutsus = Array.isArray(raw.jutsus) ? raw.jutsus.slice(0, 4).map((j) => snapshotJutsu((j ?? {}) as Record<string, unknown>, rarity)) : [];
     return {
         id: String(raw.id ?? ""),
         name: String(raw.name ?? "Pet").slice(0, 40),

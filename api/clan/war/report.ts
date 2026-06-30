@@ -219,7 +219,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             await kv.set(key, war);
             return { status: 200 as const, body: { war, challenge: completed, warEnded: warJustEnded, tentative: false, disputed: finalResult === 'draw' && ch.tentativeResult !== result } };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[clan/war/report]', err);

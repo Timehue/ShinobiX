@@ -26,8 +26,8 @@ const pick = (out) => out[0];
         node_assert_1.strict.equal(out.apCost, 40);
         node_assert_1.strict.equal(out.weaponElement, 'Fire');
     });
-    (0, node_test_1.it)('clamps weaponEp to [0, 600]', () => {
-        node_assert_1.strict.equal(pick((0, session_js_1.sanitizePvpItems)([{ weaponEp: 999999 }])).weaponEp, 600);
+    (0, node_test_1.it)('clamps weaponEp to [0, 60]', () => {
+        node_assert_1.strict.equal(pick((0, session_js_1.sanitizePvpItems)([{ weaponEp: 999999 }])).weaponEp, 60);
         node_assert_1.strict.equal(pick((0, session_js_1.sanitizePvpItems)([{ weaponEp: -100 }])).weaponEp, 0);
         node_assert_1.strict.equal(pick((0, session_js_1.sanitizePvpItems)([{ weaponEp: 'free' }])).weaponEp, 0);
     });
@@ -60,9 +60,22 @@ const pick = (out) => out[0];
         node_assert_1.strict.ok(tags.find(t => t.name === 'Increase Damage Given'));
     });
     (0, node_test_1.it)('caps weaponTags at 10 entries', () => {
-        const many = { weaponTags: Array.from({ length: 30 }, () => ({ name: 'Heal' })) };
+        // Distinct tags (the per-cast dedup now collapses identical ones, so the
+        // cap is exercised with distinct names). 10 confirmed-valid amp tags + 2
+        // extras → after dedup + slice the list is capped at 10 regardless.
+        const names = [
+            'Wound', 'Poison', 'Ignition', 'Increase Damage Given', 'Decrease Damage Given',
+            'Increase Damage Taken', 'Decrease Damage Taken', 'Absorb', 'Reflect', 'Lifesteal',
+            'Heal', 'Shield',
+        ];
+        const many = { weaponTags: names.map((name) => ({ name })) };
         const out = pick((0, session_js_1.sanitizePvpItems)([many]));
         node_assert_1.strict.equal(out.weaponTags.length, 10);
+    });
+    (0, node_test_1.it)('dedupes identical weaponTags within one weapon', () => {
+        const many = { weaponTags: Array.from({ length: 30 }, () => ({ name: 'Increase Damage Given' })) };
+        const out = pick((0, session_js_1.sanitizePvpItems)([many]));
+        node_assert_1.strict.equal(out.weaponTags.length, 1);
     });
     (0, node_test_1.it)('caps tag percent at 100 and amount at 10000', () => {
         const item = { weaponTags: [{ name: 'Increase Damage Given', percent: 9999, amount: 99999999 }] };
@@ -113,7 +126,7 @@ const pick = (out) => out[0];
             ],
         };
         const out = pick((0, session_js_1.sanitizePvpItems)([evil]));
-        node_assert_1.strict.equal(out.weaponEp, 600);
+        node_assert_1.strict.equal(out.weaponEp, 60);
         node_assert_1.strict.equal(out.weaponRange, 30);
         node_assert_1.strict.equal(out.apCost, 0); // 0 is in-range; balance fix would need its own change
         node_assert_1.strict.equal(out.weaponElement, undefined);
@@ -137,9 +150,19 @@ const pick = (out) => out[0];
 });
 // Smoke test on sanitizeJutsuList so it stays covered alongside its sibling.
 (0, node_test_1.describe)('sanitizeJutsuList (smoke)', () => {
-    (0, node_test_1.it)('clamps effectPower to [0, 600]', () => {
+    (0, node_test_1.it)('clamps effectPower to [0, 60] (max legit EP is 50)', () => {
         const out = (0, session_js_1.sanitizeJutsuList)([{ id: 'x', effectPower: 999999 }]);
-        node_assert_1.strict.equal(out[0].effectPower, 600);
+        node_assert_1.strict.equal(out[0].effectPower, 60);
+    });
+    (0, node_test_1.it)('dedupes a duplicate amp tag within one cast (no double-stack)', () => {
+        const out = (0, session_js_1.sanitizeJutsuList)([
+            { id: 'x', effectPower: 36, tags: [
+                    { name: 'Increase Damage Given', percent: 35 },
+                    { name: 'Increase Damage Given', percent: 35 },
+                ] },
+        ]);
+        const tags = out[0].tags;
+        node_assert_1.strict.equal(tags.filter(t => t.name === 'Increase Damage Given').length, 1);
     });
     (0, node_test_1.it)('strips a second Pierce in the same loadout', () => {
         const out = (0, session_js_1.sanitizeJutsuList)([

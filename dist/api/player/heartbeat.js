@@ -116,10 +116,12 @@ async function handler(req, res) {
         const sectorMates = allEntries
             .filter(p => (0, presence_input_js_1.normalizeSector)(p.sector) === entrySector)
             .map(presence_input_js_1.toPlayerRecord);
-        const allPlayers = allEntries.map(presence_input_js_1.toPlayerRecord);
+        // Note: the full online roster is intentionally NOT broadcast on every
+        // heartbeat (was an O(N²)/payload cost). Clients source the global list
+        // from the 60s /api/player/roster poll; this returns sector-scoped data
+        // only. The client tolerates the absent `allPlayers` field (optional).
         return res.status(200).json({
             sectorMates,
-            allPlayers,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],
             pendingHeal: healSignal ? { by: typeof healSignal.by === 'string' ? healSignal.by : '' } : null,
