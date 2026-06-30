@@ -4,6 +4,8 @@ import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { derivePetRole, ROLE_META } from "../lib/pet-roles";
+import { LoadingState } from "../components/ui/LoadingState";
+import { EmptyState } from "../components/ui/EmptyState";
 import { petPvpGearById, petConsumableById } from "../data/pet-config";
 import { PetColiseumDuel, PetArenaMatch } from "../components/PetColiseum";
 import { runPetDuel } from "../lib/pet-duel-sim";
@@ -233,8 +235,8 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
                 {/* Ladder list */}
                 <div className="pl-panel">
                     <h3 className="pl-h">🪜 The ladder{view ? ` · ${view.total} ranked` : ""}</h3>
-                    {!view ? <div className="pl-empty">Loading…</div>
-                        : view.ladder.length === 0 ? <div className="pl-empty">No one is ranked yet — set a defense and beat the AI to claim the first rung!</div>
+                    {!view ? <LoadingState />
+                        : view.ladder.length === 0 ? <EmptyState icon="🪜">No one is ranked yet — set a defense and beat the AI to claim the first rung!</EmptyState>
                             : <div className="pl-list">
                                 {view.ladder.map((e) => (
                                     <div key={e.slug} className={`pl-row${e.slug === character.name ? " is-you" : ""}`}>
