@@ -10,6 +10,7 @@ import {
     newSectorWarBattleToken,
     normalizeSectorWarBattleToken,
     canDeclareSectorWar,
+    applyContestBattleByWinner,
     type SectorWarSession,
 } from './_sector-war.js';
 import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_HP_DEFENDER_REGEN } from './_war-state.js';
@@ -172,5 +173,34 @@ describe('sector-war: canDeclareSectorWar', () => {
         assert.equal(r.ok, false);
         assert.equal((r as { error: string }).error, 'insufficient-wr');
         assert.equal((r as { cost: number }).cost, 250);
+    });
+});
+
+describe('sector-war: applyContestBattleByWinner (Card by-side mapping)', () => {
+    function fresh(): SectorWarSession {
+        return newSectorWarSession({
+            sector: 8, attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
+            winCondition: 'card', now: NOW,
+        });
+    }
+    it('p1 (attacker) win chips Control HP', () => {
+        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW });
+        assert.ok(out);
+        assert.equal(out!.hpDealt, 150);
+        assert.equal(out!.session.controlHp, 450);
+    });
+    it('p2 (defender) win regens (held line)', () => {
+        const chipped = applyContestBattleByWinner(fresh(), 'p1', { now: NOW })!.session; // 450
+        const out = applyContestBattleByWinner(chipped, 'p2', { now: NOW });
+        assert.ok(out);
+        assert.equal(out!.hpRegen, 50);
+        assert.equal(out!.session.controlHp, 500);
+    });
+    it('a draw leaves Control HP untouched (null outcome)', () => {
+        assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW }), null);
+    });
+    it('honors a War-Academy-boosted damage value on an attacker win', () => {
+        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, damage: 173 });
+        assert.equal(out!.session.controlHp, 600 - 173);
     });
 });
