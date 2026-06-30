@@ -99,7 +99,11 @@ import { readFileSync } from "node:fs";
 // OFFSET by a −4 DRAIN — the clan-war auto-launch in-battle guard now reuses the
 // canonical BATTLE_SCREENS set from lib/screen-guards instead of an inline 5-line
 // OR-chain (it additionally folds in eventPetBattle, which that set already lists).)
-const MAX_LINES = 10_137;
+// → 10,132 (−5 net for the Sector War Card Battle screen: +2 WIRING (lazy import +
+// render branch; the screen is screens/SectorWarCardBattle.tsx, a thin wrapper over
+// the parameterized CardClashDuelScreen) OFFSET by −7 — the VillageWarScreen render
+// branch was collapsed from an 8-line block to the project's standard 1-liner form.)
+const MAX_LINES = 10_132;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
