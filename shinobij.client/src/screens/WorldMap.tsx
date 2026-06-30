@@ -87,6 +87,8 @@ import {
     type SharedPvpBattleContext,
 } from "../App";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { isVillageWarMapEnabled } from "../lib/village-war-map";
+import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -2556,6 +2558,11 @@ export function WorldMap({
                         )}
                     </button>
                 ))}
+
+                {/* Village War Map ownership: holder banners + siege pulses over the
+                    sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
+                    so it stays inert/invisible on the default world map. */}
+                {isVillageWarMapEnabled() && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
 
                 {/* (War Ground beacons were removed from the world map.
                     The Central Hub banner + the explicit Village War
