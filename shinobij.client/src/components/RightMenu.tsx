@@ -121,9 +121,6 @@ export const RightMenu = memo(function RightMenu({
                         )}
                         <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
                     </div>
-                    <p style={{ textAlign: "center", fontSize: 10, color: "#5b6b86", margin: "8px 0 2px" }}>
-                        Menu icons by <a href="https://game-icons.net" target="_blank" rel="noopener noreferrer" style={{ color: "#7c8aa5" }}>game-icons.net</a> (CC BY 3.0)
-                    </p>
                 </>
             )}
         </aside>

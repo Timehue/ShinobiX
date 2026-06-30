@@ -713,6 +713,45 @@ const HOLLOWGATE: Guide = {
     ],
 };
 
+// ── About & Credits ─────────────────────────────────────────────────────────
+// Kept last in the library. Holds the project blurb, the third-party attributions
+// we're obligated to surface (game-icons.net is CC BY 3.0 → attribution required),
+// and the community links.
+const ABOUT: Guide = {
+    id: "about",
+    title: "About & Credits",
+    tagline: "What powers Shinobi Journey — and who to thank.",
+    icon: "🏮",
+    blurb: "The game, its credits & third-party attributions, and where to find the community.",
+    sections: [
+        {
+            heading: "About the Game",
+            blocks: [
+                { type: "p", text: "Shinobi Journey is a browser-based shinobi RPG — forge a character, master jutsu and bloodlines, raise pets, climb the ranks, and shape your village's fate in a shared world." },
+                { type: "p", text: "It's an actively developed, community-supported project: new systems, balance passes, and content land regularly." },
+            ],
+        },
+        {
+            heading: "Credits & Attributions",
+            blocks: [
+                { type: "h", text: "Icons" },
+                { type: "p", text: "Menu and interface icons are from game-icons.net, used under the Creative Commons Attribution 3.0 Unported license (CC BY 3.0). See game-icons.net for the full author list and the license text." },
+                { type: "h", text: "Fonts" },
+                { type: "p", text: "Display headings use Cinzel, served via Google Fonts under the SIL Open Font License." },
+                { type: "h", text: "Built With" },
+                { type: "p", text: "React, Vite, three.js, react-icons, Supabase, and other open-source software." },
+            ],
+        },
+        {
+            heading: "Community",
+            blocks: [
+                { type: "p", text: "Join the Discord: discord.gg/bCQGs8r6SK" },
+                { type: "p", text: "Support development on Patreon: patreon.com/c/shinobijourney" },
+            ],
+        },
+    ],
+};
+
 export const GUIDES: Guide[] = [
     BEGINNER,
     COMBAT,
@@ -722,4 +761,5 @@ export const GUIDES: Guide[] = [
     WORLD,
     CLANS,
     HOLLOWGATE,
+    ABOUT,
 ];
