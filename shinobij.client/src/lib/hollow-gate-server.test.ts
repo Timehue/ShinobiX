@@ -7,6 +7,7 @@ import {
     applyServerSettle,
     applyHollowGateRunEndLocal,
     buildAugmentPickerEvent,
+    shouldResumeAugmentPicker,
 } from "./hollow-gate-server";
 
 function char(overrides: Record<string, unknown>): Character {
@@ -72,6 +73,21 @@ test("applyHollowGateRunEndLocal: higher retention keeps strictly more on death"
     const hi = applyHollowGateRunEndLocal(char({ ryo: 1500 }), run({ ryo: 1000 }), "death", 0.8);
     assert.equal((lo as Record<string, number>).ryo, 1250, "0.5 retention loses half of the +500 earned");
     assert.ok((hi as Record<string, number>).ryo > (lo as Record<string, number>).ryo, "0.8 retention keeps more than 0.5");
+});
+
+test("shouldResumeAugmentPicker: true only for a tokened run with offers and no choice yet", () => {
+    const offers: HollowGateAugmentOffer[] = [{ id: "keen-edge", label: "Keen Edge", description: "x", rarity: "common" }];
+    // Re-present: token + offers + not yet chosen (e.g. refreshed during the pick).
+    assert.equal(shouldResumeAugmentPicker({ runToken: "t", augmentOffers: offers } as unknown as HollowGateShrineRun), true);
+    // Already chose → no re-present.
+    assert.equal(shouldResumeAugmentPicker({ runToken: "t", augmentOffers: offers, chosenAugment: offers[0] } as unknown as HollowGateShrineRun), false);
+    // Token-less (fallback) run → nothing to resume.
+    assert.equal(shouldResumeAugmentPicker({ augmentOffers: offers } as unknown as HollowGateShrineRun), false);
+    // Token but no offers rolled → nothing to present.
+    assert.equal(shouldResumeAugmentPicker({ runToken: "t", augmentOffers: [] } as unknown as HollowGateShrineRun), false);
+    // No run at all.
+    assert.equal(shouldResumeAugmentPicker(null), false);
+    assert.equal(shouldResumeAugmentPicker(undefined), false);
 });
 
 test("buildAugmentPickerEvent renders one choice per offer with rare→danger tone", () => {

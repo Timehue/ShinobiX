@@ -1,9 +1,23 @@
-# Hollow Gate — Run Token + Augments Endpoint (DESIGN DRAFT)
+# Hollow Gate — Run Token + Augments Endpoint
 
-Status: **DESIGN DRAFT — not implemented.** This spec captures the server
-endpoint design for (a) making Hollow Gate's reward economy server-authoritative
-and (b) adding a roguelike "augment" run-modifier layer. Nothing here is built or
-shipped yet.
+Status: **SHIPPED (flag-gated).** This spec captures the server endpoint design
+for (a) making Hollow Gate's reward economy server-authoritative and (b) adding a
+roguelike "augment" run-modifier layer.
+
+- **Tier 1 (foundation)** — commit `799bd5f7`, on `main`. The endpoint trio
+  (`start` / `choose-augment` / `settle`) + `_run-token.ts` (catalog + bound math
+  + offer roll), route-registered in `server.ts`, tested. Inert (nothing called
+  them).
+- **Tier 2 (client run-loop wiring)** — commit `d07df7cf`. Behind
+  `hollowGateServer.v1` (localStorage, **default OFF**). `lib/hollow-gate-server.ts`
+  owns the client orchestration; the dive entry background-mints the token + rolls
+  augment offers (shown via the existing run-event modal), and every run-end funnel
+  reports the haul to `settle` and reconciles local currencies to the server credit.
+  No-token / flag-off / unreachable → the existing client-authoritative run, verbatim.
+
+> ⚠️ **The "save-sanitizer freeze" in the section below was NOT adopted — and must
+> not be.** See "Client + save-sanitizer changes" for why a freeze would zero every
+> payout. The shipped model is reconcile-DOWN, not freeze.
 
 Origin: the 2026-06-21 full-systems audit (see
 `memory/project_full_systems_audit_2026_06_21.md`). This one endpoint trio closes
@@ -167,18 +181,41 @@ await withKvLock(`save:${playerName}`, async () => {
 | `failClosed` save lock + anchor to sealed `entryCurrencies` | lost-update on a concurrent autosave |
 | 200-with-reason when token absent | stale clients & `SESSION_SECRET` unset keep working — **no save breakage** |
 
-## Client + save-sanitizer changes
+## Client + save-sanitizer changes — AS SHIPPED (read this before touching settle)
 
-- The dive stops writing HG currencies to the save per-tile; it accrues a **local
-  provisional haul** and posts it once at extract/death. `settle` is the
-  authoritative credit (same reconcile pattern as `report-pet-event` /
-  `claim-mission`).
-- Save sanitizer (`api/save/[name].ts`): **reject HG-currency increases via the
-  generic save while a run token is open** — the only legit increase comes from
-  `settle`. This is the piece that makes #6 airtight.
-- Gate behind a flag; keep the current client path as a fallback so nothing
-  breaks mid-rollout (no-token path must still work, per the token-first
-  invariant).
+The **as-built** model differs from the original draft below it, and the
+difference is load-bearing. Read the WHY before "fixing" it.
+
+- **Live accrual + reconcile-DOWN (the shipped model).** The dive keeps applying
+  loot to the character live (unchanged feel), and autosaves persist it. At
+  extract/death the client reports the **gross** haul to `settle`, which SETS each
+  balance to `min(current, sealedEntry + min(claimed, ceiling) × frac)` — i.e. it
+  reconciles an over-claim *down* to the sealed ceiling. For a legit run this is a
+  no-op; a crafted client is clamped. (`lib/hollow-gate-server.ts`
+  `applyServerSettle`; server `settleCurrency`.)
+- **There is deliberately NO "freeze HG increases while a token is open."** The
+  original draft (next bullet) called for it; it was **rejected** because
+  `settleCurrency` returns `min(current, entry+credit)` — it *needs* the live haul
+  present in the save to pay out. Freezing increases pins `current` at `entry`, so
+  `min(entry, entry+credit) = entry` and **the payout becomes zero**. The
+  `_run-token.test.ts:88` "never restores in-run spends" test locks that
+  `min(current,…)`. A regression guard in `_sanitize-hollowgate.test.ts` ("no
+  currency freeze while a run token is open") fails if anyone re-adds the freeze.
+- **What bounds the farming surface instead:** the no-token / generic-save path is
+  bounded by the per-save `CURRENCY_CAPS` in `api/save/[name].ts` (e.g. hollowShards
+  +200/cycle); the token path is bounded by the `settle` ceiling. The sanitizer
+  only **shape-bounds** the new run fields (runToken/serverSeed ≤ 64 chars,
+  augmentOffers ≤ 8) so a forged save can't bloat KV.
+- Gated behind `hollowGateServer.v1` (default OFF); the no-token path still works
+  (token-first invariant).
+
+> ~~ORIGINAL DRAFT (superseded — do not implement):~~ *"The dive stops writing HG
+> currencies to the save per-tile; it accrues a local provisional haul and posts
+> it once at extract/death. Save sanitizer: reject HG-currency increases via the
+> generic save while a run token is open."* — This would require a Model-B settle
+> that credits additively (ignoring `current`); the shipped settle is Model-A
+> (reconcile-down), so the freeze is incompatible. Switching to Model B means
+> rewriting `settleCurrency` **and** its tests first.
 
 ## Wiring
 
