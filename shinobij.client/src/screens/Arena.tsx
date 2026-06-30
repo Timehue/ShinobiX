@@ -36,6 +36,7 @@ import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
+import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
@@ -2395,7 +2396,6 @@ export function Arena({
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
         const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
-        const leveled = gainXp({ ...base, hp: playerHp }, xpGain);
         const defeatedAiIds = pendingAiProfile?.id && !(base.defeatedAiIds ?? []).includes(pendingAiProfile.id)
             ? [...(base.defeatedAiIds ?? []), pendingAiProfile.id]
             : base.defeatedAiIds ?? [];
@@ -2412,35 +2412,67 @@ export function Arena({
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
         const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-        const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
-        const winCharacter: Character = {
-            ...rewarded,
-            ...villageWarRaid.characterPatch,
-            ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
-            fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards + nonVanguardShardSubstitute(rewarded, honorSealGain),
-            honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
-            auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
-            stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
-            // + Vanguard mastery (Ironclad): a chance at a Bone Charm per AI kill.
-            boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain) + (masteryHasCapstone(character, "ironclad") && Math.random() < 0.15 ? 1 : 0),
-            inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
-            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
-                ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
-                : (rewarded.claimedWarCrateIds ?? []),
-            // clanBattleContrib intentionally NOT incremented here — it's a
-            // PvP-only contribution counter and the AI-only branch shouldn't
-            // touch it (the save endpoint also caps growth, but the cleaner
-            // contract is "only PvP wins move clan-war contribs").
-            totalAiKills: (rewarded.totalAiKills ?? 0) + 1,
-            dailyAiKills: (rewarded.dailyAiKills ?? 0) + 1,
-            totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
-            defeatedAiIds,
-            aiKills,
+        // Assemble the win-reward character from a (possibly soft-capped) XP/ryo
+        // pair. Everything it captures above is computed ONCE (the territory /
+        // village-war side effects mutate shared state, so they must not re-run);
+        // buildWin itself is pure apart from the single Ironclad bonecharm roll,
+        // and is called exactly once per win — synchronously when the flag is OFF,
+        // or once inside the fetch .then/.catch when ON — so that roll never doubles.
+        const buildWin = (effXp: number, effRyo: number): Character => {
+            const leveled = gainXp({ ...base, hp: playerHp }, effXp);
+            const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
+            const winCharacter: Character = {
+                ...rewarded,
+                ...villageWarRaid.characterPatch,
+                ryo: rewarded.ryo + effRyo + villageWarRaid.bountyRyo,
+                fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards + nonVanguardShardSubstitute(rewarded, honorSealGain),
+                honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
+                auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
+                stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
+                // + Vanguard mastery (Ironclad): a chance at a Bone Charm per AI kill.
+                boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain) + (masteryHasCapstone(character, "ironclad") && Math.random() < 0.15 ? 1 : 0),
+                inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+                claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                    ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
+                    : (rewarded.claimedWarCrateIds ?? []),
+                // clanBattleContrib intentionally NOT incremented here — it's a
+                // PvP-only contribution counter and the AI-only branch shouldn't
+                // touch it (the save endpoint also caps growth, but the cleaner
+                // contract is "only PvP wins move clan-war contribs").
+                totalAiKills: (rewarded.totalAiKills ?? 0) + 1,
+                dailyAiKills: (rewarded.dailyAiKills ?? 0) + 1,
+                totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
+                defeatedAiIds,
+                aiKills,
+            };
+            // Mission battles credit completion (daily slot / clan contrib / lifetime)
+            // ONLY on an actual AI win — never at battle start — so losing or fleeing a
+            // mission no longer counts. raidBattleKind === "none" excludes raids.
+            return missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(winCharacter) : winCharacter;
         };
-        // Mission battles credit completion (daily slot / clan contrib / lifetime)
-        // ONLY on an actual AI win — never at battle start — so losing or fleeing a
-        // mission no longer counts. raidBattleKind === "none" excludes raids.
-        updateCharacter(missionBattleActive && raidBattleKind === "none" ? markMissionCompleted(winCharacter) : winCharacter);
+        // P0.2b: when aiFightServerAuth.v1 is ON, the server keeps an authoritative
+        // per-day AI-win counter and returns the soft-capped XP/ryo the client may
+        // grant; we apply exactly those. The battle-end UI + the territory /
+        // village-war side effects above already ran synchronously, so only the
+        // reward GRANT defers to the .then. OFF (default) — or any network/endpoint
+        // failure — grants the locally-computed base, so the result is byte-identical
+        // to before the flag existed and a server hiccup never costs the player a win.
+        if (aiFightServerAuthEnabled()) {
+            fetch("/api/missions/report-ai-fight", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, xp: xpGain, ryo: ryoGain }),
+            })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data: { xp?: unknown; ryo?: unknown } | null) => {
+                    const okXp = typeof data?.xp === "number" ? data.xp : xpGain;
+                    const okRyo = typeof data?.ryo === "number" ? data.ryo : ryoGain;
+                    updateCharacter(buildWin(okXp, okRyo));
+                })
+                .catch(() => updateCharacter(buildWin(xpGain, ryoGain)));
+        } else {
+            updateCharacter(buildWin(xpGain, ryoGain));
+        }
         if (exploreAmbushActive && raidBattleKind === "none") {
             // Explore-mission credit deferred from exploreSector — granted only
             // now that the ambush was won. Flag the win so the victory overlay
