@@ -30,7 +30,7 @@
 .jutsu-training-screen > h2,
 .mission-hall .mh-header h2,
 .mission-hall > h2 {
-    font: 700 18px Cinzel, serif !important;
+    font: 700 18px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: var(--bsv2-gold-bright) !important;
@@ -44,7 +44,7 @@
 .jutsu-training-screen h3,
 .mission-hall .mh-section-title,
 .mission-hall .hunt-rank-heading {
-    font: 600 13px Cinzel, serif !important;
+    font: 600 13px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: var(--bsv2-player) !important;
@@ -129,7 +129,7 @@
 .logbook-screen .location-button strong,
 .logbook-screen .location-button > span:first-child {
     color: var(--bsv2-gold-bright) !important;
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -151,7 +151,7 @@
     color: #fff !important;
     padding: 8px 14px !important;
     border-radius: 4px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em !important;
     text-transform: uppercase !important;
     cursor: pointer;
@@ -228,7 +228,7 @@
     background: rgba(196,162,90,0.18) !important;
     border: 1px solid var(--bsv2-gold-soft) !important;
     color: var(--bsv2-gold-bright) !important;
-    font: 700 12px Cinzel, serif !important;
+    font: 700 12px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     padding: 4px 12px !important;
@@ -256,7 +256,7 @@
     transition: border-color 120ms, transform 120ms;
 }
 .mission-hall .hunt-contract-card:hover { border-color: rgba(78,168,255,0.85) !important; transform: translateY(-2px); }
-.mission-hall .hunt-contract-top { color: var(--bsv2-gold-bright) !important; font: 600 12px Cinzel, serif !important; letter-spacing: 0.1em; }
+.mission-hall .hunt-contract-top { color: var(--bsv2-gold-bright) !important; font: 600 12px var(--font-display) !important; letter-spacing: 0.1em; }
 .mission-hall .hunt-description { color: #c8cfdc !important; font: 400 11px Inter, sans-serif !important; }
 .mission-hall .hunt-drops { color: rgba(196,162,90,0.75) !important; font: 400 10px Inter, sans-serif !important; }
 .mission-hall .hunt-progress-bar {
@@ -272,7 +272,7 @@
 }
 .mission-hall .hunt-progress-label,
 .mission-hall .hunt-lock-label {
-    font: 500 10px Cinzel, serif !important;
+    font: 500 10px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(196,162,90,0.7) !important;
@@ -291,7 +291,7 @@
     color: var(--bsv2-gold-bright) !important;
     padding: 3px 8px !important;
     border-radius: 3px !important;
-    font: 600 9px Cinzel, serif !important;
+    font: 600 9px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
 }
@@ -315,7 +315,7 @@
 .mission-hall .mh-fetch-group-label,
 .mission-hall .mh-combat-name {
     color: var(--bsv2-gold-bright) !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.14em;
 }
 .mission-hall .mh-fetch-rewards,

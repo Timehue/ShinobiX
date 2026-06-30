@@ -14457,7 +14457,7 @@ button.combat-jutsu-button,
    tick in JSX so the pop re-fires each second. Cosmetic only. */
 .pet-prefight-count {
     display: inline-block;
-    font: 900 3.4rem 'Cinzel', serif;
+    font: 900 3.4rem var(--font-display);
     line-height: 1;
     color: #fef3c7;
     text-shadow: 0 0 18px rgba(250, 204, 21, 0.7), 0 0 38px rgba(239, 68, 68, 0.35);
@@ -14470,7 +14470,7 @@ button.combat-jutsu-button,
 }
 .pet-prefight-go {
     display: inline-block;
-    font: 900 3rem 'Cinzel', serif;
+    font: 900 3rem var(--font-display);
     line-height: 1;
     color: #fde68a;
     letter-spacing: 0.08em;
@@ -14496,7 +14496,7 @@ button.combat-jutsu-button,
 }
 .pet-prefight-record {
     margin-top: 2px;
-    font: 800 0.92rem 'Cinzel', serif;
+    font: 800 0.92rem var(--font-display);
     letter-spacing: 0.04em;
 }
 .pet-prefight-record .rec-w   { color: #4ade80; }
@@ -15019,7 +15019,7 @@ button.combat-jutsu-button,
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 24;
-    font: 900 clamp(18px, 3.4vw, 30px)/1 'Cinzel', serif;
+    font: 900 clamp(18px, 3.4vw, 30px)/1 var(--font-display);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #fff7d6;
@@ -15045,7 +15045,7 @@ button.combat-jutsu-button,
 .pet-vfx-tile-basic .pet-battle-vfx b,
 .pet-vfx-tile-lifesteal .pet-battle-vfx b {
     top: -20px;
-    font: 900 1.25rem/1 'Cinzel', serif;
+    font: 900 1.25rem/1 var(--font-display);
     color: #fee2e2;
     background: rgba(2, 6, 23, 0.5);
     border-color: rgba(248, 113, 113, 0.7);
@@ -15156,10 +15156,10 @@ button.combat-jutsu-button,
 .pet-cutin-portrait :where(.pet-battle-avatar) { width: clamp(70px, 9vw, 110px); height: clamp(70px, 9vw, 110px); }
 .pet-cutin-text { display: flex; flex-direction: column; line-height: 1.05; }
 .pet-cutin.enemy .pet-cutin-text { align-items: flex-end; text-align: right; }
-.pet-cutin-pet  { font: 700 13px Cinzel, serif; letter-spacing: 0.18em; text-transform: uppercase; color: #93c5fd; }
+.pet-cutin-pet  { font: 700 13px var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: #93c5fd; }
 .pet-cutin.enemy .pet-cutin-pet { color: #fca5a5; }
 .pet-cutin-move {
-    font: 900 clamp(26px, 4vw, 44px)/1 Cinzel, serif; letter-spacing: 0.04em; color: #fff;
+    font: 900 clamp(26px, 4vw, 44px)/1 var(--font-display); letter-spacing: 0.04em; color: #fff;
     text-shadow: 0 0 16px rgba(250,204,21,0.8), 0 3px 8px rgba(0,0,0,0.9);
 }
 @keyframes petCutin {
@@ -15226,7 +15226,7 @@ button.combat-jutsu-button,
 .pet-momentum-fill-enemy  { background: linear-gradient(90deg, #f87171, #dc2626); transition: width 0.45s ease; }
 .pet-momentum-label {
     position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
-    font: 700 9px Cinzel, serif; letter-spacing: 0.1em; text-transform: uppercase;
+    font: 700 9px var(--font-display); letter-spacing: 0.1em; text-transform: uppercase;
     color: rgba(255,255,255,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.8); padding: 0 8px;
     max-width: 48%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
@@ -15236,7 +15236,7 @@ button.combat-jutsu-button,
 /* ── Commentator hype line ── */
 .pet-commentary {
     text-align: center; margin: 0 auto 4px;
-    font: 900 clamp(15px, 2.4vw, 22px)/1.1 Cinzel, serif; letter-spacing: 0.12em; text-transform: uppercase;
+    font: 900 clamp(15px, 2.4vw, 22px)/1.1 var(--font-display); letter-spacing: 0.12em; text-transform: uppercase;
     color: #fde68a; text-shadow: 0 0 14px rgba(250,204,21,0.55), 0 2px 6px rgba(0,0,0,0.85);
     animation: petCommentaryPop 0.5s cubic-bezier(.2,.8,.2,1) both;
 }
@@ -15249,7 +15249,7 @@ button.combat-jutsu-button,
 /* ── "1 HIT LEFT" brink warning ── */
 .pet-onehit-warn {
     text-align: center; margin: 0 auto 4px;
-    font: 900 clamp(13px, 1.8vw, 17px)/1 Cinzel, serif; letter-spacing: 0.2em; text-transform: uppercase;
+    font: 900 clamp(13px, 1.8vw, 17px)/1 var(--font-display); letter-spacing: 0.2em; text-transform: uppercase;
     color: #fee2e2;
     animation: petOneHit 0.7s ease-in-out infinite;
 }
@@ -15581,7 +15581,7 @@ button.combat-jutsu-button,
 /* Archetype chip on the pre-fight card. */
 .pet-prefight-archetype {
     margin-top: 2px;
-    font: 700 9px Cinzel, serif;
+    font: 700 9px var(--font-display);
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: #c4b5fd;
@@ -16173,7 +16173,7 @@ button.combat-jutsu-button,
     left: 50%; top: 8%;
     transform: translateX(-50%);
     pointer-events: none; z-index: 11;
-    font: 900 clamp(15px, 1.9vw, 24px) Cinzel, serif;
+    font: 900 clamp(15px, 1.9vw, 24px) var(--font-display);
     white-space: nowrap;
     animation: petFloatNumber 1.1s ease-out both;
 }
@@ -16189,7 +16189,7 @@ button.combat-jutsu-button,
     transform: translateX(-50%);
     pointer-events: none; z-index: 11;
     color: #7dd3fc;
-    font: 900 clamp(13px, 1.6vw, 20px) Cinzel, serif;
+    font: 900 clamp(13px, 1.6vw, 20px) var(--font-display);
     letter-spacing: 0.16em;
     text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 12px rgba(125,211,252,0.7);
     animation: petFloatNumber 0.9s ease-out both;
@@ -16206,7 +16206,7 @@ button.combat-jutsu-button,
     border: 1px solid rgba(196,162,90,0.6);
     border-radius: 6px;
     color: #f4e6c4;
-    font: 700 clamp(11px, 1.3vw, 15px) Cinzel, serif;
+    font: 700 clamp(11px, 1.3vw, 15px) var(--font-display);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     white-space: nowrap;
@@ -23045,7 +23045,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
     flex: 1 1 auto;
 }
 .achievement-toast-label {
-    font: 600 9px Cinzel, serif;
+    font: 600 9px var(--font-display);
     letter-spacing: 0.24em;
     text-transform: uppercase;
     color: #c4a25a;
@@ -23055,7 +23055,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
     color: #ce93d8;
 }
 .achievement-toast-body strong {
-    font: 700 14px Cinzel, serif;
+    font: 700 14px var(--font-display);
     letter-spacing: 0.08em;
     color: #e8d496;
     text-transform: uppercase;
@@ -23096,7 +23096,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
     display: grid;
     place-items: center;
     color: #f4e6c4;
-    font: 700 36px Cinzel, serif;
+    font: 700 36px var(--font-display);
     text-shadow: 0 2px 6px rgba(0,0,0,0.75);
     letter-spacing: 0.08em;
 }
