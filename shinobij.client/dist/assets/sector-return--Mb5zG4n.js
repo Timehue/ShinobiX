@@ -1,0 +1,1 @@
+var e=null;function t(t){e=t}function n(){let t=e;return e=null,t}function r(){e=null}var i=!1;function a(){if(i)return!1;i=!0;try{let e=performance.getEntriesByType(`navigation`)[0];return!!e&&(e.type===`reload`||e.type===`back_forward`)}catch{return!1}}export{n as i,a as n,t as r,r as t};
