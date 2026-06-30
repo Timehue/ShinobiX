@@ -135,6 +135,7 @@ const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: 
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
+const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
@@ -8798,15 +8799,9 @@ export default function App() {
                         onLaunchFight={launchWeeklyBossFight}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "villageWar" && character && (
-                    <VillageWarScreen
-                        character={character}
-                        updateCharacter={setCharacter}
-                        playerRoster={playerRoster}
-                        onBack={() => setScreen("townHall")}
-                    />
-                )}
-                {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={() => setScreen("village")} />}
+                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} updateCharacter={setCharacter} playerRoster={playerRoster} onBack={() => setScreen("townHall")} />}
+                {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={() => setScreen("village")} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "sectorCard" && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (
