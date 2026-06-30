@@ -53,13 +53,14 @@ import { recordWarEcoEvent } from '../_war-telemetry.js';
  *
  * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). Combat
  * battles run here (attack/resolve); Card battles run via /village/sector-card and
- * settle the same contest. Pet stays blocked until its server sim lands (Phase 7)
- * — a client-claimed result must never flip territory.
+ * Pet duels via /village/sector-pet — all three settle the same contest Control HP
+ * server-authoritatively. A client-claimed result never flips territory.
  */
 
-// Win-conditions whose server-authoritative battle path is wired this build
-// (Combat here, Card via /village/sector-card). Pet → Phase 7.
-const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card'];
+// Win-conditions whose server-authoritative battle path is wired this build:
+// Combat here, Card via /village/sector-card, Pet via /village/sector-pet (the
+// deterministic pet engine ported to api/pet-sim, Phase 7).
+const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
 
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 type ReadBattle = { status?: string; winner?: string | null; p1?: { name?: string }; p2?: { name?: string } };
