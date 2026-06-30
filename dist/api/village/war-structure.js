@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _war_map_sectors_js_1 = require("../_war-map-sectors.js");
 const _war_state_js_1 = require("../_war-state.js");
 const _war_structures_js_1 = require("../_war-structures.js");
+const _war_telemetry_js_1 = require("../_war-telemetry.js");
 /*
  * /api/village/war-structure — POST only
  *
@@ -93,6 +94,8 @@ async function handler(req, res) {
             const status = result.error === 'insufficient-seals' ? 402 : result.error === 'max-level' ? 409 : 400;
             return res.status(status).json({ error: result.error, cost: result.cost });
         }
+        // Telemetry (best-effort): treasury seals spent upgrading a war structure.
+        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `structure:${(0, _war_state_js_1.villageWarSlug)(village)}:${structure}:${result.newLevel}`, village, kind: 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
         return res.status(200).json(result);
     }
     catch (err) {

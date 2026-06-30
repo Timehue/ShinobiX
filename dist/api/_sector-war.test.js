@@ -71,6 +71,18 @@ function fresh(winCondition = 'combat') {
         node_assert_1.strict.equal(atMax.session.controlHp, _war_state_js_1.SECTOR_CONTROL_HP_MAX);
         node_assert_1.strict.equal(atMax.hpRegen, 0);
     });
+    (0, node_test_1.it)('a player repelling a MERCENARY attacker regenerates only 25% of normal', () => {
+        // chip twice (→ 300), then defend: a merc-battle win regens 25% of 50 = 12,
+        // where a normal defender win would regen the full 50.
+        let s = (0, _sector_war_js_1.applySectorBattleResult)(fresh(), true, { now: NOW }).session; // 450
+        s = (0, _sector_war_js_1.applySectorBattleResult)(s, true, { now: NOW }).session; // 300
+        const merc = (0, _sector_war_js_1.applySectorBattleResult)(s, false, { now: NOW, mercBattle: true });
+        node_assert_1.strict.equal(merc.hpRegen, Math.floor(_war_state_js_1.SECTOR_CONTROL_HP_DEFENDER_REGEN * _sector_war_js_1.MERC_DEFENDER_REGEN_FRACTION)); // 12
+        node_assert_1.strict.equal(merc.session.controlHp, 312);
+        const normal = (0, _sector_war_js_1.applySectorBattleResult)(s, false, { now: NOW });
+        node_assert_1.strict.equal(normal.hpRegen, _war_state_js_1.SECTOR_CONTROL_HP_DEFENDER_REGEN); // 50
+        node_assert_1.strict.equal(normal.session.controlHp, 350);
+    });
     (0, node_test_1.it)('honors a War-Academy-boosted damage value', () => {
         const out = (0, _sector_war_js_1.applySectorBattleResult)(fresh(), true, { now: NOW, damage: 173 }); // +15% of 150 ≈ 173
         node_assert_1.strict.equal(out.session.controlHp, 600 - 173);

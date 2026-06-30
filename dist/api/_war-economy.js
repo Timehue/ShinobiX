@@ -12,7 +12,7 @@
  * Design: docs/village-war-map-economy-plan.md §6.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_HOME_SECTORS = exports.TAX_MIN_RANK_LEVEL = exports.TAX_BURN_SHARE = exports.TAX_CATCHUP_DAYS_MAX = exports.TAX_DAILY_CAP_RYO = exports.TAX_EXEMPTION_RYO = exports.WR_POOL_CAP = exports.WR_MERC_TIERS = exports.SECTOR_WAR_WR = exports.DECLARE_WAR_WR = exports.VILLAGE_STRUCTURE_COUNT = exports.VILLAGE_STRUCTURE_MAX_LEVEL = exports.MAINT_EXPONENT = exports.MAINT_BASE = exports.SEALS_PER_SECTOR_PER_DAY = exports.WR_PER_SECTOR_PER_DAY = void 0;
+exports.MERC_BAND_MAX = exports.MAX_HOME_SECTORS = exports.TAX_MIN_RANK_LEVEL = exports.TAX_BURN_SHARE = exports.TAX_CATCHUP_DAYS_MAX = exports.TAX_DAILY_CAP_RYO = exports.TAX_EXEMPTION_RYO = exports.WR_POOL_CAP = exports.WR_MERC_TIERS = exports.SECTOR_WAR_WR = exports.DECLARE_WAR_WR = exports.VILLAGE_STRUCTURE_COUNT = exports.VILLAGE_STRUCTURE_MAX_LEVEL = exports.MAINT_EXPONENT = exports.MAINT_BASE = exports.SEALS_PER_SECTOR_PER_DAY = exports.WR_PER_SECTOR_PER_DAY = void 0;
 exports.sectorBenefitWr = sectorBenefitWr;
 exports.sectorBenefitSeals = sectorBenefitSeals;
 exports.structureMaintenanceWr = structureMaintenanceWr;
@@ -22,6 +22,7 @@ exports.comebackCostMultiplier = comebackCostMultiplier;
 exports.discountedWrCost = discountedWrCost;
 exports.computeTax = computeTax;
 exports.wrMercTierById = wrMercTierById;
+exports.mercBandSize = mercBandSize;
 // ── Sector benefits (per controlled sector, per day → village pool) ── §6.1
 exports.WR_PER_SECTOR_PER_DAY = 25;
 exports.SEALS_PER_SECTOR_PER_DAY = 1;
@@ -137,4 +138,14 @@ function computeTax(args) {
 /** Find a WR mercenary tier by id (null if unknown). */
 function wrMercTierById(id) {
     return exports.WR_MERC_TIERS.find((t) => t.id === id) ?? null;
+}
+// ── Mercenary band size (§17.5: a hire fields 3-5 AI mercs) ──
+// How many AI mercs one hire deploys, escalating 3→5 with tier. Tunable.
+exports.MERC_BAND_MAX = 5;
+const MERC_BAND_SIZES = {
+    'merc-ronin': 3, 'merc-reaver': 3, 'merc-shadow': 4, 'merc-oni': 4, 'merc-warlord': 5,
+};
+/** Band size for a merc tier (0 for an unknown tier — the caller rejects). */
+function mercBandSize(tierId) {
+    return MERC_BAND_SIZES[tierId] ?? 0;
 }
