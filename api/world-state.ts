@@ -8,6 +8,17 @@ import { withKvLock } from './_lock.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { resolveClaimedWarSupply } from './_territory-supply.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
+// Village War Map (flag-gated, default OFF via ENABLE_VILLAGE_WAR). When enabled,
+// war declaration is funded from the village WR pool instead of the Kage's Honor
+// Seals, and a war win stamps a village-wide buff. When OFF, every path below is
+// byte-for-byte the legacy behavior.
+import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
+import { villageWarKey, normalizeVillageWarRecord } from './_war-state.js';
+import { homeSectorsForVillage } from './_war-map-sectors.js';
+
+function villageWarEnabled(): boolean {
+    return process.env.ENABLE_VILLAGE_WAR === '1';
+}
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
@@ -390,6 +401,10 @@ const WAR_STANDING_PREFIX = 'village:war-standing:';
 // days. Stamped on the loser's village-state at settlement; the client applies
 // it in Training/PetYard. KEEP IN SYNC with shinobij.client/src/lib/war-debuff.ts.
 const WAR_LOSS_DEBUFF_MS = 3 * 24 * 60 * 60 * 1000;
+// Village War Map winner buff: the winning village enjoys a village-wide boost for
+// 3 days (mirrors the loser debuff window). Stamped on the winner's village-state
+// at settlement ONLY when the feature is enabled; the client applies the effect.
+const WAR_WIN_BUFF_MS = 3 * 24 * 60 * 60 * 1000;
 function villageStateKey(village: string): string {
     return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
@@ -428,7 +443,10 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
             const wt = (winnerState.treasury ?? {}) as Record<string, unknown>;
             const spoils = computeSpoils({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
             await kv.set(loserKey, { ...loserState, warLossDebuffUntil: now + WAR_LOSS_DEBUFF_MS, treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
-            await kv.set(winnerKey, { ...winnerState, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
+            // Winner buff (Village War Map): additive village-wide boost window,
+            // stamped only when the feature is enabled. Harmless field otherwise.
+            const winBuff = villageWarEnabled() ? { warWinBuffUntil: now + WAR_WIN_BUFF_MS } : {};
+            await kv.set(winnerKey, { ...winnerState, ...winBuff, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
             await kv.set(`audit:village-war-settle:${war.id}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
             return true;
         }), { failClosed: true });
@@ -785,35 +803,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                         return { status: 409 as const, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
                                     }
                                 }
-                                // 4. Cost check. Charge the declaring Kage
-                                //    VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS honor seals.
-                                //    The snapshot read at line ~540 is OUTSIDE
-                                //    the save lock; a concurrent save can
-                                //    drop honorSeals between the snapshot and
-                                //    the deduct below. The deduct re-reads
-                                //    inside the lock and PROPAGATES a failure
-                                //    back to the outer handler so we don't
-                                //    create a war for free when the deduct
-                                //    silently skipped.
-                                const honorSeals = Number(actorChar?.honorSeals ?? 0);
-                                if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
-                                    return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
-                                }
-                                // 5. Deduct under the Kage's save lock so a concurrent save can't double-spend.
-                                const deductOk = await withKvLock(`save:${identity.name}`, async () => {
-                                    const fresh = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                                    const freshChar = (fresh?.character ?? null) as Record<string, unknown> | null;
-                                    if (!fresh || !freshChar) return false;
-                                    const freshSeals = Number(freshChar.honorSeals ?? 0);
-                                    if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return false; // raced
-                                    await kv.set(`save:${identity.name}`, bumpSaveVersion({
-                                        ...fresh,
-                                        character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
-                                    }));
-                                    return true;
-                                });
-                                if (!deductOk) {
-                                    return { status: 400 as const, body: { error: `Honor Seal balance changed under you; declaration was not charged and the war was not created. Retry.` } };
+                                // 4. Cost. Village War Map (enabled): fund the
+                                //    declaration from the declaring village's WR
+                                //    pool — DECLARE_WAR_WR after the rock-bottom
+                                //    comeback discount — debited under the war-
+                                //    record lock. Legacy (disabled): charge the
+                                //    declaring Kage VILLAGE_WAR_DECLARATION_COST_
+                                //    HONOR_SEALS honor seals, re-read inside the
+                                //    save lock so a concurrent save can't double-
+                                //    spend; a raced/failed deduct propagates so we
+                                //    never create a war for free.
+                                if (villageWarEnabled()) {
+                                    const warKey = villageWarKey(actorVillage);
+                                    const sectorsHeld = homeSectorsForVillage(actorVillage).length;
+                                    const wr = await withKvLock(warKey, async () => {
+                                        const rec = normalizeVillageWarRecord(actorVillage, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
+                                        const cost = discountedWrCost(DECLARE_WAR_WR, sectorsHeld);
+                                        if (rec.warResources < cost) return { ok: false as const, cost, have: rec.warResources };
+                                        await kv.set(warKey, { ...rec, warResources: rec.warResources - cost });
+                                        return { ok: true as const, cost };
+                                    }, { failClosed: true });
+                                    if (!wr.ok) {
+                                        return { status: 400 as const, body: { error: `Declaring war costs ${wr.cost} War Resources. ${actorVillage} holds ${wr.have}.` } };
+                                    }
+                                } else {
+                                    const honorSeals = Number(actorChar?.honorSeals ?? 0);
+                                    if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
+                                        return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
+                                    }
+                                    const deductOk = await withKvLock(`save:${identity.name}`, async () => {
+                                        const fresh = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                                        const freshChar = (fresh?.character ?? null) as Record<string, unknown> | null;
+                                        if (!fresh || !freshChar) return false;
+                                        const freshSeals = Number(freshChar.honorSeals ?? 0);
+                                        if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return false; // raced
+                                        await kv.set(`save:${identity.name}`, bumpSaveVersion({
+                                            ...fresh,
+                                            character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
+                                        }));
+                                        return true;
+                                    });
+                                    if (!deductOk) {
+                                        return { status: 400 as const, body: { error: `Honor Seal balance changed under you; declaration was not charged and the war was not created. Retry.` } };
+                                    }
                                 }
                                 // 6. Stamp canonical crate ID + initialize empty contributions map.
                                 war.warCrateId = `war-crate-${war.id}`;

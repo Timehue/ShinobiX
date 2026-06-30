@@ -824,7 +824,11 @@ cannot run sector wars, and vice‑versa.
   village‑wide. Define a winner buff set (e.g. +X% combat / +X% income / −X% upkeep for N
   days) to match ruling #3. The war‑ground sector stays an **in‑war HP objective only**
   (it already drains enemy HP) and **no longer flips map ownership** — that moves
-  entirely to sector war.
+  entirely to sector war. **(Implementation note, Phase 3:** the war‑ground was *already*
+  decoupled — `capturedBy` is an in‑war flag that never writes `world:territory`, and
+  `settleVillageWar` only moves treasury + standings — so this needed no code. Only the
+  WR declare cost and the winner buff were code changes, both gated by `ENABLE_VILLAGE_WAR`
+  so production is byte‑for‑byte unchanged.)
 - **Sector War is new and light:** Kage targets one enemy‑held sector; the fight uses
   **that sector's win‑condition** (17.2); a win flips the sector. Being per‑sector and
   short, a village can prosecute **several at once vs different villages** — never while
