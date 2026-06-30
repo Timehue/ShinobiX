@@ -24,11 +24,14 @@ import { HOLLOW_GATE_CLAWBACK_KEYS, clawBackHollowGateLoot } from "./hollow-gate
 export type HollowGateOutcome = "extract" | "death";
 
 // ── Feature flag ──────────────────────────────────────────────────────────────
-// Default OFF until the loop is playtested. Opt IN per-device with localStorage
-// `hollowGateServer.v1 = "on"`. (Most flags here default ON and opt out; this one
-// is an anti-cheat/economy change, so it stays OFF until deliberately enabled.)
+// NOW DEFAULT ON — the server-authoritative run loop (anti-cheat: rewards are
+// sealed + settled server-side instead of client-trusted) is the default. It
+// degrades gracefully, so a server hiccup falls back to the local flow. Opt OUT
+// per-device with localStorage `hollowGateServer.v1 = "off"`.
 export function hollowGateServerEnabled(): boolean {
-    try { return window.localStorage?.getItem("hollowGateServer.v1") === "on"; } catch { return false; }
+    // Browser (storage available): ON unless explicitly "off". No-storage / SSR /
+    // node-test: fall back to OFF so the run-loop tests stay deterministic.
+    try { return window.localStorage?.getItem("hollowGateServer.v1") !== "off"; } catch { return false; }
 }
 
 // ── Modal shape (structurally compatible with App's HollowGateEventModal) ──────
