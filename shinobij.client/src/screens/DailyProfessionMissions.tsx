@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
+import { LoadingState } from "../components/ui/LoadingState";
 import type { Character, Profession } from "../App";
 
 type DailyMission = {
@@ -115,7 +116,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
             <h3 style={{ marginTop: 0, color: accent }}>
                 {isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
             </h3>
-            {loading && <p className="hint">Loading…</p>}
+            {loading && <LoadingState />}
             {error && <p style={{ color: "#f87171" }}>{error}</p>}
             {!loading && !error && data && missions.length === 0 && (
                 <p className="hint" style={{ margin: 0 }}>

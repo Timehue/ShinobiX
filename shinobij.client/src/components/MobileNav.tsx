@@ -18,6 +18,7 @@ import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
+import { GameIcon } from "./icons/GameIcon";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
 // snapshots from App), the navigate callback (stable), and a boolean.
@@ -72,23 +73,23 @@ export const MobileNav = memo(function MobileNav({
 
             <nav className="mobile-bottom-nav">
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
-                    <span className="mnb-icon">🗺️</span>
+                    <span className="mnb-icon"><GameIcon name="map" size={24} /></span>
                     Travel
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("tavern")}>
-                    <span className="mnb-icon">🍶</span>
+                    <span className="mnb-icon"><GameIcon name="flask" size={24} /></span>
                     Tavern
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("profile")}>
-                    <span className="mnb-icon">👤</span>
+                    <span className="mnb-icon"><GameIcon name="person" size={24} /></span>
                     Char
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("inventory")}>
-                    <span className="mnb-icon">🎒</span>
+                    <span className="mnb-icon"><GameIcon name="bag" size={24} /></span>
                     Items
                 </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
-                    <span className="mnb-icon">☰</span>
+                    <span className="mnb-icon"><GameIcon name="menu" size={24} /></span>
                     Menu
                     <MailUnreadDot />
                 </button>
