@@ -41,6 +41,20 @@
 .vwm-contest-row:last-child { border-bottom: none; }
 .vwm-contest-meta { opacity: 0.7; }
 
+/* Mercenaries panel (§17.5) — hire tiers (portrait + cost) + deploy controls. */
+.vwm-mercs h3 { margin: 0.2rem 0 0.4rem; }
+.vwm-merc-tiers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem; margin-top: 0.5rem; }
+.vwm-merc-tier { border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 0.5rem; background: rgba(0, 0, 0, 0.18); text-align: center; }
+.vwm-merc-portrait { width: 100%; max-width: 120px; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin: 0 auto 0.35rem; display: block; }
+.vwm-merc-name { font-weight: 600; text-transform: capitalize; font-size: 0.85rem; margin-bottom: 0.35rem; }
+.vwm-merc-tier > button { width: 100%; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 7px; padding: 0.3rem; cursor: pointer; font-size: 0.8rem; }
+.vwm-merc-tier > button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+.vwm-merc-tier > button:disabled { opacity: 0.5; cursor: default; }
+.vwm-merc-band { font-size: 0.78rem; opacity: 0.9; margin: 0.35rem 0 0.2rem; color: #fbbf24; }
+.vwm-merc-deploy { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.3rem; }
+.vwm-merc-deploy select, .vwm-merc-deploy input { background: rgba(0, 0, 0, 0.3); color: inherit; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px; padding: 0.25rem; font-size: 0.78rem; }
+.vwm-merc-msg { margin-top: 0.5rem; font-size: 0.85rem; color: #86efac; }
+
 @media (max-width: 800px) {
   .vwm-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
