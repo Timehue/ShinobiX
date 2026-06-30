@@ -13,6 +13,7 @@
  */
 import { hollowGateReachableSet, bspSplit, bspRoomInNode, bspRoomCenter, bspCarveCorridor, type BSPRect } from "./hollow-gate-bsp";
 import { generateHollowGateMazeRun } from "./hollow-gate-maze";
+import { generateHollowGateFloor } from "./hollow-gate-generate";
 import { pickRoomTheme } from "../data/hollow-gate-atlas";
 import { HOLLOW_GATE_SHRINE_W, HOLLOW_GATE_SHRINE_H, HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { petTreatItems, petRarityOrder } from "../data/pet-config";
@@ -449,23 +450,25 @@ export function buildRunFromParsedLayout(
 export function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
 
-    // Random-maze dungeon (owner preference — the branching-wings generator in
-    // lib/hollow-gate-wings is kept but no longer the default). For variety each
-    // floor rolls one of three styles: ~1/3 hand-authored maze layout, ~1/3 a
-    // recursive-backtracker maze (winding passages, loops, dead-end loot), ~1/3
-    // a fresh randomized BSP rooms-and-corridors floor. The wing-aware UI/
-    // mechanics no-op on these floors (no wingThemes → no tint/labels/sealing).
-    const roll = Math.random();
-    if (roll < 0.34) {
+    // Primary: ONE coherent generator (lib/hollow-gate-generate) — rooms + MST
+    // corridors + guaranteed connectivity + distance-map content. This replaced the
+    // old three-styles-at-random roll, which is what made floors feel inconsistent
+    // and "not make sense" (research: docs/hollow-gate-loop.md §dungeon-gen). The two
+    // raw procedural styles (recursive-maze, x-sorted BSP) are retired from the roll
+    // and kept only as defensive fallbacks. ~15% of floors still use a hand-authored
+    // ASCII set-piece for variety (authored skeleton + procedural flesh).
+    if (Math.random() < 0.15) {
         const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
         for (const layoutSrc of shuffled) {
             const parsed = parseHollowGateLayout(layoutSrc);
             if (parsed) return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
         }
-    } else if (roll < 0.67) {
-        try { return generateHollowGateMazeRun(floor, isFinalFloor); } catch { /* fall through to BSP */ }
     }
-    return generateHollowGateShrineRunBSP(floor);
+    try {
+        return generateHollowGateFloor(floor, isFinalFloor);
+    } catch {
+        try { return generateHollowGateMazeRun(floor, isFinalFloor); } catch { return generateHollowGateShrineRunBSP(floor); }
+    }
 }
 
 function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
