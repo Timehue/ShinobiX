@@ -76,6 +76,34 @@ export function maxHaulForDepth(depth: number, rewardMultiplier = 1): Record<HgC
     return out;
 }
 
+// ─── High-value ITEM drops (P0.2c) ─────────────────────────────────────────────
+// The clawback ceilings above bound the run's CURRENCY haul. The boss also drops a
+// discrete high-value ITEM (the Dungeon Legendary Fragment) that the per-save
+// sanitizer does NOT per-item cap (only the blanket INVENTORY_CAP). To make that
+// drop server-authoritative we seal an item ceiling here, mirroring maxHaulForDepth:
+// settle credits min(client-claimed, ceiling) of the item, so a crafted client
+// can't smuggle extra fragments. Mirror of DUNGEON_LEGENDARY_FRAGMENT_ID in
+// shinobij.client/src/constants/game.ts — the drift guard pins them equal.
+export const HG_HIGH_VALUE_ITEM_ID = 'dungeon-legendary-fragment';
+
+/** Max Dungeon Legendary Fragments a depth-`depth` run could legitimately yield.
+ *  Generous (≈1 per floor of depth) — a too-low ceiling would wrongly confiscate a
+ *  legit boss drop, while any finite ceiling still closes the unbounded-mint exploit.
+ *  Mirrors the 1..20 depth clamp used by maxHaulForDepth. */
+export function maxFragmentsForDepth(depth: number): number {
+    return Math.max(1, Math.min(20, Math.floor(Number(depth) || 1)));
+}
+
+/** Pure: credited count for a discrete high-value item given the sealed ceiling +
+ *  death claw-back fraction. Never exceeds the ceiling, never goes negative; mirrors
+ *  settleCurrency's clamp/floor discipline (items are additive, so there's no
+ *  entry-snapshot anchor — only the ceiling and the death fraction bound it). */
+export function settleItemCount(claimed: unknown, ceiling: number, frac: number): number {
+    const c = Math.max(0, Math.floor(Number(claimed) || 0));
+    const cap = Math.max(0, Math.floor(Number(ceiling) || 0));
+    return Math.max(0, Math.floor(Math.min(c, cap) * (Number(frac) || 0)));
+}
+
 // ─── Augments ─────────────────────────────────────────────────────────────────
 // combat = client-side feel (UNTRUSTED, changes how the run plays, never payout).
 // rewardMultiplier = the ONLY server-enforced effect (sealed in the token).

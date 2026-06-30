@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AUGMENT_CATALOG = exports.HG_CLAWBACK_KEYS = void 0;
+exports.AUGMENT_CATALOG = exports.HG_HIGH_VALUE_ITEM_ID = exports.HG_CLAWBACK_KEYS = void 0;
 exports.hollowShardDrop = hollowShardDrop;
 exports.maxShardsForDepth = maxShardsForDepth;
 exports.maxHaulForDepth = maxHaulForDepth;
+exports.maxFragmentsForDepth = maxFragmentsForDepth;
+exports.settleItemCount = settleItemCount;
 exports.augmentDisplay = augmentDisplay;
 exports.rollAugmentOffers = rollAugmentOffers;
 exports.rewardMultiplierForToken = rewardMultiplierForToken;
@@ -75,6 +77,31 @@ function maxHaulForDepth(depth, rewardMultiplier = 1) {
         out[k] = Math.ceil(d * PER_DEPTH_CEIL[k] * mult);
     }
     return out;
+}
+// ─── High-value ITEM drops (P0.2c) ─────────────────────────────────────────────
+// The clawback ceilings above bound the run's CURRENCY haul. The boss also drops a
+// discrete high-value ITEM (the Dungeon Legendary Fragment) that the per-save
+// sanitizer does NOT per-item cap (only the blanket INVENTORY_CAP). To make that
+// drop server-authoritative we seal an item ceiling here, mirroring maxHaulForDepth:
+// settle credits min(client-claimed, ceiling) of the item, so a crafted client
+// can't smuggle extra fragments. Mirror of DUNGEON_LEGENDARY_FRAGMENT_ID in
+// shinobij.client/src/constants/game.ts — the drift guard pins them equal.
+exports.HG_HIGH_VALUE_ITEM_ID = 'dungeon-legendary-fragment';
+/** Max Dungeon Legendary Fragments a depth-`depth` run could legitimately yield.
+ *  Generous (≈1 per floor of depth) — a too-low ceiling would wrongly confiscate a
+ *  legit boss drop, while any finite ceiling still closes the unbounded-mint exploit.
+ *  Mirrors the 1..20 depth clamp used by maxHaulForDepth. */
+function maxFragmentsForDepth(depth) {
+    return Math.max(1, Math.min(20, Math.floor(Number(depth) || 1)));
+}
+/** Pure: credited count for a discrete high-value item given the sealed ceiling +
+ *  death claw-back fraction. Never exceeds the ceiling, never goes negative; mirrors
+ *  settleCurrency's clamp/floor discipline (items are additive, so there's no
+ *  entry-snapshot anchor — only the ceiling and the death fraction bound it). */
+function settleItemCount(claimed, ceiling, frac) {
+    const c = Math.max(0, Math.floor(Number(claimed) || 0));
+    const cap = Math.max(0, Math.floor(Number(ceiling) || 0));
+    return Math.max(0, Math.floor(Math.min(c, cap) * (Number(frac) || 0)));
 }
 exports.AUGMENT_CATALOG = {
     'keen-edge': { id: 'keen-edge', label: 'Keen Edge', description: '+20% damage dealt this dive.', rarity: 'common', combat: { kind: 'damageBonus', value: 0.20 }, rewardMultiplier: 1.2 },
