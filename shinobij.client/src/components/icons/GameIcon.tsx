@@ -180,6 +180,10 @@ const PATHS: Record<GameIconName, ReactElement> = {
     flask: (
         <path d="M10 3.2h4a.8.8 0 0 1 .8.8v2.3a1 1 0 0 0 .15.52l1.7 2.8A5.5 5.5 0 0 1 17.4 15v2.6a3.2 3.2 0 0 1-3.2 3.2H9.8a3.2 3.2 0 0 1-3.2-3.2V15a5.5 5.5 0 0 1 .75-2.78l1.7-2.8a1 1 0 0 0 .15-.52V4a.8.8 0 0 1 .8-.8Z" />
     ),
+    // Lightning bolt — speed stat.
+    bolt: (
+        <path d="M13.4 2.3 5.6 13a.65.65 0 0 0 .53 1.03h3.3l-1.2 7a.55.55 0 0 0 1 .42l7.9-11a.65.65 0 0 0-.53-1.03h-3.5l1.5-6.6a.55.55 0 0 0-1-.42Z" />
+    ),
 };
 
 export function GameIcon({
