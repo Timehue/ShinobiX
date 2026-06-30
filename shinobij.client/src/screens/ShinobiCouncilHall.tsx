@@ -1,5 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect } from "react";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import { GiGreekTemple, GiCrossedSwords, GiBlackFlag, GiCrown, GiTrophy } from "react-icons/gi";
+const SCH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import type { Character, PlayerRecord } from "../types/character";
 import type { Screen } from "../types/core";
 import { ClanBattlesTab } from "./ClanBattlesTab";
@@ -113,19 +116,19 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             <div className="council-header">
                 <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
                 <div>
-                    <h2>🏛️ Shinobi Council Hall</h2>
+                    <h2><GiGreekTemple style={SCH_ICON} />Shinobi Council Hall</h2>
                     <p className="council-subtitle">Live war status and the eternal record of village leaders.</p>
                 </div>
             </div>
 
             <div className="council-tabs">
-                <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>⚔️ Active Wars</button>
-                <button className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}>🏴 Clan Battles</button>
-                <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>👑 Kage Records</button>
+                <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}><GiCrossedSwords style={SCH_ICON} />Active Wars</button>
+                <button className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}><GiBlackFlag style={SCH_ICON} />Clan Battles</button>
+                <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}><GiCrown style={SCH_ICON} />Kage Records</button>
             </div>
 
             {tab === "wars" && <><section className="council-section">
-                <h3 className="council-section-title">⚔️ Village Wars</h3>
+                <h3 className="council-section-title"><GiCrossedSwords style={SCH_ICON} />Village Wars</h3>
                 {activeVillageWars.length === 0
                     ? <p className="council-empty">No active village wars. The world is at peace.</p>
                     : activeVillageWars.map(war => {
@@ -141,14 +144,14 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                         <VillagePill village={vA} highlight={character.village === vA} />
                                         <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
                                         <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="#22c55e" />
-                                        <span className="council-top">🏆 {topA}</span>
+                                        <span className="council-top"><GiTrophy style={SCH_ICON} />{topA}</span>
                                     </div>
                                     <div className="council-vs">VS</div>
                                     <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
                                         <VillagePill village={vB} highlight={character.village === vB} />
                                         <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
                                         <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="#ef4444" />
-                                        <span className="council-top">🏆 {topB}</span>
+                                        <span className="council-top"><GiTrophy style={SCH_ICON} />{topB}</span>
                                     </div>
                                 </div>
                                 <div className="council-war-meta">
@@ -162,7 +165,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             </section>
 
             <section className="council-section">
-                <h3 className="council-section-title">⚔️ Clan Wars</h3>
+                <h3 className="council-section-title"><GiCrossedSwords style={SCH_ICON} />Clan Wars</h3>
                 {clanWarsLoading
                     ? <p className="council-empty">Loading clan wars…</p>
                     : clanWars.length === 0
@@ -176,14 +179,14 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                             <span className="council-village-name">{cw.clanA}</span>
                                             <span className="council-hp-label">{cw.villageA} · {cw.scoreA.toLocaleString()} pts</span>
                                             <HpBar current={cw.scoreA} max={totalMax} color="#a78bfa" />
-                                            <span className="council-top">🏆 {cw.topA}</span>
+                                            <span className="council-top"><GiTrophy style={SCH_ICON} />{cw.topA}</span>
                                         </div>
                                         <div className="council-vs">VS</div>
                                         <div className={`council-side council-side-right ${character.clan === cw.clanB ? "council-mine" : ""}`}>
                                             <span className="council-village-name">{cw.clanB}</span>
                                             <span className="council-hp-label">{cw.villageB} · {cw.scoreB.toLocaleString()} pts</span>
                                             <HpBar current={cw.scoreB} max={totalMax} color="#fb923c" />
-                                            <span className="council-top">🏆 {cw.topB}</span>
+                                            <span className="council-top"><GiTrophy style={SCH_ICON} />{cw.topB}</span>
                                         </div>
                                     </div>
                                     <div className="council-war-meta">
@@ -198,7 +201,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             {tab === "clanBattles" && <ClanBattlesTab character={character} playerRoster={playerRoster} setScreen={setScreen} launchClanWarBattle={launchClanWarBattle} />}
 
             {tab === "kage" && <section className="council-section">
-                <h3 className="council-section-title">👑 Kage Records — All Villages</h3>
+                <h3 className="council-section-title"><GiCrown style={SCH_ICON} />Kage Records — All Villages</h3>
                 {sortedKageHistory.length === 0
                     ? <p className="council-empty">No Kage have been seated yet. Defeat your village's story boss to open the Kage system.</p>
                     : sortedKageHistory.map((entry, i) => {
@@ -207,7 +210,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                         const isMe = entry.name === character.name;
                         return (
                             <div key={`${entry.name}-${entry.village}-${i}`} className={`council-kage-row ${isMe ? "council-kage-me" : ""} ${isActive ? "council-kage-active" : ""}`}>
-                                <div className="council-kage-seal">👑</div>
+                                <div className="council-kage-seal"><GiCrown /></div>
                                 <div className="council-kage-info">
                                     <span className="council-kage-name">{entry.name}</span>
                                     <VillagePill village={entry.village} highlight={entry.village === character.village} />
