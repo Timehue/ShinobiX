@@ -20,6 +20,7 @@ exports.runVillageWarDailyPass = runVillageWarDailyPass;
 const _storage_js_1 = require("./_storage.js");
 const _lock_js_1 = require("./_lock.js");
 const _war_economy_js_1 = require("./_war-economy.js");
+const _war_telemetry_js_1 = require("./_war-telemetry.js");
 const _war_map_sectors_js_1 = require("./_war-map-sectors.js");
 const _war_state_js_1 = require("./_war-state.js");
 const _war_structures_js_1 = require("./_war-structures.js");
@@ -71,6 +72,18 @@ async function runVillageWarDailyPass(deps = {}) {
                     await store.set(key, next);
                     ran++;
                     ranThisVillage = true;
+                    // Telemetry (best-effort, same store): the day's WR faucet, upkeep
+                    // sink, and any dormancy transition. eventId is keyed per
+                    // village/day so the idempotent pass can't double-count.
+                    const slug = (0, _war_state_js_1.villageWarSlug)(village);
+                    if (summary.wrAccrued > 0)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `wr-earn:${slug}:${today}`, village, kind: 'wr.earn', amount: summary.wrAccrued, ts: now }, { kv: store });
+                    if (summary.maintenancePaid > 0)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `wr-maint:${slug}:${today}`, village, kind: 'wr.spend.maintenance', amount: summary.maintenancePaid, ts: now }, { kv: store });
+                    if (!record.dormant && summary.dormant)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `dormancy-enter:${slug}:${today}`, village, kind: 'dormancy.enter', amount: 1, ts: now }, { kv: store });
+                    if (record.dormant && !summary.dormant)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `dormancy-exit:${slug}:${today}`, village, kind: 'dormancy.exit', amount: 1, ts: now }, { kv: store });
                 }
             });
             // Seal accrual → existing village treasury, once per fresh daily run
@@ -87,6 +100,7 @@ async function runVillageWarDailyPass(deps = {}) {
                             treasury: { ...treasury, honorSeals: num(treasury.honorSeals) + seals },
                         });
                         sealsAccrued += seals;
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `seals-earn:${(0, _war_state_js_1.villageWarSlug)(village)}:${today}`, village, kind: 'seals.earn', amount: seals, ts: now }, { kv: store });
                     });
                 }
             }

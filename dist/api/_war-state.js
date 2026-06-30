@@ -109,7 +109,8 @@ function normalizeVillageWarRecord(village, raw) {
             if (seen.has(dedupeKey))
                 continue;
             seen.add(dedupeKey);
-            base.mercLeases.push({ tierId, player, expiresAt });
+            const count = clampInt(l.count ?? (0, _war_economy_js_1.mercBandSize)(tierId), 0, _war_economy_js_1.MERC_BAND_MAX);
+            base.mercLeases.push({ tierId, player, expiresAt, count });
         }
     }
     if (raw.terrainSetBy && typeof raw.terrainSetBy === 'object') {

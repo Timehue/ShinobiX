@@ -4,7 +4,7 @@
  *
  * Which EXISTING world sectors each village owns at the start of the war-map
  * layer (plan §4). The neutral central band (56-60) and special sectors
- * (Hollow-Gate shrines 1/52/57, Death's Gate 99) are NOT war sectors. All 8 home
+ * (Hollow-Gate shrines 1/52/57, Sunscar Festival 35, Death's Gate 99) are NOT war sectors. All 8 home
  * sectors per village are capturable (no protected core, no floor). The canonical
  * key is always the world-sector number; `AL-n`-style labels are display aliases.
  *
@@ -27,7 +27,7 @@ exports.WAR_VILLAGES = [
 // Home sectors per village — all 8 capturable. Outskirts anchor listed first. §4.
 exports.HOME_SECTORS = {
     'Moonshadow Village': [11, 19, 15, 4, 5, 6, 16, 8],
-    'Stormveil Village': [31, 21, 22, 34, 24, 35, 26, 27],
+    'Stormveil Village': [31, 21, 22, 34, 24, 32, 26, 27],
     'Ashen Leaf Village': [38, 36, 37, 39, 40, 41, 42, 43],
     'Frostfang Village': [47, 46, 48, 49, 50, 51, 53, 54],
 };
@@ -47,8 +47,9 @@ exports.VILLAGE_BIOME = {
 };
 // The neutral central keep — not owned, not capturable, not counted (§4).
 exports.CENTRAL_SECTORS = [56, 57, 58, 59, 60];
-// Special sectors that are never war sectors (Hollow-Gate shrines, Death's Gate).
-exports.NON_WAR_SPECIAL_SECTORS = [1, 52, 57, 99];
+// Special sectors that are never war sectors (Hollow-Gate shrines, the Sunscar
+// Festival at 35, Death's Gate). The festival is a neutral POI, not a territory.
+exports.NON_WAR_SPECIAL_SECTORS = [1, 35, 52, 57, 99];
 const SECTOR_TO_VILLAGE = (() => {
     const m = new Map();
     for (const v of exports.WAR_VILLAGES)

@@ -12,6 +12,7 @@ const _war_structures_js_1 = require("../_war-structures.js");
 const _sector_war_js_1 = require("../_sector-war.js");
 const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
+const _war_telemetry_js_1 = require("../_war-telemetry.js");
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
  *
@@ -167,6 +168,10 @@ async function doDeclare(req, res, identity, playerName, body) {
     }, { failClosed: true });
     if (!out.ok)
         return res.status(400).json({ error: `Declaring this sector war costs ${out.cost} War Resources.` });
+    // Telemetry (best-effort): the WR actually spent declaring (0 when re-opening an
+    // already-active contest, so no event). Never blocks the declare.
+    if (out.cost > 0)
+        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `declare:${id}`, village, kind: 'wr.spend.declare', amount: out.cost, meta: `sector:${sector}` });
     return res.status(200).json({ ok: true, cost: out.cost, alreadyOpen: out.alreadyOpen, contest: out.contest });
 }
 // ── attack (register a battle → mint the single-use token) ────────────────────
@@ -258,6 +263,8 @@ async function doResolve(req, res, identity, playerName, body) {
             // scope. Re-running is idempotent (ownerVillage already set).
             await (0, world_state_js_1.captureSectorForVillage)(token.sector, token.attackerVillage, Date.now());
             await (0, _sector_war_store_js_1.deleteSectorWar)(id);
+            // Telemetry (best-effort): a sector flipped to the attacker.
+            void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `capture:${id}`, village: token.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${token.sector}` });
         }
         else {
             await (0, _sector_war_store_js_1.saveSectorWar)(outcome.session);
