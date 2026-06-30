@@ -1,7 +1,9 @@
 import { kv } from '../../_storage.js';
 
 export type ClanSealPoolEntry = {
-    kind: 'donate' | 'distribute';
+    // 'distribute-refund' = a distribution whose recipient credit failed, so the
+    // debited Seals were returned to the pool (see distribute.ts refund path).
+    kind: 'donate' | 'distribute' | 'distribute-refund';
     by: string;
     to?: string;
     amount: number;
