@@ -10,6 +10,7 @@ import { describeJutsuEffects } from "../lib/jutsu-effects";
 import { bloodlineArchetypes, bloodlineTemplateJutsus } from "../lib/bloodline-templates";
 import { compactImage, compressDataUrl, publishSharedImage, readImageFile } from "../lib/shared-images";
 import { formatJutsuResourcePercent, jutsuResourceBackingCost, lockJutsuResourceCosts } from "../lib/jutsu-scaling";
+import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { makeId } from "../lib/utils";
 import { replaceCharacterBloodline } from "../lib/bloodline";
@@ -91,9 +92,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     // Load a balanced starter set for an archetype, themed to the current
     // element + offense. Behavior-preserving: only pre-fills editable jutsu,
     // always within budget (guaranteed by bloodline-templates.test.ts).
-    function applyTemplate(key: string) {
+    async function applyTemplate(key: string) {
         const hasContent = jutsus.some((jutsu) => jutsu.tags.some((tag) => tag.name));
-        if (hasContent && !window.confirm("Replace your current jutsu with this template? Your name, lore, element and image are kept.")) return;
+        if (hasContent && !(await gameConfirm("Replace your current jutsu with this template? Your name, lore, element and image are kept."))) return;
         const generated = bloodlineTemplateJutsus(key, rank, specialElement || "Fire", bloodlineOffense);
         setJutsus(generated);
         const arch = bloodlineArchetypes.find((a) => a.key === key);

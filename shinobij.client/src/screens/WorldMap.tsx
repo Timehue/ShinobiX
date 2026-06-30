@@ -6,6 +6,7 @@ import { GiPawPrint, GiChest, GiOpenTreasureChest, GiCardPickup } from "react-ic
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
+import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
@@ -44,7 +45,7 @@ import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorN
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
-import { setSectorReopen, takeSectorReopen } from "../lib/sector-return";
+import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, setLocalSectorTile } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
@@ -284,7 +285,17 @@ export function WorldMap({
     // cleared by the Hospital on a KO so a death never reopens the death sector.
     useEffect(() => {
         const reopen = takeSectorReopen();
-        if (reopen !== null) setSelectedSector(reopen);
+        if (reopen !== null) { setSelectedSector(reopen); return; }
+        // Refresh restore: if the page was reloaded straight onto the World Map
+        // while standing in a real explorable sector (1-60), reopen that sector's
+        // detail. selectedSector is ephemeral React state, so without this a refresh
+        // dumps the player on the overview ("the refresh moved me"). currentSector is
+        // reset to 0 by App whenever you're not in the field, so this only fires for a
+        // genuine in-sector reload; a normal in-session trip to the map still opens on
+        // the overview (consumeReloadIntoSector is a one-shot, false on SPA navigation).
+        if (consumeReloadIntoSector() && currentSector >= 1 && currentSector <= 60) {
+            setSelectedSector(currentSector);
+        }
     }, []);
 
     // ── Scout Network (clan upgrade) ──────────────────────────────────────
@@ -754,12 +765,19 @@ export function WorldMap({
             battleSeed: seed,
             returnScreen: "worldMap",
         });
+        // Remember the sector so returning from the duel reopens it (the pet battle
+        // returns to the World Map, which consumes this latch on remount).
+        setSectorReopen(selectedSector != null && selectedSector >= 1 && selectedSector <= 60 ? selectedSector : null);
         setWandererDialog(null);
         setScreen("petArena");
     }
     function startWandererCardDuel(w: Wanderer) {
         // The gambler deals you straight into a Card Clash match in the Card Hall.
         coolWanderer(w.id); // gambler dealt you in — gone for a few hours
+        // Remember the sector so finishing the match returns the player here: the
+        // Card Hall's Back goes through history to the World Map, which reopens this
+        // sector on remount instead of dropping the player on the overview.
+        setSectorReopen(selectedSector != null && selectedSector >= 1 && selectedSector <= 60 ? selectedSector : null);
         requestCardChallenge();
         setWandererDialog(null);
         setScreen("shinobiTiles");
@@ -931,7 +949,7 @@ export function WorldMap({
         } catch { setWandererDialog({ w, msg: "You couldn't reach them." }); }
     }
     async function abandonEpic(w: Wanderer) {
-        if (!window.confirm("Abandon this epic? Your progress on it will be lost.")) return;
+        if (!(await gameConfirm("Abandon this epic? Your progress on it will be lost.", { danger: true, confirmLabel: "Abandon" }))) return;
         setWandererDialog({ w, busy: true });
         try {
             await fetch("/api/sector/questbook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "abandon", playerName: character.name }) });
