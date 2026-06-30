@@ -9,6 +9,7 @@ import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
+import { tagMatchesName } from "../lib/tags";
 import { gameConfirm } from "../components/GameAlert";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
@@ -42,7 +43,15 @@ import wardSprite from "../assets/towers/pylons/ward.webp";
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
 
 type Mode = "idle" | "move" | "dash" | "attack" | "jutsu" | "weapon" | "clear";
-type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number };
+type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; tags?: Array<{ name?: string }> };
+
+// A Move-tagged jutsu (Flicker / body-flicker) repositions the caster — its valid
+// destinations are OPEN tiles (like Dash), not ground-zone tiles. normalizeJutsu forces
+// `target: "EMPTY_GROUND"` for any Move jutsu, so the Move tag is what distinguishes a
+// relocation from a ground trap. Mirrors the server's Move branch in api/towers/_engine.ts.
+function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
+    return Boolean(j) && Array.isArray(j!.tags) && j!.tags.some(t => tagMatchesName(t?.name ?? "", "Move"));
+}
 type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number };
 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
@@ -244,10 +253,20 @@ export function BattleTowerFight({
     // Reach highlight for a ranged action: jutsu range, or the equipped weapon's range.
     const jutsuRangeTiles = useMemo(() => {
         if (!myActor) return new Set<number>();
-        if (mode === "jutsu") return towerTilesInRange(myPos, Math.max(1, Number(selJutsu?.range ?? 1)), w, h);
+        if (mode === "jutsu") {
+            const inRange = towerTilesInRange(myPos, Math.max(1, Number(selJutsu?.range ?? 1)), w, h);
+            // Movement jutsu: valid destinations are OPEN tiles only (exclude self / occupants /
+            // blocked) — clicking an occupied tile would just bounce server-side.
+            if (isMoveJutsu(selJutsu)) {
+                const occupied = new Set(session.actors.filter(a => a.hp > 0).map(a => a.pos));
+                const blocked = new Set(session.map.blockedTiles);
+                return new Set([...inRange].filter(t => t !== myPos && !occupied.has(t) && !blocked.has(t)));
+            }
+            return inRange;
+        }
         if (mode === "weapon") return towerTilesInRange(myPos, weaponRange, w, h);
         return new Set<number>();
-    }, [mode, myActor, selJutsu, weaponRange, myPos, w, h]);
+    }, [mode, myActor, selJutsu, weaponRange, myPos, w, h, session.actors, session.map.blockedTiles]);
 
     // First feature occupying each tile (for tinting + markers).
     const featureByTile = useMemo(() => {
@@ -349,6 +368,7 @@ export function BattleTowerFight({
         mode === "weapon" ? "Click an enemy in range." :
         mode === "clear" ? "Click any enemy to strip its buffs." :
         mode === "jutsu" && isSelfCastJutsu(selJutsu) ? `Click yourself to cast ${selJutsu?.name ?? "it"}.` :
+        mode === "jutsu" && isMoveJutsu(selJutsu) ? `Click a highlighted tile to flicker there with ${selJutsu?.name ?? "it"}.` :
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 

@@ -584,15 +584,52 @@ describe('Battle Towers AOE + consumables', () => {
         assert.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
     });
 
-    it('rejects a ground jutsu out of range / with no ground-eligible tags', () => {
-        const sq = makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [
+    it('rejects an out-of-range ground jutsu; a no-ground-tag ground jutsu STRIKES the tile (PvE parity) instead of bouncing', () => {
+        // A damage-dealing EMPTY_GROUND jutsu with no ground-effect tag (Wound, not Poison/
+        // Recoil/Decrease Damage Given) used to bounce with `no-ground-tags`. It now resolves
+        // as a direct strike on the hostile standing on the target tile — matching the PvE Arena.
+        const jutsu = [
             { id: 'far', name: 'Far Mire', type: 'Ninjutsu', ap: 60, range: 2, target: 'EMPTY_GROUND', tags: [{ name: 'Poison' }] },
-            { id: 'empty', name: 'Empty Field', type: 'Ninjutsu', ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Heal' }] },
-        ] } });
-        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
+            { id: 'strike', name: 'Ambush Strike', type: 'Ninjutsu', ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'SINGLE', tags: [{ name: 'Wound', percent: 20 }] },
+        ];
+        const mkSq = () => makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', level: 100, stats: { ninjutsuOffense: 2500, ninjutsuDefense: 2500 }, jutsu } });
+        const s = makeSession([mkSq(), makeActor('en-1', 'enemy', 3, { hp: 9999, maxHp: 9999, character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 200 } } })]);
         startRound(s);
+        // Out of range still rejects.
         assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'far', tile: 60 }, makeRng(1)).reason, 'out-of-range');
-        assert.equal(applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'empty', tile: 3 }, makeRng(1)).reason, 'no-ground-tags');
+        // No ground-effect tag, but lands ON the enemy → strikes it instead of bouncing.
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'strike', tile: 3 }, makeRng(1));
+        assert.ok(r.applied, 'no-ground-tag ground jutsu resolves (no no-ground-tags bounce)');
+        assert.ok(getActor(s, 'en-1')!.hp < 9999, 'the enemy on the target tile was struck');
+        assert.equal((s.groundEffects ?? []).length, 0, 'a non-ground-tagged jutsu lays no persistent zone');
+        // Cast on an EMPTY tile → whiffs harmlessly (still applies / costs AP), never bounces.
+        const s2 = makeSession([mkSq(), makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
+        startRound(s2);
+        const whiff = applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'strike', tile: 2 }, makeRng(1));
+        assert.ok(whiff.applied, 'empty-tile ground jutsu whiffs but still applies');
+        assert.equal(getActor(s2, 'en-1')!.hp, 9999, 'a whiff deals no damage to the off-tile enemy');
+    });
+
+    it('a Move-tag jutsu (Flicker) relocates the caster to an open tile instead of bouncing on no-ground-tags', () => {
+        // Flicker: EMPTY_GROUND target (normalizeJutsu forces this for any Move jutsu) +
+        // a Move tag that is NOT a ground-effect tag — so it must repose the caster, not lay a zone.
+        const flicker = { id: 'flicker', name: 'Flicker', type: 'Taijutsu', ap: 20, range: 5, cooldown: 2, chakraCost: 25, staminaCost: 25, target: 'EMPTY_GROUND', method: 'SINGLE', tags: [{ name: 'Move', percent: 0 }] };
+        const mk = () => makeSession([
+            makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, stamina: 300, maxStamina: 300, character: { specialty: 'Taijutsu', stats: {}, jutsu: [flicker] } }),
+            makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } }),
+        ]);
+        // Happy path: flicker to an open tile in range.
+        const s = mk(); startRound(s);
+        const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 3 }, makeRng(1));
+        assert.ok(r.applied, 'Flicker applied (no no-ground-tags bounce)');
+        assert.equal(getActor(s, 'sq-1')!.pos, 3, 'caster relocated to the target tile');
+        assert.equal((s.groundEffects ?? []).length, 0, 'a pure Move jutsu lays no ground zone');
+        assert.equal(getActor(s, 'sq-1')!.chakra, 275, 'chakra spent');
+        // Rejections: out of range, onto an occupant, onto the caster's own tile.
+        const s2 = mk(); startRound(s2);
+        assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 63 }, makeRng(1)).reason, 'out-of-range');
+        assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 1 }, makeRng(1)).reason, 'blocked');
+        assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 0 }, makeRng(1)).reason, 'bad-tile');
     });
 });
 

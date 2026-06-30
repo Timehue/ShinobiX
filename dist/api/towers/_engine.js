@@ -787,7 +787,59 @@ function applyAction(session, floor, action, rng) {
             return { applied: true };
         }
     }
-    // ── ground-target jutsu (target: EMPTY_GROUND) — place a persistent zone on a tile ──
+    // ── movement jutsu (Move tag) — relocate the caster to an open tile in range ──
+    // The Move tag is resolved BEFORE the ground-zone path (mirrors PvP move.ts):
+    // a body-flicker (Flicker / Tempest Step) repositions the user. Otherwise these
+    // fall through to layGroundZone and bounce as `no-ground-tags` — Move is not a
+    // ground-effect tag. AOE_SPIRAL dashes additionally erupt a ground nova on landing.
+    if (action.type === 'jutsu' && action.tile !== undefined) {
+        const jm = findJutsu(actor, action.jutsuId);
+        const hasMoveTag = !!jm && Array.isArray(jm.tags)
+            && jm.tags.some(t => t?.name && (0, _tags_js_1.canonicalTagName)(t.name) === 'Move');
+        if (jm && hasMoveTag) {
+            const tile = Math.floor(action.tile);
+            const w = session.map.width;
+            if (tile < 0 || tile >= w * session.map.height)
+                return { applied: false, reason: 'bad-tile' };
+            if (tile === actor.pos)
+                return { applied: false, reason: 'bad-tile' };
+            const range = Math.max(1, Number(jm.range ?? 5));
+            if ((0, _aoe_js_1.hexDistance)(actor.pos, tile, w) > range)
+                return { applied: false, reason: 'out-of-range' };
+            if (isTileBlocked(session, tile, actor.id))
+                return { applied: false, reason: 'blocked' };
+            const cost = Number(jm.ap ?? 20);
+            const ck = Math.max(0, Number(jm.chakraCost ?? 0));
+            const st = Math.max(0, Number(jm.staminaCost ?? 0));
+            if ((actor.cooldowns[action.jutsuId] ?? 0) > 0)
+                return { applied: false, reason: 'on-cooldown' };
+            if (ck > 0 && actor.chakra < ck)
+                return { applied: false, reason: 'no-chakra' };
+            if (st > 0 && actor.stamina < st)
+                return { applied: false, reason: 'no-stamina' };
+            if (!canAct(session, cost))
+                return { applied: false, reason: 'cannot-act' };
+            actor.pos = tile;
+            actor.chakra = Math.max(0, actor.chakra - ck);
+            actor.stamina = Math.max(0, actor.stamina - st);
+            if (Number(jm.cooldown ?? 0) > 0)
+                actor.cooldowns[action.jutsuId] = Number(jm.cooldown);
+            session.activeAp -= cost;
+            session.actionsThisTurn += 1;
+            session.log.push(`${actor.name} uses ${jm.name ?? 'a body flicker'} — flickers to hex ${tile}.`);
+            // Spiral dash: erupt a ground nova on the landing tile (best-effort — a
+            // pure Move jutsu carries no ground tags, so this no-ops for Flicker).
+            if (String(jm.method ?? 'SINGLE') === 'AOE_SPIRAL')
+                layGroundZone(session, actor, action.jutsuId, jm, tile);
+            if (actor.side === 'squad' && floor.objective === 'reach-tile' && typeof floor.goalTile === 'number' && actor.pos === floor.goalTile) {
+                session.objectiveState.reachedGoal = true;
+            }
+            tickBossPhases(session);
+            checkTowerWinner(session, floor);
+            return { applied: true };
+        }
+    }
+    // ── ground-target jutsu (target: EMPTY_GROUND, non-Move) — resolve on the tile ──
     if (action.type === 'jutsu' && action.tile !== undefined) {
         const jg = findJutsu(actor, action.jutsuId);
         if (jg && String(jg.target) === 'EMPTY_GROUND') {
@@ -810,16 +862,41 @@ function applyAction(session, floor, action, rng) {
                 return { applied: false, reason: 'no-stamina' };
             if (!canAct(session, cost))
                 return { applied: false, reason: 'cannot-act' };
-            if (!layGroundZone(session, actor, action.jutsuId, jg, tile))
-                return { applied: false, reason: 'no-ground-tags' };
+            // Ground-tagged (Poison / Recoil / Decrease Damage Given) → lay a persistent
+            // zone, exactly as before (it bites units standing in it on cast + each round).
+            // Otherwise resolve as a DIRECT strike on any hostile caught ON the target tile
+            // (and its ring for AOE_CIRCLE / INSTANT_EFFECT) — mirrors the PvE Arena's
+            // groundTargetCatchesEnemy, so a damage ground jutsu (e.g. a custom "Ambush")
+            // hits instead of bouncing on `no-ground-tags`. An empty tile whiffs harmlessly
+            // (still costs AP). This branch never hard-rejects for missing ground tags.
+            if (layGroundZone(session, actor, action.jutsuId, jg, tile)) {
+                session.activeAp -= cost;
+                session.actionsThisTurn += 1;
+                tickBossPhases(session);
+                checkTowerWinner(session, floor);
+            }
+            else {
+                const method = String(jg.method ?? 'SINGLE');
+                const ringHit = method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT';
+                const area = new Set(ringHit ? groundZoneTiles(tile, session.map.width, session.map.height) : [tile]);
+                const primary = session.actors
+                    .filter(a => a.hp > 0 && hostileSidesFor(actor.side).includes(a.side) && area.has(a.pos))
+                    .sort((a, b) => (a.pos === tile ? -1 : b.pos === tile ? 1 : 0) || (a.pos - b.pos) || (a.id < b.id ? -1 : 1))[0];
+                if (primary) {
+                    resolveHit(session, floor, actor, primary, jg, cost); // damage + tags + AOE splash + AP + win-check
+                }
+                else {
+                    session.log.push(`${actor.name} places ${jg.name ?? 'a ground jutsu'} on hex ${tile}, but it catches no one.`);
+                    session.activeAp -= cost;
+                    session.actionsThisTurn += 1;
+                    tickBossPhases(session);
+                    checkTowerWinner(session, floor);
+                }
+            }
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
             if (Number(jg.cooldown ?? 0) > 0)
                 actor.cooldowns[action.jutsuId] = Number(jg.cooldown);
-            session.activeAp -= cost;
-            session.actionsThisTurn += 1;
-            tickBossPhases(session);
-            checkTowerWinner(session, floor);
             return { applied: true };
         }
     }
