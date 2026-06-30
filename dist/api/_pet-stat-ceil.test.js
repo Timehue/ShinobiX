@@ -41,3 +41,22 @@ const ALL_IN_MULT = 1 + 0.04 * 99;
         }
     });
 });
+(0, node_test_1.describe)('petJutsuPowerCeil — per-rarity jutsu-power ceiling', () => {
+    (0, node_test_1.it)('returns the exact per-rarity cap (mirrors client petStatCaps[*].jutsuPower)', () => {
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('standard'), 320);
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('rare'), 360);
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('legendary'), 405);
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('mythic'), 450);
+    });
+    (0, node_test_1.it)('bounds a tampered jutsu power far below the old flat 1000 clamp', () => {
+        for (const rarity of Object.keys(_pet_stat_ceil_js_1.PET_JUTSU_POWER_CAP)) {
+            node_assert_1.strict.ok((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)(rarity) <= 450, `${rarity} jutsu-power ceiling must be <= mythic 450`);
+            node_assert_1.strict.ok((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)(rarity) < 1000, `${rarity} jutsu-power ceiling must be below the old flat 1000`);
+        }
+    });
+    (0, node_test_1.it)('falls back to mythic (loosest tier) for an unknown / tampered rarity', () => {
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('not-a-rarity'), (0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('mythic'));
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)(undefined), (0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('mythic'));
+        node_assert_1.strict.equal((0, _pet_stat_ceil_js_1.petJutsuPowerCeil)(123), (0, _pet_stat_ceil_js_1.petJutsuPowerCeil)('mythic'));
+    });
+});

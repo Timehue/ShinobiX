@@ -241,7 +241,14 @@ async function handler(req, res) {
                 };
                 (0, _save_version_js_1.bumpSaveVersion)(updated);
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
-            });
+            }, { failClosed: true });
+            // failClosed: this credits real currency (ryo/bone/aura/fate), so under
+            // sustained save-lock contention we abort (→ 500) rather than racing an
+            // unlocked credit. Caveat: the single-use token is already consumed above
+            // (kv.del), so a contention throw here forfeits this expedition's reward
+            // on retry. That's rare (only sustained contention trips the retry budget)
+            // and strictly safer than a racing credit; the proper future fix is to
+            // move the token consume inside this lock so the throw precedes it.
             // Daily cap reached — short-circuit cleanly with the same shape
             // the pre-lock cap check used to return.
             if (dailyCapHit) {

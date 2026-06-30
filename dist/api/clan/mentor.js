@@ -128,18 +128,27 @@ async function handler(req, res) {
                 if (claimable.length === 0)
                     return { status: 200, body: { ok: true, claimed: 0 } };
                 const payout = (0, _mentor_js_1.mentorPayout)(claimable.length);
+                // Verify the sensei save exists BEFORE marking claimed — we must not
+                // mark a milestone paid if there's no save to credit (preserves the
+                // old "credit only if both saves exist" guard).
+                const senseiPre = await _storage_js_1.kv.get(`save:${playerName}`);
+                if (!senseiPre || !senseiPre.character)
+                    return { status: 404, body: { error: 'Your save was not found.' } };
+                // Mark the milestones claimed and persist the mentor record FIRST,
+                // before crediting. Cross-key credits (sensei + student saves) can't
+                // be atomic with this mark, so we choose the safe direction: a crash
+                // or contention-throw after this point loses a payout (rare) but can
+                // NEVER leave a milestone paid-but-unmarked → re-claimable (a mint).
+                for (const m of claimable)
+                    entry.claimed[m] = now;
+                await _storage_js_1.kv.set(senseiKey(playerName), rec);
                 // Credit the sensei (Honor Seals + clan contribution) under their save lock.
-                const senseiOk = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
+                await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
                     const r = await _storage_js_1.kv.get(`save:${playerName}`);
                     const c = (r?.character ?? null);
-                    if (!r || !c)
-                        return false;
-                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } });
-                    await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, r));
-                    return true;
+                    if (r && c)
+                        await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...r, character: { ...c, honorSeals: num(c.honorSeals) + payout.seals, clanEventContrib: num(c.clanEventContrib) + payout.contrib } }), r));
                 }, { failClosed: true });
-                if (!senseiOk)
-                    return { status: 404, body: { error: 'Your save was not found.' } };
                 // Boost the student (ryo) under their save lock.
                 await (0, _lock_js_1.withKvLock)(`save:${studentName}`, async () => {
                     const r = await _storage_js_1.kv.get(`save:${studentName}`);
@@ -147,9 +156,6 @@ async function handler(req, res) {
                     if (r && c)
                         await _storage_js_1.kv.set(`save:${studentName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...r, character: { ...c, ryo: num(c.ryo) + payout.studentRyo } }), r));
                 }, { failClosed: true });
-                for (const m of claimable)
-                    entry.claimed[m] = now;
-                await _storage_js_1.kv.set(senseiKey(playerName), rec);
                 return { status: 200, body: { ok: true, claimed: claimable.length, seals: payout.seals, contrib: payout.contrib, studentRyo: payout.studentRyo, milestones: claimable }, paid: claimable.length };
             }, { failClosed: true });
             if (out.paid)

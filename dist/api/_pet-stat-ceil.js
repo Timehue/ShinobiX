@@ -22,8 +22,9 @@
  * table is duplicated; the cross-build parity test guards it against drift.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PET_STAT_CEIL_FACTOR = exports.PET_BASE_STATS = void 0;
+exports.PET_JUTSU_POWER_CAP = exports.PET_STAT_CEIL_FACTOR = exports.PET_BASE_STATS = void 0;
 exports.petStatCeil = petStatCeil;
+exports.petJutsuPowerCeil = petJutsuPowerCeil;
 exports.PET_BASE_STATS = {
     standard: { hp: 320, attack: 40, defense: 28, speed: 30 },
     rare: { hp: 370, attack: 48, defense: 34, speed: 36 },
@@ -42,4 +43,30 @@ exports.PET_STAT_CEIL_FACTOR = 8;
 function petStatCeil(rarity, stat) {
     const base = exports.PET_BASE_STATS[String(rarity)] ?? exports.PET_BASE_STATS.mythic;
     return Math.round(base[stat] * exports.PET_STAT_CEIL_FACTOR);
+}
+/*
+ * Per-rarity jutsu-power ceiling. Unlike hp/atk/def/speed (which grow with
+ * training, hence the ×8 envelope), jutsu power has a fixed per-rarity cap that
+ * the client already enforces (capPetStats → petStatCaps[*].jutsuPower). The
+ * deterministic ranked duel (api/pet-ladder/_core.ts snapshotJutsu) previously
+ * clamped power to a flat 1000 — ~2-3× a legit cap — letting a tampered pet seal
+ * an absurd jutsu into a fight that auto-resolves server-side. This restores the
+ * exact per-rarity cap, so an honest pet (already ≤ cap on the client) is
+ * unaffected and a forged pet is bounded to its rarity's legit ceiling.
+ *
+ * Exact mirror of petStatCaps[*].jutsuPower in
+ * shinobij.client/src/data/pet-stats.ts — guarded by the cross-build parity test.
+ */
+exports.PET_JUTSU_POWER_CAP = {
+    standard: 320,
+    rare: 360,
+    legendary: 405,
+    mythic: 450,
+};
+/**
+ * Per-rarity anti-tamper ceiling for a pet jutsu's power. Unknown / tampered
+ * rarity falls back to mythic (the loosest tier) so a legit pet is never clipped.
+ */
+function petJutsuPowerCeil(rarity) {
+    return exports.PET_JUTSU_POWER_CAP[String(rarity)] ?? exports.PET_JUTSU_POWER_CAP.mythic;
 }

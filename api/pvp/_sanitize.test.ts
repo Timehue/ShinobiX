@@ -31,8 +31,8 @@ describe('sanitizePvpItems', () => {
         assert.equal(out.weaponElement, 'Fire');
     });
 
-    it('clamps weaponEp to [0, 600]', () => {
-        assert.equal(pick(sanitizePvpItems([{ weaponEp: 999999 }])).weaponEp, 600);
+    it('clamps weaponEp to [0, 60]', () => {
+        assert.equal(pick(sanitizePvpItems([{ weaponEp: 999999 }])).weaponEp, 60);
         assert.equal(pick(sanitizePvpItems([{ weaponEp: -100 }])).weaponEp, 0);
         assert.equal(pick(sanitizePvpItems([{ weaponEp: 'free' }])).weaponEp, 0);
     });
@@ -70,9 +70,23 @@ describe('sanitizePvpItems', () => {
     });
 
     it('caps weaponTags at 10 entries', () => {
-        const many = { weaponTags: Array.from({ length: 30 }, () => ({ name: 'Heal' })) };
+        // Distinct tags (the per-cast dedup now collapses identical ones, so the
+        // cap is exercised with distinct names). 10 confirmed-valid amp tags + 2
+        // extras → after dedup + slice the list is capped at 10 regardless.
+        const names = [
+            'Wound', 'Poison', 'Ignition', 'Increase Damage Given', 'Decrease Damage Given',
+            'Increase Damage Taken', 'Decrease Damage Taken', 'Absorb', 'Reflect', 'Lifesteal',
+            'Heal', 'Shield',
+        ];
+        const many = { weaponTags: names.map((name) => ({ name })) };
         const out = pick(sanitizePvpItems([many]));
         assert.equal((out.weaponTags as unknown[]).length, 10);
+    });
+
+    it('dedupes identical weaponTags within one weapon', () => {
+        const many = { weaponTags: Array.from({ length: 30 }, () => ({ name: 'Increase Damage Given' })) };
+        const out = pick(sanitizePvpItems([many]));
+        assert.equal((out.weaponTags as unknown[]).length, 1);
     });
 
     it('caps tag percent at 100 and amount at 10000', () => {
@@ -129,7 +143,7 @@ describe('sanitizePvpItems', () => {
             ],
         };
         const out = pick(sanitizePvpItems([evil]));
-        assert.equal(out.weaponEp, 600);
+        assert.equal(out.weaponEp, 60);
         assert.equal(out.weaponRange, 30);
         assert.equal(out.apCost, 0); // 0 is in-range; balance fix would need its own change
         assert.equal(out.weaponElement, undefined);
@@ -155,9 +169,19 @@ describe('sanitizePvpItems', () => {
 
 // Smoke test on sanitizeJutsuList so it stays covered alongside its sibling.
 describe('sanitizeJutsuList (smoke)', () => {
-    it('clamps effectPower to [0, 600]', () => {
+    it('clamps effectPower to [0, 60] (max legit EP is 50)', () => {
         const out = sanitizeJutsuList([{ id: 'x', effectPower: 999999 }]) as Array<Record<string, unknown>>;
-        assert.equal(out[0]!.effectPower, 600);
+        assert.equal(out[0]!.effectPower, 60);
+    });
+    it('dedupes a duplicate amp tag within one cast (no double-stack)', () => {
+        const out = sanitizeJutsuList([
+            { id: 'x', effectPower: 36, tags: [
+                { name: 'Increase Damage Given', percent: 35 },
+                { name: 'Increase Damage Given', percent: 35 },
+            ] },
+        ]) as Array<Record<string, unknown>>;
+        const tags = out[0]!.tags as Array<Record<string, unknown>>;
+        assert.equal(tags.filter(t => t.name === 'Increase Damage Given').length, 1);
     });
     it('strips a second Pierce in the same loadout', () => {
         const out = sanitizeJutsuList([

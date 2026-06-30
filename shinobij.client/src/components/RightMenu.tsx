@@ -27,7 +27,7 @@ import { isVillageWarMapEnabled } from "../lib/village-war-map";
 import {
     GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
     GiExitDoor, GiFireSpellCast, GiGears, GiHearts, GiKnapsack, GiNinjaHeroicStance,
-    GiOpenBook, GiPawPrint, GiScrollUnfurled, GiSpeaker, GiSpeakerOff, GiThreeFriends, GiTreasureMap,
+    GiOpenBook, GiPawPrint, GiPortal, GiScrollUnfurled, GiSpeaker, GiSpeakerOff, GiThreeFriends, GiTreasureMap,
 } from "react-icons/gi";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
@@ -98,6 +98,7 @@ export const RightMenu = memo(function RightMenu({
                     <div className="right-menu-buttons">
                         <button onClick={() => navigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
                         <button onClick={() => navigate("worldMap")}><GiTreasureMap size={16} />Travel</button>
+                        <button onClick={() => navigate("centralHub")} title="Central — Arena, Hunter Guild, Awakening Stone, Crafter, Relic Dungeons, Weekly Boss & more"><GiPortal size={16} />Central</button>
                         <button onClick={() => navigate("userHub")}><GiThreeFriends size={16} />Users</button>
                         <button onClick={() => navigate("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
                         <button onClick={() => navigate("missions")}><GiScrollUnfurled size={16} />Missions</button>
