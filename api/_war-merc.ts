@@ -46,3 +46,22 @@ export function hasActiveLease(record: VillageWarRecord, tierId: string, player:
 export function consumeLease(leases: readonly MercLease[], tierId: string, player: string): MercLease[] {
     return leases.filter((l) => !(l.tierId === tierId && l.player === player));
 }
+
+/** Claim ONE merc from the caller's active band for a deployment: decrement the
+ *  band count, dropping the lease entirely when it hits 0. Each merc attack spends
+ *  one merc (win, lose, or stall), so a 3-5 band = 3-5 attacks. Returns whether a
+ *  merc was available + how many remain. Pure. */
+export function claimMercFromBand(
+    leases: readonly MercLease[],
+    tierId: string,
+    player: string,
+    now: number,
+): { leases: MercLease[]; claimed: boolean; remaining: number } {
+    const next = leases.map((l) => ({ ...l }));
+    const lease = next.find((l) => l.tierId === tierId && l.player === player && l.expiresAt > now);
+    if (!lease || lease.count <= 0) return { leases: next, claimed: false, remaining: 0 };
+    lease.count -= 1;
+    const remaining = lease.count;
+    const pruned = remaining > 0 ? next : next.filter((l) => !(l.tierId === tierId && l.player === player));
+    return { leases: pruned, claimed: true, remaining };
+}
