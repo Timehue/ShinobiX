@@ -126,7 +126,7 @@ async function handler(req, res) {
                     newEndsAt: updated.activeJutsuTraining.endsAt,
                 },
             };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     }
     catch (err) {

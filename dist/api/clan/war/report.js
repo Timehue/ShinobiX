@@ -202,7 +202,7 @@ async function handler(req, res) {
             }
             await _storage_js_1.kv.set(key, war);
             return { status: 200, body: { war, challenge: completed, warEnded: warJustEnded, tentative: false, disputed: finalResult === 'draw' && ch.tentativeResult !== result } };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     }
     catch (err) {

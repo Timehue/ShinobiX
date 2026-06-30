@@ -9182,8 +9182,6 @@ export default function App() {
 // LeftProfileCard moved to ./components/LeftProfileCard.
 
 // SectorBanner moved to ./components/SectorBanner.
-// villageBiomes (village → home-biome lookup) moved to ./data/village-biomes;
-// components import it directly from there.
 
 // RightMenu + MobileNav moved to ./components/RightMenu and ./components/MobileNav.
 
