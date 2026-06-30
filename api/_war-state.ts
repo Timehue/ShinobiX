@@ -15,6 +15,8 @@ import {
     WR_POOL_CAP,
     structureMaintenanceWr,
     sectorBenefitWr,
+    mercBandSize,
+    MERC_BAND_MAX,
 } from './_war-economy.js';
 import {
     HOME_SECTORS,
@@ -53,6 +55,7 @@ export interface MercLease {
     tierId: string;
     player: string;     // hirer (safeName slug)
     expiresAt: number;  // epoch ms
+    count: number;      // AI mercs still alive in the band (the player kills them down)
 }
 
 export interface VillageWarRecord {
@@ -143,7 +146,8 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             const dedupeKey = `${tierId}:${player}`;
             if (seen.has(dedupeKey)) continue;
             seen.add(dedupeKey);
-            base.mercLeases.push({ tierId, player, expiresAt });
+            const count = clampInt((l as MercLease).count ?? mercBandSize(tierId), 0, MERC_BAND_MAX);
+            base.mercLeases.push({ tierId, player, expiresAt, count });
         }
     }
 

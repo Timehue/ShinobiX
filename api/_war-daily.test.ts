@@ -79,8 +79,8 @@ describe('stepVillageWarDay (pure)', () => {
         const seeded: VillageWarRecord = {
             ...defaultVillageWarRecord('Frostfang Village'),
             mercLeases: [
-                { tierId: 'merc-ronin', player: 'a', expiresAt: NOW - 1 },   // expired
-                { tierId: 'merc-oni', player: 'b', expiresAt: NOW + 100000 }, // active
+                { tierId: 'merc-ronin', player: 'a', expiresAt: NOW - 1, count: 3 },   // expired
+                { tierId: 'merc-oni', player: 'b', expiresAt: NOW + 100000, count: 4 }, // active
             ],
         };
         const { record, summary } = stepVillageWarDay(seeded, { sectorsControlled: 8, today: TODAY, now: NOW });

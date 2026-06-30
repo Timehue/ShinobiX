@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { isWarVillage, homeSectorsForVillage } from '../_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
-import { wrMercTierById, WR_MERC_TIERS } from '../_war-economy.js';
+import { wrMercTierById, WR_MERC_TIERS, mercBandSize } from '../_war-economy.js';
 import { mercHireCost, addOrRefreshLease, MERC_LEASE_MS } from '../_war-merc.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 
@@ -96,7 +96,7 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
     if (out.cost > 0) {
         void recordWarEcoEvent({ eventId: `merc:${villageWarSlug(village)}:${tierId}:${playerName}:${now}`, village, kind: 'wr.spend.merc', amount: out.cost, meta: tierId });
     }
-    return res.status(200).json({ ok: true, tierId, cost: out.cost, expiresAt: now + MERC_LEASE_MS });
+    return res.status(200).json({ ok: true, tierId, cost: out.cost, expiresAt: now + MERC_LEASE_MS, band: mercBandSize(tierId) });
 }
 
 // ── list (read-only menu + active leases) ─────────────────────────────────────
