@@ -134,6 +134,7 @@ const StarterPetSelect = lazyWithRetry(() => import("./screens/StarterPetSelect"
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
+const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
@@ -170,7 +171,7 @@ const PvpBattleScreen = lazyWithRetry(() => import("./screens/PvpBattleScreen").
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
+import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
@@ -2551,11 +2552,7 @@ export default function App() {
         if (!character) return;
         // Don't yank players out of an active battle / story / boss
         // screen — they're already committed to something.
-        const inBattleScreen = screen === "pvpBattle" || screen === "petArena" || screen === "arena"
-            || screen === "storyBoss" || screen === "weeklyBoss" || screen === "villageWar"
-            || screen === "hollowGateShrine" || screen === "hollowGateTiles"
-            || screen === "endlessTower" || screen === "dungeon" || screen === "eventTiles"
-            || screen === "tilecardsDuel" || screen === "battleTowers";
+        const inBattleScreen = BATTLE_SCREENS.has(screen);
         if (inBattleScreen) return;
 
         const me = character.name.toLowerCase();
@@ -8809,6 +8806,7 @@ export default function App() {
                         onBack={() => setScreen("townHall")}
                     />
                 )}
+                {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (

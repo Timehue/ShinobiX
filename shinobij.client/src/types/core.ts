@@ -65,6 +65,7 @@ export type Screen =
     | "battleTowers"
     | "weeklyBoss"
     | "villageWar"
+    | "villageWarMap"
     | "tilecardsDuel"
     | "guides"
     | "messages";
