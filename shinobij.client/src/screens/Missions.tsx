@@ -10,6 +10,12 @@ import { DailyProfessionMissions } from "../screens/DailyProfessionMissions";
 import { WeeklyBoard } from "../components/WeeklyBoard";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { EmptyState } from "../components/ui/EmptyState";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0) + the game's own currency emblems.
+import {
+    GiGraduateCap, GiScrollUnfurled, GiCrossedSwords, GiPositionMarker,
+    GiCalendar, GiCompass, GiTreasureMap, GiOpenBook,
+} from "react-icons/gi";
+import { GameIcon } from "../components/icons/GameIcon";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot, markMissionCompleted } from "../lib/character-progress";
@@ -23,6 +29,9 @@ import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
 import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
+
+// Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
+const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
 export function Missions({
     character,
@@ -161,7 +170,7 @@ export function Missions({
                     className="mh-section"
                     style={{ border: "1px solid #facc15", borderRadius: 12, padding: 14, marginBottom: 14, background: "rgba(250,204,21,0.06)" }}
                 >
-                    <h3 className="mh-section-title" style={{ marginTop: 0 }}>🎓 Academy Trial</h3>
+                    <h3 className="mh-section-title" style={{ marginTop: 0 }}><GiGraduateCap style={MH_ICON} />Academy Trial</h3>
                     <p className="hint" style={{ marginTop: 0 }}>
                         Your first official mission. You've already done the hard part — claim your reward to graduate the basics.
                     </p>
@@ -183,20 +192,20 @@ export function Missions({
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
                 {hasProfession && (
                     <button className={activeMissionTab === "profession" ? "active" : ""} onClick={() => setActiveMissionTab("profession")}>
-                        📜 Profession
+                        <GiScrollUnfurled style={MH_ICON} />Profession
                     </button>
                 )}
                 <button className={activeMissionTab === "combat" ? "active" : ""} onClick={() => setActiveMissionTab("combat")}>
-                    ⚔️ Combat
+                    <GiCrossedSwords style={MH_ICON} />Combat
                 </button>
                 <button className={activeMissionTab === "field" ? "active" : ""} onClick={() => setActiveMissionTab("field")}>
-                    📍 Field
+                    <GiPositionMarker style={MH_ICON} />Field
                 </button>
                 <button className={activeMissionTab === "weekly" ? "active" : ""} onClick={() => setActiveMissionTab("weekly")}>
-                    🗓️ Weekly
+                    <GiCalendar style={MH_ICON} />Weekly
                 </button>
                 <button className={activeMissionTab === "wandering" ? "active" : ""} onClick={() => setActiveMissionTab("wandering")}>
-                    🧭 Wandering{hasWanderingQuest ? " •" : ""}
+                    <GiCompass style={MH_ICON} />Wandering{hasWanderingQuest ? " •" : ""}
                 </button>
             </div>
 
@@ -213,7 +222,7 @@ export function Missions({
             {/* -- Combat Missions tab -- */}
             {activeMissionTab === "combat" && (
             <section className="mh-section">
-                <h3 className="mh-section-title">⚔️ Combat Missions</h3>
+                <h3 className="mh-section-title"><GiCrossedSwords style={MH_ICON} />Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy, then return here to claim your reward. No shortcuts.</p>
                 <div className="mh-combat-grid">
                     {COMBAT_MISSIONS.map((mission) => {
@@ -237,8 +246,8 @@ export function Missions({
                                         <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>
                                     </div>
                                     <div className="mh-combat-rewards">
-                                        <span>⭐ {displayCharacterXpGain(boostAmount(mission.xp, missionRewardBonus))} XP</span>
-                                        <span>💰 {boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
+                                        <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{displayCharacterXpGain(boostAmount(mission.xp, missionRewardBonus))} XP</span>
+                                        <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>
                                 {claimable
@@ -248,7 +257,7 @@ export function Missions({
                                         disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
                                         onClick={() => startMissionBattle(mission)}
                                     >
-                                        {locked ? `Lv ${mission.min} Required` : "⚔️ Begin Mission"}
+                                        {locked ? `Lv ${mission.min} Required` : <><GiCrossedSwords style={MH_ICON} />Begin Mission</>}
                                     </button>}
                             </div>
                         );
@@ -260,9 +269,9 @@ export function Missions({
             {/* -- Field Missions tab -- */}
             {activeMissionTab === "field" && (
             <section className="mh-section">
-                <h3 className="mh-section-title">📍 Field Missions</h3>
+                <h3 className="mh-section-title"><GiPositionMarker style={MH_ICON} />Field Missions</h3>
                 {groupedFetchMissions.length === 0
-                    ? <EmptyState icon="📍">No field missions posted yet.</EmptyState>
+                    ? <EmptyState icon={<GiPositionMarker />}>No field missions posted yet.</EmptyState>
                     : groupedFetchMissions.map((group) => (
                         <div className="mh-fetch-group" key={group.rank}>
                             <div className="mh-fetch-group-label" style={{ borderColor: rankColor[group.rank] ?? "#475569", color: rankColor[group.rank] ?? "#94a3b8" }}>
@@ -285,7 +294,7 @@ export function Missions({
                                                 <div className="mh-fetch-avatar">
                                                     {missionAi?.image
                                                         ? <img src={missionAi.image} alt={missionAi.name} />
-                                                        : <span>📍</span>}
+                                                        : <span><GiPositionMarker /></span>}
                                                 </div>
                                                 <div className="mh-fetch-info">
                                                     <strong>{mission.name}</strong>
@@ -294,8 +303,8 @@ export function Missions({
                                                 </div>
                                             </div>
                                             <div className="mh-fetch-rewards">
-                                                <span>⭐ {displayCharacterXpGain(boostAmount(mission.xpReward, missionRewardBonus))} XP</span>
-                                                <span>💰 {boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
+                                                <span><GameIcon name="medal" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{displayCharacterXpGain(boostAmount(mission.xpReward, missionRewardBonus))} XP</span>
+                                                <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
                                             </div>
                                             {accepted && (
                                                 <div className="mh-fetch-progress-wrap">
@@ -313,9 +322,9 @@ export function Missions({
                                                     ? <button onClick={() => acceptFetchMission(mission)}>Accept Mission</button>
                                                     : complete
                                                         ? <button className="mh-claim-btn" onClick={() => { void claimFetchMission(mission); }}>✅ Claim Reward</button>
-                                                        : <button onClick={() => setScreen("worldMap")}>🗺️ Go to Sector {mission.targetSector}</button>}
+                                                        : <button onClick={() => setScreen("worldMap")}><GiTreasureMap style={MH_ICON} />Go to Sector {mission.targetSector}</button>}
                                                 {mission.aiProfileId && (
-                                                    <button onClick={() => startCreatorMissionBattle(mission)}>⚔️ Battle AI</button>
+                                                    <button onClick={() => startCreatorMissionBattle(mission)}><GiCrossedSwords style={MH_ICON} />Battle AI</button>
                                                 )}
                                             </div>
                                         </div>
@@ -331,7 +340,7 @@ export function Missions({
             {/* -- Wandering Quests tab (sector-wanderer bounties + epics) -- */}
             {activeMissionTab === "wandering" && (
             <section className="mh-section">
-                <h3 className="mh-section-title">🧭 Wandering Quests</h3>
+                <h3 className="mh-section-title"><GiCompass style={MH_ICON} />Wandering Quests</h3>
                 <p className="hint">Quests taken from wanderers on the roads. Wanderers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (📜, the quest-giver) out on the World Map to continue or claim. Epic boss stages start from the Sage's journal.</p>
                 {!hasWanderingQuest && <p className="hint">You haven't taken any wandering quests yet. Look for a Wandering Sage in the sectors and accept one.</p>}
 
@@ -344,7 +353,7 @@ export function Missions({
                     return (
                         <div className="mh-fetch-card">
                             <div className="mh-fetch-info">
-                                <strong>📖 {wanderEpicEntry.title}</strong>
+                                <strong><GiOpenBook style={MH_ICON} />{wanderEpicEntry.title}</strong>
                                 <span className="mh-fetch-meta">Epic · Stage {wanderEpic.stage + 1} of {wanderEpicEntry.stages.length}</span>
                                 <span className="mh-fetch-meta">{wanderEpicStage.text}</span>
                             </div>
@@ -369,7 +378,7 @@ export function Missions({
                     return (
                         <div className={`mh-fetch-card${done ? " mh-fetch-complete" : ""}`}>
                             <div className="mh-fetch-info">
-                                <strong>📜 {wanderBountyDef?.label ?? "Wanderer bounty"}</strong>
+                                <strong><GiScrollUnfurled style={MH_ICON} />{wanderBountyDef?.label ?? "Wanderer bounty"}</strong>
                                 <span className="mh-fetch-meta">Bounty from a Wandering Sage</span>
                             </div>
                             <div className="mh-fetch-progress-wrap">
@@ -382,7 +391,7 @@ export function Missions({
                 })()}
 
                 <div style={{ marginTop: 12 }}>
-                    <button onClick={() => setScreen("worldMap")}>🗺️ Go to the World Map</button>
+                    <button onClick={() => setScreen("worldMap")}><GiTreasureMap style={MH_ICON} />Go to the World Map</button>
                 </div>
             </section>
             )}
