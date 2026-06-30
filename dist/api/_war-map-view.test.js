@@ -23,8 +23,8 @@ function recordWith(structures = {}, warResources = 0, dormant = false) {
         node_assert_1.strict.equal(v.sectors[0].sector, 11);
         node_assert_1.strict.equal(v.sectors[0].alias, 'MS-1');
         node_assert_1.strict.equal(v.sectors[0].controlHpMax, 600); // no Watchtower
-        node_assert_1.strict.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/card
-        node_assert_1.strict.equal(v.sectors[1].winCondition, 'card');
+        node_assert_1.strict.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/pet
+        node_assert_1.strict.equal(v.sectors[1].winCondition, 'pet');
     });
     (0, node_test_1.it)('reflects Watchtower (Control HP cap) and Supply Depot (WR/sector)', () => {
         const v = (0, _war_map_view_js_1.villageWarMapView)({ village: 'Moonshadow Village', record: recordWith({ watchtower: 10, supplyDepot: 10 }), treasurySeals: 50, sectorsHeld: 8 });
