@@ -1,5 +1,8 @@
 import { useState, useEffect, type ChangeEvent } from "react";
 import type { Character } from "../types/character";
+// Currency lines reuse the game's own emblem set so they match the HUD.
+import { GameIcon } from "../components/icons/GameIcon";
+const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
@@ -350,10 +353,10 @@ export function Profile({
                         <p><strong>XP:</strong> {character.level >= MAX_LEVEL ? "MAX" : `${character.xp}/${xpNeeded(character.level)}`}</p>
                         {CHARACTER_XP_GAIN_MULTIPLIER !== 1 && <p><strong>Testing XP:</strong> {CHARACTER_XP_GAIN_MULTIPLIER}x active</p>}
                         <p><strong>Ryo:</strong> {character.ryo}</p>
-                        <p><strong style={{ color: "#facc15" }}>🛡 Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
-                        <p><strong style={{ color: "#fef3c7" }}>✨ Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
+                        <p><strong style={{ color: "#facc15" }}><GameIcon name="medal" size={14} style={PF_COST} />Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
+                        <p><strong style={{ color: "#fef3c7" }}><GameIcon name="sparkle" size={14} style={PF_COST} />Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
                         <p><strong>Bank:</strong> {character.bankRyo}</p>
-                        <p><strong style={{ color: "#ce93d8" }}>🔮 Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
+                        <p><strong style={{ color: "#ce93d8" }}><GameIcon name="shard" size={14} style={PF_COST} />Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
                         <p><strong>Jutsu:</strong> {character.equippedJutsuIds.length}/15</p>
                         <p><strong>Equipment:</strong> {equippedItems.length} equipped</p>
                     </div>
@@ -447,7 +450,7 @@ export function Profile({
                             onClick={purchaseTitle}
                             disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
                         >
-                            Set Title — 🔮 {TITLE_COST}
+                            Set Title — <GameIcon name="shard" size={14} style={PF_COST} />{TITLE_COST}
                         </button>
                         {character.customTitle && (
                             <button className="danger-button" onClick={clearTitle}>Clear</button>

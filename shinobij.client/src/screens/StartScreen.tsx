@@ -1,5 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { type Character, type LbTab } from "../App";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import { GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiVortex, GiCrossedSwords, GiTrophy } from "react-icons/gi";
+const SS_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import {
     CharacterCreator,
     IconUser,
@@ -232,15 +235,15 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
         return () => { cancelled = true; };
     }, []);
 
-    const tabs: { id: LbTab; label: string; icon: string }[] = [
-        { id: "ranked",      label: "Ranked",       icon: "🎖" },
-        { id: "kills",       label: "Kill Streaks", icon: "🗡" },
-        { id: "xp",          label: "Most XP",      icon: "✦" },
-        { id: "clans",       label: "Top Clans",    icon: "🏴" },
-        { id: "pets",        label: "Pet Wins",     icon: "🐾" },
-        { id: "endless",     label: "Endless",      icon: "🌀" },
-        { id: "villageWars", label: "Village Wars", icon: "⚔" },
-        { id: "tournament",  label: "Tournament",   icon: "🏆" },
+    const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
+        { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
+        { id: "kills",       label: "Kill Streaks", icon: <GiDaggers /> },
+        { id: "xp",          label: "Most XP",      icon: <GiUpgrade /> },
+        { id: "clans",       label: "Top Clans",    icon: <GiBlackFlag /> },
+        { id: "pets",        label: "Pet Wins",     icon: <GiPawPrint /> },
+        { id: "endless",     label: "Endless",      icon: <GiVortex /> },
+        { id: "villageWars", label: "Village Wars", icon: <GiCrossedSwords /> },
+        { id: "tournament",  label: "Tournament",   icon: <GiTrophy /> },
     ];
 
     function getValue(p: RosterEntry, t: LbTab): number {
@@ -330,7 +333,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
 
             <div className="start-leaderboard-header">
                 <div style={{ flex: 1 }}>
-                    <h2>🏆 Hall of Legends</h2>
+                    <h2><GiTrophy style={SS_ICON} />Hall of Legends</h2>
                     <p className="start-leaderboard-subtitle">Eternal records of the world's greatest shinobi.</p>
                 </div>
             </div>
