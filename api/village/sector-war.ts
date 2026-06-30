@@ -33,6 +33,7 @@ import {
     getSectorOwnerVillage,
 } from '../_sector-war-store.js';
 import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
+import { recordWarEcoEvent } from '../_war-telemetry.js';
 
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
@@ -191,6 +192,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     }, { failClosed: true });
 
     if (!out.ok) return res.status(400).json({ error: `Declaring this sector war costs ${out.cost} War Resources.` });
+    // Telemetry (best-effort): the WR actually spent declaring (0 when re-opening an
+    // already-active contest, so no event). Never blocks the declare.
+    if (out.cost > 0) void recordWarEcoEvent({ eventId: `declare:${id}`, village, kind: 'wr.spend.declare', amount: out.cost, meta: `sector:${sector}` });
     return res.status(200).json({ ok: true, cost: out.cost, alreadyOpen: out.alreadyOpen, contest: out.contest });
 }
 
@@ -281,6 +285,8 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
             // scope. Re-running is idempotent (ownerVillage already set).
             await captureSectorForVillage(token.sector, token.attackerVillage, Date.now());
             await deleteSectorWar(id);
+            // Telemetry (best-effort): a sector flipped to the attacker.
+            void recordWarEcoEvent({ eventId: `capture:${id}`, village: token.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${token.sector}` });
         } else {
             await saveSectorWar(outcome.session);
         }
