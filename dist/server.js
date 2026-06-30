@@ -103,6 +103,9 @@ const declare_js_1 = __importDefault(require("./api/clan/war/declare.js"));
 const challenge_js_3 = __importDefault(require("./api/clan/war/challenge.js"));
 const report_js_1 = __importDefault(require("./api/clan/war/report.js"));
 const tilecards_js_1 = __importDefault(require("./api/clan/war/tilecards.js"));
+// Card Clash — free-play PvP (open matchmaking + server-authoritative match)
+const queue_js_2 = __importDefault(require("./api/card-clash/queue.js"));
+const match_js_1 = __importDefault(require("./api/card-clash/match.js"));
 // Clan — seal pool
 const get_js_1 = __importDefault(require("./api/clan/seal-pool/get.js"));
 const donate_js_2 = __importDefault(require("./api/clan/seal-pool/donate.js"));
@@ -612,6 +615,9 @@ route('/clan/war/declare', declare_js_1.default);
 route('/clan/war/challenge', challenge_js_3.default);
 route('/clan/war/report', report_js_1.default);
 route('/clan/war/tilecards', tilecards_js_1.default);
+// ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
+route('/card-clash/queue', queue_js_2.default);
+route('/card-clash/match', match_js_1.default);
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get', get_js_1.default);
 route('/clan/seal-pool/donate', donate_js_2.default);
