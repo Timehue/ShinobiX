@@ -87,6 +87,7 @@ import villageWarStructureHandler from './api/village/war-structure.js';
 import villageWarWinConditionHandler from './api/village/war-win-condition.js';
 import villageWarTerrainHandler from './api/village/war-terrain.js';
 import villageSectorWarHandler from './api/village/sector-war.js';
+import villageSectorCardHandler from './api/village/sector-card.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -626,6 +627,10 @@ route('/village/war-terrain', villageWarTerrainHandler);
 // resolve applies the authoritative winner to Control HP — flipping the sector's
 // ownerVillage on capture. Server-gated (404 unless ENABLE_VILLAGE_WAR=1).
 route('/village/sector-war', villageSectorWarHandler);
+// Village War Map — sector-war "Card" win-condition (Phase 4c-2): an interactive
+// 6-turn Card Clash between an attacker- and defender-village member, settling
+// the same contest Control HP (forked clan-war engine). Gated (404 unless flag).
+route('/village/sector-card', villageSectorCardHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);

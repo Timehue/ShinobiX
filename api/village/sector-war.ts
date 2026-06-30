@@ -50,13 +50,15 @@ import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership }
  *   - status  : read-only — the owner + active contest for a sector (or all contests).
  *   - seed    : admin — one-time idempotent seed of home-sector ownership (Phase 4d).
  *
- * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). Win-conditions
- * other than Combat are blocked here until their server-authoritative path lands
- * (Card → 4c-2, Pet → Phase 7) — a client-claimed result must never flip territory.
+ * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). Combat
+ * battles run here (attack/resolve); Card battles run via /village/sector-card and
+ * settle the same contest. Pet stays blocked until its server sim lands (Phase 7)
+ * — a client-claimed result must never flip territory.
  */
 
-// Win-conditions whose server-authoritative battle path is wired this build.
-const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat'];
+// Win-conditions whose server-authoritative battle path is wired this build
+// (Combat here, Card via /village/sector-card). Pet → Phase 7.
+const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card'];
 
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 type ReadBattle = { status?: string; winner?: string | null; p1?: { name?: string }; p2?: { name?: string } };
