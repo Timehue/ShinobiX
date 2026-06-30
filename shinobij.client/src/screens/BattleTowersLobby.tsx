@@ -4,6 +4,7 @@ import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
 import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
+import { LoadingState } from "../components/ui/LoadingState";
 import spireBanner from "../assets/towers/spire.webp";
 
 const MAX_ALLIES = 3; // you + up to 3 = a 4-player squad
@@ -186,7 +187,7 @@ export function BattleTowersLobby({
                 </div>
             </div>
 
-            {loading && <p className="hint">Loading floors…</p>}
+            {loading && <LoadingState>Loading floors…</LoadingState>}
             {error && <p style={{ color: "#f87171" }}>{error}</p>}
 
             {!loading && floors.length > 0 && (
