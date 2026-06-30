@@ -5,7 +5,10 @@ import { createPortal } from "react-dom";
 import {
     GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
     GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
+    GiTempleGate,
 } from "react-icons/gi";
+// Inline glyph style for section headers — sized to the heading text, nudged onto the baseline.
+const HDR_ICON = { verticalAlign: "-0.12em", marginRight: "0.35rem" } as const;
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -660,7 +663,7 @@ export function CentralHub({
             <DayNightSky />
             <SceneCritters biome="central" density={0.7} />
             <div className="central-hero">
-                <h1>⛩️ Central — The Thousand Gates</h1>
+                <h1><GiTempleGate style={HDR_ICON} />Central — The Thousand Gates</h1>
                 <p>
                     A neutral fortress city where every village, clan, rogue, merchant,
                     hunter, and legend crosses paths.
@@ -786,7 +789,7 @@ export function CentralHub({
             {showCelestialPanel && (
                 <div className="celestial-panel-overlay" onClick={() => setShowCelestialPanel(false)}>
                     <div className="celestial-panel" onClick={e => e.stopPropagation()}>
-                        <h2>🗼 Celestial Tower</h2>
+                        <h2><GiStoneTower style={HDR_ICON} />Celestial Tower</h2>
                         <p className="celestial-panel-sub">Two ways to climb: the endless gauntlet, or curated Battle Tower squad floors.</p>
                         <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
                             <div><strong>How it works</strong></div>
@@ -830,7 +833,7 @@ export function CentralHub({
                     <div className="archives-overlay">
                         <div className="archives-panel">
                             <div className="archives-header">
-                                <h2>📜 Ancient Archives — Bloodline Codex</h2>
+                                <h2><GiBookshelf style={HDR_ICON} />Ancient Archives — Bloodline Codex</h2>
                                 <button className="danger-button" onClick={() => setShowArchives(false)}>× Close</button>
                             </div>
                             <p className="archives-subtitle">
@@ -885,7 +888,7 @@ export function CentralHub({
                 <div className="archives-overlay">
                     <div className="awakening-panel">
                         <div className="archives-header">
-                            <h2>💎 Awakening Stone</h2>
+                            <h2><GiCrystalBall style={HDR_ICON} />Awakening Stone</h2>
                             <button className="danger-button" onClick={() => setShowAwakening(false)}>× Close</button>
                         </div>
 
@@ -1089,7 +1092,7 @@ export function CentralHub({
                     <div className="crafter-overlay" onClick={() => setShowCrafter(false)}>
                         <div className="crafter-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="archives-header">
-                                <h2>🔨 Crafter</h2>
+                                <h2><GiBlacksmith style={HDR_ICON} />Crafter</h2>
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
                             </div>
                             <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies, weapons, or armor.</p>
