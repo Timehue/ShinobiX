@@ -34,6 +34,7 @@ import { DailyBriefingModal } from "./DailyBriefingModal";
 import { RankUpCelebration } from "./RankUpCelebration";
 import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
+import { NextGoalPin } from "./NextGoalPin";
 
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
 // ONLY scheduled refresh — parent (App) state churn no longer triggers a
@@ -179,6 +180,11 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                     </>
                 )}
             </div>
+
+            {/* "What's next" breadcrumb, tucked under the XP bar (desktop rail).
+                The full hub-top banner is CSS-hidden on desktop so this is the only
+                copy there; mobile (no left rail) still gets the hub-top banner. */}
+            <NextGoalPin character={character} navigate={setScreen} compact />
 
             {/* Active training timers */}
             {((activeTraining && Date.now() < activeTraining.endsAt) ||
