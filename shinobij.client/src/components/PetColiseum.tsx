@@ -3577,6 +3577,9 @@ export type PetArenaMatchProps = {
      *  matches the server's item-aware resolution. Default off → casual unchanged. */
     applyItems?: boolean;
     sharedImages?: Record<string, string>; onExit: () => void;
+    /** Fired once when the match concludes (the deterministic result is sealed from
+     *  the seed). The Tactical Arena uses this to pay the vs-AI win reward. */
+    onResult?: (result: ArenaResult) => void;
 };
 /** Objective line below the scoreboard — a per-frame readout written via DOM refs
  *  (so it never re-renders the HUD): the scroll-spawn countdown while the scroll is
@@ -3633,7 +3636,7 @@ function ArenaObjectiveHud({ result, clock, textRef, barWrapRef, barRef }: {
     return null;
 }
 
-export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit }: PetArenaMatchProps) {
+export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit, onResult }: PetArenaMatchProps) {
     const result = useMemo(() => runPetArenaMatch(blue, red, seed, applyItems), [blue, red, seed, applyItems]);
     const roster = useMemo(() => [
         ...blue.map((s, i) => ({ id: `blue-${i}`, pet: s.pet })),
@@ -3712,6 +3715,11 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
         if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS * factor);
     };
     const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setShots([]); setFloaters([]); setFeed([]); setDecals([]); };
+    // Pay out / report once the match actually concludes (result is sealed from the
+    // seed, so this is just the natural moment to surface it). Replaying re-fires with
+    // the same seed → the server dedups by reportKey, so no double-claim.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once on the ended edge; result is seed-stable and onResult is an inline arrow (adding it would re-fire every render)
+    useEffect(() => { if (ended) onResult?.(result); }, [ended]);
     const winLabel = result.winner === "blue" ? "Blue Team Wins" : result.winner === "red" ? "Red Team Wins" : "Draw";
 
     return createPortal((
