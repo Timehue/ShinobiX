@@ -110,6 +110,10 @@ import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.j
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 import clanMissionClaimHandler       from './api/clan/mission/claim.js';
+// Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
+import hollowGateStartHandler        from './api/hollow-gate/start.js';
+import hollowGateChooseAugmentHandler from './api/hollow-gate/choose-augment.js';
+import hollowGateSettleHandler       from './api/hollow-gate/settle.js';
 // Clan — membership: kick (server-authoritative cross-save removal)
 import clanKickHandler               from './api/clan/kick.js';
 import clanMentorHandler             from './api/clan/mentor.js';
@@ -649,6 +653,14 @@ route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', clanMissionClaimHandler);
+
+// ─── Hollow Gate: server-authoritative run token + augments ─────────────────────
+// start mints a sealed token (entry snapshot + depth + augment offers) under a
+// server daily-run cap; choose-augment re-seals the pick; settle credits
+// min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
+route('/hollow-gate/start', hollowGateStartHandler);
+route('/hollow-gate/choose-augment', hollowGateChooseAugmentHandler);
+route('/hollow-gate/settle', hollowGateSettleHandler);
 
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
