@@ -1,7 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useMemo } from "react";
-// Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
-import { GiPawPrint, GiChest, GiOpenTreasureChest } from "react-icons/gi";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
+// Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import { GiPawPrint, GiChest, GiOpenTreasureChest, GiCardPickup } from "react-icons/gi";
+// Currency/material rewards reuse the game's own emblem set so they match the HUD.
+import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -1648,16 +1650,16 @@ export function WorldMap({
         const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
-        const rewards: { icon: string; label: string; sub: string }[] = [
-            { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
+        const rewards: { icon: ReactNode; label: string; sub: string }[] = [
+            { icon: <GameIcon name="medal" size={22} />, label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
         ];
-        if (activeChest.ryo) rewards.push({ icon: "🪙", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "📦" : lootItem.rarity === "rare" ? "⭐" : "🎁", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🌟" : "🃏", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
-        if (activeChest.fateShards) rewards.push({ icon: "🔮", label: "+1 Fate Shard", sub: "Premium currency" });
-        if (activeChest.boneCharms) rewards.push({ icon: "🪬", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-        if (activeChest.auraStones) rewards.push({ icon: "💠", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-        if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+        if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+        if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+        if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
+        if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });
+        if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: "+1 Aura Stone", sub: "Awakening Stone material" });
+        if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
         return (
             <div className="card cinematic-card ancient-chest-reveal-card">
@@ -2690,16 +2692,16 @@ export function WorldMap({
                 const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
                 const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
                 const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
-                const rewards: { icon: string; label: string; sub: string }[] = [
-                    { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
+                const rewards: { icon: ReactNode; label: string; sub: string }[] = [
+                    { icon: <GameIcon name="medal" size={22} />, label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
                 ];
-                if (activeChest.ryo) rewards.push({ icon: "🪙", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "📦" : lootItem.rarity === "rare" ? "⭐" : "🎁", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🌟" : "🃏", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
-                if (activeChest.fateShards) rewards.push({ icon: "🔮", label: "+1 Fate Shard", sub: "Premium currency" });
-                if (activeChest.boneCharms) rewards.push({ icon: "🪬", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-                if (activeChest.auraStones) rewards.push({ icon: "💠", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-                if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+                if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+                if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+                if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+                if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
+                if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });
+                if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: "+1 Aura Stone", sub: "Awakening Stone material" });
+                if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
                 return (
                     <div className="card cinematic-card">
                         <div className="chest-reveal">
