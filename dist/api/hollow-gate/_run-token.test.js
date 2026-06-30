@@ -77,3 +77,31 @@ const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinob
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(-5, 0, -10, 50, 1), 0);
     node_assert_1.strict.equal((0, settle_js_1.settleCurrency)(0, 0, 9999, 0, 1), 0); // zero ceiling → no credit
 });
+// ─── P0.2c high-value ITEM ceiling (Dungeon Legendary Fragment) ──────────────────
+(0, node_test_1.test)('HG_HIGH_VALUE_ITEM_ID mirrors the client DUNGEON_LEGENDARY_FRAGMENT_ID (drift guard)', () => {
+    node_assert_1.strict.equal(_run_token_js_1.HG_HIGH_VALUE_ITEM_ID, 'dungeon-legendary-fragment');
+    const CLIENT_GAME_CONSTS = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
+    node_assert_1.strict.ok(CLIENT_GAME_CONSTS.includes('DUNGEON_LEGENDARY_FRAGMENT_ID = "dungeon-legendary-fragment"'), 'client fragment id drifted from the server mirror');
+});
+(0, node_test_1.test)('maxFragmentsForDepth grows with depth, clamps to 1..20, and is always positive', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(1), 1);
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(5), 5);
+    node_assert_1.strict.ok((0, _run_token_js_1.maxFragmentsForDepth)(5) > (0, _run_token_js_1.maxFragmentsForDepth)(3), 'deeper runs allow more fragments');
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(0), 1, 'floors at 1');
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(999), 20, 'clamps at 20');
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(NaN), 1, 'junk → 1');
+});
+(0, node_test_1.test)('settleItemCount clamps an over-claim to the sealed ceiling', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(99, 5, 1), 5); // claimed 99, ceiling 5 → 5
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(2, 5, 1), 2); // under the ceiling → claimed
+});
+(0, node_test_1.test)('settleItemCount applies the death claw-back fraction and floors', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(4, 10, 0.5), 2); // floor(min(4,10)*0.5)
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(1, 10, 0.5), 0); // a lone fragment is lost on death
+});
+(0, node_test_1.test)('settleItemCount floors at 0 and ignores negative/junk input', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(-3, 5, 1), 0);
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(5, 0, 1), 0); // zero ceiling → no credit
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)('junk', 5, 1), 0);
+    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(undefined, 5, 1), 0); // current clients send nothing → inert
+});

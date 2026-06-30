@@ -73,3 +73,65 @@ The server side is done (`api/missions/report-ai-fight.ts`, **return-only**, rac
 - `docs/milestone-1-foundation-tickets.md`, `docs/p0.1-ceiling-enforcement-spec.md`, `docs/cosmetic-economy-design.md` (cosmetic economy is a future flagship — not started).
 - Memory: `project_launch_readiness_waves_impl.md` (live status), `feedback_balanced_pvp_design_pillar.md` (the pillar).
 - The full systems audit, Game-Director review, and master roadmap live in the prior chat transcript (not saved as docs).
+
+## 9. P0.2c — design (scoped 2026-06-30, build not started)
+
+P0.2b client landed (commits `a461d8f0` + dist `9e614423`). P0.2c was then deeply
+scoped; this is the agreed design so the build executes cleanly.
+
+**Scope decision (user: "do what's best — seamless and reliable"): ITEMS-ONLY, reuse existing server-auth infra.**
+- The PvE/HG **currency** drops (ryo, fateShards, auraDust, boneCharms, hollowShards,
+  honorSeals, …) are ALREADY double-capped by the save sanitizer (`api/save/[name].ts`
+  per-save `CURRENCY_CAPS` + per-minute `MAX_CURRENCY_PER_MINUTE`). Re-plumbing each
+  currency grant through a mint-token adds a round-trip + save-concurrency risk on every
+  boss kill for little real anti-fabrication gain → **DO NOT do the currency grants.**
+- The genuinely UNPROTECTED high-value targets are **items** (no per-item sanitizer cap,
+  only the blanket `INVENTORY_CAP=500`): `DUNGEON_LEGENDARY_FRAGMENT_ID` (HG boss, REPEATABLE
+  = highest leverage), `LEGENDARY_WAR_CRATE_ID` (war crate), and the rare one-time PvE items
+  `HOLLOW_GATE_KEY_ID` / `AURA_SPHERE_ITEM_ID` (story-gated → lowest leverage, do last/optional).
+
+**Anti-fabrication note:** server-pay-under-lock moves GRANT authority (closes the "fake a
+win report" vector). It does NOT stop a tampered client writing the item straight into
+`inventory` via `/api/save` — that needs a per-item ENTITLEMENT clamp in the sanitizer (today
+only `INVENTORY_CAP` exists). That sanitizer hardening is a SEPARATE future ticket (hot-path,
+risk-flagged) — out of scope for the grant-authority move, note it but don't bundle it.
+
+**Save-concurrency model (the reliability crux):** server credits the item under
+`withKvLock(save:<player>, { failClosed:true })` (re-read → append → `bumpSaveVersion` →
+`mergePreservingImages`), and RETURNS the credited result; the client MIRRORS it into local
+state so its own next `/api/save` is an idempotent overwrite that already contains the item
+(no two-writer clobber). This is exactly the proven pattern in `api/hollow-gate/settle.ts`
+(currencies) + `api/missions/report-raid.ts` (bonus ryo/seals). Reuse it verbatim.
+
+**Surface 1 — HG items (highest leverage; ride the EXISTING run loop):**
+- Extend `api/hollow-gate/settle.ts`: after the currency loop, credit
+  `min(claimedFragments, maxItemsForDepth(depth))` of `DUNGEON_LEGENDARY_FRAGMENT_ID` into
+  inventory under the SAME lock. Add `maxItemsForDepth(depth)` to `api/hollow-gate/_run-token.ts`
+  (a depth-D run = at most ~1 fragment per boss floor; be generous like `maxHaulForDepth`).
+- Client (`lib/hollow-gate-server.ts`): include the run's fragment count in the settle `haul`
+  (today `computeHollowGateHaul` reports CURRENCIES only → server item-credit is INERT for
+  current clients), STOP the inline `addInventoryItems([DUNGEON_LEGENDARY_FRAGMENT_ID])` at the
+  boss-kill grant (`App.tsx` HG-shrine win, currently ~:5992) when the run loop is on, and apply
+  the credited items from the settle response (mirror, like `applyServerSettle`).
+- Rides the EXISTING `hollowGateServer.v1` flag (HG items are part of the dive haul — a separate
+  `hollowGateDropServerAuth.v1` would awkwardly split one flow). Server half can land inert first
+  (like P0.2b's `306646dc`).
+- **OPEN game-design decision (confirm before building):** does a fragment earned at a boss
+  survive DEATH deeper in the run? Currency claws back ×0.5 on death; for a discrete item, pick
+  keep-on-extract-only vs floor(count×frac). Client retention MUST match the server frac.
+
+**Surface 2 — war crate (`warCrateServerAuth.v1`):** new endpoint validates `warCrateId` against
+the authoritative shared **clan + village** war state (server-readable: `api/_war-state.ts`,
+`api/clan/war/_storage.ts`, `api/world-state.ts`) — confirm `winnerVillage===player.village` (or
+`winnerClan===player.clan`), within `WAR_CRATE_EXPIRY_MS`, not already in `claimedWarCrateIds` —
+then append `LEGENDARY_WAR_CRATE_ID` + stamp the id under the failClosed save lock; client mirrors.
+TWO client grant sites: `recordVillageWarRaid` inline (winBattle, Arena.tsx) + `claimPendingWarCrates`
+login sweep (`lib/world-state.ts`). MOST entangled with the village-war system + great-swartz's war
+state diverges from main — do LAST, carefully.
+
+**Surface 3 — rare one-time PvE items (optional, lowest leverage):** `HOLLOW_GATE_KEY_ID` (Kage
+finale) + `AURA_SPHERE_ITEM_ID` (VN). Story-gated one-time grants; low fabrication value. Only do
+if completeness wanted.
+
+Each surface = its own green commit (server + client + flag + test + BOTH dists). Tests: token→
+credit once, double-report pays nothing, ceiling clamps, odds unchanged, route-parity + CORS + lint.
