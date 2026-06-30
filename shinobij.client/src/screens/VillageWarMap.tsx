@@ -22,6 +22,7 @@ import {
     type MercLeaseView,
 } from "../lib/village-war-map";
 import { mercPortrait } from "../lib/merc-ai";
+import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../data/war-ui-images";
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
 // The "command surface" beside the existing VillageWarScreen (§10/§11b.6): each
@@ -126,11 +127,17 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         try { sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
         setScreen("sectorCard");
     }, [setScreen]);
+    // Pet contests are fought on the Sector War Pet Battle screen — a server-resolved
+    // deterministic duel, then a byte-identical client replay. Stash + navigate.
+    const launchPetBattle = useCallback((sectorWarId: string) => {
+        try { sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        setScreen("sectorPet");
+    }, [setScreen]);
 
     return (
         <div className="vwm-screen">
             <div className="vwm-header">
-                <h1>⚔ Sector War Map</h1>
+                <h1><img src={WAR_CREST} alt="" style={{ height: 28, width: 28, verticalAlign: "middle", marginRight: 8, borderRadius: 6 }} />Sector War Map</h1>
                 <button className="vwm-back" onClick={onBack}>← Back</button>
             </div>
 
@@ -160,7 +167,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             onClick={() => act(`up-${s.key}`, () => upgradeWarStructure(character.name, myVillage, s.key))}
                                             title="Upgrade with treasury Honor Seals"
                                         >
-                                            {s.name} <b>L{myView.structures[s.key] ?? 0}</b> ⬆
+                                            {STRUCTURE_IMAGES[s.key] && <img src={STRUCTURE_IMAGES[s.key]} alt="" style={{ height: 18, width: 18, verticalAlign: "middle", marginRight: 4 }} />}{s.name} <b>L{myView.structures[s.key] ?? 0}</b> ⬆
                                         </button>
                                     ))}
                                 </div>
@@ -227,7 +234,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <b>{sec.alias ?? `#${sec.sector}`}</b>
                                                 <span style={{ color: villageAccent(owner) }}>{owner === myVillage ? "yours" : owner}</span>
                                             </div>
-                                            <div className="vwm-sector-meta">{sec.winCondition} · {sec.terrain}</div>
+                                            <div className="vwm-sector-meta">{WINCON_IMAGES[sec.winCondition] && <img src={WINCON_IMAGES[sec.winCondition]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", marginRight: 3, borderRadius: 3 }} />}{sec.winCondition} · {TERRAIN_IMAGES[sec.terrain] && <img src={TERRAIN_IMAGES[sec.terrain]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", margin: "0 3px", borderRadius: 3 }} />}{sec.terrain}</div>
                                             {contest && (
                                                 <div className="vwm-control" title={`${contest.attackerVillage} besieging`}>
                                                     <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.defenderVillage) }} /></div>
@@ -242,6 +249,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
                                                 <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}>⚔ Card Battle</button>
                                             )}
+                                            {contest && contest.winCondition === "pet" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}>🐾 Pet Battle</button>
+                                            )}
                                             {mine && (
                                                 <div className="vwm-config">
                                                     <select
@@ -251,6 +261,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     >
                                                         <option value="combat">Combat</option>
                                                         <option value="card">Card</option>
+                                                        <option value="pet">Pet</option>
                                                     </select>
                                                     <select
                                                         value={sec.terrain}

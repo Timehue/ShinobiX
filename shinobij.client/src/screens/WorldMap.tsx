@@ -90,7 +90,8 @@ import {
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
-import { mercEncounterAis } from "../lib/merc-ai";
+import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
+import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { homeVillageForSector } from "../data/war-map-sectors";
 
 
@@ -531,6 +532,26 @@ export function WorldMap({
         },
         [selectedSector, character.wandererCooldowns],
     );
+    // Roaming mercenaries (Phase 5) — a hired enemy band patrols this sector as
+    // hostile, wanderer-shaped NPCs. The roster is SERVER-sourced (which bands roam
+    // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
+    const MERC_CLIENT_HIDE_MS = 15 * 60 * 1000;
+    const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[] }>({ sector: -1, mercs: [] });
+    useEffect(() => {
+        const village = (character.village ?? "").trim();
+        const sec = selectedSector;
+        if (!isVillageWarMapEnabled() || sec == null || !village) return;
+        let alive = true;
+        const load = () => { void fetchMercRoster(character.name, village, sec).then(m => { if (alive) setMercRoster({ sector: sec, mercs: m }); }).catch(() => { /* roster is best-effort */ }); };
+        load();
+        const id = setInterval(load, 20000);
+        return () => { alive = false; clearInterval(id); };
+    }, [selectedSector, character.name, character.village]);
+    const mercWanderers = useMemo(() => {
+        if (!isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
+        const cd = character.wandererCooldowns; const now = Date.now();
+        return mercRoster.mercs.filter(m => !isWandererOnCooldown(cd, m.id, now)).map(synthMercWanderer);
+    }, [mercRoster, selectedSector, character.wandererCooldowns]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -688,6 +709,8 @@ export function WorldMap({
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean; standingLine?: string; peace?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
     function handleWandererEngage(w: Wanderer) {
+        // A roaming mercenary doesn't parley — it forces a server-resolved fight.
+        if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
         // A bandit you face while you have a rival has a chance of BEING that rival,
         // back for more.
         if (w.verb === "attack" && character.wandererNemesis && Math.random() < 0.45) {
@@ -704,6 +727,28 @@ export function WorldMap({
         // Every wanderer — bandits included — opens a dialog first (a threat line
         // + Fight/Flee for bandits; greetings + actions for the rest).
         setWandererDialog({ w, standingLine: react?.line });
+    }
+    // A roaming merc reaching the player resolves SERVER-SIDE (no client Arena, no
+    // Fight/Flee — a merc forces the fight; the server calls it). The result reuses
+    // the resolved-dialog path. The merc NPC is hidden client-side after the clash;
+    // the server enforces the real 15-min per-target cooldown.
+    async function engageRoamingMerc(w: Wanderer) {
+        const sec = selectedSector;
+        if (sec == null) return;
+        const village = (character.village ?? "").trim();
+        coolWanderer(w.id, MERC_CLIENT_HIDE_MS);
+        setWandererDialog({ w, busy: true, msg: "⚔ A mercenary closes in…" });
+        try {
+            const r = await engageMerc(character.name, village, sec, w.id);
+            const msg = r.error ? r.error
+                : r.winner === "player" ? "You cut the mercenary down."
+                : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you — your village bleeds for it." : "The mercenary overwhelmed you — your hold on the sector slips.")
+                : "You traded blows; the mercenary broke off.";
+            setWandererDialog({ w, msg });
+            if (village) void fetchMercRoster(character.name, village, sec).then(m => setMercRoster({ sector: sec, mercs: m })).catch(() => { /* best-effort refresh */ });
+        } catch {
+            setWandererDialog({ w, msg: "You couldn't reach the contract board." });
+        }
     }
     // Closing the dialog. Fleeing/declining a BANDIT (you took no reward) puts it on
     // a short cooldown so it backs off instead of re-confronting you every time you
@@ -1900,7 +1945,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {sectorWanderers.map(w => (
+                            {[...sectorWanderers, ...mercWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
