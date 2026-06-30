@@ -180,7 +180,15 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         // and would otherwise restart the 25s interval on every tick. Intentional.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serverKage?.challenge?.status, serverKage?.challenge?.challenger, character.name, character.village]);
-    useEffect(() => { if (tab !== "guard" && tab !== "status") return; fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) }).then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([])); }, [tab, character.village, character.guardQueued]);
+    useEffect(() => {
+        if (tab !== "guard" && tab !== "status") return;
+        let alive = true;
+        fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) })
+            .then(r => r.ok ? r.json() : [])
+            .then(list => { if (alive) setGuardList(Array.isArray(list) ? list : []); })
+            .catch(() => { if (alive) setGuardList([]); });
+        return () => { alive = false; };
+    }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
     function addNotice(text: string, nextState: VillageState = state) { const post = makeNoticePost("general", "Village Notice", text, "System", "System"); return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8), noticePosts: normalizeNoticePosts([post, ...nextState.noticePosts]) }; }
     // (Removed: beginVillageWar — Town Hall's bypass declare path. The

@@ -61,6 +61,15 @@ const KIND_SPECS: Record<PetJutsu["kind"], KindSpec> = {
     pull:      { tags: ["ranged", "pull"],            anim: "beam",              hint: "control", range: { min: 1, max: 4 }, accuracy: 90,  vfx: "wind",      blurb: "Yanks the target in close." },
 };
 
+/**
+ * The authored hit-chance (0–100) for a move of this kind, from KIND_SPECS.
+ * Support/utility kinds are 100 (never miss); offensive/control kinds are lower.
+ * Battle engines roll `rng() < accuracy/100` when the petAccuracy flag is on.
+ */
+export function petMoveAccuracy(kind: PetJutsu["kind"]): number {
+    return (KIND_SPECS[kind] ?? KIND_SPECS.damage).accuracy;
+}
+
 function slug(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }

@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Pet, PetJutsu } from "../types/pet";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelSnapshot } from "./pet-duel-sim";
+import { runPetDuel, runPetPartyDuel, DUEL_TPS, KIND_ACCURACY, type DuelSnapshot } from "./pet-duel-sim";
+import { petMoveAccuracy } from "./pet-moves";
 
 /*
  * Coverage for the continuous-duel engine (pet-duel-sim.ts), Phases A+B. The
@@ -40,6 +41,36 @@ function assertAllNumbersFinite(value: unknown, path = "result"): void {
 const SEEDS = [1, 7, 12345, 98765, 2024];
 const CAP = DUEL_TPS * 30;
 const actor = (s: DuelSnapshot, team: "player" | "enemy", slot = 0) => s.actors.find((a) => a.team === team && a.slot === slot)!;
+
+// ── accuracy / miss-chance (flag-gated, default off) ───────────────────────────
+
+test("accuracy: KIND_ACCURACY mirrors pet-moves KIND_SPECS (no drift between the inlined copy and the source)", () => {
+    for (const kind of Object.keys(KIND_ACCURACY) as Array<keyof typeof KIND_ACCURACY>) {
+        assert.equal(KIND_ACCURACY[kind], petMoveAccuracy(kind), `accuracy drift for kind "${kind}"`);
+    }
+});
+
+test("accuracy flag: off (default) draws no rng; on adds misses and stays deterministic", () => {
+    // Two moves so the pets both KO each other (Strike) and roll often (Frost 85%).
+    const p = (id: string) => makePet({ id, jutsus: [
+        J({ name: "Strike", kind: "damage", power: 110 }),
+        J({ name: "Frost", kind: "freeze", power: 80, cooldown: 0, rounds: 1 }),
+    ] });
+    const whiffs = (r: ReturnType<typeof runPetDuel>) => r.events.filter((e) => e.type === "whiff").length;
+    let on = 0, off = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+        const rOff = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false);
+        const rOn  = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, true);
+        off += whiffs(rOff); on += whiffs(rOn);
+        // Default path (node has no localStorage → petAccuracyEnabled() === false)
+        // must be byte-identical to explicit accuracy=false.
+        assert.deepEqual(runPetDuel(p("a"), p("b"), seed), rOff, `seed ${seed}: default must equal explicit off`);
+    }
+    assert.ok(on > off, `accuracy on must add misses (whiffs on=${on}, off=${off})`);
+    const a = runPetDuel(p("a"), p("b"), 4242, 1, 1, false, false, true);
+    const b = runPetDuel(p("a"), p("b"), 4242, 1, 1, false, false, true);
+    assert.deepEqual(a, b, "accuracy-on battles must stay deterministic (ranked replays)");
+});
 
 // ── 1v1 ──────────────────────────────────────────────────────────────────────
 
