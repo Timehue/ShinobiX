@@ -14,20 +14,47 @@
  *     left-profile rail, so the "next step" rides along with the stat panel instead
  *     of taking the top of the hub.
  *
+ * Dismissable: a "×" hides the CURRENT objective's pin (remembered per device).
+ * It reappears once a *new* objective becomes active — so "hide" silences the
+ * current nag without killing the wayfinding for the next milestone.
+ *
  * Renders nothing once every unlocked objective is complete (veterans see no
  * clutter). Self-contained inline styles; presentation only.
  */
+import { useState } from "react";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
 import { GameIcon } from "./icons/GameIcon";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 
+const DISMISS_KEY = "nextGoalDismissedObjective";
+function readDismissed(): string | null {
+    try { return localStorage.getItem(DISMISS_KEY); } catch { return null; }
+}
+
 export function NextGoalPin({ character, navigate, compact = false }: { character: Character; navigate: (s: Screen) => void; compact?: boolean }) {
+    const [dismissedId, setDismissedId] = useState<string | null>(readDismissed);
     const objective = currentLogbookObjective(character);
     if (!objective) return null;
+    if (dismissedId === objective.title) return null;
     const req = objective.requirements.find((r) => r.progress < r.target);
     if (!req) return null;
     const pct = req.target > 0 ? Math.min(100, Math.round((req.progress / req.target) * 100)) : 0;
+
+    const dismiss = () => {
+        try { localStorage.setItem(DISMISS_KEY, objective.title); } catch { /* private mode — just hide for the session */ }
+        setDismissedId(objective.title);
+    };
+    const closeBtn = (size: number) => (
+        <button
+            onClick={dismiss}
+            aria-label="Hide this goal"
+            title="Hide — returns on your next goal"
+            style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: size, lineHeight: 1, padding: "0 2px", alignSelf: "flex-start" }}
+        >
+            ✕
+        </button>
+    );
 
     if (compact) {
         return (
@@ -39,8 +66,11 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                     border: "1px solid rgba(250,204,21,.28)",
                 }}
             >
-                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
-                    <GameIcon name="target" size={11} /> Next goal · {objective.title}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 5, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <GameIcon name="target" size={11} /> Next goal · {objective.title}
+                    </span>
+                    {closeBtn(12)}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, fontSize: 12, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
                     <span>
@@ -98,6 +128,7 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
                     {req.goLabel ?? "Go"} →
                 </button>
             )}
+            {closeBtn(16)}
         </div>
     );
 }
