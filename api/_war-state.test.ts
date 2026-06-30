@@ -102,8 +102,10 @@ describe('war-state: win-condition diversity (max-7 rule)', () => {
     it('blocks assigning an 8th sector to a type already on 7', () => {
         const r = defaultVillageWarRecord('Stormveil Village');
         const keys = Object.keys(r.sectors);
-        // Force 7 of the 8 sectors onto card.
+        // Force exactly 7 of the 8 sectors onto card; pin the 8th off it (the
+        // default for keys[7] varies with the home-sector ordering).
         for (let i = 0; i < 7; i++) r.sectors[keys[i]].winCondition = 'card';
+        r.sectors[keys[7]].winCondition = 'combat';
         assert.equal(winConditionCounts(r).card, 7);
         // The 8th cannot become card (would be 8) but can become pet (pet = 0).
         assert.equal(canAssignWinCondition(r, Number(keys[7]), 'card'), false);
