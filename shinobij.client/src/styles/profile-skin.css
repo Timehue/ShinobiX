@@ -35,7 +35,7 @@
 .inventory-page h3,
 .profile-page-header h1,
 .profile-page-header h2 {
-    font-family: Cinzel, serif !important;
+    font-family: var(--font-display) !important;
     letter-spacing: 0.14em;
     color: var(--bsv2-gold-bright) !important;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
@@ -68,7 +68,7 @@
     border: 1px solid transparent !important;
     color: rgba(196,162,90,0.65) !important;
     padding: 8px 14px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     border-radius: 4px !important;
@@ -106,7 +106,7 @@
 }
 .inventory-panel-header {
     color: var(--bsv2-gold-bright) !important;
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--bsv2-gold-faint) !important;
@@ -116,12 +116,12 @@
 
 /* -------- Profile summary / character card -------- */
 .profile-name {
-    font: 700 22px Cinzel, serif !important;
+    font: 700 22px var(--font-display) !important;
     color: var(--bsv2-gold-bright) !important;
     letter-spacing: 0.08em;
 }
 .profile-rank {
-    font: 500 12px Cinzel, serif !important;
+    font: 500 12px var(--font-display) !important;
     color: var(--bsv2-player) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -166,7 +166,7 @@
     margin-bottom: 10px !important;
 }
 .stat-group-heading {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright) !important;
@@ -190,7 +190,7 @@
 }
 .stat-card-label,
 .stat-label {
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: rgba(196,162,90,0.85) !important;
@@ -198,7 +198,7 @@
 .stat-card-values,
 .stat-row {
     color: #f4e6c4 !important;
-    font: 600 16px Cinzel, serif !important;
+    font: 600 16px var(--font-display) !important;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
 }
@@ -248,7 +248,7 @@
     color: #fff !important;
     padding: 4px 10px !important;
     border-radius: 3px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     cursor: pointer;
@@ -272,7 +272,7 @@
     border-radius: 3px;
 }
 .stat-header {
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright) !important;
@@ -283,7 +283,7 @@
     color: var(--bsv2-gold-bright) !important;
     padding: 3px 8px !important;
     border-radius: 3px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.14em;
 }
 
@@ -319,7 +319,7 @@
     box-shadow: 0 0 18px rgba(78,168,255,0.55), inset 0 0 18px rgba(0,0,0,0.45) !important;
 }
 .profile-page-card .jutsu-name {
-    font-family: Cinzel, serif !important;
+    font-family: var(--font-display) !important;
     color: #f4e6c4 !important;
     letter-spacing: 0.06em;
     font-weight: 600;
@@ -336,7 +336,7 @@
     border: 1px solid rgba(78,168,255,0.5) !important;
     border-radius: 3px !important;
     padding: 2px 6px !important;
-    font: 700 9px Cinzel, serif !important;
+    font: 700 9px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
 }
@@ -433,7 +433,7 @@
     color: var(--bsv2-gold-bright) !important;
     padding: 6px 14px !important;
     border-radius: 4px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     cursor: pointer;
@@ -476,7 +476,7 @@
     width: 28px; height: 28px;
     padding: 0 !important;
     border-radius: 3px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     cursor: pointer;
 }
 .profile-page-card .pager button.active,
@@ -525,7 +525,7 @@
     border-radius: 50% !important;
 }
 .profile-page-card .profile-big-avatar span {
-    font: 700 32px Cinzel, serif !important;
+    font: 700 32px var(--font-display) !important;
     color: #e8d496 !important;
     letter-spacing: 0.06em;
 }
@@ -536,7 +536,7 @@
     color: #fff !important;
     padding: 6px 14px !important;
     border-radius: 4px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     cursor: pointer;
@@ -566,7 +566,7 @@
     border: 1px solid transparent !important;
     color: rgba(196,162,90,0.65) !important;
     padding: 10px 8px !important;
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     border-radius: 4px !important;
@@ -603,7 +603,7 @@
     gap: 18px !important;
 }
 .profile-page-card .profile-info-grid h3 {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: #e8d496 !important;
@@ -654,7 +654,7 @@
 }
 .profile-page-card .stat-group-heading h3,
 .profile-page-card .stat-group-heading > strong {
-    font: 700 12px Cinzel, serif !important;
+    font: 700 12px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: #e8d496 !important;
@@ -675,7 +675,7 @@
 
 /* User Stats header */
 .profile-page-card h2:not(.profile-page-header h2) {
-    font: 700 14px Cinzel, serif !important;
+    font: 700 14px var(--font-display) !important;
     letter-spacing: 0.24em;
     text-transform: uppercase;
     color: #e8d496 !important;
@@ -691,7 +691,7 @@
     color: #fca5a5 !important;
     padding: 4px 12px !important;
     border-radius: 999px !important;
-    font: 700 11px Cinzel, serif !important;
+    font: 700 11px var(--font-display) !important;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     margin-left: 12px;
@@ -763,7 +763,7 @@
 }
 .inventory-page .slot-filter-bar strong {
     color: #e8d496;
-    font-family: Cinzel, serif;
+    font-family: var(--font-display);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin: 0 4px;
@@ -774,7 +774,7 @@
     color: #e8d496 !important;
     padding: 4px 10px !important;
     border-radius: 3px !important;
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.14em !important;
     text-transform: uppercase !important;
     cursor: pointer;
@@ -808,13 +808,13 @@
     display: block;
 }
 .inventory-page .backpack-item-art span {
-    font: 700 18px Cinzel, serif !important;
+    font: 700 18px var(--font-display) !important;
     color: #e8d496 !important;
     letter-spacing: 0.04em;
     text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 .inventory-page .backpack-item strong {
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     color: #e8d496 !important;
     letter-spacing: 0.04em;
 }
@@ -842,13 +842,13 @@
 }
 .profile-page-card .achievements-heading h3 {
     margin: 0 !important;
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     color: #e8d496 !important;
 }
 .profile-page-card .achievements-count {
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.16em;
     color: var(--bsv2-gold);
 }
@@ -933,7 +933,7 @@
     flex: 1 1 auto;
 }
 .profile-page-card .achievement-meta strong {
-    font: 600 11px Cinzel, serif !important;
+    font: 600 11px var(--font-display) !important;
     letter-spacing: 0.08em;
     color: #e8d496 !important;
     text-transform: uppercase;
@@ -947,7 +947,7 @@
     margin-top: 2px;
 }
 .profile-page-card .achievement-unlocked-at {
-    font: 500 9px/1.35 Cinzel, serif !important;
+    font: 500 9px/1.35 var(--font-display) !important;
     color: var(--bsv2-gold) !important;
     letter-spacing: 0.06em;
     margin-top: 3px !important;
@@ -967,14 +967,14 @@
     border-top: 1px solid rgba(196,162,90,0.22);
 }
 .profile-page-card .aura-sphere-inline .act-label {
-    font: 600 10px Cinzel, serif !important;
+    font: 600 10px var(--font-display) !important;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--bsv2-gold);
     margin: 0 0 4px 0 !important;
 }
 .profile-page-card .aura-sphere-inline h4 {
-    font: 600 13px Cinzel, serif !important;
+    font: 600 13px var(--font-display) !important;
     letter-spacing: 0.1em;
     color: var(--bsv2-gold-bright) !important;
     margin: 0 0 6px 0 !important;
@@ -1006,7 +1006,7 @@
     border: 1px solid var(--bsv2-gold-soft);
     background: linear-gradient(180deg, rgba(196,162,90,0.18), rgba(196,162,90,0.05));
     color: var(--bsv2-gold-bright);
-    font: 600 11px Cinzel, serif;
+    font: 600 11px var(--font-display);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     cursor: pointer;
@@ -1101,7 +1101,7 @@
     line-height: 1;
 }
 .achievement-detail-category {
-    font: 600 10px Cinzel, serif;
+    font: 600 10px var(--font-display);
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: var(--bsv2-gold);
@@ -1111,7 +1111,7 @@
     color: #ce93d8;
 }
 .achievement-detail-name {
-    font: 700 22px Cinzel, serif;
+    font: 700 22px var(--font-display);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright);
@@ -1127,7 +1127,7 @@
     margin: 0 0 16px 0;
 }
 .achievement-detail-date {
-    font: 500 11px Cinzel, serif;
+    font: 500 11px var(--font-display);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--bsv2-gold);
@@ -1176,7 +1176,7 @@
 }
 .user-hub-screen .user-hub-header h2 {
     margin: 0;
-    font: 700 18px Cinzel, serif !important;
+    font: 700 18px var(--font-display) !important;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #e8d496 !important;
@@ -1221,7 +1221,7 @@
     border-bottom: 1px solid rgba(196,162,90,0.18);
 }
 .user-hub-screen .user-hub-section-label {
-    font: 600 11px Cinzel, serif;
+    font: 600 11px var(--font-display);
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #c4a25a;
@@ -1283,7 +1283,7 @@
     display: grid;
     place-items: center;
     color: #facc15;
-    font: 700 14px Cinzel, serif;
+    font: 700 14px var(--font-display);
 }
 .user-hub-screen .user-hub-avatar img {
     width: 100%;
@@ -1302,7 +1302,7 @@
     min-width: 0;
 }
 .user-hub-screen .user-hub-name strong {
-    font: 600 13px Cinzel, serif;
+    font: 600 13px var(--font-display);
     letter-spacing: 0.08em;
     color: #e8d496;
     text-transform: uppercase;
@@ -1357,7 +1357,7 @@
     border-radius: 4px;
     color: #e8d496;
     cursor: pointer;
-    font: 600 11px Cinzel, serif;
+    font: 600 11px var(--font-display);
     letter-spacing: 0.16em;
     text-transform: uppercase;
     transition: border-color 120ms, background 120ms;
