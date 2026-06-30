@@ -25,8 +25,8 @@ export const WAR_VILLAGES: readonly WarVillage[] = [
 
 // Home sectors per village — all 8 capturable. Outskirts anchor listed first. §4.
 export const HOME_SECTORS: Record<WarVillage, readonly number[]> = {
-    'Moonshadow Village': [11, 2, 3, 4, 5, 6, 7, 8],
-    'Stormveil Village': [31, 21, 22, 23, 24, 25, 26, 27],
+    'Moonshadow Village': [11, 19, 15, 4, 5, 6, 16, 8],
+    'Stormveil Village': [31, 21, 22, 34, 24, 35, 26, 27],
     'Ashen Leaf Village': [38, 36, 37, 39, 40, 41, 42, 43],
     'Frostfang Village': [47, 46, 48, 49, 50, 51, 53, 54],
 };

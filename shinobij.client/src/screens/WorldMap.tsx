@@ -1027,25 +1027,26 @@ export function WorldMap({
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
     const [showAttunement, setShowAttunement] = useState(false);   // Shrine Attunement panel
+    // Marker layout (0–100 grid), hand-curated. Each village's nearby sectors
+    // cluster around its banner; neutral sectors spread across the mid-map. A
+    // sector's biome / encounters are fixed by its NUMBER (biomeForSector) — the
+    // marker position is purely where the dot sits. Fixed POIs: central ring 56–60,
+    // Hollow-Gate shrines 1/52, Death's Gate / PvP 99; the village / Central /
+    // Hollow Gate landmarks live in `locations`, untouched.
     const sectorPoints = [
-        // ── Shadow / Moonshadow territory (1–20) — bottom-right quadrant ──
-        { id: 1, x: 58, y: 50 }, { id: 2, x: 64, y: 49 }, { id: 3, x: 71, y: 49 }, { id: 4, x: 78, y: 50 }, { id: 5, x: 85, y: 53 },
-        { id: 6, x: 91, y: 58 }, { id: 7, x: 63, y: 57 }, { id: 8, x: 70, y: 57 }, { id: 9, x: 77, y: 58 }, { id: 10, x: 84, y: 61 },
-        { id: 11, x: 72, y: 79 }, { id: 12, x: 90, y: 66 }, { id: 13, x: 63, y: 65 }, { id: 14, x: 70, y: 66 }, { id: 15, x: 79, y: 67 },
-        { id: 16, x: 86, y: 70 }, { id: 17, x: 92, y: 75 }, { id: 18, x: 66, y: 75 }, { id: 19, x: 81, y: 76 }, { id: 20, x: 88, y: 81 },
-        // ── Forest / Stormveil territory (21–35) — bottom-left quadrant ──
-        { id: 21, x: 15, y: 57 }, { id: 22, x: 23, y: 55 }, { id: 23, x: 31, y: 57 }, { id: 24, x: 39, y: 59 }, { id: 25, x: 45, y: 53 },
-        { id: 26, x: 13, y: 65 }, { id: 27, x: 21, y: 66 }, { id: 28, x: 29, y: 67 }, { id: 29, x: 37, y: 68 }, { id: 30, x: 44, y: 66 },
-        { id: 31, x: 18, y: 78 }, { id: 32, x: 26, y: 77 }, { id: 33, x: 34, y: 79 }, { id: 34, x: 41, y: 80 }, { id: 35, x: 44, y: 90 },
-        // ── Volcano / Ashen Leaf territory (36–45) — top-left quadrant ──
-        { id: 36, x: 13, y: 30 }, { id: 37, x: 20, y: 23 }, { id: 38, x: 18, y: 42 }, { id: 39, x: 28, y: 20 }, { id: 40, x: 35, y: 22 },
-        { id: 41, x: 43, y: 27 }, { id: 42, x: 25, y: 32 }, { id: 43, x: 32, y: 30 }, { id: 44, x: 39, y: 35 }, { id: 45, x: 45, y: 38 },
-        // ── Snow / Frostfang territory (46–55) — top-right quadrant ──
-        { id: 46, x: 58, y: 18 }, { id: 47, x: 82, y: 44 }, { id: 48, x: 65, y: 15 }, { id: 49, x: 73, y: 15 }, { id: 50, x: 81, y: 19 },
-        { id: 51, x: 60, y: 28 }, { id: 52, x: 67, y: 27 }, { id: 53, x: 74, y: 29 }, { id: 54, x: 81, y: 31 }, { id: 55, x: 90, y: 30 },
-        // ── Central ring (56–60) — heart of the map ──
+        { id: 1, x: 58, y: 50 }, { id: 2, x: 61, y: 37 }, { id: 3, x: 70, y: 40 }, { id: 4, x: 81, y: 60 }, { id: 5, x: 88, y: 64 },
+        { id: 6, x: 91, y: 72 }, { id: 7, x: 52, y: 34 }, { id: 8, x: 84, y: 70 }, { id: 9, x: 60, y: 55 }, { id: 10, x: 66, y: 51 },
+        { id: 11, x: 79, y: 78 }, { id: 12, x: 62, y: 64 }, { id: 13, x: 54, y: 85 }, { id: 14, x: 62, y: 88 }, { id: 15, x: 73, y: 58 },
+        { id: 16, x: 69, y: 68 }, { id: 17, x: 70, y: 83 }, { id: 18, x: 61, y: 76 }, { id: 19, x: 66, y: 60 }, { id: 20, x: 44, y: 74 },
+        { id: 21, x: 10, y: 70 }, { id: 22, x: 18, y: 66 }, { id: 23, x: 40, y: 54 }, { id: 24, x: 28, y: 73 }, { id: 25, x: 34, y: 38 },
+        { id: 26, x: 9, y: 79 }, { id: 27, x: 19, y: 76 }, { id: 28, x: 33, y: 56 }, { id: 29, x: 40, y: 62 }, { id: 30, x: 45, y: 69 },
+        { id: 31, x: 15, y: 81 }, { id: 32, x: 32, y: 84 }, { id: 33, x: 38, y: 79 }, { id: 34, x: 25, y: 64 }, { id: 35, x: 22, y: 73 },
+        { id: 36, x: 8, y: 26 }, { id: 37, x: 15, y: 19 }, { id: 38, x: 14, y: 33 }, { id: 39, x: 24, y: 17 }, { id: 40, x: 31, y: 21 },
+        { id: 41, x: 33, y: 31 }, { id: 42, x: 22, y: 27 }, { id: 43, x: 26, y: 38 }, { id: 44, x: 40, y: 34 }, { id: 45, x: 46, y: 41 },
+        { id: 46, x: 89, y: 28 }, { id: 47, x: 74, y: 33 }, { id: 48, x: 66, y: 20 }, { id: 49, x: 73, y: 16 }, { id: 50, x: 81, y: 19 },
+        { id: 51, x: 68, y: 30 }, { id: 52, x: 56, y: 24 }, { id: 53, x: 85, y: 33 }, { id: 54, x: 88, y: 24 }, { id: 55, x: 71, y: 48 },
         { id: 56, x: 44, y: 47 }, { id: 57, x: 54, y: 48 }, { id: 58, x: 48, y: 55 }, { id: 59, x: 55, y: 58 }, { id: 60, x: 49, y: 64 },
-        { id: 99, x: 51, y: 10 }, // Death's Gate — cursed PvP zone (on the volcano)
+        { id: 99, x: 51, y: 10 },
     ];
 
     function biomeForSector(sector: number): Biome {

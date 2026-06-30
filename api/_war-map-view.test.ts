@@ -12,7 +12,7 @@ describe('war-map-view: villageWarMapView', () => {
         const v = villageWarMapView({ village: 'Moonshadow Village', record: recordWith(), treasurySeals: 0, sectorsHeld: 8 });
         assert.equal(v.village, 'Moonshadow Village');
         assert.equal(v.biome, 'shadow');
-        assert.deepEqual(v.homeSectors, [11, 2, 3, 4, 5, 6, 7, 8]);
+        assert.deepEqual(v.homeSectors, [11, 19, 15, 4, 5, 6, 16, 8]);
         assert.equal(v.warResources, 0);
         assert.equal(v.upkeepWr, 0);
         assert.equal(v.dormant, false);
