@@ -1,27 +1,30 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { gainXp, type XpCharacter } from '../_xp-engine.js';
 import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS } from './_ai-fight-reward.js';
 
-// P0.2b — server-authoritative AI-fight reward with a daily soft-cap.
+// P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
-// The client reports the base XP/ryo it computed for an AI win; the server clamps
-// it, applies the soft-cap from an AUTHORITATIVE date-keyed counter (so a tampered
-// client can't bypass the cap by lying about its daily count), and credits XP (via
-// the shared gainXp leveling — respecting exam gates + stat budget) and ryo under
-// the save lock. This governs ONLY the XP+ryo faucet that breaks the 90-day curve;
-// currency drops / kill counters / territory stay on the client save path (those
-// are P0.2c's mint-token surface).
+// The client reports the base XP/ryo it computed for an AI win; the server applies
+// the soft-cap using an AUTHORITATIVE per-day counter (atomic incr, so a client
+// can't fake its running daily total) and RETURNS the allowed amounts. The client
+// then grants exactly that, inside its single save write.
 //
-// Gated by AI_FIGHT_SERVER_AUTH (env). Default OFF → the endpoint is an inert
-// no-op that credits nothing, so registering it can't add a credit path on top of
-// the still-active client grant. It activates together with the client rewire
-// (aiFightServerAuth.v1), which stops the local grant and applies this result.
+// Why return-only (not credit-on-the-server): the AI-win grant is entangled — the
+// client must still write territory/kills/crates/missions to the save — so if this
+// endpoint ALSO wrote the save we'd have two writers racing on save:<name>. By
+// returning the allowed amount and letting the client apply it, there is exactly
+// one writer and no race. AI-fight rewards affect PROGRESSION SPEED, not the PvP
+// power ceiling, so capping honest play here (the 90-day-curve concern) is the goal;
+// the existing per-save / per-minute save-sanitizer caps remain the floor against a
+// tampered client.
+//
+// The client only calls this (and honors the result) when aiFightServerAuth.v1 is
+// on; stale clients never call it. The endpoint credits nothing, so it is safe to
+// expose unconditionally — the only state it touches is the caller's own daily
+// counter (auth-gated to the player's own name).
 
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
@@ -44,47 +47,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'report-ai-fight', 30, 60_000, identity.name))) return;
 
-        // Inert until the feature is enabled — never credits on the default path,
-        // so it can't double-grant on top of the (still-active) client reward.
-        if (process.env.AI_FIGHT_SERVER_AUTH !== '1') {
-            return res.status(200).json({ ok: true, disabled: true, grantedXp: 0, grantedRyo: 0 });
-        }
-
-        const claimedXp = Number(body.xp ?? 0);
-        const claimedRyo = Number(body.ryo ?? 0);
-        const key = `save:${playerName}`;
-
-        const result = await withKvLock(key, async () => {
-            const record = await kv.get<Record<string, unknown>>(key);
-            if (!record) return { status: 404 as const, body: { error: 'Player not found.' } };
-            const char = record.character as Record<string, unknown> | undefined;
-            if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
-
-            // Authoritative daily count (atomic incr; TTL so date keys self-evict).
-            const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
-            const reward = aiFightReward(claimedXp, claimedRyo, dailyCount);
-
-            const leveled = gainXp({ ...(char as unknown as XpCharacter) }, reward.xp) as unknown as Record<string, unknown>;
-            leveled.ryo = Math.max(0, Number(char.ryo ?? 0)) + reward.ryo;
-            const updated = { ...record, character: leveled };
-            bumpSaveVersion(updated);
-            await kv.set(key, mergePreservingImages(updated, record));
-
-            return {
-                status: 200 as const,
-                body: {
-                    ok: true,
-                    grantedXp: reward.xp,
-                    grantedRyo: reward.ryo,
-                    capped: reward.capped,
-                    dailyCount,
-                    level: leveled.level,
-                    xp: leveled.xp,
-                    ryo: leveled.ryo,
-                },
-            };
-        }, { failClosed: true });
-        return res.status(result.status).json(result.body);
+        // Authoritative running daily count (atomic; TTL so date keys self-evict).
+        const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
+        const reward = aiFightReward(body.xp, body.ryo, dailyCount);
+        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
     } catch (err) {
         console.error('[missions/report-ai-fight]', err);
         return res.status(500).json({ error: 'Internal server error.' });
