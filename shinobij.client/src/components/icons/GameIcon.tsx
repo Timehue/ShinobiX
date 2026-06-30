@@ -157,6 +157,29 @@ const PATHS: Record<GameIconName, ReactElement> = {
             <path d="M12 8.4 8.6 5.2Q8.2 7.4 11.4 8.4ZM12 8.4 15.4 5.2Q15.8 7.4 12.6 8.4Z" />
         </>
     ),
+    // Person — head + shoulders (profile / character nav).
+    person: (
+        <>
+            <circle cx="12" cy="7.6" r="3.7" />
+            <path d="M4.7 20.2c0-3.9 3.3-6.4 7.3-6.4s7.3 2.5 7.3 6.4a.9.9 0 0 1-.9.9H5.6a.9.9 0 0 1-.9-.9Z" />
+        </>
+    ),
+    // Satchel / bag with a handle cutout (inventory nav).
+    bag: (
+        <path fillRule="evenodd" clipRule="evenodd" d="M8.3 7.5a3.7 3.7 0 0 1 7.4 0V8h2.1a1.6 1.6 0 0 1 1.6 1.5l.5 9.4a2.4 2.4 0 0 1-2.4 2.6H6a2.4 2.4 0 0 1-2.4-2.6l.5-9.4A1.6 1.6 0 0 1 5.6 8h2.7V7.5Zm1.9.5h3.6v-.5a1.8 1.8 0 0 0-3.6 0V8Z" />
+    ),
+    // Hamburger menu — three rounded bars (menu nav).
+    menu: (
+        <>
+            <rect x="3.6" y="5.8" width="16.8" height="2.3" rx="1.15" />
+            <rect x="3.6" y="10.85" width="16.8" height="2.3" rx="1.15" />
+            <rect x="3.6" y="15.9" width="16.8" height="2.3" rx="1.15" />
+        </>
+    ),
+    // Sake flask / tokkuri — narrow neck over a round body (tavern nav).
+    flask: (
+        <path d="M10 3.2h4a.8.8 0 0 1 .8.8v2.3a1 1 0 0 0 .15.52l1.7 2.8A5.5 5.5 0 0 1 17.4 15v2.6a3.2 3.2 0 0 1-3.2 3.2H9.8a3.2 3.2 0 0 1-3.2-3.2V15a5.5 5.5 0 0 1 .75-2.78l1.7-2.8a1 1 0 0 0 .15-.52V4a.8.8 0 0 1 .8-.8Z" />
+    ),
 };
 
 export function GameIcon({

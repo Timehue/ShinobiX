@@ -24,10 +24,15 @@ export type GameIconName =
     | "clock"    // daily reset timer
     | "dumbbell" // physical / stat training
     | "paw"      // pet activity
-    | "gift";    // reward ready
+    | "gift"     // reward ready
+    | "person"   // character / profile (nav)
+    | "bag"      // inventory / items (nav)
+    | "menu"     // hamburger menu (nav)
+    | "flask";   // tavern / sake (nav)
 
 export const gameIconNames: readonly GameIconName[] = [
     "ryo", "shard", "crystal", "sparkle", "medal", "sigil", "bone",
     "chakra", "hp", "sword", "shield", "scroll",
     "map", "target", "dice", "clock", "dumbbell", "paw", "gift",
+    "person", "bag", "menu", "flask",
 ];
