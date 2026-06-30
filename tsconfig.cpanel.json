@@ -23,6 +23,7 @@
         "scripts",
         "node_modules",
         ".vs",
-        "api/clan/war/_card-catalog.test.ts"
+        "api/clan/war/_card-catalog.test.ts",
+        "api/_jutsu-points-parity.test.ts"
     ]
 }
