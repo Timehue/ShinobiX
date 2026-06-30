@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mercHireCost, addOrRefreshLease, hasActiveLease, consumeLease, MERC_LEASE_MS } from './_war-merc.js';
+import { mercHireCost, addOrRefreshLease, hasActiveLease, consumeLease, claimMercFromBand, MERC_LEASE_MS } from './_war-merc.js';
 import { normalizeVillageWarRecord } from './_war-state.js';
 import { mercBandSize } from './_war-economy.js';
 
@@ -54,4 +54,21 @@ test('hasActiveLease respects expiry + player, consumeLease removes it', () => {
     assert.equal(hasActiveLease(rec, 'merc-ronin', 'rin', now), false);                      // wrong tier
     const after = consumeLease(rec.mercLeases, 'merc-shadow', 'rin');
     assert.equal(after.length, 0);
+});
+
+test('claimMercFromBand spends one merc per deployment, dropping the lease at 0', () => {
+    const now = 1_000_000;
+    const leases = addOrRefreshLease([], 'merc-ronin', 'akira', now); // band of 3
+    const c1 = claimMercFromBand(leases, 'merc-ronin', 'akira', now);
+    assert.equal(c1.claimed, true);
+    assert.equal(c1.remaining, 2);
+    const c2 = claimMercFromBand(c1.leases, 'merc-ronin', 'akira', now);
+    const c3 = claimMercFromBand(c2.leases, 'merc-ronin', 'akira', now);
+    assert.equal(c3.remaining, 0);
+    assert.equal(c3.leases.length, 0, 'lease is dropped once the band is spent');
+    const c4 = claimMercFromBand(c3.leases, 'merc-ronin', 'akira', now);
+    assert.equal(c4.claimed, false); // nothing left to deploy
+    // An EXPIRED band can't be deployed.
+    const exp = claimMercFromBand(addOrRefreshLease([], 'merc-oni', 'b', now), 'merc-oni', 'b', now + MERC_LEASE_MS + 1);
+    assert.equal(exp.claimed, false);
 });
