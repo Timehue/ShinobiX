@@ -665,7 +665,7 @@ import {
     pickHollowGateEncounterPet,
 } from "./lib/hollow-gate-dungeon";
 import { snapshotHollowGateCurrencies, clawBackHollowGateLoot, hollowShardDrop, hollowGateClawBackPreview } from "./lib/hollow-gate-run";
-import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects } from "./lib/hollow-gate-server";
+import { beginHollowGateServerRun, resumeHollowGateServerRun, finalizeHollowGateRunEnd, settleHollowGateRunOnly, hollowGateAugmentEffects, hollowGateServerEnabled, startHollowGateServerRun, attachStartedRun } from "./lib/hollow-gate-server";
 import { wingEntryEffect, wingThemeAt, WING_TINT, WING_GLYPH } from "./lib/hollow-gate-wings";
 import { tryHollowGateSecondWind } from "./lib/hollow-gate-shards";
 import { applyAttunementToRun, attunementLootRetention, attunementDailyBonus } from "./lib/hollow-gate-attunement";
@@ -6103,7 +6103,7 @@ export default function App() {
         if (isPetOnExpedition(pet)) return false;
         return Boolean(pet.unlockedForPve);
     }
-    function enterHollowGateShrine() {
+    async function enterHollowGateShrine() {
         if (!character) return;
         // Restore an in-progress run, if any. Resuming a run is always free —
         // the key was already consumed when the run was started. The Character
@@ -6147,6 +6147,19 @@ export default function App() {
         const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`);
         if (!ok) return;
 
+        // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
+        // server BEFORE spending the Key — a 'daily-cap' reply (e.g. a backdated reset
+        // that beat the client gate) blocks the dive. Unreachable / SESSION unset → null
+        // → token-less fallback (the dive opens client-authoritative, as today).
+        let serverStart: Awaited<ReturnType<typeof startHollowGateServerRun>> = null;
+        if (hollowGateServerEnabled()) {
+            serverStart = await startHollowGateServerRun(character.name, HOLLOW_GATE_MAX_FLOOR);
+            if (serverStart?.reason === "daily-cap") {
+                alert("The Hollow Gate has already taken its measure of you today. Return at dawn.");
+                return;
+            }
+        }
+
         // Consume exactly one Hollow Gate Key (drains the counted stack).
         const afterKey = removeItem(character, HOLLOW_GATE_KEY_ID, 1);
 
@@ -6170,9 +6183,9 @@ export default function App() {
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
-        // Server-authoritative run layer (flag `hollowGateServer.v1`, OFF by default):
-        // background-mint a sealed run token + augment offers; token-less no-op if off.
-        void beginHollowGateServerRun({ playerName: character.name, floorDepth: HOLLOW_GATE_MAX_FLOOR, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        // Attach the server token (already minted above, pre-Key) + present the augment
+        // picker. No-op without a token (flag off / unreachable) — the token-first fallback.
+        attachStartedRun(serverStart, { playerName: character.name, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
     }
     // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
     function adminHollowGateForceUnlock(unlock: boolean) {
