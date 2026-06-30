@@ -149,9 +149,6 @@ export const MobileNav = memo(function MobileNav({
                         )}
                         <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
                     </div>
-                    <p style={{ textAlign: "center", fontSize: 11, color: "#64748b", margin: "12px 0 2px" }}>
-                        Menu icons by <a href="https://game-icons.net" target="_blank" rel="noopener noreferrer" style={{ color: "#94a3b8" }}>game-icons.net</a> (CC BY 3.0)
-                    </p>
                 </div>
             )}
         </>
