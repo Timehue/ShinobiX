@@ -68,6 +68,7 @@ export type Screen =
     | "villageWarMap"
     | "tilecardsDuel"
     | "sectorCard"
+    | "sectorPet"
     | "cardClashFreePlay"
     | "guides"
     | "messages";

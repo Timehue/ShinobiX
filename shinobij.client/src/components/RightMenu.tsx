@@ -21,7 +21,6 @@ import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
-import { isVillageWarMapEnabled } from "../lib/village-war-map";
 // Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — matches the
 // shinobi theme. Mirrors the mobile nav (MobileNav.tsx). Attribution in the footer below.
 import {
@@ -102,7 +101,6 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
                         <button onClick={() => navigate("missions")}><GiScrollUnfurled size={16} />Missions</button>
                         <button onClick={() => navigate("training")}><GiBiceps size={16} />Training</button>
-                        {isVillageWarMapEnabled() && <button onClick={() => navigate("villageWarMap")} title="Sector War Map"><GiGears size={16} />War Map</button>}
                         <button onClick={() => navigate("profile")}><GiNinjaHeroicStance size={16} />Character</button>
                         <button onClick={() => navigate("inventory")}><GiKnapsack size={16} />Inventory</button>
                         <button onClick={() => navigate("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
