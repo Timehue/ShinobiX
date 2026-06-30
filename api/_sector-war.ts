@@ -140,6 +140,20 @@ export function sectorWarKey(id: string): string {
     return `shared:sector-war:${id}`;
 }
 
+/** Map a finished win-condition battle by WINNER SIDE onto a contest, where p1 is
+ *  the attacker side and p2 the defender side (the sector-card session enforces
+ *  that): p1 win → attacker chip, p2 win → defender regen, draw → no Control-HP
+ *  change (returns null). Combat resolves attacker-vs-defender by village instead
+ *  and calls applySectorBattleResult directly; this is the by-side path Card uses. */
+export function applyContestBattleByWinner(
+    session: SectorWarSession,
+    winner: 'p1' | 'p2' | 'draw',
+    opts: { now: number; damage?: number },
+): SectorBattleOutcome | null {
+    if (winner !== 'p1' && winner !== 'p2') return null; // draw → neither chip nor regen
+    return applySectorBattleResult(session, winner === 'p1', opts);
+}
+
 // ── Per-battle authorization token (mint-on-attack, single-use on resolve) ──
 // The server mints this when a sector-war battle is launched, sealing the
 // contest context (sector + the two villages + the win-condition) so the resolve
