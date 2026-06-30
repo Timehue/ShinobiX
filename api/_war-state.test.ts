@@ -27,15 +27,15 @@ describe('war-state: default record', () => {
         for (const s of HOME_SECTORS['Frostfang Village']) {
             const cell = r.sectors[String(s)];
             assert.equal(cell.controlHp, SECTOR_CONTROL_HP_MAX);
-            assert.ok(cell.winCondition === 'combat' || cell.winCondition === 'card'); // v1-ready spread
+            assert.ok(cell.winCondition === 'combat' || cell.winCondition === 'pet'); // Combat / Pet default spread
             assert.equal(cell.terrain, 'snow'); // Frostfang biome default
         }
     });
-    it('the default win-condition spread is valid (no pet, no type over 7)', () => {
+    it('the default win-condition spread is valid (no card, no type over 7)', () => {
         const c = winConditionCounts(defaultVillageWarRecord('Frostfang Village'));
-        assert.equal(c.pet, 0);
-        assert.equal(c.combat + c.card, 8);
-        assert.ok(c.combat <= MAX_SECTORS_PER_WIN_CONDITION && c.card <= MAX_SECTORS_PER_WIN_CONDITION);
+        assert.equal(c.card, 0);
+        assert.equal(c.combat + c.pet, 8);
+        assert.ok(c.combat <= MAX_SECTORS_PER_WIN_CONDITION && c.pet <= MAX_SECTORS_PER_WIN_CONDITION);
     });
 });
 
