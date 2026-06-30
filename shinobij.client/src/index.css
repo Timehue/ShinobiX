@@ -19198,6 +19198,15 @@ button.combat-jutsu-button,
     text-align: center;
     transition: background 0.15s, border-color 0.15s;
     min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  /* Menu glyphs inherit the button text color, sitting a touch dimmer than the label. */
+  .mobile-menu-btn > svg {
+    flex: 0 0 auto;
+    opacity: 0.85;
   }
 
   .mobile-menu-btn:active {

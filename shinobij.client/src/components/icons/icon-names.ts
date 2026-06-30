@@ -29,11 +29,21 @@ export type GameIconName =
     | "bag"      // inventory / items (nav)
     | "menu"     // hamburger menu (nav)
     | "flask"    // tavern / sake (nav)
-    | "bolt";    // speed / lightning (stat)
+    | "bolt"     // speed / lightning (stat)
+    | "users"    // two people — users / roster (menu)
+    | "mail"     // envelope — messages (menu)
+    | "clipboard"// board + checklist — missions (menu)
+    | "drop"     // blood drop — bloodline (menu)
+    | "book"     // open book — logbook (menu)
+    | "compass"  // ringed compass — guides (menu)
+    | "chat"     // speech bubble — discord (menu)
+    | "key"      // key — admin access (menu)
+    | "save";    // floppy disk — logout + save (menu)
 
 export const gameIconNames: readonly GameIconName[] = [
     "ryo", "shard", "crystal", "sparkle", "medal", "sigil", "bone",
     "chakra", "hp", "sword", "shield", "scroll",
     "map", "target", "dice", "clock", "dumbbell", "paw", "gift",
     "person", "bag", "menu", "flask", "bolt",
+    "users", "mail", "clipboard", "drop", "book", "compass", "chat", "key", "save",
 ];
