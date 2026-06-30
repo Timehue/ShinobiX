@@ -855,9 +855,12 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
         }
         if (s.name === 'Poison') {
+            // Poison is an HP-only DoT whose magnitude is a % of the victim's
+            // chakra pool — it does NOT drain chakra (that's Drain's job, below).
+            // Mirrors the PvE engine (Arena.tsx applyDoTs Poison branch).
             const poisonPct = s.percent && s.percent > 0 ? s.percent : 6;
             const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
-            f = { ...f, hp: Math.max(0, f.hp - dmg), chakra: Math.max(0, f.chakra - dmg) };
+            f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
         }
         if (s.name === 'Drain') {
