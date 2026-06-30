@@ -8,6 +8,7 @@ import {
     applyHollowGateRunEndLocal,
     buildAugmentPickerEvent,
     shouldResumeAugmentPicker,
+    hollowGateAugmentEffects,
 } from "./hollow-gate-server";
 
 function char(overrides: Record<string, unknown>): Character {
@@ -88,6 +89,48 @@ test("shouldResumeAugmentPicker: true only for a tokened run with offers and no 
     // No run at all.
     assert.equal(shouldResumeAugmentPicker(null), false);
     assert.equal(shouldResumeAugmentPicker(undefined), false);
+});
+
+function runWithAugment(id: string, combat?: { kind: string; value: number }): HollowGateShrineRun {
+    return { chosenAugment: { id, label: id, description: "x", rarity: "rare", combat } } as unknown as HollowGateShrineRun;
+}
+
+test("hollowGateAugmentEffects: no augment / no run → all-neutral", () => {
+    const n = hollowGateAugmentEffects(null);
+    assert.deepEqual(n, { enemyHpMult: 1, enemyStatMult: 1, enemyHpShavePct: 0, noRetreat: false, noKeeperHeal: false });
+    assert.deepEqual(hollowGateAugmentEffects({ runToken: "t" } as unknown as HollowGateShrineRun), n, "tokened run without a chosen augment is still neutral");
+});
+
+test("hollowGateAugmentEffects: Greedy Pact makes the enemy tougher (HP+stats up)", () => {
+    const e = hollowGateAugmentEffects(runWithAugment("greedy-pact", { kind: "enemyPower", value: 0.3 }));
+    assert.equal(e.enemyHpMult, 1.3);
+    assert.equal(e.enemyStatMult, 1.3);
+    assert.equal(e.enemyHpShavePct, 0);
+});
+
+test("hollowGateAugmentEffects: Keen Edge (+dmg) → enemy enters with proportionally less HP", () => {
+    const e = hollowGateAugmentEffects(runWithAugment("keen-edge", { kind: "damageBonus", value: 0.2 }));
+    assert.ok(Math.abs(e.enemyHpShavePct - 0.2 / 1.2) < 1e-9, "0.2/(1+0.2) shave");
+    assert.equal(e.enemyHpMult, 1, "never buffs the player via the shared engine");
+});
+
+test("hollowGateAugmentEffects: Warded Step → enemy hits softer (stat mult < 1, floored at 0.5)", () => {
+    assert.equal(hollowGateAugmentEffects(runWithAugment("warded-step", { kind: "roleShield", value: 0.15 })).enemyStatMult, 0.85);
+    assert.equal(hollowGateAugmentEffects(runWithAugment("warded-step", { kind: "roleShield", value: 0.9 })).enemyStatMult, 0.5, "clamped");
+});
+
+test("hollowGateAugmentEffects: Berserker = enemy HP shave + noRetreat; Treasure Sense = noKeeperHeal", () => {
+    const b = hollowGateAugmentEffects(runWithAugment("berserkers-gamble", { kind: "lifesteal", value: 0.1 }));
+    assert.equal(b.enemyHpShavePct, 0.1);
+    assert.equal(b.noRetreat, true);
+    const t = hollowGateAugmentEffects(runWithAugment("treasure-sense"));
+    assert.equal(t.noKeeperHeal, true);
+    assert.equal(t.enemyHpMult, 1, "treasure-sense has no battle stat effect");
+});
+
+test("hollowGateAugmentEffects: shave is always clamped to [0,0.9]", () => {
+    const e = hollowGateAugmentEffects(runWithAugment("berserkers-gamble", { kind: "lifesteal", value: 5 }));
+    assert.ok(e.enemyHpShavePct <= 0.9 && e.enemyHpShavePct >= 0);
 });
 
 test("buildAugmentPickerEvent renders one choice per offer with rare→danger tone", () => {
