@@ -58,16 +58,17 @@ export function setPetEvolveCutsceneEnabled(on: boolean): void {
  * (pet-moves.ts KIND_SPECS: 85–95 for offensive/control kinds, 100 for support)
  * that the battle engines historically never rolled against — so moves never
  * missed. When ON, the engines roll `rng() < accuracy/100` when a jutsu is cast;
- * a miss consumes the turn with no effect. DEFAULT OFF: this is a balance change
- * that wants playtesting/tuning before it ships, and it must be rolled out to
- * every pet engine before it's flipped on. Per-device persisted; flip with
- * localStorage.setItem("petAccuracy.v1","1"). Passed INTO the sims as a param so
- * the deterministic engines stay pure/testable.
+ * a miss consumes the turn with no effect. NOW DEFAULT ON (rolled out to every
+ * pet engine) — opt OUT with localStorage.setItem("petAccuracy.v1","0"). The
+ * authored accuracy values may still want tuning. Passed INTO the sims as a param
+ * so the deterministic engines stay pure/testable. (Node/no-localStorage falls
+ * back to OFF so the engine golden tests stay deterministic; tests pass explicit
+ * flags to exercise the ON path.)
  */
 const PET_ACCURACY_KEY = "petAccuracy.v1";
 
 export function petAccuracyEnabled(): boolean {
-    try { return localStorage.getItem(PET_ACCURACY_KEY) === "1"; } catch { return false; }
+    try { return localStorage.getItem(PET_ACCURACY_KEY) !== "0"; } catch { return false; }
 }
 
 export function setPetAccuracyEnabled(on: boolean): void {
