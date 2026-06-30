@@ -165,7 +165,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
     // Tactical Arena game mode — a full-screen 2v2/4v4 deathmatch + capture-scroll
     // match (separate from the 1v1/2v2 battle). Teams are built + frozen on launch.
-    const [arenaMatch, setArenaMatch] = useState<{ blue: ArenaSlot[]; red: ArenaSlot[]; seed: number } | null>(null);
+    const [arenaMatch, setArenaMatch] = useState<{ blue: ArenaSlot[]; red: ArenaSlot[]; seed: number; vsAi: boolean } | null>(null);
     // Co-op (play the Tactical Arena 4v4 with friends) — opens the lobby overlay.
     const [showCoop, setShowCoop] = useState(false);
     // Top-level view switch. "battle" is the classic cinematic 1v1/2v2 duel;
@@ -181,7 +181,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     const [arenaChallengeMsg, setArenaChallengeMsg] = useState("");
     // 5→1 pre-roll shown to both players before the match plays. Holds the built
     // slots; when it hits 0 we mount PetArenaMatch (same seed → identical fight).
-    const [arenaCountdown, setArenaCountdown] = useState<{ secs: number; match: { blue: ArenaSlot[]; red: ArenaSlot[]; seed: number } } | null>(null);
+    const [arenaCountdown, setArenaCountdown] = useState<{ secs: number; match: { blue: ArenaSlot[]; red: ArenaSlot[]; seed: number; vsAi: boolean } } | null>(null);
     // Responder team picks (for an incoming arena challenge, separate from the
     // wizard's tacticalPicks so an in-progress send isn't clobbered).
     const [respondPicks, setRespondPicks] = useState<string[]>([]);
@@ -270,10 +270,29 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
     // Build the role-assigned slots + start the 5s pre-roll, evening both teams
     // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
     // run this from identical embedded teams, so the match stays in sync.
-    function startArenaMatch(blue: Pet[], red: Pet[], seed: number) {
+    function startArenaMatch(blue: Pet[], red: Pet[], seed: number, vsAi = false) {
         const n = Math.max(1, Math.min(blue.length, red.length));
         setArenaView("tactical");
-        setArenaCountdown({ secs: 5, match: { blue: autoRoleTeam(blue, n), red: autoRoleTeam(red, n), seed } });
+        setArenaCountdown({ secs: 5, match: { blue: autoRoleTeam(blue, n), red: autoRoleTeam(red, n), seed, vsAi } });
+    }
+
+    // Tactical Arena reward (vs-AI only): pay the same server-auth pet-arena ryo as
+    // the 1v1/2v2 PvE battles. The player's team is `blue` on the vs-AI launch, so a
+    // blue win = a player win. Sealed by seed (`${seed}:tactical`) so a refresh-replay
+    // can't double-claim. PvP tactical matches pay nothing on purpose: the player
+    // isn't always "blue" there, and rewarding both sides invites collusion farming.
+    function reportTacticalArenaWin(m: { red: ArenaSlot[]; seed: number; vsAi: boolean }, winner: "blue" | "red" | "draw") {
+        if (!m.vsAi || winner !== "blue") return;
+        const oppLevel = Math.max(1, Math.round(m.red.reduce((sum, sl) => sum + (sl.pet.level ?? 1), 0) / Math.max(1, m.red.length)));
+        void (async () => {
+            try {
+                await fetch("/api/pet/battle-result", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playerName: character.name, outcome: "win", opponentLevel: oppLevel, reportKey: `${m.seed}:tactical` }),
+                });
+            } catch { /* ignore — honest wins just won't pay if the report drops */ }
+        })();
     }
 
     // Send a Tactical Arena PvP challenge with my hand-picked roster. Rides the
@@ -874,7 +893,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                     : arenaView === "tactical"
                                         ? "Big-map team battles — deathmatch + capture the scroll. Fight AI, or team up with a friend against two opponents."
                                         : arenaView === "gauntlet"
-                                            ? "Roguelike run — draft a one-time squad, chase element & role synergies, and survive escalating rounds. Preview — no rewards yet."
+                                            ? "Roguelike run — draft a one-time squad, chase element & role synergies, and survive escalating rounds. Clear rounds to earn ryo and rare materials."
                                             : "Cinematic 1v1 & 2v2 duels — your pet approaches, kites, dodges, trades elemental strikes and unleashes ultimates on its own. You build the pet; it fights the duel."
                             }</p>
                         </>
@@ -1289,7 +1308,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                     <div className="pet-arena-hero" style={{ backgroundImage: `url(${tacticalArenaHero})`, marginBottom: 0 }}>
                         <h3 className="hero-title">🏟️ Tactical Pet Arena</h3>
                         <p className="hero-sub">
-                            A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's role. Preview mode — no rewards yet.
+                            A full-screen team battle on a big map: your pets traverse the arena, capture the scroll, and clash with abilities. Roles are auto-assigned from each pet's role. Beat the AI team to earn pet-arena ryo (daily cap applies).
                         </p>
                     </div>
 
@@ -1396,7 +1415,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                                                 // (cloned so the sim never shares a pet reference).
                                                 const pool = genericPetArenaOpponents.map((o) => o.pet);
                                                 const ai = Array.from({ length: mine.length }, (_, i) => ({ ...pool[i % pool.length] }));
-                                                startArenaMatch(mine, ai, (Date.now() % 100000) || 1);
+                                                startArenaMatch(mine, ai, (Date.now() % 100000) || 1, true);
                                             }}>
                                             Start vs AI
                                         </button>
@@ -1432,7 +1451,7 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
                 view; rendered here so they sit above whichever view is active. */}
             {arenaMatch && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading arena…</div>}>
-                    <PetArenaMatch blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed} sharedImages={sharedImages} onExit={() => setArenaMatch(null)} />
+                    <PetArenaMatch blue={arenaMatch.blue} red={arenaMatch.red} seed={arenaMatch.seed} sharedImages={sharedImages} onResult={(result) => reportTacticalArenaWin(arenaMatch, result.winner)} onExit={() => setArenaMatch(null)} />
                 </Suspense>
             )}
             {showCoop && (
