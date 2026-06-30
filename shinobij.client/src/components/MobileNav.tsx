@@ -18,7 +18,6 @@ import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
-import { isVillageWarMapEnabled } from "../lib/village-war-map";
 // Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — they match
 // the shinobi theme far better than thin outline icons. Attribution rendered in the
 // menu footer below. Game-specific emblems (ryō, chakra, …) still use GameIcon.
@@ -133,7 +132,6 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("messages")}><GiEnvelope size={20} />Mail<MailUnreadBadge /></button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}><GiScrollUnfurled size={20} />Missions</button>
                         <button className="mobile-menu-btn" onClick={() => go("training")}><GiBiceps size={20} />Training</button>
-                        {isVillageWarMapEnabled() && <button className="mobile-menu-btn" onClick={() => go("villageWarMap")}><GiGears size={20} />War Map</button>}
                         <button className="mobile-menu-btn" onClick={() => go("profile")}><GiNinjaHeroicStance size={20} />Character</button>
                         <button className="mobile-menu-btn" onClick={() => go("inventory")}><GiKnapsack size={20} />Inventory</button>
                         <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}><GiFireSpellCast size={20} />Jutsu</button>

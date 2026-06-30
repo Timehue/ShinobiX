@@ -79,10 +79,13 @@ export function villageAccent(village: string): string {
 // Master client flag for the War-Map UI (default OFF, §12 villageWarMap.v1). The
 // server endpoints are independently gated by ENABLE_VILLAGE_WAR.
 export function isVillageWarMapEnabled(): boolean {
+    // Always on now — the Village War Map has launched. Opt OUT per-device with
+    // localStorage villageWarMap.v1 = "0". (The server independently defaults
+    // ENABLE_VILLAGE_WAR on; kill-switch DISABLE_VILLAGE_WAR=1.)
     try {
-        return localStorage.getItem("villageWarMap.v1") === "1";
+        return localStorage.getItem("villageWarMap.v1") !== "0";
     } catch {
-        return false;
+        return true;
     }
 }
 
@@ -117,6 +120,13 @@ export function registerSectorBattle(playerName: string, sector: number, battleI
 }
 export function resolveSectorBattle(playerName: string, battleId: string) {
     return postJson("/api/village/sector-war", { action: "resolve", playerName, battleId });
+}
+// Sector War "Pet" win-condition — a server-resolved deterministic pet duel.
+export function joinSectorPet(playerName: string, sectorWarId: string, petId: string) {
+    return postJson("/api/village/sector-pet", { action: "join", playerName, sectorWarId, petId });
+}
+export function sectorPetState(playerName: string, sectorWarId: string) {
+    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId });
 }
 export function setSectorWinCondition(playerName: string, village: string, sector: number, winCondition: WinCondition) {
     return postJson("/api/village/war-win-condition", { playerName, village, sector, winCondition });

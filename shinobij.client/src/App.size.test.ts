@@ -114,7 +114,10 @@ import { readFileSync } from "node:fs";
 // → 10,154 (merge of origin/main's Card Clash free-play screen + the merc/village-war
 // branch's Sector-War Combat-launch wiring — both net-positive WIRING on the shared
 // 10,145 base; measured post-merge.)
-const MAX_LINES = 10_154;
+// → 10,156 (+2 mandatory Sector-War Pet-battle screen WIRING: the lazy import + the
+// render branch. The screen itself — pet-select + the server-resolved duel + the
+// deterministic replay — lives in src/screens/SectorWarPetBattle.tsx, not here.)
+const MAX_LINES = 10_156;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
