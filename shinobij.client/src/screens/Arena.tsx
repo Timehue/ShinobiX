@@ -15,6 +15,7 @@ import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { interpolateFlavor } from "../lib/battle-log-format";
+import { playPetSfx } from "../lib/pet-sfx";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
@@ -334,6 +335,11 @@ export function Arena({
         jutsu: Jutsu,
         opts: { selfCast: boolean; focusPos: number; heavy?: boolean; isKO?: boolean },
     ) => {
+        // Combat SFX — reuse the pet sound engine, which routes through the global
+        // master mute (so it's SILENT by default / whenever audio is muted, and the
+        // one mute button covers it). Plays for player + enemy casts; deliberately
+        // NOT gated by reduced-motion (that's a motion preference, not audio).
+        playPetSfx(opts.isKO ? "ko" : opts.selfCast ? "buff" : opts.heavy ? "crit" : "hit");
         if (opts.focusPos < 0) return;
         const spec = jutsuVfxBurst({ element: jutsu.element, selfCast: opts.selfCast });
         // Sprite layer: a KV override (jutsufx:<id> / jutsufx:<element>, which may
@@ -577,6 +583,12 @@ export function Arena({
         easyHoldBurst ? jutsus.filter((jutsu) => !pveIsBurstJutsuAp(jutsu.ap)) : jutsus;
     const [battleEnded, setBattleEnded] = useState(false);
     const [battleResult, setBattleResult] = useState<"win" | "loss" | "fled" | null>(null);
+    // Battle-end sting — a victory chime on a win, a KO thud on a loss/flee.
+    // Routes through the pet SFX engine's master mute, so it's silent by default.
+    useEffect(() => {
+        if (battleResult === "win") playPetSfx("victory");
+        else if (battleResult === "loss" || battleResult === "fled") playPetSfx("ko");
+    }, [battleResult]);
     // In-flight guard for the weekly-boss "Log Damage & Return" button. The handler
     // (onWeeklyBossLogDamage) fires a logFight POST and navigates away, so a fast
     // double-click would otherwise submit two attempts and double-count the damage.
@@ -1755,6 +1767,7 @@ export function Arena({
 
         if (character.stamina < 10) return setLog("Basic Attack needs 10 stamina.");
         if (!spendAp(40, "basicAttack")) return;
+        playPetSfx("hit"); // combat SFX — gated by the master mute (silent by default)
         if (isAcademySpar && !sparAttacked) setSparAttacked(true); // tutorial banner only
 
         const basicAttackJutsu = makeJutsu("basic-attack", "Basic Attack", character.specialty, 40, 1, 10, 0, 0, 10, [{ name: "Damage", percent: 10 }], "Earth");
