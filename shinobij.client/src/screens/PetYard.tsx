@@ -8,6 +8,7 @@ import { capPetStats, collectPetTraining, gainPetXp, petTrainingGains, petTraini
 import { nextEvolution, EVOLUTION_STONE_NAMES, petVisualId } from "../data/pet-evolutions";
 import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
 import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
+import { gameConfirm } from "../components/GameAlert";
 import { currentDateKey, formatPetTimer } from "../lib/utils";
 import { increasePetHappiness, isPetOnExpedition, petDisplayName, petHappiness } from "../lib/pet";
 import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
@@ -454,9 +455,9 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         setNicknameMsg(`✅ Nickname set to "${nick}"`);
     }
 
-    function releasePet() {
+    async function releasePet() {
         if (!selectedPet) return;
-        if (!confirm(`Release ${selectedPet.name}? This cannot be undone.`)) return;
+        if (!(await gameConfirm(`Release ${selectedPet.name}? This cannot be undone.`, { danger: true, confirmLabel: "Release" }))) return;
         const updatedPets = character.pets.filter((p) => p.id !== selectedPet.id);
         updateCharacter({
             ...character,
@@ -477,7 +478,7 @@ export function PetYard({ character, updateCharacter, setScreen, onBack, onImmed
         const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "evolution stone";
         if (selectedPet.level < next.requiredLevel) { setEvolveMsg(`❌ Reach level ${next.requiredLevel} first.`); return; }
         if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`❌ Need ${stoneName} (Grand Marketplace).`); return; }
-        if (!confirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`)) return;
+        if (!(await gameConfirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`))) return;
         const oldName = petDisplayName(selectedPet);
         // POSE-first (transparent cutout) — NOT selectedPet.image, which can be a
         // published portrait with an opaque background that the cutscene would

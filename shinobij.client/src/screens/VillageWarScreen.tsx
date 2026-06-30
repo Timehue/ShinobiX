@@ -8,6 +8,7 @@ import type { Character, PlayerRecord } from "../types/character";
 import { TERRITORY_HP_MAX, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
 import { currentDateKey } from "../lib/utils";
 import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../lib/world-state";
+import { gameConfirm } from "../components/GameAlert";
 
 // ─── Village War Screen ───────────────────────────────────────────────────────
 // Lets a village member view the active war (if any), raid enemy sectors, and
@@ -382,8 +383,8 @@ export function VillageWarScreen({
                             </select>
                             <button
                                 disabled={!declareTarget || declaring || (character.honorSeals ?? 0) < 500}
-                                onClick={() => {
-                                    if (!window.confirm(`Declare war on ${declareTarget}? This will cost 500 Honor Seals from your treasury.`)) return;
+                                onClick={async () => {
+                                    if (!(await gameConfirm(`Declare war on ${declareTarget}? This will cost 500 Honor Seals from your treasury.`))) return;
                                     void declareWar();
                                 }}
                                 style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}

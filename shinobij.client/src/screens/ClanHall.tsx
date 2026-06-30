@@ -11,6 +11,7 @@ import { CLAN_RANK_COLOR, CLAN_RANK_ICON, CLAN_ROLE_ICON, CLAN_UPGRADE_MAX_LEVEL
 import { CLAN_UPGRADE_DEFS, clanUpgradeCost, isClanUpgradeMaxed } from "../lib/clan-upgrades";
 import type { Character } from "../types/character";
 import { ClanImageMark } from "../components/Marks";
+import { gameConfirm } from "../components/GameAlert";
 import type { ClanJoinRequest, ClanMemberEntry, ClanTreasury, ClanTreasuryCurrencyKey, ClanUpgradeKey, ClanWarRecord, EnhancedClanData, NoticePostType } from "../types/clan";
 import { ClanSealPool } from "../screens/ClanSealPool";
 import type { GameItem } from "../types/combat";
@@ -223,7 +224,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         alert(`Mentor reward for ${student}'s progress: +${r.seals} Honor Seals, +${r.contrib} clan contribution.`);
     }
     async function doReleaseStudent(student: string) {
-        if (!window.confirm(`Stop mentoring ${student}?`)) return;
+        if (!(await gameConfirm(`Stop mentoring ${student}?`))) return;
         await releaseStudent(character.name, student);
         fetchMentorView(character.name).then(setMentorView);
     }
@@ -284,7 +285,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
     async function kickMember(member: ClanMemberEntry) {
         if (!clanData) return;
         if (member.name === clanData.founderName) return;
-        if (!window.confirm(`Remove ${member.name} from "${clanData.name}"? They'll lose clan access immediately.`)) return;
+        if (!(await gameConfirm(`Remove ${member.name} from "${clanData.name}"? They'll lose clan access immediately.`, { danger: true, confirmLabel: "Remove" }))) return;
         const result = await postClanKick(character.name, clanData.name, member.name);
         if (!result) return;
         setClanData(enhanceClanData({ ...clanData, members: clanData.members.filter(m => m.name !== member.name), joinRequests: clanData.joinRequests.filter(r => r.name !== member.name) }));
@@ -295,7 +296,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         // this — leaving clears clanFounder, and reclaim requires going
         // through the founder-bootstrap path again.
         const founderWarning = character.clanFounder ? "\n\nYou're the founder — leaving doesn't transfer ownership. You can recreate the clan but anyone else can claim the name first." : "";
-        if (!window.confirm(`Leave "${character.clan}"?${founderWarning}\n\nThis can't be undone with one click — you'd need to re-request to join, or be re-invited.`)) {
+        if (!(await gameConfirm(`Leave "${character.clan}"?${founderWarning}\n\nThis can't be undone with one click — you'd need to re-request to join, or be re-invited.`, { danger: true, confirmLabel: "Leave" }))) {
             return;
         }
         const data = await fetchClanData(character.clan);
@@ -345,7 +346,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
     }
     async function deleteClan() {
         if (!character.clan || !character.clanFounder) return;
-        if (!window.confirm(`Delete "${character.clan}"? This permanently removes the clan for all members and cannot be undone.`)) return;
+        if (!(await gameConfirm(`Delete "${character.clan}"? This permanently removes the clan for all members and cannot be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
         await fetch(`/api/save/${clanSlug(character.clan)}`, { method: "DELETE" }).catch(() => {});
         // Functional updater: lands after the DELETE await, so a concurrent
         // regen/heartbeat setState could otherwise be clobbered by the stale capture.

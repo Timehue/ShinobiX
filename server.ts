@@ -103,6 +103,9 @@ import clanWarDeclareHandler   from './api/clan/war/declare.js';
 import clanWarChallengeHandler from './api/clan/war/challenge.js';
 import clanWarReportHandler    from './api/clan/war/report.js';
 import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
+// Card Clash — free-play PvP (open matchmaking + server-authoritative match)
+import cardClashQueueHandler   from './api/card-clash/queue.js';
+import cardClashMatchHandler   from './api/card-clash/match.js';
 // Clan — seal pool
 import clanSealPoolGetHandler        from './api/clan/seal-pool/get.js';
 import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
@@ -660,6 +663,10 @@ route('/clan/war/declare',   clanWarDeclareHandler);
 route('/clan/war/challenge', clanWarChallengeHandler);
 route('/clan/war/report',    clanWarReportHandler);
 route('/clan/war/tilecards', clanWarTilecardsHandler);
+
+// ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
+route('/card-clash/queue', cardClashQueueHandler);
+route('/card-clash/match', cardClashMatchHandler);
 
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get',        clanSealPoolGetHandler);

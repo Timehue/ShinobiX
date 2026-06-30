@@ -12,6 +12,7 @@ import { AdminPasswordReset, AdminClearAuthLock } from "./AdminLogin";
 import { ModerationPanel } from "./ModerationPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AiImagePrompt } from "../components/AiImagePrompt";
+import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { KenneyAtlasPicker } from "../components/KenneyAtlasPicker";
 import { TagPicker } from "../components/TagPicker";
@@ -355,8 +356,8 @@ export function AdminPanel({
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
-    function deleteAdminItem(item: GameItem) {
-        if (!confirm(`Delete ${item.name} from the shop and game?`)) return;
+    async function deleteAdminItem(item: GameItem) {
+        if (!(await gameConfirm(`Delete ${item.name} from the shop and game?`, { danger: true, confirmLabel: "Delete" }))) return;
         const starterItem = starterItems.some((starter) => starter.id === item.id);
         const nextItems = creatorItems.filter((existing) => existing.id !== item.id);
         setCreatorItems(starterItem ? [...nextItems, deletedItemMarker(item.id)] : nextItems);
@@ -927,7 +928,7 @@ export function AdminPanel({
             if (giftAmt > 0) giftParts.push(`${giftAmt.toLocaleString()} ${giftKey}`);
         }
         if (giftParts.length === 0) { setPmMsg("Nothing to give — pick a pet or set an amount above 0."); return; }
-        if (!window.confirm(`Give ${pmTargetName.trim()}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`)) return;
+        if (!(await gameConfirm(`Give ${pmTargetName.trim()}:\n• ${giftParts.join("\n• ")}\n\nThis writes to their save.`))) return;
         const char: Record<string, unknown> = { ...(pmSnap.character as Record<string, unknown>) };
         // Give pet
         if (pmGivePetId) {
@@ -1045,7 +1046,7 @@ export function AdminPanel({
     async function pmSoftReset() {
         const name = pmTargetName.trim();
         if (!name) return;
-        if (!window.confirm(`Soft-reset ${name}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`)) return;
+        if (!(await gameConfirm(`Soft-reset ${name}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`, { danger: true, confirmLabel: "Soft-reset" }))) return;
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setPmMsg("Soft-resetting…");
         try {
@@ -1078,7 +1079,7 @@ export function AdminPanel({
 
     async function pmReset() {
         if (!pmTargetName.trim()) return;
-        if (!window.confirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`)) return;
+        if (!(await gameConfirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`, { danger: true, confirmLabel: "Reset" }))) return;
         setPmMsg("⏳ Resetting…");
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
@@ -1108,7 +1109,7 @@ export function AdminPanel({
     }
 
     async function rankedSeasonAction(action: 'start' | 'rollover') {
-        if (action === 'rollover' && !window.confirm('Force-end the current ranked season NOW? This rewards the top finishers, archives standings, soft-resets every rating, and starts the next season immediately.')) return;
+        if (action === 'rollover' && !(await gameConfirm('Force-end the current ranked season NOW? This rewards the top finishers, archives standings, soft-resets every rating, and starts the next season immediately.', { danger: true, confirmLabel: "Force-end" }))) return;
         setRankedSeasonMsg('⏳ Working…');
         try {
             const res = await fetch('/api/admin/ranked-season', {
@@ -1130,9 +1131,10 @@ export function AdminPanel({
     }
 
     async function serverReset() {
-        if (!window.confirm(
-            "⚠️ FULL SERVER RESET ⚠️\n\nThis will:\n• Delete ALL player saves — everyone starts fresh at Level 1 and chooses their village again\n• Reset Kage seats and village war history for every village\n• Clear all clans, village chats, presence, PvP sessions, and challenge data\n• Wipe player passwords (players set a new one on next login)\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets, cards, visual novels)\n• Any uploaded images (kage portraits, elder portraits, pets, weapons, avatars)\n• Village Leaders tab configuration (names and images)\n\nThis CANNOT be undone. Are you absolutely sure?"
-        )) return;
+        if (!(await gameConfirm(
+            "⚠️ FULL SERVER RESET ⚠️\n\nThis will:\n• Delete ALL player saves — everyone starts fresh at Level 1 and chooses their village again\n• Reset Kage seats and village war history for every village\n• Clear all clans, village chats, presence, PvP sessions, and challenge data\n• Wipe player passwords (players set a new one on next login)\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets, cards, visual novels)\n• Any uploaded images (kage portraits, elder portraits, pets, weapons, avatars)\n• Village Leaders tab configuration (names and images)\n\nThis CANNOT be undone. Are you absolutely sure?",
+            { danger: true, confirmLabel: "Reset server" }
+        ))) return;
         setServerResetMsg("⏳ Wiping server…");
         try {
             const res = await fetch('/api/admin/server-reset', {
@@ -1269,8 +1271,8 @@ export function AdminPanel({
         }
     }
 
-    function deleteAdminSavedBloodline(bloodline: SavedBloodline) {
-        if (!confirm(`Delete ${bloodline.name} from the admin bloodline list?`)) return;
+    async function deleteAdminSavedBloodline(bloodline: SavedBloodline) {
+        if (!(await gameConfirm(`Delete ${bloodline.name} from the admin bloodline list?`, { danger: true, confirmLabel: "Delete" }))) return;
         setSavedBloodlines(savedBloodlines.filter((candidate) => candidate.id !== bloodline.id));
         if (editingBloodlineId === bloodline.id) { setEditingBloodlineId(""); setEditingBloodlineOwnerKey(""); }
         if (selectedBloodlineId === bloodline.id) setSelectedBloodlineId("");
@@ -1595,10 +1597,10 @@ export function AdminPanel({
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
-    function deleteAdminJutsu(jutsuId = editingJutsuId) {
+    async function deleteAdminJutsu(jutsuId = editingJutsuId) {
         if (!jutsuId) return alert("Load an existing admin jutsu first.");
         const label = allGameJutsus.find((jutsu) => jutsu.id === jutsuId)?.name ?? jutsuId;
-        if (!confirm(`Permanently delete "${label}"? This cannot be undone.`)) return;
+        if (!(await gameConfirm(`Permanently delete "${label}"? This cannot be undone.`, { danger: true, confirmLabel: "Delete" }))) return;
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === jutsuId));
         if (sourceBloodline) {
             const remaining = sourceBloodline.jutsus.filter((jutsu) => jutsu.id !== jutsuId);
@@ -2149,7 +2151,7 @@ export function AdminPanel({
                             slots.push({ prompt: `${elder}, ${elderRoleLabels[i] ?? "elder"}, shinobi NPC portrait`, label: "Elder Image", apply: (img) => updateLeadershipImage(village, i, img) });
                     });
                     if (slots.length === 0) { alert("All portraits already have images."); return; }
-                    if (!confirm(`Generate ${slots.length} missing portrait${slots.length > 1 ? "s" : ""} for ${village}? This costs image credits.`)) return;
+                    if (!(await gameConfirm(`Generate ${slots.length} missing portrait${slots.length > 1 ? "s" : ""} for ${village}? This costs image credits.`))) return;
                     for (let i = 0; i < slots.length; i++) {
                         const slot = slots[i];
                         const img = await generateLeaderImage(slot.prompt, slot.label);
@@ -4777,8 +4779,8 @@ export function AdminPanel({
                                 <button
                                     style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}
                                     disabled={!adminPw}
-                                    onClick={() => {
-                                        if (!confirm(`Reset Kage for ${kageResetVillage}? This will unseat the current player Kage and re-seal the system.`)) return;
+                                    onClick={async () => {
+                                        if (!(await gameConfirm(`Reset Kage for ${kageResetVillage}? This will unseat the current player Kage and re-seal the system.`, { danger: true, confirmLabel: "Reset" }))) return;
                                         setKageResetMsg("Resetting…");
                                         fetch('/api/village/kage', {
                                             method: 'POST',
@@ -5139,7 +5141,7 @@ export function AdminPanel({
                 async function generateAllMissing() {
                     const missing = hollowGateAssets.filter(a => !hollowGateAssetImages[a.key]);
                     if (missing.length === 0) { alert("All Hollow Gate assets already have images."); return; }
-                    if (!confirm(`Generate ${missing.length} missing image${missing.length > 1 ? "s" : ""}? This costs image credits and waits 35s between calls for rate limits.`)) return;
+                    if (!(await gameConfirm(`Generate ${missing.length} missing image${missing.length > 1 ? "s" : ""}? This costs image credits and waits 35s between calls for rate limits.`))) return;
                     for (let i = 0; i < missing.length; i += 1) {
                         const asset = missing[i];
                         const prompt = hollowGateAssetPrompts[asset.key] ?? asset.defaultPrompt;
@@ -5218,7 +5220,7 @@ export function AdminPanel({
                                                             </button>
                                                             {currentImage && (
                                                                 <button className="danger-button" onClick={async () => {
-                                                                    if (!confirm(`Clear the image for ${asset.name}? This unpublishes the shared image.`)) return;
+                                                                    if (!(await gameConfirm(`Clear the image for ${asset.name}? This unpublishes the shared image.`, { danger: true, confirmLabel: "Clear" }))) return;
                                                                     setHollowGateAssetImages(prev => {
                                                                         const next = { ...prev };
                                                                         delete next[asset.key];
@@ -5427,7 +5429,7 @@ export function AdminPanel({
 
                 async function clearDungeonImage(eventId: string, slot: string) {
                     const key = `event:${eventId}:${slot}`;
-                    if (!confirm(`Remove the ${slot} image for this dungeon?`)) return;
+                    if (!(await gameConfirm(`Remove the ${slot} image for this dungeon?`, { danger: true, confirmLabel: "Remove" }))) return;
                     setSharedImages(prev => {
                         const next = { ...prev };
                         delete next[key];
@@ -5553,8 +5555,8 @@ export function AdminPanel({
                                 <button
                                     className="danger-button"
                                     disabled={dungeonImgBulkRunning}
-                                    onClick={() => {
-                                        if (!confirm("Regenerate EVERY slot for all 5 dungeons? This overwrites images you've already saved.")) return;
+                                    onClick={async () => {
+                                        if (!(await gameConfirm("Regenerate EVERY slot for all 5 dungeons? This overwrites images you've already saved.", { danger: true, confirmLabel: "Regenerate" }))) return;
                                         void generateAllForEveryDungeon(true);
                                     }}
                                 >
@@ -5592,8 +5594,8 @@ export function AdminPanel({
                                                 className="danger-button"
                                                 style={{ fontSize: "0.78rem", padding: "4px 10px" }}
                                                 disabled={dungeonImgBulkRunning}
-                                                onClick={() => {
-                                                    if (!confirm(`Regenerate all 4 images for ${dungeon.name}? This overwrites existing images.`)) return;
+                                                onClick={async () => {
+                                                    if (!(await gameConfirm(`Regenerate all 4 images for ${dungeon.name}? This overwrites existing images.`, { danger: true, confirmLabel: "Regenerate" }))) return;
                                                     void generateAllForDungeon(dungeon, true);
                                                 }}
                                             >
