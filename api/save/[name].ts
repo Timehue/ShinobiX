@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
+import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
@@ -756,14 +757,46 @@ export function sanitizeCharacterSave(
     const JUTSU_PER_BLOODLINE_CAP = 15;
     const RAW_BLOODLINE_IMAGE_MAX_BYTES = 250_000;  // 250 KB inline cap
     const KNOWN_BLOODLINE_RANKS = new Set(['B Rank', 'A Rank', 'S Rank']);
-    const normalizeBloodlineArray = (arr: unknown): unknown[] => {
+    const BLOODLINE_RANK_ORDER: Record<string, number> = { 'B Rank': 0, 'A Rank': 1, 'S Rank': 2 };
+    // sub-3: bloodline rank entitlement. A plain save POST may only LOWER a
+    // bloodline's rank, never raise it — the entitlement is the rank already stored
+    // for that bloodline id, and a new bloodline (no stored row) caps at B Rank. A
+    // genuine rank-up must come from a dedicated server-authoritative endpoint, so a
+    // forged save can't self-promote to A/S (there is no Mythic-Seal faucet, by
+    // design). Gated by BLOODLINE_RANK_ENTITLEMENT; flag-off keeps the old
+    // "accept any known rank" behavior (byte-identical). Needs a one-off save:*
+    // audit of legit A/S holders before flipping (a wiped/migrated save lacking the
+    // bloodline would otherwise re-baseline its rank to B).
+    const RANK_ENTITLEMENT_ON = process.env.BLOODLINE_RANK_ENTITLEMENT === '1';
+    // sub-1: enforce the bloodline POINT BUDGET server-side (the core PvP-balance
+    // knob, client-only today). Gated; flag-off = no-op for honest bloodlines.
+    const BLOODLINE_BUDGET_ON = process.env.BLOODLINE_BUDGET_SERVER === '1';
+    const normalizeBloodlineArray = (arr: unknown, existingArr: unknown): unknown[] => {
         if (!Array.isArray(arr)) return arr as unknown[];
+        const existingRankById = new Map<string, string>();
+        if (RANK_ENTITLEMENT_ON && Array.isArray(existingArr)) {
+            for (const eb of existingArr as Array<Record<string, unknown>>) {
+                if (eb && typeof eb === 'object') {
+                    const eid = String(eb.id ?? '');
+                    const er = String(eb.rank ?? '');
+                    if (eid && KNOWN_BLOODLINE_RANKS.has(er)) existingRankById.set(eid, er);
+                }
+            }
+        }
         return (arr as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP).map((bl) => {
             if (!bl || typeof bl !== 'object') return {};
             const out: Record<string, unknown> = { ...bl };
-            // Rank — fall back to B Rank if unknown.
+            // Rank — fall back to B Rank if unknown, then (sub-3) clamp DOWN to the
+            // player's entitlement (the rank already stored for this bloodline id).
+            // Never raises rank; a legit downgrade is allowed.
             const rawRank = String(out.rank ?? '');
-            if (!KNOWN_BLOODLINE_RANKS.has(rawRank)) out.rank = 'B Rank';
+            let rank = KNOWN_BLOODLINE_RANKS.has(rawRank) ? rawRank : 'B Rank';
+            if (RANK_ENTITLEMENT_ON) {
+                const blId = String(out.id ?? '');
+                const entitled = (blId && existingRankById.get(blId)) || 'B Rank';
+                if ((BLOODLINE_RANK_ORDER[rank] ?? 0) > (BLOODLINE_RANK_ORDER[entitled] ?? 0)) rank = entitled;
+            }
+            out.rank = rank;
             // Strip inline SVG / oversized image data — let shared image
             // storage host real images via the /api/images allowlist.
             if (typeof out.image === 'string') {
@@ -823,6 +856,15 @@ export function sanitizeCharacterSave(
                 if (typeof jOut.battleDescription === 'string') jOut.battleDescription = sanitizeUserText(jOut.battleDescription, TEXT_LIMITS.description);
                 return jOut;
             });
+            // sub-1: enforce the bloodline point budget across the now numeric-clamped
+            // jutsu. Strips the lowest-point tags down to the rank budget; clamp,
+            // never reject. Flag-off = no-op (an honest within-budget bloodline is
+            // unchanged). Uses the entitlement-clamped out.rank set above.
+            if (BLOODLINE_BUDGET_ON && Array.isArray(out.jutsus)) {
+                const blRank = typeof out.rank === 'string' ? out.rank : null;
+                out.jutsus = enforceBloodlineBudget(out.jutsus as RawJutsu[], blRank) as unknown[];
+                out.totalPoints = Math.min(20, bloodlinePoints(out.jutsus as RawJutsu[], blRank));
+            }
             return out;
         });
     };
@@ -833,7 +875,7 @@ export function sanitizeCharacterSave(
     // nested copy, which is empty for live payloads. (PvP re-clamps at session
     // create, so this closes a defense-in-depth / false-confidence gap, not a live
     // hole.) The top-level copy is normalized into the return object below.
-    if (Array.isArray(char.savedBloodlines)) char.savedBloodlines = normalizeBloodlineArray(char.savedBloodlines);
+    if (Array.isArray(char.savedBloodlines)) char.savedBloodlines = normalizeBloodlineArray(char.savedBloodlines, (exChar as Record<string, unknown>).savedBloodlines);
 
     // ─── endlessTowerRun shape validation ─────────────────────────────────────
     // Run state is client-tracked then collected via save. Forged saves can
@@ -1180,7 +1222,7 @@ export function sanitizeCharacterSave(
     }
 
     const out: Record<string, unknown> = { ...incoming, character: char };
-    if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines);
+    if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines);
     if (sanitizedCreatorItems !== undefined) out.creatorItems = sanitizedCreatorItems;
     return out;
 }
