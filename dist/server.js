@@ -110,6 +110,10 @@ const collect_supply_js_1 = __importDefault(require("./api/clan/territory/collec
 const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"));
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 const claim_js_1 = __importDefault(require("./api/clan/mission/claim.js"));
+// Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
+const start_js_2 = __importDefault(require("./api/hollow-gate/start.js"));
+const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
+const settle_js_2 = __importDefault(require("./api/hollow-gate/settle.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
 const kick_js_1 = __importDefault(require("./api/clan/kick.js"));
 const mentor_js_1 = __importDefault(require("./api/clan/mentor.js"));
@@ -596,6 +600,13 @@ route('/clan/upgrade/purchase', purchase_js_1.default);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', claim_js_1.default);
+// ─── Hollow Gate: server-authoritative run token + augments ─────────────────────
+// start mints a sealed token (entry snapshot + depth + augment offers) under a
+// server daily-run cap; choose-augment re-seals the pick; settle credits
+// min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
+route('/hollow-gate/start', start_js_2.default);
+route('/hollow-gate/choose-augment', choose_augment_js_1.default);
+route('/hollow-gate/settle', settle_js_2.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
 // Leadership-only. Removes the member from the clan row AND clears their
 // character.clan on their own save (the cross-save write a client can't do).
