@@ -398,7 +398,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             return { status: 400 as const, body: { error: `Unknown action: ${action}` } };
-        });
+        }, { failClosed: true });
         return res.status(result.status).json(result.body);
     } catch (err) {
         console.error('[clan/war/challenge]', err);

@@ -192,8 +192,24 @@ const GAIN_WINDOW_MS = 60_000;
 const MAX_RYO_PER_MINUTE = 5_000_000;
 const MAX_STAT_PER_MINUTE = 1500; // any single stat
 const MAX_XP_PER_MINUTE = 1_000_000;
+// Per-minute caps for premium + power-material currencies. The per-save
+// CURRENCY_CAPS above bound a SINGLE save; without a rolling window a tampered
+// client autosaving every ~3s could mint the per-save cap repeatedly and bank an
+// unbounded pile over a minute. Set generously (~10× the per-save cap) so no
+// legit faucet trips them — this is anti-TAMPER, not a rarity nerf; the goal is
+// only to block sustained minting. auraDust is extra-generous (events can grant
+// >100/save, see the CURRENCY_CAPS note).
+const MAX_CURRENCY_PER_MINUTE: Record<string, number> = {
+    fateShards: 500,
+    boneCharms: 500,
+    auraStones: 500,
+    auraDust: 2000,
+    mythicSeals: 500,
+    honorSeals: 2000,
+    hollowShards: 2000,
+};
 
-type GainsWindow = { startedAt: number; ryo: number; stat: Record<string, number>; xp: number };
+type GainsWindow = { startedAt: number; ryo: number; stat: Record<string, number>; xp: number; currency: Record<string, number> };
 
 async function readGainsWindow(name: string): Promise<GainsWindow | null> {
     try {
@@ -217,7 +233,7 @@ async function writeGainsWindow(name: string, w: GainsWindow): Promise<void> {
 }
 
 function freshWindow(): GainsWindow {
-    return { startedAt: Date.now(), ryo: 0, stat: {}, xp: 0 };
+    return { startedAt: Date.now(), ryo: 0, stat: {}, xp: 0, currency: {} };
 }
 
 // Baseline used to clamp a brand-new account's FIRST save. Without this, a
@@ -1570,6 +1586,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 const d = Math.max(0, inv - ex);
                                 if (d > 0) statDelta[k] = d;
                             }
+                            // Premium / power-material currency deltas (anti-tamper window).
+                            const currencyDelta: Record<string, number> = {};
+                            for (const k of Object.keys(MAX_CURRENCY_PER_MINUTE)) {
+                                const d = Math.max(0, Number(inChar[k] ?? 0) - Number(exChar[k] ?? 0));
+                                if (d > 0) currencyDelta[k] = d;
+                            }
 
                             const win = (await readGainsWindow(identityName)) ?? freshWindow();
                             const ageMs = Date.now() - win.startedAt;
@@ -1579,6 +1601,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const nextXp = cur.xp + xpDelta;
                             const nextStat: Record<string, number> = { ...cur.stat };
                             for (const [k, d] of Object.entries(statDelta)) nextStat[k] = (nextStat[k] ?? 0) + d;
+                            // Old windows (written before this field existed) lack `currency`.
+                            const nextCurrency: Record<string, number> = { ...(cur.currency ?? {}) };
+                            for (const [k, d] of Object.entries(currencyDelta)) nextCurrency[k] = (nextCurrency[k] ?? 0) + d;
 
                             if (nextRyo > MAX_RYO_PER_MINUTE) {
                                 return res.status(429).json({
@@ -1597,9 +1622,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     });
                                 }
                             }
+                            // Premium/material currency per-minute caps. Anti-tamper only,
+                            // generous vs legit faucets. DISABLE_CURRENCY_WINDOW=1 turns the
+                            // 429 off instantly if a legit faucet ever trips it (the window is
+                            // still tracked, just not enforced).
+                            if (process.env.DISABLE_CURRENCY_WINDOW !== '1') {
+                                for (const [k, total] of Object.entries(nextCurrency)) {
+                                    const cap = MAX_CURRENCY_PER_MINUTE[k];
+                                    if (cap != null && total > cap) {
+                                        return res.status(429).json({
+                                            error: `${k} gain rate-limited (over ${cap} / 60s).`,
+                                        });
+                                    }
+                                }
+                            }
 
                             // Allowed — persist the updated window.
-                            await writeGainsWindow(identityName, { startedAt: cur.startedAt, ryo: nextRyo, stat: nextStat, xp: nextXp });
+                            await writeGainsWindow(identityName, { startedAt: cur.startedAt, ryo: nextRyo, stat: nextStat, xp: nextXp, currency: nextCurrency });
                         }
                     }
 

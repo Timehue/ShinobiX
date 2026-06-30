@@ -164,7 +164,7 @@ async function handler(req, res) {
                     honorSealsRemaining: balance - cost,
                 },
             };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     }
     catch (err) {

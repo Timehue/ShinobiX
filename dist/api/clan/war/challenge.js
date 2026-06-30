@@ -408,7 +408,7 @@ async function handler(req, res) {
                 return { status: 200, body: { war, challenge: updated } };
             }
             return { status: 400, body: { error: `Unknown action: ${action}` } };
-        });
+        }, { failClosed: true });
         return res.status(result.status).json(result.body);
     }
     catch (err) {

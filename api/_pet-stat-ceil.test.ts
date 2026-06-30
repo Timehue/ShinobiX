@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { petStatCeil, PET_BASE_STATS, PET_STAT_CEIL_FACTOR } from './_pet-stat-ceil.js';
+import { petStatCeil, PET_BASE_STATS, PET_STAT_CEIL_FACTOR, petJutsuPowerCeil, PET_JUTSU_POWER_CAP } from './_pet-stat-ceil.js';
 
 const STATS = ['hp', 'attack', 'defense', 'speed'] as const;
 // The in-game all-in level-100 growth ceiling: base * (1 + PET_LEVEL_GROWTH * 99)
@@ -48,5 +48,27 @@ describe('petStatCeil — pet-ladder anti-tamper ceiling', () => {
             assert.equal(petStatCeil(undefined, stat), petStatCeil('mythic', stat));
             assert.equal(petStatCeil(123, stat), petStatCeil('mythic', stat));
         }
+    });
+});
+
+describe('petJutsuPowerCeil — per-rarity jutsu-power ceiling', () => {
+    it('returns the exact per-rarity cap (mirrors client petStatCaps[*].jutsuPower)', () => {
+        assert.equal(petJutsuPowerCeil('standard'), 320);
+        assert.equal(petJutsuPowerCeil('rare'), 360);
+        assert.equal(petJutsuPowerCeil('legendary'), 405);
+        assert.equal(petJutsuPowerCeil('mythic'), 450);
+    });
+
+    it('bounds a tampered jutsu power far below the old flat 1000 clamp', () => {
+        for (const rarity of Object.keys(PET_JUTSU_POWER_CAP)) {
+            assert.ok(petJutsuPowerCeil(rarity) <= 450, `${rarity} jutsu-power ceiling must be <= mythic 450`);
+            assert.ok(petJutsuPowerCeil(rarity) < 1000, `${rarity} jutsu-power ceiling must be below the old flat 1000`);
+        }
+    });
+
+    it('falls back to mythic (loosest tier) for an unknown / tampered rarity', () => {
+        assert.equal(petJutsuPowerCeil('not-a-rarity'), petJutsuPowerCeil('mythic'));
+        assert.equal(petJutsuPowerCeil(undefined), petJutsuPowerCeil('mythic'));
+        assert.equal(petJutsuPowerCeil(123), petJutsuPowerCeil('mythic'));
     });
 });

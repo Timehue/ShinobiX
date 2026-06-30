@@ -159,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     honorSealsRemaining: balance - cost,
                 },
             };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[jutsu/train-with-seals]', err);

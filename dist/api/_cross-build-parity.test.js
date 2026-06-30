@@ -155,3 +155,33 @@ function annotatedNum(src, name) {
         node_assert_1.strict.equal(client, server, 'bank principal cap drifted between Bank.tsx and _bank-interest.ts');
     });
 });
+(0, node_test_1.describe)('parity: pet jutsu-power caps (pet-stats.ts petStatCaps ⇄ api/_pet-stat-ceil.ts PET_JUTSU_POWER_CAP)', () => {
+    // The client petStatCaps[rarity].jutsuPower is the authoritative cap that
+    // capPetStats enforces; the server clamp (snapshotJutsu in pet-ladder/_core.ts)
+    // must mirror it exactly, or a tampered pet seals an over-cap jutsu into the
+    // deterministic ranked duel that auto-resolves server-side.
+    const PETSTATS = read('shinobij.client', 'src', 'data', 'pet-stats.ts');
+    const PETCEIL = read('api', '_pet-stat-ceil.ts');
+    const RARITIES = ['standard', 'rare', 'legendary', 'mythic'];
+    function clientJutsuPower(rarity) {
+        // Scope to the petStatCaps block (the post-training CAPS) — NOT
+        // balancedPetBaseStats, which also has a jutsuPower field and appears first.
+        const capsBlock = PETSTATS.match(/petStatCaps[^=]*=\s*\{([\s\S]*?)\n\};/);
+        node_assert_1.strict.ok(capsBlock, 'client petStatCaps block not found');
+        const m = capsBlock[1].match(new RegExp(rarity + ':\\s*\\{[^}]*jutsuPower:\\s*(\\d+)'));
+        node_assert_1.strict.ok(m, `client petStatCaps.${rarity}.jutsuPower not found`);
+        return Number(m[1]);
+    }
+    function serverJutsuPower(rarity) {
+        const block = PETCEIL.match(/PET_JUTSU_POWER_CAP[^{]*\{([^}]*)\}/);
+        node_assert_1.strict.ok(block, 'server PET_JUTSU_POWER_CAP block not found');
+        const m = block[1].match(new RegExp(rarity + ':\\s*(\\d+)'));
+        node_assert_1.strict.ok(m, `server PET_JUTSU_POWER_CAP.${rarity} not found`);
+        return Number(m[1]);
+    }
+    for (const rarity of RARITIES) {
+        (0, node_test_1.it)(`${rarity} jutsu-power cap matches across build roots`, () => {
+            node_assert_1.strict.equal(serverJutsuPower(rarity), clientJutsuPower(rarity), `${rarity} jutsuPower cap drifted between pet-stats.ts and _pet-stat-ceil.ts`);
+        });
+    }
+});

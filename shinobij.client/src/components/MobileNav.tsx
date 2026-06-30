@@ -25,7 +25,7 @@ import { isVillageWarMapEnabled } from "../lib/village-war-map";
 import {
     GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
     GiExitDoor, GiFireSpellCast, GiGears, GiHamburgerMenu, GiHearts, GiKnapsack,
-    GiNinjaHeroicStance, GiOpenBook, GiPawPrint, GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
+    GiNinjaHeroicStance, GiOpenBook, GiPawPrint, GiPortal, GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
 } from "react-icons/gi";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
@@ -129,6 +129,7 @@ export const MobileNav = memo(function MobileNav({
                     <div className="mobile-menu-grid">
                         <button className="mobile-menu-btn" onClick={() => go("tavern")}><GiBeerStein size={20} />Tavern</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}><GiTreasureMap size={20} />Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("centralHub")}><GiPortal size={20} />Central</button>
                         <button className="mobile-menu-btn" onClick={() => go("userHub")}><GiThreeFriends size={20} />Users</button>
                         <button className="mobile-menu-btn" onClick={() => go("messages")}><GiEnvelope size={20} />Mail<MailUnreadBadge /></button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}><GiScrollUnfurled size={20} />Missions</button>

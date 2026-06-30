@@ -193,7 +193,11 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
         .map((j) => {
             const out: Record<string, unknown> = { ...j };
             // Hard caps so a tampered jutsu can't supply an instant-kill effect.
-            out.effectPower = clampNumber(out.effectPower, 0, 600, 0);
+            // Max LEGIT effectPower is 50 (player bloodline jutsu, save-clamped in
+            // api/save/[name].ts; built-in catalog + starters are ≤36). Ceiling 60
+            // keeps headroom above the legit max while killing the old 600 value,
+            // which fed resolveBaseDamage ~12× the legit ceiling (an instant kill).
+            out.effectPower = clampNumber(out.effectPower, 0, 60, 0);
             if (out.ap != null) out.ap = clampNumber(out.ap, 0, 200, 40);
             if (out.cooldown != null) out.cooldown = clampNumber(out.cooldown, 0, 50, 0);
             if (out.chakraCost != null) out.chakraCost = clampNumber(out.chakraCost, 0, 1000, 0);
@@ -208,6 +212,20 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
                 .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
                 .map((t) => ({ ...t, name: canonicalTagName(String(t.name)) }))
                 .slice(0, 10);
+            // Dedupe by canonical name within a single cast: a jutsu carrying the
+            // same tag twice (e.g. two "Increase Damage Given") would otherwise
+            // apply it twice, double-stacking the soft-capped amp pool in ONE action.
+            // No legit jutsu carries a duplicate tag name, so keeping the first
+            // occurrence is behavior-preserving for honest loadouts.
+            {
+                const seenTagNames = new Set<string>();
+                cleanTags = cleanTags.filter((t) => {
+                    const n = String(t.name);
+                    if (seenTagNames.has(n)) return false;
+                    seenTagNames.add(n);
+                    return true;
+                });
+            }
             // v4.3 Pierce: at most one Pierce per loadout; subsequent Pierces are stripped.
             // Pierce jutsu AP is forced to 60.
             const hasPierce = cleanTags.some(t => t.name === 'Pierce');
@@ -285,7 +303,7 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
             const out: Record<string, unknown> = { ...item };
             // Numeric clamps — match the jutsu sanitizer's bounds so weapons
             // can't out-scale jutsus.
-            if (out.weaponEp != null)          out.weaponEp = clampNumber(out.weaponEp, 0, 600, 0);
+            if (out.weaponEp != null)          out.weaponEp = clampNumber(out.weaponEp, 0, 60, 0);
             if (out.weaponRange != null)       out.weaponRange = clampNumber(out.weaponRange, 0, 30, 1);
             // Cooldown (rounds) — enforced server-side in move.ts for thrown
             // weapons + combat items. Clamp so a tampered save can't seal a
@@ -311,7 +329,18 @@ export function sanitizePvpItems(raw: unknown): unknown[] {
                         if (t.amount  != null) tag.amount  = clampNumber(t.amount, 0, 10000, 0);
                         return tag;
                     })
-                    .slice(0, 10);
+                    .slice(0, 10)
+                    // Same per-cast name dedup as sanitizeJutsuList: a weapon can't
+                    // carry the same amp tag twice and double-stack it in one hit.
+                    .filter((() => {
+                        const seen = new Set<string>();
+                        return (tag: Record<string, unknown>) => {
+                            const n = String(tag.name);
+                            if (seen.has(n)) return false;
+                            seen.add(n);
+                            return true;
+                        };
+                    })());
             }
             // weaponEffect / weaponElement / weaponEffectTarget — drop if not
             // in their respective whitelists rather than blocking the whole

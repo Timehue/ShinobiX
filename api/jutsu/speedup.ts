@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     newEndsAt: (updated.activeJutsuTraining as { endsAt: number }).endsAt,
                 },
             };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[jutsu/speedup]', err);
