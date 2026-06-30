@@ -13167,6 +13167,14 @@ button.combat-jutsu-button,
     }
 }
 
+/* The full Next-Goal banner shows only on mobile; on desktop (≥981px) the compact
+   copy under the Lv/XP bar in the left-profile rail replaces it (NextGoalPin compact). */
+@media (min-width: 981px) {
+    .next-goal-pin {
+        display: none !important;
+    }
+}
+
 @media (max-width: 980px) {
     .sector-banner-panel,
     .left-profile-card,
