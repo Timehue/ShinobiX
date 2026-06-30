@@ -521,15 +521,53 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'the zone bled the enemy');
         node_assert_1.strict.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
     });
-    (0, node_test_1.it)('rejects a ground jutsu out of range / with no ground-eligible tags', () => {
-        const sq = makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', stats: {}, jutsu: [
-                    { id: 'far', name: 'Far Mire', type: 'Ninjutsu', ap: 60, range: 2, target: 'EMPTY_GROUND', tags: [{ name: 'Poison' }] },
-                    { id: 'empty', name: 'Empty Field', type: 'Ninjutsu', ap: 60, range: 4, target: 'EMPTY_GROUND', tags: [{ name: 'Heal' }] },
-                ] } });
-        const s = makeSession([sq, makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
+    (0, node_test_1.it)('rejects an out-of-range ground jutsu; a no-ground-tag ground jutsu STRIKES the tile (PvE parity) instead of bouncing', () => {
+        // A damage-dealing EMPTY_GROUND jutsu with no ground-effect tag (Wound, not Poison/
+        // Recoil/Decrease Damage Given) used to bounce with `no-ground-tags`. It now resolves
+        // as a direct strike on the hostile standing on the target tile — matching the PvE Arena.
+        const jutsu = [
+            { id: 'far', name: 'Far Mire', type: 'Ninjutsu', ap: 60, range: 2, target: 'EMPTY_GROUND', tags: [{ name: 'Poison' }] },
+            { id: 'strike', name: 'Ambush Strike', type: 'Ninjutsu', ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'SINGLE', tags: [{ name: 'Wound', percent: 20 }] },
+        ];
+        const mkSq = () => makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, character: { specialty: 'Ninjutsu', level: 100, stats: { ninjutsuOffense: 2500, ninjutsuDefense: 2500 }, jutsu } });
+        const s = makeSession([mkSq(), makeActor('en-1', 'enemy', 3, { hp: 9999, maxHp: 9999, character: { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 200 } } })]);
         (0, _engine_js_1.startRound)(s);
+        // Out of range still rejects.
         node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'far', tile: 60 }, (0, _sim_js_1.makeRng)(1)).reason, 'out-of-range');
-        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'empty', tile: 3 }, (0, _sim_js_1.makeRng)(1)).reason, 'no-ground-tags');
+        // No ground-effect tag, but lands ON the enemy → strikes it instead of bouncing.
+        const r = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'strike', tile: 3 }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.ok(r.applied, 'no-ground-tag ground jutsu resolves (no no-ground-tags bounce)');
+        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 9999, 'the enemy on the target tile was struck');
+        node_assert_1.strict.equal((s.groundEffects ?? []).length, 0, 'a non-ground-tagged jutsu lays no persistent zone');
+        // Cast on an EMPTY tile → whiffs harmlessly (still applies / costs AP), never bounces.
+        const s2 = makeSession([mkSq(), makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } })]);
+        (0, _engine_js_1.startRound)(s2);
+        const whiff = (0, _engine_js_1.applyAction)(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'strike', tile: 2 }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.ok(whiff.applied, 'empty-tile ground jutsu whiffs but still applies');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s2, 'en-1').hp, 9999, 'a whiff deals no damage to the off-tile enemy');
+    });
+    (0, node_test_1.it)('a Move-tag jutsu (Flicker) relocates the caster to an open tile instead of bouncing on no-ground-tags', () => {
+        // Flicker: EMPTY_GROUND target (normalizeJutsu forces this for any Move jutsu) +
+        // a Move tag that is NOT a ground-effect tag — so it must repose the caster, not lay a zone.
+        const flicker = { id: 'flicker', name: 'Flicker', type: 'Taijutsu', ap: 20, range: 5, cooldown: 2, chakraCost: 25, staminaCost: 25, target: 'EMPTY_GROUND', method: 'SINGLE', tags: [{ name: 'Move', percent: 0 }] };
+        const mk = () => makeSession([
+            makeActor('sq-1', 'squad', 0, { chakra: 300, maxChakra: 300, stamina: 300, maxStamina: 300, character: { specialty: 'Taijutsu', stats: {}, jutsu: [flicker] } }),
+            makeActor('en-1', 'enemy', 1, { hp: 9999, maxHp: 9999, character: { stats: {} } }),
+        ]);
+        // Happy path: flicker to an open tile in range.
+        const s = mk();
+        (0, _engine_js_1.startRound)(s);
+        const r = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 3 }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.ok(r.applied, 'Flicker applied (no no-ground-tags bounce)');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').pos, 3, 'caster relocated to the target tile');
+        node_assert_1.strict.equal((s.groundEffects ?? []).length, 0, 'a pure Move jutsu lays no ground zone');
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').chakra, 275, 'chakra spent');
+        // Rejections: out of range, onto an occupant, onto the caster's own tile.
+        const s2 = mk();
+        (0, _engine_js_1.startRound)(s2);
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 63 }, (0, _sim_js_1.makeRng)(1)).reason, 'out-of-range');
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 1 }, (0, _sim_js_1.makeRng)(1)).reason, 'blocked');
+        node_assert_1.strict.equal((0, _engine_js_1.applyAction)(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: 0 }, (0, _sim_js_1.makeRng)(1)).reason, 'bad-tile');
     });
 });
 // ─── Basic actions: heal / cleanse / clear / dash (ported from PvP) ───────────
