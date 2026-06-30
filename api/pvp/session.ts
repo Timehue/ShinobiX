@@ -10,6 +10,7 @@ import { consumeRankedMatchToken } from '../_ranked-match-token.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
+import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
 
 export type PvpStatus = {
     name: string;
@@ -501,14 +502,22 @@ export function resolveEquippedLoadout(
             // identical to today. Pair with BLOODLINE_RANK_ENTITLEMENT so a forged
             // rank can't claim higher caps than the player legitimately earned.
             const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
+            const enforceBudget = process.env.BLOODLINE_BUDGET_SERVER === '1';
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object') continue;
                 const bl = b as Record<string, unknown>;
-                const jutsus = bl.jutsus;
-                if (stampRank && Array.isArray(jutsus) && typeof bl.rank === 'string') {
-                    jutsuObjectsById(extra, jutsus.map((j) =>
+                const blRank = typeof bl.rank === 'string' ? bl.rank : null;
+                let jutsus = bl.jutsus;
+                // Defense-in-depth: enforce the bloodline point budget here too, so a
+                // pre-existing over-budget save (written before BLOODLINE_BUDGET_SERVER
+                // was enabled) is still clamped down when it loads into a fight.
+                if (enforceBudget && Array.isArray(jutsus)) {
+                    jutsus = enforceBloodlineBudget(jutsus as RawJutsu[], blRank) as unknown[];
+                }
+                if (stampRank && Array.isArray(jutsus) && blRank) {
+                    jutsuObjectsById(extra, (jutsus as unknown[]).map((j) =>
                         j && typeof j === 'object'
-                            ? { ...(j as Record<string, unknown>), bloodlineRank: bl.rank }
+                            ? { ...(j as Record<string, unknown>), bloodlineRank: blRank }
                             : j,
                     ));
                 } else {
