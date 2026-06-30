@@ -8,6 +8,7 @@ import type { JutsuType } from "../types/core";
 import { ACHIEVEMENTS, achievementReward, type Achievement } from "../constants/achievements";
 import { ANIMATED_MAX_MB, CHARACTER_XP_GAIN_MULTIPLIER, MAX_LEVEL, MAX_STAT } from "../constants/game";
 import { ChangePasswordCard } from "../components/ChangePasswordCard";
+import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
@@ -152,7 +153,7 @@ export function Profile({
     // recomputes (the save sanitizer allows stat DECREASES freely — only gains are
     // clamped — so this client write persists cleanly). HP/Chakra/Stamina pools
     // are untouched (they are not allocatable stats).
-    function respecStats() {
+    async function respecStats() {
         const RESPEC_COST = 50;
         if ((character.fateShards ?? 0) < RESPEC_COST) {
             setStatWarning(`Respec costs ${RESPEC_COST} 🔮 Fate Shards — you have ${character.fateShards ?? 0}.`);
@@ -164,7 +165,7 @@ export function Profile({
             setTimeout(() => setStatWarning(""), 4000);
             return;
         }
-        if (!confirm(`Reset all 12 stats to base and refund every allocated point for ${RESPEC_COST} 🔮 Fate Shards? You'll get your full level budget back as unspent points to re-allocate.`)) return;
+        if (!(await gameConfirm(`Reset all 12 stats to base and refund every allocated point for ${RESPEC_COST} 🔮 Fate Shards? You'll get your full level budget back as unspent points to re-allocate.`))) return;
         const reset = reconcileCharacterStatBudget({ ...character, stats: baseStats() });
         setStatWarning("");
         updateCharacter({ ...reset, fateShards: (character.fateShards ?? 0) - RESPEC_COST });

@@ -7,6 +7,7 @@
  */
 /* eslint-disable react-hooks/set-state-in-effect */ // matches App.tsx's file-wide suppression; logic moved verbatim
 import { useState, useEffect, Fragment, type Dispatch, type SetStateAction } from "react";
+import { gameConfirm } from "./GameAlert";
 import {
     HOLLOW_GATE_ICON_ROLES,
     HOLLOW_GATE_ICON_SLOTS,
@@ -231,7 +232,7 @@ export function KenneyAtlasPicker({
 
     async function clearSlot(slotId: string) {
         const key = HOLLOW_GATE_ICON_KEY(slotId);
-        if (!confirm(`Clear the atlas image for "${slotId}"? The legend + tile will fall back to the emoji icon.`)) return;
+        if (!(await gameConfirm(`Clear the atlas image for "${slotId}"? The legend + tile will fall back to the emoji icon.`, { danger: true, confirmLabel: "Clear" }))) return;
         setBusySlot(slotId);
         setSharedImages(prev => {
             const next = { ...prev };

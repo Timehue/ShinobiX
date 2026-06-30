@@ -17499,6 +17499,37 @@ button.combat-jutsu-button,
         outline-offset: 2px;
     }
 
+/* Secondary (Cancel) button + destructive (danger) Confirm variant — used by the
+   themed GameConfirm dialog, which reuses the .game-alert-* card/footer styles. */
+.game-alert-cancel {
+    background: linear-gradient(180deg, #475569 0%, #334155 100%);
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    color: #e2e8f0;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 9px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+    transition: transform 80ms ease, filter 120ms ease;
+}
+
+    .game-alert-cancel:hover { filter: brightness(1.1); }
+    .game-alert-cancel:active { transform: translateY(1px); }
+    .game-alert-cancel:focus-visible { outline: 2px solid #94a3b8; outline-offset: 2px; }
+
+    .game-alert-ok.danger {
+        background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+        border-color: rgba(248, 113, 113, 0.9);
+        color: #fff;
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(220, 38, 38, 0.4);
+    }
+
+    .game-alert-ok.danger:hover {
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(220, 38, 38, 0.6);
+    }
+
 @media (max-width: 600px) {
     .game-alert-card {
         padding: 18px 18px 14px;

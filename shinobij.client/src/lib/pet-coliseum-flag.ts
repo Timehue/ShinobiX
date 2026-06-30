@@ -75,6 +75,28 @@ export function setPetAccuracyEnabled(on: boolean): void {
 }
 
 /*
+ * Account-level RANKED PET challenge flag. The dormant System-B path
+ * (api/pet/ranked-start + the ranked branch of api/pet/battle-result, which
+ * settles both players' `petRankedRating`) is fully built on the accept/resolve
+ * side, but the SEND button (challengePlayer(opponent, "rankedPet")) was never
+ * wired. When ON, a "Ranked Pet Duel" send button appears in the Arena player
+ * list. DEFAULT OFF: this direct-challenge mode has had no two-client testing and
+ * overlaps the already-live Pet Ladder, so it ships dark until a controlled test.
+ * (The Pet Ladder — Arena → Pet Battles tab — is the primary, live pet-ranked
+ * experience and is unaffected by this flag.) Per-device persisted; flip with
+ * localStorage.setItem("petRankedChallenge.v1","1").
+ */
+const PET_RANKED_CHALLENGE_KEY = "petRankedChallenge.v1";
+
+export function petRankedChallengeEnabled(): boolean {
+    try { return localStorage.getItem(PET_RANKED_CHALLENGE_KEY) === "1"; } catch { return false; }
+}
+
+export function setPetRankedChallengeEnabled(on: boolean): void {
+    try { localStorage.setItem(PET_RANKED_CHALLENGE_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
+/*
  * Authoritative PvE combat engine flag — the kill-switch for the pet-combat
  * redesign (docs/pet-combat-redesign-plan.md). When ON, NON-RANKED pet battles
  * (Pet Arena 1v1 + 2v2, Hollow Gate / dungeon duels, clan-war pet2v2) resolve

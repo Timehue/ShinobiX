@@ -33,6 +33,7 @@ import {
     type CardClashCard,
 } from "../lib/card-clash";
 import { CardClashCardView } from "../components/CardClashCardView";
+import { gameConfirm } from "../components/GameAlert";
 
 // ── Server projection shapes (see tilecards.ts projectFor) ───────────────────
 type ServerCard = { id: string; element: string; rarity: CardClashCard["rarity"]; cost: number; power: number; ability: string };
@@ -315,7 +316,7 @@ export function CardClashDuelScreen({ character, setScreen, config }: { characte
                 <div className="cc-title"><b>Shinobi Card Clash</b><span>{config.title}</span></div>
                 <span className="cc-header-spacer" />
                 {view && view.status !== "done" && (
-                    <button className="cc-btn danger" disabled={busy} onClick={() => { if (window.confirm(config.forfeitConfirm)) void post("forfeit", {}); }}>Forfeit</button>
+                    <button className="cc-btn danger" disabled={busy} onClick={async () => { if (await gameConfirm(config.forfeitConfirm, { danger: true, confirmLabel: "Forfeit" })) void post("forfeit", {}); }}>Forfeit</button>
                 )}
                 <button className="cc-btn ghost" onClick={() => setScreen(config.backScreen)}>{config.backLabel}</button>
             </div>

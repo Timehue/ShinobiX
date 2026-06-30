@@ -13,11 +13,17 @@
  *   - Press Enter or Escape
  *   - Click the dark backdrop
  *
- * confirm() and prompt() are left as native browser calls — they return
- * values synchronously and would require touching each call site.
+ * prompt() is left as a native browser call. confirm() is replaced by the
+ * themed gameConfirm() at the bottom of this file — but because window.confirm
+ * is synchronous (returns a boolean), it is NOT monkey-patched; call sites
+ * `await gameConfirm(...)` instead.
  */
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
+// This module intentionally co-locates gameConfirm() (the imperative API) with its
+// host component so they share the request singleton — disable the Fast-Refresh
+// "only export components" rule for that deliberate mix.
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
@@ -122,6 +128,120 @@ export function GameAlertHost() {
                         }}
                     >
                         OK
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body,
+    );
+}
+
+// ── GameConfirm — themed in-app replacement for window.confirm ────────────────
+// window.confirm is synchronous and returns a boolean, so (unlike alert) it
+// cannot be monkey-patched transparently — a Promise would read truthy at every
+// un-migrated call site. Call sites `await gameConfirm(...)` instead. Same
+// singleton + portal pattern as the alert host, but each request carries a
+// resolver so the awaiting caller receives the user's choice.
+
+export type GameConfirmOptions = {
+    title?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    danger?: boolean;       // red Confirm button for destructive actions
+};
+
+type ConfirmRequest = { message: string; opts?: GameConfirmOptions; resolve: (ok: boolean) => void };
+
+let activeConfirmListener: ((req: ConfirmRequest) => void) | null = null;
+let pendingConfirms: ConfirmRequest[] = [];
+
+/**
+ * Themed replacement for window.confirm. Resolves true on Confirm, false on
+ * Cancel / backdrop click / Escape. Requests fired before the host mounts are
+ * buffered; if the host unmounts with requests still open they resolve false so
+ * awaiting callers never hang.
+ */
+export function gameConfirm(message: string, opts?: GameConfirmOptions): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+        const req: ConfirmRequest = { message: String(message ?? ""), opts, resolve };
+        if (activeConfirmListener) activeConfirmListener(req);
+        else pendingConfirms.push(req);
+    });
+}
+
+export function GameConfirmHost() {
+    const [queue, setQueue] = useState<ConfirmRequest[]>([]);
+
+    useEffect(() => {
+        activeConfirmListener = (req) => setQueue((q) => [...q, req]);
+        if (pendingConfirms.length > 0) {
+            setQueue((q) => [...q, ...pendingConfirms]);
+            pendingConfirms = [];
+        }
+        return () => {
+            activeConfirmListener = null;
+            // Resolve anything still open as cancelled so awaiting callers unblock.
+            setQueue((q) => { q.forEach((r) => r.resolve(false)); return []; });
+        };
+    }, []);
+
+    const settle = (ok: boolean) =>
+        setQueue((q) => {
+            if (q.length === 0) return q;
+            q[0].resolve(ok);
+            return q.slice(1);
+        });
+
+    useEffect(() => {
+        if (queue.length === 0) return;
+        // Escape = cancel. Enter "= confirm" is handled by the autoFocus'd Confirm
+        // button's native activation, so no window-level Enter handler is needed
+        // (which also avoids the double-settle the alert host had to guard against).
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") { e.preventDefault(); settle(false); }
+        }
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [queue.length]);
+
+    useBodyScrollLock(queue.length > 0);
+
+    if (queue.length === 0) return null;
+
+    const current = queue[0];
+    const opts = current.opts ?? {};
+    const moreCount = queue.length - 1;
+
+    return createPortal(
+        <div className="game-alert-backdrop" onClick={() => settle(false)} role="presentation">
+            <div
+                className="game-alert-card"
+                role="alertdialog"
+                aria-modal="true"
+                aria-label={opts.title ?? "Confirm"}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="game-alert-header">
+                    <span className="game-alert-badge">忍</span>
+                    <span className="game-alert-title">{opts.title ?? "Confirm"}</span>
+                </div>
+                <p className="game-alert-message">{current.message}</p>
+                <div className="game-alert-footer">
+                    {moreCount > 0 && (
+                        <span className="game-alert-more">
+                            {moreCount} more {moreCount === 1 ? "prompt" : "prompts"} queued
+                        </span>
+                    )}
+                    <button type="button" className="game-alert-cancel" onClick={() => settle(false)}>
+                        {opts.cancelLabel ?? "Cancel"}
+                    </button>
+                    <button
+                        type="button"
+                        className={`game-alert-ok${opts.danger ? " danger" : ""}`}
+                        onClick={() => settle(true)}
+                        autoFocus
+                    >
+                        {opts.confirmLabel ?? "Confirm"}
                     </button>
                 </div>
             </div>

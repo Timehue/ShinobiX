@@ -6,6 +6,7 @@ import { GiPawPrint, GiChest, GiOpenTreasureChest, GiCardPickup } from "react-ic
 import { GameIcon } from "../components/icons/GameIcon";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
+import { gameConfirm } from "../components/GameAlert";
 import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorRaid } from "../types/missions";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
@@ -944,7 +945,7 @@ export function WorldMap({
         } catch { setWandererDialog({ w, msg: "You couldn't reach them." }); }
     }
     async function abandonEpic(w: Wanderer) {
-        if (!window.confirm("Abandon this epic? Your progress on it will be lost.")) return;
+        if (!(await gameConfirm("Abandon this epic? Your progress on it will be lost.", { danger: true, confirmLabel: "Abandon" }))) return;
         setWandererDialog({ w, busy: true });
         try {
             await fetch("/api/sector/questbook", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "abandon", playerName: character.name }) });
