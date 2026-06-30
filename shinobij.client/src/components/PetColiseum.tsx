@@ -19,6 +19,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { GameIcon } from "./icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls, OrthographicCamera, Sparkles } from "@react-three/drei";
@@ -1422,7 +1423,7 @@ export function PetColiseum({
                         <div className="pet-prefight-sub">Lv {pet.level} · {pet.rarity}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}</div>
                         <div className="pet-prefight-archetype">{petArchetypeFor(pet)}</div>
                         <div className="pet-prefight-stats">
-                            <span>❤ {pet.hp}</span><span>⚔ {pet.attack}</span><span>🛡 {pet.defense}</span><span>⚡ {pet.speed}</span>
+                            <span><GameIcon name="hp" size={13} /> {pet.hp}</span><span><GameIcon name="sword" size={13} /> {pet.attack}</span><span><GameIcon name="shield" size={13} /> {pet.defense}</span><span><GameIcon name="bolt" size={13} /> {pet.speed}</span>
                         </div>
                         {record && (
                             <div className="pet-prefight-record">
