@@ -1,5 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo } from "react";
+// Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
+import { GiPawPrint, GiChest, GiOpenTreasureChest } from "react-icons/gi";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -1440,7 +1442,7 @@ export function WorldMap({
                 <div className="visual-novel admin-vn-play">
                     <div className="vn-header">
                         <div>
-                            <p className="act-label">🐾 PET ENCOUNTER</p>
+                            <p className="act-label"><GiPawPrint style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />PET ENCOUNTER</p>
                             <h2>{page.title || vn.vnTitle || "A Presence in the Shadows"}</h2>
                         </div>
                         <div className="vn-progress">Page {petVnPage + 1}/{pages.length} | Line {petVnLine + 1}/{Math.max(1, pageDialogue.length)}</div>
@@ -1467,7 +1469,7 @@ export function WorldMap({
     if (activePetEncounter && petVnDone) {
         return (
             <div className="card cinematic-card">
-                <h2>🐾 {activePetEncounter.name} Wants to Join You!</h2>
+                <h2><GiPawPrint style={{ verticalAlign: "-0.12em", marginRight: "0.35rem" }} />{activePetEncounter.name} Wants to Join You!</h2>
 
                 <div className="summary-box">
                     <h3>{activePetEncounter.name}</h3>
@@ -1608,7 +1610,7 @@ export function WorldMap({
                 <div className="visual-novel admin-vn-play">
                     <div className="vn-header">
                         <div>
-                            <p className="act-label">📦 ANCIENT CHEST DISCOVERED</p>
+                            <p className="act-label"><GiChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST DISCOVERED</p>
                             <h2>{page.title}</h2>
                         </div>
                         <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
@@ -1661,7 +1663,7 @@ export function WorldMap({
             <div className="card cinematic-card ancient-chest-reveal-card">
                 <div className="chest-reveal">
                     <div className="chest-reveal-header">
-                        <p className="act-label">📦 ANCIENT CHEST CONTENTS</p>
+                        <p className="act-label"><GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST CONTENTS</p>
                         <h2 className="chest-reveal-title">The chest yields its secrets</h2>
                         <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
                     </div>
@@ -1677,7 +1679,7 @@ export function WorldMap({
                         ))}
                     </div>
                     <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
-                        🎁 Claim All Rewards
+                        <GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />Claim All Rewards
                     </button>
                 </div>
             </div>
@@ -2656,7 +2658,7 @@ export function WorldMap({
                         <div className="visual-novel admin-vn-play">
                             <div className="vn-header">
                                 <div>
-                                    <p className="act-label">📦 ANCIENT CHEST DISCOVERED</p>
+                                    <p className="act-label"><GiChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST DISCOVERED</p>
                                     <h2>{page.title}</h2>
                                 </div>
                                 <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
@@ -2702,7 +2704,7 @@ export function WorldMap({
                     <div className="card cinematic-card">
                         <div className="chest-reveal">
                             <div className="chest-reveal-header">
-                                <p className="act-label">📦 ANCIENT CHEST CONTENTS</p>
+                                <p className="act-label"><GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST CONTENTS</p>
                                 <h2 className="chest-reveal-title">The chest yields its secrets</h2>
                                 <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
                             </div>
@@ -2718,7 +2720,7 @@ export function WorldMap({
                                 ))}
                             </div>
                             <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
-                                🎁 Claim All Rewards
+                                <GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />Claim All Rewards
                             </button>
                         </div>
                     </div>
