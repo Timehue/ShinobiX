@@ -41,8 +41,7 @@ type ServerLoc = { def: { id: string; name: string; description: string; effectT
 type ServerMatch = { locations: ServerLoc[]; turn: number; log: string[] };
 type SideKey = "p1" | "p2";
 type View = {
-    warId: string; challengeId: string;
-    status: "awaiting-p2" | "picking" | "active" | "done";
+    status: "awaiting-p2" | "awaiting-defender" | "picking" | "active" | "done";
     winner?: SideKey | "draw";
     coinFlip?: SideKey;
     turnDeadline?: number; pickingDeadline?: number;
@@ -78,7 +77,44 @@ function locBonus(card: { element: string; rarity: string; cost: number; power: 
     }
 }
 
-export function ClanWarTileCardDuel({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+export interface CardClashDuelConfig {
+    stashKey: string;            // sessionStorage key holding the session id payload
+    endpoint: string;            // the duel API path
+    title: string;               // sub-title under "Shinobi Card Clash"
+    backScreen: Screen;
+    backLabel: string;
+    emptyTitle: string;
+    emptyNote: string;
+    emptyBackLabel: string;
+    awaitingNote: string;
+    forfeitConfirm: string;
+    doneNote: (won: boolean, draw: boolean) => string;
+    // When true, the screen auto-`join`s the session on mount (the sector-war card
+    // battle has no separate accept step). Clan-war joins at challenge-accept time.
+    autoJoin?: boolean;
+}
+
+// The clan-war duel config — the original behaviour, applied by the back-compat
+// ClanWarTileCardDuel wrapper at the bottom of this file.
+const CLAN_WAR_DUEL_CONFIG: CardClashDuelConfig = {
+    stashKey: "clanWarChallenge.v1",
+    endpoint: "/api/clan/war/tilecards",
+    title: "Clan War Duel",
+    backScreen: "shinobiCouncil",
+    backLabel: "← Council",
+    emptyTitle: "⚠ No active clan-war duel",
+    emptyNote: "The duel context was lost. Return to the Shinobi Council Hall.",
+    emptyBackLabel: "Back to Council Hall",
+    awaitingNote: "⏳ Waiting for the opposing clan's duelist to join…",
+    forfeitConfirm: "Forfeit the duel? Your clan takes the damage.",
+    doneNote: (_won, draw) => (draw ? "No damage on a draw." : "Clan-war HP damage applied automatically."),
+};
+
+// Generic Shinobi Card Clash duel screen — drives the join/submit/commit/state
+// loop against `config.endpoint` for the session id(s) stashed under
+// `config.stashKey`. Used for both the clan-war duel and the sector-war card
+// battle (/api/village/sector-card); only the config differs.
+export function CardClashDuelScreen({ character, setScreen, config }: { character: Character; setScreen: (s: Screen) => void; config: CardClashDuelConfig }) {
     const [view, setView] = useState<View | null>(null);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
@@ -101,25 +137,25 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
 
     const stash = useMemo(() => {
         try {
-            const raw = sessionStorage.getItem("clanWarChallenge.v1");
+            const raw = sessionStorage.getItem(config.stashKey);
             if (!raw) return null;
-            return JSON.parse(raw) as { warId: string; challengeId: string; mode: string };
+            return JSON.parse(raw) as Record<string, string>;
         } catch { return null; }
-    }, []);
+    }, [config.stashKey]);
 
     const refresh = useCallback(async () => {
-        if (!stash?.challengeId || !stash?.warId) return;
+        if (!stash) return;
         try {
-            const r = await fetch("/api/clan/war/tilecards", {
+            const r = await fetch(config.endpoint, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "state", warId: stash.warId, challengeId: stash.challengeId }),
+                body: JSON.stringify({ action: "state", ...stash }),
             });
             const data = await r.json().catch(() => ({}));
             if (r.ok && data.session) { setView(data.session as View); setError(""); }
             else if (r.status === 404) setError("Waiting for the duel to start…");
             else setError(data.error ?? `HTTP ${r.status}`);
         } catch (e) { setError(String((e as Error).message)); }
-    }, [stash?.challengeId, stash?.warId]);
+    }, [stash, config.endpoint]);
 
     // Poll only (no realtime) so the opponent's staged plays never leak.
     useEffect(() => {
@@ -130,11 +166,33 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
         return () => { clearInterval(id); clearInterval(clock); };
     }, [refresh, stash]);
 
+    // Sector-war card battles have no separate accept step — auto-join on mount so
+    // the attacker opens the session and the defender joins it (the server picks the
+    // side from each player's village). No-op for clan war (autoJoin unset).
+    const joinedRef = useRef(false);
+    useEffect(() => {
+        if (!config.autoJoin || joinedRef.current || !stash) return;
+        joinedRef.current = true;
+        const saved = character.cardClashDeck ?? [];
+        const deckIds = validateDeck(saved, clashById).valid
+            ? saved
+            : buildPlayableDeck(character.tileCards ?? [], clashById, toClashCards(getAllTileCards([])));
+        const deck = deckIds.map((id) => {
+            const c = clashById[id];
+            const ability = c.abilityType === "ongoingElementBoostHere" ? "none" : c.abilityType;
+            return { id: c.id, element: c.element, rarity: c.rarity, cost: c.cost, power: c.power, ability };
+        });
+        void fetch(config.endpoint, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "join", ...stash, defaultDeck: deck }),
+        }).then(() => refresh()).catch(() => { /* the poll surfaces any error */ });
+    }, [config.autoJoin, config.endpoint, stash, character.cardClashDeck, character.tileCards, clashById, refresh]);
+
     useEffect(() => {
         if (view?.status === "done") {
-            try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+            try { sessionStorage.removeItem(config.stashKey); } catch { /* ignore */ }
         }
-    }, [view?.status]);
+    }, [view?.status, config.stashKey]);
 
     // ── Picking-phase deck (pre-filled from saved Card Hall deck / auto-build) ──
     const [pickedIds, setPickedIds] = useState<string[] | null>(null);
@@ -160,12 +218,12 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
     useEffect(() => { if (committed) { setStaged([]); setSelHand(null); } }, [committed]);
 
     async function post(action: string, extra: Record<string, unknown>) {
-        if (!view) return;
+        if (!view || !stash) return;
         setBusy(true);
         try {
-            const r = await fetch("/api/clan/war/tilecards", {
+            const r = await fetch(config.endpoint, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action, warId: view.warId, challengeId: view.challengeId, ...extra }),
+                body: JSON.stringify({ action, ...stash, ...extra }),
             });
             const data = await r.json().catch(() => ({}));
             if (r.ok && data.session) { setView(data.session as View); setError(""); }
@@ -238,9 +296,9 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
         return (
             <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}><div className="cc-body">
                 <div className="cc-empty-note">
-                    <h2>⚠ No active clan-war duel</h2>
-                    <p className="cc-muted">The duel context was lost. Return to the Shinobi Council Hall.</p>
-                    <button className="cc-btn" onClick={() => setScreen("shinobiCouncil")}>Back to Council Hall</button>
+                    <h2>{config.emptyTitle}</h2>
+                    <p className="cc-muted">{config.emptyNote}</p>
+                    <button className="cc-btn" onClick={() => setScreen(config.backScreen)}>{config.emptyBackLabel}</button>
                 </div>
             </div></div>
         );
@@ -254,20 +312,20 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
     return (
         <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}>
             <div className="cc-header">
-                <div className="cc-title"><b>Shinobi Card Clash</b><span>Clan War Duel</span></div>
+                <div className="cc-title"><b>Shinobi Card Clash</b><span>{config.title}</span></div>
                 <span className="cc-header-spacer" />
                 {view && view.status !== "done" && (
-                    <button className="cc-btn danger" disabled={busy} onClick={() => { if (window.confirm("Forfeit the duel? Your clan takes the damage.")) void post("forfeit", {}); }}>Forfeit</button>
+                    <button className="cc-btn danger" disabled={busy} onClick={() => { if (window.confirm(config.forfeitConfirm)) void post("forfeit", {}); }}>Forfeit</button>
                 )}
-                <button className="cc-btn ghost" onClick={() => setScreen("shinobiCouncil")}>← Council</button>
+                <button className="cc-btn ghost" onClick={() => setScreen(config.backScreen)}>{config.backLabel}</button>
             </div>
 
             <div className="cc-body">
                 {error && <div className="cc-deck-errors">⚠ {error}</div>}
                 {!view && <p className="cc-muted">Connecting to duel session…</p>}
 
-                {view?.status === "awaiting-p2" && (
-                    <div className="cc-empty-note">⏳ Waiting for the opposing clan's duelist to join…</div>
+                {view && view.status !== "picking" && view.status !== "active" && view.status !== "done" && (
+                    <div className="cc-empty-note">{config.awaitingNote}</div>
                 )}
 
                 {/* ── Picking phase ── */}
@@ -320,8 +378,8 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
                         {view.status === "done" && (
                             <div className={`cc-result ${view.winner === youKey ? "win" : view.winner === "draw" ? "draw" : "lose"}`}>
                                 <h2>{view.winner === youKey ? "🏆 Victory" : view.winner === "draw" ? "🤝 Draw" : "💀 Defeat"}</h2>
-                                <p className="cc-muted">{view.winner === "draw" ? "No damage on a draw." : "Clan-war HP damage applied automatically."}</p>
-                                <button className="cc-btn gold" onClick={() => setScreen("shinobiCouncil")}>Return to Council Hall</button>
+                                <p className="cc-muted">{config.doneNote(view.winner === youKey, view.winner === "draw")}</p>
+                                <button className="cc-btn gold" onClick={() => setScreen(config.backScreen)}>{config.emptyBackLabel}</button>
                             </div>
                         )}
 
@@ -398,4 +456,10 @@ export function ClanWarTileCardDuel({ character, setScreen }: { character: Chara
             </div>
         </div>
     );
+}
+
+// Back-compat wrapper — the clan-war duel screen App.tsx imports. Same behaviour
+// as before the CardClashDuelScreen extraction (the default clan-war config).
+export function ClanWarTileCardDuel({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void; sharedImages?: Record<string, string> }) {
+    return <CardClashDuelScreen character={character} setScreen={setScreen} config={CLAN_WAR_DUEL_CONFIG} />;
 }
