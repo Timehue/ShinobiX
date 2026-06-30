@@ -107,15 +107,21 @@ export interface SectorBattleOutcome {
     hpRegen: number;      // Control HP restored (defender win)
 }
 
+// A player who repels an AI MERCENARY attacker only regenerates this FRACTION of
+// the normal Control-HP defender regen — a merc raid is a lower-stakes attack, so
+// beating one barely shores the wall back up (Phase 5 spec). Tunable.
+export const MERC_DEFENDER_REGEN_FRACTION = 0.25;
+
 /** Apply one resolved win-condition battle to a sector-war session (§17.6).
  *  Attacker win → −`damage` Control HP (flip + freeze at 0). Defender win → hold
- *  the line, +DEFENDER_REGEN (capped). Already-flipped sessions are inert.
- *  `damage` lets the caller pass the attacker's War-Academy-boosted value
+ *  the line, +DEFENDER_REGEN (capped) — or 25% of that when the attacker was a
+ *  mercenary (opts.mercBattle). Already-flipped sessions are inert. `damage` lets
+ *  the caller pass the attacker's War-Academy-boosted value
  *  (api/_war-structures.sectorWarDamageMultiplier); defaults to the base per-win. */
 export function applySectorBattleResult(
     session: SectorWarSession,
     attackerWon: boolean,
-    opts: { now: number; damage?: number },
+    opts: { now: number; damage?: number; mercBattle?: boolean },
 ): SectorBattleOutcome {
     if (session.flipped) {
         return { session, captured: false, hpDealt: 0, hpRegen: 0 };
@@ -130,7 +136,10 @@ export function applySectorBattleResult(
         return { session: next, captured, hpDealt: before - next.controlHp, hpRegen: 0 };
     }
     const before = next.controlHp;
-    next.controlHp = Math.min(next.controlHpMax, before + SECTOR_CONTROL_HP_DEFENDER_REGEN);
+    const regen = opts.mercBattle
+        ? Math.floor(SECTOR_CONTROL_HP_DEFENDER_REGEN * MERC_DEFENDER_REGEN_FRACTION)
+        : SECTOR_CONTROL_HP_DEFENDER_REGEN;
+    next.controlHp = Math.min(next.controlHpMax, before + regen);
     return { session: next, captured: false, hpDealt: 0, hpRegen: next.controlHp - before };
 }
 
