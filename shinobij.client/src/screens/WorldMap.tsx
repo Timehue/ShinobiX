@@ -89,6 +89,7 @@ import {
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { isVillageWarMapEnabled } from "../lib/village-war-map";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
+import { mercEncounterAis } from "../lib/merc-ai";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -1289,7 +1290,11 @@ export function WorldMap({
         // 80% random AI battle chance — pick AI closest in level to the player.
         // Boss AIs are excluded from ambush encounters.
         if (battleRoll <= 0.80 && playableAis.length > 0) {
-            const normalAis = playableAis.filter(ai => !ai.isBossAi);
+            // Village War mercs join the encounter pool when the War Map is on —
+            // peak lv75-100 foes that only surface for high-level explorers (the
+            // level-match below). Inert when the flag is off.
+            const mercPool = isVillageWarMapEnabled() ? mercEncounterAis() : [];
+            const normalAis = [...playableAis.filter(ai => !ai.isBossAi), ...mercPool];
             const pool = normalAis.length > 0 ? normalAis : playableAis;
             const sorted = [...pool].sort((a, b) => Math.abs((a.level ?? 1) - character.level) - Math.abs((b.level ?? 1) - character.level));
             const closestLevel = Math.abs((sorted[0].level ?? 1) - character.level);

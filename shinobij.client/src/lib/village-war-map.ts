@@ -127,3 +127,23 @@ export function setSectorTerrain(playerName: string, village: string, sector: nu
 export function upgradeWarStructure(playerName: string, village: string, structure: string) {
     return postJson("/api/village/war-structure", { playerName, village, structure });
 }
+
+// ── Mercenaries (Phase 5) ──
+export interface WrMercTierView { id: string; level: number; costWr: number; }
+export interface MercLeaseView { tierId: string; player: string; expiresAt: number; count: number; }
+
+/** Hire a merc tier — the seated Kage spends village WR to field a 2-day band of
+ *  3-5 AI mercs. Returns { cost, band, expiresAt }. */
+export function hireMerc(playerName: string, village: string, tierId: string) {
+    return postJson("/api/village/war-merc", { action: "hire", playerName, village, tierId });
+}
+/** Read this village's WR pool + the merc tier menu + the active bands. */
+export function listMercs(playerName: string, village: string) {
+    return postJson("/api/village/war-merc", { action: "list", playerName, village });
+}
+/** Deploy one merc from the band at an enemy-village defender on a contested
+ *  sector. The fight resolves SERVER-SIDE (auto, deterministic, can't be faked);
+ *  returns { winner, captured, controlHp, mercsRemaining }. */
+export function deployMerc(playerName: string, village: string, tierId: string, sector: number, targetPlayer: string) {
+    return postJson("/api/village/war-merc", { action: "attack", playerName, village, tierId, sector, targetPlayer });
+}
