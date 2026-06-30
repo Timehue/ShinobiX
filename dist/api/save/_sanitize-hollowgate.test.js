@@ -29,6 +29,26 @@ const sanitize = (incoming, existing) => (0, _name__js_1.sanitizeCharacterSave)(
     strict_1.default.ok(out.hollowGateRun.floor <= 50, 'floor clamped');
     strict_1.default.ok(out.hollowGateRun.keys <= 99, 'keys clamped');
 });
+(0, node_test_1.test)('hollowGateRun: server-layer fields (runToken/serverSeed/augmentOffers) shape-bounded so they cannot bloat KV', () => {
+    const out = sanitize({
+        hollowGateRun: {
+            floor: 3, keys: 1, entryCurrencies: {},
+            runToken: 'a'.repeat(500),
+            serverSeed: 'b'.repeat(500),
+            augmentOffers: Array.from({ length: 50 }, (_v, i) => ({ id: `x${i}` })),
+        },
+    }, {});
+    const run = out.hollowGateRun;
+    strict_1.default.equal(run.runToken.length, 64, 'runToken capped to 64 chars');
+    strict_1.default.equal(run.serverSeed.length, 64, 'serverSeed capped to 64 chars');
+    strict_1.default.ok(run.augmentOffers.length <= 8, 'augmentOffers length capped');
+});
+(0, node_test_1.test)('hollowGateRun: a legit short token + 3 offers pass through unchanged', () => {
+    const out = sanitize({ hollowGateRun: { floor: 2, keys: 0, entryCurrencies: {}, runToken: 'abc123', augmentOffers: [{ id: 'keen-edge' }, { id: 'greedy-pact' }, { id: 'warded-step' }] } }, {});
+    const run = out.hollowGateRun;
+    strict_1.default.equal(run.runToken, 'abc123', 'short token untouched');
+    strict_1.default.equal(run.augmentOffers.length, 3, 'three offers untouched');
+});
 (0, node_test_1.test)('hollow-gate-key: per-save GAIN capped above the existing stack', () => {
     const out = sanitize({ itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] }, { itemStacks: [{ itemId: 'hollow-gate-key', count: 2 }] });
     const keys = out.itemStacks.find(s => s.itemId === 'hollow-gate-key');

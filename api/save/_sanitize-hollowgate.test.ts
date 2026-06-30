@@ -41,6 +41,34 @@ test('hollowGateRun: absurd floor / keys clamped to sane ceilings', () => {
     assert.ok((out.hollowGateRun as any).keys <= 99, 'keys clamped');
 });
 
+test('hollowGateRun: server-layer fields (runToken/serverSeed/augmentOffers) shape-bounded so they cannot bloat KV', () => {
+    const out = sanitize(
+        {
+            hollowGateRun: {
+                floor: 3, keys: 1, entryCurrencies: {},
+                runToken: 'a'.repeat(500),
+                serverSeed: 'b'.repeat(500),
+                augmentOffers: Array.from({ length: 50 }, (_v, i) => ({ id: `x${i}` })),
+            },
+        },
+        {},
+    );
+    const run = out.hollowGateRun as any;
+    assert.equal(run.runToken.length, 64, 'runToken capped to 64 chars');
+    assert.equal(run.serverSeed.length, 64, 'serverSeed capped to 64 chars');
+    assert.ok(run.augmentOffers.length <= 8, 'augmentOffers length capped');
+});
+
+test('hollowGateRun: a legit short token + 3 offers pass through unchanged', () => {
+    const out = sanitize(
+        { hollowGateRun: { floor: 2, keys: 0, entryCurrencies: {}, runToken: 'abc123', augmentOffers: [{ id: 'keen-edge' }, { id: 'greedy-pact' }, { id: 'warded-step' }] } },
+        {},
+    );
+    const run = out.hollowGateRun as any;
+    assert.equal(run.runToken, 'abc123', 'short token untouched');
+    assert.equal(run.augmentOffers.length, 3, 'three offers untouched');
+});
+
 test('hollow-gate-key: per-save GAIN capped above the existing stack', () => {
     const out = sanitize(
         { itemStacks: [{ itemId: 'hollow-gate-key', count: 9999 }] },

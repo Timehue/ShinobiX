@@ -82,7 +82,12 @@ import { readFileSync } from "node:fs";
 // ryo sink. The fee logic lives in lib/entry-fee.ts; only the charge-on-fresh-run
 // wiring, which reads App-local character/setCharacter, lives here: the lib import
 // (+1) and the fee block in startEndlessBattle (+7)).
-const MAX_LINES = 10_114;
+// → 10,123 (+9 Hollow Gate SERVER run-loop wiring — flag-gated anti-cheat/economy
+// pass. All logic lives in lib/hollow-gate-server.ts; only the App-local setter call
+// sites live here: the import (+1), beginHollowGateServerRun at the two dive entries
+// (+2 calls/comments), and the settle hooks replacing the inline claw-back at the
+// run-end funnels (leave / battle-KO / boot-restore).)
+const MAX_LINES = 10_123;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
