@@ -18,7 +18,11 @@ import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
-import { GameIcon } from "./icons/GameIcon";
+import {
+    Backpack, BookOpen, ClipboardList, Compass, Droplet, Dumbbell, Heart, LogOut,
+    Mail, Map, Menu as MenuIcon, MessageCircle, PawPrint, ScrollText, User, Users,
+    Wine, Wrench, Zap,
+} from "lucide-react";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
 // snapshots from App), the navigate callback (stable), and a boolean.
@@ -73,23 +77,23 @@ export const MobileNav = memo(function MobileNav({
 
             <nav className="mobile-bottom-nav">
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
-                    <span className="mnb-icon"><GameIcon name="map" size={24} /></span>
+                    <span className="mnb-icon"><Map size={24} /></span>
                     Travel
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("tavern")}>
-                    <span className="mnb-icon"><GameIcon name="flask" size={24} /></span>
+                    <span className="mnb-icon"><Wine size={24} /></span>
                     Tavern
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("profile")}>
-                    <span className="mnb-icon"><GameIcon name="person" size={24} /></span>
+                    <span className="mnb-icon"><User size={24} /></span>
                     Char
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("inventory")}>
-                    <span className="mnb-icon"><GameIcon name="bag" size={24} /></span>
+                    <span className="mnb-icon"><Backpack size={24} /></span>
                     Items
                 </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
-                    <span className="mnb-icon"><GameIcon name="menu" size={24} /></span>
+                    <span className="mnb-icon"><MenuIcon size={24} /></span>
                     Menu
                     <MailUnreadDot />
                 </button>
@@ -119,28 +123,28 @@ export const MobileNav = memo(function MobileNav({
                     </div>
 
                     <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("tavern")}><GameIcon name="flask" size={18} />Tavern</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}><GameIcon name="map" size={18} />Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("userHub")}><GameIcon name="users" size={18} />Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("messages")}><GameIcon name="mail" size={18} />Mail<MailUnreadBadge /></button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")}><GameIcon name="clipboard" size={18} />Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}><GameIcon name="dumbbell" size={18} />Training</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}><GameIcon name="person" size={18} />Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}><GameIcon name="bag" size={18} />Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}><GameIcon name="bolt" size={18} />Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")}><GameIcon name="paw" size={18} />Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}><GameIcon name="drop" size={18} />Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("tavern")}><Wine size={18} />Tavern</button>
+                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}><Map size={18} />Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("userHub")}><Users size={18} />Users</button>
+                        <button className="mobile-menu-btn" onClick={() => go("messages")}><Mail size={18} />Mail<MailUnreadBadge /></button>
+                        <button className="mobile-menu-btn" onClick={() => go("missions")}><ClipboardList size={18} />Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}><Dumbbell size={18} />Training</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")}><User size={18} />Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")}><Backpack size={18} />Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}><Zap size={18} />Jutsu</button>
+                        <button className="mobile-menu-btn" onClick={() => go("pets")}><PawPrint size={18} />Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}><Droplet size={18} />Bloodline</button>
                         <button className="mobile-menu-btn" onClick={() => go("professions")}>
-                            <GameIcon name="scroll" size={18} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}
+                            <ScrollText size={18} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}
                         </button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}><GameIcon name="book" size={18} />Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("guides")}><GameIcon name="compass" size={18} />Guides</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GameIcon name="chat" size={18} />Discord</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}><GameIcon name="hp" size={18} />Patreon</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")}><BookOpen size={18} />Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("guides")}><Compass size={18} />Guides</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><MessageCircle size={18} />Discord</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}><Heart size={18} />Patreon</button>
                         {isAdminAccount && (
-                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}><GameIcon name="key" size={18} />Admin</button>
+                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}><Wrench size={18} />Admin</button>
                         )}
-                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><GameIcon name="save" size={18} />Logout + Save</button>
+                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><LogOut size={18} />Logout + Save</button>
                     </div>
                 </div>
             )}
