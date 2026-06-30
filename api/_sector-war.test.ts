@@ -5,6 +5,11 @@ import {
     newSectorWarSession,
     normalizeSectorWarSession,
     applySectorBattleResult,
+    sectorWarKey,
+    sectorWarTokenKey,
+    newSectorWarBattleToken,
+    normalizeSectorWarBattleToken,
+    canDeclareSectorWar,
     type SectorWarSession,
 } from './_sector-war.js';
 import { SECTOR_CONTROL_HP_MAX, SECTOR_CONTROL_HP_DEFENDER_REGEN } from './_war-state.js';
@@ -95,5 +100,77 @@ describe('sector-war: applySectorBattleResult', () => {
         assert.equal(out.captured, false);
         assert.equal(out.hpDealt, 0);
         assert.equal(out.session, flipped); // unchanged reference
+    });
+});
+
+describe('sector-war: storage keys + single-use battle token', () => {
+    it('keys the contest + token records under shared:', () => {
+        assert.equal(sectorWarKey('8:a-vs-b'), 'shared:sector-war:8:a-vs-b');
+        assert.equal(sectorWarTokenKey('battle-123'), 'shared:sector-war-token:battle-123');
+    });
+    it('mints + round-trips a battle token', () => {
+        const t = newSectorWarBattleToken({
+            battleId: 'b1', sectorWarId: '8:moonshadowvillage-vs-frostfangvillage',
+            sector: 8, attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
+            registeredBy: 'alice', winCondition: 'combat', now: NOW,
+        });
+        assert.equal(t.expiresAt, NOW + 60 * 60 * 1000);
+        assert.deepEqual(normalizeSectorWarBattleToken(JSON.parse(JSON.stringify(t))), t);
+    });
+    it('rejects a malformed / self-targeting token', () => {
+        assert.equal(normalizeSectorWarBattleToken(null as never), null);
+        assert.equal(normalizeSectorWarBattleToken({ battleId: 'b', sectorWarId: 's', attackerVillage: 'A', defenderVillage: 'A' } as never), null);
+        assert.equal(normalizeSectorWarBattleToken({ sectorWarId: 's', attackerVillage: 'A', defenderVillage: 'B' } as never), null); // no battleId
+    });
+});
+
+describe('sector-war: canDeclareSectorWar', () => {
+    const base = {
+        attackerVillage: 'Moonshadow Village',
+        defenderVillage: 'Frostfang Village',
+        sector: 47, // a Frostfang home sector
+        sectorOwnerVillage: 'Frostfang Village',
+        winCondition: 'combat' as const,
+        attackerInActiveVillageWar: false,
+        defenderInActiveVillageWar: false,
+        contestAlreadyActive: false,
+        attackerWr: 1000,
+        attackerSectorsHeld: 8,
+    };
+    it('allows a well-formed declaration and returns the discounted cost', () => {
+        const r = canDeclareSectorWar(base);
+        assert.equal(r.ok, true);
+        assert.equal((r as { cost: number }).cost, 250); // 8 sectors held → full price
+    });
+    it('is free at 0 sectors held (comeback discount)', () => {
+        const r = canDeclareSectorWar({ ...base, attackerSectorsHeld: 0, attackerWr: 0 });
+        assert.equal(r.ok, true);
+        assert.equal((r as { cost: number }).cost, 0);
+    });
+    it('rejects self / non-war village / non-war sector', () => {
+        assert.equal((canDeclareSectorWar({ ...base, defenderVillage: 'Moonshadow Village' }) as { error: string }).error, 'self');
+        assert.equal((canDeclareSectorWar({ ...base, attackerVillage: 'Konoha' }) as { error: string }).error, 'not-war-village');
+        assert.equal((canDeclareSectorWar({ ...base, sector: 57 }) as { error: string }).error, 'not-war-sector'); // central, not a war sector
+    });
+    it('requires the target sector to currently be held by the defender', () => {
+        assert.equal((canDeclareSectorWar({ ...base, sectorOwnerVillage: 'Moonshadow Village' }) as { error: string }).error, 'not-enemy-held');
+    });
+    it('enforces the village-war mutual exclusion on both sides', () => {
+        assert.equal((canDeclareSectorWar({ ...base, attackerInActiveVillageWar: true }) as { error: string }).error, 'mutual-exclusion-attacker');
+        assert.equal((canDeclareSectorWar({ ...base, defenderInActiveVillageWar: true }) as { error: string }).error, 'mutual-exclusion-defender');
+    });
+    it('blocks a second contest on an already-contested sector', () => {
+        assert.equal((canDeclareSectorWar({ ...base, contestAlreadyActive: true }) as { error: string }).error, 'already-contested');
+    });
+    it('blocks win-conditions not wired this build (card/pet until their phase), opt-in allows card', () => {
+        assert.equal((canDeclareSectorWar({ ...base, winCondition: 'pet' as const }) as { error: string }).error, 'win-condition-unavailable');
+        assert.equal((canDeclareSectorWar({ ...base, winCondition: 'card' as const }) as { error: string }).error, 'win-condition-unavailable');
+        assert.equal(canDeclareSectorWar({ ...base, winCondition: 'card' as const, allowedWinConditions: ['combat', 'card'] }).ok, true);
+    });
+    it('rejects an unaffordable declaration and surfaces the cost', () => {
+        const r = canDeclareSectorWar({ ...base, attackerWr: 10 });
+        assert.equal(r.ok, false);
+        assert.equal((r as { error: string }).error, 'insufficient-wr');
+        assert.equal((r as { cost: number }).cost, 250);
     });
 });

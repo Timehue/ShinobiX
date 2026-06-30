@@ -20,6 +20,8 @@ import {
     WIN_CONDITIONS,
     type WinCondition,
 } from './_war-state.js';
+import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
+import { isWarVillage, isWarSector } from './_war-map-sectors.js';
 
 export interface SectorWarSession {
     /** stable id: `<sector>:<attackerSlug>-vs-<defenderSlug>` */
@@ -130,4 +132,130 @@ export function applySectorBattleResult(
     const before = next.controlHp;
     next.controlHp = Math.min(next.controlHpMax, before + SECTOR_CONTROL_HP_DEFENDER_REGEN);
     return { session: next, captured: false, hpDealt: 0, hpRegen: next.controlHp - before };
+}
+
+// ── Storage keys ──
+/** The persistent Control-HP siege record for an active contest. */
+export function sectorWarKey(id: string): string {
+    return `shared:sector-war:${id}`;
+}
+
+// ── Per-battle authorization token (mint-on-attack, single-use on resolve) ──
+// The server mints this when a sector-war battle is launched, sealing the
+// contest context (sector + the two villages + the win-condition) so the resolve
+// step never trusts the client for who fought whom or for which sector. Deleting
+// it on use makes a battle count exactly once — the single-use-token pattern from
+// docs/auth-and-anti-cheat-patterns.md applied to territory captures.
+export const SECTOR_WAR_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h — a battle is short
+
+export interface SectorWarBattleToken {
+    battleId: string;          // the pvp:<battleId> (or card session id) this authorizes
+    sectorWarId: string;       // the contest it feeds
+    sector: number;
+    attackerVillage: string;
+    defenderVillage: string;
+    registeredBy: string;    // safeName of whoever registered the battle (audit / future contribution)
+    winCondition: WinCondition;
+    createdAt: number;
+    expiresAt: number;
+}
+
+export function sectorWarTokenKey(battleId: string): string {
+    return `shared:sector-war-token:${battleId}`;
+}
+
+export function newSectorWarBattleToken(args: {
+    battleId: string;
+    sectorWarId: string;
+    sector: number;
+    attackerVillage: string;
+    defenderVillage: string;
+    registeredBy: string;
+    winCondition: WinCondition;
+    now: number;
+}): SectorWarBattleToken {
+    return {
+        battleId: String(args.battleId),
+        sectorWarId: String(args.sectorWarId),
+        sector: clampInt(args.sector, 1, 60),
+        attackerVillage: args.attackerVillage,
+        defenderVillage: args.defenderVillage,
+        registeredBy: args.registeredBy,
+        winCondition: asWinCondition(args.winCondition),
+        createdAt: args.now,
+        expiresAt: args.now + SECTOR_WAR_TOKEN_TTL_MS,
+    };
+}
+
+export function normalizeSectorWarBattleToken(raw: Partial<SectorWarBattleToken>): SectorWarBattleToken | null {
+    if (!raw || typeof raw !== 'object') return null;
+    if (!raw.battleId || !raw.sectorWarId) return null;
+    if (!raw.attackerVillage || !raw.defenderVillage || raw.attackerVillage === raw.defenderVillage) return null;
+    return {
+        battleId: String(raw.battleId),
+        sectorWarId: String(raw.sectorWarId),
+        sector: clampInt(raw.sector, 1, 60),
+        attackerVillage: String(raw.attackerVillage),
+        defenderVillage: String(raw.defenderVillage),
+        registeredBy: String(raw.registeredBy ?? ''),
+        winCondition: asWinCondition(raw.winCondition),
+        createdAt: Math.floor(Number(raw.createdAt) || 0),
+        expiresAt: Math.floor(Number(raw.expiresAt) || 0),
+    };
+}
+
+// ── Declare eligibility (pure; the endpoint fetches the inputs) ── §17.1
+export type SectorWarDeclineReason =
+    | 'self'
+    | 'not-war-village'
+    | 'not-war-sector'
+    | 'not-enemy-held'
+    | 'mutual-exclusion-attacker'
+    | 'mutual-exclusion-defender'
+    | 'already-contested'
+    | 'win-condition-unavailable'
+    | 'insufficient-wr';
+
+export interface SectorWarDeclareCheck {
+    attackerVillage: string;
+    defenderVillage: string;
+    sector: number;
+    /** current world:territory:<sector>.ownerVillage */
+    sectorOwnerVillage: string;
+    /** the defender's chosen win-condition for this sector */
+    winCondition: WinCondition;
+    attackerInActiveVillageWar: boolean;
+    defenderInActiveVillageWar: boolean;
+    /** an unflipped contest already exists for this sector */
+    contestAlreadyActive: boolean;
+    attackerWr: number;
+    attackerSectorsHeld: number;
+    /** which win-conditions are wired this build (v1 = Combat only). Defaults to ['combat']. */
+    allowedWinConditions?: readonly WinCondition[];
+}
+
+export type SectorWarDeclareResult =
+    | { ok: true; cost: number }
+    | { ok: false; error: SectorWarDeclineReason; cost?: number };
+
+/** Whether `attacker` may open a sector war on `sector` (currently held by
+ *  `defender`), and the WR cost after the comeback discount. Pure — the endpoint
+ *  resolves ownership / village-war status / the WR pool and passes them in
+ *  (§17.1: 250 WR, mutual-exclusive with a village war, multiple only vs
+ *  different villages). */
+export function canDeclareSectorWar(c: SectorWarDeclareCheck): SectorWarDeclareResult {
+    const attacker = String(c.attackerVillage);
+    const defender = String(c.defenderVillage);
+    if (!attacker || !defender || attacker === defender) return { ok: false, error: 'self' };
+    if (!isWarVillage(attacker) || !isWarVillage(defender)) return { ok: false, error: 'not-war-village' };
+    if (!isWarSector(c.sector)) return { ok: false, error: 'not-war-sector' };
+    if (String(c.sectorOwnerVillage) !== defender) return { ok: false, error: 'not-enemy-held' };
+    if (c.attackerInActiveVillageWar) return { ok: false, error: 'mutual-exclusion-attacker' };
+    if (c.defenderInActiveVillageWar) return { ok: false, error: 'mutual-exclusion-defender' };
+    if (c.contestAlreadyActive) return { ok: false, error: 'already-contested' };
+    const allowed = c.allowedWinConditions ?? (['combat'] as readonly WinCondition[]);
+    if (!allowed.includes(c.winCondition)) return { ok: false, error: 'win-condition-unavailable' };
+    const cost = discountedWrCost(SECTOR_WAR_WR, c.attackerSectorsHeld);
+    if (Math.floor(Number(c.attackerWr) || 0) < cost) return { ok: false, error: 'insufficient-wr', cost };
+    return { ok: true, cost };
 }
