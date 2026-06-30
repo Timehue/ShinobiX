@@ -11,6 +11,7 @@
 @import "./styles/start-skin.css";
 @import "./styles/card-clash-skin.css";
 @import "./styles/guides-skin.css";
+@import "./styles/village-war-map-skin.css";
 
 * {
     box-sizing: border-box;

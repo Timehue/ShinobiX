@@ -1,0 +1,46 @@
+/* Village War Map (Phase 6) — §10.2. Layout + ownership treatment; the per-village
+   accent colours come from inline styles (paired with the accents in atlas-skin.css).
+   No Tailwind. Mobile reflows the sector grid at ≤800px. */
+
+.vwm-screen { max-width: 980px; margin: 1rem auto; padding: 0 0.8rem 2rem; }
+.vwm-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.vwm-header h1 { font-family: var(--font-display, inherit); margin: 0.4rem 0; }
+.vwm-back { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: inherit; border-radius: 8px; padding: 0.35rem 0.8rem; cursor: pointer; }
+.vwm-back:hover { background: rgba(255, 255, 255, 0.08); }
+.vwm-error { color: #f87171; font-weight: 600; }
+
+.vwm-resources { padding: 1rem 1.1rem; border-width: 2px; }
+.vwm-resources h3 { margin: 0 0 0.5rem; }
+.vwm-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin: 0.4rem 0; font-size: 0.92rem; }
+.vwm-stats b { font-variant-numeric: tabular-nums; }
+.vwm-dormant { color: #fbbf24; font-style: italic; }
+.vwm-structures { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.vwm-structures button,
+.vwm-declare { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18); color: inherit; border-radius: 8px; padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.85rem; }
+.vwm-structures button:hover:not(:disabled),
+.vwm-declare:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+.vwm-structures button:disabled,
+.vwm-declare:disabled { opacity: 0.5; cursor: default; }
+
+.vwm-village { padding: 0.8rem 1rem; }
+.vwm-village h4 { margin: 0.2rem 0 0.6rem; }
+.vwm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.55rem; }
+.vwm-sector { border: 1px solid rgba(255, 255, 255, 0.15); border-left-width: 3px; border-radius: 10px; padding: 0.5rem 0.55rem; background: rgba(0, 0, 0, 0.18); font-size: 0.82rem; }
+.vwm-sector-head { display: flex; justify-content: space-between; gap: 0.4rem; align-items: baseline; }
+.vwm-sector-meta { opacity: 0.7; text-transform: capitalize; margin: 0.15rem 0; }
+.vwm-control { margin: 0.3rem 0; }
+.vwm-bar { height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.vwm-bar span { display: block; height: 100%; }
+.vwm-declare { margin-top: 0.35rem; width: 100%; }
+.vwm-config { display: flex; gap: 0.3rem; margin-top: 0.35rem; }
+.vwm-config select { flex: 1; min-width: 0; background: rgba(0, 0, 0, 0.3); color: inherit; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px; padding: 0.2rem; font-size: 0.78rem; text-transform: capitalize; }
+
+.vwm-contests { padding: 0.8rem 1rem; }
+.vwm-contests h4 { margin: 0.2rem 0 0.5rem; }
+.vwm-contest-row { padding: 0.25rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.9rem; }
+.vwm-contest-row:last-child { border-bottom: none; }
+.vwm-contest-meta { opacity: 0.7; }
+
+@media (max-width: 800px) {
+  .vwm-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
