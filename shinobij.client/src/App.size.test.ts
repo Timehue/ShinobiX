@@ -94,7 +94,12 @@ import { readFileSync } from "node:fs";
 // hollowGateAugmentEffects() maps the chosen augment to enemy-clone HP/stat/shave
 // mults + run flags; applied ONLY to the per-dive enemy in startHollowGateBattle and
 // the Keeper-heal / Leave-tile handlers — never the shared combat engine.)
-const MAX_LINES = 10_139;
+// → 10,137 (−2 net for the Village War Map screen: +2 mandatory WIRING (the lazy
+// import + the 1-line render branch; the screen lives in src/screens/VillageWarMap.tsx)
+// OFFSET by a −4 DRAIN — the clan-war auto-launch in-battle guard now reuses the
+// canonical BATTLE_SCREENS set from lib/screen-guards instead of an inline 5-line
+// OR-chain (it additionally folds in eventPetBattle, which that set already lists).)
+const MAX_LINES = 10_137;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

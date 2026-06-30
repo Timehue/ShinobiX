@@ -21,6 +21,7 @@ import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
+import { isVillageWarMapEnabled } from "../lib/village-war-map";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -94,6 +95,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("messages")}>📬 Mail<MailUnreadBadge /></button>
                         <button onClick={() => navigate("missions")}>Missions</button>
                         <button onClick={() => navigate("training")}>Training</button>
+                        {isVillageWarMapEnabled() && <button onClick={() => navigate("villageWarMap")} title="Sector War Map">⚔ War Map</button>}
                         <button onClick={() => navigate("profile")}>Character</button>
                         <button onClick={() => navigate("inventory")}>Inventory</button>
                         <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>

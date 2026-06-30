@@ -19,6 +19,7 @@ import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { GameIcon } from "./icons/GameIcon";
+import { isVillageWarMapEnabled } from "../lib/village-war-map";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
 // snapshots from App), the navigate callback (stable), and a boolean.
@@ -125,6 +126,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail<MailUnreadBadge /></button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
                         <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
+                        {isVillageWarMapEnabled() && <button className="mobile-menu-btn" onClick={() => go("villageWarMap")}>⚔ War Map</button>}
                         <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
                         <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
                         <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
