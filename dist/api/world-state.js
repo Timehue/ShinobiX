@@ -1,5 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.villageHasActiveWar = villageHasActiveWar;
+exports.captureSectorForVillage = captureSectorForVillage;
+exports.seedHomeSectorOwnership = seedHomeSectorOwnership;
 exports.default = handler;
 const node_crypto_1 = require("node:crypto");
 const _storage_js_1 = require("./_storage.js");
@@ -10,6 +13,16 @@ const _lock_js_1 = require("./_lock.js");
 const _save_version_js_1 = require("./save/_save-version.js");
 const _territory_supply_js_1 = require("./_territory-supply.js");
 const _war_spoils_js_1 = require("./_war-spoils.js");
+// Village War Map (flag-gated, default OFF via ENABLE_VILLAGE_WAR). When enabled,
+// war declaration is funded from the village WR pool instead of the Kage's Honor
+// Seals, and a war win stamps a village-wide buff. When OFF, every path below is
+// byte-for-byte the legacy behavior.
+const _war_economy_js_1 = require("./_war-economy.js");
+const _war_state_js_1 = require("./_war-state.js");
+const _war_map_sectors_js_1 = require("./_war-map-sectors.js");
+function villageWarEnabled() {
+    return process.env.ENABLE_VILLAGE_WAR === '1';
+}
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const VILLAGE_WAR_HP_MAX = 5000;
@@ -215,9 +228,70 @@ function warCooldownKey(villageA, villageB) {
 }
 // Returns true if either village is currently in an active (non-ended)
 // war. Used to enforce the one-war-at-a-time rule on war creation.
+// Exported for the sector-war endpoint (api/village/sector-war.ts): a village in
+// an active village war cannot run sector wars, and vice-versa (§17.1 mutual
+// exclusion). Same predicate the declare path uses for the one-war-at-a-time rule.
 async function villageHasActiveWar(village) {
     const wars = await getByPrefix(VILLAGE_WAR_KEY_PREFIX);
     return wars.some(w => !w.endedAt && w.villages.includes(village));
+}
+/**
+ * Sector War (Phase 4c) — flip a sector's persistent owner to the capturing
+ * village once its Control-HP siege breaks (api/_sector-war.ts applySectorBattleResult
+ * → captured). Writes `world:territory:<sector>.ownerVillage` under the per-territory
+ * lock, clears any stale clan owner, marks the sector freshly secured (full territory
+ * HP — it must be defended anew), and resets War Supply for the new owner via
+ * resolveClaimedWarSupply (anti-mint, same as the claiming-write path). Only ever
+ * reached from the ENABLE_VILLAGE_WAR-gated sector-war endpoint.
+ */
+async function captureSectorForVillage(sector, ownerVillage, now = Date.now()) {
+    const s = Math.floor(Number(sector) || 0);
+    const key = `${TERRITORY_KEY_PREFIX}${s}`;
+    return await (0, _lock_js_1.withKvLock)(key, async () => {
+        const prev = await _storage_js_1.kv.get(key);
+        const next = normalizeSectorTerritory({
+            ...(prev ?? defaultSectorTerritory(s)),
+            ownerVillage,
+            ownerClan: undefined,
+            hp: TERRITORY_HP_MAX,
+            updatedAt: now,
+        });
+        const owned = (0, _territory_supply_js_1.resolveClaimedWarSupply)(prev ?? null, next, now);
+        next.warSupply = owned.warSupply;
+        next.lastSupplyAt = owned.lastSupplyAt;
+        await _storage_js_1.kv.set(key, next);
+        return next;
+    }, { failClosed: true });
+}
+/**
+ * Sector War (Phase 4d) — one-time, idempotent seed of home-sector ownership.
+ * For each of the 32 home war sectors, if its territory record has no ownerVillage
+ * yet, set it to the sector's home village (preserving HP / supply / guards /
+ * everything else) so the war map starts from a defined ownership state. A sector
+ * already owned by anyone is left untouched. Admin-triggered via the gated endpoint.
+ */
+async function seedHomeSectorOwnership(now = Date.now()) {
+    const seeded = [];
+    for (const village of _war_map_sectors_js_1.WAR_VILLAGES) {
+        for (const sector of (0, _war_map_sectors_js_1.homeSectorsForVillage)(village)) {
+            const key = `${TERRITORY_KEY_PREFIX}${sector}`;
+            const changed = await (0, _lock_js_1.withKvLock)(key, async () => {
+                const prev = await _storage_js_1.kv.get(key);
+                if (prev && String(prev.ownerVillage ?? '').trim())
+                    return false; // already owned
+                const next = normalizeSectorTerritory({
+                    ...(prev ?? defaultSectorTerritory(sector)),
+                    ownerVillage: village,
+                    updatedAt: now,
+                });
+                await _storage_js_1.kv.set(key, next);
+                return true;
+            }, { failClosed: true });
+            if (changed)
+                seeded.push(sector);
+        }
+    }
+    return { seeded: seeded.length, sectors: seeded };
 }
 // Minimum damage contribution required to qualify for the loss-
 // consolation crate. Keeps the consolation away from AFK villagers.
@@ -321,6 +395,10 @@ const WAR_STANDING_PREFIX = 'village:war-standing:';
 // days. Stamped on the loser's village-state at settlement; the client applies
 // it in Training/PetYard. KEEP IN SYNC with shinobij.client/src/lib/war-debuff.ts.
 const WAR_LOSS_DEBUFF_MS = 3 * 24 * 60 * 60 * 1000;
+// Village War Map winner buff: the winning village enjoys a village-wide boost for
+// 3 days (mirrors the loser debuff window). Stamped on the winner's village-state
+// at settlement ONLY when the feature is enabled; the client applies the effect.
+const WAR_WIN_BUFF_MS = 3 * 24 * 60 * 60 * 1000;
 function villageStateKey(village) {
     return `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
@@ -360,7 +438,10 @@ async function settleVillageWar(war, now) {
             const wt = (winnerState.treasury ?? {});
             const spoils = (0, _war_spoils_js_1.computeSpoils)({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
             await _storage_js_1.kv.set(loserKey, { ...loserState, warLossDebuffUntil: now + WAR_LOSS_DEBUFF_MS, treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
-            await _storage_js_1.kv.set(winnerKey, { ...winnerState, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
+            // Winner buff (Village War Map): additive village-wide boost window,
+            // stamped only when the feature is enabled. Harmless field otherwise.
+            const winBuff = villageWarEnabled() ? { warWinBuffUntil: now + WAR_WIN_BUFF_MS } : {};
+            await _storage_js_1.kv.set(winnerKey, { ...winnerState, ...winBuff, treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
             await _storage_js_1.kv.set(`audit:village-war-settle:${war.id}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
             return true;
         }), { failClosed: true });
@@ -709,37 +790,53 @@ async function handler(req, res) {
                                         return { status: 409, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
                                     }
                                 }
-                                // 4. Cost check. Charge the declaring Kage
-                                //    VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS honor seals.
-                                //    The snapshot read at line ~540 is OUTSIDE
-                                //    the save lock; a concurrent save can
-                                //    drop honorSeals between the snapshot and
-                                //    the deduct below. The deduct re-reads
-                                //    inside the lock and PROPAGATES a failure
-                                //    back to the outer handler so we don't
-                                //    create a war for free when the deduct
-                                //    silently skipped.
-                                const honorSeals = Number(actorChar?.honorSeals ?? 0);
-                                if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
-                                    return { status: 400, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
+                                // 4. Cost. Village War Map (enabled): fund the
+                                //    declaration from the declaring village's WR
+                                //    pool — DECLARE_WAR_WR after the rock-bottom
+                                //    comeback discount — debited under the war-
+                                //    record lock. Legacy (disabled): charge the
+                                //    declaring Kage VILLAGE_WAR_DECLARATION_COST_
+                                //    HONOR_SEALS honor seals, re-read inside the
+                                //    save lock so a concurrent save can't double-
+                                //    spend; a raced/failed deduct propagates so we
+                                //    never create a war for free.
+                                if (villageWarEnabled()) {
+                                    const warKey = (0, _war_state_js_1.villageWarKey)(actorVillage);
+                                    const sectorsHeld = (0, _war_map_sectors_js_1.homeSectorsForVillage)(actorVillage).length;
+                                    const wr = await (0, _lock_js_1.withKvLock)(warKey, async () => {
+                                        const rec = (0, _war_state_js_1.normalizeVillageWarRecord)(actorVillage, (await _storage_js_1.kv.get(warKey)) ?? undefined);
+                                        const cost = (0, _war_economy_js_1.discountedWrCost)(_war_economy_js_1.DECLARE_WAR_WR, sectorsHeld);
+                                        if (rec.warResources < cost)
+                                            return { ok: false, cost, have: rec.warResources };
+                                        await _storage_js_1.kv.set(warKey, { ...rec, warResources: rec.warResources - cost });
+                                        return { ok: true, cost };
+                                    }, { failClosed: true });
+                                    if (!wr.ok) {
+                                        return { status: 400, body: { error: `Declaring war costs ${wr.cost} War Resources. ${actorVillage} holds ${wr.have}.` } };
+                                    }
                                 }
-                                // 5. Deduct under the Kage's save lock so a concurrent save can't double-spend.
-                                const deductOk = await (0, _lock_js_1.withKvLock)(`save:${identity.name}`, async () => {
-                                    const fresh = await _storage_js_1.kv.get(`save:${identity.name}`);
-                                    const freshChar = (fresh?.character ?? null);
-                                    if (!fresh || !freshChar)
-                                        return false;
-                                    const freshSeals = Number(freshChar.honorSeals ?? 0);
-                                    if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS)
-                                        return false; // raced
-                                    await _storage_js_1.kv.set(`save:${identity.name}`, (0, _save_version_js_1.bumpSaveVersion)({
-                                        ...fresh,
-                                        character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
-                                    }));
-                                    return true;
-                                });
-                                if (!deductOk) {
-                                    return { status: 400, body: { error: `Honor Seal balance changed under you; declaration was not charged and the war was not created. Retry.` } };
+                                else {
+                                    const honorSeals = Number(actorChar?.honorSeals ?? 0);
+                                    if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
+                                        return { status: 400, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
+                                    }
+                                    const deductOk = await (0, _lock_js_1.withKvLock)(`save:${identity.name}`, async () => {
+                                        const fresh = await _storage_js_1.kv.get(`save:${identity.name}`);
+                                        const freshChar = (fresh?.character ?? null);
+                                        if (!fresh || !freshChar)
+                                            return false;
+                                        const freshSeals = Number(freshChar.honorSeals ?? 0);
+                                        if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS)
+                                            return false; // raced
+                                        await _storage_js_1.kv.set(`save:${identity.name}`, (0, _save_version_js_1.bumpSaveVersion)({
+                                            ...fresh,
+                                            character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
+                                        }));
+                                        return true;
+                                    });
+                                    if (!deductOk) {
+                                        return { status: 400, body: { error: `Honor Seal balance changed under you; declaration was not charged and the war was not created. Retry.` } };
+                                    }
                                 }
                                 // 6. Stamp canonical crate ID + initialize empty contributions map.
                                 war.warCrateId = `war-crate-${war.id}`;

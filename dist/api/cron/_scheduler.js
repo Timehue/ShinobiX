@@ -21,6 +21,7 @@ exports.stopSnapshotCron = stopSnapshotCron;
  */
 const snapshot_saves_js_1 = require("./snapshot-saves.js");
 const _ranked_season_js_1 = require("./_ranked-season.js");
+const _war_daily_js_1 = require("../_war-daily.js");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
 // No serverless timeout here, so give the nightly pass a generous budget to
@@ -63,6 +64,17 @@ async function fire() {
     }
     catch (err) {
         console.error('[cron-scheduler] ranked-season rollover threw:', err.message);
+    }
+    // Village War Map daily pass (WR accrual + structure upkeep + merc-lease
+    // expiry). No-op unless ENABLE_VILLAGE_WAR=1 — server-gated, default OFF.
+    try {
+        const w = await (0, _war_daily_js_1.runVillageWarDailyPass)();
+        if (w.enabled && w.ran > 0) {
+            console.log(`[cron-scheduler] village-war daily pass: ${w.ran}/${w.processed} villages processed.`);
+        }
+    }
+    catch (err) {
+        console.error('[cron-scheduler] village-war daily pass threw:', err.message);
     }
 }
 /**
