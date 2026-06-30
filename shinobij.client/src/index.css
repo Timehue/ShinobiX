@@ -1924,6 +1924,17 @@ button {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
 }
+/* Game-icon glyph + label, centered as a row (mirrors the mobile menu). */
+.right-menu-buttons button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.right-menu-buttons button > svg {
+    flex: 0 0 auto;
+    opacity: 0.85;
+}
 
 /* ===== Right-rail status notification bar ===== */
 .notif-bar {
