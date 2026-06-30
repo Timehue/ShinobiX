@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Character } from "../types/character";
+import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
 import {
     fetchWarMap,
@@ -29,7 +30,7 @@ interface TerritoryLite {
     ownerVillage?: string;
 }
 
-export function VillageWarMap({ character, onBack }: { character: Character; onBack: () => void }) {
+export function VillageWarMap({ character, onBack, setScreen }: { character: Character; onBack: () => void; setScreen: (s: Screen) => void }) {
     const [data, setData] = useState<WarMapResponse | null>(null);
     const [owners, setOwners] = useState<Record<number, string>>({});
     const [isKage, setIsKage] = useState(false);
@@ -96,6 +97,13 @@ export function VillageWarMap({ character, onBack }: { character: Character; onB
             setBusy("");
         }
     }, [refresh]);
+
+    // Card contests are fought on the interactive Sector War Card Battle screen —
+    // stash the contest id and navigate; that screen auto-joins as attacker/defender.
+    const launchCardBattle = useCallback((sectorWarId: string) => {
+        try { sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        setScreen("sectorCard");
+    }, [setScreen]);
 
     return (
         <div className="vwm-screen">
@@ -166,6 +174,9 @@ export function VillageWarMap({ character, onBack }: { character: Character; onB
                                                 <button className="vwm-declare" disabled={!!busy} onClick={() => act(`dec-${sec.sector}`, () => declareSectorWar(character.name, myVillage, sec.sector))}>
                                                     Declare War
                                                 </button>
+                                            )}
+                                            {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}>⚔ Card Battle</button>
                                             )}
                                             {mine && (
                                                 <div className="vwm-config">

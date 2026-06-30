@@ -51,7 +51,7 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "petArena", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
-    "eventPetBattle", "tilecardsDuel", "battleTowers",
+    "eventPetBattle", "tilecardsDuel", "sectorCard", "battleTowers",
 ]);
 
 // Battle Towers has no server BattleLockKeeper — the run lives in tower:<runId>
@@ -120,6 +120,7 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return s.petBattleActive || s.pendingPetBattle;
         case "storyBoss":          // battle-only screen, no lobby
         case "tilecardsDuel":      // clan-war card duel, battle-only
+        case "sectorCard":         // sector-war card battle, battle-only
         case "hollowGateShrine":   // dungeon MAP: no retreat — exit only via the
                                    // in-map Leave tile or death (both setScreen
                                    // directly, bypassing the nav lock). Without
