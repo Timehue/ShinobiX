@@ -23,8 +23,7 @@ import { isFullAdmin, safeEqual } from '../_auth.js';
  * SKIP_IF_RECENT_MS. The 03:00 UTC firing + a 20h skip window means we get
  * one snapshot per player per day regardless of retries / double-firings.
  *
- * Auth: this endpoint stays mounted for manual/admin triggering and still
- * honors the legacy cron headers — `x-vercel-cron` or
+ * Auth: this endpoint stays mounted for manual/admin triggering and accepts
  * `Authorization: Bearer <CRON_SECRET>` — plus an admin password fallback.
  *
  * Safety: snapshots are READ-ONLY copies — the live `save:<name>` row
@@ -70,8 +69,10 @@ export function newestSnapshotByPlayer(snapshotKeys: string[]): Map<string, numb
     return newest;
 }
 
-function isVercelCron(req: VercelRequest): boolean {
-    if (req.headers['x-vercel-cron']) return true;
+// Cron auth: a Bearer CRON_SECRET only. (The old `x-vercel-cron` header
+// shortcut was removed — Vercel is retired, and a merely-present request header
+// is trivially spoofable, so it amounted to unauthenticated trust.)
+function isCronAuthorized(req: VercelRequest): boolean {
     const auth = req.headers.authorization;
     const secret = process.env.CRON_SECRET;
     if (auth && secret && auth.startsWith('Bearer ')) {
@@ -215,11 +216,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
 
-    // Allow a cron header / CRON_SECRET (legacy Vercel path, harmless to keep)
-    // OR a FULL-admin password (so ops can trigger manually from the admin panel
-    // without exposing CRON_SECRET). Content admins (Admin 2) must not be able to
-    // drive system-wide snapshot runs — this is an operational endpoint.
-    if (!isVercelCron(req) && !isFullAdmin(req)) {
+    // Authorize via a Bearer CRON_SECRET OR a FULL-admin password (so ops can
+    // trigger manually from the admin panel without exposing CRON_SECRET).
+    // Content admins (Admin 2) must not be able to drive system-wide snapshot
+    // runs — this is an operational endpoint.
+    if (!isCronAuthorized(req) && !isFullAdmin(req)) {
         return res.status(401).json({ error: 'Cron secret or full admin password required.' });
     }
 

@@ -750,6 +750,22 @@ export function Arena({
         return territory.terrainBuffStat === buffByType[jutsu.type] ? 1.1 : 1;
     }
 
+    // Biome terrain bonus — mirrors the server PvP engine (api/pvp/move.ts
+    // `terrainMultiplier`): a jutsu whose school matches the battlefield biome
+    // deals +10%. Applies to BOTH fighters and — unlike weather/territory, which
+    // are local-only and gated off in ranked — also in ranked, because the biome
+    // is server-sealed. This was missing in PvE, so the advertised terrain buff
+    // (e.g. "+10% Taijutsu Damage" in forests) did nothing here.
+    function biomeTerrainMultiplier(jutsu: Jutsu) {
+        switch (currentBiome) {
+            case "forest":  return jutsu.type === "Taijutsu"  ? 1.1 : 1;
+            case "snow":    return jutsu.type === "Bukijutsu" ? 1.1 : 1;
+            case "volcano": return jutsu.type === "Ninjutsu"  ? 1.1 : 1;
+            case "shadow":  return jutsu.type === "Genjutsu"  ? 1.1 : 1;
+            default:        return 1;
+        }
+    }
+
     function adjustedApCost(cost: number) {
         // Percent-per-action to match PvP (api/pvp/move.ts adjustedCost): Lag raises
         // each action's AP cost and Overclock lowers it, scaled by the status's
@@ -1787,7 +1803,7 @@ export function Arena({
             activeBloodlineMultiplier(character, playerStatuses),
             enemyArmorFactor,
             playerItemMult,
-            weatherDamageMultiplier(basicAttackJutsu) * territoryDamageMultiplier(basicAttackJutsu),
+            weatherDamageMultiplier(basicAttackJutsu) * territoryDamageMultiplier(basicAttackJutsu) * biomeTerrainMultiplier(basicAttackJutsu),
             // ACTIVE statuses only — raw arrays let a just-cast (deferred,
             // "starting next round") amp/debuff boost this same attack.
             activeStatuses(playerStatuses),
@@ -1925,7 +1941,7 @@ export function Arena({
             activeBloodlineMultiplier(character, playerStatuses),
             enemyArmorFactor,
             playerItemMult,
-            weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu),
+            weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu) * biomeTerrainMultiplier(weaponJutsu),
             // ACTIVE statuses only — see basic-attack note (deferred amps must
             // not boost the attack they were cast alongside).
             activeStatuses(playerStatuses),
@@ -2559,7 +2575,7 @@ export function Arena({
             activeBloodlineMultiplier(character, playerStatuses),
             enemyArmorFactor,
             playerItemMult,
-            weatherDamageMultiplier(jutsu) * territoryDamageMultiplier(jutsu),
+            weatherDamageMultiplier(jutsu) * territoryDamageMultiplier(jutsu) * biomeTerrainMultiplier(jutsu),
             // ACTIVE statuses only. This was the "buffs are instant" bug: a
             // 40AP IDG/IDT cast said "starting next round" but the raw arrays
             // fed pvpAmpMultiplier, so the very next 60AP jutsu in the SAME
@@ -3033,7 +3049,7 @@ export function Arena({
                 character.maxHp,
                 activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
                 playerArmorFactor, 1.0,
-                weatherDamageMultiplier(jutsu),
+                weatherDamageMultiplier(jutsu) * biomeTerrainMultiplier(jutsu),
                 // ACTIVE statuses only, so the AI scores jutsu with the same
                 // deferred-amp rules its actual cast resolves with.
                 activeStatuses(enemyStatuses),
@@ -3314,7 +3330,7 @@ export function Arena({
                 activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
                 playerArmorFactor,
                 1.0,
-                weatherDamageMultiplier(jutsu),
+                weatherDamageMultiplier(jutsu) * biomeTerrainMultiplier(jutsu),
                 // ACTIVE statuses only — the AI's own just-cast (deferred)
                 // buffs must not amplify the attack it makes the same turn.
                 activeStatuses(enemyStatuses),
@@ -3749,7 +3765,7 @@ export function Arena({
             activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
             playerArmorFactor,
             1.0,
-            weatherDamageMultiplier(enemyBasicJutsu),
+            weatherDamageMultiplier(enemyBasicJutsu) * biomeTerrainMultiplier(enemyBasicJutsu),
             activeStatuses(enemyStatuses),
             activeStatuses(playerStatuses),
             pveAiMastery,

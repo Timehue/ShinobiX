@@ -54,6 +54,27 @@ export function setPetEvolveCutsceneEnabled(on: boolean): void {
 }
 
 /*
+ * Pet move ACCURACY / miss-chance flag. Pet moves carry an authored accuracy
+ * (pet-moves.ts KIND_SPECS: 85–95 for offensive/control kinds, 100 for support)
+ * that the battle engines historically never rolled against — so moves never
+ * missed. When ON, the engines roll `rng() < accuracy/100` when a jutsu is cast;
+ * a miss consumes the turn with no effect. DEFAULT OFF: this is a balance change
+ * that wants playtesting/tuning before it ships, and it must be rolled out to
+ * every pet engine before it's flipped on. Per-device persisted; flip with
+ * localStorage.setItem("petAccuracy.v1","1"). Passed INTO the sims as a param so
+ * the deterministic engines stay pure/testable.
+ */
+const PET_ACCURACY_KEY = "petAccuracy.v1";
+
+export function petAccuracyEnabled(): boolean {
+    try { return localStorage.getItem(PET_ACCURACY_KEY) === "1"; } catch { return false; }
+}
+
+export function setPetAccuracyEnabled(on: boolean): void {
+    try { localStorage.setItem(PET_ACCURACY_KEY, on ? "1" : "0"); } catch { /* storage disabled — ignore */ }
+}
+
+/*
  * Authoritative PvE combat engine flag — the kill-switch for the pet-combat
  * redesign (docs/pet-combat-redesign-plan.md). When ON, NON-RANKED pet battles
  * (Pet Arena 1v1 + 2v2, Hollow Gate / dungeon duels, clan-war pet2v2) resolve
