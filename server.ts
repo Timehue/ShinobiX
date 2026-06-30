@@ -83,6 +83,7 @@ import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js';
 import villageClaimMapControlHandler from './api/village/claim-map-control.js';
 import hireMercenaryHandler from './api/village/hire-mercenary.js';
+import villageWarStructureHandler from './api/village/war-structure.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -607,6 +608,10 @@ route('/village/claim-map-control', villageClaimMapControlHandler);
 // Village war mercenaries — server-authoritative Honor Seal sink: hire a tiered
 // merc band (once/war/tier) that lands sealed war damage on the enemy village.
 route('/village/hire-mercenary', hireMercenaryHandler);
+// Village War Map structures — Kage-only server-authoritative upgrade: debits
+// Honor Seals from the village treasury, raises a shared structure level.
+// Server-gated (404 unless ENABLE_VILLAGE_WAR=1) — inert until launch.
+route('/village/war-structure', villageWarStructureHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
