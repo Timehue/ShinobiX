@@ -90,7 +90,11 @@ import { readFileSync } from "node:fs";
 // → 10,126 (+3 Hollow Gate future-proofing: resumeHollowGateServerRun re-presents the
 // augment picker on run-resume (refresh-mid-pick safety) at the two restore branches;
 // the decision logic is the pure shouldResumeAugmentPicker in the lib.)
-const MAX_LINES = 10_126;
+// → 10,139 (+13 Hollow Gate augment COMBAT-FEEL layer, HG-only & flag-gated. Pure
+// hollowGateAugmentEffects() maps the chosen augment to enemy-clone HP/stat/shave
+// mults + run flags; applied ONLY to the per-dive enemy in startHollowGateBattle and
+// the Keeper-heal / Leave-tile handlers — never the shared combat engine.)
+const MAX_LINES = 10_139;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

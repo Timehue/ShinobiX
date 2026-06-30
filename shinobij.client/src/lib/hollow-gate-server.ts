@@ -143,6 +143,44 @@ export function applyHollowGateRunEndLocal(
     return { ...base, hollowGateRun: null } as Character;
 }
 
+// ── Augment combat-feel (HG-ONLY) ───────────────────────────────────────────────
+// The reward multiplier is enforced server-side; THIS is the untrusted client-side
+// FEEL. Every effect is applied only to the per-dive enemy clone (startHollowGate
+// battle) or HG run handlers — NEVER the shared PvP/PvE combat engine — so nothing
+// outside the Hollow Gate can be affected. Effects that don't map onto HG's 1v1 /
+// no-heal structure are translated to the closest HG-local equivalent (e.g. "+20%
+// player damage" → the enemy enters with proportionally less HP).
+export type HollowGateAugmentEffects = {
+    enemyHpMult: number;      // >1 = tougher enemy (Greedy Pact "enemies +30% power")
+    enemyStatMult: number;    // <1 = enemy hits softer (Warded Step "shield")
+    enemyHpShavePct: number;  // 0..0.9 = enemy enters with less HP ("you deal more")
+    noRetreat: boolean;       // disable the Leave tile (Berserker's Gamble)
+    noKeeperHeal: boolean;    // Shrine Keeper won't heal (Treasure Sense "fewer heals")
+};
+
+const NO_AUGMENT_EFFECTS: HollowGateAugmentEffects = {
+    enemyHpMult: 1, enemyStatMult: 1, enemyHpShavePct: 0, noRetreat: false, noKeeperHeal: false,
+};
+const clampShave = (n: number): number => Math.max(0, Math.min(0.9, n));
+
+/** Map the chosen augment to HG-local battle/run modifiers. Reads combat.value from
+ *  the server-sent augment so the numbers track the catalog. Returns all-neutral
+ *  when no augment is chosen (no-token / flag-off runs). */
+export function hollowGateAugmentEffects(run: HollowGateShrineRun | null | undefined): HollowGateAugmentEffects {
+    const a = run?.chosenAugment;
+    if (!a) return NO_AUGMENT_EFFECTS;
+    const v = Math.max(0, a.combat?.value ?? 0);
+    switch (a.id) {
+        case "greedy-pact":       return { ...NO_AUGMENT_EFFECTS, enemyHpMult: 1 + v, enemyStatMult: 1 + v };       // enemyPower
+        case "keen-edge":         return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: clampShave(v / (1 + v)) };       // +dmg → less enemy HP
+        case "warded-step":       return { ...NO_AUGMENT_EFFECTS, enemyStatMult: Math.max(0.5, 1 - v) };            // shield → softer hits
+        case "chain-reaction":    return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: v > 0 ? 0.15 : 0 };              // arc (no 2nd foe in 1v1) → flat extra dmg
+        case "berserkers-gamble": return { ...NO_AUGMENT_EFFECTS, enemyHpShavePct: clampShave(v), noRetreat: true }; // lifesteal + no retreat
+        case "treasure-sense":    return { ...NO_AUGMENT_EFFECTS, noKeeperHeal: true };                             // fewer heals
+        default:                  return NO_AUGMENT_EFFECTS;
+    }
+}
+
 // ── Run-end settle (background, flag-gated, no-op without a token) ───────────────
 
 type SetCharacter = (updater: (prev: Character | null) => Character | null) => void;
