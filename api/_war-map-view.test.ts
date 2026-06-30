@@ -23,8 +23,8 @@ describe('war-map-view: villageWarMapView', () => {
         assert.equal(v.sectors[0].sector, 11);
         assert.equal(v.sectors[0].alias, 'MS-1');
         assert.equal(v.sectors[0].controlHpMax, 600);  // no Watchtower
-        assert.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/card
-        assert.equal(v.sectors[1].winCondition, 'card');
+        assert.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/pet
+        assert.equal(v.sectors[1].winCondition, 'pet');
     });
 
     it('reflects Watchtower (Control HP cap) and Supply Depot (WR/sector)', () => {
