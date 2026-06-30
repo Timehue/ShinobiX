@@ -28,11 +28,12 @@ export type GameIconName =
     | "person"   // character / profile (nav)
     | "bag"      // inventory / items (nav)
     | "menu"     // hamburger menu (nav)
-    | "flask";   // tavern / sake (nav)
+    | "flask"    // tavern / sake (nav)
+    | "bolt";    // speed / lightning (stat)
 
 export const gameIconNames: readonly GameIconName[] = [
     "ryo", "shard", "crystal", "sparkle", "medal", "sigil", "bone",
     "chakra", "hp", "sword", "shield", "scroll",
     "map", "target", "dice", "clock", "dumbbell", "paw", "gift",
-    "person", "bag", "menu", "flask",
+    "person", "bag", "menu", "flask", "bolt",
 ];
