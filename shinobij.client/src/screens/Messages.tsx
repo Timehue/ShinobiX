@@ -7,6 +7,7 @@
  */
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
+import { EmptyState } from "../components/ui/EmptyState";
 import type { Character } from "../types/character";
 import { refreshUnreadMail } from "../lib/mail-unread";
 
@@ -103,7 +104,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                     </div>
                     <div ref={threadRef} style={{ maxHeight: "50vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>
                         {thread.length === 0 ? (
-                            <p className="hint">No messages yet — say hello.</p>
+                            <EmptyState icon="💬">No messages yet — say hello.</EmptyState>
                         ) : thread.map((m, i) => {
                             const mine = m.from.toLowerCase() === me;
                             return (
@@ -134,7 +135,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                     <div className="summary-box">
                         <strong>Inbox</strong>
                         {inbox.length === 0 ? (
-                            <p className="hint">No conversations yet.</p>
+                            <EmptyState icon="📭">No conversations yet.</EmptyState>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
                                 {inbox.map((e) => (
