@@ -24,8 +24,11 @@ let fadeTimer: number | null = null;
 // Listeners so the toggle button re-renders when mute flips.
 const muteListeners = new Set<() => void>();
 
+// Audio defaults to MUTED (opt-in): a lot of players dislike game sound, so we
+// stay silent until someone explicitly unmutes (which writes "0"). Only an
+// explicit "0" counts as unmuted; missing key or "1" → muted.
 export function isAudioMuted(): boolean {
-    try { return localStorage.getItem(MASTER_MUTE_KEY) === "1"; } catch { return false; }
+    try { return localStorage.getItem(MASTER_MUTE_KEY) !== "0"; } catch { return true; }
 }
 
 export function setAudioMuted(muted: boolean): void {
