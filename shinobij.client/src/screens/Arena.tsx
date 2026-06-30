@@ -1,5 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useMemo } from "react";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import {
+    GiCrossedSwords, GiTrophy, GiLadder, GiEyeball, GiBoxingGlove, GiPawPrint,
+    GiColiseum, GiLaurelsTrophy, GiSkullCrossedBones, GiFirstAidKit, GiScrollUnfurled,
+    GiVillage, GiNextButton,
+} from "react-icons/gi";
+// Inline style for a glyph that prefixes button/heading text — seats it on the baseline.
+const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
@@ -4284,7 +4292,7 @@ export function Arena({
                     </section>
 
                     <section className="summary-box">
-                        <h3>🐾 Incoming Pet Challenges</h3>
+                        <h3><GiPawPrint style={ARENA_ICON} />Incoming Pet Challenges</h3>
                         {incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).length === 0
                             ? <p className="hint">No incoming pet challenges.</p>
                             : incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).map((challenge) => (
@@ -4293,7 +4301,7 @@ export function Arena({
                                     <div className="menu">
                                         <button onClick={() => {
                                             setScreen("petArena");
-                                        }}>🐾 Go to Pet Coliseum</button>
+                                        }}><GiColiseum style={ARENA_ICON} />Go to Pet Coliseum</button>
                                         <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                                     </div>
                                 </div>
@@ -4312,12 +4320,12 @@ export function Arena({
                 <p>Clan battles, ranked mode, tournaments, spectator view, and pet battles are handled here.</p>
 
                 <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
-                    <button className={activeArenaTab === "clanWar" ? "active" : ""} onClick={() => setActiveArenaTab("clanWar")}>⚔️ Clan War</button>
-                    <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}>🏆 Tournaments</button>
-                    <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}>📊 Ranked</button>
-                    <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}>👁️ Spectate</button>
-                    <button className={activeArenaTab === "spar" ? "active" : ""} onClick={() => setActiveArenaTab("spar")}>🤝 Spar / AI Battle</button>
-                    <button className={activeArenaTab === "petBattles" ? "active" : ""} onClick={() => setActiveArenaTab("petBattles")}>🐾 Pet Battles</button>
+                    <button className={activeArenaTab === "clanWar" ? "active" : ""} onClick={() => setActiveArenaTab("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
+                    <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
+                    <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
+                    <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
+                    <button className={activeArenaTab === "spar" ? "active" : ""} onClick={() => setActiveArenaTab("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar / AI Battle</button>
+                    <button className={activeArenaTab === "petBattles" ? "active" : ""} onClick={() => setActiveArenaTab("petBattles")}><GiPawPrint style={ARENA_ICON} />Pet Battles</button>
                 </div>
 
                 {activeArenaTab === "clanWar" && (
@@ -4427,7 +4435,7 @@ export function Arena({
                         {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
 
                         <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
-                        <p className="hint">🐾 Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Coliseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
+                        <p className="hint"><GiPawPrint style={ARENA_ICON} />Ranked pet battles moved to the <strong>Pet Battles</strong> tab — climb the global <strong>Coliseum</strong> (1v1) and <strong>Tactical</strong> (4v4) ladders.</p>
                     </section>
                 )}
 
@@ -4519,12 +4527,12 @@ export function Arena({
 
                 {activeArenaTab === "petBattles" && (
                     <section className="summary-box">
-                        <h3>🐾 Pet Battles</h3>
+                        <h3><GiPawPrint style={ARENA_ICON} />Pet Battles</h3>
                         <p className="hint">Compete on the global pet ranked ladders — climb by beating the rival ranked above you — or jump into the casual pet arena.</p>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>
                             {[
-                                { mode: "coliseum" as const, img: coliseumLadderImg, emoji: "🏆", title: "Pet Coliseum", sub: "1v1 ranked ladder" },
-                                { mode: "tactical" as const, img: tacticalLadderImg, emoji: "🛡", title: "Pet Tactical", sub: "4v4 ranked ladder" },
+                                { mode: "coliseum" as const, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Coliseum", sub: "1v1 ranked ladder" },
+                                { mode: "tactical" as const, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Tactical", sub: "4v4 ranked ladder" },
                             ].map((c) => (
                                 <button key={c.mode} type="button"
                                     onClick={() => { sessionStorage.setItem("petLadder.mode", c.mode); setScreen("petLadder"); }}
@@ -4538,7 +4546,7 @@ export function Arena({
                                 </button>
                             ))}
                         </div>
-                        <button onClick={() => setScreen("petArena")}>🎮 Open Casual Pet Coliseum</button>
+                        <button onClick={() => setScreen("petArena")}><GiColiseum style={ARENA_ICON} />Open Casual Pet Coliseum</button>
                     </section>
                 )}
             </div>
@@ -5252,7 +5260,7 @@ export function Arena({
                     <div className="card battle-ended-card">
                         {endlessBattleActive && battleResult === "win" ? (
                             <>
-                                <h2 className="battle-result-win">🏆 Wave {endlessBattleWave} Clear!</h2>
+                                <h2 className="battle-result-win"><GiLaurelsTrophy style={ARENA_ICON} />Wave {endlessBattleWave} Clear!</h2>
                                 <p>{log}</p>
                                 <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.4rem 0" }}>
                                     HP carried into next wave. Stay alive as long as you can.
@@ -5262,12 +5270,12 @@ export function Arena({
                                     style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
                                     onClick={() => onEndlessWin?.(endlessBattleWave)}
                                 >
-                                    ▶️ Next Wave
+                                    <GiNextButton style={ARENA_ICON} />Next Wave
                                 </button>
                             </>
                         ) : endlessBattleActive && battleResult === "loss" ? (
                             <>
-                                <h2 className="battle-result-loss">💀 Tower Collapsed</h2>
+                                <h2 className="battle-result-loss"><GiSkullCrossedBones style={ARENA_ICON} />Tower Collapsed</h2>
                                 <p style={{ color: "#fde047", fontSize: "1.1rem", fontWeight: 800 }}>
                                     You reached Wave {endlessBattleWave}
                                 </p>
@@ -5277,7 +5285,7 @@ export function Arena({
                                 </p>
                                 <div className="menu">
                                     <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { onEndlessBattleEnd?.(); setScreen("hospital"); }}>
-                                        🏥 Go to Hospital
+                                        <GiFirstAidKit style={ARENA_ICON} />Go to Hospital
                                     </button>
                                     <button onClick={() => { onEndlessBattleEnd?.(); setScreen("centralHub"); }}>
                                         Return to Central
@@ -5311,7 +5319,7 @@ export function Arena({
                                             disabled={logging}
                                             onClick={() => { setLogging(true); onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp); }}
                                         >
-                                            📋 Log Damage & Return
+                                            <GiScrollUnfurled style={ARENA_ICON} />Log Damage & Return
                                         </button>
                                     </>
                                 ) : battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
@@ -5320,7 +5328,7 @@ export function Arena({
                                             Your Dungeon Key was consumed by the failed run. You return to your village empty-handed.
                                         </p>
                                         <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => onDungeonFail?.()}>
-                                            🏯 Return to Village
+                                            <GiVillage style={ARENA_ICON} />Return to Village
                                         </button>
                                     </>
                                 ) : battleResult === "loss" ? (
@@ -5329,7 +5337,7 @@ export function Arena({
                                             You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
                                         </p>
                                         <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
-                                            🏥 Go to Hospital
+                                            <GiFirstAidKit style={ARENA_ICON} />Go to Hospital
                                         </button>
                                     </>
                                 ) : pendingStoryBattle ? (

@@ -16,12 +16,19 @@
 import { memo, useEffect, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
 import type { Profession, Screen } from "../types/core";
-import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
+import { PROFESSION_LABEL } from "../data/professions";
 import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { isVillageWarMapEnabled } from "../lib/village-war-map";
+// Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — matches the
+// shinobi theme. Mirrors the mobile nav (MobileNav.tsx). Attribution in the footer below.
+import {
+    GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
+    GiExitDoor, GiFireSpellCast, GiGears, GiHearts, GiKnapsack, GiNinjaHeroicStance,
+    GiOpenBook, GiPawPrint, GiScrollUnfurled, GiSpeaker, GiSpeakerOff, GiThreeFriends, GiTreasureMap,
+} from "react-icons/gi";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -81,7 +88,7 @@ export const RightMenu = memo(function RightMenu({
                     onClick={() => { const next = !audioMuted; setAudioMuted(next); setAudioMutedState(next); }}
                     title={audioMuted ? "Unmute all audio" : "Mute all audio (music + sound effects)"}
                     aria-label={audioMuted ? "Unmute all audio" : "Mute all audio"}
-                >{audioMuted ? "🔇" : "🔊"}</button>
+                >{audioMuted ? <GiSpeakerOff size={18} /> : <GiSpeaker size={18} />}</button>
             </div>
 
             {menuOpen && (
@@ -89,32 +96,32 @@ export const RightMenu = memo(function RightMenu({
                     <h3>Main Menu</h3>
 
                     <div className="right-menu-buttons">
-                        <button onClick={() => navigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}>🍶 Tavern</button>
-                        <button onClick={() => navigate("worldMap")}>Travel</button>
-                        <button onClick={() => navigate("userHub")}>Users</button>
-                        <button onClick={() => navigate("messages")}>📬 Mail<MailUnreadBadge /></button>
-                        <button onClick={() => navigate("missions")}>Missions</button>
-                        <button onClick={() => navigate("training")}>Training</button>
-                        {isVillageWarMapEnabled() && <button onClick={() => navigate("villageWarMap")} title="Sector War Map">⚔ War Map</button>}
-                        <button onClick={() => navigate("profile")}>Character</button>
-                        <button onClick={() => navigate("inventory")}>Inventory</button>
-                        <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
-                        <button onClick={() => navigate("pets")}>Pets</button>
-                        <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
+                        <button onClick={() => navigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
+                        <button onClick={() => navigate("worldMap")}><GiTreasureMap size={16} />Travel</button>
+                        <button onClick={() => navigate("userHub")}><GiThreeFriends size={16} />Users</button>
+                        <button onClick={() => navigate("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
+                        <button onClick={() => navigate("missions")}><GiScrollUnfurled size={16} />Missions</button>
+                        <button onClick={() => navigate("training")}><GiBiceps size={16} />Training</button>
+                        {isVillageWarMapEnabled() && <button onClick={() => navigate("villageWarMap")} title="Sector War Map"><GiGears size={16} />War Map</button>}
+                        <button onClick={() => navigate("profile")}><GiNinjaHeroicStance size={16} />Character</button>
+                        <button onClick={() => navigate("inventory")}><GiKnapsack size={16} />Inventory</button>
+                        <button onClick={() => navigate("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
+                        <button onClick={() => navigate("pets")}><GiPawPrint size={16} />Pets</button>
+                        <button onClick={() => navigate("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
                         <button
                             onClick={() => navigate("professions")}
                             title={profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions"}
                         >
-                            {profession ? `${PROFESSION_ICON[profession]} ${PROFESSION_LABEL[profession]}` : "📜 Professions"}
+                            <GiAnvil size={16} />{profession ? PROFESSION_LABEL[profession] : "Professions"}
                         </button>
-                        <button onClick={() => navigate("logbook")}>Logbook</button>
-                        <button onClick={() => navigate("guides")}>📖 Guides</button>
-                        <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}>💬 Discord</button>
-                        <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}>♥ Patreon</button>
+                        <button onClick={() => navigate("logbook")}><GiBookCover size={16} />Logbook</button>
+                        <button onClick={() => navigate("guides")}><GiOpenBook size={16} />Guides</button>
+                        <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
+                        <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}><GiHearts size={16} />Patreon</button>
                         {(isAdminAccount || adminLoggedIn) && (
-                            <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
+                            <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
                         )}
-                        <button onClick={logoutPlayer}>Logout + Save</button>
+                        <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
                     </div>
                 </>
             )}

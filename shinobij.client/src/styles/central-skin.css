@@ -46,7 +46,7 @@
     margin-bottom: 14px;
 }
 .central-hub .central-hero h1 {
-    font: 700 36px/1.1 Cinzel, serif !important;
+    font: 700 36px/1.1 var(--font-display) !important;
     letter-spacing: 0.14em !important;
     color: var(--bsv2-gold-bright) !important;
     text-shadow:
@@ -113,9 +113,13 @@
     line-height: 1;
     text-align: center;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+    /* game-icon glyphs inherit this — themed gold, like the approved showcase. */
+    color: #f4c95d;
+    display: grid;
+    place-items: center;
 }
 .central-hub .central-card strong {
-    font: 600 14px/1.2 Cinzel, serif !important;
+    font: 600 14px/1.2 var(--font-display) !important;
     color: var(--bsv2-gold-bright) !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
@@ -140,7 +144,7 @@
     padding: 20px !important;
 }
 .celestial-panel h2 {
-    font: 700 18px Cinzel, serif !important;
+    font: 700 18px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright, #e8d496) !important;
@@ -187,7 +191,7 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
 }
 .celestial-option-btn strong {
-    font: 600 12px Cinzel, serif !important;
+    font: 600 12px var(--font-display) !important;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--bsv2-gold-bright, #e8d496) !important;

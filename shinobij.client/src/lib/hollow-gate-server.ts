@@ -243,29 +243,23 @@ export function buildAugmentPickerEvent(
 
 type SetRun = (updater: (prev: HollowGateShrineRun | null) => HollowGateShrineRun | null) => void;
 
-/** Called right after a fresh run is created. Mints the server run token in the
- *  background, attaches it (+ the rolled augment offers) to the run, and presents
- *  the augment picker via the existing hollowGateEvent modal. Fully optional: if
- *  the flag is off or no token is minted, this is a no-op and the run proceeds
- *  token-less (the existing client-authoritative path). */
-export async function beginHollowGateServerRun(opts: {
+export type HollowGateAttachOpts = {
     playerName: string;
-    floorDepth: number;
     setRun: SetRun;
     setCharacter: SetCharacter;
     setEvent: (e: HollowGateModal | null) => void;
     pushLog: (line: string) => void;
-}): Promise<void> {
-    if (!hollowGateServerEnabled()) return;
-    const res = await startHollowGateServerRun(opts.playerName, opts.floorDepth);
-    // daily-cap / unreachable / no SESSION_SECRET → token-less fallback (today's run).
-    if (!res || !res.token) return;
+};
+
+/** Attach a minted run token (+ rolled offers) to the live run and present the
+ *  augment picker. No-op when start returned no token (daily-cap / unreachable /
+ *  SESSION unset → token-less fallback). Shared by the background entry and the
+ *  hard-blocking entry (which awaits start ITSELF before consuming the Key, so the
+ *  server daily-cap actually gates entry — audit #7). */
+export function attachStartedRun(res: HollowGateStartResult | null, opts: HollowGateAttachOpts): void {
+    if (!res?.token) return;
     const token = res.token;
-    const patch: Partial<HollowGateShrineRun> = {
-        runToken: token,
-        serverSeed: res.seed,
-        augmentOffers: res.augmentOffers ?? [],
-    };
+    const patch: Partial<HollowGateShrineRun> = { runToken: token, serverSeed: res.seed, augmentOffers: res.augmentOffers ?? [] };
     // Attach to whatever the live run/character is now (resilient to a step taken
     // while start was in flight); skip if the run already ended.
     opts.setRun((prev) => (prev && !prev.completed ? { ...prev, ...patch } : prev));
@@ -274,16 +268,19 @@ export async function beginHollowGateServerRun(opts: {
             ? { ...prev, hollowGateRun: { ...prev.hollowGateRun, ...patch } }
             : prev,
     );
+    const offers = res.augmentOffers ?? [];
+    if (offers.length === 0) return;
+    presentAugmentPicker({ playerName: opts.playerName, token, offers, setRun: opts.setRun, setCharacter: opts.setCharacter, setEvent: opts.setEvent, pushLog: opts.pushLog });
+}
 
-    presentAugmentPicker({
-        playerName: opts.playerName,
-        token,
-        offers: res.augmentOffers ?? [],
-        setRun: opts.setRun,
-        setCharacter: opts.setCharacter,
-        setEvent: opts.setEvent,
-        pushLog: opts.pushLog,
-    });
+/** Background entry: mints the run token, attaches it + presents the picker. Used by
+ *  the admin test entry (which bypasses the daily cap). The live player entry instead
+ *  AWAITS startHollowGateServerRun directly so a 'daily-cap' reply blocks the dive
+ *  before the Key is spent. No-op / token-less fallback if the flag is off. */
+export async function beginHollowGateServerRun(opts: HollowGateAttachOpts & { floorDepth: number }): Promise<void> {
+    if (!hollowGateServerEnabled()) return;
+    const res = await startHollowGateServerRun(opts.playerName, opts.floorDepth);
+    attachStartedRun(res, opts);
 }
 
 /** On RESUME of an in-progress run: if it carries a server token, was minted with

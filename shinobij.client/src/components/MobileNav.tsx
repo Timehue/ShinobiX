@@ -15,11 +15,18 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
-import { PROFESSION_LABEL, PROFESSION_ICON } from "../data/professions";
+import { PROFESSION_LABEL } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
-import { GameIcon } from "./icons/GameIcon";
 import { isVillageWarMapEnabled } from "../lib/village-war-map";
+// Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — they match
+// the shinobi theme far better than thin outline icons. Attribution rendered in the
+// menu footer below. Game-specific emblems (ryō, chakra, …) still use GameIcon.
+import {
+    GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
+    GiExitDoor, GiFireSpellCast, GiGears, GiHamburgerMenu, GiHearts, GiKnapsack,
+    GiNinjaHeroicStance, GiOpenBook, GiPawPrint, GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
+} from "react-icons/gi";
 
 // Memo'd — the bottom nav only depends on character.xp/level (immutable
 // snapshots from App), the navigate callback (stable), and a boolean.
@@ -74,23 +81,23 @@ export const MobileNav = memo(function MobileNav({
 
             <nav className="mobile-bottom-nav">
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
-                    <span className="mnb-icon"><GameIcon name="map" size={24} /></span>
+                    <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("tavern")}>
-                    <span className="mnb-icon"><GameIcon name="flask" size={24} /></span>
+                    <span className="mnb-icon"><GiBeerStein size={24} /></span>
                     Tavern
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("profile")}>
-                    <span className="mnb-icon"><GameIcon name="person" size={24} /></span>
+                    <span className="mnb-icon"><GiNinjaHeroicStance size={24} /></span>
                     Char
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("inventory")}>
-                    <span className="mnb-icon"><GameIcon name="bag" size={24} /></span>
+                    <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
-                    <span className="mnb-icon"><GameIcon name="menu" size={24} /></span>
+                    <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
                     Menu
                     <MailUnreadDot />
                 </button>
@@ -120,29 +127,29 @@ export const MobileNav = memo(function MobileNav({
                     </div>
 
                     <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("tavern")}>🍶 Tavern</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail<MailUnreadBadge /></button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
-                        {isVillageWarMapEnabled() && <button className="mobile-menu-btn" onClick={() => go("villageWarMap")}>⚔ War Map</button>}
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("tavern")}><GiBeerStein size={20} />Tavern</button>
+                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}><GiTreasureMap size={20} />Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("userHub")}><GiThreeFriends size={20} />Users</button>
+                        <button className="mobile-menu-btn" onClick={() => go("messages")}><GiEnvelope size={20} />Mail<MailUnreadBadge /></button>
+                        <button className="mobile-menu-btn" onClick={() => go("missions")}><GiScrollUnfurled size={20} />Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}><GiBiceps size={20} />Training</button>
+                        {isVillageWarMapEnabled() && <button className="mobile-menu-btn" onClick={() => go("villageWarMap")}><GiGears size={20} />War Map</button>}
+                        <button className="mobile-menu-btn" onClick={() => go("profile")}><GiNinjaHeroicStance size={20} />Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")}><GiKnapsack size={20} />Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}><GiFireSpellCast size={20} />Jutsu</button>
+                        <button className="mobile-menu-btn" onClick={() => go("pets")}><GiPawPrint size={20} />Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}><GiDna1 size={20} />Bloodline</button>
                         <button className="mobile-menu-btn" onClick={() => go("professions")}>
-                            {character.profession ? `${PROFESSION_ICON[character.profession]} ${PROFESSION_LABEL[character.profession]}` : "📜 Professions"}
+                            <GiAnvil size={20} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}
                         </button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("guides")}>📖 Guides</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}>💬 Discord</button>
-                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}>♥ Patreon</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")}><GiBookCover size={20} />Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("guides")}><GiOpenBook size={20} />Guides</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiHearts size={20} />Patreon</button>
                         {isAdminAccount && (
-                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}>🛠️ Admin</button>
+                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>
                         )}
-                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
+                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
                     </div>
                 </div>
             )}

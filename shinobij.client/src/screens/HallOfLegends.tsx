@@ -1,6 +1,13 @@
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+// Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
+import {
+    GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiGauntlet, GiVortex,
+    GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiTwoCoins, GiHealing, GiColiseum,
+    GiShield, GiCrown, GiPunchBlast, GiCastle,
+} from "react-icons/gi";
+const HOL_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import {
     type Character,
     type LbTab,
@@ -147,28 +154,28 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
     // Tournament
     const tournament = loadArenaTournament();
 
-    const tabs: { id: LbTab; label: string; icon: string }[] = [
-        { id: "ranked",      label: "Ranked",       icon: "🎖" },
-        { id: "kills",       label: "Kill Streaks",  icon: "🗡" },
-        { id: "xp",          label: "Most XP",       icon: "📈" },
-        { id: "clans",       label: "Top Clans",     icon: "🏴" },
-        { id: "pets",        label: "Pet Wins",      icon: "🐾" },
-        { id: "gauntlet",    label: "Gauntlet",      icon: "🗡" },
-        { id: "endless",     label: "Endless",       icon: "🌀" },
-        { id: "villageWars", label: "Village Wars",  icon: "⚔" },
-        { id: "weeklyBoss",  label: "Weekly Boss",   icon: "👹" },
-        { id: "tournament",  label: "Tournament",    icon: "🏆" },
-        { id: "professions", label: "Professions",   icon: "🧑‍⚕️" },
-        { id: "bounties",    label: "Bounties",      icon: "💰" },
+    const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
+        { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
+        { id: "kills",       label: "Kill Streaks",  icon: <GiDaggers /> },
+        { id: "xp",          label: "Most XP",       icon: <GiUpgrade /> },
+        { id: "clans",       label: "Top Clans",     icon: <GiBlackFlag /> },
+        { id: "pets",        label: "Pet Wins",      icon: <GiPawPrint /> },
+        { id: "gauntlet",    label: "Gauntlet",      icon: <GiGauntlet /> },
+        { id: "endless",     label: "Endless",       icon: <GiVortex /> },
+        { id: "villageWars", label: "Village Wars",  icon: <GiCrossedSwords /> },
+        { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GiOgre /> },
+        { id: "tournament",  label: "Tournament",    icon: <GiTrophy /> },
+        { id: "professions", label: "Professions",   icon: <GiAnvil /> },
+        { id: "bounties",    label: "Bounties",      icon: <GiTwoCoins /> },
     ];
 
     // Profession leaderboard helpers. XP keeps accruing past the Rank 10
     // threshold (rank just clamps at 10), so a maxed Healer who keeps healing
     // shows higher than one who just hit max — leaderboards stay meaningful.
-    const professionTabs: { id: Profession; label: string; accent: string; icon: string }[] = [
-        { id: "healer", label: "Healer", accent: "#22d3ee", icon: "✚" },
-        { id: "vanguard", label: "Vanguard", accent: "#f97316", icon: "⚔" },
-        { id: "petTamer", label: "Pet Tamer", accent: "#84cc16", icon: "🐾" },
+    const professionTabs: { id: Profession; label: string; accent: string; icon: ReactNode }[] = [
+        { id: "healer", label: "Healer", accent: "#22d3ee", icon: <GiHealing /> },
+        { id: "vanguard", label: "Vanguard", accent: "#f97316", icon: <GiCrossedSwords /> },
+        { id: "petTamer", label: "Pet Tamer", accent: "#84cc16", icon: <GiPawPrint /> },
     ];
     function topByProfession(p: Profession, n = 10) {
         return all
@@ -192,7 +199,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
             <div className="hol-header">
                 <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
                 <div>
-                    <h2>🏆 Hall of Legends</h2>
+                    <h2><GiTrophy style={HOL_ICON} />Hall of Legends</h2>
                     <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
                 </div>
             </div>
@@ -214,26 +221,26 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                             const h = Math.floor((ms % 86_400_000) / 3_600_000);
                             return (
                                 <div style={{ padding: "10px 14px", marginBottom: "0.8rem", borderRadius: 10, background: "rgba(120,53,15,0.35)", border: "1px solid rgba(250,204,21,0.5)" }}>
-                                    <strong style={{ color: "#facc15" }}>🏆 Ranked Season {season.current.id}</strong>
+                                    <strong style={{ color: "#facc15" }}><GiTrophy style={HOL_ICON} />Ranked Season {season.current.id}</strong>
                                     <span style={{ color: "#e7d9b0" }}> · {ms > 0 ? `ends in ${d}d ${h}h` : "ending soon"}</span>
                                     <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.76rem" }}>At season end the top 3 of each ladder are rewarded (champion: Warforged Relic + aura stones) and ratings soft-reset toward 1000.</p>
                                 </div>
                             );
                         })()}
-                        <p className="hol-board-label">⚔ Ranked Battle Rating (Elo)</p>
+                        <p className="hol-board-label"><GiCrossedSwords style={HOL_ICON} />Ranked Battle Rating (Elo)</p>
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🐾 Pet Ranked Rating (Elo)</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPawPrint style={HOL_ICON} />Pet Ranked Rating (Elo)</p>
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
                             <Row key={`pet-${c.name}`} rank={i+1} name={c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Global Pet Ladders — climb by beating the player ranked above you. All-time standings; no season reset.</p>
-                        <p className="hol-board-label">🏆 Pet Coliseum Ladder — Top 10</p>
+                        <p className="hol-board-label"><GiColiseum style={HOL_ICON} />Pet Coliseum Ladder — Top 10</p>
                         {petLadders?.coliseum.length
                             ? petLadders.coliseum.map((e) => <Row key={`plc-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No challengers ranked yet.</p>}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🛡 Pet Tactical Ladder — Top 10</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Pet Tactical Ladder — Top 10</p>
                         {petLadders?.tactical.length
                             ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No squads ranked yet.</p>}
@@ -244,7 +251,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                             ].filter(Boolean) as (SeasonArchiveRow & { mode: string })[];
                             return (
                                 <>
-                                    <p className="hol-board-label" style={{ marginTop: "1rem" }}>👑 Season {season.lastSeason.id} Champions</p>
+                                    <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrown style={HOL_ICON} />Season {season.lastSeason.id} Champions</p>
                                     {champs.length === 0
                                         ? <p className="hol-empty">No champions crowned last season.</p>
                                         : champs.map((ch) => (
@@ -296,8 +303,8 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                 )}
                 {tab === "gauntlet" && (
                     <>
-                        <p className="hint" style={{ margin: "0 0 0.5rem" }}>🗡 Pet Gauntlet — this week's best runs. Each run is a randomized draft + enemy gauntlet; ranked by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
-                        <p className="hol-board-label">🏆 Weekly Gauntlet — Top 25{gauntletLb?.weekKey ? ` · ${gauntletLb.weekKey}` : ""}</p>
+                        <p className="hint" style={{ margin: "0 0 0.5rem" }}><GiGauntlet style={HOL_ICON} />Pet Gauntlet — this week's best runs. Each run is a randomized draft + enemy gauntlet; ranked by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
+                        <p className="hol-board-label"><GiTrophy style={HOL_ICON} />Weekly Gauntlet — Top 25{gauntletLb?.weekKey ? ` · ${gauntletLb.weekKey}` : ""}</p>
                         {!gauntletLb
                             ? <p className="hol-empty">Loading this week's board…</p>
                             : gauntletLb.rows.length === 0
@@ -321,7 +328,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                             lifetime damage, raid count. All four read from
                             character fields populated by claimPendingWarCrates
                             at war-end time. */}
-                        <p className="hol-board-label">🏆 Wars Won</p>
+                        <p className="hol-board-label"><GiTrophy style={HOL_ICON} />Wars Won</p>
                         {(() => {
                             const top = sortedTop(c => c.warsWon ?? 0).filter(c => (c.warsWon ?? 0) > 0);
                             return top.length === 0
@@ -330,7 +337,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                     <Row key={`won-${c.name}`} rank={i+1} name={c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>👑 MVP Wall</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrown style={HOL_ICON} />MVP Wall</p>
                         {(() => {
                             const top = sortedTop(c => c.warMvpCount ?? 0).filter(c => (c.warMvpCount ?? 0) > 0);
                             return top.length === 0
@@ -339,7 +346,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                     <Row key={`mvp-${c.name}`} rank={i+1} name={c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>💥 All-Time War Damage</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPunchBlast style={HOL_ICON} />All-Time War Damage</p>
                         {(() => {
                             const top = sortedTop(c => c.lifetimeWarDamage ?? 0).filter(c => (c.lifetimeWarDamage ?? 0) > 0);
                             return top.length === 0
@@ -348,13 +355,13 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                     <Row key={`dmg-${c.name}`} rank={i+1} name={c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
                                 ));
                         })()}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>⚔ Raids Completed</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrossedSwords style={HOL_ICON} />Raids Completed</p>
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
                             <Row key={`raid-${c.name}`} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
                         {/* Per-village W/L record from the server (api/world-state
                             standings). Ranked by win differential, then wins. */}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>🏯 Village War Records</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCastle style={HOL_ICON} />Village War Records</p>
                         {(() => {
                             const rows = [...warStandings]
                                 .filter(s => s && s.village && ((s.wins ?? 0) + (s.losses ?? 0)) > 0)
@@ -489,7 +496,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                 )}
                 {tab === "bounties" && (
                     <>
-                        <p className="hol-board-label">💰 Active Bounties — defeat the target in a duel to claim the pool</p>
+                        <p className="hol-board-label"><GiTwoCoins style={HOL_ICON} />Active Bounties — defeat the target in a duel to claim the pool</p>
                         <div className="summary-box" style={{ marginBottom: 10 }}>
                             <p className="hint">Stake ryo on a player's head; whoever beats them in a duel claims it. Your ryo: {(character.ryo ?? 0).toLocaleString()}.</p>
                             <input list="bounty-target-options" value={bountyTarget} onChange={e => setBountyTarget(e.target.value)} placeholder="Player name" />
