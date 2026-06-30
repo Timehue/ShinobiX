@@ -9,6 +9,7 @@ import {
     towerHexPixel, towerLayerSize, towerHexDistance, towerNeighbors, towerTilesInRange, HEX_W, HEX_H,
 } from "../lib/tower-grid";
 import { useBoardScale } from "../lib/use-board-scale";
+import { gameConfirm } from "../components/GameAlert";
 import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
 import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
 import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
@@ -383,7 +384,7 @@ export function BattleTowerFight({
                             // Free, penalty-free abandon — floors have unlimited retries.
                             <button
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: "#475569", color: "#cbd5e1" }}
-                                onClick={() => { if (window.confirm("Leave this floor? Your run won't be saved — floors have unlimited retries.")) onExit(); }}
+                                onClick={async () => { if (await gameConfirm("Leave this floor? Your run won't be saved — floors have unlimited retries.")) onExit(); }}
                             >Leave</button>
                         )}
                     </div>

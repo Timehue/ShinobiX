@@ -3,7 +3,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import type * as React from "react";
 import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
-import { GameAlertHost } from "./components/GameAlert";
+import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { NextGoalPin } from "./components/NextGoalPin";
@@ -136,6 +136,7 @@ const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobb
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
+const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
@@ -5107,7 +5108,7 @@ export default function App() {
 
     async function deleteCharacter() {
         if (!character) return;
-        if (!window.confirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`)) return;
+        if (!(await gameConfirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`, { title: "Delete Character", confirmLabel: "Delete", danger: true }))) return;
         const accountName = currentAccountName || character.name;
         const localAccounts = loadPlayerAccounts();
         const localPw = localAccounts[accountKey(accountName)]?.password
@@ -6142,7 +6143,7 @@ export default function App() {
             alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
             return;
         }
-        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`);
+        const ok = await gameConfirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`, { title: "Hollow Gate", confirmLabel: "Enter" });
         if (!ok) return;
 
         // Server daily-cap HARD-block (audit #7): with the server-auth flag on, ask the
@@ -7298,7 +7299,7 @@ export default function App() {
                 backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76))`,
             }}
         >
-            <GameAlertHost />
+            <GameAlertHost /><GameConfirmHost />
             <SaveErrorBanner visible={saveBlocked} />
             {sessionExpired && (
                 <div
@@ -8729,7 +8730,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} />}
+                {!activeTriggeredEvent && screen === "shinobiTiles" && character && <CardHall character={character} updateCharacter={setCharacter} creatorCards={creatorCards} onBack={goBack} autoStart={cardAutoStart} onAutoStartConsumed={() => setCardAutoStart(false)} onStartFreePlay={(matchId) => { try { sessionStorage.setItem("cardClashFreePlay.v1", JSON.stringify({ matchId })); } catch { /* ignore */ } setScreen("cardClashFreePlay"); }} />}
                 {!activeTriggeredEvent && screen === "guides" && <GuidesLibrary onExit={goBack} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <CardClashDuel character={character} creatorCards={creatorCards} tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
                 {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
@@ -8815,6 +8816,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} updateCharacter={setCharacter} playerRoster={playerRoster} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorCard" && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (

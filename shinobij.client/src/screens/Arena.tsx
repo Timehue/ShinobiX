@@ -11,6 +11,7 @@ const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
+import { gameConfirm } from "../components/GameAlert";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
@@ -34,6 +35,7 @@ import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPve
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
+import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
@@ -2290,9 +2292,9 @@ export function Arena({
     // loss) and drives the fight into the standard "loss" end-state, so the
     // existing per-type loss UI (endless run-end, dungeon fail, hospital, …) and
     // the battleEnded effect (mission-flag clear) take it from there.
-    function forfeit() {
+    async function forfeit() {
         if (battleEnded) return;
-        if (!confirm("Forfeit this battle? It counts as a loss.")) return;
+        if (!(await gameConfirm("Forfeit this battle? It counts as a loss.", { danger: true, confirmLabel: "Forfeit" }))) return;
         setBattleEnded(true);
         setBattleResult("loss");
         setRaidBattleKind("none");
@@ -4518,7 +4520,10 @@ export function Arena({
                                         <div className="summary-box" key={`spar-${player.name}`}>
                                             <strong>{player.name}</strong>
                                             <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                            <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
+                                            <div className="menu">
+                                                <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
+                                                {petRankedChallengeEnabled() && <button onClick={() => challengePlayer(player, "rankedPet")}>Ranked Pet Duel ⚔</button>}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

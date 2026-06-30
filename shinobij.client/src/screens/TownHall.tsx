@@ -7,6 +7,7 @@ import type { NoticePostType } from "../types/clan";
 import type { VillageUpgradeKey, Screen } from "../types/core";
 import { LeaderPortrait } from "../components/Marks";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { gameConfirm } from "../components/GameAlert";
 import { clampNumber, currentDateKey, currentMonthKey, makeId } from "../lib/utils";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
 import { addItem, removeItem, ownsItem } from "../lib/inventory";
@@ -328,7 +329,7 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         const seatedKage = serverKage.seatedKage;
         if (!seatedKage) return alert("No seated Kage is available to challenge yet.");
         if (seatedKage.toLowerCase() === character.name.toLowerCase()) return alert("You are already the seated Kage.");
-        if (!window.confirm(`Declare a Kage challenge against ${seatedKage}? This stakes ${KAGE_CHALLENGE_SEAL_COST} Honor Seals. You must beat them in a duel — and they must accept it or forfeit the seat.`)) return;
+        if (!(await gameConfirm(`Declare a Kage challenge against ${seatedKage}? This stakes ${KAGE_CHALLENGE_SEAL_COST} Honor Seals. You must beat them in a duel — and they must accept it or forfeit the seat.`))) return;
         const res = await fetch("/api/village/kage-challenge", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
