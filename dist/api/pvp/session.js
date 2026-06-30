@@ -21,6 +21,7 @@ const _ranked_match_token_js_1 = require("../_ranked-match-token.js");
 const _jutsu_catalog_js_1 = require("./_jutsu-catalog.js");
 const _multipliers_js_1 = require("./_multipliers.js");
 const _tags_js_1 = require("./_tags.js");
+const _jutsu_points_js_1 = require("../_jutsu-points.js");
 exports.PVP_MOVE_TOKEN_HISTORY = 20;
 // Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
 // minutes, so a 15-min TTL covers the live fight plus a buffer for the
@@ -412,14 +413,22 @@ function resolveEquippedLoadout(saveCharacter, save, clientCharacter) {
             // identical to today. Pair with BLOODLINE_RANK_ENTITLEMENT so a forged
             // rank can't claim higher caps than the player legitimately earned.
             const stampRank = process.env.BLOODLINE_RANK_CAPS === '1';
+            const enforceBudget = process.env.BLOODLINE_BUDGET_SERVER === '1';
             for (const b of bloodlines) {
                 if (!b || typeof b !== 'object')
                     continue;
                 const bl = b;
-                const jutsus = bl.jutsus;
-                if (stampRank && Array.isArray(jutsus) && typeof bl.rank === 'string') {
+                const blRank = typeof bl.rank === 'string' ? bl.rank : null;
+                let jutsus = bl.jutsus;
+                // Defense-in-depth: enforce the bloodline point budget here too, so a
+                // pre-existing over-budget save (written before BLOODLINE_BUDGET_SERVER
+                // was enabled) is still clamped down when it loads into a fight.
+                if (enforceBudget && Array.isArray(jutsus)) {
+                    jutsus = (0, _jutsu_points_js_1.enforceBloodlineBudget)(jutsus, blRank);
+                }
+                if (stampRank && Array.isArray(jutsus) && blRank) {
                     jutsuObjectsById(extra, jutsus.map((j) => j && typeof j === 'object'
-                        ? { ...j, bloodlineRank: bl.rank }
+                        ? { ...j, bloodlineRank: blRank }
                         : j));
                 }
                 else {
