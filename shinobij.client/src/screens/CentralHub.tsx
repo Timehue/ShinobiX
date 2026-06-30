@@ -1,6 +1,11 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+// Fantasy location glyphs (game-icons.net, CC BY 3.0 — attributed in the nav footer).
+import {
+    GiCrossedSwords, GiGreekTemple, GiShop, GiDragonHead, GiTrophy, GiBookshelf,
+    GiCrystalBall, GiColiseum, GiBlacksmith, GiDungeonGate, GiOgre, GiStoneTower,
+} from "react-icons/gi";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
@@ -572,43 +577,43 @@ export function CentralHub({
     const centralOptions = [
         {
             name: "Arena District",
-            icon: "⚔️",
+            icon: <GiCrossedSwords size={34} />,
             text: "Clan battles, ranked mode, tournaments, spectator boards, and pet battle challenges.",
             action: () => setScreen("arenaDistrict"),
         },
         {
             name: "Shinobi Council Hall",
-            icon: "🏛️",
+            icon: <GiGreekTemple size={34} />,
             text: "Active village wars, clan wars, HP of each side, and top contributors.",
             action: () => setScreen("shinobiCouncil"),
         },
         {
             name: "Grand Marketplace",
-            icon: "🏪",
+            icon: <GiShop size={34} />,
             text: "Rare items, trading stalls, cosmetics, limited event goods, and merchant contracts.",
             action: () => setScreen("grandMarketplace"),
         },
         {
             name: "Hunter Guild",
-            icon: "🐉",
+            icon: <GiDragonHead size={34} />,
             text: "Beast hunt contracts, sector tracking, material drops, and hunter rank progression.",
             action: () => setScreen("hunting"),
         },
         {
             name: "Hall of Legends",
-            icon: "🏆",
+            icon: <GiTrophy size={34} />,
             text: "Ranked leaderboards, top clans, kill streaks, pet arena, endless waves, and village war records.",
             action: () => setScreen("hallOfLegends"),
         },
         {
             name: "Ancient Archives",
-            icon: "📜",
+            icon: <GiBookshelf size={34} />,
             text: "Bloodline lore, forbidden jutsu research, hidden boss clues, and world history.",
             action: () => setShowArchives(true),
         },
         {
             name: "Awakening Stone",
-            icon: "🔮",
+            icon: <GiCrystalBall size={34} />,
             text: getCharacterElements(character).length
                 ? `Your elements: ${getCharacterElements(character).join(" / ")}. Reroll, or forge a bloodline using ancient materials.`
                 : "Discover your elemental nature. Free at level 2 and level 20.",
@@ -616,31 +621,31 @@ export function CentralHub({
         },
         {
             name: "Pet Coliseum",
-            icon: "🐾",
+            icon: <GiColiseum size={34} />,
             text: "Pick a pet and watch a cinematic duel — it approaches, kites, dodges and unleashes ultimates on its own. Also hosts the Tactical Pet Arena.",
             action: () => setScreen("petArena"),
         },
         {
             name: "Crafter",
-            icon: "⚒️",
+            icon: <GiBlacksmith size={34} />,
             text: "Convert hunting, boss, dungeon, and war materials into supplies and existing balanced weapons.",
             action: () => setShowCrafter(true),
         },
         {
             name: "Relic Dungeons",
-            icon: "🗝️",
+            icon: <GiDungeonGate size={34} />,
             text: `Use Dungeon Keys to enter one of five same-strength relic dungeons. Keys: ${countInventory(DUNGEON_KEY_ID)}.`,
             action: () => setShowDungeonPanel(true),
         },
         {
             name: "Weekly Boss",
-            icon: "👹",
+            icon: <GiOgre size={34} />,
             text: "Server-wide rampage — boss has unlimited HP and despawns in 24h. Top 10 by damage earn a Weekly Boss Core, top 25 earn a Dungeon Key, MVP gets 2× ryo + XP.",
             action: () => setScreen("weeklyBoss"),
         },
         {
             name: "Celestial Tower",
-            icon: "🌌",
+            icon: <GiStoneTower size={34} />,
             text: "Endless PvE climb — fight scaling AI until you fall. Banked ryo & XP lost on death, but kill milestones (Bone Charms / Fate Shards) and 10-kill rest stops are yours to keep.",
             action: () => setShowCelestialPanel(true),
         },
