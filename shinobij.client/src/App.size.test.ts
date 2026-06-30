@@ -87,7 +87,10 @@ import { readFileSync } from "node:fs";
 // sites live here: the import (+1), beginHollowGateServerRun at the two dive entries
 // (+2 calls/comments), and the settle hooks replacing the inline claw-back at the
 // run-end funnels (leave / battle-KO / boot-restore).)
-const MAX_LINES = 10_123;
+// → 10,126 (+3 Hollow Gate future-proofing: resumeHollowGateServerRun re-presents the
+// augment picker on run-resume (refresh-mid-pick safety) at the two restore branches;
+// the decision logic is the pure shouldResumeAugmentPicker in the lib.)
+const MAX_LINES = 10_126;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

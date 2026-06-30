@@ -237,12 +237,66 @@ export async function beginHollowGateServerRun(opts: {
             : prev,
     );
 
-    const offers = res.augmentOffers ?? [];
-    if (offers.length === 0) return;
+    presentAugmentPicker({
+        playerName: opts.playerName,
+        token,
+        offers: res.augmentOffers ?? [],
+        setRun: opts.setRun,
+        setCharacter: opts.setCharacter,
+        setEvent: opts.setEvent,
+        pushLog: opts.pushLog,
+    });
+}
+
+/** On RESUME of an in-progress run: if it carries a server token, was minted with
+ *  augment offers, and the player never chose one (e.g. they refreshed during the
+ *  pick), re-present the picker. Never re-calls start — that would double-count the
+ *  daily-run counter; it only re-offers what the server already rolled. No-op when
+ *  the flag is off, the run is token-less, or an augment was already chosen. */
+/** Pure: should resume re-present the picker? True iff the run carries a server
+ *  token, was minted with offers, and no augment was chosen yet. (The flag check
+ *  is separate so this stays window-free + unit-testable.) */
+export function shouldResumeAugmentPicker(run: HollowGateShrineRun | null | undefined): boolean {
+    return Boolean(run?.runToken) && !run?.chosenAugment && Boolean(run?.augmentOffers?.length);
+}
+
+export function resumeHollowGateServerRun(opts: {
+    playerName: string;
+    run: HollowGateShrineRun | null | undefined;
+    setRun: SetRun;
+    setCharacter: SetCharacter;
+    setEvent: (e: HollowGateModal | null) => void;
+    pushLog: (line: string) => void;
+}): void {
+    const run = opts.run;
+    if (!hollowGateServerEnabled() || !shouldResumeAugmentPicker(run)) return;
+    presentAugmentPicker({
+        playerName: opts.playerName,
+        token: run?.runToken ?? "",
+        offers: run?.augmentOffers ?? [],
+        setRun: opts.setRun,
+        setCharacter: opts.setCharacter,
+        setEvent: opts.setEvent,
+        pushLog: opts.pushLog,
+    });
+}
+
+/** Present the augment picker via the run-event modal and wire the choose flow.
+ *  Shared by entry (beginHollowGateServerRun) and resume. No-op for empty offers. */
+function presentAugmentPicker(opts: {
+    playerName: string;
+    token: string;
+    offers: HollowGateAugmentOffer[];
+    setRun: SetRun;
+    setCharacter: SetCharacter;
+    setEvent: (e: HollowGateModal | null) => void;
+    pushLog: (line: string) => void;
+}): void {
+    if (opts.offers.length === 0) return;
     opts.setEvent(
-        buildAugmentPickerEvent(offers, (offer) => {
+        buildAugmentPickerEvent(opts.offers, (offer) => {
             opts.setEvent(null);
-            void chooseHollowGateAugment(opts.playerName, token, offer.id).then((ok) => {
+            void chooseHollowGateAugment(opts.playerName, opts.token, offer.id).then((ok) => {
                 if (!ok) { opts.pushLog("The shrine spurns your offering — you descend unaugmented."); return; }
                 opts.setRun((prev) => (prev ? { ...prev, chosenAugment: offer } : prev));
                 opts.setCharacter((prev) =>
