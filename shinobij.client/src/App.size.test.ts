@@ -94,7 +94,11 @@ import { readFileSync } from "node:fs";
 // hollowGateAugmentEffects() maps the chosen augment to enemy-clone HP/stat/shave
 // mults + run flags; applied ONLY to the per-dive enemy in startHollowGateBattle and
 // the Keeper-heal / Leave-tile handlers — never the shared combat engine.)
-const MAX_LINES = 10_139;
+// → 10,152 (+13 Hollow Gate server daily-cap HARD-block, audit #7: enterHollowGate
+// is now async and AWAITS startHollowGateServerRun before spending the Key, so a
+// 'daily-cap' reply blocks the dive (was soft). Lib split: attachStartedRun() shared
+// by the awaited live entry + the background admin entry. Flag-off → unchanged.)
+const MAX_LINES = 10_152;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
