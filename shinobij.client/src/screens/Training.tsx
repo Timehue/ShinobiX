@@ -8,6 +8,7 @@
 /* eslint-disable react-hooks/purity */
 import type React from "react";
 import { useState, useEffect } from "react";
+import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BackToVillageButton } from "../components/BackToVillageButton";
@@ -69,13 +70,13 @@ export function Training({ character, updateCharacter, activeTraining, setActive
     // Runs the exact completion logic on the prorated XP so leveling, stat caps
     // and unspent-point limits behave identically to a full claim. Stamina spent
     // to start is not refunded.
-    function cancelTraining() {
+    async function cancelTraining() {
         if (!activeTraining) return;
         const totalMs = activeTraining.durationMs ?? timers.find((t) => activeTraining.label.startsWith(t.label))?.ms ?? 0;
         const remaining = Math.max(0, activeTraining.endsAt - Date.now());
         const progress = totalMs > 0 ? Math.min(1, Math.max(0, 1 - remaining / totalMs)) : 1;
         const proratedXp = Math.floor(activeTraining.xp * progress);
-        if (!confirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (${proratedXp} XP) and the stat points it earns. Stamina already spent is not refunded.`)) return;
+        if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (${proratedXp} XP) and the stat points it earns. Stamina already spent is not refunded.`))) return;
         const earnedStatPoints = statPointsEarnedFromXp(character, proratedXp);
         const leveled = gainXp(character, proratedXp);
         const focusedGain = Math.min(earnedStatPoints, leveled.unspentStats, MAX_STAT - leveled.stats[activeTraining.stat]);
@@ -427,10 +428,10 @@ export function JutsuTrainingHall({
     // training level is not granted and the progress is forfeited. Ryo training
     // is client-authoritative (the debit on start has no server endpoint), so
     // the symmetric refund stays client-side too.
-    function cancelPaidJutsuTraining() {
+    async function cancelPaidJutsuTraining() {
         if (!activeJutsuTraining) return;
         const refund = Math.floor(activeJutsuTraining.ryoCost * 0.5);
-        if (!confirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`)) return;
+        if (!(await gameConfirm(`Cancel ${activeJutsuTraining.label} training? You'll get ${refund} ryo back (50% of ${activeJutsuTraining.ryoCost}) and forfeit the training progress.`))) return;
         updateCharacter({ ...character, ryo: character.ryo + refund });
         setActiveJutsuTraining(null);
         alert(`Training cancelled. Refunded ${refund} ryo.`);
@@ -440,13 +441,13 @@ export function JutsuTrainingHall({
     // (mirrors the start-cost debit — no server endpoint) and zeroes the timer;
     // the existing claim button / queue-runner then grants the level (and promotes
     // any queued 2nd training) exactly as a natural completion would.
-    function finishWithRyo() {
+    async function finishWithRyo() {
         if (!activeJutsuTraining) return;
         const remainingMs = activeJutsuTraining.endsAt - Date.now();
         if (remainingMs <= 0) return;
         const cost = jutsuRyoFinishCost(remainingMs);
         if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost.toLocaleString()} ryo to finish instantly.`);
-        if (!confirm(`Finish ${activeJutsuTraining.label} training now for ${cost.toLocaleString()} ryo?`)) return;
+        if (!(await gameConfirm(`Finish ${activeJutsuTraining.label} training now for ${cost.toLocaleString()} ryo?`))) return;
         updateCharacter({ ...character, ryo: character.ryo - cost });
         setActiveJutsuTraining({ ...activeJutsuTraining, endsAt: Date.now() });
     }
@@ -491,10 +492,10 @@ export function JutsuTrainingHall({
     }
 
     // Remove the queued 2nd training before it starts — full ryo refund (it never ran).
-    function cancelQueuedJutsuTraining() {
+    async function cancelQueuedJutsuTraining() {
         if (!activeJutsuTraining?.next) return;
         const queued = activeJutsuTraining.next;
-        if (!confirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`)) return;
+        if (!(await gameConfirm(`Remove the queued ${queued.label} training? You'll get all ${queued.ryoCost} ryo back — it hasn't started.`))) return;
         updateCharacter({ ...character, ryo: character.ryo + queued.ryoCost });
         setActiveJutsuTraining({ ...activeJutsuTraining, next: null });
         alert(`Queued training removed. Refunded ${queued.ryoCost} ryo.`);

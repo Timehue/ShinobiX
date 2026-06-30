@@ -16,9 +16,10 @@ import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
  * exactly once — so the pet ranked ladder can no longer be moved by a client
  * that just asserts `ranked: true` with an arbitrary opponent / rating.
  *
- * Pet ranked is not yet wired on the client (the ranked pet path in
- * pet/battle-result is dormant); this is the server half, ready for the client
- * to call when the feature ships: POST { opponentName } → { matchToken }.
+ * Client wiring: the accept/resolve half (pet/battle-result ranked branch) is
+ * complete; the SEND half is a "Ranked Pet Duel" button in the Arena player list,
+ * gated behind the `petRankedChallenge.v1` flag (default OFF) until the direct-
+ * challenge mode is two-client tested. POST { opponentName } → { matchToken }.
  *
  * Body: { opponentName }
  */
