@@ -21,7 +21,7 @@
 }
 
 .start-title {
-    font-family: "Cinzel", "Trajan Pro", "Cormorant Garamond", "Times New Roman", serif;
+    font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: 0.12em;
     font-size: clamp(28px, 6.5vw, 72px);
@@ -75,7 +75,7 @@
     border-radius: 10px;
     padding: 12px 36px;
     min-width: 200px;
-    font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 0.18em;
@@ -172,7 +172,7 @@
     margin: 0 0 18px !important;
     text-align: center;
     color: #fde68a !important;
-    font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+    font-family: var(--font-display);
     letter-spacing: 0.32em;
     font-size: 18px;
     font-weight: 700;
@@ -308,7 +308,7 @@
     border: 1px solid rgba(250, 204, 21, 0.65) !important;
     border-radius: 8px;
     padding: 13px 24px !important;
-    font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+    font-family: var(--font-display);
     font-weight: 700;
     font-size: 15px;
     letter-spacing: 0.22em;
@@ -406,7 +406,7 @@
 .start-leaderboard-header h2 {
     margin: 0;
     color: #fde68a;
-    font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+    font-family: var(--font-display);
     font-size: 28px;
     letter-spacing: 0.18em;
     text-shadow: 0 0 22px rgba(250, 204, 21, 0.4);
@@ -545,7 +545,7 @@
 .start-tournament-card h3 {
     margin: 0 0 10px;
     color: #fde68a;
-    font-family: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+    font-family: var(--font-display);
     letter-spacing: 0.12em;
     font-size: 18px;
     text-shadow: 0 0 18px rgba(250, 204, 21, 0.25);
