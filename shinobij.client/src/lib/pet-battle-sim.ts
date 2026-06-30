@@ -11,7 +11,8 @@
  * simulation from the same seed), so the RNG call order here must not change.
  */
 import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, petPairBond, petHighGroundTiles, petPickupTiles, petBushTiles, petShrineSeekGoal, makeArena, type PetBattleActor, type BattleStatus, type PetPairBond, type ArenaTile } from "./pet-tactics";
-import { petMoveset, jutsuToPetMove } from "./pet-moves";
+import { petMoveset, jutsuToPetMove, petMoveAccuracy } from "./pet-moves";
+import { petAccuracyEnabled } from "./pet-coliseum-flag";
 import { choosePetAction, choosePartyTarget, type PetAiState } from "./pet-ai";
 import { roleMultiplier, petRoleOf } from "./pet-roles";
 import {
@@ -725,7 +726,7 @@ function petElementLabel(mult: number): string {
     return "";
 }
 
-export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false) {
+export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, accuracyEnabled = petAccuracyEnabled()) {
     // Apply each pet's equipped PVP gear (stat modifiers) before the fight.
     // Driven by each pet's own loadout, so a synced battle stays deterministic.
     const playerPet = applyPetPvpGear(playerPetIn);
@@ -1208,6 +1209,19 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         if (chosen) {
             const jutsu = chosen;
             const nextActor = { ...actor, cooldowns: { ...actor.cooldowns, [jutsu.name]: Math.max(1, jutsu.cooldown) } };
+
+            // Accuracy miss-roll (flag-gated; default off). Support kinds are
+            // accuracy 100 → never miss; offensive/control kinds use the authored
+            // per-kind value. A miss still consumes the turn + cooldown (nextActor).
+            // The `accuracyEnabled &&` short-circuit means flag-off draws NO rng,
+            // so existing deterministic outcomes are byte-identical.
+            if (accuracyEnabled && rng() >= petMoveAccuracy(jutsu.kind) / 100) {
+                const msg = `Round ${round}: ${actor.pet.name}'s ${jutsu.name} misses ${target.pet.name}!`;
+                logs.push(msg);
+                if (actorSide === "player") player = nextActor; else enemy = nextActor;
+                pushFrame(round, msg, actorSide);
+                return [nextActor, target];
+            }
 
             if (jutsu.kind === "buff") {
                 const atkGain = Math.max(1, Math.floor(jutsu.power / 2));
@@ -1887,6 +1901,7 @@ export function runPetArenaParty(
     playerDamageMult = 1,
     playerHpMult = 1,
     playerReviveOnce = false,
+    accuracyEnabled = petAccuracyEnabled(),
 ): PetPartyBattleResult {
     const summaryLogs: string[] = [];
     const logs: string[] = [];
@@ -2390,6 +2405,18 @@ export function runPetArenaParty(
                 ? { name: jutsuName, petName: actor.pet.name, side: actorIsPlayer ? "player" : "enemy", flagship: actor.pet.rarity === "mythic" }
                 : undefined;
             pushPartyFrame(round, msg, actorSlot, kind, damage, crit, traitFlash, undefined, fighters[targetSlot!]!.hp <= 0, targetSlot!, sigMove);
+        }
+
+        // Accuracy miss-roll (flag-gated; default off). Only enemy-targeted moves
+        // can miss; support kinds are accuracy 100 anyway. The cooldown is already
+        // applied (cdActor written to fighters[actorSlot] above), so a miss just
+        // skips the effect. `accuracyEnabled &&` short-circuits so flag-off draws
+        // no rng — existing deterministic outcomes stay byte-identical.
+        if (accuracyEnabled && !targetIsAlly && rng() >= petMoveAccuracy(chosen.kind) / 100) {
+            const missMsg = `Round ${round}: ${actor.pet.name}'s ${chosen.name} misses ${target.pet.name}!`;
+            logs.push(missMsg);
+            pushPartyFrame(round, missMsg, actorSlot, undefined, undefined, undefined, undefined, undefined, undefined, targetSlot);
+            return;
         }
 
         switch (chosen.kind) {

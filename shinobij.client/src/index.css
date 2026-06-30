@@ -19222,7 +19222,9 @@ button.combat-jutsu-button,
     left: 0;
     right: 0;
     bottom: calc(70px + env(safe-area-inset-bottom));
-    z-index: 999;
+    /* Above the bottom nav (z-index 1000) so chips floating just over the nav
+       are never clipped by it. */
+    z-index: 1001;
     padding: 6px 8px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
