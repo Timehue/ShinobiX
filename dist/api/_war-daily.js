@@ -20,9 +20,12 @@ exports.runVillageWarDailyPass = runVillageWarDailyPass;
 const _storage_js_1 = require("./_storage.js");
 const _lock_js_1 = require("./_lock.js");
 const _war_economy_js_1 = require("./_war-economy.js");
+const _war_telemetry_js_1 = require("./_war-telemetry.js");
 const _war_map_sectors_js_1 = require("./_war-map-sectors.js");
 const _war_state_js_1 = require("./_war-state.js");
 const _war_structures_js_1 = require("./_war-structures.js");
+const world_state_js_1 = require("./world-state.js");
+const _sector_war_store_js_1 = require("./_sector-war-store.js");
 /** The existing village-treasury key (seal accrual target). Same slug as the
  *  war-state key and api/village/claim-daily-agenda.ts. */
 function villageStateKey(village) {
@@ -49,6 +52,19 @@ async function runVillageWarDailyPass(deps = {}) {
         return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0 };
     const store = deps.store ?? _storage_js_1.kv;
     const lock = deps.lock ?? ((key, fn) => (0, _lock_js_1.withKvLock)(key, fn, { failClosed: true }));
+    // Whether a village is currently at war — an active village war OR a sector
+    // contest it attacks/defends. At peace, its per-war structures reset. Injectable
+    // so the pass stays unit-testable without the live war stores.
+    const isAtWar = deps.isAtWar ?? (async (v) => {
+        try {
+            if ((await (0, world_state_js_1.activeVillageWarEnemiesOf)(v)).length > 0)
+                return true;
+            return (await (0, _sector_war_store_js_1.listActiveSectorWars)()).some((c) => c.attackerVillage === v || c.defenderVillage === v);
+        }
+        catch {
+            return false;
+        }
+    });
     const now = deps.now ?? Date.now();
     const today = utcDateString(now);
     let ran = 0;
@@ -61,16 +77,34 @@ async function runVillageWarDailyPass(deps = {}) {
             await lock(key, async () => {
                 const raw = await store.get(key);
                 const record = (0, _war_state_js_1.normalizeVillageWarRecord)(village, raw ?? undefined);
-                const { record: next, summary } = (0, _war_state_js_1.stepVillageWarDay)(record, {
+                const { record: stepped, summary } = (0, _war_state_js_1.stepVillageWarDay)(record, {
                     sectorsControlled: sectors,
                     today,
                     now,
                     wrPerSector: (0, _war_structures_js_1.wrPerSector)(record), // Supply-Depot-boosted income
                 });
+                // Per-war fortifications (Ramparts/Watchtower) reset to 0 once the
+                // village is at peace — they never carry into the next war (§7 split).
+                const next = (await isAtWar(village)) ? stepped : (0, _war_structures_js_1.resetPerWarStructures)(stepped);
                 if (summary.ran) {
                     await store.set(key, next);
                     ran++;
                     ranThisVillage = true;
+                    // Telemetry (best-effort, same store): the day's WR faucet, upkeep
+                    // sink, and any dormancy transition. eventId is keyed per
+                    // village/day so the idempotent pass can't double-count.
+                    const slug = (0, _war_state_js_1.villageWarSlug)(village);
+                    if (summary.wrAccrued > 0)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `wr-earn:${slug}:${today}`, village, kind: 'wr.earn', amount: summary.wrAccrued, ts: now }, { kv: store });
+                    if (summary.maintenancePaid > 0)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `wr-maint:${slug}:${today}`, village, kind: 'wr.spend.maintenance', amount: summary.maintenancePaid, ts: now }, { kv: store });
+                    if (!record.dormant && summary.dormant)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `dormancy-enter:${slug}:${today}`, village, kind: 'dormancy.enter', amount: 1, ts: now }, { kv: store });
+                    if (record.dormant && !summary.dormant)
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `dormancy-exit:${slug}:${today}`, village, kind: 'dormancy.exit', amount: 1, ts: now }, { kv: store });
+                }
+                else if (next !== stepped) {
+                    await store.set(key, next); // a peace-time per-war reset with no daily accrual today
                 }
             });
             // Seal accrual → existing village treasury, once per fresh daily run
@@ -87,6 +121,7 @@ async function runVillageWarDailyPass(deps = {}) {
                             treasury: { ...treasury, honorSeals: num(treasury.honorSeals) + seals },
                         });
                         sealsAccrued += seals;
+                        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `seals-earn:${(0, _war_state_js_1.villageWarSlug)(village)}:${today}`, village, kind: 'seals.earn', amount: seals, ts: now }, { kv: store });
                     });
                 }
             }

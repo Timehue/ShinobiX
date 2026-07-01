@@ -88,7 +88,9 @@ const war_structure_js_1 = __importDefault(require("./api/village/war-structure.
 const war_win_condition_js_1 = __importDefault(require("./api/village/war-win-condition.js"));
 const war_terrain_js_1 = __importDefault(require("./api/village/war-terrain.js"));
 const sector_war_js_1 = __importDefault(require("./api/village/sector-war.js"));
+const war_merc_js_1 = __importDefault(require("./api/village/war-merc.js"));
 const sector_card_js_1 = __importDefault(require("./api/village/sector-card.js"));
+const sector_pet_js_1 = __importDefault(require("./api/village/sector-pet.js"));
 const war_map_js_1 = __importDefault(require("./api/village/war-map.js"));
 const claim_war_crate_js_1 = __importDefault(require("./api/village/claim-war-crate.js"));
 const claim_interest_js_1 = __importDefault(require("./api/bank/claim-interest.js"));
@@ -143,6 +145,7 @@ const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.j
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
+const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
 // PvP — realtime + rewards + queues
 const chat_js_2 = __importDefault(require("./api/pvp/chat.js"));
 const spectate_js_1 = __importDefault(require("./api/pvp/spectate.js"));
@@ -211,6 +214,12 @@ if (process.env.SENTRY_DSN) {
     }
 }
 // ─── App setup ───────────────────────────────────────────────────────────────
+// Village War Map is now ALWAYS ON (Combat/Card/Pet sector wars, mercenaries, the
+// merc cron). Every handler + cron gates on ENABLE_VILLAGE_WAR==='1', so default it
+// on here once, at startup, for the whole process. Kill-switch: set DISABLE_VILLAGE_WAR=1
+// to turn the entire system back off without code changes.
+if (process.env.DISABLE_VILLAGE_WAR !== '1')
+    process.env.ENABLE_VILLAGE_WAR = '1';
 const app = (0, express_1.default)();
 // JSON body parsing. The vast majority of routes carry tiny JSON (polls, moves,
 // player actions); only the image-pipe and admin-import routes legitimately POST
@@ -592,6 +601,10 @@ route('/village/sector-war', sector_war_js_1.default);
 // 6-turn Card Clash between an attacker- and defender-village member, settling
 // the same contest Control HP (forked clan-war engine). Gated (404 unless flag).
 route('/village/sector-card', sector_card_js_1.default);
+// Village War Map — sector-war "Pet" win-condition (Phase 7): a deterministic 1v1
+// pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
+// the same contest Control HP. The client replays the same (pets, seed). Gated.
+route('/village/sector-pet', sector_pet_js_1.default);
 // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -600,6 +613,10 @@ route('/village/war-map', war_map_js_1.default);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', claim_war_crate_js_1.default);
+// Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
+// 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
+// sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/war-merc', war_merc_js_1.default);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', claim_interest_js_1.default);
@@ -671,6 +688,7 @@ route('/sector/wanderer-gift', wanderer_gift_js_1.default);
 route('/sector/wanderer-quest', wanderer_quest_js_1.default);
 route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
+route('/sector/merc-roam', merc_roam_js_1.default);
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic
 // route() wrapper passes res straight through so the handlers stream normally.

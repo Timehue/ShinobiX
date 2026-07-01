@@ -32,9 +32,15 @@ exports.STRUCTURE_KEYS = [
     'ramparts', 'watchtower', 'barracks', 'warAcademy', 'supplyDepot', 'treasuryVault',
 ];
 exports.TERRAINS = ['forest', 'snow', 'volcano', 'shadow', 'central'];
-exports.SECTOR_CONTROL_HP_MAX = 600; // §17.6
-exports.SECTOR_CONTROL_HP_PER_WIN = 150; // attacker win → −150
-exports.SECTOR_CONTROL_HP_DEFENDER_REGEN = 50; // defender win → +50
+// §17.6 — a sector's hold. Sized as a "shorter village war": at a village-wide
+// ~20-30 fights/hour it takes a day or two of sustained pressure to drain a fully
+// held sector, since each fight only moves it by a role-scaled swing (api/_war-role
+// sectorControlSwing) — NOT a flat chunk. Watchtower raises this cap.
+exports.SECTOR_CONTROL_HP_MAX = 2000;
+// Legacy flat tuning — retained for back-compat/imports; the live model is the
+// role-scaled swing (api/_war-role) applied by each win-condition resolve.
+exports.SECTOR_CONTROL_HP_PER_WIN = 150;
+exports.SECTOR_CONTROL_HP_DEFENDER_REGEN = 50;
 // Terrain-pick quota (§17.3): the Kage may set 3 sectors' terrain, each elder 1.
 exports.TERRAIN_QUOTA_KAGE = 3;
 exports.TERRAIN_QUOTA_ELDER = 1;
@@ -50,9 +56,10 @@ function asTerrain(v, fallback) {
 }
 /** A fresh war-state for a village: empty WR, all structures L0, every home
  *  sector secure (full Control HP), biome terrain. Win-conditions default to a
- *  valid, diverse spread that uses only the v1-ready battle types — they
- *  alternate Combat / Card (4 each), so the max-7 diversity rule holds from the
- *  start and no sector defaults to Pet before its server sim is wired (§17.2). */
+ *  valid, diverse spread that alternates Combat / Pet (4 each) — Pet's server
+ *  sim is now wired (api/village/sector-pet), so it is a first-class default.
+ *  Card remains a Kage-selectable option but is not a default. The max-7
+ *  per-type diversity rule holds from the start. */
 function defaultVillageWarRecord(village) {
     const biome = (0, _war_map_sectors_js_1.isWarVillage)(village) ? _war_map_sectors_js_1.VILLAGE_BIOME[village] : 'central';
     const structures = Object.fromEntries(exports.STRUCTURE_KEYS.map((k) => [k, 0]));
@@ -60,7 +67,7 @@ function defaultVillageWarRecord(village) {
     const home = _war_map_sectors_js_1.HOME_SECTORS[village] ?? [];
     home.forEach((s, i) => {
         sectors[String(s)] = {
-            winCondition: i % 2 === 0 ? 'combat' : 'card',
+            winCondition: i % 2 === 0 ? 'combat' : 'pet',
             terrain: biome,
             controlHp: exports.SECTOR_CONTROL_HP_MAX,
         };
@@ -109,7 +116,8 @@ function normalizeVillageWarRecord(village, raw) {
             if (seen.has(dedupeKey))
                 continue;
             seen.add(dedupeKey);
-            base.mercLeases.push({ tierId, player, expiresAt });
+            const count = clampInt(l.count ?? (0, _war_economy_js_1.mercBandSize)(tierId), 0, _war_economy_js_1.MERC_BAND_MAX);
+            base.mercLeases.push({ tierId, player, expiresAt, count });
         }
     }
     if (raw.terrainSetBy && typeof raw.terrainSetBy === 'object') {

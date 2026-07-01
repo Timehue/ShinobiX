@@ -303,6 +303,31 @@ export async function villageHasActiveWar(village: string): Promise<boolean> {
     return wars.some(w => !w.endedAt && w.villages.includes(village));
 }
 
+/** The villages `village` is currently in an active (non-ended) VILLAGE war with.
+ *  Used by the roaming-merc roster: an enemy's hired mercs follow this village's
+ *  players, so they roam whatever sector the player is in (not a fixed sector like
+ *  a sector-war band). Usually 0 or 1 (one-war-at-a-time). */
+export async function activeVillageWarEnemiesOf(village: string): Promise<string[]> {
+    const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
+    const out: string[] = [];
+    for (const w of wars) {
+        if (w.endedAt || !w.villages.includes(village)) continue;
+        const enemy = w.villages.find(v => v !== village);
+        if (enemy) out.push(enemy);
+    }
+    return out;
+}
+
+/** Active (non-ended, non-pending) village wars as village pairs. Used by the
+ *  roaming-merc cron to hunt enemy players during an all-out war (pending wars are
+ *  excluded — HP is frozen in the pre-war window, so there's nothing to chip). */
+export async function listActiveVillageWars(): Promise<Array<{ villages: [string, string] }>> {
+    const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
+    return wars
+        .filter(w => !w.endedAt && !warIsPending(w))
+        .map(w => ({ villages: w.villages }));
+}
+
 /**
  * Sector War (Phase 4c) — flip a sector's persistent owner to the capturing
  * village once its Control-HP siege breaks (api/_sector-war.ts applySectorBattleResult
@@ -451,6 +476,43 @@ function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: Villag
         },
         changed: true,
     };
+}
+
+// A hired merc band can SOFTEN an enemy in a village war but must never deliver
+// the war-ending blow — ending a war fires spoils / MVP crates / the losing
+// penalty, which stay with real player actions. So merc damage floors the enemy's
+// war HP here (a player has to land the last hit through the normal raid path).
+const VILLAGE_WAR_MERC_HP_FLOOR = 1;
+
+/** Apply a mercenary's village-war win: chip `damage` off the ENEMY village's war
+ *  HP in the live war between `attackerVillage` and `enemyVillage`, under the same
+ *  per-war lock the raid path uses. Returns the enemy's new HP, or null when there
+ *  is no live, non-pending war between them (so the caller no-ops cleanly). The
+ *  enemy HP is floored at VILLAGE_WAR_MERC_HP_FLOOR — mercs soften, players finish.
+ *  Server-authoritative: the merc fight is resolved server-side; this never trusts
+ *  a client outcome. */
+export async function applyMercVillageWarDamage(
+    attackerVillage: string,
+    enemyVillage: string,
+    damage: number,
+    now: number = Date.now(),
+): Promise<{ enemyHp: number; enemyHpMax: number } | null> {
+    const warKey = `${VILLAGE_WAR_KEY_PREFIX}${villageWarId(attackerVillage, enemyVillage)}`;
+    return withKvLock(warKey, async () => {
+        let war = await kv.get<VillageWar>(warKey);
+        if (!war || war.endedAt) return null;
+        // Settle stale daily decay first so we chip the live HP (mirrors the raid path).
+        const decayed = applyWarDecay(war, now);
+        if (decayed.changed) { war = decayed.war; await kv.set(warKey, war); }
+        if (war.endedAt || warIsPending(war)) return null; // ended by decay, or pre-war window (HP frozen)
+        if (!war.villages.includes(enemyVillage)) return null;
+        const before = Number(war.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX);
+        const after = Math.max(VILLAGE_WAR_MERC_HP_FLOOR, before - Math.max(0, Math.floor(damage)));
+        if (after !== before) {
+            await kv.set(warKey, { ...war, hp: { ...war.hp, [enemyVillage]: after }, updatedAt: now });
+        }
+        return { enemyHp: after, enemyHpMax: VILLAGE_WAR_HP_MAX };
+    });
 }
 
 // ── Village-war losing penalty ──────────────────────────────────────────────

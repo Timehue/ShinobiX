@@ -53,23 +53,23 @@ function rec(levels = {}, dormant = false) {
         node_assert_1.strict.equal((0, _war_structures_js_1.taxRateMultiplier)(rec()), 1);
     });
 });
-(0, node_test_1.describe)('war-structures: applyStructureUpgrade (pure)', () => {
-    (0, node_test_1.it)('upgrades when affordable, debiting seals', () => {
-        const r = (0, _war_structures_js_1.applyStructureUpgrade)(rec(), 100, 'ramparts');
+(0, node_test_1.describe)('war-structures: applyStructureUpgrade (permanent, seal-funded)', () => {
+    (0, node_test_1.it)('upgrades a permanent structure when affordable, debiting seals', () => {
+        const r = (0, _war_structures_js_1.applyStructureUpgrade)(rec(), 100, 'barracks');
         node_assert_1.strict.equal(r.ok, true);
         node_assert_1.strict.equal(r.cost, 5);
         node_assert_1.strict.equal(r.nextSeals, 95);
         node_assert_1.strict.equal(r.newLevel, 1);
-        node_assert_1.strict.equal(r.record.structures.ramparts, 1);
+        node_assert_1.strict.equal(r.record.structures.barracks, 1);
     });
     (0, node_test_1.it)('rejects when seals are insufficient (reporting the cost)', () => {
-        const r = (0, _war_structures_js_1.applyStructureUpgrade)(rec({ ramparts: 4 }), 10, 'ramparts');
+        const r = (0, _war_structures_js_1.applyStructureUpgrade)(rec({ barracks: 4 }), 10, 'barracks');
         node_assert_1.strict.equal(r.ok, false);
         node_assert_1.strict.equal(r.error, 'insufficient-seals');
         node_assert_1.strict.equal(r.cost, 48);
     });
     (0, node_test_1.it)('rejects at max level', () => {
-        const r = (0, _war_structures_js_1.applyStructureUpgrade)(rec({ ramparts: _war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL }), 99999, 'ramparts');
+        const r = (0, _war_structures_js_1.applyStructureUpgrade)(rec({ barracks: _war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL }), 99999, 'barracks');
         node_assert_1.strict.equal(r.ok, false);
         node_assert_1.strict.equal(r.error, 'max-level');
     });
@@ -78,9 +78,58 @@ function rec(levels = {}, dormant = false) {
         node_assert_1.strict.equal(r.ok, false);
         node_assert_1.strict.equal(r.error, 'unknown-structure');
     });
+    (0, node_test_1.it)('refuses to seal-fund a PER-WAR structure (Ramparts/Watchtower are WR-only)', () => {
+        node_assert_1.strict.equal((0, _war_structures_js_1.applyStructureUpgrade)(rec(), 99999, 'ramparts').ok, false);
+        node_assert_1.strict.equal((0, _war_structures_js_1.applyStructureUpgrade)(rec(), 99999, 'watchtower').ok, false);
+    });
     (0, node_test_1.it)('does not mutate the input record', () => {
         const base = rec();
-        (0, _war_structures_js_1.applyStructureUpgrade)(base, 100, 'ramparts');
-        node_assert_1.strict.equal(base.structures.ramparts, 0);
+        (0, _war_structures_js_1.applyStructureUpgrade)(base, 100, 'barracks');
+        node_assert_1.strict.equal(base.structures.barracks, 0);
+    });
+});
+(0, node_test_1.describe)('war-structures: per-war structures (Ramparts + Watchtower, WR-funded)', () => {
+    (0, node_test_1.it)('classifies exactly Ramparts + Watchtower as per-war', () => {
+        node_assert_1.strict.deepEqual([..._war_structures_js_1.PER_WAR_STRUCTURE_KEYS].sort(), ['ramparts', 'watchtower']);
+        node_assert_1.strict.equal((0, _war_structures_js_1.isPerWarStructure)('ramparts'), true);
+        node_assert_1.strict.equal((0, _war_structures_js_1.isPerWarStructure)('watchtower'), true);
+        node_assert_1.strict.equal((0, _war_structures_js_1.isPerWarStructure)('barracks'), false);
+    });
+    (0, node_test_1.it)('WR cost rises with level (12 + 6·level)', () => {
+        node_assert_1.strict.equal((0, _war_structures_js_1.perWarStructureWrCost)(0), 12);
+        node_assert_1.strict.equal((0, _war_structures_js_1.perWarStructureWrCost)(4), 36);
+        node_assert_1.strict.equal((0, _war_structures_js_1.perWarStructureWrCost)(9), 66);
+    });
+    (0, node_test_1.it)('upgrades a per-war structure by debiting WR from the war pool', () => {
+        const base = rec();
+        base.warResources = 100;
+        const r = (0, _war_structures_js_1.applyPerWarStructureUpgrade)(base, 'watchtower');
+        node_assert_1.strict.equal(r.ok, true);
+        node_assert_1.strict.equal(r.cost, 12);
+        node_assert_1.strict.equal(r.newLevel, 1);
+        node_assert_1.strict.equal(r.record.warResources, 88);
+        node_assert_1.strict.equal(r.record.structures.watchtower, 1);
+        node_assert_1.strict.equal(base.warResources, 100); // input untouched
+    });
+    (0, node_test_1.it)('rejects when the war pool is short (reporting the cost)', () => {
+        const base = rec({ ramparts: 4 });
+        base.warResources = 5;
+        const r = (0, _war_structures_js_1.applyPerWarStructureUpgrade)(base, 'ramparts');
+        node_assert_1.strict.equal(r.ok, false);
+        node_assert_1.strict.equal(r.error, 'insufficient-wr');
+        node_assert_1.strict.equal(r.cost, 36);
+    });
+    (0, node_test_1.it)('rejects a permanent structure, and rejects at max level', () => {
+        node_assert_1.strict.equal((0, _war_structures_js_1.applyPerWarStructureUpgrade)(rec(), 'barracks').error, 'not-per-war');
+        const maxed = rec({ watchtower: _war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL });
+        maxed.warResources = 9999;
+        node_assert_1.strict.equal((0, _war_structures_js_1.applyPerWarStructureUpgrade)(maxed, 'watchtower').error, 'max-level');
+    });
+    (0, node_test_1.it)('resetPerWarStructures zeroes Ramparts + Watchtower, leaves the permanent four', () => {
+        const r = (0, _war_structures_js_1.resetPerWarStructures)(rec({ ramparts: 8, watchtower: 6, barracks: 5, warAcademy: 3 }));
+        node_assert_1.strict.equal(r.structures.ramparts, 0);
+        node_assert_1.strict.equal(r.structures.watchtower, 0);
+        node_assert_1.strict.equal(r.structures.barracks, 5);
+        node_assert_1.strict.equal(r.structures.warAcademy, 3);
     });
 });

@@ -15,6 +15,8 @@ import {
     WR_POOL_CAP,
     structureMaintenanceWr,
     sectorBenefitWr,
+    mercBandSize,
+    MERC_BAND_MAX,
 } from './_war-economy.js';
 import {
     HOME_SECTORS,
@@ -39,9 +41,15 @@ export const STRUCTURE_KEYS: readonly StructureKey[] = [
 export type Terrain = 'forest' | 'snow' | 'volcano' | 'shadow' | 'central';
 export const TERRAINS: readonly Terrain[] = ['forest', 'snow', 'volcano', 'shadow', 'central'];
 
-export const SECTOR_CONTROL_HP_MAX = 600;          // §17.6
-export const SECTOR_CONTROL_HP_PER_WIN = 150;      // attacker win → −150
-export const SECTOR_CONTROL_HP_DEFENDER_REGEN = 50; // defender win → +50
+// §17.6 — a sector's hold. Sized as a "shorter village war": at a village-wide
+// ~20-30 fights/hour it takes a day or two of sustained pressure to drain a fully
+// held sector, since each fight only moves it by a role-scaled swing (api/_war-role
+// sectorControlSwing) — NOT a flat chunk. Watchtower raises this cap.
+export const SECTOR_CONTROL_HP_MAX = 2000;
+// Legacy flat tuning — retained for back-compat/imports; the live model is the
+// role-scaled swing (api/_war-role) applied by each win-condition resolve.
+export const SECTOR_CONTROL_HP_PER_WIN = 150;
+export const SECTOR_CONTROL_HP_DEFENDER_REGEN = 50;
 
 export interface SectorWarState {
     winCondition: WinCondition;   // defender's chosen contest type
@@ -53,6 +61,7 @@ export interface MercLease {
     tierId: string;
     player: string;     // hirer (safeName slug)
     expiresAt: number;  // epoch ms
+    count: number;      // AI mercs still alive in the band (the player kills them down)
 }
 
 export interface VillageWarRecord {
@@ -84,9 +93,10 @@ function asTerrain(v: unknown, fallback: Terrain): Terrain {
 
 /** A fresh war-state for a village: empty WR, all structures L0, every home
  *  sector secure (full Control HP), biome terrain. Win-conditions default to a
- *  valid, diverse spread that uses only the v1-ready battle types — they
- *  alternate Combat / Card (4 each), so the max-7 diversity rule holds from the
- *  start and no sector defaults to Pet before its server sim is wired (§17.2). */
+ *  valid, diverse spread that alternates Combat / Pet (4 each) — Pet's server
+ *  sim is now wired (api/village/sector-pet), so it is a first-class default.
+ *  Card remains a Kage-selectable option but is not a default. The max-7
+ *  per-type diversity rule holds from the start. */
 export function defaultVillageWarRecord(village: string): VillageWarRecord {
     const biome: Terrain = isWarVillage(village) ? VILLAGE_BIOME[village as WarVillage] : 'central';
     const structures = Object.fromEntries(STRUCTURE_KEYS.map((k) => [k, 0])) as Record<StructureKey, number>;
@@ -94,7 +104,7 @@ export function defaultVillageWarRecord(village: string): VillageWarRecord {
     const home = HOME_SECTORS[village as WarVillage] ?? [];
     home.forEach((s, i) => {
         sectors[String(s)] = {
-            winCondition: i % 2 === 0 ? 'combat' : 'card',
+            winCondition: i % 2 === 0 ? 'combat' : 'pet',
             terrain: biome,
             controlHp: SECTOR_CONTROL_HP_MAX,
         };
@@ -143,7 +153,8 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             const dedupeKey = `${tierId}:${player}`;
             if (seen.has(dedupeKey)) continue;
             seen.add(dedupeKey);
-            base.mercLeases.push({ tierId, player, expiresAt });
+            const count = clampInt((l as MercLease).count ?? mercBandSize(tierId), 0, MERC_BAND_MAX);
+            base.mercLeases.push({ tierId, player, expiresAt, count });
         }
     }
 
