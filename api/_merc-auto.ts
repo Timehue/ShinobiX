@@ -12,7 +12,8 @@
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { safeName } from './_utils.js';
-import { normalizeVillageWarRecord, villageWarKey, SECTOR_CONTROL_HP_PER_WIN } from './_war-state.js';
+import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
+import { sectorWarRoleOf, sectorControlSwing, ROLE_MERC } from './_war-role.js';
 import { sectorWarKey, applySectorBattleResult } from './_sector-war.js';
 import { loadSectorWar, saveSectorWar, deleteSectorWar, listActiveSectorWars } from './_sector-war-store.js';
 import { sectorWarDamageMultiplier } from './_war-structures.js';
@@ -100,12 +101,19 @@ export async function deployOneMerc(args: {
     let captured = false;
     let controlHp = 0;
     if (battle.mercWon || battle.playerWon) {
+        // The merc fights as a villager; the defending PLAYER's rank sets the rest of
+        // the swing — a Kage who repels a merc heals more, a Kage who falls to one
+        // loses more (§17.6). Player win regens at the reduced merc fraction.
+        const playerRole = await sectorWarRoleOf(args.targetPlayer);
         const result = await withKvLock(sectorWarKey(args.contestId), async () => {
             const live = await loadSectorWar(args.contestId);
             if (!live || live.flipped) return { captured: false, controlHp: 0 };
             const atkRecord = normalizeVillageWarRecord(args.village, (await kv.get<Record<string, unknown>>(villageWarKey(args.village))) ?? undefined);
-            const damage = Math.round(SECTOR_CONTROL_HP_PER_WIN * sectorWarDamageMultiplier(atkRecord));
-            const outcome = applySectorBattleResult(live, battle.mercWon, { now: args.now, damage, mercBattle: true });
+            const academyMult = sectorWarDamageMultiplier(atkRecord);
+            const swing = battle.mercWon
+                ? sectorControlSwing(ROLE_MERC, playerRole, academyMult)
+                : sectorControlSwing(playerRole, ROLE_MERC, academyMult);
+            const outcome = applySectorBattleResult(live, battle.mercWon, { now: args.now, swing, mercBattle: true });
             if (outcome.captured) {
                 await captureSectorForVillage(live.sector, args.village, args.now);
                 await deleteSectorWar(live.id);
