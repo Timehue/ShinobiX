@@ -20,8 +20,9 @@ import {
     type ClashPlay,
 } from '../clan/war/_card-clash-engine.js';
 import { canonicalClashStats, buildCreatorBaseMap } from '../clan/war/_card-catalog.js';
-import { normalizeVillageWarRecord, villageWarKey, SECTOR_CONTROL_HP_PER_WIN } from '../_war-state.js';
+import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { sectorWarDamageMultiplier } from '../_war-structures.js';
+import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import { applyContestBattleByWinner, sectorWarKey } from '../_sector-war.js';
 import { loadSectorWar, saveSectorWar, deleteSectorWar } from '../_sector-war-store.js';
 import { captureSectorForVillage } from '../world-state.js';
@@ -152,12 +153,16 @@ function resolveCommittedTurn(session: SectorCardSession, now: number): void {
 // appliedToContest; runs under the contest lock (nested inside the session lock
 // the callers hold — order session → contest → territory, no cycle).
 async function applyCardOutcomeToContest(session: SectorCardSession): Promise<void> {
+    // Role-scaled swing (§17.6): p1 = attacker, p2 = defender; roles from server state.
+    const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? (session.p2?.name ?? '') : '';
+    const loserName = session.winner === 'p1' ? (session.p2?.name ?? '') : session.winner === 'p2' ? session.p1.name : '';
+    const [winnerRole, loserRole] = await Promise.all([sectorWarRoleOf(winnerName), sectorWarRoleOf(loserName)]);
     await withKvLock(sectorWarKey(session.sectorWarId), async () => {
         const contest = await loadSectorWar(session.sectorWarId);
         if (!contest || contest.flipped) return;
         const atkRecord = normalizeVillageWarRecord(session.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage))) ?? undefined);
-        const damage = Math.round(SECTOR_CONTROL_HP_PER_WIN * sectorWarDamageMultiplier(atkRecord));
-        const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', { now: Date.now(), damage });
+        const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
+        const outcome = applyContestBattleByWinner(contest, session.winner ?? 'draw', { now: Date.now(), swing });
         if (!outcome) return; // draw — Control HP untouched
         if (outcome.captured) {
             await captureSectorForVillage(session.sector, session.attackerVillage, Date.now());

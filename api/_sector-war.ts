@@ -15,8 +15,6 @@
 
 import {
     SECTOR_CONTROL_HP_MAX,
-    SECTOR_CONTROL_HP_PER_WIN,
-    SECTOR_CONTROL_HP_DEFENDER_REGEN,
     WIN_CONDITIONS,
     type WinCondition,
 } from './_war-state.js';
@@ -107,39 +105,40 @@ export interface SectorBattleOutcome {
     hpRegen: number;      // Control HP restored (defender win)
 }
 
-// A player who repels an AI MERCENARY attacker only regenerates this FRACTION of
-// the normal Control-HP defender regen — a merc raid is a lower-stakes attack, so
-// beating one barely shores the wall back up (Phase 5 spec). Tunable.
+// A defender WIN heals the sector's hold by this fraction of the fight's role
+// swing — half, so defending genuinely slows a siege but the attacker keeps the
+// initiative and wars still resolve in a day or two (§17.6). A repelled AI
+// MERCENARY heals only MERC_DEFENDER_REGEN_FRACTION (a lower-stakes attack).
+export const DEFENDER_HEAL_FRACTION = 0.5;
 export const MERC_DEFENDER_REGEN_FRACTION = 0.25;
 
 /** Apply one resolved win-condition battle to a sector-war session (§17.6).
- *  Attacker win → −`damage` Control HP (flip + freeze at 0). Defender win → hold
- *  the line, +DEFENDER_REGEN (capped) — or 25% of that when the attacker was a
- *  mercenary (opts.mercBattle). Already-flipped sessions are inert. `damage` lets
- *  the caller pass the attacker's War-Academy-boosted value
- *  (api/_war-structures.sectorWarDamageMultiplier); defaults to the base per-win. */
+ *  Attacker win → −`swing` Control HP (flip + freeze at 0). Defender win → HEAL the
+ *  hold by `swing` × DEFENDER_HEAL_FRACTION (capped at max), or × the smaller
+ *  MERC_DEFENDER_REGEN_FRACTION when the attacker was a mercenary (opts.mercBattle).
+ *  `swing` is the caller's role-scaled, War-Academy-boosted value
+ *  (api/_war-role sectorControlSwing = winner.win + loser.loss). Already-flipped
+ *  sessions are inert. Pure. */
 export function applySectorBattleResult(
     session: SectorWarSession,
     attackerWon: boolean,
-    opts: { now: number; damage?: number; mercBattle?: boolean },
+    opts: { now: number; swing: number; mercBattle?: boolean },
 ): SectorBattleOutcome {
     if (session.flipped) {
         return { session, captured: false, hpDealt: 0, hpRegen: 0 };
     }
+    const swing = Math.max(0, Math.floor(Number(opts.swing) || 0));
     const next: SectorWarSession = { ...session, updatedAt: opts.now };
     if (attackerWon) {
-        const dmg = Math.max(0, Math.floor(Number(opts.damage ?? SECTOR_CONTROL_HP_PER_WIN) || 0));
         const before = next.controlHp;
-        next.controlHp = Math.max(0, before - dmg);
+        next.controlHp = Math.max(0, before - swing);
         const captured = next.controlHp <= 0;
         next.flipped = captured;
         return { session: next, captured, hpDealt: before - next.controlHp, hpRegen: 0 };
     }
     const before = next.controlHp;
-    const regen = opts.mercBattle
-        ? Math.floor(SECTOR_CONTROL_HP_DEFENDER_REGEN * MERC_DEFENDER_REGEN_FRACTION)
-        : SECTOR_CONTROL_HP_DEFENDER_REGEN;
-    next.controlHp = Math.min(next.controlHpMax, before + regen);
+    const heal = Math.max(0, Math.floor(swing * (opts.mercBattle ? MERC_DEFENDER_REGEN_FRACTION : DEFENDER_HEAL_FRACTION)));
+    next.controlHp = Math.min(next.controlHpMax, before + heal);
     return { session: next, captured: false, hpDealt: 0, hpRegen: next.controlHp - before };
 }
 
@@ -157,9 +156,9 @@ export function sectorWarKey(id: string): string {
 export function applyContestBattleByWinner(
     session: SectorWarSession,
     winner: 'p1' | 'p2' | 'draw',
-    opts: { now: number; damage?: number },
+    opts: { now: number; swing: number },
 ): SectorBattleOutcome | null {
-    if (winner !== 'p1' && winner !== 'p2') return null; // draw → neither chip nor regen
+    if (winner !== 'p1' && winner !== 'p2') return null; // draw → neither chip nor heal
     return applySectorBattleResult(session, winner === 'p1', opts);
 }
 

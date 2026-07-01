@@ -10,6 +10,7 @@ const _card_clash_engine_js_1 = require("../clan/war/_card-clash-engine.js");
 const _card_catalog_js_1 = require("../clan/war/_card-catalog.js");
 const _war_state_js_1 = require("../_war-state.js");
 const _war_structures_js_1 = require("../_war-structures.js");
+const _war_role_js_1 = require("../_war-role.js");
 const _sector_war_js_1 = require("../_sector-war.js");
 const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
@@ -115,13 +116,17 @@ function resolveCommittedTurn(session, now) {
 // appliedToContest; runs under the contest lock (nested inside the session lock
 // the callers hold — order session → contest → territory, no cycle).
 async function applyCardOutcomeToContest(session) {
+    // Role-scaled swing (§17.6): p1 = attacker, p2 = defender; roles from server state.
+    const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? (session.p2?.name ?? '') : '';
+    const loserName = session.winner === 'p1' ? (session.p2?.name ?? '') : session.winner === 'p2' ? session.p1.name : '';
+    const [winnerRole, loserRole] = await Promise.all([(0, _war_role_js_1.sectorWarRoleOf)(winnerName), (0, _war_role_js_1.sectorWarRoleOf)(loserName)]);
     await (0, _lock_js_1.withKvLock)((0, _sector_war_js_1.sectorWarKey)(session.sectorWarId), async () => {
         const contest = await (0, _sector_war_store_js_1.loadSectorWar)(session.sectorWarId);
         if (!contest || contest.flipped)
             return;
         const atkRecord = (0, _war_state_js_1.normalizeVillageWarRecord)(session.attackerVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(session.attackerVillage))) ?? undefined);
-        const damage = Math.round(_war_state_js_1.SECTOR_CONTROL_HP_PER_WIN * (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
-        const outcome = (0, _sector_war_js_1.applyContestBattleByWinner)(contest, session.winner ?? 'draw', { now: Date.now(), damage });
+        const swing = (0, _war_role_js_1.sectorControlSwing)(winnerRole, loserRole, (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
+        const outcome = (0, _sector_war_js_1.applyContestBattleByWinner)(contest, session.winner ?? 'draw', { now: Date.now(), swing });
         if (!outcome)
             return; // draw — Control HP untouched
         if (outcome.captured) {

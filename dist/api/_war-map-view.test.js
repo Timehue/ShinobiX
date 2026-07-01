@@ -22,13 +22,13 @@ function recordWith(structures = {}, warResources = 0, dormant = false) {
         node_assert_1.strict.equal(v.sectors.length, 8);
         node_assert_1.strict.equal(v.sectors[0].sector, 11);
         node_assert_1.strict.equal(v.sectors[0].alias, 'MS-1');
-        node_assert_1.strict.equal(v.sectors[0].controlHpMax, 600); // no Watchtower
+        node_assert_1.strict.equal(v.sectors[0].controlHpMax, 2000); // no Watchtower
         node_assert_1.strict.equal(v.sectors[0].winCondition, 'combat'); // defaults alternate combat/pet
         node_assert_1.strict.equal(v.sectors[1].winCondition, 'pet');
     });
     (0, node_test_1.it)('reflects Watchtower (Control HP cap) and Supply Depot (WR/sector)', () => {
         const v = (0, _war_map_view_js_1.villageWarMapView)({ village: 'Moonshadow Village', record: recordWith({ watchtower: 10, supplyDepot: 10 }), treasurySeals: 50, sectorsHeld: 8 });
-        node_assert_1.strict.equal(v.sectors[0].controlHpMax, 690); // 600 × 1.15
+        node_assert_1.strict.equal(v.sectors[0].controlHpMax, 2300); // 2000 × 1.15
         node_assert_1.strict.equal(v.wrPerSector, 30); // 25 + 0.5×10
         node_assert_1.strict.equal(v.treasurySeals, 50);
         node_assert_1.strict.equal(v.structures.watchtower, 10);
@@ -42,7 +42,7 @@ function recordWith(structures = {}, warResources = 0, dormant = false) {
     (0, node_test_1.it)('suspends Control-HP/WR bonuses while dormant but still owes upkeep', () => {
         const v = (0, _war_map_view_js_1.villageWarMapView)({ village: 'Moonshadow Village', record: recordWith({ ramparts: 5, watchtower: 5, supplyDepot: 5 }, 0, true), treasurySeals: 0, sectorsHeld: 8 });
         node_assert_1.strict.equal(v.dormant, true);
-        node_assert_1.strict.equal(v.sectors[0].controlHpMax, 600); // Watchtower suspended
+        node_assert_1.strict.equal(v.sectors[0].controlHpMax, 2000); // Watchtower suspended
         node_assert_1.strict.equal(v.wrPerSector, 25); // Supply Depot suspended
         node_assert_1.strict.ok(v.upkeepWr > 0); // upkeep owed reflects built levels
     });
