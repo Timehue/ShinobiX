@@ -67,6 +67,15 @@ function jutsu(tags, overrides = {}) {
         node_assert_1.strict.equal(wound?.amount, 240); // cappedPostDamage(960, 25)
         node_assert_1.strict.equal(wound?.activeRound, 2); // deferred to next round
     });
+    (0, node_test_1.it)('Wound stacks are capped at 2 — a 3rd cast does not add a 3rd ticking stack', () => {
+        const woundJutsu = jutsu([{ name: 'Wound', percent: 30 }]);
+        let def = fighter('B');
+        for (let i = 0; i < 3; i++) {
+            const r = (0, move_js_1.applyJutsu)(fighter('A'), def, woundJutsu, 1, 'central', 1);
+            def = { ...r.opponent, hp: 1000 }; // refill so the target survives all 3 casts
+        }
+        node_assert_1.strict.equal(def.statuses.filter(s => s.name === 'Wound').length, 2);
+    });
 });
 (0, node_test_1.describe)('applyJutsu characterization — post-damage reactions', () => {
     (0, node_test_1.it)('defender Reflect 50% bounces 480 back to the attacker', () => {

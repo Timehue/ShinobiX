@@ -375,6 +375,24 @@ function statusForJutsu(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'
 function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number): PvpFighter {
     return addStatus(f, statusForJutsu(jutsu, status, round));
 }
+// Wound is a stacking bleed DoT (every cast adds a stack, all stacks tick). Per-hit
+// magnitude is rank-capped, but the STACK COUNT was unbounded → repeated casts
+// compounded into unwinnable bleed-lock. Cap concurrent Wound stacks: keep the
+// MAX_WOUND_STACKS highest-amount ones (ties → most-recently-applied wins, so a
+// re-cast refreshes rather than being dropped). Mirrors client combat-math
+// capWoundStacks — KEEP IN SYNC (parity test).
+const MAX_WOUND_STACKS = 2;
+function capWoundStacks(f: PvpFighter): PvpFighter {
+    const wounds = f.statuses.filter(s => s.name === 'Wound');
+    if (wounds.length <= MAX_WOUND_STACKS) return f;
+    const keep = new Set(
+        wounds.map((s, i) => ({ s, i }))
+            .sort((a, b) => ((b.s.amount ?? 0) - (a.s.amount ?? 0)) || (b.i - a.i))
+            .slice(0, MAX_WOUND_STACKS)
+            .map(o => o.s),
+    );
+    return { ...f, statuses: f.statuses.filter(s => s.name !== 'Wound' || keep.has(s)) };
+}
 function groundEffectTiles(center: number): number[] {
     return [center, ...hexNeighbors(center)];
 }
@@ -773,7 +791,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
             const rankCap = woundCapForJutsu(jutsu);
             const effectivePct = Math.min(pct || 30, rankCap, WOUND_HARD_CAP_PCT);
             const amt = cappedPostDamage(finalDmg, effectivePct);
-            o = addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round);
+            o = capWoundStacks(addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round));
             lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
         }
         // Recoil debuff application happens in the status phase so it applies even

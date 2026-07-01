@@ -166,6 +166,24 @@ export function mergeCombatStatus<T extends { name: string }>(list: T[], status:
     return [...list.filter((x) => x.name !== status.name), status];
 }
 
+// Cap concurrent Wound stacks (mirrors server api/pvp/move.ts capWoundStacks): keep
+// at most MAX_WOUND_STACKS_PVE Wound statuses, the highest-amount ones (ties → most
+// recently applied wins, so a re-cast refreshes rather than being dropped). Per-hit
+// Wound magnitude is already rank-capped; this bounds the STACK COUNT so repeated
+// Wound casts can't compound bleed without limit. KEEP IN SYNC (parity test).
+export const MAX_WOUND_STACKS_PVE = 2;
+export function capWoundStacks<T extends { name: string; amount?: number }>(list: T[]): T[] {
+    const wounds = list.filter((s) => s.name === "Wound");
+    if (wounds.length <= MAX_WOUND_STACKS_PVE) return list;
+    const keep = new Set(
+        wounds.map((s, i) => ({ s, i }))
+            .sort((a, b) => ((b.s.amount ?? 0) - (a.s.amount ?? 0)) || (b.i - a.i))
+            .slice(0, MAX_WOUND_STACKS_PVE)
+            .map((o) => o.s),
+    );
+    return list.filter((s) => s.name !== "Wound" || keep.has(s));
+}
+
 // Structural type used by the helpers below — CombatStatus is declared
 // locally inside the battle component (out of module scope here), so we
 // accept any object shape that exposes the fields these helpers read.
