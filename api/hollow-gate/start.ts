@@ -8,6 +8,8 @@ import {
     rollAugmentOffers,
     augmentDisplay,
     HG_CLAWBACK_KEYS,
+    HG_HIGH_VALUE_ITEM_ID,
+    itemStackCount,
     type HollowGateRunToken,
     type HgCurrencyKey,
 } from './_run-token.js';
@@ -65,6 +67,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Seal the entry snapshot of the clawback-eligible currencies.
         const entry = {} as Partial<Record<HgCurrencyKey, number>>;
         for (const k of HG_CLAWBACK_KEYS) entry[k] = Math.max(0, Math.floor(Number(char[k]) || 0));
+        // P0.2c: seal the entry count of the high-value forge item so settle can clamp
+        // this run's GAIN to the ceiling (anti-fabrication, byte-identical for legit).
+        const entryFragments = itemStackCount(char.itemStacks, HG_HIGH_VALUE_ITEM_ID);
 
         const offers = rollAugmentOffers(3);
         const token = randomUUID().replace(/-/g, '');
@@ -74,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             floorDepth,
             seed: randomUUID(),
             entryCurrencies: entry,
+            entryFragments,
             offeredAugmentIds: offers.map((o) => o.id),
             chosenAugmentId: null,
             dailyRunOrdinal: ord,

@@ -83,25 +83,29 @@ const CLIENT_RUN_SRC = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinob
     const CLIENT_GAME_CONSTS = (0, node_fs_1.readFileSync)((0, node_path_1.join)('shinobij.client', 'src', 'constants', 'game.ts'), 'utf8');
     node_assert_1.strict.ok(CLIENT_GAME_CONSTS.includes('DUNGEON_LEGENDARY_FRAGMENT_ID = "dungeon-legendary-fragment"'), 'client fragment id drifted from the server mirror');
 });
-(0, node_test_1.test)('maxFragmentsForDepth grows with depth, clamps to 1..20, and is always positive', () => {
-    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(1), 1);
-    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(5), 5);
-    node_assert_1.strict.ok((0, _run_token_js_1.maxFragmentsForDepth)(5) > (0, _run_token_js_1.maxFragmentsForDepth)(3), 'deeper runs allow more fragments');
-    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(0), 1, 'floors at 1');
-    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(999), 20, 'clamps at 20');
-    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(NaN), 1, 'junk → 1');
+(0, node_test_1.test)('maxFragmentsForDepth grows with depth, clamps to 2..40, and is always positive', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(1), 2);
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(5), 10);
+    node_assert_1.strict.ok((0, _run_token_js_1.maxFragmentsForDepth)(5) > (0, _run_token_js_1.maxFragmentsForDepth)(3), 'deeper runs allow a bigger ceiling');
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(0), 2, 'floors at the min ceiling');
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(999), 40, 'clamps at 40');
+    node_assert_1.strict.equal((0, _run_token_js_1.maxFragmentsForDepth)(NaN), 2, 'junk → floor');
 });
-(0, node_test_1.test)('settleItemCount clamps an over-claim to the sealed ceiling', () => {
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(99, 5, 1), 5); // claimed 99, ceiling 5 → 5
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(2, 5, 1), 2); // under the ceiling → claimed
+(0, node_test_1.test)('itemStackCount sums the counted-stack total for an item id', () => {
+    const stacks = [{ itemId: 'dungeon-legendary-fragment', count: 3 }, { itemId: 'other', count: 9 }];
+    node_assert_1.strict.equal((0, _run_token_js_1.itemStackCount)(stacks, 'dungeon-legendary-fragment'), 3);
+    node_assert_1.strict.equal((0, _run_token_js_1.itemStackCount)(stacks, 'missing'), 0);
+    node_assert_1.strict.equal((0, _run_token_js_1.itemStackCount)(null, 'x'), 0); // no stacks → 0
+    node_assert_1.strict.equal((0, _run_token_js_1.itemStackCount)([{ itemId: 'x', count: -5 }], 'x'), 0); // junk count floored
 });
-(0, node_test_1.test)('settleItemCount applies the death claw-back fraction and floors', () => {
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(4, 10, 0.5), 2); // floor(min(4,10)*0.5)
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(1, 10, 0.5), 0); // a lone fragment is lost on death
+(0, node_test_1.test)('clampFragmentTotal caps the run GAIN to the ceiling, byte-identical under it', () => {
+    // entry 4, ceiling 10 → allowed up to 14; a legit total under that is unchanged.
+    node_assert_1.strict.equal((0, _run_token_js_1.clampFragmentTotal)(9, 4, 10), 9); // gained 5 (<=10) → no clamp
+    node_assert_1.strict.equal((0, _run_token_js_1.clampFragmentTotal)(14, 4, 10), 14); // gained exactly 10 → boundary, kept
+    node_assert_1.strict.equal((0, _run_token_js_1.clampFragmentTotal)(99, 4, 10), 14); // gained 95 → clawed back to entry+ceiling
 });
-(0, node_test_1.test)('settleItemCount floors at 0 and ignores negative/junk input', () => {
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(-3, 5, 1), 0);
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(5, 0, 1), 0); // zero ceiling → no credit
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)('junk', 5, 1), 0);
-    node_assert_1.strict.equal((0, _run_token_js_1.settleItemCount)(undefined, 5, 1), 0); // current clients send nothing → inert
+(0, node_test_1.test)('clampFragmentTotal never restores an in-run spend and never goes negative', () => {
+    node_assert_1.strict.equal((0, _run_token_js_1.clampFragmentTotal)(2, 5, 10), 2); // spent below entry mid-run → keep current, no refund
+    node_assert_1.strict.equal((0, _run_token_js_1.clampFragmentTotal)(-3, 0, 10), 0); // junk → 0
+    node_assert_1.strict.equal((0, _run_token_js_1.clampFragmentTotal)(5, 0, 0), 0); // zero entry + zero ceiling → 0
 });
