@@ -167,7 +167,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // retry / racing duplicate can't double-claim. A cap-blocked claim
                 // returned above WITHOUT consuming it, so the player can still claim
                 // after the daily reset via the durable flag.
-                if (hasToken) await kv.del(tokenKey).catch(() => undefined);
+                if (hasToken) {
+                    const consumed = await kv.del(tokenKey);
+                    if (consumed <= 0 && !hasLegacyFlag) return { applied: false, reason: 'not-queued' };
+                }
                 baseXp = def.xp; baseRyo = def.ryo; scrolls = def.territoryScrolls;
                 combat = { aiProfileId: def.aiProfileId, missionKey: def.key };
                 completion = 'daily';

@@ -221,6 +221,9 @@ async function handler(req, res) {
                 if (!(0, _questbook_js_1.questStageComplete)(num(sealed.baseline), current, stage.count)) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
                 }
+                const consumed = await _storage_js_1.kv.del(questKey);
+                if (consumed <= 0)
+                    return { status: 200, body: { ok: false, reason: 'none' } };
                 // Apply sealed branch effects to the reward.
                 const fx = (0, _questbook_js_1.aggregateChoiceEffects)(entry, choices);
                 const ryo = Math.round((0, _questbook_js_1.questBookRyo)(num(char.level) || 1, entry.weight) * fx.ryoMult);
@@ -240,7 +243,6 @@ async function handler(req, res) {
                 if (entry.clearsRivalry)
                     updated.wandererNemesis = null;
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
-                await _storage_js_1.kv.del(questKey).catch(() => undefined);
                 await _storage_js_1.kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
             }, { failClosed: true });

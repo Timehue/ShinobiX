@@ -136,6 +136,12 @@ const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's 
     strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: true }).academyTrialClaimed, true, 'cannot revert to false');
     strict_1.default.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
 });
+(0, node_test_1.test)('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
+    const minted = sanitize({ level: 50, pendingCombatMissionClaims: ['combat-d-errand'] }, { level: 50, pendingCombatMissionClaims: [] });
+    strict_1.default.deepEqual(minted.pendingCombatMissionClaims, [], 'client cannot add a combat claim flag');
+    const preserved = sanitize({ level: 50, pendingCombatMissionClaims: [] }, { level: 50, pendingCombatMissionClaims: ['combat-d-errand'] });
+    strict_1.default.deepEqual(preserved.pendingCombatMissionClaims, ['combat-d-errand'], 'client cannot clear a server-queued flag');
+});
 (0, node_test_1.test)('hollowGateWardenKills: per-save gain clamped to +3 (audit #10 — weekly-board counter)', () => {
     strict_1.default.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 7, 'capped to existing + 3');
 });

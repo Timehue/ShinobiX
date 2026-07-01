@@ -71,12 +71,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'incomplete' } };
                 }
 
-                // Burn a daily slot only now that the claim is verified, inside the
-                // lock and immediately before payout — failures never consume a slot.
-                const claimedToday = await kv.incr(`wanderer-ambush-count:${playerName}:${today}`, { ex: 25 * 60 * 60 });
-                if (claimedToday > AMBUSH_REWARDS_PER_DAY) {
+                // Burn the single-use token only now that the claim is verified,
+                // inside the save lock and before payout. The delete rowcount is
+                // the consume gate; a storage failure must not fail open into a
+                // replayable reward token.
+                const countKey = `wanderer-ambush-count:${playerName}:${today}`;
+                const claimedSoFar = Number((await kv.get<number>(countKey)) ?? 0);
+                if (claimedSoFar >= AMBUSH_REWARDS_PER_DAY) {
                     return { status: 200, body: { ok: false, reason: 'daily-cap' } };
                 }
+                const consumed = await kv.del(tokenKey);
+                if (consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
+                await kv.incr(countKey, { ex: 25 * 60 * 60 });
 
                 const reward = rollAmbushReward(num(char.level) || 1, Math.random);
                 const updated = {
@@ -87,7 +93,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 const record = bumpSaveVersion({ ...rec, character: updated });
                 await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
-                await kv.del(tokenKey).catch(() => undefined);
                 return {
                     status: 200,
                     body: {
