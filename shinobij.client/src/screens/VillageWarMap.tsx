@@ -50,16 +50,19 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [deploySector, setDeploySector] = useState<Record<string, number>>({});
     const [deployTarget, setDeployTarget] = useState<Record<string, string>>({});
     const [mercMsg, setMercMsg] = useState("");
+    const [showInfo, setShowInfo] = useState(false);
 
     const myVillage = (character.village ?? "").trim();
 
     useEffect(() => {
         let alive = true;
-        fetch("/api/game-state").then((r) => r.json()).then((d) => {
+        // Read the AUTHORITATIVE seated Kage (village:kage:) — the SAME source the
+        // server declare / win-condition / structure endpoints check — so the Kage
+        // controls only appear when the server will actually accept them (avoids the
+        // "you're shown the tools but the server says you're not the Kage" mismatch).
+        fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`).then((r) => r.json()).then((d) => {
             if (!alive) return;
-            const slug = myVillage.toLowerCase().replace(/[^a-z0-9]/g, "");
-            const st = (d.villageStates ?? {})[slug] as { seatedKage?: string } | undefined;
-            setIsKage((st?.seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
+            setIsKage(String((d as { seatedKage?: string }).seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
         }).catch(() => {});
         return () => { alive = false; };
     }, [character.name, myVillage]);
@@ -140,6 +143,26 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             <div className="vwm-header">
                 <h1><img src={WAR_CREST} alt="" style={{ height: 28, width: 28, verticalAlign: "middle", marginRight: 8, borderRadius: 6 }} />Sector War Map</h1>
                 <button className="vwm-back" onClick={onBack}>← Back</button>
+            </div>
+
+            <div className="vwm-info">
+                <button className="vwm-info-head" onClick={() => setShowInfo((s) => !s)} aria-expanded={showInfo}>
+                    <span><img src={WAR_CREST} alt="" />How Sector War works</span>
+                    <span className="vwm-info-chevron">{showInfo ? "▲ Hide" : "▼ Learn"}</span>
+                </button>
+                {showInfo && (
+                    <div className="vwm-info-body">
+                        <p>Villages fight over the world map, <b>one sector at a time</b>. The seated <b>Kage</b> declares war on an enemy-held sector and sets how it's fought — then the whole village joins in.</p>
+                        <div className="vwm-info-grid">
+                            <div><b>⚔ Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Card Clash). Every fight is server-decided — no faking a win.</span></div>
+                            <div><b>❤ Control HP → capture</b><span>Each win drains the enemy sector's Control HP; a defense win heals it. Rank matters — Kage/elders/ANBU hit harder. Drain it to 0 to capture.</span></div>
+                            <div><b>🗺 Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
+                            <div><b>🗡 Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and chips Control HP.</span></div>
+                            <div><b>🏯 Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
+                            <div><b>👑 Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest. Anyone can fight in a sector that's already contested.</span></div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {loading && <p className="hint">Loading the war map…</p>}
