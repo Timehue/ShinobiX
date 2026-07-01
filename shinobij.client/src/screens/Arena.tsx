@@ -37,6 +37,7 @@ import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
+import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
 import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
@@ -2412,6 +2413,12 @@ export function Arena({
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
         const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
+        // P0.2c: when warCrateServerAuth.v1 is ON the village-war WINNER crate is
+        // granted server-side (claimServerVillageWarCrates via the post-poll sweep,
+        // validated against the authoritative war record), so winBattle stops adding
+        // it inline. Flag OFF → inline grant exactly as before (byte-identical). Kept
+        // out of the async grant path so it never races the P0.2b updateCharacter.
+        const grantWarCrateInline = villageWarRaid.warCrate && !warCrateServerAuthEnabled();
         // Assemble the win-reward character from a (possibly soft-capped) XP/ryo
         // pair. Everything it captures above is computed ONCE (the territory /
         // village-war side effects mutate shared state, so they must not re-run);
@@ -2431,8 +2438,8 @@ export function Arena({
                 stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
                 // + Vanguard mastery (Ironclad): a chance at a Bone Charm per AI kill.
                 boneCharms: (rewarded.boneCharms ?? 0) + nonVanguardCharmSubstitute(rewarded, honorSealGain) + (masteryHasCapstone(character, "ironclad") && Math.random() < 0.15 ? 1 : 0),
-                inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
-                claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                inventory: grantWarCrateInline ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+                claimedWarCrateIds: grantWarCrateInline && villageWarRaid.warCrateId
                     ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                     : (rewarded.claimedWarCrateIds ?? []),
                 // clanBattleContrib intentionally NOT incremented here — it's a

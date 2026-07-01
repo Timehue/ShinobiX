@@ -177,7 +177,8 @@ import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolved
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { claimPendingWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { applyWarCrateGrants, claimPendingWarCrates, claimServerVillageWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
 import { PetBattleAvatar } from "./components/PetBattleAvatar";
@@ -1972,14 +1973,20 @@ export default function App() {
     useEffect(() => {
         if (!character) return;
         const { character: updated, count, mvp, consolation } = claimPendingWarCrates(character, null);
-        if (count === 0 && !mvp && !consolation) return;
-        setCharacter(updated);
-        if (count > 0) {
-            alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent war victory! Check your inventory.`);
-        } else if (mvp) {
-            alert(`MVP rewards delivered: bonus ryo, honor seals, and fate shards added to your account.`);
-        } else if (consolation) {
-            alert(`Consolation rewards from a recent war loss have been added to your account.`);
+        if (count > 0 || mvp || consolation) {
+            setCharacter(updated);
+            if (count > 0) alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent war victory! Check your inventory.`);
+            else if (mvp) alert(`MVP rewards delivered: bonus ryo, honor seals, and fate shards added to your account.`);
+            else if (consolation) alert(`Consolation rewards from a recent war loss have been added to your account.`);
+        }
+        // P0.2c: server-authoritative village-war winner crates (warCrateServerAuth.v1).
+        // Runs post-poll — the war-end state has already propagated — so the server's
+        // verdict is authoritative; the functional setCharacter avoids clobbering a
+        // concurrent poll, and applyWarCrateGrants dedups + no-ops when nothing's new.
+        if (warCrateServerAuthEnabled()) {
+            void claimServerVillageWarCrates(updated).then((ids) => {
+                if (ids.length) setCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
+            });
         }
     }, [worldStateVersion, clanWarStateVersion]);
 
