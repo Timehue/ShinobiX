@@ -221,6 +221,15 @@ export function armorFactorToRawDr(armorFactor: number): number {
 //   ampMult    = 1 + rawAmp / (rawAmp + K_AMP_PVE)
 //   damage     = baseDmg × (1 - effDR) × ampMult     (or pierce true damage)
 //
+// Steep mastery→magnitude ramp, shared by EP damage (below) and the flat Heal/Shield
+// tags in Arena.tsx: an untrained jutsu is MASTERY_MIN_DAMAGE_FRAC of its fully-mastered
+// value, ramping to 100% at JUTSU_MAX_LEVEL. Hard-capped at the FLAT ceiling where it's
+// applied, so maxed play is byte-identical. Mirrors server move.ts masteryDamageFrac —
+// KEEP IN SYNC (api/_combat-formula-parity.test.ts).
+export function masteryDamageFrac(masteryLevel: number): number {
+    return MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (clampNumber(masteryLevel, 0, JUTSU_MAX_LEVEL) / JUTSU_MAX_LEVEL);
+}
+
 // Backward-compatible signature: old callers pass armorFactor + itemMult and
 // the function derives armorRawDR + uses default empty status arrays. New
 // callers pass attackerStatuses + defenderStatuses so amp/status DR pool work.
@@ -255,7 +264,7 @@ export function calculateDamage(
     // MASTERY_MIN_DAMAGE_FRAC of it, scaling to 100% at max mastery. Keeps maxed
     // damage (and max-mastery PvP) identical to before.
     const epAtMax = Math.max(0, jutsu.effectPower) + JUTSU_MAX_LEVEL * 0.2;
-    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (clampNumber(masteryLevel, 0, JUTSU_MAX_LEVEL) / JUTSU_MAX_LEVEL);
+    const masteryFrac = masteryDamageFrac(masteryLevel);
     const scaledEp = Math.max(0, epAtMax * masteryFrac);
     const baseDmg = Math.max(0, Math.floor(
         scaledEp * EP_MULTIPLIER_PVE * statFactor * weatherMult * bloodlineMult * itemMult

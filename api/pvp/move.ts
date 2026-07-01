@@ -537,13 +537,22 @@ function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string
 
 type JutsuDamageSetup = { baseDmg: number; effectiveDR: number; offStats: Record<string, number> };
 
+// Steep mastery→magnitude ramp, shared by EP damage and the flat Heal/Shield tags:
+// an untrained jutsu is MASTERY_MIN_DAMAGE_FRAC of its fully-mastered value, ramping
+// to 100% at JUTSU_MAX_LEVEL. Applied to Heal/Shield (hard-capped at the FLAT ceiling)
+// it leaves maxed play byte-identical while damping low-mastery heal/shield spam.
+// Mirrors client combat-math.ts masteryDamageFrac — KEEP IN SYNC (parity test).
+function masteryDamageFrac(masteryLevel: number): number {
+    return MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, masteryLevel)) / JUTSU_MAX_LEVEL);
+}
+
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult: number, biome: string, round: number, masteryLevel: number): JutsuDamageSetup {
     // Steep mastery → damage ramp (mirrors client combat-math.ts). epAtMax is the
     // unchanged fully-mastered value; an untrained jutsu deals MASTERY_MIN_DAMAGE_FRAC
     // of it, scaling to 100% at JUTSU_MAX_LEVEL — so maxed PvP is identical to before.
     const epAtMax = (jutsu.effectPower ?? 20) + JUTSU_MAX_LEVEL * 0.2;
-    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, masteryLevel)) / JUTSU_MAX_LEVEL);
+    const masteryFrac = masteryDamageFrac(masteryLevel);
     const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : Math.max(0, epAtMax * masteryFrac);
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
@@ -605,6 +614,10 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     let healing = 0;
     let shieldGain = 0;
     let pierce = false;
+    // Flat Heal/Shield ramp by the same mastery fraction as damage, hard-capped at
+    // the FLAT ceiling — maxed casts stay exactly HEAL_FLAT/SHIELD_FLAT, low-mastery
+    // ones heal/shield proportionally less (curbs early heal-spam). See masteryDamageFrac.
+    const magnitudeFrac = masteryDamageFrac(masteryLevel);
 
     for (const tag of tags) {
         // Branch on the CANONICAL name only — sessions are sealed canonical, and
@@ -612,8 +625,8 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // (engine tests, NPC payloads) resolve aliases the same way.
         const tagName = normalizeTagName(tag.name);
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel, tagName, jutsu.bloodlineRank));
-        if (tagName === 'Heal') { healing += Math.floor(HEAL_FLAT * healBoost); damage = 0; lines.push(`Heal: ${s.name} restores ${Math.floor(HEAL_FLAT * healBoost)} HP.`); continue; }
-        if (tagName === 'Shield') { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); continue; }
+        if (tagName === 'Heal') { const healAmt = Math.min(HEAL_FLAT, Math.floor(HEAL_FLAT * magnitudeFrac * healBoost)); healing += healAmt; damage = 0; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
+        if (tagName === 'Shield') { const shieldAmt = Math.min(SHIELD_FLAT, Math.floor(SHIELD_FLAT * magnitudeFrac)); shieldGain += shieldAmt; damage = 0; lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`); continue; }
         if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }

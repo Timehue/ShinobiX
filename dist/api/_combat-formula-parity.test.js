@@ -172,6 +172,23 @@ const PAIRS = [
     (0, node_test_1.it)('MASTERY_MIN_DAMAGE_FRAC (server) === MASTERY_MIN_DAMAGE_FRAC (client constants/game.ts)', () => {
         node_assert_1.strict.equal(num(SERVER, 'MASTERY_MIN_DAMAGE_FRAC'), num(CLIENT_GAME_CONSTS, 'MASTERY_MIN_DAMAGE_FRAC'), 'MASTERY_MIN_DAMAGE_FRAC diverged between server move.ts and client constants/game.ts');
     });
+    // Heal/Shield mastery ramp parity (2026-07-01). The flat Heal/Shield magnitudes
+    // now scale by the SAME masteryDamageFrac curve as damage and are hard-capped at
+    // the FLAT ceiling on BOTH engines — so a low-mastery heal/shield is identical in
+    // PvE and PvP, and a maxed one is exactly HEAL_FLAT/SHIELD_FLAT as before.
+    (0, node_test_1.it)('Heal/Shield ramp by masteryDamageFrac + hard-cap (server move.ts ⇄ client Arena.tsx)', () => {
+        node_assert_1.strict.match(SERVER, /function masteryDamageFrac/, 'move.ts lost the masteryDamageFrac helper');
+        node_assert_1.strict.match(CLIENT, /export function masteryDamageFrac/, 'combat-math.ts lost the masteryDamageFrac export');
+        for (const src of [SERVER, CLIENT]) {
+            node_assert_1.strict.match(src, /MASTERY_MIN_DAMAGE_FRAC \+ \(1 - MASTERY_MIN_DAMAGE_FRAC\)/, 'masteryDamageFrac formula drifted between engines');
+        }
+        // Server (move.ts): Heal/Shield = min(FLAT, floor(FLAT × magnitudeFrac × …)).
+        node_assert_1.strict.match(SERVER, /Math\.min\(HEAL_FLAT,[^)]*magnitudeFrac/, 'move.ts Heal no longer ramps + hard-caps by mastery');
+        node_assert_1.strict.match(SERVER, /Math\.min\(SHIELD_FLAT,[^)]*magnitudeFrac/, 'move.ts Shield no longer ramps + hard-caps by mastery');
+        // Client PvE engine (Arena.tsx): same cap via the shared masteryDamageFrac.
+        node_assert_1.strict.match(CLIENT_APP, /Math\.min\(HEAL_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Heal no longer ramps + hard-caps by mastery');
+        node_assert_1.strict.match(CLIENT_APP, /Math\.min\(SHIELD_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Shield no longer ramps + hard-caps by mastery');
+    });
     (0, node_test_1.it)('JUTSU_MAX_LEVEL (server) === JUTSU_MAX_LEVEL (client constants/game.ts)', () => {
         node_assert_1.strict.equal(num(SERVER, 'JUTSU_MAX_LEVEL'), num(CLIENT_GAME_CONSTS, 'JUTSU_MAX_LEVEL'), 'JUTSU_MAX_LEVEL diverged between server move.ts and client constants/game.ts — the mastery ramp denominators would differ');
     });
