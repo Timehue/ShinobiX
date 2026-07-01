@@ -23,6 +23,17 @@
 .vwm-info-grid b { color: #f3c259; font-size: 0.87rem; }
 .vwm-info-grid span { font-size: 0.81rem; line-height: 1.45; color: #c3cddf; }
 
+/* Terrain legend — always-visible primer of the home-ground edge each terrain
+   grants, so a villager (not just the Kage) can read what the map's terrain does. */
+.vwm-terrain-legend { padding: 0.8rem 1rem; margin-bottom: 0.9rem; border-radius: 14px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(0, 0, 0, 0.18)); border: 1px solid rgba(255, 255, 255, 0.08); }
+.vwm-terrain-legend h4 { margin: 0.1rem 0 0.6rem; }
+.vwm-terrain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 0.5rem; }
+.vwm-terrain-cell { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.55rem; background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 9px; }
+.vwm-terrain-cell img { height: 28px; width: 28px; border-radius: 6px; flex: none; object-fit: cover; }
+.vwm-terrain-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.vwm-terrain-text b { font-size: 0.85rem; text-transform: capitalize; }
+.vwm-terrain-text span { font-size: 0.76rem; opacity: 0.82; }
+
 .vwm-resources { padding: 1rem 1.1rem; border-width: 2px; }
 .vwm-resources h3 { margin: 0 0 0.5rem; }
 .vwm-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin: 0.4rem 0; font-size: 0.92rem; }
