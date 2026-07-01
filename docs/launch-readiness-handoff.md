@@ -117,14 +117,28 @@ bounded by the per-save itemStacks caps — exactly the currency ceiling's own n
 (Superseded the earlier "credit reported items" foundation, which had a death-strip flaw + would
 have deferred the grant.)
 
-**Surface 2 — war crate (`warCrateServerAuth.v1`):** new endpoint validates `warCrateId` against
-the authoritative shared **clan + village** war state (server-readable: `api/_war-state.ts`,
-`api/clan/war/_storage.ts`, `api/world-state.ts`) — confirm `winnerVillage===player.village` (or
-`winnerClan===player.clan`), within `WAR_CRATE_EXPIRY_MS`, not already in `claimedWarCrateIds` —
-then append `LEGENDARY_WAR_CRATE_ID` + stamp the id under the failClosed save lock; client mirrors.
-TWO client grant sites: `recordVillageWarRaid` inline (winBattle, Arena.tsx) + `claimPendingWarCrates`
-login sweep (`lib/world-state.ts`). MOST entangled with the village-war system + great-swartz's war
-state diverges from main — do LAST, carefully.
+**Surface 2 — war crate: SERVER ENDPOINT DONE (inert) — commit <this>. Client rewire remains.**
+`api/village/claim-war-crate.ts` (POST `{playerName, warCrateId}` → `{ok, granted, reason}`),
+route-registered. Validates the crate against the AUTHORITATIVE `world:war:<id>` record — which is
+genuinely server-stamped: world-state.ts only sets `winnerVillage` when the enemy village's persisted
+HP is actually 0 AND the winner is the actor's own village, stamps `warCrateId=war-crate-<id>` at war
+creation, and FREEZES the record once ended (a losing Kage can't self-declare; HP is delta-capped).
+So reading `winnerVillage`/`endedAt`/`warCrateId` is a real anti-fab check. Grants LEGENDARY_WAR_CRATE_ID
+under `withKvLock(save, failClosed)` + `claimedWarCrateIds` idempotency. Pure helpers
+`parseWarCrateWarId` + `warCrateClaimDecision` (7-case test `api/village/_war-crate.test.ts`). Inert:
+nothing calls it yet, and it only ever grants a legitimately-won crate, so exposing it is safe.
+Scope: VILLAGE winner crate only (the winBattle vector). Clan-war crate (`winnerClan`, clan/war
+records) + loser/MVP crates are follow-ups.
+- **CLIENT REWIRE (remaining, the delicate part):** winBattle already fires ONE async grant (P0.2b
+  aiFight). Adding the war-crate call makes TWO async writers race on `updateCharacter`. Do NOT bolt a
+  second independent `.then(updateCharacter)` on — restructure so a raidPlayer win resolves both server
+  replies then does ONE `updateCharacter`. Design: `deferWarCrate = warCrateServerAuthEnabled() &&
+  villageWarRaid.warCrate && !!villageWarRaid.warCrateId`; buildWin EXCLUDES the crate when
+  deferWarCrate; after the win, POST claim-war-crate and fold the result into the SAME updateCharacter
+  as P0.2b (add the crate on `granted`; on network/5xx failure fall back to adding it locally so a legit
+  crate is never lost; on a definitive `granted:false` reason leave it off). Add flag `warCrateServerAuth.v1`
+  (localStorage, default OFF, like `ai-fight-flag.ts`). Then also route `claimPendingWarCrates` (login
+  sweep, sync→async) village-winner crates through the endpoint. Needs client dist rebuild.
 
 **Surface 3 — rare one-time PvE items (optional, lowest leverage):** `HOLLOW_GATE_KEY_ID` (Kage
 finale) + `AURA_SPHERE_ITEM_ID` (VN). Story-gated one-time grants; low fabrication value. Only do
