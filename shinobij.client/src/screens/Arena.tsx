@@ -11,7 +11,6 @@ const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
-import { gameConfirm } from "../components/GameAlert";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
@@ -216,7 +215,7 @@ export function Arena({
         actionNumber: number;
         createdAt: number;
     };
-    type SelectedCombatAction = "move" | "dash" | undefined;
+    type SelectedCombatAction = "move" | undefined;
 
     const gridWidth = 12;
     const gridHeight = 10;
@@ -337,11 +336,6 @@ export function Arena({
     const combatFastRef = useRef(false);
     useEffect(() => { combatFastRef.current = combatFast; }, [combatFast]);
     useEffect(() => { try { setCombatFast(localStorage.getItem("combatFast.v1") === "1"); } catch { /* ignore */ } }, []);
-    const toggleCombatFast = () => setCombatFast((v) => {
-        const next = !v;
-        try { localStorage.setItem("combatFast.v1", next ? "1" : "0"); } catch { /* ignore */ }
-        return next;
-    });
     const combatFxSeq = useRef(0);
     const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string } | null>(null);
     // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
@@ -637,7 +631,6 @@ export function Arena({
     const isAcademySpar = pendingStoryBattle?.kind === "academySparring";
     const [sparAttacked, setSparAttacked] = useState(false);
     const [sparCasted, setSparCasted] = useState(false);
-    const [dashMode, setDashMode] = useState(false);
     const [hoveredBattleTile, setHoveredBattleTile] = useState<number | null>(null);
 
     const [playerStatuses, setPlayerStatuses] = useState<CombatStatus[]>([]);
@@ -800,14 +793,14 @@ export function Arena({
     }
 
     // Cheapest AP cost of ANY action the player could still take this turn —
-    // move/dash, basic attack, an equipped jutsu, or an equipped weapon /
+    // move, basic attack, an equipped jutsu, or an equipped weapon /
     // throwable / consumable. Used to decide whether to auto-pass the turn.
     // MUST include the cheap (20-AP) throwables/consumables: the old auto-pass
     // checked only the 30-AP move cost, so it ended the turn with ~20 AP left
     // even though a 20-AP item/jutsu was still usable.
     function pveMinActionCost(): number {
         const costs = [
-            adjustedApCost(30), // move / dash
+            adjustedApCost(30), // move
             adjustedApCost(40), // basic attack
             ...equippedJutsus.map((j) => adjustedApCost(j.ap ?? 40)),
             // Only items the player can still USE count — a thrown/consumable/
@@ -882,7 +875,6 @@ export function Arena({
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key.toLowerCase() === "m") {
                 setSelectedActionId((current) => current === "move" ? undefined : "move");
-                setDashMode(false);
                 setLog("Move selected. Click an adjacent tile.");
             }
             if (event.key.toLowerCase() === "w") {
@@ -1671,7 +1663,6 @@ export function Arena({
             setPlayerPos(tile);
             setPendingTargetJutsuId("");
             setSelectedActionId(undefined);
-            setDashMode(false);
             setJutsuCooldowns((c) => ({ ...c, [pendingTargetJutsu.id]: pendingTargetJutsu.cooldown }));
 
             updateCharacter({
@@ -1747,36 +1738,6 @@ export function Arena({
         }
 
         const dist = distance(playerPos, tile);
-
-        if (dashMode) {
-            if ((cooldowns.dash ?? 0) > 0) {
-                setDashMode(false);
-                setSelectedActionId(undefined);
-                setLog(`Dash cooldown: ${cooldowns.dash} rounds.`);
-                return;
-            }
-
-            if (dist < 1 || dist > 3) {
-                setLog("Dash can move up to 3 tiles.");
-                return;
-            }
-
-            if (!spendAp(30, "dash")) return;
-
-            if (barrierTiles.some((b) => b.tile === tile)) {
-                setLog("A barrier wall blocks that tile.");
-                return;
-            }
-
-            setPlayerPos(tile);
-            setDashMode(false);
-            setSelectedActionId(undefined);
-            setPendingTargetJutsuId("");
-            setCooldowns((c) => ({ ...c, dash: 2 }));
-            setLog(`Dashed ${dist} tile(s).`);
-            addCombatLog(`${character.name} uses Dash, moving ${dist} tile(s). Dash is on cooldown for 2 rounds.`, "dash", character.name);
-            return;
-        }
 
         if (dist !== 1) {
             setLog("Normal movement is 1 tile at a time.");
@@ -1904,7 +1865,6 @@ export function Arena({
         setPendingTargetJutsuId("");
         setPendingTargetWeaponRaw(null);
         setSelectedActionId(undefined);
-        setDashMode(false);
 
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
             setLog(`${item.name} requires the ${item.weaponElement} element.`);
@@ -2135,7 +2095,6 @@ export function Arena({
         }
         setPendingTargetJutsuId("");
         setSelectedActionId(undefined);
-        setDashMode(false);
 
         const apCost = item.apCost ?? 35;
         if (!spendAp(apCost, item.id)) return;
@@ -2221,7 +2180,6 @@ export function Arena({
             // Arm for targeting — clear any pending jutsu
             setPendingTargetJutsuIdRaw("");
             setPendingTargetJutsuDirect(null);
-            setDashMode(false);
             setSelectedActionId(undefined);
             setPendingTargetWeaponRaw(item);
             const weapRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
@@ -2286,7 +2244,7 @@ export function Arena({
         if (!spendAp(100, "flee")) return;
 
         const hpCost = Math.max(1, Math.floor(character.maxHp * 0.1));
-        const escaped = Math.random() < 0.2;
+        const escaped = Math.random() < 0.5;
         setPlayerHp((hp) => Math.max(0, hp - hpCost));
 
         if (escaped) {
@@ -2296,26 +2254,9 @@ export function Arena({
             setLog("You escaped the fight.");
             addCombatLog(`${character.name} successfully fled the battle, losing ${hpCost} HP in the retreat.`, "flee", character.name);
         } else {
-            setLog("Flee failed. 20% odds missed.");
+            setLog("Flee failed. 50% odds missed.");
             addCombatLog(`${character.name} tried to flee, lost ${hpCost} HP, but failed.`, "flee", character.name);
         }
-    }
-
-    // Sanctioned exit for the navigation lock: forfeit = an immediate loss.
-    // Mirrors the canonical in-combat defeat (hp:0 / hospitalized, or ranked Elo
-    // loss) and drives the fight into the standard "loss" end-state, so the
-    // existing per-type loss UI (endless run-end, dungeon fail, hospital, …) and
-    // the battleEnded effect (mission-flag clear) take it from there.
-    async function forfeit() {
-        if (battleEnded) return;
-        if (!(await gameConfirm("Forfeit this battle? It counts as a loss.", { danger: true, confirmLabel: "Forfeit" }))) return;
-        setBattleEnded(true);
-        setBattleResult("loss");
-        setRaidBattleKind("none");
-        setLog(`${character.name} forfeited the battle.`);
-        addCombatLog(`${character.name} forfeited the battle — counted as a loss.`, "defeat", character.name);
-        if (rankedBattleActive) applyRankedLoss();
-        else updateCharacter({ ...character, hp: 0, hospitalized: true });
     }
 
     function applyRankedLoss() {
@@ -2539,7 +2480,6 @@ export function Arena({
         }
 
         setSelectedActionId(undefined);
-        setDashMode(false);
 
         // Uniform two-step flow for EVERY jutsu (matches PvP): clicking the card
         // only ARMS it — the cast fires on the follow-up target click. Self-buffs
@@ -2567,7 +2507,6 @@ export function Arena({
         if (needsTargetClick && !targetConfirmed) {
             armPendingTargetJutsu(jutsu);
             setSelectedActionId(undefined);
-            setDashMode(false);
 
             if (moveJutsu) {
                 setLog(`${jutsu.name} selected. Choose an open tile within ${moveJutsuRange(jutsu)} spaces.`);
@@ -4198,7 +4137,6 @@ export function Arena({
         setJutsuCooldowns({});
         setBattleEnded(false);
         setBattleResult(null);
-        setDashMode(false);
         setSelectedActionId(undefined);
         setPotionUsesThisBattle(0);
         setSummonedPetId("");
@@ -4258,12 +4196,6 @@ export function Arena({
 
                 const isBarrierTile = barrierTiles.some((b) => b.tile === i);
                 const isGroundZoneTile = groundZones.some((z) => z.tiles.includes(i));
-                const canDashHere =
-                    dashMode &&
-                    distance(playerPos, i) <= 3 &&
-                    i !== playerPos &&
-                    i !== enemyPos &&
-                    !isBarrierTile;
                 const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
                 const isMoveAoeAffectedTile = pendingTargetJutsu != null &&
                     isMoveJutsu(pendingTargetJutsu) &&
@@ -4306,7 +4238,6 @@ export function Arena({
                         className={`hex-tile ${i === playerPos ? "hex-player" : ""
                             } ${i === enemyPos ? "hex-enemy" : ""
                             } ${isBarrierTile ? "hex-barrier" : ""
-                            } ${canDashHere ? "dash-target-tile" : ""
                             } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
                             } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
                             } ${(isGroundAffectedTile || isMoveAoeAffectedTile || isGroundZoneTile) ? "ground-affected-tile" : ""
@@ -4336,7 +4267,7 @@ export function Arena({
                 );
             })
         )
-    ), [playerPos, enemyPos, barrierTiles, groundZones, dashMode, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, opponentAvatar, opponentName]);
+    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
@@ -5030,11 +4961,10 @@ export function Arena({
                         {/* Affordance feedback: each action disables when it can't be
                             taken (not your turn / 5 actions used / not enough AP·SP·CP /
                             on cooldown), mirroring each handler's own guards so a
-                            disabled button can never block a legal action. Wait + Forfeit
-                            stay live (Wait also skips the enemy-turn delay). */}
+                            disabled button can never block a legal action. Wait stays
+                            live (it also skips the enemy-turn delay). */}
                         <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><span>Attack</span><small>40 AP | 10 SP</small></button>
-                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setDashMode(false); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
-                        <button className={dashMode || selectedActionId === "dash" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "dash" ? undefined : "dash"); setDashMode((current) => !current); setLog("Dash selected. Click a tile within 3 spaces."); }}><span>Dash</span><small>3 tiles | {adjustedApCost(30)} AP | CD {cooldowns.dash ?? 0}</small></button>
+                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
                         <button onClick={basicHeal} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}><span>Heal</span><small>60 AP | 10 CP | CD {cooldowns.basicHeal ?? 0}</small></button>
                         <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
@@ -5044,10 +4974,8 @@ export function Arena({
                                 <small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
                             </button>
                         )}
-                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 20%</small></button>
-                        {!isAcademySpar && <button onClick={forfeit} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}><span>Forfeit</span><small>Take the loss</small></button>}
+                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 50%</small></button>
                         <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
-                        <button onClick={toggleCombatFast} className={combatFast ? "selected-action" : ""} title="Toggle battle speed (remembered)"><span>{combatFast ? "Fast ⏩" : "Speed"}</span><small>{combatFast ? "Fast battles" : "Normal"}</small></button>
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">

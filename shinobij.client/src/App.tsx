@@ -7505,7 +7505,11 @@ export default function App() {
                 {/* Suspense for lazy screens; the per-screen ErrorBoundary (keyed by screen) isolates a render crash to one view so the nav stays usable and navigating away clears it. */}
                 <Suspense fallback={<div className="lazy-screen-fallback" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>}>
                 <ScreenErrorBoundary key={screen}>
-                {character && screen !== "start" && (
+                {/* Hidden on the full-screen battle boards — the in-combat side HUDs
+                    already show the player's HP/chakra/stamina, so the top status bar
+                    is redundant there and just costs vertical space (matches the
+                    LeftProfileCard hide-set above). */}
+                {character && screen !== "start" && screen !== "arena" && screen !== "storyBoss" && screen !== "battleTowers" && screen !== "pvpBattle" && (
                     <MobileStatusHUD
                         character={character}
                         onBack={canGoBack ? goBack : undefined}
