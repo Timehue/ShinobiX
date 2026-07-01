@@ -73,6 +73,16 @@ describe('applyJutsu characterization — heal / shield / siphon', () => {
         assert.equal(wound?.amount, 240);       // cappedPostDamage(960, 25)
         assert.equal(wound?.activeRound, 2);    // deferred to next round
     });
+
+    it('Wound stacks are capped at 2 — a 3rd cast does not add a 3rd ticking stack', () => {
+        const woundJutsu = jutsu([{ name: 'Wound', percent: 30 }]);
+        let def = fighter('B');
+        for (let i = 0; i < 3; i++) {
+            const r = applyJutsu(fighter('A'), def, woundJutsu, 1, 'central', 1);
+            def = { ...r.opponent, hp: 1000 };  // refill so the target survives all 3 casts
+        }
+        assert.equal(def.statuses.filter(s => s.name === 'Wound').length, 2);
+    });
 });
 
 describe('applyJutsu characterization — post-damage reactions', () => {
