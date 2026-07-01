@@ -1661,24 +1661,26 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
     padding: 4px 7px !important;
     font-size: 11px !important;
 }
-/* Zoom HUD (buttons + village chips) sits above the transformed map, unscaled. */
-.wm-zoom-hud {
-    position: absolute;
-    z-index: 30;
+/* Zoom controls live in the top bar (beside "← Village"); the region chips sit
+   in a row BELOW the map — neither overlays the painted map anymore. */
+.wm-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.wm-zoom-controls {
     display: flex;
     gap: 6px;
+    flex: 0 0 auto;
 }
-.wm-hud-controls {
-    top: 8px;
-    right: 8px;
-    flex-direction: column;
-}
-.wm-hud-villages {
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
+.wm-village-bar {
+    display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
 }
 .wm-zoom-btn {
     width: 40px;
