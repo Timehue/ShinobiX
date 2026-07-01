@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, type Wanderer } from "./wanderers";
+import { rollWanderers, wandererLevelFor, wandererDayBucket, wandererCount, isWandererOnCooldown, withWandererCooldown, WANDERER_NPC_COOLDOWN_MS, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "./wanderers";
 
 const GRID = 12;
 const onGrid = (t: number) => Number.isInteger(t) && t >= 0 && t < GRID * GRID;
@@ -116,6 +116,70 @@ describe("per-NPC cooldown", () => {
     });
     it("the flee back-off is short — present, but well under the anti-farm window", () => {
         assert.ok(WANDERER_FLEE_COOLDOWN_MS > 0 && WANDERER_FLEE_COOLDOWN_MS < WANDERER_NPC_COOLDOWN_MS);
+    });
+});
+
+describe("wanderer relocation", () => {
+    const BUCKET = 5000;
+    // Find a populated sector for this bucket so we have a real wanderer id to move.
+    function anyWanderer(): Wanderer {
+        for (let s = 1; s <= 400; s++) {
+            const list = rollWanderers(s, BUCKET);
+            if (list.length) return list[0];
+        }
+        throw new Error("no populated sector found for the test bucket");
+    }
+
+    it("parseWandererId reads real ids and rejects merc/synthetic ones", () => {
+        assert.deepEqual(parseWandererId("w-7-5000-1"), { sector: 7, dayBucket: 5000, index: 1 });
+        assert.equal(parseWandererId("merc-abc-2"), null);
+        assert.equal(parseWandererId("w-7-5000"), null);
+        assert.equal(parseWandererId(""), null);
+    });
+
+    it("wandererRelocationSector picks a different, in-range sector deterministically", () => {
+        for (let from = 1; from <= 60; from++) {
+            const dest = wandererRelocationSector("w-7-5000-0", from);
+            assert.ok(dest >= 1 && dest <= 60, `dest ${dest} in range`);
+            assert.notEqual(dest, from, "never relocates to the same sector");
+        }
+        // deterministic
+        assert.equal(wandererRelocationSector("w-7-5000-0", 12), wandererRelocationSector("w-7-5000-0", 12));
+        // hopping again from the new sector generally moves it somewhere else
+        const s1 = wandererRelocationSector("w-7-5000-0", 7);
+        const s2 = wandererRelocationSector("w-7-5000-0", s1);
+        assert.notEqual(s2, s1);
+    });
+
+    it("hasWandererRelocated / pruneWandererMoves track and expire entries", () => {
+        assert.equal(hasWandererRelocated({ "w-7-5000-0": 12 }, "w-7-5000-0"), true);
+        assert.equal(hasWandererRelocated({ "w-7-5000-0": 12 }, "w-7-5000-1"), false);
+        assert.equal(hasWandererRelocated(undefined, "w-7-5000-0"), false);
+        // prune keeps current-bucket entries, drops stale-bucket + malformed ones
+        const pruned = pruneWandererMoves({ "w-7-5000-0": 12, "w-7-4999-0": 3, "merc-x": 5 }, 5000);
+        assert.deepEqual(pruned, { "w-7-5000-0": 12 });
+    });
+
+    it("wanderersVisitingSector surfaces a moved wanderer once its cooldown lifts", () => {
+        const w = anyWanderer();
+        const parsed = parseWandererId(w.id)!;
+        const dest = parsed.sector === 60 ? 59 : 60; // any sector that isn't home
+        const now = 1_000_000;
+        const moves = { [w.id]: dest };
+
+        // On cooldown → still travelling, not here yet.
+        const onCd = wanderersVisitingSector(dest, BUCKET, moves, { [w.id]: now + 1000 }, now);
+        assert.equal(onCd.length, 0);
+
+        // Cooldown lifted → appears in the destination sector, same id, re-homed tile.
+        const arrived = wanderersVisitingSector(dest, BUCKET, moves, {}, now);
+        assert.equal(arrived.length, 1);
+        assert.equal(arrived[0].id, w.id);
+        assert.ok(arrived[0].homeTile >= 0 && arrived[0].homeTile < 144);
+
+        // Not shown in a sector it didn't move to, nor against a stale window.
+        assert.equal(wanderersVisitingSector(dest + 1 <= 60 ? dest + 1 : 1, BUCKET, moves, {}, now).length, 0);
+        assert.equal(wanderersVisitingSector(dest, BUCKET + 1, moves, {}, now).length, 0);
     });
 });
 

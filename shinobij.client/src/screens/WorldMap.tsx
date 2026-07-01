@@ -19,7 +19,7 @@ import { SceneAmbience } from "../components/SceneAmbience";
 import { SceneAmbience3D } from "../components/SceneAmbience3D";
 import { SectorAvatar } from "../components/SectorAvatar";
 import { SectorWanderer } from "../components/SectorWanderer";
-import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, type Wanderer } from "../lib/wanderers";
+import { rollWanderers, isWanderersEnabled, wandererDayBucket, questForWanderer, questMetricForId, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, epicForWanderer, metricLabel, bossStatBonusFromChoices, timeLeftLabel, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
@@ -527,13 +527,21 @@ export function WorldMap({
             if (!isWanderersEnabled() || selectedSector == null) return [];
             const now = Date.now();
             const cd = character.wandererCooldowns;
+            const moves = character.wandererMoves;
+            const bucket = wandererDayBucket(new Date());
             // Hide NPCs you've already taken a reward from (fight/gift/pet/card) for a
-            // few hours so they can't be farmed. Sages (quests) are never cooled — a
-            // quest is one-at-a-time already and you need a sage to continue an epic.
-            return rollWanderers(selectedSector, wandererDayBucket(new Date()))
-                .filter(w => w.verb === "quest" || !isWandererOnCooldown(cd, w.id, now));
+            // few hours so they can't be farmed, AND hide ones that have since wandered
+            // off to another sector so they don't reappear here when the cooldown lifts.
+            // Sages (quests) are never cooled or moved — a quest is one-at-a-time already
+            // and you need a sage to continue an epic.
+            const natives = rollWanderers(selectedSector, bucket)
+                .filter(w => w.verb === "quest" || (!isWandererOnCooldown(cd, w.id, now) && !hasWandererRelocated(moves, w.id)));
+            // Plus any wanderers that have wandered INTO this sector from elsewhere and
+            // whose cooldown has now lifted — they're findable again, just somewhere new.
+            const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now);
+            return [...natives, ...visitors];
         },
-        [selectedSector, character.wandererCooldowns],
+        [selectedSector, character.wandererCooldowns, character.wandererMoves],
     );
     // Roaming mercenaries (Phase 5) — a hired enemy band patrols this sector as
     // hostile, wanderer-shaped NPCs. The roster is SERVER-sourced (which bands roam
@@ -558,8 +566,24 @@ export function WorldMap({
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
+    // Also records where the wanderer wanders off to, so it doesn't resurface in this
+    // same sector when its cooldown lifts. Only real wanderers relocate — merc/
+    // synthetic ids don't parse, so their entry is left untouched.
     function coolWanderer(id: string, ms?: number) {
-        updateCharacter(prev => prev ? ({ ...prev, wandererCooldowns: withWandererCooldown(prev.wandererCooldowns, id, Date.now(), ms) }) : prev);
+        updateCharacter(prev => {
+            if (!prev) return prev;
+            const now = Date.now();
+            const cooldowns = withWandererCooldown(prev.wandererCooldowns, id, now, ms);
+            const parsed = parseWandererId(id);
+            let moves = prev.wandererMoves;
+            if (parsed) {
+                const bucket = wandererDayBucket(new Date());
+                const from = selectedSector != null && selectedSector >= 1 ? selectedSector : parsed.sector;
+                const dest = wandererRelocationSector(id, from);
+                moves = { ...pruneWandererMoves(prev.wandererMoves, bucket), [id]: dest };
+            }
+            return { ...prev, wandererCooldowns: cooldowns, wandererMoves: moves };
+        });
     }
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
     // All wanderer combat scales to the PLAYER's level (never impossible). Fending

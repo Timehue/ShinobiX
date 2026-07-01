@@ -267,6 +267,108 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
     return out;
 }
 
+// ── Relocation: a wanderer you've dealt with moves ON, not back ───────────────
+// The per-NPC cooldown above hides a wanderer in its sector for a few hours — but
+// the deterministic roster would otherwise drop it right back in the SAME sector
+// the moment its cooldown lifts, so it "sits" there and can be re-farmed on a slow
+// timer. Relocation closes that: interacting with a wanderer also records the
+// sector it wanders off to (id → destination sector). Its home sector then stops
+// listing it for the rest of the window, and it re-surfaces (once its cooldown has
+// lifted) in the NEW sector instead — where dealing with it again nudges it on once
+// more. We persist ONLY the destination (a number); the visiting wanderer is
+// re-derived from its id, which already encodes its home sector + roster index, so
+// nothing about the wanderer is duplicated onto the save. Merc/synthetic ids don't
+// match the id shape and never relocate (they're server-driven). Keyed, like the
+// cooldowns, by the wanderer's stable id. The whole map self-clears every 6h window
+// (a stale-bucket prune), so it stays tiny.
+const SECTOR_COUNT = 60;
+
+/** Parse the home sector + window bucket + roster index out of a wanderer id
+ *  (`w-<sector>-<dayBucket>-<index>`). Returns null for ids that aren't real
+ *  wanderers (e.g. server-synthesised `merc-…` NPCs), which therefore never
+ *  relocate. */
+export function parseWandererId(id: string): { sector: number; dayBucket: number; index: number } | null {
+    const m = /^w-(\d+)-(\d+)-(\d+)$/.exec(id);
+    if (!m) return null;
+    return { sector: Number(m[1]), dayBucket: Number(m[2]), index: Number(m[3]) };
+}
+
+/** The sector a wanderer wanders off to after being dealt with — deterministic
+ *  from (id, the sector it was just found in) and always a DIFFERENT sector, so a
+ *  repeat encounter nudges it somewhere new instead of back where it started. */
+export function wandererRelocationSector(id: string, fromSector: number, maxSector: number = SECTOR_COUNT): number {
+    let h = 2166136261 >>> 0;
+    const key = `${id}#${fromSector}`;
+    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const span = Math.max(1, maxSector - 1);
+    let dest = 1 + ((h >>> 0) % span);      // 1..maxSector-1
+    if (dest >= fromSector) dest += 1;      // skip `fromSector` → 1..maxSector minus it
+    return Math.max(1, Math.min(maxSector, dest));
+}
+
+/** Drop relocation entries from a stale window (the id's dayBucket no longer
+ *  matches the current one) so the map clears itself every 6h and never grows
+ *  without bound on the save. */
+export function pruneWandererMoves(
+    moves: Record<string, number> | null | undefined,
+    currentDayBucket: number,
+): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [id, dest] of Object.entries(moves ?? {})) {
+        const parsed = parseWandererId(id);
+        if (!parsed || parsed.dayBucket !== currentDayBucket) continue;
+        if (typeof dest === "number" && dest >= 1) out[id] = dest;
+    }
+    return out;
+}
+
+/** True if the wanderer with this id has wandered off (has an active relocation),
+ *  so its HOME sector should stop listing it. */
+export function hasWandererRelocated(
+    moves: Record<string, number> | null | undefined,
+    id: string,
+): boolean {
+    return moves != null && typeof moves[id] === "number";
+}
+
+/** Re-home a wanderer into `sector` at a deterministic interior tile + patrol, so a
+ *  visiting wanderer holds still in its new sector instead of jumping around. */
+function relocateWandererInto(w: Wanderer, sector: number): Wanderer {
+    let h = 2166136261 >>> 0;
+    const key = `${w.id}@${sector}`;
+    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const rng = mulberry32(h >>> 0);
+    const home = interiorTile(rng);
+    const waypoints = [home];
+    const legs = 2 + Math.floor(rng() * 2);
+    for (let i = 0; i < legs; i++) waypoints.push(nearbyTile(home, rng));
+    return { ...w, homeTile: home, waypoints: Array.from(new Set(waypoints)) };
+}
+
+/** Wanderers that have wandered INTO `sector` from elsewhere and are ready to be
+ *  found again (their cooldown has lifted). Re-derived from their ids against the
+ *  current window; entries pointing at other sectors, still on cooldown, or from a
+ *  stale window are skipped. */
+export function wanderersVisitingSector(
+    sector: number,
+    dayBucket: number,
+    moves: Record<string, number> | null | undefined,
+    cooldowns: Record<string, number> | null | undefined,
+    now: number,
+): Wanderer[] {
+    const out: Wanderer[] = [];
+    for (const [id, dest] of Object.entries(moves ?? {})) {
+        if (dest !== sector) continue;
+        if (isWandererOnCooldown(cooldowns, id, now)) continue; // still on the road
+        const parsed = parseWandererId(id);
+        if (!parsed || parsed.dayBucket !== dayBucket) continue; // stale window
+        const w = rollWanderers(parsed.sector, dayBucket)[parsed.index];
+        if (!w) continue;
+        out.push(relocateWandererInto(w, sector));
+    }
+    return out;
+}
+
 // ── Quests (sage wanderers) ──────────────────────────────────────────────────
 // Display catalog mirrored by the server (api/sector/_wanderer-quest.ts owns the
 // authoritative targets + reward). Each quest tracks a real character counter, and
