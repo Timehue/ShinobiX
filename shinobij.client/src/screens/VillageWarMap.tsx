@@ -159,18 +159,24 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 <span>+{myView.wrPerSector} WR/sector</span>
                             </div>
                             {isKage && (
-                                <div className="vwm-structures">
-                                    {WAR_STRUCTURES.map((s) => (
-                                        <button
-                                            key={s.key}
-                                            disabled={!!busy}
-                                            onClick={() => act(`up-${s.key}`, () => upgradeWarStructure(character.name, myVillage, s.key))}
-                                            title="Upgrade with treasury Honor Seals"
-                                        >
-                                            {STRUCTURE_IMAGES[s.key] && <img src={STRUCTURE_IMAGES[s.key]} alt="" style={{ height: 18, width: 18, verticalAlign: "middle", marginRight: 4 }} />}{s.name} <b>L{myView.structures[s.key] ?? 0}</b> ⬆
-                                        </button>
-                                    ))}
-                                </div>
+                                <>
+                                    <div className="vwm-structures">
+                                        {WAR_STRUCTURES.map((s) => {
+                                            const perWar = s.key === "ramparts" || s.key === "watchtower";
+                                            return (
+                                                <button
+                                                    key={s.key}
+                                                    disabled={!!busy}
+                                                    onClick={() => act(`up-${s.key}`, () => upgradeWarStructure(character.name, myVillage, s.key))}
+                                                    title={perWar ? "Fortify for THIS war — costs War Resources from the pool, resets to 0 when the war ends" : "Permanent upgrade — costs treasury Honor Seals"}
+                                                >
+                                                    {STRUCTURE_IMAGES[s.key] && <img src={STRUCTURE_IMAGES[s.key]} alt="" style={{ height: 18, width: 18, verticalAlign: "middle", marginRight: 4 }} />}{s.name} <b>L{myView.structures[s.key] ?? 0}</b> {perWar ? "· WR" : "⬆"}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="hint">⚔ <b>Ramparts</b> &amp; <b>Watchtower</b> are per-war: bought with <b>War Resources</b> and reset to 0 once you're at peace. The other four are permanent (treasury Honor Seals) and can also be raised in Town Hall → Upgrades.</p>
+                                </>
                             )}
                             {!isKage && <p className="hint">Only the seated Kage can declare sector wars, set sector rules, and upgrade structures.</p>}
                         </div>

@@ -27,7 +27,9 @@ import {
     villageWarSlug,
     type VillageWarRecord,
 } from './_war-state.js';
-import { wrPerSector } from './_war-structures.js';
+import { resetPerWarStructures, wrPerSector } from './_war-structures.js';
+import { activeVillageWarEnemiesOf } from './world-state.js';
+import { listActiveSectorWars } from './_sector-war-store.js';
 
 /** The existing village-treasury key (seal accrual target). Same slug as the
  *  war-state key and api/village/claim-daily-agenda.ts. */
@@ -64,13 +66,22 @@ export interface VillageWarDailyResult {
 /** Run the daily pass across all villages. Default deps use the live kv + lock;
  *  tests inject an in-memory store + passthrough lock and `enabled: true`. */
 export async function runVillageWarDailyPass(
-    deps: { store?: WarStore; lock?: LockRunner; now?: number; enabled?: boolean } = {},
+    deps: { store?: WarStore; lock?: LockRunner; now?: number; enabled?: boolean; isAtWar?: (village: string) => Promise<boolean> } = {},
 ): Promise<VillageWarDailyResult> {
     const enabled = deps.enabled ?? (process.env.ENABLE_VILLAGE_WAR === '1');
     if (!enabled) return { enabled: false, processed: 0, ran: 0, sealsAccrued: 0 };
 
     const store: WarStore = deps.store ?? kv;
     const lock: LockRunner = deps.lock ?? ((key, fn) => withKvLock(key, fn, { failClosed: true }));
+    // Whether a village is currently at war — an active village war OR a sector
+    // contest it attacks/defends. At peace, its per-war structures reset. Injectable
+    // so the pass stays unit-testable without the live war stores.
+    const isAtWar = deps.isAtWar ?? (async (v: string): Promise<boolean> => {
+        try {
+            if ((await activeVillageWarEnemiesOf(v)).length > 0) return true;
+            return (await listActiveSectorWars()).some((c) => c.attackerVillage === v || c.defenderVillage === v);
+        } catch { return false; }
+    });
     const now = deps.now ?? Date.now();
     const today = utcDateString(now);
 
@@ -84,12 +95,15 @@ export async function runVillageWarDailyPass(
             await lock(key, async () => {
                 const raw = await store.get<Partial<VillageWarRecord>>(key);
                 const record = normalizeVillageWarRecord(village, raw ?? undefined);
-                const { record: next, summary } = stepVillageWarDay(record, {
+                const { record: stepped, summary } = stepVillageWarDay(record, {
                     sectorsControlled: sectors,
                     today,
                     now,
                     wrPerSector: wrPerSector(record), // Supply-Depot-boosted income
                 });
+                // Per-war fortifications (Ramparts/Watchtower) reset to 0 once the
+                // village is at peace — they never carry into the next war (§7 split).
+                const next = (await isAtWar(village)) ? stepped : resetPerWarStructures(stepped);
                 if (summary.ran) {
                     await store.set(key, next);
                     ran++;
@@ -102,6 +116,8 @@ export async function runVillageWarDailyPass(
                     if (summary.maintenancePaid > 0) void recordWarEcoEvent({ eventId: `wr-maint:${slug}:${today}`, village, kind: 'wr.spend.maintenance', amount: summary.maintenancePaid, ts: now }, { kv: store });
                     if (!record.dormant && summary.dormant) void recordWarEcoEvent({ eventId: `dormancy-enter:${slug}:${today}`, village, kind: 'dormancy.enter', amount: 1, ts: now }, { kv: store });
                     if (record.dormant && !summary.dormant) void recordWarEcoEvent({ eventId: `dormancy-exit:${slug}:${today}`, village, kind: 'dormancy.exit', amount: 1, ts: now }, { kv: store });
+                } else if (next !== stepped) {
+                    await store.set(key, next); // a peace-time per-war reset with no daily accrual today
                 }
             });
 
