@@ -139,6 +139,14 @@ records) + loser/MVP crates are follow-ups.
   crate is never lost; on a definitive `granted:false` reason leave it off). Add flag `warCrateServerAuth.v1`
   (localStorage, default OFF, like `ai-fight-flag.ts`). Then also route `claimPendingWarCrates` (login
   sweep, sync→async) village-winner crates through the endpoint. Needs client dist rebuild.
+  - **SECOND race to handle — war-END propagation:** `recordVillageWarRaid` fire-and-forgets the
+    world-state write that stamps `winnerVillage` server-side. If the crate claim reaches the endpoint
+    before that settles, the authoritative record shows no winner yet → `no-won-war`/`not-winner` for a
+    LEGIT crate. Don't treat those reasons as a hard decline in the winBattle path: sequence the claim
+    AFTER the war-end write resolves (and/or retry once on `no-won-war`, and fall back to a local grant
+    on persistent lag) so a legit crate is never lost to propagation timing. The recommended shape:
+    `applyWin()` = await aiFight (P0.2b) → await war-crate claim → ONE `updateCharacter(buildWin(effXp,
+    effRyo, includeCrate))`; keep a fully-synchronous flag-OFF fast path for byte-identical behavior.
 
 **Surface 3 — rare one-time PvE items (optional, lowest leverage):** `HOLLOW_GATE_KEY_ID` (Kage
 finale) + `AURA_SPHERE_ITEM_ID` (VN). Story-gated one-time grants; low fabrication value. Only do
