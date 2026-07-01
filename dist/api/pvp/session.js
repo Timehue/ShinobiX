@@ -22,6 +22,7 @@ const _jutsu_catalog_js_1 = require("./_jutsu-catalog.js");
 const _multipliers_js_1 = require("./_multipliers.js");
 const _tags_js_1 = require("./_tags.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
+const _elapsed_state_js_1 = require("../_elapsed-state.js");
 exports.PVP_MOVE_TOKEN_HISTORY = 20;
 // Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
 // minutes, so a 15-min TTL covers the live fight plus a buffer for the
@@ -816,10 +817,17 @@ async function handler(req, res) {
             // Admins keep their override path (admin acts as anyone for tests).
             let finalP1Character;
             let finalP2Character;
-            const [p1Save, p2Save] = await Promise.all([
+            const [p1SaveRaw, p2SaveRaw, battleLocks] = await Promise.all([
                 p1Norm ? _storage_js_1.kv.get(`save:${p1Norm}`) : Promise.resolve(null),
                 p2Norm ? _storage_js_1.kv.get(`save:${p2Norm}`) : Promise.resolve(null),
+                (0, _elapsed_state_js_1.battleLockFlagsForPlayers)([p1Norm ?? '', p2Norm ?? '']),
             ]);
+            const p1Save = p1SaveRaw
+                ? (0, _elapsed_state_js_1.settleSaveRecord)(p1SaveRaw, { battleLocked: p1Norm ? battleLocks.get(p1Norm) === true : false }).record
+                : p1SaveRaw;
+            const p2Save = p2SaveRaw
+                ? (0, _elapsed_state_js_1.settleSaveRecord)(p2SaveRaw, { battleLocked: p2Norm ? battleLocks.get(p2Norm) === true : false }).record
+                : p2SaveRaw;
             if (p1Save?.character) {
                 finalP1Character = hydrateCharacterFromSave(p1Save.character, p1Character, p1Save);
             }

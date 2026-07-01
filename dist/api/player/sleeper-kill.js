@@ -15,6 +15,7 @@ const _player_ips_js_1 = require("../_player-ips.js");
 const _vanguard_rewards_js_1 = require("../pvp/_vanguard-rewards.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _elapsed_state_js_1 = require("../_elapsed-state.js");
 // "Sleeping target" KO. When a player logs out / closes the tab while standing
 // in a WILD sector (currentSector >= 1) they don't vanish — they remain a
 // visible, attackable target there (see api/player/roster.ts, which reports
@@ -142,7 +143,13 @@ async function handler(req, res) {
         if (online_store_js_1.onlineStore.get(targetName)) {
             return res.status(409).json({ error: 'Target is online — use a normal attack.' });
         }
-        const targetRecord = await _storage_js_1.kv.get(`save:${targetSlug}`);
+        const [targetRecordRaw, initialBattleLocks] = await Promise.all([
+            _storage_js_1.kv.get(`save:${targetSlug}`),
+            (0, _elapsed_state_js_1.battleLockFlagsForPlayers)([targetSlug]),
+        ]);
+        const targetRecord = targetRecordRaw
+            ? (0, _elapsed_state_js_1.settleSaveRecord)(targetRecordRaw, { battleLocked: initialBattleLocks.get(targetSlug) === true }).record
+            : targetRecordRaw;
         const targetChar = targetRecord?.character;
         const targetSector = Number(targetRecord?.currentSector ?? 0);
         const preBlock = sleeperTargetBlock(targetChar, targetSector);
@@ -165,7 +172,13 @@ async function handler(req, res) {
         })();
         const settled = await withSavesLocked([attackerSlug, targetSlug], async () => {
             // Re-read both saves inside the lock so we settle against committed state.
-            const tRec = await _storage_js_1.kv.get(`save:${targetSlug}`);
+            const [tRecRaw, lockedBattleFlags] = await Promise.all([
+                _storage_js_1.kv.get(`save:${targetSlug}`),
+                (0, _elapsed_state_js_1.battleLockFlagsForPlayers)([targetSlug]),
+            ]);
+            const tRec = tRecRaw
+                ? (0, _elapsed_state_js_1.settleSaveRecord)(tRecRaw, { battleLocked: lockedBattleFlags.get(targetSlug) === true }).record
+                : tRecRaw;
             const tChar = tRec?.character;
             // Re-validate the sleeper conditions — another attacker may have won
             // the race (relocated + hospitalized them) between our checks and the lock.

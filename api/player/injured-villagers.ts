@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { professionRankForXp } from '../missions/_progress.js';
+import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 
 // Rank 10 Healer perk: see all injured players in your village anywhere in
 // the world (HP < maxHp), not just those in the hospital. Returns a small
@@ -63,20 +64,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // injured players. Same-village filter applied server-side so we never leak
         // other villages' player data through this endpoint.
         const registry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
-        const playerKeys = Object.keys(registry ?? {})
+        const playerSlugs = Object.keys(registry ?? {})
             .filter(slug => !slug.startsWith('clan-') && !slug.toLowerCase().startsWith('admin'))
-            .map(slug => `save:${slug}`);
+        const playerKeys = playerSlugs.map(slug => `save:${slug}`);
         if (playerKeys.length === 0) {
             res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
             return res.status(200).json({ injured: [] });
         }
 
-        const records = await kv.mget(...playerKeys);
+        const [records, battleLocks] = await Promise.all([
+            kv.mget(...playerKeys),
+            battleLockFlagsForPlayers(playerSlugs),
+        ]);
         const injured: InjuredEntry[] = [];
-        for (const r of records) {
+        for (let i = 0; i < records.length; i++) {
+            const r = records[i];
             const rec = r as Record<string, unknown> | null;
             if (!rec) continue;
-            const c = rec.character as Record<string, unknown> | undefined;
+            const settled = settleSaveRecord(rec, { battleLocked: battleLocks.get(playerSlugs[i]!) === true }).record;
+            const c = settled.character as Record<string, unknown> | undefined;
             if (!c) continue;
             const name = String(c.name ?? '');
             // healerName is a safeName slug; c.name is a display name — canonicalize

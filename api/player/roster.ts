@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 
 const REGISTRY_KEY = 'player:registry';
 
@@ -159,9 +160,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
         const saveKeys = registryKeys.map(k => `save:${k}`);
-        const saves = saveKeys.length > 0
-            ? await kv.mget<Record<string, unknown>[]>(...saveKeys)
-            : [];
+        const [saves, battleLocks] = saveKeys.length > 0
+            ? await Promise.all([
+                kv.mget<Record<string, unknown>[]>(...saveKeys),
+                battleLockFlagsForPlayers(registryKeys),
+            ])
+            : [[], new Map<string, boolean>()];
 
         const players: RosterPlayer[] = [];
 
@@ -170,7 +174,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const value = rawRegistry[key]!;
             try {
                 const entry = typeof value === 'string' ? JSON.parse(value) : value;
-                const save = saves[i] ?? null;
+                const rawSave = saves[i] ?? null;
+                const save = rawSave
+                    ? settleSaveRecord(rawSave, { battleLocked: battleLocks.get(key) === true }).record
+                    : null;
                 const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
                 const rawCharacter = livePresence?.character ?? save?.character;
                 const character = rosterProjection(rawCharacter);

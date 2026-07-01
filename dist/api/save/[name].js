@@ -18,6 +18,7 @@ const _mission_catalog_js_1 = require("../missions/_mission-catalog.js");
 const _save_version_js_1 = require("./_save-version.js");
 const _registry_throttle_js_1 = require("./_registry-throttle.js");
 const _lock_js_1 = require("../_lock.js");
+const _elapsed_state_js_1 = require("../_elapsed-state.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
 const PRIVATE_CHAR_FIELDS = [
@@ -1384,9 +1385,12 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
-        const data = await _storage_js_1.kv.get(key);
-        if (data === null)
+        const stored = await _storage_js_1.kv.get(key);
+        if (stored === null)
             return res.status(404).end();
+        const data = isClanSave
+            ? stored
+            : (await (0, _elapsed_state_js_1.settleSaveRecordForRead)(name, stored, { persist: true })).record;
         // Strip sensitive fields when someone reads another player's save.
         // - Owners + admins: full save.
         // - Clan saves: full save (any logged-in player can read shared clan record).

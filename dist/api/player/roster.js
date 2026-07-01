@@ -4,6 +4,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
+const _elapsed_state_js_1 = require("../_elapsed-state.js");
 const REGISTRY_KEY = 'player:registry';
 // Fields stripped from EVERY character before the roster goes out the door.
 // Previously this endpoint returned `save.character` verbatim, leaking ryo,
@@ -148,16 +149,22 @@ async function handler(req, res) {
         const registryKeys = Object.keys(rawRegistry);
         // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
         const saveKeys = registryKeys.map(k => `save:${k}`);
-        const saves = saveKeys.length > 0
-            ? await _storage_js_1.kv.mget(...saveKeys)
-            : [];
+        const [saves, battleLocks] = saveKeys.length > 0
+            ? await Promise.all([
+                _storage_js_1.kv.mget(...saveKeys),
+                (0, _elapsed_state_js_1.battleLockFlagsForPlayers)(registryKeys),
+            ])
+            : [[], new Map()];
         const players = [];
         for (let i = 0; i < registryKeys.length; i++) {
             const key = registryKeys[i];
             const value = rawRegistry[key];
             try {
                 const entry = typeof value === 'string' ? JSON.parse(value) : value;
-                const save = saves[i] ?? null;
+                const rawSave = saves[i] ?? null;
+                const save = rawSave
+                    ? (0, _elapsed_state_js_1.settleSaveRecord)(rawSave, { battleLocked: battleLocks.get(key) === true }).record
+                    : null;
                 const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
                 const rawCharacter = livePresence?.character ?? save?.character;
                 const character = rosterProjection(rawCharacter);

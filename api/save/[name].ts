@@ -15,6 +15,7 @@ import { combatMissionByKey } from '../missions/_mission-catalog.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
+import { settleSaveRecordForRead } from '../_elapsed-state.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -1376,8 +1377,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Sensitive economy fields (ryo, inventory, etc.) are stripped for non-owners.
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        const data = await kv.get<Record<string, unknown>>(key);
-        if (data === null) return res.status(404).end();
+        const stored = await kv.get<Record<string, unknown>>(key);
+        if (stored === null) return res.status(404).end();
+        const data = isClanSave
+            ? stored
+            : (await settleSaveRecordForRead(name, stored, { persist: true })).record;
 
         // Strip sensitive fields when someone reads another player's save.
         // - Owners + admins: full save.
