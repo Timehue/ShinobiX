@@ -74,28 +74,39 @@ async function handler(req, res) {
         }
         const stateKey = villageStateKey(village);
         const warKey = (0, _war_state_js_1.villageWarKey)(village);
-        // Debit treasury seals + apply the level-up atomically: treasury lock outer,
-        // war-record lock inner (debit-before-credit; both failClosed).
-        const result = await (0, _lock_js_1.withKvLock)(stateKey, async () => {
-            const state = (await _storage_js_1.kv.get(stateKey)) ?? {};
-            const treasury = (state.treasury ?? {});
-            const seals = num(treasury.honorSeals);
-            return await (0, _lock_js_1.withKvLock)(warKey, async () => {
+        // Two funding paths: PER-WAR structures (Ramparts/Watchtower) are bought with
+        // WR from the war pool (under the war-record lock only — WR lives on the
+        // record); PERMANENT structures are bought with treasury Honor Seals (treasury
+        // lock outer, war-record inner, debit-before-credit). Both failClosed.
+        const result = (0, _war_structures_js_1.isPerWarStructure)(structure)
+            ? await (0, _lock_js_1.withKvLock)(warKey, async () => {
                 const record = (0, _war_state_js_1.normalizeVillageWarRecord)(village, (await _storage_js_1.kv.get(warKey)) ?? undefined);
-                const up = (0, _war_structures_js_1.applyStructureUpgrade)(record, seals, structure);
+                const up = (0, _war_structures_js_1.applyPerWarStructureUpgrade)(record, structure);
                 if (!up.ok)
                     return { ok: false, error: up.error, cost: up.cost };
                 await _storage_js_1.kv.set(warKey, up.record);
-                await _storage_js_1.kv.set(stateKey, { ...state, treasury: { ...treasury, honorSeals: up.nextSeals } });
-                return { ok: true, structure, newLevel: up.newLevel, cost: up.cost, remainingSeals: up.nextSeals };
+                return { ok: true, structure, newLevel: up.newLevel, cost: up.cost, currency: 'wr', remainingWr: up.record.warResources };
+            }, { failClosed: true })
+            : await (0, _lock_js_1.withKvLock)(stateKey, async () => {
+                const state = (await _storage_js_1.kv.get(stateKey)) ?? {};
+                const treasury = (state.treasury ?? {});
+                const seals = num(treasury.honorSeals);
+                return await (0, _lock_js_1.withKvLock)(warKey, async () => {
+                    const record = (0, _war_state_js_1.normalizeVillageWarRecord)(village, (await _storage_js_1.kv.get(warKey)) ?? undefined);
+                    const up = (0, _war_structures_js_1.applyStructureUpgrade)(record, seals, structure);
+                    if (!up.ok)
+                        return { ok: false, error: up.error, cost: up.cost };
+                    await _storage_js_1.kv.set(warKey, up.record);
+                    await _storage_js_1.kv.set(stateKey, { ...state, treasury: { ...treasury, honorSeals: up.nextSeals } });
+                    return { ok: true, structure, newLevel: up.newLevel, cost: up.cost, currency: 'seals', remainingSeals: up.nextSeals };
+                }, { failClosed: true });
             }, { failClosed: true });
-        }, { failClosed: true });
         if (!result.ok) {
-            const status = result.error === 'insufficient-seals' ? 402 : result.error === 'max-level' ? 409 : 400;
+            const status = (result.error === 'insufficient-seals' || result.error === 'insufficient-wr') ? 402 : result.error === 'max-level' ? 409 : 400;
             return res.status(status).json({ error: result.error, cost: result.cost });
         }
-        // Telemetry (best-effort): treasury seals spent upgrading a war structure.
-        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `structure:${(0, _war_state_js_1.villageWarSlug)(village)}:${structure}:${result.newLevel}`, village, kind: 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
+        // Telemetry (best-effort): the currency spent upgrading a war structure.
+        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `structure:${(0, _war_state_js_1.villageWarSlug)(village)}:${structure}:${result.newLevel}`, village, kind: (0, _war_structures_js_1.isPerWarStructure)(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
         return res.status(200).json(result);
     }
     catch (err) {
