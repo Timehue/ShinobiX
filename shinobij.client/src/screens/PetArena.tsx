@@ -20,8 +20,8 @@ import { genericPetArenaOpponents, isGenericPetOpponent, type PetArenaOpponent }
 import {
     petTamerPveMultiplier,
     type DuelChallenge,
-    type PetArenaFrame,
 } from "../App";
+import type { PetArenaFrame } from "../types/pet-arena";
 import { loadPendingClanPetBattle, savePendingClanPetBattle } from "../lib/world-state";
 import { petPveHpMult, petAlphaBond } from "../lib/profession-mastery";
 import { resolveChallengerTeam, stripInlinePetImages, arenaSizeOf } from "../lib/arena-challenge";

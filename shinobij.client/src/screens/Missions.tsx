@@ -75,7 +75,7 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "combat", mission.key);
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (!result.applied) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo. +${result.reward.territoryScrolls} Territory Control Scroll${result.reward.territoryScrolls === 1 ? "" : "s"}.`);
     }
@@ -85,7 +85,7 @@ export function Missions({
     async function claimAcademyTrial() {
         const result = await postClaimMission(character.name, "academy-trial", "academy-trial");
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (!result.applied) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         alert(`Academy Trial complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina. Now open your Logbook to see your goals.`);
     }
@@ -104,14 +104,14 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (result.applied) {
+        if (result.applied === true) {
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
             setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
             return;
         }
-        if (!result.clientFallback) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
         // Legacy client payout for creator-authored missions only.
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);

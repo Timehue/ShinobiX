@@ -149,7 +149,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
         if (!character.clan) { setClanData(null); setClanLoadStatus("ok"); return; }
         setLoading(true);
         fetchClanDataDetailed(character.clan).then(async result => {
-            if (!result.ok) {
+            if (result.ok === false) {
                 setClanData(null);
                 setClanLoadStatus(result.reason);
                 setLoading(false);
@@ -664,7 +664,7 @@ export function ClanHall({ character, updateCharacter, creatorItems, setScreen }
                         <button onClick={reclaimClan}>Reclaim "{character.clan}"</button>
                     )}
                     {!isMissing && (
-                        <button onClick={() => { if (character.clan) { setLoading(true); void fetchClanDataDetailed(character.clan).then(r => { if (r.ok) { setClanData(enhanceClanData(r.data)); setClanLoadStatus("ok"); } else { setClanLoadStatus(r.reason); } setLoading(false); }); } }}>Retry</button>
+                        <button onClick={() => { if (character.clan) { setLoading(true); void fetchClanDataDetailed(character.clan).then(r => { if (r.ok === true) { setClanData(enhanceClanData(r.data)); setClanLoadStatus("ok"); } else { setClanLoadStatus(r.reason); } setLoading(false); }); } }}>Retry</button>
                     )}
                     <button className="danger-button" onClick={leaveClan}>Leave Clan</button>
                 </div>

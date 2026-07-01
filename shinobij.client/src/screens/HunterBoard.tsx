@@ -87,14 +87,14 @@ export function HunterBoard({
         // Creator-authored hunts aren't in the catalog → clientFallback below.
         const result = await postClaimMission(character.name, "hunt", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (result.applied) {
+        if (result.applied === true) {
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
             setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
             setMissionProgress({ ...missionProgress, [mission.id]: 0 });
             alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina.${materialNamesLine(result.reward.items ?? [])}`);
             return;
         }
-        if (!result.clientFallback) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
 
         // Legacy client payout for creator-authored hunts only.
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);

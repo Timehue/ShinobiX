@@ -15,14 +15,14 @@ export function HollowGateAttunement({ character, updateCharacter, onClose }: Pr
 
     function buy(id: string) {
         const r = buyAttunement(character, id);
-        if (!r.ok) { setMsg(r.reason); return; }
+        if (r.ok === false) { setMsg(r.reason); return; }
         updateCharacter(r.character);
         setMsg("");
     }
 
     function forge() {
         const r = forgeHollowGateKey(character);
-        if (!r.ok) { setMsg(r.reason); return; }
+        if (r.ok === false) { setMsg(r.reason); return; }
         updateCharacter(r.character);
         setMsg("Forged a Hollow Gate Key.");
     }

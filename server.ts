@@ -188,7 +188,7 @@ import { safeEqual } from './api/_auth.js';
 // CORS origin predicate — single source of truth, shared with cors() and the
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
 // the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
-import { isAllowedOrigin } from './api/_utils.js';
+import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
 
 // ─── Sentry (optional, env-gated server error reporting) ───────────────────────
 // Activates ONLY when SENTRY_DSN is set. The require is guarded so a cPanel box
@@ -872,6 +872,13 @@ app.get(/(.*)/, (_req, res) => {
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     const reqId = (req as Request & { id?: string }).id ?? '-';
+    if (isMalformedJsonBodyError(err, req.body)) {
+        if (!res.headersSent) {
+            res.status(400).json({ error: MALFORMED_JSON_BODY_ERROR, requestId: reqId });
+        }
+        return;
+    }
+
     console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting
