@@ -150,10 +150,15 @@ async function handler(req, res) {
             if (!isDefender)
                 return { status: 409, body: { error: 'A defender of this sector must answer the pet duel.' } };
             // Defender joins → resolve the deterministic duel SERVER-SIDE + apply it.
+            // Seal the defender sector's terrain so the pet whose element matches gets
+            // the +10% home-ground bonus (§17.3), and store it on the session so the
+            // client REPLAYS with the same terrain and stays byte-identical.
+            const defRec = (0, _war_state_js_1.normalizeVillageWarRecord)(defenderVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(defenderVillage))) ?? undefined);
+            const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            const duel = (0, pet_duel_sim_js_1.runPetDuel)(existing.p1.pet, pet, seed, 1, 1, false, false, false);
+            const duel = (0, pet_duel_sim_js_1.runPetDuel)(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
             const winner = duel.winner === 'player' ? 'p1' : duel.winner === 'enemy' ? 'p2' : 'draw';
-            const session = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, updatedAt: now };
+            const session = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, updatedAt: now };
             await applyPetOutcomeToContest(session);
             session.appliedToContest = true;
             await _storage_js_1.kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });

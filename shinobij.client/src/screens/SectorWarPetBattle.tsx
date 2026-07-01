@@ -25,6 +25,7 @@ type PetSession = {
     status: "awaiting-defender" | "done";
     seed?: number;
     winner?: "p1" | "p2" | "draw";
+    terrain?: string | null;   // sealed by the server → the replay applies the same home-ground element bonus
 };
 
 export function SectorWarPetBattle({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
@@ -68,7 +69,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
 
     // Resolved → replay the deterministic duel (identical to the server) + the result.
     if (session?.status === "done" && session.p2 && session.seed != null) {
-        const result: DuelResult = runPetDuel(session.p1.pet, session.p2.pet, session.seed, 1, 1, false, false, false);
+        const result: DuelResult = runPetDuel(session.p1.pet, session.p2.pet, session.seed, 1, 1, false, false, false, session.terrain ?? null);
         const mine = character.name.toLowerCase() === session.p1.name.toLowerCase() ? "p1"
             : character.name.toLowerCase() === session.p2.name.toLowerCase() ? "p2" : null;
         const banner = session.winner === "draw" ? "The pet duel ended in a draw — the sector holds."
