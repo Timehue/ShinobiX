@@ -19,6 +19,7 @@ const _storage_js_1 = require("./_storage.js");
 const _lock_js_1 = require("./_lock.js");
 const _utils_js_1 = require("./_utils.js");
 const _war_state_js_1 = require("./_war-state.js");
+const _war_role_js_1 = require("./_war-role.js");
 const _sector_war_js_1 = require("./_sector-war.js");
 const _sector_war_store_js_1 = require("./_sector-war-store.js");
 const _war_structures_js_1 = require("./_war-structures.js");
@@ -80,13 +81,20 @@ async function deployOneMerc(args) {
     let captured = false;
     let controlHp = 0;
     if (battle.mercWon || battle.playerWon) {
+        // The merc fights as a villager; the defending PLAYER's rank sets the rest of
+        // the swing — a Kage who repels a merc heals more, a Kage who falls to one
+        // loses more (§17.6). Player win regens at the reduced merc fraction.
+        const playerRole = await (0, _war_role_js_1.sectorWarRoleOf)(args.targetPlayer);
         const result = await (0, _lock_js_1.withKvLock)((0, _sector_war_js_1.sectorWarKey)(args.contestId), async () => {
             const live = await (0, _sector_war_store_js_1.loadSectorWar)(args.contestId);
             if (!live || live.flipped)
                 return { captured: false, controlHp: 0 };
             const atkRecord = (0, _war_state_js_1.normalizeVillageWarRecord)(args.village, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(args.village))) ?? undefined);
-            const damage = Math.round(_war_state_js_1.SECTOR_CONTROL_HP_PER_WIN * (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
-            const outcome = (0, _sector_war_js_1.applySectorBattleResult)(live, battle.mercWon, { now: args.now, damage, mercBattle: true });
+            const academyMult = (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord);
+            const swing = battle.mercWon
+                ? (0, _war_role_js_1.sectorControlSwing)(_war_role_js_1.ROLE_MERC, playerRole, academyMult)
+                : (0, _war_role_js_1.sectorControlSwing)(playerRole, _war_role_js_1.ROLE_MERC, academyMult);
+            const outcome = (0, _sector_war_js_1.applySectorBattleResult)(live, battle.mercWon, { now: args.now, swing, mercBattle: true });
             if (outcome.captured) {
                 await (0, world_state_js_1.captureSectorForVillage)(live.sector, args.village, args.now);
                 await (0, _sector_war_store_js_1.deleteSectorWar)(live.id);

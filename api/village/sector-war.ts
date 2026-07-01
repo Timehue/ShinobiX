@@ -8,10 +8,10 @@ import { isWarVillage, homeSectorsForVillage } from '../_war-map-sectors.js';
 import {
     normalizeVillageWarRecord,
     villageWarKey,
-    SECTOR_CONTROL_HP_PER_WIN,
     type WinCondition,
 } from '../_war-state.js';
 import { sectorControlHpMax, sectorWarDamageMultiplier } from '../_war-structures.js';
+import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import {
     sectorWarId,
     sectorWarKey,
@@ -284,8 +284,12 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         return res.status(409).json({ error: 'Battle is not finished, or it ended in a draw.' });
     }
     const winnerName = safeName(battle.winner === 'p1' ? (battle.p1?.name ?? '') : (battle.p2?.name ?? ''));
+    const loserName = safeName(battle.winner === 'p1' ? (battle.p2?.name ?? '') : (battle.p1?.name ?? ''));
     const winnerVillage = winnerName ? await villageOf(winnerName) : '';
     const attackerWon = !!winnerVillage && winnerVillage === token.attackerVillage;
+    // Role-scaled Control-HP swing (§17.6): the winner's contribution + the loser's
+    // rank penalty (Kage/Elder/ANBU/villager), read from authoritative server state.
+    const [winnerRole, loserRole] = await Promise.all([sectorWarRoleOf(winnerName), sectorWarRoleOf(loserName)]);
 
     const id = token.sectorWarId;
     const result = await withKvLock(sectorWarKey(id), async () => {
@@ -297,8 +301,8 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
             return { ok: false as const, error: 'contest-closed' as const };
         }
         const atkRecord = normalizeVillageWarRecord(token.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage))) ?? undefined);
-        const damage = Math.round(SECTOR_CONTROL_HP_PER_WIN * sectorWarDamageMultiplier(atkRecord));
-        const outcome = applySectorBattleResult(contest, attackerWon, { now: Date.now(), damage });
+        const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
+        const outcome = applySectorBattleResult(contest, attackerWon, { now: Date.now(), swing });
         if (outcome.captured) {
             // Flip the sector's persistent owner (territory lock, nested) BEFORE
             // closing the contest, so the capture + flip commit under one lock

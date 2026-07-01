@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _war_map_sectors_js_1 = require("../_war-map-sectors.js");
 const _war_state_js_1 = require("../_war-state.js");
 const _war_structures_js_1 = require("../_war-structures.js");
+const _war_role_js_1 = require("../_war-role.js");
 const _sector_war_js_1 = require("../_sector-war.js");
 const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
@@ -262,8 +263,12 @@ async function doResolve(req, res, identity, playerName, body) {
         return res.status(409).json({ error: 'Battle is not finished, or it ended in a draw.' });
     }
     const winnerName = (0, _utils_js_1.safeName)(battle.winner === 'p1' ? (battle.p1?.name ?? '') : (battle.p2?.name ?? ''));
+    const loserName = (0, _utils_js_1.safeName)(battle.winner === 'p1' ? (battle.p2?.name ?? '') : (battle.p1?.name ?? ''));
     const winnerVillage = winnerName ? await villageOf(winnerName) : '';
     const attackerWon = !!winnerVillage && winnerVillage === token.attackerVillage;
+    // Role-scaled Control-HP swing (§17.6): the winner's contribution + the loser's
+    // rank penalty (Kage/Elder/ANBU/villager), read from authoritative server state.
+    const [winnerRole, loserRole] = await Promise.all([(0, _war_role_js_1.sectorWarRoleOf)(winnerName), (0, _war_role_js_1.sectorWarRoleOf)(loserName)]);
     const id = token.sectorWarId;
     const result = await (0, _lock_js_1.withKvLock)((0, _sector_war_js_1.sectorWarKey)(id), async () => {
         // Re-check the token inside the lock so a battle is applied exactly once.
@@ -275,8 +280,8 @@ async function doResolve(req, res, identity, playerName, body) {
             return { ok: false, error: 'contest-closed' };
         }
         const atkRecord = (0, _war_state_js_1.normalizeVillageWarRecord)(token.attackerVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(token.attackerVillage))) ?? undefined);
-        const damage = Math.round(_war_state_js_1.SECTOR_CONTROL_HP_PER_WIN * (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
-        const outcome = (0, _sector_war_js_1.applySectorBattleResult)(contest, attackerWon, { now: Date.now(), damage });
+        const swing = (0, _war_role_js_1.sectorControlSwing)(winnerRole, loserRole, (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
+        const outcome = (0, _sector_war_js_1.applySectorBattleResult)(contest, attackerWon, { now: Date.now(), swing });
         if (outcome.captured) {
             // Flip the sector's persistent owner (territory lock, nested) BEFORE
             // closing the contest, so the capture + flip commit under one lock

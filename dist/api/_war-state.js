@@ -32,9 +32,15 @@ exports.STRUCTURE_KEYS = [
     'ramparts', 'watchtower', 'barracks', 'warAcademy', 'supplyDepot', 'treasuryVault',
 ];
 exports.TERRAINS = ['forest', 'snow', 'volcano', 'shadow', 'central'];
-exports.SECTOR_CONTROL_HP_MAX = 600; // §17.6
-exports.SECTOR_CONTROL_HP_PER_WIN = 150; // attacker win → −150
-exports.SECTOR_CONTROL_HP_DEFENDER_REGEN = 50; // defender win → +50
+// §17.6 — a sector's hold. Sized as a "shorter village war": at a village-wide
+// ~20-30 fights/hour it takes a day or two of sustained pressure to drain a fully
+// held sector, since each fight only moves it by a role-scaled swing (api/_war-role
+// sectorControlSwing) — NOT a flat chunk. Watchtower raises this cap.
+exports.SECTOR_CONTROL_HP_MAX = 2000;
+// Legacy flat tuning — retained for back-compat/imports; the live model is the
+// role-scaled swing (api/_war-role) applied by each win-condition resolve.
+exports.SECTOR_CONTROL_HP_PER_WIN = 150;
+exports.SECTOR_CONTROL_HP_DEFENDER_REGEN = 50;
 // Terrain-pick quota (§17.3): the Kage may set 3 sectors' terrain, each elder 1.
 exports.TERRAIN_QUOTA_KAGE = 3;
 exports.TERRAIN_QUOTA_ELDER = 1;

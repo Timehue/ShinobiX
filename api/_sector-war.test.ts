@@ -58,18 +58,19 @@ describe('sector-war: normalize', () => {
 });
 
 describe('sector-war: applySectorBattleResult', () => {
-    it('an attacker win chips Control HP by the per-win amount', () => {
-        const out = applySectorBattleResult(fresh(), true, { now: NOW });
-        assert.equal(out.hpDealt, 150);
-        assert.equal(out.session.controlHp, 450);
+    it('an attacker win chips Control HP by the role-scaled swing', () => {
+        const out = applySectorBattleResult(fresh(), true, { now: NOW, swing: 55 });
+        assert.equal(out.hpDealt, 55);
+        assert.equal(out.session.controlHp, SECTOR_CONTROL_HP_MAX - 55);
         assert.equal(out.captured, false);
     });
 
-    it('flips the sector after ~4 attacker wins (600 / 150)', () => {
+    it('flips the sector when Control HP drains to 0', () => {
         let s = fresh();
         let captured = false;
+        // swing 500 → 4 wins drain a full 2000 pool to 0.
         for (let i = 0; i < 4; i++) {
-            const out = applySectorBattleResult(s, true, { now: NOW });
+            const out = applySectorBattleResult(s, true, { now: NOW, swing: 500 });
             s = out.session;
             captured = out.captured;
         }
@@ -78,40 +79,29 @@ describe('sector-war: applySectorBattleResult', () => {
         assert.equal(captured, true); // flipped on the 4th
     });
 
-    it('a defender win holds the line (+regen, capped at max)', () => {
-        // chip once then defend twice; regen is capped at the max.
-        let s = applySectorBattleResult(fresh(), true, { now: NOW }).session; // 450
-        const d1 = applySectorBattleResult(s, false, { now: NOW });
-        assert.equal(d1.hpRegen, SECTOR_CONTROL_HP_DEFENDER_REGEN);
-        assert.equal(d1.session.controlHp, 500);
+    it('a defender win HEALS half the swing (capped at max)', () => {
+        // chip 200, then a defender win with swing 80 heals floor(80 * 0.5) = 40.
+        const chipped = applySectorBattleResult(fresh(), true, { now: NOW, swing: 200 }).session;
+        const d1 = applySectorBattleResult(chipped, false, { now: NOW, swing: 80 });
+        assert.equal(d1.hpRegen, 40);
+        assert.equal(d1.session.controlHp, SECTOR_CONTROL_HP_MAX - 200 + 40);
         // From full, a defender win cannot exceed the cap.
-        const atMax = applySectorBattleResult(fresh(), false, { now: NOW });
+        const atMax = applySectorBattleResult(fresh(), false, { now: NOW, swing: 80 });
         assert.equal(atMax.session.controlHp, SECTOR_CONTROL_HP_MAX);
         assert.equal(atMax.hpRegen, 0);
     });
 
-    it('a player repelling a MERCENARY attacker regenerates only 25% of normal', () => {
-        // chip twice (→ 300), then defend: a merc-battle win regens 25% of 50 = 12,
-        // where a normal defender win would regen the full 50.
-        let s = applySectorBattleResult(fresh(), true, { now: NOW }).session; // 450
-        s = applySectorBattleResult(s, true, { now: NOW }).session;           // 300
-        const merc = applySectorBattleResult(s, false, { now: NOW, mercBattle: true });
-        assert.equal(merc.hpRegen, Math.floor(SECTOR_CONTROL_HP_DEFENDER_REGEN * MERC_DEFENDER_REGEN_FRACTION)); // 12
-        assert.equal(merc.session.controlHp, 312);
-        const normal = applySectorBattleResult(s, false, { now: NOW });
-        assert.equal(normal.hpRegen, SECTOR_CONTROL_HP_DEFENDER_REGEN); // 50
-        assert.equal(normal.session.controlHp, 350);
-    });
-
-    it('honors a War-Academy-boosted damage value', () => {
-        const out = applySectorBattleResult(fresh(), true, { now: NOW, damage: 173 }); // +15% of 150 ≈ 173
-        assert.equal(out.session.controlHp, 600 - 173);
-        assert.equal(out.hpDealt, 173);
+    it('a player repelling a MERCENARY heals only the merc fraction of the swing', () => {
+        const chipped = applySectorBattleResult(fresh(), true, { now: NOW, swing: 300 }).session;
+        const merc = applySectorBattleResult(chipped, false, { now: NOW, swing: 80, mercBattle: true });
+        assert.equal(merc.hpRegen, Math.floor(80 * MERC_DEFENDER_REGEN_FRACTION)); // 20
+        const normal = applySectorBattleResult(chipped, false, { now: NOW, swing: 80 });
+        assert.equal(normal.hpRegen, Math.floor(80 * 0.5)); // 40 — a real player win heals more
     });
 
     it('an already-flipped session is inert', () => {
         const flipped: SectorWarSession = { ...fresh(), controlHp: 0, flipped: true };
-        const out = applySectorBattleResult(flipped, true, { now: NOW + 1000 });
+        const out = applySectorBattleResult(flipped, true, { now: NOW + 1000, swing: 100 });
         assert.equal(out.captured, false);
         assert.equal(out.hpDealt, 0);
         assert.equal(out.session, flipped); // unchanged reference
@@ -197,24 +187,20 @@ describe('sector-war: applyContestBattleByWinner (Card by-side mapping)', () => 
             winCondition: 'card', now: NOW,
         });
     }
-    it('p1 (attacker) win chips Control HP', () => {
-        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW });
+    it('p1 (attacker) win chips Control HP by the swing', () => {
+        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, swing: 55 });
         assert.ok(out);
-        assert.equal(out!.hpDealt, 150);
-        assert.equal(out!.session.controlHp, 450);
+        assert.equal(out!.hpDealt, 55);
+        assert.equal(out!.session.controlHp, SECTOR_CONTROL_HP_MAX - 55);
     });
-    it('p2 (defender) win regens (held line)', () => {
-        const chipped = applyContestBattleByWinner(fresh(), 'p1', { now: NOW })!.session; // 450
-        const out = applyContestBattleByWinner(chipped, 'p2', { now: NOW });
+    it('p2 (defender) win heals half the swing (held line)', () => {
+        const chipped = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, swing: 200 })!.session;
+        const out = applyContestBattleByWinner(chipped, 'p2', { now: NOW, swing: 80 });
         assert.ok(out);
-        assert.equal(out!.hpRegen, 50);
-        assert.equal(out!.session.controlHp, 500);
+        assert.equal(out!.hpRegen, 40); // floor(80 * 0.5)
+        assert.equal(out!.session.controlHp, SECTOR_CONTROL_HP_MAX - 200 + 40);
     });
     it('a draw leaves Control HP untouched (null outcome)', () => {
-        assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW }), null);
-    });
-    it('honors a War-Academy-boosted damage value on an attacker win', () => {
-        const out = applyContestBattleByWinner(fresh(), 'p1', { now: NOW, damage: 173 });
-        assert.equal(out!.session.controlHp, 600 - 173);
+        assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW, swing: 100 }), null);
     });
 });
