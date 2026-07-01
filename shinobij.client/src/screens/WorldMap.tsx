@@ -209,6 +209,7 @@ export function WorldMap({
     isTraveling,
     travelingUntil,
     setTravelingUntil,
+    setPendingTravel,
     sectorAttackPlayer,
     attackSleeper,
     acceptedMissionIds,
@@ -252,6 +253,7 @@ export function WorldMap({
     isTraveling: boolean;
     travelingUntil: number;
     setTravelingUntil: (until: number) => void;
+    setPendingTravel: (travel: { destinationSector: number; arrivalAt: number } | null) => void;
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
     attackSleeper: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
@@ -1204,11 +1206,13 @@ export function WorldMap({
             return;
         }
         const arrivalAt = Date.now() + 3000;
+        setPendingTravel({ destinationSector: sector, arrivalAt });
         setTravelingUntil(arrivalAt);
         setSelectedSector(null);
         setSelectedVillageTerritory(null);
         window.setTimeout(() => {
             arrive();
+            setPendingTravel(null);
             setTravelingUntil(0);
         }, 3000);
     }
