@@ -8,6 +8,9 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 const PORT = parseInt(process.env.API_PORT || "3001");
+const PRESENCE_TTL_MS = 60_000;
+const MAX_PROMPT_LENGTH = 1_500;
+const MAX_LABEL_LENGTH = 120;
 
 // ── Multiplayer presence store ──────────────────────────────────────────────
 type PlayerPresence = {
@@ -34,9 +37,18 @@ function errorMessage(err: unknown, fallback: string) {
     return err instanceof Error ? err.message : fallback;
 }
 
-// Evict players that haven't sent a heartbeat in 30 seconds
+function safeName(name: string) {
+    return name.replace(/[^a-z0-9\-_]/g, "").toLowerCase();
+}
+
+function sectorFrom(value: unknown, fallback: number): number {
+    const sector = Math.floor(Number(value));
+    return Number.isFinite(sector) && sector >= 0 ? sector : fallback;
+}
+
+// Evict players that haven't sent a heartbeat recently
 setInterval(() => {
-    const cutoff = Date.now() - 30_000;
+    const cutoff = Date.now() - PRESENCE_TTL_MS;
     for (const [key, p] of presence) {
         if (p.lastSeen < cutoff) presence.delete(key);
     }
@@ -50,20 +62,23 @@ app.post("/api/player/heartbeat", (req, res) => {
         character?: unknown;
     };
     if (!name) { res.status(400).json({ error: "Missing name." }); return; }
+    const playerId = safeName(name);
+    if (!playerId) { res.status(400).json({ error: "Invalid name." }); return; }
 
-    const existing = presence.get(name) ?? { name, sector: sector ?? 40, character, lastSeen: 0, pendingAttacker: null };
+    const existing = presence.get(playerId) ?? { name: name.trim(), sector: sectorFrom(sector, 40), character, lastSeen: 0, pendingAttacker: null };
     const pendingAttacker = existing.pendingAttacker;
+    const nextSector = sectorFrom(sector, existing.sector);
 
-    presence.set(name, {
-        name,
-        sector: sector ?? existing.sector,
+    presence.set(playerId, {
+        name: name.trim(),
+        sector: nextSector,
         character: character ?? existing.character,
         lastSeen: Date.now(),
         pendingAttacker: null, // clear on read
     });
 
     const sectorMates = [...presence.values()]
-        .filter((p) => p.name !== name && p.sector === (sector ?? existing.sector))
+        .filter((p) => safeName(p.name) !== playerId && p.sector === nextSector)
         .map(({ name: n, sector: s, character: c }) => {
             const summary = characterSummary(c);
             return {
@@ -86,11 +101,13 @@ app.post("/api/player/attack", (req, res) => {
         attacker?: unknown;
     };
     if (!targetName) { res.status(400).json({ error: "Missing targetName." }); return; }
+    const targetId = safeName(targetName);
+    if (!targetId) { res.status(400).json({ error: "Invalid targetName." }); return; }
 
-    const target = presence.get(targetName);
+    const target = presence.get(targetId);
     if (!target) { res.status(404).json({ error: "Target not online." }); return; }
 
-    presence.set(targetName, { ...target, pendingAttacker: attacker ?? null });
+    presence.set(targetId, { ...target, pendingAttacker: attacker ?? null });
     res.json({ ok: true });
 });
 
@@ -98,8 +115,10 @@ app.post("/api/player/attack", (req, res) => {
 app.post("/api/player/clear-attack", (req, res) => {
     const { name } = req.body as { name?: string };
     if (!name) { res.status(400).json({ error: "Missing name." }); return; }
-    const p = presence.get(name);
-    if (p) presence.set(name, { ...p, pendingAttacker: null });
+    const playerId = safeName(name);
+    if (!playerId) { res.status(400).json({ error: "Invalid name." }); return; }
+    const p = presence.get(playerId);
+    if (p) presence.set(playerId, { ...p, pendingAttacker: null });
     res.json({ ok: true });
 });
 
@@ -109,6 +128,10 @@ app.post("/api/generate-image", async (req, res) => {
 
     if (!prompt?.trim()) {
         res.status(400).json({ error: "Missing image prompt." });
+        return;
+    }
+    if (prompt.length > MAX_PROMPT_LENGTH || (label?.length ?? 0) > MAX_LABEL_LENGTH) {
+        res.status(413).json({ error: "Image prompt is too large." });
         return;
     }
 

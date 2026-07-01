@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
@@ -27,7 +27,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // instances — the previous in-process limiter let a player triggering
     // parallel invocations (cold-start fan-out) blow past the cap on individual
     // instances, which let the IP/fingerprint capture in this handler be hammered.
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
+    const parsedBody = parseJsonBody(req.body);
+    if (!parsedBody.ok) return res.status(400).json({ error: parsedBody.error });
+    const bodyPeek = parsedBody.body as Record<string, unknown>;
     const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
     if (!(await enforceRateLimitKv(req, res, 'heartbeat', 90, 60_000, peekName))) return;
 

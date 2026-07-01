@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -138,7 +138,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const parsed = parseJsonBody(req.body);
+        if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+        const body = parsed.body;
 
         if (req.method === 'DELETE') {
             const { targetName, challengeId: id, fromName } = body as { targetName?: string; challengeId?: string; fromName?: string };

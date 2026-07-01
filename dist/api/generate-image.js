@@ -87,8 +87,10 @@ async function handler(req, res) {
         return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in the server environment variables.' });
     }
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { prompt, label } = body;
+        const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+        if (!parsed.ok)
+            return res.status(400).json({ error: parsed.error });
+        const { prompt, label } = parsed.body;
         if (!prompt?.trim()) {
             return res.status(400).json({ error: 'Missing image prompt.' });
         }

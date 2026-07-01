@@ -28,12 +28,10 @@ async function handler(req, res) {
     // instances — the previous in-process limiter let a player triggering
     // parallel invocations (cold-start fan-out) blow past the cap on individual
     // instances, which let the IP/fingerprint capture in this handler be hammered.
-    const bodyPeek = typeof req.body === 'string' ? (() => { try {
-        return JSON.parse(req.body);
-    }
-    catch {
-        return {};
-    } })() : (req.body ?? {});
+    const parsedBody = (0, _utils_js_1.parseJsonBody)(req.body);
+    if (!parsedBody.ok)
+        return res.status(400).json({ error: parsedBody.error });
+    const bodyPeek = parsedBody.body;
     const peekName = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
     if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'heartbeat', 90, 60_000, peekName)))
         return;

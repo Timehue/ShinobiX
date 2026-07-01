@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -63,8 +63,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!enforceRateLimit(req, res, 'village-guard-challenge-burst', 1, 3_000, authedName)) return;
 
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { attackerCharacter, village, battleId, guardName } = body as { attackerCharacter?: Record<string, unknown>; village?: string; battleId?: string; guardName?: string };
+        const parsed = parseJsonBody(req.body);
+        if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+        const { attackerCharacter, village, battleId, guardName } = parsed.body as { attackerCharacter?: Record<string, unknown>; village?: string; battleId?: string; guardName?: string };
         if (!village) return res.status(400).json({ error: 'Missing village.' });
 
         // The attacker name in the body must match the authed identity (admins exempt).

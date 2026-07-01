@@ -144,7 +144,10 @@ async function handler(req, res) {
     if (!identity)
         return res.status(401).json({ error: 'Authentication required.' });
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+        if (!parsed.ok)
+            return res.status(400).json({ error: parsed.error });
+        const body = parsed.body;
         if (req.method === 'DELETE') {
             const { targetName, challengeId: id, fromName } = body;
             if (!targetName && !fromName)
