@@ -2,11 +2,11 @@
 
 Self-contained handoff so a fresh session can continue without re-reading the prior chat.
 
-## 1. Snapshot
-- **Branch:** `claude/great-swartz-b8b2a5` (feature branch off `main`). **NOT pushed.** Working tree clean.
-- **Tests:** `npm test` (repo root) = **1901 passing, 0 failing**. Server typecheck (`npx tsc -p tsconfig.cpanel.json --noEmit`) clean. Client (`cd shinobij.client && npx tsc -b && npm run lint`) clean as of Wave A (client unchanged since).
+## 1. Snapshot  (updated 2026-06-30 — see §10 for the latest session)
+- **Branch:** `claude/great-swartz-b8b2a5` (feature branch off `main`). **NOT pushed.** Working tree clean. Tip `c2bcba59`.
+- **Tests:** `npm test` (repo root) = **1917 passing, 0 failing**. Server typecheck (`npx tsc -p tsconfig.cpanel.json --noEmit`) clean. Client (`cd shinobij.client && npx tsc -b && npm run lint`) clean. Both dists rebuilt + committed.
 - **Safety:** every balance-affecting change is behind a flag **default OFF** → byte-identical to pre-session behavior. Nothing is live until a flag is flipped.
-- **dist:** committed for cPanel (server dist). Client dist committed at Wave A; **client unchanged since** (no client work landed after Wave A).
+- **Status:** the entire server-side anti-fabrication / ceiling-enforcement / lock-hardening backbone is DONE. Only VISUAL (P0.5) + SIGN-OFF-gated balance (HEAL, P0.3b) items remain — see §10. Sections §2–§9 below are historical; §10 is the authoritative current state.
 
 ## 2. Commits this session (6)
 | Hash | Summary |
@@ -154,3 +154,39 @@ if completeness wanted.
 
 Each surface = its own green commit (server + client + flag + test + BOTH dists). Tests: token→
 credit once, double-report pays nothing, ceiling clamps, odds unchanged, route-parity + CORS + lint.
+
+## 10. 2026-06-30 session — authoritative current state
+
+**9 commits `a461d8f0`..`c2bcba59` on `claude/great-swartz-b8b2a5` (NOT pushed). 1917 tests green;
+both tsc + lint clean; both dists rebuilt/committed; working tree clean. All flags default OFF →
+byte-identical until flipped.** This section supersedes §4/§5's "next task" framing.
+
+**DONE this session:**
+- **P0.2b client** (`a461d8f0` + dist `9e614423`) — Arena.winBattle `buildWin(effXp,effRyo)` refactor;
+  flag `aiFightServerAuth.v1` (localStorage, OFF). Also FIXED a pre-existing partial client-dist commit
+  (was 28/84 JS chunks, index.html→untracked chunk; now 84/84).
+- **P0.2c HG item** (`2371e307`→`661ade86`) — Dungeon Legendary Fragment CLAMPED at settle
+  (start seals entryFragments; settle clamps run-gain to maxFragmentsForDepth). Byte-identical, no flag,
+  no client change, no reliability regression (kept the inline grant). Rides existing hollowGateServer.v1.
+- **P0.2c war crate** (`fcae0a41`, `d794db19`, `34c0520f`) — `api/village/claim-war-crate.ts` (DUAL-MODE:
+  village `world:war` + clan `clan-war`, validates the server-stamped winner vs the claimant's village/clan);
+  client claims via the post-poll sweep `claimServerWarCrates` (race-free), both inline sites gated on
+  `warCrateServerAuth.v1` (OFF). MVP crate intentionally left inline (shared dedup id with a currency bonus →
+  needs a save migration; rare + currency capped).
+- **P0.4** (`c2bcba59`) — failClosed the card-duel ACTION-handler RMWs (tilecards.ts + sector-card.ts);
+  poll auto-resolve locks + guarded/already-failClosed settlements left open.
+
+**ENABLE SEQUENCE (unchanged core + new client flags):** env — run the one-off `save:*` A/S bloodline
+audit, then `BLOODLINE_RANK_ENTITLEMENT=1` → `BLOODLINE_RANK_CAPS=1` + `BLOODLINE_BUDGET_SERVER=1`
+(+ optional `ITEM_BONUS_BUDGET=1`) on BOTH Railway + cPanel. Client localStorage flags (per-device, flip to
+test then roll out): `aiFightServerAuth.v1='1'` (tune `AI_FIGHT_SOFT_CAP_PER_DAY`/`REDUCED_MULT` first),
+`warCrateServerAuth.v1='1'`. HG item clamp + P0.4 are already-on (byte-identical, no flag).
+
+**REMAINING (need the USER — can't finish autonomously):**
+- **P0.5 Village-map "Central" marker** — VISUAL/ASSET: bespoke pixel-art icon (match the webp set) + on-map
+  placement in the App.tsx village screen (no dedicated Village.tsx) + verify at a real viewport + App.tsx
+  line-budget. The NAV button already shipped Wave A (GiPortal). Needs viewport + visual review → build-together.
+- **HEAL mastery-ramp + P0.3b wound/control caps** — BALANCE changes; need explicit numeric SIGN-OFF before
+  touching combat constants (hard rule). Heal-ramp direction pre-approved; final impl not.
+- **P0.2c PvE items** (HG Key finale / Aura Sphere) — rare one-time story grants; low leverage; documented skip.
+- **Cosmetic economy** — future flagship (docs/cosmetic-economy-design.md); large, not a "fix".
