@@ -247,6 +247,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
                 }
 
+                const consumed = await kv.del(questKey);
+                if (consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
+
                 // Apply sealed branch effects to the reward.
                 const fx = aggregateChoiceEffects(entry, choices);
                 const ryo = Math.round(questBookRyo(num(char.level) || 1, entry.weight) * fx.ryoMult);
@@ -264,7 +267,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry) updated.wandererNemesis = null;
                 await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                await kv.del(questKey).catch(() => undefined);
                 await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
                 return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry } };
             }, { failClosed: true });

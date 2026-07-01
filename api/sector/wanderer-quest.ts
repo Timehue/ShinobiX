@@ -87,11 +87,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
                 }
 
+                const consumed = await kv.del(questKey);
+                if (consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
+
                 const reward = wandererQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
                 await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                await kv.del(questKey).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
             }, { failClosed: true });
 

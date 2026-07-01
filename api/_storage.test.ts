@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { _makeRoutedKv, type KvLike } from './_storage.js';
+import { consumeSingleUseToken } from './_single-use-token.js';
 
 // The routed KV splits keys across two backends — a disk overlay for the
 // disk-routed prefixes ('save:', 'save-snapshot:', 'shared:images',
@@ -103,5 +104,37 @@ describe('_makeRoutedKv.mget', () => {
             'base.mget:[auth:alice]',
             'disk.mget:[save:alice,save-snapshot:alice:1700000000000]',
         ].sort());
+    });
+});
+
+describe('consumeSingleUseToken', () => {
+    it('returns the token when the delete actually consumed it', async () => {
+        const token = { playerName: 'rin' };
+        const store = {
+            async get<T>() { return token as T; },
+            async del() { return 1; },
+        };
+
+        assert.deepEqual(await consumeSingleUseToken(store, 'token:key'), token);
+    });
+
+    it('refuses a raced duplicate when the token was read but delete removed nothing', async () => {
+        const store = {
+            async get<T>() { return { playerName: 'rin' } as T; },
+            async del() { return 0; },
+        };
+
+        assert.equal(await consumeSingleUseToken(store, 'token:key'), null);
+    });
+
+    it('does not delete when the token is absent', async () => {
+        let delCalls = 0;
+        const store = {
+            async get<T>() { return null as T | null; },
+            async del() { delCalls += 1; return 0; },
+        };
+
+        assert.equal(await consumeSingleUseToken(store, 'token:key'), null);
+        assert.equal(delCalls, 0);
     });
 });

@@ -83,11 +83,13 @@ async function handler(req, res) {
                 if (!(0, _wanderer_quest_js_1.wandererQuestComplete)(num(sealed.baseline), current, def.target)) {
                     return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - num(sealed.baseline)), target: def.target } };
                 }
+                const consumed = await _storage_js_1.kv.del(questKey);
+                if (consumed <= 0)
+                    return { status: 200, body: { ok: false, reason: 'none' } };
                 const reward = (0, _wanderer_quest_js_1.wandererQuestRyo)(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
-                await _storage_js_1.kv.del(questKey).catch(() => undefined);
                 return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
