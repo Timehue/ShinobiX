@@ -802,6 +802,10 @@ export function claimPendingWarCrates(
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
 ): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
+    // P0.2c: when warCrateServerAuth.v1 is ON, WINNER crates (village + clan) defer to
+    // claimServerWarCrates (server-validated); the MVP / consolation / lifetime-stat
+    // branches below stay inline (currency-only, already sanitizer-capped).
+    const serverAuthCrates = warCrateServerAuthEnabled();
     const cratesToAdd: string[] = [];   // LEGENDARY_WAR_CRATE_ID inventory pushes
     const idsToAdd: string[] = [];      // claimedWarCrateIds bookkeeping
     let ryoBonus = 0;
@@ -825,6 +829,7 @@ export function claimPendingWarCrates(
         if (!record.warCrateId || record.result !== "Won") continue;
         if (claimed.has(record.warCrateId)) continue;
         if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+        if (serverAuthCrates) continue;   // clan winner crate deferred to the server endpoint
         cratesToAdd.push(record.warCrateId);
         idsToAdd.push(record.warCrateId);
     }
@@ -838,7 +843,8 @@ export function claimPendingWarCrates(
         if (!myClan || !war.clans.includes(myClan)) continue;
 
         // 1. Winner crate — every player in the winning clan gets one.
-        if (war.winnerClan === myClan && war.warCrateId && !claimed.has(war.warCrateId)) {
+        // Deferred to claimServerWarCrates when warCrateServerAuth.v1 is on.
+        if (!serverAuthCrates && war.winnerClan === myClan && war.warCrateId && !claimed.has(war.warCrateId)) {
             cratesToAdd.push(war.warCrateId);
             idsToAdd.push(war.warCrateId);
             warsWonDelta += 1;
@@ -921,7 +927,7 @@ export function claimPendingWarCrates(
         // warsWon lifetime bump) is instead granted through the server endpoint by
         // claimServerVillageWarCrates below, validated against the authoritative war
         // record. Flag OFF → unchanged inline grant (byte-identical).
-        if (!warCrateServerAuthEnabled() && war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
+        if (!serverAuthCrates && war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
             cratesToAdd.push(war.warCrateId);
             idsToAdd.push(war.warCrateId);
             warsWonDelta += 1;  // lifetime stat
@@ -1006,28 +1012,42 @@ export function claimPendingWarCrates(
 }
 
 /**
- * P0.2c — claim village-war WINNER crates through the server
- * (POST /api/village/claim-war-crate) instead of granting them inline. Scans the
- * shared village-war cache for wars this player's village won (crate unclaimed +
- * within the expiry window) and asks the server to grant each; the server validates
- * against the authoritative world:war record. Returns the warCrateIds it actually
- * granted. Called from the post-poll sweep, so the war-end state has already
- * propagated server-side (no race). A network/5xx failure falls back to the id (the
- * caller grants it locally) so a legitimately-won crate is never lost to an outage;
- * a definitive server decline (not your win / already claimed / expired) is respected.
+ * P0.2c — claim WINNER war crates (village + clan) through the server
+ * (POST /api/village/claim-war-crate) instead of granting them inline. Scans three
+ * sources for wars this player won a crate in (unclaimed + within the 7-day window):
+ * the shared village-war cache (village wins), the shared clan-war cache (live clan
+ * wins), and clanData.warHistory (older clan wins that aged out of the cache); the
+ * server validates each against the authoritative world:war / clan-war record.
+ * Returns the warCrateIds it actually granted. Called from the post-poll sweep, so
+ * the war-end state has already propagated server-side (no race). A network/5xx
+ * failure falls back to the id (the caller grants it locally) so a legitimately-won
+ * crate is never lost to an outage; a definitive decline (not your win / already
+ * claimed / expired) is respected.
  */
-export async function claimServerVillageWarCrates(character: Character): Promise<string[]> {
+export async function claimServerWarCrates(
+    character: Character,
+    clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null = null,
+): Promise<string[]> {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
-    const myVillage = character.village;
     const now = Date.now();
-    const eligible: string[] = [];
+    const eligible = new Set<string>();   // dedupe across the three sources
     for (const war of Object.values(sharedVillageWarCache)) {
         if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        if (war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
-            eligible.push(war.warCrateId);
+        if (war.warCrateId && war.winnerVillage === character.village && !claimed.has(war.warCrateId)) eligible.add(war.warCrateId);
+    }
+    const myClan = character.clan;
+    if (myClan) {
+        for (const war of Object.values(sharedClanWarCache)) {
+            if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+            if (war.warCrateId && war.winnerClan === myClan && !claimed.has(war.warCrateId)) eligible.add(war.warCrateId);
         }
     }
-    if (eligible.length === 0) return [];
+    for (const record of (clanData?.warHistory ?? []).slice(0, 3)) {
+        if (!record.warCrateId || record.result !== "Won") continue;
+        if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+        if (!claimed.has(record.warCrateId)) eligible.add(record.warCrateId);
+    }
+    if (eligible.size === 0) return [];
     const granted: string[] = [];
     for (const warCrateId of eligible) {
         try {
@@ -1048,11 +1068,11 @@ export async function claimServerVillageWarCrates(character: Character): Promise
 }
 
 /**
- * Apply server-granted village-war crates to the character locally (mirror) so the
- * player's next save reflects them. Deduped against claimedWarCrateIds (the poll may
- * already have synced the server's write) and bumps warsWon per new crate, matching
- * the inline claimPendingWarCrates winner-crate behavior. Use with a functional
- * setCharacter so it composes on the LATEST character, never a stale snapshot.
+ * Apply server-granted war crates (village + clan) to the character locally (mirror)
+ * so the player's next save reflects them. Deduped against claimedWarCrateIds (the
+ * poll may already have synced the server's write) and bumps warsWon per new crate,
+ * matching the inline claimPendingWarCrates winner-crate behavior. Use with a
+ * functional setCharacter so it composes on the LATEST character, never a stale snapshot.
  */
 export function applyWarCrateGrants(character: Character, warCrateIds: string[]): { character: Character; count: number } {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
