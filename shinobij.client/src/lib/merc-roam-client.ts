@@ -65,7 +65,8 @@ const MERC_TIER_NAMES: Record<string, string> = {
     warlord: "Mercenary Warlord",
 };
 export function mercTierName(tierId: string): string {
-    return MERC_TIER_NAMES[tierId] ?? "Mercenary";
+    // Accept both the WR tier id ("merc-ronin") and the short key ("ronin").
+    return MERC_TIER_NAMES[tierId.replace(/^merc-/, "")] ?? "Mercenary";
 }
 
 const MERC_TAUNTS = [
