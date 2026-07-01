@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode, type CSSProperties } from "react";
 // Fantasy event-modal glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import { GiPawPrint, GiChest, GiOpenTreasureChest, GiCardPickup } from "react-icons/gi";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
@@ -89,6 +89,7 @@ import {
 } from "../App";
 import { activeVillageWarsFor, loadSectorTerritory, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
+import { useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
@@ -1098,35 +1099,66 @@ export function WorldMap({
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const [hollowGateMenu, setHollowGateMenu] = useState(false);   // Enter / Attune choice
     const [showAttunement, setShowAttunement] = useState(false);   // Shrine Attunement panel
+    // Mobile world-map pinch/drag zoom (worldMapZoom.v1). Inert on desktop / when
+    // the flag is off — the map then renders via the legacy path unchanged.
+    const wmZoom = useWorldMapZoom();
     // Marker layout (0–100 grid), hand-curated. Each village's nearby sectors
     // cluster around its banner; neutral sectors spread across the mid-map. A
     // sector's biome / encounters are fixed by its NUMBER (biomeForSector) — the
     // marker position is purely where the dot sits. Fixed POIs: central ring 56–60,
     // Hollow-Gate shrines 1/52, Death's Gate / PvP 99; the village / Central /
-    // Hollow Gate landmarks live in `locations`, untouched.
+    // Hollow Gate landmarks live in `locations`, untouched. Coords were relaxed
+    // (scripts/decollide capped ≤~5%) to de-overlap the mobile zoom overview; the
+    // Fixed POIs above stayed pinned.
     const sectorPoints = [
-        { id: 1, x: 58, y: 50 }, { id: 2, x: 61, y: 37 }, { id: 3, x: 70, y: 40 }, { id: 4, x: 81, y: 60 }, { id: 5, x: 88, y: 64 },
-        { id: 6, x: 91, y: 72 }, { id: 7, x: 52, y: 34 }, { id: 8, x: 84, y: 70 }, { id: 9, x: 60, y: 55 }, { id: 10, x: 66, y: 51 },
-        { id: 11, x: 79, y: 78 }, { id: 12, x: 62, y: 64 }, { id: 13, x: 54, y: 85 }, { id: 14, x: 62, y: 88 }, { id: 15, x: 73, y: 58 },
-        { id: 16, x: 69, y: 68 }, { id: 17, x: 70, y: 83 }, { id: 18, x: 61, y: 76 }, { id: 19, x: 66, y: 60 }, { id: 20, x: 44, y: 74 },
-        { id: 21, x: 10, y: 70 }, { id: 22, x: 18, y: 66 }, { id: 23, x: 40, y: 54 }, { id: 24, x: 28, y: 73 }, { id: 25, x: 34, y: 38 },
-        { id: 26, x: 9, y: 79 }, { id: 27, x: 19, y: 76 }, { id: 28, x: 33, y: 56 }, { id: 29, x: 40, y: 62 }, { id: 30, x: 45, y: 69 },
-        { id: 31, x: 15, y: 81 }, { id: 32, x: 22, y: 73 }, { id: 33, x: 38, y: 79 }, { id: 34, x: 25, y: 64 }, { id: 35, x: 44, y: 90 },
-        { id: 36, x: 8, y: 26 }, { id: 37, x: 15, y: 19 }, { id: 38, x: 14, y: 33 }, { id: 39, x: 24, y: 17 }, { id: 40, x: 31, y: 21 },
-        { id: 41, x: 33, y: 31 }, { id: 42, x: 22, y: 27 }, { id: 43, x: 26, y: 38 }, { id: 44, x: 40, y: 34 }, { id: 45, x: 46, y: 41 },
-        { id: 46, x: 89, y: 28 }, { id: 47, x: 74, y: 33 }, { id: 48, x: 66, y: 20 }, { id: 49, x: 73, y: 16 }, { id: 50, x: 81, y: 19 },
-        { id: 51, x: 68, y: 30 }, { id: 52, x: 56, y: 24 }, { id: 53, x: 85, y: 33 }, { id: 54, x: 88, y: 24 }, { id: 55, x: 71, y: 48 },
+        { id: 1, x: 58, y: 50 }, { id: 2, x: 62, y: 37 }, { id: 3, x: 69, y: 37 }, { id: 4, x: 84, y: 58 }, { id: 5, x: 91, y: 62 },
+        { id: 6, x: 91, y: 74 }, { id: 7, x: 54, y: 35 }, { id: 8, x: 84, y: 71 }, { id: 9, x: 63, y: 59 }, { id: 10, x: 66, y: 48 },
+        { id: 11, x: 79, y: 79 }, { id: 12, x: 59, y: 69 }, { id: 13, x: 54, y: 85 }, { id: 14, x: 62, y: 91 }, { id: 15, x: 76, y: 58 },
+        { id: 16, x: 72, y: 73 }, { id: 17, x: 70, y: 84 }, { id: 18, x: 61, y: 80 }, { id: 19, x: 69, y: 63 }, { id: 20, x: 47, y: 79 },
+        { id: 21, x: 9, y: 69 }, { id: 22, x: 16, y: 64 }, { id: 23, x: 37, y: 51 }, { id: 24, x: 31, y: 73 }, { id: 25, x: 34, y: 41 },
+        { id: 26, x: 7, y: 80 }, { id: 27, x: 16, y: 75 }, { id: 28, x: 30, y: 55 }, { id: 29, x: 37, y: 63 }, { id: 30, x: 43, y: 70 },
+        { id: 31, x: 14, y: 86 }, { id: 32, x: 24, y: 74 }, { id: 33, x: 38, y: 80 }, { id: 34, x: 24, y: 62 }, { id: 35, x: 44, y: 91 },
+        { id: 36, x: 8, y: 26 }, { id: 37, x: 15, y: 19 }, { id: 38, x: 14, y: 33 }, { id: 39, x: 24, y: 16 }, { id: 40, x: 31, y: 18 },
+        { id: 41, x: 32, y: 30 }, { id: 42, x: 22, y: 27 }, { id: 43, x: 26, y: 38 }, { id: 44, x: 39, y: 33 }, { id: 45, x: 46, y: 36 },
+        { id: 46, x: 92, y: 31 }, { id: 47, x: 76, y: 31 }, { id: 48, x: 65, y: 15 }, { id: 49, x: 73, y: 16 }, { id: 50, x: 80, y: 19 },
+        { id: 51, x: 67, y: 26 }, { id: 52, x: 56, y: 24 }, { id: 53, x: 84, y: 34 }, { id: 54, x: 88, y: 21 }, { id: 55, x: 73, y: 47 },
         { id: 56, x: 44, y: 47 }, { id: 57, x: 54, y: 48 }, { id: 58, x: 48, y: 55 }, { id: 59, x: 55, y: 58 }, { id: 60, x: 49, y: 64 },
         { id: 99, x: 51, y: 10 },
+    ];
+
+    // Village quick-jump targets for the mobile zoom HUD (worldMapZoom.v1). Each
+    // chip flies the camera to the cluster centroid at a tappable zoom.
+    const WM_CLUSTERS: { label: string; ids: number[]; color: string; zoom: number }[] = [
+        { label: "Frostfang", ids: [46, 47, 48, 49, 50, 51, 53, 54], color: villageAccent("Frostfang Village"), zoom: 2.6 },
+        { label: "Moonshadow", ids: [4, 5, 6, 8, 11, 15, 16, 19], color: villageAccent("Moonshadow Village"), zoom: 2.6 },
+        { label: "Stormveil", ids: [21, 22, 24, 26, 27, 31, 32, 34], color: villageAccent("Stormveil Village"), zoom: 2.6 },
+        { label: "Ashen Leaf", ids: [36, 37, 38, 39, 40, 41, 42, 43], color: villageAccent("Ashen Leaf Village"), zoom: 2.6 },
+        { label: "Central", ids: [55, 56, 57, 58, 59, 60], color: "#cbd5e1", zoom: 2.4 },
+        { label: "Death's Gate", ids: [99], color: "#f87171", zoom: 2.8 },
     ];
 
     // When the War Map is on, a sector owned by a village glows in that village's
     // accent colour (live owner from the territory cache, else its home village).
     const warMapOn = isVillageWarMapEnabled();
-    function sectorOwnerAccent(id: number): string | undefined {
-        if (!warMapOn) return undefined;
+    // War-Map legibility: tint each owned sector's marker in its holder village's
+    // accent (your own village ringed white) so the front line reads at a glance
+    // instead of a field of identical yellow dots. Neutral / central (>=56) /
+    // Death's Gate keep the default marker. Purely cosmetic — no gameplay state.
+    function sectorMarkerStyle(id: number): CSSProperties {
+        if (!warMapOn || id >= 56 || id === 99) return {};
         const owner = loadSectorTerritory(id).ownerVillage || homeVillageForSector(id);
-        return owner ? villageAccent(owner) : undefined;
+        if (!owner) return {};
+        const accent = villageAccent(owner);
+        const mine = character.village === owner;
+        return {
+            background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,.6), transparent 46%), ${accent}`,
+            borderColor: mine ? "#ffffff" : "rgba(2,6,23,.6)",
+            color: "#ffffff",
+            textShadow: "0 1px 2px rgba(0,0,0,.9)",
+            boxShadow: mine
+                ? `0 0 0 2px #ffffff, 0 0 9px ${accent}, 0 2px 4px rgba(0,0,0,.5)`
+                : `0 0 0 1px rgba(2,6,23,.5), 0 0 7px ${accent}, 0 2px 4px rgba(0,0,0,.45)`,
+        };
     }
 
     function biomeForSector(sector: number): Biome {
@@ -2577,11 +2609,39 @@ export function WorldMap({
                 </div>
             )}
             {showAttunement && <HollowGateAttunement character={character} updateCharacter={updateCharacter} onClose={() => setShowAttunement(false)} />}
-            {/* scroll wrapper keeps the map pannable on narrow mobile screens */}
-            <div className="world-map-scroll">
+            {/* World-map viewport. Legacy: a horizontal-scroll box on narrow
+                screens. With worldMapZoom.v1 (mobile default): a fit-to-screen
+                pinch / drag zoom surface driven by useWorldMapZoom. */}
+            <div
+                className="world-map-scroll"
+                ref={wmZoom.viewportRef}
+                {...wmZoom.viewportHandlers}
+            >
+            {wmZoom.active && (
+                <>
+                    <div className="wm-zoom-hud wm-hud-controls" onPointerDown={(e) => e.stopPropagation()}>
+                        <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
+                        <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
+                        <button className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}>⤢</button>
+                    </div>
+                    <div className="wm-zoom-hud wm-hud-villages" onPointerDown={(e) => e.stopPropagation()}>
+                        {WM_CLUSTERS.map((cl) => {
+                            const pts = sectorPoints.filter((s) => cl.ids.includes(s.id));
+                            if (!pts.length) return null;
+                            const cx = pts.reduce((a, s) => a + s.x, 0) / pts.length;
+                            const cy = pts.reduce((a, s) => a + s.y, 0) / pts.length;
+                            return (
+                                <button key={cl.label} className="wm-village-chip" onClick={() => wmZoom.focusPoint(cx, cy, cl.zoom)}>
+                                    <span className="wm-chip-dot" style={{ background: cl.color }} />{cl.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
             <div
                 className="anime-world-map atlas-world-map generated-world-map"
-                style={{ backgroundImage: `url(${worldMapBg})` }}
+                style={{ backgroundImage: `url(${worldMapBg})`, ...wmZoom.contentStyle }}
             >
                 {/* Gentle magical-dust + light-sweep over the whole world (sits
                     behind the z-10 sector/village markers). Keeps the overworld
@@ -2616,7 +2676,6 @@ export function WorldMap({
                 <div className="atlas-region-label label-fire">Land of Fire</div>
                 <div className="atlas-region-label label-ice">Land of Glaciers</div>
                 {sectorPoints.map((sector) => {
-                    const oa = sectorOwnerAccent(sector.id);
                     return (
                     <button
                         key={sector.id}
@@ -2625,7 +2684,7 @@ export function WorldMap({
                                 ? "atlas-sector atlas-sector-deaths-gate"
                                 : "atlas-sector atlas-sector-" + biomeForSector(sector.id)
                         }
-                        style={{ left: sector.x + "%", top: sector.y + "%", ...(oa ? { boxShadow: `0 0 0 2px ${oa}, 0 0 7px ${oa}` } : {}) }}
+                        style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         onClick={() => triggerTravelPoint(sector.id)}
                         title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
                     >
