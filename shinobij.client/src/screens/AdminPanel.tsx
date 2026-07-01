@@ -837,6 +837,7 @@ export function AdminPanel({
     const [kageSeatVillage, setKageSeatVillage] = useState(villages[0]);
     const [kageSeatPlayer, setKageSeatPlayer] = useState("");
     const [kageSeatMsg, setKageSeatMsg] = useState("");
+    const [seedSectorsMsg, setSeedSectorsMsg] = useState("");
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
     const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
@@ -4850,6 +4851,36 @@ export function AdminPanel({
                                 >👑 Seat as Kage</button>
                             </div>
                             {kageSeatMsg && <p className="hint" style={{ color: kageSeatMsg.startsWith("✅") ? "#4ade80" : kageSeatMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{kageSeatMsg}</p>}
+                        </section>
+
+                        {/* -- Seed Sector Ownership -- */}
+                        <section className="summary-box" style={{ borderColor: "#166534" }}>
+                            <h4>🗺 Seed Sector Ownership</h4>
+                            <p className="hint">One-time launch step for Sector War: stamps each war village's home sectors with their starting owner (<code>world:territory.ownerVillage</code>). Until this runs, a Kage's <b>Declare War</b> is rejected ("that sector has no current owner"), "Sectors held" reads 0, and Map-Control rewards don't pay out. Idempotent — safe to re-run; it only fills in sectors whose owner is unset.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                                <button
+                                    style={{ background: "#166534", borderColor: "#4ade80", color: "#dcfce7" }}
+                                    disabled={!adminPw}
+                                    onClick={async () => {
+                                        if (!(await gameConfirm("Seed home-sector ownership for all war villages? Assigns each home sector to its home village (only where unset) and unblocks Declare War."))) return;
+                                        setSeedSectorsMsg("Seeding…");
+                                        try {
+                                            const r = await fetch('/api/village/sector-war', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                                                body: JSON.stringify({ action: 'seed', playerName: 'admin' }),
+                                            });
+                                            const d = await r.json();
+                                            if (!r.ok) throw new Error(d.error ?? 'seed failed');
+                                            const n = typeof d.seeded === 'number' ? d.seeded : null;
+                                            setSeedSectorsMsg(`✅ Sector ownership seeded${n !== null ? ` — ${n} sector${n === 1 ? '' : 's'} set` : ''}. Kages can now Declare War.`);
+                                        } catch (err) {
+                                            setSeedSectorsMsg(`❌ ${String((err as Error).message || err)}`);
+                                        }
+                                    }}
+                                >🗺 Seed Home-Sector Ownership</button>
+                            </div>
+                            {seedSectorsMsg && <p className="hint" style={{ color: seedSectorsMsg.startsWith("✅") ? "#4ade80" : seedSectorsMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{seedSectorsMsg}</p>}
                         </section>
 
                         {/* -- Ranked Seasons -- */}
