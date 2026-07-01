@@ -122,7 +122,9 @@ import { readFileSync } from "node:fs";
 // poll-effect. Crate LOGIC lives in lib/world-state.ts (claimServerWarCrates /
 // applyWarCrateGrants); flag OFF (warCrateServerAuth.v1) → byte-identical. Measured
 // post-merge on top of main's sector-war wiring.)
-const MAX_LINES = 10_161;
+// → 10,081 (senior audit drain: pet arena frame/fighter/record type cluster moved
+// to types/pet-arena and App keeps only back-compat re-exports.)
+const MAX_LINES = 10_091;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

@@ -199,7 +199,6 @@ import {
     type Rank,
     type Biome,
     type JutsuType,
-    type JutsuElement,
     type JutsuTarget,
     type WeatherType,
     type AdminAccount,
@@ -326,6 +325,8 @@ import {
     PET_GRID_SIZE,
     PET_SPAWN_1V1,
 } from "./constants/pet-arena";
+import type { PetArenaFrame, PetBattleRecord, PetFrameStatus } from "./types/pet-arena";
+export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
 // Tiny presentational mark / portrait components moved to ./components/Marks.
 
@@ -9233,123 +9234,12 @@ export default function App() {
 
 // TriggeredVisualNovel moved to ./components/TriggeredVisualNovel (imported back near the top).
 
-export type PetBattleFighter = {
-    owner: string;
-    pet: Pet;
-    hp: number;
-    pos: number;
-    attackBuff: number;
-    defenseBuff: number;
-    cooldowns: Record<string, number>;
-    dotDamage: number;
-    dotRounds: number;
-    shieldHp: number;     // absorbs incoming damage before HP is reduced
-    moveLocked: number;   // rounds remaining that this fighter cannot move
-    absorbRounds: number; // rounds of damage-reduction stance active
-    absorbPercent: number;// fraction of incoming damage reduced (0–1)
-    // Extended status effects. Each is a round counter; 0 = inactive.
-    burnRounds: number;   // burn = DoT each round + small ATK debuff
-    burnDamage: number;   // per-round burn damage applied during tick
-    freezeRounds: number; // each round of freeze, 50% chance to skip turn
-    confuseRounds: number;// each turn while confused, 50% chance to hit self
-    stunRounds: number;   // next N turns are auto-skip
-    // Base tactical actions (Phases 7-8) — a pet doesn't attack every turn.
-    guardRounds: number;  // Guard: incoming damage ×0.6 while active
-    evadeRounds: number;  // Evade: +25% dodge while active
-    braceRounds: number;  // Brace: reduced crit damage taken (+ push/pull immunity)
-    focusReady: boolean;  // Focus: next offensive move ×1.3 damage, then consumed
-    defensiveCd: number;  // throttles base defensive actions so the pet still mostly attacks
-    // Phase 12 archetype-identity statuses (pet battles only).
-    woundRounds: number;  // wound = DoT each round
-    woundDamage: number;  // per-round wound damage; also halves healing received while > 0
-    markedRounds: number; // next damage hit on this fighter deals +bonus, then clears
-    slowRounds: number;   // −1 move step + reduced dodge while active
-    hasteRounds: number;  // +1 move step + extra dodge while active
-    tauntedRounds: number;// forced to target the taunter in 2v2 while active
-    tauntById: string;    // owner id of the taunter ("You" / opponentOwner / "")
-    // Reactive battle-consumable charges (one-shot, from loadout.consumable).
-    consDodge?: number;   // negate the next N incoming attacks
-    consMitigate?: number;// reduce the next incoming attack by this %
-    consEndure?: number;  // survive one lethal blow (→ 1 HP)
-    consThorns?: number;  // reflect this % of the next attack (0 once spent)
-    consLifeline?: number;// heal this % max HP the first time below threshold
-    consCleanse?: number; // purge all statuses once
-};
-
-// Win/loss record shown on the 5-second pre-fight card. Wins/losses are the
-// player's account-level pet-ranked tallies; rating is the current pet-ranked
-// Elo. All optional so an AI/wild opponent can show a rating only, or nothing.
-export interface PetBattleRecord {
-    wins?: number;
-    losses?: number;
-    rating?: number;
-}
-
-// Per-fighter status snapshot carried on each frame for the HP-bar badges
-// (Phases 7-9). atk/def buffs + shield are value/flag badges; the rest map to
-// BattleStatusId icons via collectActorStatuses in the renderer.
-type PetFrameStatus = {
-    poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number;
-    moveLocked?: boolean; absorbing?: boolean;
-    burn?: number; freeze?: number; confuse?: number; stun?: number;
-    guarding?: boolean; focused?: boolean; evading?: boolean; bracing?: boolean;
-    // Phase 12 archetype statuses.
-    wound?: number; marked?: boolean; slow?: number; haste?: number; taunted?: boolean;
-};
-
-export type PetArenaFrame = {
-    round: number;
-    message: string;
-    playerHp: number;
-    enemyHp: number;
-    playerPos: number;
-    enemyPos: number;
-    actor: "player" | "enemy" | "system";
-    actionKind?: "damage" | "buff" | "basic" | "result" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb";
-    damage?: number;
-    crit?: boolean;
-    // rich visual fields
-    traitFlash?: { actor: "player" | "enemy"; trait: string };
-    combo?: number;
-    isPrefight?: boolean;
-    isKO?: boolean;
-    // Set when a pet unleashes its signature jutsu — drives the anime cut-in.
-    // `flagship` marks an apex-tier (mythic) signature so the arena plays the
-    // over-the-top `power` burst instead of the element-heavy hit (cosmetic only,
-    // derived deterministically from the pet's rarity).
-    signatureMove?: { name: string; petName: string; side: "player" | "enemy"; flagship?: boolean };
-    playerStatus?: PetFrameStatus;
-    enemyStatus?: PetFrameStatus;
-    /** Remaining un-claimed power-pickup tiles (terrain depth) — the renderer
-     *  draws a glowing shrine orb on each; they vanish as pets claim them. */
-    pickups?: number[];
-    // ── 4-pet simultaneous fields (Pokémon-doubles style 2v2) ────────
-    // When present, the renderer shows 4 pet cards instead of 2, and
-    // places all 4 pets on the grid. The 1v1 fields above stay populated
-    // (with the most recently-acting pet of each side) so the existing
-    // status/trail logic keeps working.
-    party4v4?: {
-        playerLead:    { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
-        playerReserve: { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
-        enemyLead:     { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
-        enemyReserve:  { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
-        // Identifies which of the 4 slots just acted, for the actor halo.
-        actorSlot?: "playerLead" | "playerReserve" | "enemyLead" | "enemyReserve";
-        // Identifies which slot was the target, for the target glow.
-        targetSlot?: "playerLead" | "playerReserve" | "enemyLead" | "enemyReserve";
-    };
-};
+// Pet arena frame/fighter types moved to ./types/pet-arena and are re-exported above.
 
 // PET_GRID_COLS / ROWS / SIZE / PET_OBSTACLE_LAYOUTS moved to ./constants/pet-arena.
 
 // Pet autobattler simulation engine (BFS, action AI, seeded combat math,
 // 1v1 + 2v2 simulators) moved to ./lib/pet-battle-sim — imported at top.
-
-// Trivial helper so the forfeit log line doesn't fight with a global safeName.
-// Pet names are already user-facing strings; we just guard against undefined.
-// Currently unreferenced — kept for potential future use. Prefixed `_` to silence lint.
-function _character_safeName(s: string | undefined): string { return s ?? "Pet"; }
-void _character_safeName;
 
 export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, tiles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; tiles?: ArenaTile[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
     // Tactical tile-type lookup (Phases 5-6). Built once per tiles change so the

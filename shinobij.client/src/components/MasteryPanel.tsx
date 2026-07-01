@@ -36,7 +36,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
 
     function invest(nodeId: string) {
         const check = canIncrement(character, nodeId);
-        if (!check.ok) { alert(check.reason); return; }
+        if (check.ok === false) { alert(check.reason); return; }
         updateCharacter({ ...character, masterySpec: incrementNode(character, nodeId) });
     }
 
@@ -91,6 +91,7 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
                                     const maxed = ranks >= n.maxRank;
                                     const gateLocked = !!n.capstone && inPath < CAPSTONE_PATH_GATE && !masteryHasCapstone(character, n.id);
                                     const check = canIncrement(character, n.id);
+                                    const spendBlocked = check.ok === false;
                                     return (
                                         <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 8, opacity: gateLocked ? 0.6 : 1 }}>
                                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -104,8 +105,8 @@ export function MasteryPanel({ character, updateCharacter }: { character: Charac
                                             </div>
                                             <button
                                                 onClick={() => invest(n.id)}
-                                                disabled={!check.ok}
-                                                title={check.ok ? "" : check.reason}
+                                                disabled={spendBlocked}
+                                                title={spendBlocked ? check.reason : ""}
                                                 style={{ minWidth: 64, padding: "4px 10px" }}
                                             >
                                                 {maxed ? "Maxed" : n.capstone ? `Unlock (${n.cost})` : `+1 (${n.cost})`}

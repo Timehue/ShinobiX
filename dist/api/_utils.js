@@ -1,13 +1,14 @@
 "use strict";
 // Shared utilities for Vercel API functions
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ALLOWED_ORIGINS = void 0;
+exports.MALFORMED_JSON_BODY_ERROR = exports.ALLOWED_ORIGINS = void 0;
 exports.safeName = safeName;
 exports.clanBareSlug = clanBareSlug;
 exports.clanRecordKey = clanRecordKey;
 exports.mergePreservingImages = mergePreservingImages;
 exports.isAllowedOrigin = isAllowedOrigin;
 exports.parseJsonBody = parseJsonBody;
+exports.isMalformedJsonBodyError = isMalformedJsonBodyError;
 exports.cors = cors;
 // Max length for a player / clan-slug name. KV keys like `save:<name>`,
 // `ratelimit:save:<name>:gains`, `presence:<name>`, etc. embed this string,
@@ -158,6 +159,7 @@ function isAllowedOrigin(origin) {
         return false;
     return ALLOWED_ORIGIN_SET.has(origin) || isRailwayOrigin(origin);
 }
+exports.MALFORMED_JSON_BODY_ERROR = 'Malformed JSON body.';
 function parseJsonBody(rawBody) {
     if (typeof rawBody !== 'string') {
         return { ok: true, body: rawBody ?? {} };
@@ -169,8 +171,22 @@ function parseJsonBody(rawBody) {
         return { ok: true, body: JSON.parse(trimmed) };
     }
     catch {
-        return { ok: false, error: 'Malformed JSON body.' };
+        return { ok: false, error: exports.MALFORMED_JSON_BODY_ERROR };
     }
+}
+function isMalformedJsonBodyError(err, rawBody) {
+    if (!(err instanceof SyntaxError))
+        return false;
+    const details = err;
+    if (details.type === 'entity.parse.failed')
+        return true;
+    if ((details.status === 400 || details.statusCode === 400) && typeof details.body === 'string')
+        return true;
+    // Vercel-style handlers can still receive an already-buffered string body
+    // and parse it themselves. If that parse throws, it is client input, not a
+    // server fault. Keep this narrow so unrelated server SyntaxErrors still
+    // surface as 500s.
+    return typeof rawBody === 'string' && /\bJSON\b/.test(err.message);
 }
 // Methods that browsers consider "safe" — these can't mutate state, so even
 // a CSRF-style attack from a third-party page can't do damage. For these we
