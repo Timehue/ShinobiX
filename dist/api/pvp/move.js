@@ -496,13 +496,21 @@ function scaledTagPercent(rawPct, masteryLevel, tagName, bloodlineRank) {
     }
     return levelScaled;
 }
+// Steep mastery→magnitude ramp, shared by EP damage and the flat Heal/Shield tags:
+// an untrained jutsu is MASTERY_MIN_DAMAGE_FRAC of its fully-mastered value, ramping
+// to 100% at JUTSU_MAX_LEVEL. Applied to Heal/Shield (hard-capped at the FLAT ceiling)
+// it leaves maxed play byte-identical while damping low-mastery heal/shield spam.
+// Mirrors client combat-math.ts masteryDamageFrac — KEEP IN SYNC (parity test).
+function masteryDamageFrac(masteryLevel) {
+    return MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, masteryLevel)) / JUTSU_MAX_LEVEL);
+}
 // Phase 1 — EP scaling → base damage, plus the defender's diminishing-returns DR pool.
 function resolveBaseDamage(self, opponent, jutsu, wMult, biome, round, masteryLevel) {
     // Steep mastery → damage ramp (mirrors client combat-math.ts). epAtMax is the
     // unchanged fully-mastered value; an untrained jutsu deals MASTERY_MIN_DAMAGE_FRAC
     // of it, scaling to 100% at JUTSU_MAX_LEVEL — so maxed PvP is identical to before.
     const epAtMax = (jutsu.effectPower ?? 20) + JUTSU_MAX_LEVEL * 0.2;
-    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (Math.max(0, Math.min(JUTSU_MAX_LEVEL, masteryLevel)) / JUTSU_MAX_LEVEL);
+    const masteryFrac = masteryDamageFrac(masteryLevel);
     const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : Math.max(0, epAtMax * masteryFrac);
     const offStats = self.character.stats ?? {};
     const defStats = opponent.character.stats ?? {};
@@ -558,6 +566,10 @@ function resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg,
     let healing = 0;
     let shieldGain = 0;
     let pierce = false;
+    // Flat Heal/Shield ramp by the same mastery fraction as damage, hard-capped at
+    // the FLAT ceiling — maxed casts stay exactly HEAL_FLAT/SHIELD_FLAT, low-mastery
+    // ones heal/shield proportionally less (curbs early heal-spam). See masteryDamageFrac.
+    const magnitudeFrac = masteryDamageFrac(masteryLevel);
     for (const tag of tags) {
         // Branch on the CANONICAL name only — sessions are sealed canonical, and
         // normalizeTagName re-canonicalizes here so direct (un-sanitized) callers
@@ -565,15 +577,17 @@ function resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg,
         const tagName = normalizeTagName(tag.name);
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel, tagName, jutsu.bloodlineRank));
         if (tagName === 'Heal') {
-            healing += Math.floor(HEAL_FLAT * healBoost);
+            const healAmt = Math.min(HEAL_FLAT, Math.floor(HEAL_FLAT * magnitudeFrac * healBoost));
+            healing += healAmt;
             damage = 0;
-            lines.push(`Heal: ${s.name} restores ${Math.floor(HEAL_FLAT * healBoost)} HP.`);
+            lines.push(`Heal: ${s.name} restores ${healAmt} HP.`);
             continue;
         }
         if (tagName === 'Shield') {
-            shieldGain += SHIELD_FLAT;
+            const shieldAmt = Math.min(SHIELD_FLAT, Math.floor(SHIELD_FLAT * magnitudeFrac));
+            shieldGain += shieldAmt;
             damage = 0;
-            lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`);
+            lines.push(`Shield: ${s.name} gains ${shieldAmt} shield.`);
             continue;
         }
         if (tagName === 'Barrier') {

@@ -35,7 +35,7 @@ import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
-import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
+import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
@@ -2737,18 +2737,20 @@ export function Arena({
             }
 
             if (tag.name === "Heal") {
-                // Increase Heal boosts the flat Heal too (matches PvP
-                // api/pvp/move.ts:479 `HEAL_FLAT * healBoost`); was unboosted.
-                const healAmt = Math.floor(HEAL_FLAT_PVE * healMultiplier);
+                // Increase Heal boosts the flat Heal too (matches PvP move.ts
+                // `HEAL_FLAT * healBoost`); ramp by jutsu mastery + hard-cap at
+                // HEAL_FLAT_PVE, identical to the server.
+                const healAmt = Math.min(HEAL_FLAT_PVE, Math.floor(HEAL_FLAT_PVE * masteryDamageFrac(effMasteryLevel) * healMultiplier));
                 healing += healAmt;
                 damage = 0;
                 effectLines.push(`Heal: ${character.name} restores ${healAmt} HP.`);
             }
 
             if (tag.name === "Shield") {
-                shield += SHIELD_FLAT_PVE;
+                const shieldAmt = Math.min(SHIELD_FLAT_PVE, Math.floor(SHIELD_FLAT_PVE * masteryDamageFrac(effMasteryLevel)));
+                shield += shieldAmt;
                 damage = 0;
-                effectLines.push(`Shield: ${character.name} gains ${SHIELD_FLAT_PVE} shield.`);
+                effectLines.push(`Shield: ${character.name} gains ${shieldAmt} shield.`);
             }
 
             if (tag.name === "Barrier") {
@@ -3424,13 +3426,14 @@ export function Arena({
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, pveAiMastery);
             if (tag.name === "Heal") {
                 const enemyHealMult = multiplicativeTagMultiplier(activeStatuses(enemyStatuses).filter((s) => s.name === "Increase Heal"), "increase");
-                const healAmt = Math.floor(HEAL_FLAT_PVE * enemyHealMult);
+                const healAmt = Math.min(HEAL_FLAT_PVE, Math.floor(HEAL_FLAT_PVE * masteryDamageFrac(pveAiMastery) * enemyHealMult));
                 healing += healAmt;
                 effectLines.push(`${opponentName} heals ${healAmt} HP`);
             }
             if (tag.name === "Shield") {
-                shield += SHIELD_FLAT_PVE;
-                effectLines.push(`${opponentName} gains ${SHIELD_FLAT_PVE} shield`);
+                const shieldAmt = Math.min(SHIELD_FLAT_PVE, Math.floor(SHIELD_FLAT_PVE * masteryDamageFrac(pveAiMastery)));
+                shield += shieldAmt;
+                effectLines.push(`${opponentName} gains ${shieldAmt} shield`);
             }
             if (tag.name === "Barrier") {
                 const barrierTile = nextStepToward(enemyPos, playerPos);

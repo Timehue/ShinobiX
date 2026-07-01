@@ -12,15 +12,17 @@
  * authoritative (a network/5xx failure falls back to a local grant so a
  * legitimately-won crate is never lost).
  *
- * DEFAULT OFF — flipping it is the activation switch. While OFF both grant sites
- * behave exactly as before (byte-identical inline grant). Per-device persisted;
- * force ON with localStorage.setItem("warCrateServerAuth.v1", "1").
+ * DEFAULT ON (2026-07-01) — both inline grant sites defer and the crate is claimed
+ * server-side via the post-poll sweep. A network / 5xx failure falls back to a local
+ * grant so a legitimately-won crate is never lost; a definitive decline is respected.
+ * Storage-less / SSR contexts read OFF (old inline grant). Per-device persisted;
+ * force OFF with localStorage.setItem("warCrateServerAuth.v1", "0").
  */
 const WAR_CRATE_SERVER_AUTH_KEY = "warCrateServerAuth.v1";
 
 export function warCrateServerAuthEnabled(): boolean {
     try {
-        return localStorage.getItem(WAR_CRATE_SERVER_AUTH_KEY) === "1";
+        return localStorage.getItem(WAR_CRATE_SERVER_AUTH_KEY) !== "0";
     } catch {
         return false;
     }

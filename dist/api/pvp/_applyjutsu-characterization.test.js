@@ -46,14 +46,14 @@ function jutsu(tags, overrides = {}) {
     });
 });
 (0, node_test_1.describe)('applyJutsu characterization — heal / shield / siphon', () => {
-    (0, node_test_1.it)('Heal restores a flat 750 (capped at maxHp) and deals no damage', () => {
+    (0, node_test_1.it)('Heal ramps by jutsu mastery (225 at mastery 0, hard-capped at 750/maxHp) and deals no damage', () => {
         const r = (0, move_js_1.applyJutsu)(fighter('A', 500), fighter('B'), jutsu([{ name: 'Heal' }]), 1, 'central', 1);
-        node_assert_1.strict.equal(r.self.hp, 1000); // 500 + 750 capped at 1000
+        node_assert_1.strict.equal(r.self.hp, 725); // 500 + floor(750 × masteryFrac(0)=0.3)=225; a maxed jutsu heals the full 750
         node_assert_1.strict.equal(r.opponent.hp, 1000); // damage zeroed
     });
-    (0, node_test_1.it)('Shield grants a flat 750 and deals no damage', () => {
+    (0, node_test_1.it)('Shield ramps by jutsu mastery (225 at mastery 0, hard-capped at 750) and deals no damage', () => {
         const r = (0, move_js_1.applyJutsu)(fighter('A'), fighter('B'), jutsu([{ name: 'Shield' }]), 1, 'central', 1);
-        node_assert_1.strict.equal(r.self.shield, 750);
+        node_assert_1.strict.equal(r.self.shield, 225); // floor(750 × masteryFrac(0)=0.3); a maxed jutsu grants the full 750
         node_assert_1.strict.equal(r.opponent.hp, 1000);
     });
     (0, node_test_1.it)('Siphon heals 30%-of-final on the SAME hit: 960 → +288', () => {

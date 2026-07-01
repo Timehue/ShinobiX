@@ -10,16 +10,16 @@ class MemStore {
     clear(): void { this.m.clear(); }
 }
 
-test("warCrateServerAuth: default OFF, opt-in only via exactly '1'", () => {
+test("warCrateServerAuth: default ON, opt-out only via exactly '0'", () => {
     (globalThis as unknown as { localStorage: MemStore }).localStorage = new MemStore();
     try {
-        assert.equal(warCrateServerAuthEnabled(), false);          // unset → OFF (byte-identical default)
-        setWarCrateServerAuthEnabled(true);
-        assert.equal(warCrateServerAuthEnabled(), true);
+        assert.equal(warCrateServerAuthEnabled(), true);           // unset → ON (server-authoritative default)
         setWarCrateServerAuthEnabled(false);
         assert.equal(warCrateServerAuthEnabled(), false);
-        localStorage.setItem("warCrateServerAuth.v1", "true");
-        assert.equal(warCrateServerAuthEnabled(), false);          // only literal "1" enables
+        setWarCrateServerAuthEnabled(true);
+        assert.equal(warCrateServerAuthEnabled(), true);
+        localStorage.setItem("warCrateServerAuth.v1", "false");
+        assert.equal(warCrateServerAuthEnabled(), true);           // only literal "0" disables
     } finally {
         delete (globalThis as Partial<{ localStorage: unknown }>).localStorage;
     }
