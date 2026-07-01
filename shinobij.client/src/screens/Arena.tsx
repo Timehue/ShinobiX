@@ -35,7 +35,7 @@ import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
-import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
+import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
@@ -2005,7 +2005,7 @@ export function Arena({
             effectLines.push(`Shield: ${character.name} gains ${effectVal} shield.`);
         }
         if (item.weaponEffect === "Wound") {
-            setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]));
             effectLines.push(`Wound: ${opponentName} takes ${effectVal} damage per round for 2 rounds.`);
         }
         if (item.weaponEffect === "Poison") {
@@ -2041,7 +2041,7 @@ export function Arena({
                     setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
                     effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
                 } else if (wt.name === "Wound") {
-                    setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]);
+                    setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
                     effectLines.push(`Wound ${p}%`);
                 } else if (wt.name === "Poison") {
                     setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }));
@@ -2656,7 +2656,7 @@ export function Arena({
         const currentPlayerStatuses = activeStatuses(playerStatuses);
         const currentEnemyStatuses = activeStatuses(enemyStatuses);
         const queuePlayerStatus = (status: CombatStatus) => setPlayerStatuses((s) => mergeCombatStatus(s, statusForJutsu(jutsu, status)));
-        const queueEnemyStatus = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, statusForJutsu(jutsu, status)));
+        const queueEnemyStatus = (status: CombatStatus) => setEnemyStatuses((s) => capWoundStacks(mergeCombatStatus(s, statusForJutsu(jutsu, status))));
         const tagTimingText = bloodlineTagsResolveNextRound(jutsu) ? " starting next round" : "";
         const activeDamageTakenTags = currentEnemyStatuses.filter((s) => s.name === "Increase Damage Taken");
         const activeDamageGivenDebuffs = currentPlayerStatuses.filter((s) => s.name === "Decrease Damage Given");
@@ -3419,7 +3419,7 @@ export function Arena({
             !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
                 ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 }
                 : status;
-        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
+        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => capWoundStacks(mergeCombatStatus(s, deferEnemyStatus(status))));
         const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
 
         jutsu.tags.forEach((tag) => {

@@ -91,6 +91,16 @@ const PAIRS = [
     (0, node_test_1.it)('WOUND_CAP_BY_RANK matches (basic / AB / S)', () => {
         node_assert_1.strict.deepEqual(woundCaps(SERVER), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
     });
+    // Wound STACK cap (2026-07-01). Per-hit Wound magnitude is rank-capped above; this
+    // bounds the concurrent STACK COUNT so repeated Wound casts can't compound bleed.
+    // Both engines must cap at the same number or PvE and PvP bleed diverge.
+    (0, node_test_1.it)('MAX_WOUND_STACKS (server) === MAX_WOUND_STACKS_PVE (client) + both engines cap at apply', () => {
+        node_assert_1.strict.equal(num(SERVER, 'MAX_WOUND_STACKS'), num(CLIENT, 'MAX_WOUND_STACKS_PVE'), 'Wound stack cap diverged between server and client');
+        node_assert_1.strict.match(SERVER, /function capWoundStacks/, 'move.ts lost capWoundStacks');
+        node_assert_1.strict.match(CLIENT, /export function capWoundStacks/, 'combat-math.ts lost capWoundStacks');
+        node_assert_1.strict.match(SERVER, /capWoundStacks\(addJutsuStatus/, 'move.ts no longer caps Wound stacks at apply');
+        node_assert_1.strict.match(CLIENT_APP, /capWoundStacks\(/, 'Arena.tsx no longer caps Wound stacks at apply');
+    });
     // Stun AP penalty: server move.ts uses `100 - STUN_AP_PENALTY` for the
     // stunned fighter's starting AP; client App.tsx uses `STUN_AP_PENALTY`
     // from constants/game.ts. Drift here means a stunned player on one side
