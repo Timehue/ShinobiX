@@ -103,22 +103,19 @@ state so its own next `/api/save` is an idempotent overwrite that already contai
 (no two-writer clobber). This is exactly the proven pattern in `api/hollow-gate/settle.ts`
 (currencies) + `api/missions/report-raid.ts` (bonus ryo/seals). Reuse it verbatim.
 
-**Surface 1 — HG items (highest leverage; ride the EXISTING run loop):**
-- Extend `api/hollow-gate/settle.ts`: after the currency loop, credit
-  `min(claimedFragments, maxItemsForDepth(depth))` of `DUNGEON_LEGENDARY_FRAGMENT_ID` into
-  inventory under the SAME lock. Add `maxItemsForDepth(depth)` to `api/hollow-gate/_run-token.ts`
-  (a depth-D run = at most ~1 fragment per boss floor; be generous like `maxHaulForDepth`).
-- Client (`lib/hollow-gate-server.ts`): include the run's fragment count in the settle `haul`
-  (today `computeHollowGateHaul` reports CURRENCIES only → server item-credit is INERT for
-  current clients), STOP the inline `addInventoryItems([DUNGEON_LEGENDARY_FRAGMENT_ID])` at the
-  boss-kill grant (`App.tsx` HG-shrine win, currently ~:5992) when the run loop is on, and apply
-  the credited items from the settle response (mirror, like `applyServerSettle`).
-- Rides the EXISTING `hollowGateServer.v1` flag (HG items are part of the dive haul — a separate
-  `hollowGateDropServerAuth.v1` would awkwardly split one flow). Server half can land inert first
-  (like P0.2b's `306646dc`).
-- **OPEN game-design decision (confirm before building):** does a fragment earned at a boss
-  survive DEATH deeper in the run? Currency claws back ×0.5 on death; for a discrete item, pick
-  keep-on-extract-only vs floor(count×frac). Client retention MUST match the server frac.
+**Surface 1 — HG item — DONE (server-only, byte-identical, no client change).**
+The Dungeon Legendary Fragment (a counted `itemStacks` entry) is CLAMPED at settle, NOT
+deferred: `start.ts` seals `entryFragments`; `settle.ts` clamps the run's GAIN
+(current − sealed entry) to `maxFragmentsForDepth(depth)` — the SAME shape as the currency
+ceiling (`clampFragmentTotal` mirrors `settleCurrency`). Legit hauls sit under the ceiling so
+it's a no-op (byte-identical) → no flag + no client change; the client keeps its inline boss-drop
+grant, so there's NO reliability regression (a defer-to-settle design would risk losing a legit
+fragment on an un-settled run). The earlier "does the fragment survive death?" question resolved
+by behavior preservation: it does (inline grant kept; the clamp only claws back a crafted client's
+excess). Enforces only while `hollowGateServer.v1` is on (settle runs then); a never-settled run is
+bounded by the per-save itemStacks caps — exactly the currency ceiling's own not-settled property.
+(Superseded the earlier "credit reported items" foundation, which had a death-strip flaw + would
+have deferred the grant.)
 
 **Surface 2 — war crate (`warCrateServerAuth.v1`):** new endpoint validates `warCrateId` against
 the authoritative shared **clan + village** war state (server-readable: `api/_war-state.ts`,
