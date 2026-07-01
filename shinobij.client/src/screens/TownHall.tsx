@@ -6,6 +6,8 @@ import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { NoticePostType } from "../types/clan";
 import type { VillageUpgradeKey, Screen } from "../types/core";
 import { UPGRADE_IMAGES, HOLLOW_GATE_IMAGE } from "../data/upgrade-images";
+import { fetchWarMap, upgradeWarStructure } from "../lib/village-war-map";
+import { STRUCTURE_IMAGES } from "../data/war-ui-images";
 import { LeaderPortrait } from "../components/Marks";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { gameConfirm } from "../components/GameAlert";
@@ -48,6 +50,16 @@ function formatObligation(ms: number): string {
     const s = total % 60;
     return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+// The four PERMANENT war structures (Honor-Seal-funded, kept across wars) surfaced
+// in the Upgrades tab. Ramparts + Watchtower are per-war (WR) and stay in the Sector
+// War Map. Descriptions mirror api/_war-structures STRUCTURE_DEFS.
+const PERMANENT_WAR_STRUCTURES: { key: string; name: string; desc: string }[] = [
+    { key: "barracks", name: "Barracks", desc: "-1.5% mercenary WR cost per level." },
+    { key: "warAcademy", name: "War Academy", desc: "+1.5% sector-war damage per level." },
+    { key: "supplyDepot", name: "Supply Depot", desc: "+0.5 War Resources per controlled sector per level." },
+    { key: "treasuryVault", name: "Treasury Vault", desc: "-3% of the daily tax rate per level." },
+];
 
 export function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void; onBack: () => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
@@ -99,6 +111,8 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
     const [villageNoticeTitle, setVillageNoticeTitle] = useState("");
     const [villageNoticeBody, setVillageNoticeBody] = useState("");
     const [villageNoticeSector, setVillageNoticeSector] = useState("");
+    const [warStructures, setWarStructures] = useState<Record<string, number> | null>(null);
+    const [warStructBusy, setWarStructBusy] = useState("");
     const allVillageItems = getAllItems(creatorItems);
     const villageInventoryStacks = inventoryItemStacks(character, allVillageItems);
     const villageTreasuryItems = cleanTreasuryItems(state.treasury.items);
@@ -127,6 +141,28 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         return visiblePoll(refreshVillageState, 10000);
     }, [character.village]);
     useEffect(() => saveVillageState(character.village, state), [character.village, state]);
+    // Permanent war structures surfaced in the Upgrades tab: fetch the village's
+    // war-record levels when the tab is open (best-effort; only a war village returns one).
+    useEffect(() => {
+        if (tab !== "upgrades") return;
+        let alive = true;
+        void fetchWarMap().then((wm) => {
+            if (!alive) return;
+            const mine = wm.villages.find((v) => v.village === character.village);
+            setWarStructures(mine ? mine.structures : null);
+        }).catch(() => { if (alive) setWarStructures(null); });
+        return () => { alive = false; };
+    }, [tab, character.village]);
+    async function upgradeWarStruct(key: string) {
+        setWarStructBusy(key);
+        try {
+            await upgradeWarStructure(character.name, character.village, key);
+            const wm = await fetchWarMap();
+            const mine = wm.villages.find((v) => v.village === character.village);
+            setWarStructures(mine ? mine.structures : null);
+        } catch (e) { alert(String((e as Error).message || e)); }
+        finally { setWarStructBusy(""); }
+    }
     // Poll authoritative kage state (seat + active challenge) so every player
     // sees the same seated Kage and the live challenge. Replaces the old
     // one-shot fetch; the seat still mirrors into `state` for the displays.
@@ -574,6 +610,26 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
                 </div>
                 {villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{UPGRADE_IMAGES[upgrade.key] ? <img src={UPGRADE_IMAGES[upgrade.key]} alt="" /> : upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}
             </div>
+            {isSeatedKage && warStructures && (
+                <div className="town-war-structures" style={{ marginTop: "1.2rem" }}>
+                    <h4>⚔ Permanent War Structures</h4>
+                    <p className="hint">Standing war infrastructure — <b>treasury Honor Seals</b>, kept across wars (daily WR upkeep applies). <b>Ramparts</b> &amp; <b>Watchtower</b> are per-war (War Resources) and live in the Sector War Map.</p>
+                    <div className="town-upgrade-grid">
+                        {PERMANENT_WAR_STRUCTURES.map((s) => {
+                            const level = warStructures![s.key] ?? 0;
+                            const maxed = level >= 10;
+                            return (
+                                <div key={s.key} className="town-upgrade-card">
+                                    <div className="town-upgrade-topline"><span className="town-upgrade-icon">{STRUCTURE_IMAGES[s.key] ? <img src={STRUCTURE_IMAGES[s.key]} alt="" /> : "🏯"}</span><div><strong>{s.name}</strong><p>Level {level}/10</p></div></div>
+                                    <div className="town-upgrade-bar"><span style={{ width: `${(level / 10) * 100}%` }} /></div>
+                                    <p className="town-upgrade-desc">{s.desc}</p>
+                                    <button disabled={warStructBusy === s.key || maxed} onClick={() => upgradeWarStruct(s.key)}>{maxed ? "Max Level" : warStructBusy === s.key ? "…" : "Upgrade — Treasury Honor Seals"}</button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </section>}
         {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
         {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
