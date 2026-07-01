@@ -414,7 +414,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             return { status: 400 as const, body: { error: `Unknown action: ${action}` } };
-        });
+        }, { failClosed: true });
+        // failClosed: the card-duel action RMW (join/pick/commit) mutates the shared
+        // session — under lock contention we 500 (client retries) rather than fall
+        // through to an unlocked write that could clobber the other player's committed
+        // move. The 'state' poll path returns above and never reaches this lock, and the
+        // opportunistic picking/turn auto-resolve locks stay open so routine polls can't
+        // 500. The war-outcome settlement (persistAndMaybeFinalize) keeps its own guard.
 
         return res.status(result.status).json(result.body);
     } catch (err) {
