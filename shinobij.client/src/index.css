@@ -23580,21 +23580,12 @@ html[data-vp="xxl"] .banner-mobile-timers {
     80%  { opacity: .55; }
     100% { transform: translateX(28%); opacity: 0; }
 }
-.scene-ambience-lightning {
-    position: absolute;
-    inset: 0;
-    background: rgba(220,235,255,0);
-    animation: scene-lightning 8s steps(1) infinite;
-}
-@keyframes scene-lightning {
-    0%, 90%, 100% { background: rgba(220,235,255,0); }
-    91% { background: rgba(220,235,255,.45); }
-    92% { background: rgba(220,235,255,0); }
-    94% { background: rgba(220,235,255,.3); }
-    95% { background: rgba(220,235,255,0); }
-}
+/* Thunderstorm lightning (jagged bolts + a synced, fast-decaying flash) is now
+   drawn procedurally on the SceneAmbience canvas (SceneAmbience.tsx) so the flash
+   stays in sync with each strike and honours reduced-motion / low-end gating there.
+   No CSS flash layer — that old flat full-screen blink read as the screen glitching. */
 @media (prefers-reduced-motion: reduce) {
-    .scene-ambience-rays, .scene-ambience-lightning { animation: none; opacity: .22; }
+    .scene-ambience-rays { animation: none; opacity: .22; }
 }
 
 /* ═══ Day/night sky (DayNightSky.tsx) ════════════════════════════════════════
@@ -23822,8 +23813,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
    instead of a user setting. Cosmetic only — nothing here hides gameplay info;
    backdrops, markers, avatars and HUD are untouched. The 2D particle/critter
    canvases and the 3D parallax scenes are gated separately in their components. */
-.lite-fx .scene-ambience-rays,
-.lite-fx .scene-ambience-lightning { animation: none; opacity: .22; }
+.lite-fx .scene-ambience-rays { animation: none; opacity: .22; }
 .lite-fx .sector-scene-haze,
 .lite-fx .sector-foreground,
 .lite-fx .sector-scatter-sway { animation: none; }
