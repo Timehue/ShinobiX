@@ -1275,14 +1275,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 break;
             }
 
-            case 'dash': {
-                if (tile === undefined || !canAct(30)) return finish(withRejected(session, 'Dash blocked — out of AP/actions this turn, or no tile selected.'));
-                if (distance(me.pos, tile) > 3 || tile === opp.pos || tile === me.pos || tileBlocked(tile, me, opp)) return finish(withRejected(session, 'Dash blocked — choose an open tile within 3 hexes.'));
-                lines.push(`${me.name} dashes.`);
-                result = commit({ ...me, pos: tile }, null, 30);
-                break;
-            }
-
             case 'basicAttack': {
                 if (!canAct(40)) return finish(withRejected(session, 'Basic attack blocked — out of AP or actions this turn.'));
                 if (distance(me.pos, opp.pos) > 1) {
@@ -1646,9 +1638,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'flee': {
                 if (!canAct(100)) return finish(withRejected(session, 'Cannot flee — out of AP or actions this turn.'));
                 const hpCost = Math.max(1, Math.floor(me.maxHp * 0.1));
-                // Crypto-random 20% (1-in-5) — consistent with the session coin-flip;
+                // Crypto-random 50% (1-in-2) — consistent with the session coin-flip;
                 // V8's Math.random is seeded/predictable and shouldn't gate an outcome.
-                const escaped = randomInt(5) === 0;
+                const escaped = randomInt(2) === 0;
                 const updatedMe = { ...me, hp: Math.max(0, me.hp - hpCost) };
                 if (escaped) {
                     lines.push(`${me.name} fled the battle, losing ${hpCost} HP.`);
@@ -1722,7 +1714,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             role,
             actionId: String(jutsuId ?? itemId ?? action),
             actionName: String(itemName ?? jutsuId ?? action),
-            actionType: action, // the raw move action label (jutsu/weapon/item/move/dash/wait/flee/basicAttack/…)
+            actionType: action, // the raw move action label (jutsu/weapon/item/move/wait/flee/basicAttack/…)
             moveToken,
         }).catch(() => undefined);
         // Cap log size — UI only renders the last ~20 entries anyway, and an

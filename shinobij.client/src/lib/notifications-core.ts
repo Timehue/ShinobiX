@@ -44,6 +44,18 @@ export function isLobbyFightScreen(screen: Screen): boolean {
     return LOBBY_FIGHT_SCREENS.has(screen);
 }
 
+// Screens that render the actual fight board. Being on one means the player is
+// already looking at the battle, so the "In battle" chip is redundant there — it
+// should only surface as a reminder when a fight is in progress but the player is
+// on a different screen (e.g. an arena / pet-arena lobby with a live battle-lock).
+const BATTLE_VIEW_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
+    ...BATTLE_ONLY_SCREENS, "arena", "battleArena", "battleTowers",
+]);
+
+export function isBattleViewScreen(screen: Screen): boolean {
+    return BATTLE_VIEW_SCREENS.has(screen);
+}
+
 export interface NotifInputs {
     /** True when the player is committed to an unresolved fight right now. */
     inBattle: boolean;

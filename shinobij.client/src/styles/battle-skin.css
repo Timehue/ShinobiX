@@ -118,24 +118,29 @@
    verbose Buffs/Debuffs columns are shown there); a mobile media query swaps
    them — see index.css. Green = buff, red = debuff, neutral = "+N more". */
 .combat-mobile-effects { display: none; }
+/* Reads as its own row directly under the HP bar (see CombatSideHud) — a faint
+   top rule separates it from the resource bars so buffs/debuffs are glanceable
+   where turns are decided. */
 .combat-mobile-effects {
     flex-wrap: wrap;
     gap: 3px;
-    margin-top: 2px;
+    margin: 2px 0 1px;
+    padding-top: 3px;
+    border-top: 1px solid rgba(255,255,255,0.07);
 }
 .combat-mobile-effects .cme-chip {
     display: inline-flex;
     align-items: baseline;
     gap: 3px;
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 999px;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.5;
     font-weight: 600;
     white-space: nowrap;
     border: 1px solid transparent;
 }
-.combat-mobile-effects .cme-chip small { font-weight: 400; opacity: 0.85; font-size: 8px; }
+.combat-mobile-effects .cme-chip small { font-weight: 400; opacity: 0.85; font-size: 9px; }
 .combat-mobile-effects .cme-chip b { font-weight: 700; }
 .combat-mobile-effects .cme-pos { background: rgba(34,197,94,0.16); border-color: rgba(34,197,94,0.45); color: #bbf7d0; }
 .combat-mobile-effects .cme-neg { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); color: #fecaca; }
