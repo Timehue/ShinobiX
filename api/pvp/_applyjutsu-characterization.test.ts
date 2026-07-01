@@ -49,15 +49,15 @@ describe('applyJutsu characterization — base damage', () => {
 });
 
 describe('applyJutsu characterization — heal / shield / siphon', () => {
-    it('Heal restores a flat 750 (capped at maxHp) and deals no damage', () => {
+    it('Heal ramps by jutsu mastery (225 at mastery 0, hard-capped at 750/maxHp) and deals no damage', () => {
         const r = applyJutsu(fighter('A', 500), fighter('B'), jutsu([{ name: 'Heal' }]), 1, 'central', 1);
-        assert.equal(r.self.hp, 1000);          // 500 + 750 capped at 1000
+        assert.equal(r.self.hp, 725);           // 500 + floor(750 × masteryFrac(0)=0.3)=225; a maxed jutsu heals the full 750
         assert.equal(r.opponent.hp, 1000);      // damage zeroed
     });
 
-    it('Shield grants a flat 750 and deals no damage', () => {
+    it('Shield ramps by jutsu mastery (225 at mastery 0, hard-capped at 750) and deals no damage', () => {
         const r = applyJutsu(fighter('A'), fighter('B'), jutsu([{ name: 'Shield' }]), 1, 'central', 1);
-        assert.equal(r.self.shield, 750);
+        assert.equal(r.self.shield, 225);       // floor(750 × masteryFrac(0)=0.3); a maxed jutsu grants the full 750
         assert.equal(r.opponent.hp, 1000);
     });
 
