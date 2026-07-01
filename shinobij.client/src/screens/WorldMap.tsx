@@ -2594,7 +2594,18 @@ export function WorldMap({
 
     return (
         <div className="card">
-            <BackToVillageButton onClick={() => setScreen("village")} />
+            {wmZoom.active ? (
+                <div className="wm-topbar">
+                    <BackToVillageButton onClick={() => setScreen("village")} />
+                    <div className="wm-zoom-controls">
+                        <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
+                        <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
+                        <button className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}>⤢</button>
+                    </div>
+                </div>
+            ) : (
+                <BackToVillageButton onClick={() => setScreen("village")} />
+            )}
             {hollowGateMenu && (
                 <div onClick={() => setHollowGateMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
                     <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 20, maxWidth: 380, width: "100%", textAlign: "center" }}>
@@ -2617,28 +2628,6 @@ export function WorldMap({
                 ref={wmZoom.viewportRef}
                 {...wmZoom.viewportHandlers}
             >
-            {wmZoom.active && (
-                <>
-                    <div className="wm-zoom-hud wm-hud-controls" onPointerDown={(e) => e.stopPropagation()}>
-                        <button className="wm-zoom-btn" aria-label="Zoom in" onClick={wmZoom.zoomIn}>+</button>
-                        <button className="wm-zoom-btn" aria-label="Zoom out" onClick={wmZoom.zoomOut}>−</button>
-                        <button className="wm-zoom-btn" aria-label="Reset view" style={{ fontSize: 15 }} onClick={wmZoom.reset}>⤢</button>
-                    </div>
-                    <div className="wm-zoom-hud wm-hud-villages" onPointerDown={(e) => e.stopPropagation()}>
-                        {WM_CLUSTERS.map((cl) => {
-                            const pts = sectorPoints.filter((s) => cl.ids.includes(s.id));
-                            if (!pts.length) return null;
-                            const cx = pts.reduce((a, s) => a + s.x, 0) / pts.length;
-                            const cy = pts.reduce((a, s) => a + s.y, 0) / pts.length;
-                            return (
-                                <button key={cl.label} className="wm-village-chip" onClick={() => wmZoom.focusPoint(cx, cy, cl.zoom)}>
-                                    <span className="wm-chip-dot" style={{ background: cl.color }} />{cl.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </>
-            )}
             <div
                 className="anime-world-map atlas-world-map generated-world-map"
                 style={{ backgroundImage: `url(${worldMapBg})`, ...wmZoom.contentStyle }}
@@ -2752,6 +2741,21 @@ export function WorldMap({
                 ))}
             </div>
             </div>{/* end world-map-scroll */}
+            {wmZoom.active && (
+                <div className="wm-village-bar" role="group" aria-label="Jump to region">
+                    {WM_CLUSTERS.map((cl) => {
+                        const pts = sectorPoints.filter((s) => cl.ids.includes(s.id));
+                        if (!pts.length) return null;
+                        const cx = pts.reduce((a, s) => a + s.x, 0) / pts.length;
+                        const cy = pts.reduce((a, s) => a + s.y, 0) / pts.length;
+                        return (
+                            <button key={cl.label} className="wm-village-chip" onClick={() => wmZoom.focusPoint(cx, cy, cl.zoom)}>
+                                <span className="wm-chip-dot" style={{ background: cl.color }} />{cl.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
 
 
             {/* -- Ancient Chest — VN Scene ---------------------------- */}
