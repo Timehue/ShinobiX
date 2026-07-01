@@ -216,6 +216,25 @@ async function doAttack(req, res, identity, playerName, body) {
     if (v1 === v2 || !(v1 === attackerVillage || v2 === attackerVillage) || !(v1 === defenderVillage || v2 === defenderVillage)) {
         return res.status(403).json({ error: 'That battle is not between the two villages at war over this sector.' });
     }
+    // Seal the DEFENDER's chosen sector terrain into the fight as its biome, so the
+    // home-terrain school bonus actually applies (+10% to the terrain's jutsu school
+    // via api/pvp/move.ts terrainMultiplier — §17.3 "defender home advantage"; the
+    // valid terrains forest/snow/volcano/shadow are exactly the buffed biomes, central
+    // is neutral). This is server-authoritative and runs at battle registration —
+    // BEFORE any move resolves and reads session.biome — so an attacker can't dodge
+    // the defender's home terrain by opening the duel on a biome that suits their own
+    // school. Best-effort: a hiccup here must never block the sanctioned attack.
+    try {
+        const defRec = (0, _war_state_js_1.normalizeVillageWarRecord)(defenderVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(defenderVillage))) ?? undefined);
+        const terrain = defRec.sectors[String(sector)]?.terrain;
+        const session = await _storage_js_1.kv.get(`pvp:${battleId}`);
+        if (terrain && session && session.biome !== terrain) {
+            await _storage_js_1.kv.set(`pvp:${battleId}`, { ...session, biome: terrain });
+        }
+    }
+    catch (err) {
+        console.error('[sector-war] terrain-seal (non-fatal)', err);
+    }
     await (0, _sector_war_store_js_1.mintSectorWarToken)((0, _sector_war_js_1.newSectorWarBattleToken)({
         battleId,
         sectorWarId: contest.id,
