@@ -1,6 +1,14 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { safeName, mergePreservingImages, isAllowedOrigin, clanBareSlug, clanRecordKey, parseJsonBody } from './_utils.js';
+import {
+    safeName,
+    mergePreservingImages,
+    isAllowedOrigin,
+    clanBareSlug,
+    clanRecordKey,
+    parseJsonBody,
+    isMalformedJsonBodyError,
+} from './_utils.js';
 
 describe('safeName', () => {
     it('lowercases', () => {
@@ -84,6 +92,37 @@ describe('parseJsonBody', () => {
 
     it('returns a controlled error for malformed JSON', () => {
         assert.deepEqual(parseJsonBody('{"name":'), { ok: false, error: 'Malformed JSON body.' });
+    });
+});
+
+describe('isMalformedJsonBodyError', () => {
+    it('recognizes Express JSON parser errors', () => {
+        const err = Object.assign(new SyntaxError('Unexpected token } in JSON at position 1'), {
+            body: '{',
+            status: 400,
+            type: 'entity.parse.failed',
+        });
+
+        assert.equal(isMalformedJsonBodyError(err), true);
+    });
+
+    it('recognizes handler-level JSON.parse failures on string request bodies', () => {
+        let err: unknown;
+        try {
+            JSON.parse('{"name":');
+        } catch (caught) {
+            err = caught;
+        }
+
+        assert.equal(isMalformedJsonBodyError(err, '{"name":'), true);
+    });
+
+    it('does not hide unrelated server SyntaxErrors', () => {
+        assert.equal(isMalformedJsonBodyError(new SyntaxError('bad code'), { already: 'parsed' }), false);
+    });
+
+    it('does not classify server SyntaxErrors just because the raw body is a string', () => {
+        assert.equal(isMalformedJsonBodyError(new SyntaxError('Unexpected identifier'), '{"ok":true}'), false);
     });
 });
 

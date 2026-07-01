@@ -108,14 +108,14 @@ export function Logbook({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (result.applied) {
+        if (result.applied === true) {
             updateCharacter(prev => prev ? applyServerMissionReward(prev, result, gainXp) : prev);
             setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
             setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
             return;
         }
-        if (!result.clientFallback) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
         // Legacy client payout for creator-authored missions only.
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
@@ -206,7 +206,7 @@ export function Logbook({
     async function claimAcademyReward() {
         const result = await postClaimMission(character.name, "academy-checklist", "academy-checklist");
         if (result === null) return alert("Could not reach the server. Try again.");
-        if (!result.applied) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false) return alert(claimReasonMessage(result.reason));
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
         const shards = result.reward.currency?.fateShards ?? 0;
         alert(`Academy Training complete! +${result.reward.xpBoosted} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina${shards ? `, +${shards} Fate Shards` : ""}. You're ready for the Genin Exam.`);

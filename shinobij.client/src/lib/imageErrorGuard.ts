@@ -65,7 +65,7 @@ function installImageDecodeHint(): void {
 
     document.querySelectorAll("img").forEach(hint); // any imgs already mounted at boot
     new MutationObserver((records) => {
-        for (const r of records) for (const n of r.addedNodes) scan(n);
+        records.forEach((r) => r.addedNodes.forEach(scan));
     }).observe(document.documentElement, { childList: true, subtree: true });
 }
 

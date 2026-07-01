@@ -799,6 +799,12 @@ app.get(/(.*)/, (_req, res) => {
 // ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
     const reqId = req.id ?? '-';
+    if ((0, _utils_js_1.isMalformedJsonBodyError)(err, req.body)) {
+        if (!res.headersSent) {
+            res.status(400).json({ error: _utils_js_1.MALFORMED_JSON_BODY_ERROR, requestId: reqId });
+        }
+        return;
+    }
     console.error(`[server error] [req ${reqId}] ${req.method} ${req.path} —`, err);
     // Every route() handler error funnels here via next(err), so this is the one
     // place that sees them all. Report before responding; never let a reporting

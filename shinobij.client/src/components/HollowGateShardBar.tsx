@@ -21,7 +21,7 @@ export function HollowGateShardBar({ run, character, setRun, setCharacter, pushL
 
     function use(id: string) {
         const res = applyShardConsumable(id, run, character);
-        if (!res.ok) { pushLog(res.reason); return; }
+        if (res.ok === false) { pushLog(res.reason); return; }
         setRun(res.run);
         setCharacter(res.character);
         pushLog(res.log);
