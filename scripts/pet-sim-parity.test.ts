@@ -37,3 +37,30 @@ test("server pet-duel-sim is byte-identical to the client original (sector-war p
         }
     }
 });
+
+test("server pet-duel-sim parity holds with the sector-war home-terrain bonus", () => {
+    // A=Fire, B=Water. volcano favors A (+10% Fire), snow favors B (+10% Water). Both
+    // engines must fold the terrain bonus in identically, or the client replay would
+    // disagree with the server-recorded winner and flip territory wrong.
+    const A = makePet({ id: "a", element: "Fire", jutsus: [J({ name: "Strike", kind: "damage", power: 110 })] });
+    const B = makePet({ id: "b", element: "Water", attack: 120, jutsus: [J({ name: "Strike", kind: "damage", power: 100 })] });
+    for (const terrain of ["volcano", "snow", "forest", "shadow", "central", null]) {
+        for (const seed of [1, 7, 12345, 2024]) {
+            const s = serverRun(A, B, seed, 1, 1, false, false, false, terrain);
+            const c = clientRun(A, B, seed, 1, 1, false, false, false, terrain);
+            assert.deepEqual(s, c, `terrain parity drift at seed ${seed}, terrain=${terrain}`);
+        }
+    }
+    // Sanity: the bonus is real, not a no-op — volcano (Fire pet A) changes the fight
+    // vs a neutral terrain, and a null terrain equals central (both neutral).
+    assert.notDeepEqual(
+        serverRun(A, B, 7, 1, 1, false, false, false, "volcano"),
+        serverRun(A, B, 7, 1, 1, false, false, false, "central"),
+        "volcano home-terrain should change the Fire pet's duel vs neutral",
+    );
+    assert.deepEqual(
+        serverRun(A, B, 7, 1, 1, false, false, false, null),
+        serverRun(A, B, 7, 1, 1, false, false, false, "central"),
+        "null terrain must be identical to central (both neutral)",
+    );
+});

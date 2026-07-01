@@ -47,6 +47,7 @@ type SectorPetSession = {
     status: 'awaiting-defender' | 'done';
     seed?: number;
     winner?: 'p1' | 'p2' | 'draw';
+    terrain?: string | null;   // defender sector terrain sealed at resolve → drives the home-ground element bonus in the (identical) client replay
     appliedToContest?: boolean;
     createdAt: number;
     updatedAt: number;
@@ -160,10 +161,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!isDefender) return { status: 409 as const, body: { error: 'A defender of this sector must answer the pet duel.' } };
 
             // Defender joins → resolve the deterministic duel SERVER-SIDE + apply it.
+            // Seal the defender sector's terrain so the pet whose element matches gets
+            // the +10% home-ground bonus (§17.3), and store it on the session so the
+            // client REPLAYS with the same terrain and stays byte-identical.
+            const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
+            const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
             const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-            const duel = runPetDuel(existing.p1.pet, pet, seed, 1, 1, false, false, false);
+            const duel = runPetDuel(existing.p1.pet, pet, seed, 1, 1, false, false, false, terrain);
             const winner: 'p1' | 'p2' | 'draw' = duel.winner === 'player' ? 'p1' : duel.winner === 'enemy' ? 'p2' : 'draw';
-            const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, updatedAt: now };
+            const session: SectorPetSession = { ...existing, p2: { name: me, pet }, status: 'done', seed, winner, terrain, updatedAt: now };
             await applyPetOutcomeToContest(session);
             session.appliedToContest = true;
             await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
