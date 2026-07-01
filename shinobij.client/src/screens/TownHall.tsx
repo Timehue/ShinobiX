@@ -192,7 +192,14 @@ export function TownHall({ character, updateCharacter, creatorItems, allServerPl
         return () => { alive = false; };
     }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
-    function addNotice(text: string, nextState: VillageState = state) { const post = makeNoticePost("general", "Village Notice", text, "System", "System"); return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8), noticePosts: normalizeNoticePosts([post, ...nextState.noticePosts]) }; }
+    // Village activity (upgrades, donations, Hollow Gate, war) is logged ONLY to
+    // the legacy `notices` string board (Status tab). It must NOT be written to
+    // `noticePosts` (the "Official Village Orders" board): those posts are minted
+    // with author "System", which the server validator rejects for non-admin
+    // callers (author ≠ caller), so they never persist — and the client would
+    // then re-fold the legacy strings into fresh posts on every load, fabricating
+    // duplicate, ever-re-timestamped "System" orders. Keep activity out of Orders.
+    function addNotice(text: string, nextState: VillageState = state) { return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8) }; }
     // (Removed: beginVillageWar — Town Hall's bypass declare path. The
     // canonical declare flow is VillageWarScreen.declareWar which POSTs
     // through /api/world-state with all the new server-side gates
