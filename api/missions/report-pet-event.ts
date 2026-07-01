@@ -148,7 +148,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             // Atomic single-use consume — delete BEFORE granting so a retry or a
             // racing duplicate report can't double-claim.
-            await kv.del(tokenKey).catch(() => undefined);
+            const consumed = await kv.del(tokenKey);
+            if (consumed <= 0) {
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+            }
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.

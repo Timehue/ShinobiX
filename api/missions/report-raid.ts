@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { consumeSingleUseToken } from '../_single-use-token.js';
 import { reportMissionEvent, type CompletedMissionInfo } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
 
@@ -100,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // a stale report and short-circuits with alreadyReported.
         if (!battleId && raidToken) {
             const tokenKey = `raid-token:${playerName}:${raidToken}`;
-            const tokenData = await kv.get<{ playerName?: string }>(tokenKey);
+            const tokenData = await consumeSingleUseToken<{ playerName?: string }>(kv, tokenKey);
             if (!tokenData) {
                 // Token expired, never minted, or already consumed.
                 // Return 200 so a stale client tab doesn't see a hard
@@ -110,9 +111,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(403).json({ error: 'Raid token does not belong to this player.' });
             }
-            // Atomic consume — delete the token before granting rewards
-            // so a retry (or racing duplicate report) can't double-claim.
-            await kv.del(tokenKey).catch(() => undefined);
         }
 
         // ── PvP-raid cross-validation ─────────────────────────────────

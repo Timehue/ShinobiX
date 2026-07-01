@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _single_use_token_js_1 = require("../_single-use-token.js");
 const _progress_js_1 = require("./_progress.js");
 // Replay window for PvP-flavored raid reports — keyed off the same 24h
 // window report-pvp-win uses (session KV TTL is typically 1h but a player
@@ -102,7 +103,7 @@ async function handler(req, res) {
         // a stale report and short-circuits with alreadyReported.
         if (!battleId && raidToken) {
             const tokenKey = `raid-token:${playerName}:${raidToken}`;
-            const tokenData = await _storage_js_1.kv.get(tokenKey);
+            const tokenData = await (0, _single_use_token_js_1.consumeSingleUseToken)(_storage_js_1.kv, tokenKey);
             if (!tokenData) {
                 // Token expired, never minted, or already consumed.
                 // Return 200 so a stale client tab doesn't see a hard
@@ -112,9 +113,6 @@ async function handler(req, res) {
             if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
                 return res.status(403).json({ error: 'Raid token does not belong to this player.' });
             }
-            // Atomic consume — delete the token before granting rewards
-            // so a retry (or racing duplicate report) can't double-claim.
-            await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
         }
         // ── PvP-raid cross-validation ─────────────────────────────────
         // When the client passes a battleId, treat this as a PvP-flavored

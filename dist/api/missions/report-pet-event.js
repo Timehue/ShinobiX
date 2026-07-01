@@ -152,7 +152,10 @@ async function handler(req, res) {
             }
             // Atomic single-use consume — delete BEFORE granting so a retry or a
             // racing duplicate report can't double-claim.
-            await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+            const consumed = await _storage_js_1.kv.del(tokenKey);
+            if (consumed <= 0) {
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+            }
             // Drive all reward math from the SEALED token values, not the client
             // body — including the expedition/long-expedition split (long fires
             // extra mission progress) which is re-derived from the sealed duration.

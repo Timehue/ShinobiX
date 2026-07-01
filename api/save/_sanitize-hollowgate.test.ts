@@ -200,6 +200,20 @@ test('academyTrialClaimed: latched true — a forged save cannot un-claim the on
     assert.equal(sanitize({ academyTrialClaimed: false }, { academyTrialClaimed: false }).academyTrialClaimed, false, 'not-yet-claimed stays false');
 });
 
+test('pendingCombatMissionClaims: client saves preserve server-owned claims but cannot mint or clear them', () => {
+    const minted = sanitize(
+        { level: 50, pendingCombatMissionClaims: ['combat-d-errand'] },
+        { level: 50, pendingCombatMissionClaims: [] },
+    );
+    assert.deepEqual(minted.pendingCombatMissionClaims, [], 'client cannot add a combat claim flag');
+
+    const preserved = sanitize(
+        { level: 50, pendingCombatMissionClaims: [] },
+        { level: 50, pendingCombatMissionClaims: ['combat-d-errand'] },
+    );
+    assert.deepEqual(preserved.pendingCombatMissionClaims, ['combat-d-errand'], 'client cannot clear a server-queued flag');
+});
+
 test('hollowGateWardenKills: per-save gain clamped to +3 (audit #10 — weekly-board counter)', () => {
     assert.equal(sanitize({ hollowGateWardenKills: 9999 }, { hollowGateWardenKills: 4 }).hollowGateWardenKills, 7, 'capped to existing + 3');
 });
