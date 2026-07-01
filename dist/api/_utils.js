@@ -7,6 +7,7 @@ exports.clanBareSlug = clanBareSlug;
 exports.clanRecordKey = clanRecordKey;
 exports.mergePreservingImages = mergePreservingImages;
 exports.isAllowedOrigin = isAllowedOrigin;
+exports.parseJsonBody = parseJsonBody;
 exports.cors = cors;
 // Max length for a player / clan-slug name. KV keys like `save:<name>`,
 // `ratelimit:save:<name>:gains`, `presence:<name>`, etc. embed this string,
@@ -156,6 +157,20 @@ function isAllowedOrigin(origin) {
     if (!origin)
         return false;
     return ALLOWED_ORIGIN_SET.has(origin) || isRailwayOrigin(origin);
+}
+function parseJsonBody(rawBody) {
+    if (typeof rawBody !== 'string') {
+        return { ok: true, body: rawBody ?? {} };
+    }
+    const trimmed = rawBody.trim();
+    if (!trimmed)
+        return { ok: true, body: {} };
+    try {
+        return { ok: true, body: JSON.parse(trimmed) };
+    }
+    catch {
+        return { ok: false, error: 'Malformed JSON body.' };
+    }
 }
 // Methods that browsers consider "safe" — these can't mutate state, so even
 // a CSRF-style attack from a third-party page can't do damage. For these we

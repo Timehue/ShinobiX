@@ -73,8 +73,10 @@ async function handler(req, res) {
     if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'village-guard-challenge-burst', 1, 3_000, authedName))
         return;
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { attackerCharacter, village, battleId, guardName } = body;
+        const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+        if (!parsed.ok)
+            return res.status(400).json({ error: parsed.error });
+        const { attackerCharacter, village, battleId, guardName } = parsed.body;
         if (!village)
             return res.status(400).json({ error: 'Missing village.' });
         // The attacker name in the body must match the authed identity (admins exempt).

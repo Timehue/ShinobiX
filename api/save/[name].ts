@@ -3,7 +3,7 @@ import { kv } from '../_storage.js';
 import { petStatCeil } from '../_pet-stat-ceil.js';
 import { enforceBloodlineBudget, bloodlinePoints, type RawJutsu } from '../_jutsu-points.js';
 import { budgetItemBonuses } from '../_item-budget.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, mergePreservingImages, cors, parseJsonBody } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -1431,6 +1431,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const isAdminSave = req.query.signal === '1';
+            const parsed = parseJsonBody(req.body);
+            if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+            const incoming = parsed.body;
+            if (!incoming || typeof incoming !== 'object') {
+                return res.status(400).json({ error: 'Invalid save payload.' });
+            }
 
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             let identityName: string | null = null;
@@ -1472,7 +1478,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             // First-claimer-wins semantics. Once a record
                             // exists, the membership check is the only path.
                             const existingClan = await kv.get<Record<string, unknown>>(key);
-                            const incomingBody = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
+                            const incomingBody = incoming as Record<string, unknown>;
                             const bodyFounder = safeName(String(incomingBody?.founderName ?? ''));
                             const allowCreate = !existingClan && bodyFounder && bodyFounder === identity.name;
 
@@ -1537,7 +1543,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // silently drop the client auto-save so it can't overwrite admin changes.
             // Speculatively fetch the existing save in parallel with the signal checks —
             // saves one round-trip on every auto-save (the common path).
-            const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
                 // ── Atomicity (finding 14) ─────────────────────────────────
                 // Serialize the read-modify-write through withKvLock on the SAME

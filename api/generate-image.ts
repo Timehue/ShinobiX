@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
-import { cors, safeName } from './_utils.js';
+import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { kv } from './_storage.js';
@@ -91,8 +91,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { prompt, label } = body as { prompt?: string; label?: string };
+        const parsed = parseJsonBody(req.body);
+        if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+        const { prompt, label } = parsed.body as { prompt?: string; label?: string };
 
         if (!prompt?.trim()) {
             return res.status(400).json({ error: 'Missing image prompt.' });

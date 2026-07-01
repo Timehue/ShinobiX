@@ -156,6 +156,25 @@ export function isAllowedOrigin(origin: string | undefined | null): boolean {
     return ALLOWED_ORIGIN_SET.has(origin) || isRailwayOrigin(origin);
 }
 
+export type JsonBodyResult =
+    | { ok: true; body: unknown }
+    | { ok: false; error: string };
+
+export function parseJsonBody(rawBody: unknown): JsonBodyResult {
+    if (typeof rawBody !== 'string') {
+        return { ok: true, body: rawBody ?? {} };
+    }
+
+    const trimmed = rawBody.trim();
+    if (!trimmed) return { ok: true, body: {} };
+
+    try {
+        return { ok: true, body: JSON.parse(trimmed) as unknown };
+    } catch {
+        return { ok: false, error: 'Malformed JSON body.' };
+    }
+}
+
 // Methods that browsers consider "safe" — these can't mutate state, so even
 // a CSRF-style attack from a third-party page can't do damage. For these we
 // allow the open '*' fallback when no Origin header is present.
