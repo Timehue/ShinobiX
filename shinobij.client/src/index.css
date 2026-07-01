@@ -93,13 +93,14 @@
         font-size: 15px !important;
     }
 
-    /* Hollow Gate marker inside the wider .world-map-scroll layout —
-       same image-only treatment, slightly larger. */
+    /* Hollow Gate marker inside the wider .world-map-scroll layout — image-only,
+       sized just under the 54px sector nodes so it reads as a landmark instead of
+       covering the numbered nodes around it ("eating the map"). */
     .world-map-scroll .atlas-hollowGate {
-        min-width: 64px !important;
-        width: 64px !important;
-        height: 64px !important;
-        max-width: 64px !important;
+        min-width: 52px !important;
+        width: 52px !important;
+        height: 52px !important;
+        max-width: 52px !important;
         padding: 0 !important;
         font-size: 0 !important;
         line-height: 1 !important;
@@ -1660,6 +1661,22 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
     max-width: none !important;
     padding: 4px 7px !important;
     font-size: 11px !important;
+}
+/* The Hollow Gate carries its own image-only sizing (52px in the fallback scroll
+   layout) that the .atlas-landmark rule above doesn't touch — so at overview scale
+   it needs its own shrink or it towers over the 22px nodes and covers them. Sized a
+   hair above the sector nodes, with a transparent hit-ring so it still catches taps. */
+html.wm-zoom .world-map-scroll .atlas-hollowGate {
+    min-width: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    max-width: 24px !important;
+}
+html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
 }
 /* Zoom controls live in the top bar (beside "← Village"); the region chips sit
    in a row BELOW the map — neither overlays the painted map anymore. */
@@ -12920,9 +12937,11 @@ textarea {
         gap: 4px !important;
     }
 
+    /* 4-up on phones: with Dash/Forfeit/Speed removed the bar is short enough that
+       four columns fit, halving the row count so the action bar barely scrolls. */
     .shinobi-command-bar,
     .basic-action-bar {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         gap: 3px !important;
         padding: 3px !important;
     }
@@ -20734,13 +20753,14 @@ button.combat-jutsu-button,
         font-size: 15px !important;
     }
 
-    /* Hollow Gate marker inside the wider .world-map-scroll layout —
-       same image-only treatment, slightly larger. */
+    /* Hollow Gate marker inside the wider .world-map-scroll layout — image-only,
+       sized just under the 54px sector nodes so it reads as a landmark instead of
+       covering the numbered nodes around it ("eating the map"). */
     .world-map-scroll .atlas-hollowGate {
-        min-width: 64px !important;
-        width: 64px !important;
-        height: 64px !important;
-        max-width: 64px !important;
+        min-width: 52px !important;
+        width: 52px !important;
+        height: 52px !important;
+        max-width: 52px !important;
         padding: 0 !important;
         font-size: 0 !important;
         line-height: 1 !important;
