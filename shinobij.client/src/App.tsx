@@ -579,10 +579,21 @@ type PlayerAccountSave = {
         triggeredEvents: string[];
         pendingAiProfileId: string;
         currentSector?: number;
+        pendingTravel?: PendingTravelSave | null;
     };
 };
 
 type PlayerAccounts = Record<string, PlayerAccountSave>;
+type PendingTravelSave = { destinationSector: number; arrivalAt: number };
+
+function normalizePendingTravel(value: unknown): PendingTravelSave | null {
+    if (!value || typeof value !== "object") return null;
+    const raw = value as Record<string, unknown>;
+    const destinationSector = Math.floor(Number(raw.destinationSector ?? raw.sector));
+    const arrivalAt = Math.floor(Number(raw.arrivalAt));
+    if (!Number.isFinite(destinationSector) || destinationSector < 0 || !Number.isFinite(arrivalAt) || arrivalAt <= Date.now()) return null;
+    return { destinationSector, arrivalAt };
+}
 
 // StoryStep moved to ./types/vn (re-exported with CreatorEvent above).
 
@@ -2310,6 +2321,7 @@ export default function App() {
     }, [raidBattleKind, character, pendingAiProfileId, currentSector]);
 
     const [travelingUntil, setTravelingUntil] = useState(0);
+    const [pendingTravel, setPendingTravel] = useState<PendingTravelSave | null>(null);
     const [travelNow, setTravelNow] = useState(Date.now());
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
@@ -3357,7 +3369,10 @@ export default function App() {
             setMissionProgress(snap.missionProgress ?? {});
             setTriggeredEvents(snap.triggeredEvents ?? []);
             setPendingAiProfileId(snap.pendingAiProfileId ?? "");
-            lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central"]);
+            const snapPendingTravel = normalizePendingTravel((snap as Record<string, unknown>).pendingTravel);
+            setPendingTravel(snapPendingTravel);
+            setTravelingUntil(snapPendingTravel?.arrivalAt ?? 0);
+            lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central", snapPendingTravel]);
             applySnapshotSectorWithGuard(snap.currentSector ?? 40);
             if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
             if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
@@ -3775,6 +3790,7 @@ export default function App() {
             triggeredEvents,
             pendingAiProfileId,
             currentSector,
+            pendingTravel,
             savedBloodlines,
             creatorJutsus,
             creatorAis,
@@ -4740,10 +4756,11 @@ export default function App() {
     // server snapshot just reapplied so a load doesn't falsely flip dirty.
     useEffect(() => {
         if (!character || !currentAccountName) return;
-        const sig = JSON.stringify([acceptedMissionIds, missionProgress, triggeredEvents, currentBiome]);
+        const sig = JSON.stringify([acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel]);
         if (lastSnapshotMissionSigRef.current === sig) { lastSnapshotMissionSigRef.current = null; return; }
         charDirtyRef.current = true;
-    }, [acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, character, currentAccountName]);
+        if (pendingTravel) flushSaveRef.current = true;
+    }, [acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel, character, currentAccountName]);
 
     // Debounced auto-save — whenever the character state changes, schedule a
     // server save within 3 seconds. This ensures currency gains, mission
@@ -4764,7 +4781,7 @@ export default function App() {
             void persistSave(snap);
         }, 3000);
         return () => { if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current); };
-    }, [character, currentAccountName]);
+    }, [character, currentAccountName, currentSector, pendingTravel]);
 
     useEffect(() => {
         const id = setInterval(() => {
@@ -4793,7 +4810,7 @@ export default function App() {
         if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; }
         charDirtyRef.current = false;
         void persistSave(snap);
-    }, [activeTraining, activeJutsuTraining, character?.hospitalized]);
+    }, [activeTraining, activeJutsuTraining, character?.hospitalized, pendingTravel]);
 
     // Save on page unload (F5 / tab close / navigation away) so that progress
     // made since the last auto-save is not lost.
@@ -4914,7 +4931,10 @@ export default function App() {
         setMissionProgress(snap.missionProgress ?? {});
         setTriggeredEvents(snap.triggeredEvents ?? []);
         setPendingAiProfileId(snap.pendingAiProfileId ?? "");
-        lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central"]);
+        const snapPendingTravel = normalizePendingTravel((snap as Record<string, unknown>).pendingTravel);
+        setPendingTravel(snapPendingTravel);
+        setTravelingUntil(snapPendingTravel?.arrivalAt ?? 0);
+        lastSnapshotMissionSigRef.current = JSON.stringify([snap.acceptedMissionIds ?? [], snap.missionProgress ?? {}, snap.triggeredEvents ?? [], snap.currentBiome ?? "central", snapPendingTravel]);
         applySnapshotSectorWithGuard(snap.currentSector ?? 40);
         if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
         if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
@@ -8528,6 +8548,7 @@ export default function App() {
                         isTraveling={isTraveling}
                         travelingUntil={travelingUntil}
                         setTravelingUntil={setTravelingUntil}
+                        setPendingTravel={setPendingTravel}
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
                         setMissionProgress={setMissionProgress}

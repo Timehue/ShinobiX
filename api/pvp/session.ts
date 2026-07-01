@@ -11,6 +11,7 @@ import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
+import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 
 export type PvpStatus = {
     name: string;
@@ -928,10 +929,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let finalP1Character: Record<string, unknown>;
             let finalP2Character: Record<string, unknown>;
 
-            const [p1Save, p2Save] = await Promise.all([
+            const [p1SaveRaw, p2SaveRaw, battleLocks] = await Promise.all([
                 p1Norm ? kv.get<Record<string, unknown>>(`save:${p1Norm}`) : Promise.resolve(null),
                 p2Norm ? kv.get<Record<string, unknown>>(`save:${p2Norm}`) : Promise.resolve(null),
+                battleLockFlagsForPlayers([p1Norm ?? '', p2Norm ?? '']),
             ]);
+            const p1Save = p1SaveRaw
+                ? settleSaveRecord(p1SaveRaw, { battleLocked: p1Norm ? battleLocks.get(p1Norm) === true : false }).record
+                : p1SaveRaw;
+            const p2Save = p2SaveRaw
+                ? settleSaveRecord(p2SaveRaw, { battleLocked: p2Norm ? battleLocks.get(p2Norm) === true : false }).record
+                : p2SaveRaw;
 
             if (p1Save?.character) {
                 finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character, p1Save);
