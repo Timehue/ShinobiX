@@ -26,6 +26,7 @@ import { BackToVillageButton } from "../components/BackToVillageButton";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { playPetSfx } from "../lib/pet-sfx";
 import { masteryHasCapstone } from "../lib/profession-mastery";
+import { isMercAiId } from "../lib/merc-ai";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
@@ -512,6 +513,8 @@ export function Arena({
 
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
+    // A mercenary opponent disables the player's PvE pet-summon (owner spec).
+    const opponentIsMerc = isMercAiId(pendingAiProfileId);
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : aiArmorFactorForProfile(pendingAiProfile ?? { level: opponentLevel });
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
     const opponentAvatar = opponentCharacter?.avatarImage
@@ -727,7 +730,7 @@ export function Arena({
     const inspectedCombatItem = combatEquippedItems.find((item) => item.id === inspectedCombatItemId);
     const activeBattlePet = character.pets.find((pet) => pet.id === character.activePetId);
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
-    const canSummonPet = Boolean(!opponentCharacter && battleStarted && !battleEnded);
+    const canSummonPet = Boolean(!opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
 
     function weatherDamageMultiplier(jutsu: Jutsu) {
         if (rankedBattleActive) return 1;
@@ -1344,8 +1347,8 @@ export function Arena({
             setLog(`${petDisplayName(activeBattlePet)} must reach level 50 before it can join PvE battles.`);
             return;
         }
-        if (opponentCharacter) {
-            setLog("Pets cannot be summoned in player-vs-player battles.");
+        if (opponentCharacter || opponentIsMerc) {
+            setLog(opponentCharacter ? "Pets cannot be summoned in player-vs-player battles." : "Pets cannot be summoned against mercenaries.");
             return;
         }
         if (summonedPetId === activeBattlePet.id) {
@@ -1385,7 +1388,7 @@ export function Arena({
     }
 
     function runSummonedPetAction() {
-        if (!summonedPet || opponentCharacter || battleEnded || activeActor !== "player") return;
+        if (!summonedPet || opponentCharacter || opponentIsMerc || battleEnded || activeActor !== "player") return;
         if (enemyHp <= 0 || playerHp <= 0) return;
 
         const petName = petDisplayName(summonedPet);

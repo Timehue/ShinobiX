@@ -147,3 +147,14 @@ export function computeTax(args: {
 export function wrMercTierById(id: string): WrMercTier | null {
     return WR_MERC_TIERS.find((t) => t.id === id) ?? null;
 }
+
+// ── Mercenary band size (§17.5: a hire fields 3-5 AI mercs) ──
+// How many AI mercs one hire deploys, escalating 3→5 with tier. Tunable.
+export const MERC_BAND_MAX = 5;
+const MERC_BAND_SIZES: Record<string, number> = {
+    'merc-ronin': 3, 'merc-reaver': 3, 'merc-shadow': 4, 'merc-oni': 4, 'merc-warlord': 5,
+};
+/** Band size for a merc tier (0 for an unknown tier — the caller rejects). */
+export function mercBandSize(tierId: string): number {
+    return MERC_BAND_SIZES[tierId] ?? 0;
+}

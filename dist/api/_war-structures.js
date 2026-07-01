@@ -17,7 +17,11 @@
  * the wiring is mechanical when those systems land.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.STRUCTURE_DEFS = void 0;
+exports.PER_WAR_STRUCTURE_KEYS = exports.STRUCTURE_DEFS = void 0;
+exports.isPerWarStructure = isPerWarStructure;
+exports.perWarStructureWrCost = perWarStructureWrCost;
+exports.resetPerWarStructures = resetPerWarStructures;
+exports.applyPerWarStructureUpgrade = applyPerWarStructureUpgrade;
 exports.structureUpgradeCost = structureUpgradeCost;
 exports.effectiveLevel = effectiveLevel;
 exports.villageWarHpMax = villageWarHpMax;
@@ -42,6 +46,45 @@ exports.STRUCTURE_DEFS = {
     supplyDepot: { key: 'supplyDepot', name: 'Supply Depot', perLevel: 0.5, unit: 'wr', description: '+0.5 War Resources per controlled sector per level.' },
     treasuryVault: { key: 'treasuryVault', name: 'Treasury Vault', perLevel: 3, unit: 'mult', description: '-3% of the daily tax rate per level (softer tax).' },
 };
+// Ramparts + Watchtower are PER-WAR fortifications: the Kage buys them up with WR
+// during a war (NOT treasury Honor Seals), and they RESET to 0 once the village is
+// at peace (api/_war-daily). The other four are permanent, Honor-Seal-funded
+// infrastructure (surfaced in the Town Hall Upgrades tab). This makes fortifying a
+// war a live economic gamble — like hiring mercs — instead of a permanent purchase.
+exports.PER_WAR_STRUCTURE_KEYS = ['ramparts', 'watchtower'];
+function isPerWarStructure(key) {
+    return key === 'ramparts' || key === 'watchtower';
+}
+/** WR cost to raise a PER-WAR structure from `level` to `level+1` (0..9). Cheap
+ *  enough to re-buy each war from sector WR income (12 at L0→1 → 66 at L9→10, ~390
+ *  cumulative to max one); it resets on peace, so it never compounds. Tunable. */
+function perWarStructureWrCost(level) {
+    const lvl = Math.max(0, Math.min(_war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL - 1, Math.floor(Number(level) || 0)));
+    return 12 + lvl * 6;
+}
+/** Zero the per-war structures (Ramparts + Watchtower) so war-time fortifications
+ *  don't carry into the next war. Pure; returns the same ref when already clear. */
+function resetPerWarStructures(record) {
+    if (!record.structures.ramparts && !record.structures.watchtower)
+        return record;
+    return { ...record, structures: { ...record.structures, ramparts: 0, watchtower: 0 } };
+}
+/** Pure WR-funded upgrade for a PER-WAR structure (Ramparts/Watchtower): validate
+ *  the key + max-level cap, debit the WR from the record's OWN war pool, and return
+ *  the next record (level +1). Self-contained — WR lives on the record, so no
+ *  external currency. Does NOT touch storage. */
+function applyPerWarStructureUpgrade(record, key) {
+    if (!isPerWarStructure(key))
+        return { ok: false, error: 'not-per-war' };
+    const cur = Math.max(0, Math.min(_war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL, Math.floor(Number(record.structures[key]) || 0)));
+    if (cur >= _war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL)
+        return { ok: false, error: 'max-level' };
+    const cost = perWarStructureWrCost(cur);
+    if (record.warResources < cost)
+        return { ok: false, error: 'insufficient-wr', cost };
+    const next = { ...record, warResources: record.warResources - cost, structures: { ...record.structures, [key]: cur + 1 } };
+    return { ok: true, cost, record: next, newLevel: cur + 1 };
+}
 /** Honor-Seal cost to raise a structure from `currentLevel` to `currentLevel+1`
  *  (0..9). Uniform across structures for v1 — `round(5·(level+1)^1.4)`: 5 at L0→1,
  *  rising to 126 at L9→10 (~587 cumulative to max one structure). Tunable. */
@@ -87,6 +130,10 @@ function taxRateMultiplier(record) {
  *  cost, and the remaining seals. Does NOT touch storage. */
 function applyStructureUpgrade(record, availableSeals, key) {
     if (!_war_state_js_1.STRUCTURE_KEYS.includes(key))
+        return { ok: false, error: 'unknown-structure' };
+    // Ramparts/Watchtower are WR-funded per-war structures — never buyable with
+    // treasury Honor Seals through this path (use applyPerWarStructureUpgrade).
+    if (isPerWarStructure(key))
         return { ok: false, error: 'unknown-structure' };
     const k = key;
     const cur = Math.max(0, Math.min(_war_economy_js_1.VILLAGE_STRUCTURE_MAX_LEVEL, Math.floor(Number(record.structures[k]) || 0)));

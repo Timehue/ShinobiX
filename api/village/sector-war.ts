@@ -8,10 +8,10 @@ import { isWarVillage, homeSectorsForVillage } from '../_war-map-sectors.js';
 import {
     normalizeVillageWarRecord,
     villageWarKey,
-    SECTOR_CONTROL_HP_PER_WIN,
     type WinCondition,
 } from '../_war-state.js';
 import { sectorControlHpMax, sectorWarDamageMultiplier } from '../_war-structures.js';
+import { sectorWarRoleOf, sectorControlSwing } from '../_war-role.js';
 import {
     sectorWarId,
     sectorWarKey,
@@ -33,6 +33,7 @@ import {
     getSectorOwnerVillage,
 } from '../_sector-war-store.js';
 import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
+import { recordWarEcoEvent } from '../_war-telemetry.js';
 
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
@@ -52,13 +53,14 @@ import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership }
  *
  * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). Combat
  * battles run here (attack/resolve); Card battles run via /village/sector-card and
- * settle the same contest. Pet stays blocked until its server sim lands (Phase 7)
- * — a client-claimed result must never flip territory.
+ * Pet duels via /village/sector-pet — all three settle the same contest Control HP
+ * server-authoritatively. A client-claimed result never flips territory.
  */
 
-// Win-conditions whose server-authoritative battle path is wired this build
-// (Combat here, Card via /village/sector-card). Pet → Phase 7.
-const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card'];
+// Win-conditions whose server-authoritative battle path is wired this build:
+// Combat here, Card via /village/sector-card, Pet via /village/sector-pet (the
+// deterministic pet engine ported to api/pet-sim, Phase 7).
+const WIRED_WIN_CONDITIONS: readonly WinCondition[] = ['combat', 'card', 'pet'];
 
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 type ReadBattle = { status?: string; winner?: string | null; p1?: { name?: string }; p2?: { name?: string } };
@@ -191,6 +193,9 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     }, { failClosed: true });
 
     if (!out.ok) return res.status(400).json({ error: `Declaring this sector war costs ${out.cost} War Resources.` });
+    // Telemetry (best-effort): the WR actually spent declaring (0 when re-opening an
+    // already-active contest, so no event). Never blocks the declare.
+    if (out.cost > 0) void recordWarEcoEvent({ eventId: `declare:${id}`, village, kind: 'wr.spend.declare', amount: out.cost, meta: `sector:${sector}` });
     return res.status(200).json({ ok: true, cost: out.cost, alreadyOpen: out.alreadyOpen, contest: out.contest });
 }
 
@@ -233,6 +238,25 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
         return res.status(403).json({ error: 'That battle is not between the two villages at war over this sector.' });
     }
 
+    // Seal the DEFENDER's chosen sector terrain into the fight as its biome, so the
+    // home-terrain school bonus actually applies (+10% to the terrain's jutsu school
+    // via api/pvp/move.ts terrainMultiplier — §17.3 "defender home advantage"; the
+    // valid terrains forest/snow/volcano/shadow are exactly the buffed biomes, central
+    // is neutral). This is server-authoritative and runs at battle registration —
+    // BEFORE any move resolves and reads session.biome — so an attacker can't dodge
+    // the defender's home terrain by opening the duel on a biome that suits their own
+    // school. Best-effort: a hiccup here must never block the sanctioned attack.
+    try {
+        const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
+        const terrain = defRec.sectors[String(sector)]?.terrain;
+        const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+        if (terrain && session && session.biome !== terrain) {
+            await kv.set(`pvp:${battleId}`, { ...session, biome: terrain });
+        }
+    } catch (err) {
+        console.error('[sector-war] terrain-seal (non-fatal)', err);
+    }
+
     await mintSectorWarToken(newSectorWarBattleToken({
         battleId,
         sectorWarId: contest.id,
@@ -260,8 +284,12 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
         return res.status(409).json({ error: 'Battle is not finished, or it ended in a draw.' });
     }
     const winnerName = safeName(battle.winner === 'p1' ? (battle.p1?.name ?? '') : (battle.p2?.name ?? ''));
+    const loserName = safeName(battle.winner === 'p1' ? (battle.p2?.name ?? '') : (battle.p1?.name ?? ''));
     const winnerVillage = winnerName ? await villageOf(winnerName) : '';
     const attackerWon = !!winnerVillage && winnerVillage === token.attackerVillage;
+    // Role-scaled Control-HP swing (§17.6): the winner's contribution + the loser's
+    // rank penalty (Kage/Elder/ANBU/villager), read from authoritative server state.
+    const [winnerRole, loserRole] = await Promise.all([sectorWarRoleOf(winnerName), sectorWarRoleOf(loserName)]);
 
     const id = token.sectorWarId;
     const result = await withKvLock(sectorWarKey(id), async () => {
@@ -273,14 +301,16 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
             return { ok: false as const, error: 'contest-closed' as const };
         }
         const atkRecord = normalizeVillageWarRecord(token.attackerVillage, (await kv.get<Record<string, unknown>>(villageWarKey(token.attackerVillage))) ?? undefined);
-        const damage = Math.round(SECTOR_CONTROL_HP_PER_WIN * sectorWarDamageMultiplier(atkRecord));
-        const outcome = applySectorBattleResult(contest, attackerWon, { now: Date.now(), damage });
+        const swing = sectorControlSwing(winnerRole, loserRole, sectorWarDamageMultiplier(atkRecord));
+        const outcome = applySectorBattleResult(contest, attackerWon, { now: Date.now(), swing });
         if (outcome.captured) {
             // Flip the sector's persistent owner (territory lock, nested) BEFORE
             // closing the contest, so the capture + flip commit under one lock
             // scope. Re-running is idempotent (ownerVillage already set).
             await captureSectorForVillage(token.sector, token.attackerVillage, Date.now());
             await deleteSectorWar(id);
+            // Telemetry (best-effort): a sector flipped to the attacker.
+            void recordWarEcoEvent({ eventId: `capture:${id}`, village: token.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${token.sector}` });
         } else {
             await saveSectorWar(outcome.session);
         }
