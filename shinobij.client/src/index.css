@@ -1593,6 +1593,132 @@ button {
     50% { box-shadow: 0 0 0 5px rgba(220,38,38,.5), 0 0 32px rgba(255,60,0,.85), 0 4px 14px rgba(0,0,0,.7); }
 }
 
+/* ── World-map zoom mode (worldMapZoom.v1) ────────────────────────────────────
+   When <html> carries `.wm-zoom` (set by useWorldMapZoom on narrow / touch
+   viewports), the painted map FITS the screen and the player pinch / drag-zooms
+   it — replacing the legacy fixed-1100 horizontal-scroll mobile map that piled
+   the markers into an overlapping blob and clipped the map at the screen edges.
+   Higher specificity + the inline `--wm-tf` transform var override the
+   @media(max-width:800px) rules, so the fallback path needs no markup change. */
+html.wm-zoom .world-map-scroll {
+    position: relative;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    padding-bottom: 0 !important;
+    border-radius: 12px !important;
+    border: 3px solid rgba(250, 204, 21, .5);
+    box-shadow: inset 0 0 70px rgba(0, 0, 0, .5), 0 12px 30px rgba(0, 0, 0, .4);
+}
+html.wm-zoom .world-map-scroll .anime-world-map,
+html.wm-zoom .world-map-scroll .atlas-world-map,
+html.wm-zoom .world-map-scroll .generated-world-map {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: 1536 / 1024 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    transform-origin: 0 0;
+    transform: var(--wm-tf, none) !important;
+    will-change: transform;
+    touch-action: none;
+}
+/* Markers ride the map transform, so keep their BASE (un-inflated) size — the
+   54px mobile blow-up was what piled them into an overlapping blob. */
+html.wm-zoom .world-map-scroll .atlas-sector {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+}
+html.wm-zoom .world-map-scroll .atlas-sector-deaths-gate {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 13px !important;
+}
+/* A transparent hit-ring so small overview markers still catch taps. */
+html.wm-zoom .world-map-scroll .atlas-sector::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
+}
+/* Keep village name-plates from ballooning at overview scale. */
+html.wm-zoom .world-map-scroll .atlas-landmark {
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 4px 7px !important;
+    font-size: 11px !important;
+}
+/* Zoom HUD (buttons + village chips) sits above the transformed map, unscaled. */
+.wm-zoom-hud {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    gap: 6px;
+}
+.wm-hud-controls {
+    top: 8px;
+    right: 8px;
+    flex-direction: column;
+}
+.wm-hud-villages {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.wm-zoom-btn {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .35);
+    background: rgba(2, 6, 23, .72);
+    color: #fef3c7;
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+.wm-zoom-btn:active { transform: scale(.94); }
+.wm-village-chip {
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .3);
+    background: rgba(2, 6, 23, .74);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+.wm-village-chip .wm-chip-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
 .atlas-landmark {
     position: absolute;
     z-index: 7;
