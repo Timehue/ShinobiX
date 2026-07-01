@@ -9,13 +9,20 @@ import {
     setSectorWinCondition,
     setSectorTerrain,
     upgradeWarStructure,
+    hireMerc,
+    listMercs,
+    deployMerc,
     villageAccent,
     WAR_STRUCTURES,
     WAR_TERRAINS,
     type WarMapResponse,
     type SectorWarContest,
     type WinCondition,
+    type WrMercTierView,
+    type MercLeaseView,
 } from "../lib/village-war-map";
+import { mercPortrait } from "../lib/merc-ai";
+import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../data/war-ui-images";
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
 // The "command surface" beside the existing VillageWarScreen (§10/§11b.6): each
@@ -38,6 +45,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [error, setError] = useState("");
     const [disabled, setDisabled] = useState(false);
     const [busy, setBusy] = useState("");
+    const [mercData, setMercData] = useState<{ tiers: WrMercTierView[]; leases: MercLeaseView[] } | null>(null);
+    const [deploySector, setDeploySector] = useState<Record<string, number>>({});
+    const [deployTarget, setDeployTarget] = useState<Record<string, string>>({});
+    const [mercMsg, setMercMsg] = useState("");
 
     const myVillage = (character.village ?? "").trim();
 
@@ -77,7 +88,14 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         }
     }, []);
 
-    useEffect(() => { void refresh(); return visiblePoll(refresh, 15000); }, [refresh]);
+    const loadMercs = useCallback(async () => {
+        try {
+            const m = (await listMercs(character.name, myVillage)) as { tiers?: WrMercTierView[]; leases?: MercLeaseView[] };
+            setMercData({ tiers: m.tiers ?? [], leases: m.leases ?? [] });
+        } catch { /* mercs are best-effort (feature gated off / not a war village) */ }
+    }, [character.name, myVillage]);
+
+    useEffect(() => { void refresh(); void loadMercs(); return visiblePoll(refresh, 15000); }, [refresh, loadMercs]);
 
     const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage) ?? null, [data, myVillage]);
     const contestBySector = useMemo(() => {
@@ -85,6 +103,11 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         for (const c of data?.contests ?? []) m[c.sector] = c;
         return m;
     }, [data]);
+    // Combat sieges THIS village is running — where a merc can be deployed.
+    const myCombatContests = useMemo(
+        () => (data?.contests ?? []).filter((c) => c.attackerVillage === myVillage && c.winCondition === "combat"),
+        [data, myVillage],
+    );
 
     const act = useCallback(async (label: string, fn: () => Promise<unknown>) => {
         setBusy(label);
@@ -104,11 +127,17 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         try { sessionStorage.setItem("sectorWarCard.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
         setScreen("sectorCard");
     }, [setScreen]);
+    // Pet contests are fought on the Sector War Pet Battle screen — a server-resolved
+    // deterministic duel, then a byte-identical client replay. Stash + navigate.
+    const launchPetBattle = useCallback((sectorWarId: string) => {
+        try { sessionStorage.setItem("sectorWarPet.v1", JSON.stringify({ sectorWarId })); } catch { /* ignore */ }
+        setScreen("sectorPet");
+    }, [setScreen]);
 
     return (
         <div className="vwm-screen">
             <div className="vwm-header">
-                <h1>⚔ Sector War Map</h1>
+                <h1><img src={WAR_CREST} alt="" style={{ height: 28, width: 28, verticalAlign: "middle", marginRight: 8, borderRadius: 6 }} />Sector War Map</h1>
                 <button className="vwm-back" onClick={onBack}>← Back</button>
             </div>
 
@@ -130,20 +159,68 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 <span>+{myView.wrPerSector} WR/sector</span>
                             </div>
                             {isKage && (
-                                <div className="vwm-structures">
-                                    {WAR_STRUCTURES.map((s) => (
-                                        <button
-                                            key={s.key}
-                                            disabled={!!busy}
-                                            onClick={() => act(`up-${s.key}`, () => upgradeWarStructure(character.name, myVillage, s.key))}
-                                            title="Upgrade with treasury Honor Seals"
-                                        >
-                                            {s.name} <b>L{myView.structures[s.key] ?? 0}</b> ⬆
-                                        </button>
-                                    ))}
-                                </div>
+                                <>
+                                    <div className="vwm-structures">
+                                        {WAR_STRUCTURES.map((s) => {
+                                            const perWar = s.key === "ramparts" || s.key === "watchtower";
+                                            return (
+                                                <button
+                                                    key={s.key}
+                                                    disabled={!!busy}
+                                                    onClick={() => act(`up-${s.key}`, () => upgradeWarStructure(character.name, myVillage, s.key))}
+                                                    title={perWar ? "Fortify for THIS war — costs War Resources from the pool, resets to 0 when the war ends" : "Permanent upgrade — costs treasury Honor Seals"}
+                                                >
+                                                    {STRUCTURE_IMAGES[s.key] && <img src={STRUCTURE_IMAGES[s.key]} alt="" style={{ height: 18, width: 18, verticalAlign: "middle", marginRight: 4 }} />}{s.name} <b>L{myView.structures[s.key] ?? 0}</b> {perWar ? "· WR" : "⬆"}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="hint">⚔ <b>Ramparts</b> &amp; <b>Watchtower</b> are per-war: bought with <b>War Resources</b> and reset to 0 once you're at peace. The other four are permanent (treasury Honor Seals) and can also be raised in Town Hall → Upgrades.</p>
+                                </>
                             )}
                             {!isKage && <p className="hint">Only the seated Kage can declare sector wars, set sector rules, and upgrade structures.</p>}
+                        </div>
+                    )}
+
+                    {isKage && mercData && (
+                        <div className="card vwm-mercs">
+                            <h3>Mercenaries</h3>
+                            <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're besieging. Fights resolve server-side — a merc win chips Control HP, a loss gives the defender only 25% back.</p>
+                            <div className="vwm-merc-tiers">
+                                {mercData.tiers.map((t) => {
+                                    const band = mercData.leases.find((l) => l.tierId === t.id);
+                                    const portrait = mercPortrait(t.id);
+                                    const sectorSel = deploySector[t.id] ?? myCombatContests[0]?.sector ?? 0;
+                                    return (
+                                        <div key={t.id} className="vwm-merc-tier">
+                                            {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
+                                            <div className="vwm-merc-name">{t.id} · L{t.level}</div>
+                                            <button disabled={!!busy} onClick={() => act(`hire-${t.id}`, async () => { await hireMerc(character.name, myVillage, t.id); await loadMercs(); })}>
+                                                Hire · {t.costWr} WR
+                                            </button>
+                                            {band && <div className="vwm-merc-band">{band.count} merc{band.count === 1 ? "" : "s"} ready</div>}
+                                            {band && band.count > 0 && myCombatContests.length > 0 && (
+                                                <div className="vwm-merc-deploy">
+                                                    <select value={sectorSel} disabled={!!busy} onChange={(e) => setDeploySector((s) => ({ ...s, [t.id]: Number(e.target.value) }))}>
+                                                        {myCombatContests.map((c) => <option key={c.sector} value={c.sector}>Sector {c.sector}</option>)}
+                                                    </select>
+                                                    <input placeholder="target player" value={deployTarget[t.id] ?? ""} disabled={!!busy} onChange={(e) => setDeployTarget((s) => ({ ...s, [t.id]: e.target.value }))} />
+                                                    <button
+                                                        disabled={!!busy || !(deployTarget[t.id] ?? "").trim() || !sectorSel}
+                                                        onClick={() => act(`deploy-${t.id}`, async () => {
+                                                            const r = (await deployMerc(character.name, myVillage, t.id, sectorSel, (deployTarget[t.id] ?? "").trim())) as { winner?: string; captured?: boolean; controlHp?: number; mercsRemaining?: number };
+                                                            setMercMsg(r.captured ? `⚑ Captured sector ${sectorSel}!` : `Sector ${sectorSel}: ${r.winner ?? "?"} won — Control HP ${r.controlHp ?? "?"}, ${r.mercsRemaining ?? 0} merc(s) left.`);
+                                                            await loadMercs();
+                                                        })}
+                                                    >Deploy</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {mercMsg && <p className="vwm-merc-msg">{mercMsg}</p>}
+                            {myCombatContests.length === 0 && <p className="hint">Declare a Combat sector war first, then deploy mercs at its defenders.</p>}
                         </div>
                     )}
 
@@ -163,7 +240,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <b>{sec.alias ?? `#${sec.sector}`}</b>
                                                 <span style={{ color: villageAccent(owner) }}>{owner === myVillage ? "yours" : owner}</span>
                                             </div>
-                                            <div className="vwm-sector-meta">{sec.winCondition} · {sec.terrain}</div>
+                                            <div className="vwm-sector-meta">{WINCON_IMAGES[sec.winCondition] && <img src={WINCON_IMAGES[sec.winCondition]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", marginRight: 3, borderRadius: 3 }} />}{sec.winCondition} · {TERRAIN_IMAGES[sec.terrain] && <img src={TERRAIN_IMAGES[sec.terrain]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", margin: "0 3px", borderRadius: 3 }} />}{sec.terrain}</div>
                                             {contest && (
                                                 <div className="vwm-control" title={`${contest.attackerVillage} besieging`}>
                                                     <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.defenderVillage) }} /></div>
@@ -178,6 +255,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
                                                 <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}>⚔ Card Battle</button>
                                             )}
+                                            {contest && contest.winCondition === "pet" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}>🐾 Pet Battle</button>
+                                            )}
                                             {mine && (
                                                 <div className="vwm-config">
                                                     <select
@@ -187,6 +267,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     >
                                                         <option value="combat">Combat</option>
                                                         <option value="card">Card</option>
+                                                        <option value="pet">Pet</option>
                                                     </select>
                                                     <select
                                                         value={sec.terrain}

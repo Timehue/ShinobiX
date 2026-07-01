@@ -87,7 +87,9 @@ import villageWarStructureHandler from './api/village/war-structure.js';
 import villageWarWinConditionHandler from './api/village/war-win-condition.js';
 import villageWarTerrainHandler from './api/village/war-terrain.js';
 import villageSectorWarHandler from './api/village/sector-war.js';
+import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
+import villageSectorPetHandler  from './api/village/sector-pet.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
@@ -143,6 +145,7 @@ import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
+import sectorMercRoamHandler          from './api/sector/merc-roam.js';
 // PvP — realtime + rewards + queues
 import pvpChatHandler           from './api/pvp/chat.js';
 import pvpSpectateHandler       from './api/pvp/spectate.js';
@@ -213,6 +216,12 @@ if (process.env.SENTRY_DSN) {
 }
 
 // ─── App setup ───────────────────────────────────────────────────────────────
+
+// Village War Map is now ALWAYS ON (Combat/Card/Pet sector wars, mercenaries, the
+// merc cron). Every handler + cron gates on ENABLE_VILLAGE_WAR==='1', so default it
+// on here once, at startup, for the whole process. Kill-switch: set DISABLE_VILLAGE_WAR=1
+// to turn the entire system back off without code changes.
+if (process.env.DISABLE_VILLAGE_WAR !== '1') process.env.ENABLE_VILLAGE_WAR = '1';
 
 const app = express();
 
@@ -637,6 +646,10 @@ route('/village/sector-war', villageSectorWarHandler);
 // 6-turn Card Clash between an attacker- and defender-village member, settling
 // the same contest Control HP (forked clan-war engine). Gated (404 unless flag).
 route('/village/sector-card', villageSectorCardHandler);
+// Village War Map — sector-war "Pet" win-condition (Phase 7): a deterministic 1v1
+// pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
+// the same contest Control HP. The client replays the same (pets, seed). Gated.
+route('/village/sector-pet',  villageSectorPetHandler);
 // Village War Map — read-only aggregator for the client War-Map panel (Phase 6):
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
@@ -645,6 +658,10 @@ route('/village/war-map', villageWarMapHandler);
 // Crate, validated against the authoritative world:war record (P0.2c). POST,
 // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
 route('/village/claim-war-crate', villageClaimWarCrateHandler);
+// Village War Map — mercenaries (Phase 5): the Kage spends village WR to field a
+// 2-day AI merc squad (comeback + Barracks discounted) that fights in Combat
+// sector wars. POST hire/list/attack, gated (404 unless ENABLE_VILLAGE_WAR=1).
+route('/village/war-merc', villageWarMercHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
@@ -729,6 +746,7 @@ route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);
 route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
 route('/sector/questbook',          sectorQuestbookHandler);
+route('/sector/merc-roam',          sectorMercRoamHandler);
 
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic

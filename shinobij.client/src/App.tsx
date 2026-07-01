@@ -136,6 +136,7 @@ const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobb
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
 const VillageWarMap = lazyWithRetry(() => import("./screens/VillageWarMap").then(m => ({ default: m.VillageWarMap })));
 const SectorWarCardBattle = lazyWithRetry(() => import("./screens/SectorWarCardBattle").then(m => ({ default: m.SectorWarCardBattle })));
+const SectorWarPetBattle = lazyWithRetry(() => import("./screens/SectorWarPetBattle").then(m => ({ default: m.SectorWarPetBattle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WeeklyBossArena = lazyWithRetry(() => import("./screens/WeeklyBossArena").then(m => ({ default: m.WeeklyBossArena })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
@@ -179,6 +180,7 @@ const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => 
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
 import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
+import { registerSectorBattle, resolveSectorBattle } from "./lib/village-war-map";
 import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
 import { PetBattleAvatar } from "./components/PetBattleAvatar";
@@ -8633,6 +8635,8 @@ export default function App() {
                             // and the right id, so the battle grid appears
                             // without the loading card showing.
                             setPvpBattleId(battleId);
+                            // Sector War: bind this PvP to an active Combat contest on this sector (server-gated; 404/409 = no-op).
+                            void registerSectorBattle(character.name, currentSector, battleId).catch(() => {});
 
                             // Notify defender via DuelChallenge with battleId.
                             // Fire-and-forget: the session is already live on
@@ -8823,6 +8827,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} updateCharacter={setCharacter} playerRoster={playerRoster} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorCard" && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "sectorPet" && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
@@ -8953,6 +8958,8 @@ export default function App() {
                             ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
+                        // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
+                        if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                         const leveled = serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Spar/friendly-duel detection for non-Vanguard local effects
@@ -9087,6 +9094,8 @@ export default function App() {
                                     void autoReportClanWarBattleResult(false, opponent?.name);
                                     setPvpBattleContext(prev => prev ? { ...prev, clanWarChallengeId: undefined } : prev);
                                 }
+                                // Sector War: report the loss so the defender's win counts toward the siege (server maps winner by village).
+                                if (pvpBattleContext?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                                 if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
                                 const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
                                 setCharacter({

@@ -17,15 +17,15 @@ const _war_map_sectors_js_1 = require("./_war-map-sectors.js");
         for (const s of _war_map_sectors_js_1.HOME_SECTORS['Frostfang Village']) {
             const cell = r.sectors[String(s)];
             node_assert_1.strict.equal(cell.controlHp, _war_state_js_1.SECTOR_CONTROL_HP_MAX);
-            node_assert_1.strict.ok(cell.winCondition === 'combat' || cell.winCondition === 'card'); // v1-ready spread
+            node_assert_1.strict.ok(cell.winCondition === 'combat' || cell.winCondition === 'pet'); // Combat / Pet default spread
             node_assert_1.strict.equal(cell.terrain, 'snow'); // Frostfang biome default
         }
     });
-    (0, node_test_1.it)('the default win-condition spread is valid (no pet, no type over 7)', () => {
+    (0, node_test_1.it)('the default win-condition spread is valid (no card, no type over 7)', () => {
         const c = (0, _war_state_js_1.winConditionCounts)((0, _war_state_js_1.defaultVillageWarRecord)('Frostfang Village'));
-        node_assert_1.strict.equal(c.pet, 0);
-        node_assert_1.strict.equal(c.combat + c.card, 8);
-        node_assert_1.strict.ok(c.combat <= _war_state_js_1.MAX_SECTORS_PER_WIN_CONDITION && c.card <= _war_state_js_1.MAX_SECTORS_PER_WIN_CONDITION);
+        node_assert_1.strict.equal(c.card, 0);
+        node_assert_1.strict.equal(c.combat + c.pet, 8);
+        node_assert_1.strict.ok(c.combat <= _war_state_js_1.MAX_SECTORS_PER_WIN_CONDITION && c.pet <= _war_state_js_1.MAX_SECTORS_PER_WIN_CONDITION);
     });
 });
 (0, node_test_1.describe)('war-state: normalize', () => {

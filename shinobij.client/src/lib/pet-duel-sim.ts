@@ -82,6 +82,18 @@ function elementMult(att?: string | null, def?: string | null): number {
     return 1;
 }
 
+// War-terrain home-ground bonus for sector-war Pet duels (mirrors the Combat +10%
+// jutsu-school buff, §17.3): a pet whose element matches the sector's terrain hits
+// 10% harder. volcano→Fire, snow→Water, forest→Earth, shadow→Lightning; central and
+// any unset/other terrain are neutral (×1). Pure + deterministic, so the server
+// resolve and the client replay apply the same bonus and stay byte-identical.
+const TERRAIN_ELEMENT: Record<string, string> = {
+    volcano: "Fire", snow: "Water", forest: "Earth", shadow: "Lightning",
+};
+export function terrainPetMult(terrain?: string | null, element?: string | null): number {
+    return terrain && element && TERRAIN_ELEMENT[terrain] === element ? 1.1 : 1;
+}
+
 /** Deterministic LCG — same constants as the old engine. Seed is the match seed. */
 function makeRng(seed: number): () => number {
     let s = (Math.max(1, Math.floor(seed)) >>> 0) || 1;
@@ -1004,14 +1016,17 @@ function simulate(fighters: Fighter[], seed: number, accuracyEnabled: boolean): 
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
  *  opens with a real traversal toward each other. */
-export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled()): DuelResult {
+export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = petAccuracyEnabled(), terrain: string | null = null): DuelResult {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
     // band — to clash in the front-center of the arena.
     // applyItems (PvP ladder) equips BOTH pets' PVP gear + consumables symmetrically.
+    // terrain (sector-war home ground): +10% to whichever pet's element matches the
+    // sector terrain — folded into each fighter's damage mult (default null → neutral,
+    // so every non-sector-war caller is byte-identical to before).
     const fighters = [
-        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems),
-        buildFighter(enemyPet, "enemy", 0, 10.2, 2.8, 1, 1, false, applyItems),
+        buildFighter(playerPet, "player", 0, -10.2, 2.8, playerDamageMult * terrainPetMult(terrain, playerPet.element), playerHpMult, playerReviveOnce, applyItems),
+        buildFighter(enemyPet, "enemy", 0, 10.2, 2.8, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems),
     ];
     return simulate(fighters, seed, accuracyEnabled);
 }

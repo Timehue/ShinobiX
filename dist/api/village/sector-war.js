@@ -9,9 +9,11 @@ const _lock_js_1 = require("../_lock.js");
 const _war_map_sectors_js_1 = require("../_war-map-sectors.js");
 const _war_state_js_1 = require("../_war-state.js");
 const _war_structures_js_1 = require("../_war-structures.js");
+const _war_role_js_1 = require("../_war-role.js");
 const _sector_war_js_1 = require("../_sector-war.js");
 const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
+const _war_telemetry_js_1 = require("../_war-telemetry.js");
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
  *
@@ -30,12 +32,13 @@ const world_state_js_1 = require("../world-state.js");
  *
  * Server-gated: 404 unless ENABLE_VILLAGE_WAR=1 (inert until launch). Combat
  * battles run here (attack/resolve); Card battles run via /village/sector-card and
- * settle the same contest. Pet stays blocked until its server sim lands (Phase 7)
- * — a client-claimed result must never flip territory.
+ * Pet duels via /village/sector-pet — all three settle the same contest Control HP
+ * server-authoritatively. A client-claimed result never flips territory.
  */
-// Win-conditions whose server-authoritative battle path is wired this build
-// (Combat here, Card via /village/sector-card). Pet → Phase 7.
-const WIRED_WIN_CONDITIONS = ['combat', 'card'];
+// Win-conditions whose server-authoritative battle path is wired this build:
+// Combat here, Card via /village/sector-card, Pet via /village/sector-pet (the
+// deterministic pet engine ported to api/pet-sim, Phase 7).
+const WIRED_WIN_CONDITIONS = ['combat', 'card', 'pet'];
 function kageKey(village) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
@@ -167,6 +170,10 @@ async function doDeclare(req, res, identity, playerName, body) {
     }, { failClosed: true });
     if (!out.ok)
         return res.status(400).json({ error: `Declaring this sector war costs ${out.cost} War Resources.` });
+    // Telemetry (best-effort): the WR actually spent declaring (0 when re-opening an
+    // already-active contest, so no event). Never blocks the declare.
+    if (out.cost > 0)
+        void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `declare:${id}`, village, kind: 'wr.spend.declare', amount: out.cost, meta: `sector:${sector}` });
     return res.status(200).json({ ok: true, cost: out.cost, alreadyOpen: out.alreadyOpen, contest: out.contest });
 }
 // ── attack (register a battle → mint the single-use token) ────────────────────
@@ -210,6 +217,25 @@ async function doAttack(req, res, identity, playerName, body) {
     if (v1 === v2 || !(v1 === attackerVillage || v2 === attackerVillage) || !(v1 === defenderVillage || v2 === defenderVillage)) {
         return res.status(403).json({ error: 'That battle is not between the two villages at war over this sector.' });
     }
+    // Seal the DEFENDER's chosen sector terrain into the fight as its biome, so the
+    // home-terrain school bonus actually applies (+10% to the terrain's jutsu school
+    // via api/pvp/move.ts terrainMultiplier — §17.3 "defender home advantage"; the
+    // valid terrains forest/snow/volcano/shadow are exactly the buffed biomes, central
+    // is neutral). This is server-authoritative and runs at battle registration —
+    // BEFORE any move resolves and reads session.biome — so an attacker can't dodge
+    // the defender's home terrain by opening the duel on a biome that suits their own
+    // school. Best-effort: a hiccup here must never block the sanctioned attack.
+    try {
+        const defRec = (0, _war_state_js_1.normalizeVillageWarRecord)(defenderVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(defenderVillage))) ?? undefined);
+        const terrain = defRec.sectors[String(sector)]?.terrain;
+        const session = await _storage_js_1.kv.get(`pvp:${battleId}`);
+        if (terrain && session && session.biome !== terrain) {
+            await _storage_js_1.kv.set(`pvp:${battleId}`, { ...session, biome: terrain });
+        }
+    }
+    catch (err) {
+        console.error('[sector-war] terrain-seal (non-fatal)', err);
+    }
     await (0, _sector_war_store_js_1.mintSectorWarToken)((0, _sector_war_js_1.newSectorWarBattleToken)({
         battleId,
         sectorWarId: contest.id,
@@ -237,8 +263,12 @@ async function doResolve(req, res, identity, playerName, body) {
         return res.status(409).json({ error: 'Battle is not finished, or it ended in a draw.' });
     }
     const winnerName = (0, _utils_js_1.safeName)(battle.winner === 'p1' ? (battle.p1?.name ?? '') : (battle.p2?.name ?? ''));
+    const loserName = (0, _utils_js_1.safeName)(battle.winner === 'p1' ? (battle.p2?.name ?? '') : (battle.p1?.name ?? ''));
     const winnerVillage = winnerName ? await villageOf(winnerName) : '';
     const attackerWon = !!winnerVillage && winnerVillage === token.attackerVillage;
+    // Role-scaled Control-HP swing (§17.6): the winner's contribution + the loser's
+    // rank penalty (Kage/Elder/ANBU/villager), read from authoritative server state.
+    const [winnerRole, loserRole] = await Promise.all([(0, _war_role_js_1.sectorWarRoleOf)(winnerName), (0, _war_role_js_1.sectorWarRoleOf)(loserName)]);
     const id = token.sectorWarId;
     const result = await (0, _lock_js_1.withKvLock)((0, _sector_war_js_1.sectorWarKey)(id), async () => {
         // Re-check the token inside the lock so a battle is applied exactly once.
@@ -250,14 +280,16 @@ async function doResolve(req, res, identity, playerName, body) {
             return { ok: false, error: 'contest-closed' };
         }
         const atkRecord = (0, _war_state_js_1.normalizeVillageWarRecord)(token.attackerVillage, (await _storage_js_1.kv.get((0, _war_state_js_1.villageWarKey)(token.attackerVillage))) ?? undefined);
-        const damage = Math.round(_war_state_js_1.SECTOR_CONTROL_HP_PER_WIN * (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
-        const outcome = (0, _sector_war_js_1.applySectorBattleResult)(contest, attackerWon, { now: Date.now(), damage });
+        const swing = (0, _war_role_js_1.sectorControlSwing)(winnerRole, loserRole, (0, _war_structures_js_1.sectorWarDamageMultiplier)(atkRecord));
+        const outcome = (0, _sector_war_js_1.applySectorBattleResult)(contest, attackerWon, { now: Date.now(), swing });
         if (outcome.captured) {
             // Flip the sector's persistent owner (territory lock, nested) BEFORE
             // closing the contest, so the capture + flip commit under one lock
             // scope. Re-running is idempotent (ownerVillage already set).
             await (0, world_state_js_1.captureSectorForVillage)(token.sector, token.attackerVillage, Date.now());
             await (0, _sector_war_store_js_1.deleteSectorWar)(id);
+            // Telemetry (best-effort): a sector flipped to the attacker.
+            void (0, _war_telemetry_js_1.recordWarEcoEvent)({ eventId: `capture:${id}`, village: token.attackerVillage, kind: 'sector.capture', amount: 1, meta: `sector:${token.sector}` });
         }
         else {
             await (0, _sector_war_store_js_1.saveSectorWar)(outcome.session);
