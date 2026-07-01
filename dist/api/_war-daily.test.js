@@ -67,8 +67,8 @@ function withStructures(village, level) {
         const seeded = {
             ...(0, _war_state_js_1.defaultVillageWarRecord)('Frostfang Village'),
             mercLeases: [
-                { tierId: 'merc-ronin', player: 'a', expiresAt: NOW - 1 }, // expired
-                { tierId: 'merc-oni', player: 'b', expiresAt: NOW + 100000 }, // active
+                { tierId: 'merc-ronin', player: 'a', expiresAt: NOW - 1, count: 3 }, // expired
+                { tierId: 'merc-oni', player: 'b', expiresAt: NOW + 100000, count: 4 }, // active
             ],
         };
         const { record, summary } = (0, _war_state_js_1.stepVillageWarDay)(seeded, { sectorsControlled: 8, today: TODAY, now: NOW });
@@ -126,5 +126,24 @@ const passthroughLock = (_k, fn) => fn();
         node_assert_1.strict.equal(nextDay.ran, 4);
         const rec = store.m.get((0, _war_state_js_1.villageWarKey)('Frostfang Village'));
         node_assert_1.strict.equal(rec.warResources, 400); // 200 + 200
+    });
+    (0, node_test_1.it)('resets per-war structures (Ramparts/Watchtower) at peace, keeps them at war', async () => {
+        const base = (0, _war_state_js_1.defaultVillageWarRecord)('Frostfang Village');
+        // Seed Frostfang with per-war + a permanent structure, already passed today so
+        // the accrual is idempotent — this isolates the reset behaviour.
+        const seed = () => ({ ...base, lastWarPassDate: TODAY, structures: { ...base.structures, ramparts: 8, watchtower: 6, barracks: 5 } });
+        const peaceStore = memStore();
+        peaceStore.m.set((0, _war_state_js_1.villageWarKey)('Frostfang Village'), seed());
+        await (0, _war_daily_js_1.runVillageWarDailyPass)({ store: peaceStore, lock: passthroughLock, now: NOW, enabled: true, isAtWar: async () => false });
+        const atPeace = peaceStore.m.get((0, _war_state_js_1.villageWarKey)('Frostfang Village'));
+        node_assert_1.strict.equal(atPeace.structures.ramparts, 0); // per-war wiped
+        node_assert_1.strict.equal(atPeace.structures.watchtower, 0); // per-war wiped
+        node_assert_1.strict.equal(atPeace.structures.barracks, 5); // permanent kept
+        const warStore = memStore();
+        warStore.m.set((0, _war_state_js_1.villageWarKey)('Frostfang Village'), seed());
+        await (0, _war_daily_js_1.runVillageWarDailyPass)({ store: warStore, lock: passthroughLock, now: NOW, enabled: true, isAtWar: async () => true });
+        const atWar = warStore.m.get((0, _war_state_js_1.villageWarKey)('Frostfang Village'));
+        node_assert_1.strict.equal(atWar.structures.ramparts, 8); // held while at war
+        node_assert_1.strict.equal(atWar.structures.watchtower, 6);
     });
 });

@@ -79,8 +79,8 @@ describe('stepVillageWarDay (pure)', () => {
         const seeded: VillageWarRecord = {
             ...defaultVillageWarRecord('Frostfang Village'),
             mercLeases: [
-                { tierId: 'merc-ronin', player: 'a', expiresAt: NOW - 1 },   // expired
-                { tierId: 'merc-oni', player: 'b', expiresAt: NOW + 100000 }, // active
+                { tierId: 'merc-ronin', player: 'a', expiresAt: NOW - 1, count: 3 },   // expired
+                { tierId: 'merc-oni', player: 'b', expiresAt: NOW + 100000, count: 4 }, // active
             ],
         };
         const { record, summary } = stepVillageWarDay(seeded, { sectorsControlled: 8, today: TODAY, now: NOW });
@@ -143,5 +143,27 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         assert.equal(nextDay.ran, 4);
         const rec = store.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
         assert.equal(rec.warResources, 400); // 200 + 200
+    });
+
+    it('resets per-war structures (Ramparts/Watchtower) at peace, keeps them at war', async () => {
+        const base = defaultVillageWarRecord('Frostfang Village');
+        // Seed Frostfang with per-war + a permanent structure, already passed today so
+        // the accrual is idempotent — this isolates the reset behaviour.
+        const seed = (): VillageWarRecord => ({ ...base, lastWarPassDate: TODAY, structures: { ...base.structures, ramparts: 8, watchtower: 6, barracks: 5 } });
+
+        const peaceStore = memStore();
+        peaceStore.m.set(villageWarKey('Frostfang Village'), seed());
+        await runVillageWarDailyPass({ store: peaceStore, lock: passthroughLock, now: NOW, enabled: true, isAtWar: async () => false });
+        const atPeace = peaceStore.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
+        assert.equal(atPeace.structures.ramparts, 0);   // per-war wiped
+        assert.equal(atPeace.structures.watchtower, 0);  // per-war wiped
+        assert.equal(atPeace.structures.barracks, 5);    // permanent kept
+
+        const warStore = memStore();
+        warStore.m.set(villageWarKey('Frostfang Village'), seed());
+        await runVillageWarDailyPass({ store: warStore, lock: passthroughLock, now: NOW, enabled: true, isAtWar: async () => true });
+        const atWar = warStore.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
+        assert.equal(atWar.structures.ramparts, 8);   // held while at war
+        assert.equal(atWar.structures.watchtower, 6);
     });
 });

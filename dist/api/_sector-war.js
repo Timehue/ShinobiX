@@ -14,7 +14,7 @@
  * Control-HP transform a resolved battle applies. IO-free.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SECTOR_WAR_TOKEN_TTL_MS = void 0;
+exports.SECTOR_WAR_TOKEN_TTL_MS = exports.MERC_DEFENDER_REGEN_FRACTION = exports.DEFENDER_HEAL_FRACTION = void 0;
 exports.sectorWarId = sectorWarId;
 exports.newSectorWarSession = newSectorWarSession;
 exports.normalizeSectorWarSession = normalizeSectorWarSession;
@@ -80,26 +80,35 @@ function normalizeSectorWarSession(raw) {
         flipped: raw.flipped === true,
     };
 }
+// A defender WIN heals the sector's hold by this fraction of the fight's role
+// swing — half, so defending genuinely slows a siege but the attacker keeps the
+// initiative and wars still resolve in a day or two (§17.6). A repelled AI
+// MERCENARY heals only MERC_DEFENDER_REGEN_FRACTION (a lower-stakes attack).
+exports.DEFENDER_HEAL_FRACTION = 0.5;
+exports.MERC_DEFENDER_REGEN_FRACTION = 0.25;
 /** Apply one resolved win-condition battle to a sector-war session (§17.6).
- *  Attacker win → −`damage` Control HP (flip + freeze at 0). Defender win → hold
- *  the line, +DEFENDER_REGEN (capped). Already-flipped sessions are inert.
- *  `damage` lets the caller pass the attacker's War-Academy-boosted value
- *  (api/_war-structures.sectorWarDamageMultiplier); defaults to the base per-win. */
+ *  Attacker win → −`swing` Control HP (flip + freeze at 0). Defender win → HEAL the
+ *  hold by `swing` × DEFENDER_HEAL_FRACTION (capped at max), or × the smaller
+ *  MERC_DEFENDER_REGEN_FRACTION when the attacker was a mercenary (opts.mercBattle).
+ *  `swing` is the caller's role-scaled, War-Academy-boosted value
+ *  (api/_war-role sectorControlSwing = winner.win + loser.loss). Already-flipped
+ *  sessions are inert. Pure. */
 function applySectorBattleResult(session, attackerWon, opts) {
     if (session.flipped) {
         return { session, captured: false, hpDealt: 0, hpRegen: 0 };
     }
+    const swing = Math.max(0, Math.floor(Number(opts.swing) || 0));
     const next = { ...session, updatedAt: opts.now };
     if (attackerWon) {
-        const dmg = Math.max(0, Math.floor(Number(opts.damage ?? _war_state_js_1.SECTOR_CONTROL_HP_PER_WIN) || 0));
         const before = next.controlHp;
-        next.controlHp = Math.max(0, before - dmg);
+        next.controlHp = Math.max(0, before - swing);
         const captured = next.controlHp <= 0;
         next.flipped = captured;
         return { session: next, captured, hpDealt: before - next.controlHp, hpRegen: 0 };
     }
     const before = next.controlHp;
-    next.controlHp = Math.min(next.controlHpMax, before + _war_state_js_1.SECTOR_CONTROL_HP_DEFENDER_REGEN);
+    const heal = Math.max(0, Math.floor(swing * (opts.mercBattle ? exports.MERC_DEFENDER_REGEN_FRACTION : exports.DEFENDER_HEAL_FRACTION)));
+    next.controlHp = Math.min(next.controlHpMax, before + heal);
     return { session: next, captured: false, hpDealt: 0, hpRegen: next.controlHp - before };
 }
 // ── Storage keys ──
@@ -114,7 +123,7 @@ function sectorWarKey(id) {
  *  and calls applySectorBattleResult directly; this is the by-side path Card uses. */
 function applyContestBattleByWinner(session, winner, opts) {
     if (winner !== 'p1' && winner !== 'p2')
-        return null; // draw → neither chip nor regen
+        return null; // draw → neither chip nor heal
     return applySectorBattleResult(session, winner === 'p1', opts);
 }
 // ── Per-battle authorization token (mint-on-attack, single-use on resolve) ──
