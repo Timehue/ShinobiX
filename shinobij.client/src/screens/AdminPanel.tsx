@@ -24,6 +24,7 @@ import { auraSphereLv9VnEvent, awakeningLv2VnEvent, craftDungeonEvents, hiddenDu
 import { getAllTileCards, shinobiTileCards, type TileCard } from "../data/tile-cards";
 import { mergeBuiltinMissions, missionRaidRequirement } from "../data/missions";
 import { petRarityOrder } from "../data/pet-config";
+import { STARTER_EVOLUTIONS } from "../data/pet-evolutions";
 import { isWildSpawnable } from "../lib/pet-balance";
 import { PRIMARY_SUBROLE, type PetRole } from "../lib/pet-roles";
 import { storylines } from "../data/storylines";
@@ -75,6 +76,15 @@ import {
 } from "../App";
 import { HOLLOW_GATE_MAX_FLOOR, setHollowGateMaxFloor } from "../constants/game";
 import { persistSharedGameState, setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
+
+// The 10 starter-evolution templates (`starter-<element>-r`/`-l`) ship their
+// canonical portrait as a bundled static file at /pet-evos/<id>.webp — the same
+// art the evolution cutscene shows and the coliseum/arena pose flipbooks are cut
+// from. Unlike wild pool pets, they carry no `pet:` shared image, so the admin
+// avatar grid would render them as "no image" even though the art exists. Use
+// the bundled hero art as the grid's avatar fallback for exactly these ids.
+const EVO_TEMPLATE_IDS: ReadonlySet<string> = new Set(STARTER_EVOLUTIONS.map((p) => p.id));
+const evoTemplateArt = (id: string): string => (EVO_TEMPLATE_IDS.has(id) ? `/pet-evos/${id}.webp` : "");
 
 export function AdminPanel({
     character,
@@ -3937,12 +3947,12 @@ export function AdminPanel({
                             battle-sprite pass. */}
                         <details open style={{ marginTop: 8 }}>
                             <summary style={{ cursor: "pointer", fontWeight: 600, marginBottom: 6 }}>
-                                Avatars — {editablePets.filter((p) => !(pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")])).length} missing of {editablePets.length}
+                                Avatars — {editablePets.filter((p) => !(pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")] || evoTemplateArt(p.id.replace(/-\d{10,}$/, "")))).length} missing of {editablePets.length}
                             </summary>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 360, overflowY: "auto", padding: 4 }}>
                                 {editablePets.map((p) => {
                                     const baseId = p.id.replace(/-\d{10,}$/, "");
-                                    const img = pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + baseId] || "";
+                                    const img = pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + baseId] || evoTemplateArt(baseId) || "";
                                     const selected = p.id === selectedPetId;
                                     return (
                                         <div key={p.id} style={{ width: 92, textAlign: "center", border: selected ? "2px solid #8b5cf6" : img ? "1px solid #334155" : "1px solid #b45309", borderRadius: 8, padding: 6, background: "#0f172a" }}>
