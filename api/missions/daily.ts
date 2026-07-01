@@ -11,6 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
+    res.setHeader('Cache-Control', 'no-store');
 
     try {
         const playerName = safeName(String(req.query.playerName ?? ''));

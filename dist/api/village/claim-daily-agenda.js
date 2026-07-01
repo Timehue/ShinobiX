@@ -140,7 +140,7 @@ async function handler(req, res) {
                 const seals = char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0;
                 const placed = await _storage_js_1.kv.set(personalMarker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
                 if (placed !== 'OK') {
-                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 } };
+                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 }, saveVersion: Number(rec._saveVersion ?? 0) };
                 }
                 const granted = { ryo: AGENDA_PERSONAL.ryo, boneCharms: AGENDA_PERSONAL.boneCharms, honorSeals: seals };
                 const nextChar = {
@@ -151,7 +151,7 @@ async function handler(req, res) {
                 };
                 const next = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, rec));
-                return { alreadyClaimed: false, granted };
+                return { alreadyClaimed: false, granted, saveVersion: Number(next._saveVersion ?? 0) };
             }, { failClosed: true });
             if ('error' in out)
                 return res.status(404).json({ error: 'Your save was not found.' });
@@ -168,7 +168,7 @@ async function handler(req, res) {
         const reserved = await _storage_js_1.kv.set(claimKey, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
         if (reserved !== 'OK') {
             const state = await _storage_js_1.kv.get(villageStateKey);
-            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}), personal });
+            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}), personal, _saveVersion: personal.saveVersion });
         }
         // NOT failClosed (unlike the donate/transfer/collect endpoints): the NX
         // marker above is the authoritative once-per-day idempotency guard and
@@ -196,7 +196,7 @@ async function handler(req, res) {
             player: playerName,
             granted: AGENDA_TREASURY,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY, personal });
+        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY, personal, _saveVersion: personal.saveVersion });
     }
     catch (err) {
         console.error('[village/claim-daily-agenda]', err);

@@ -64,6 +64,7 @@ async function handler(req, res) {
         const targetName = (0, _utils_js_1.safeName)(String(body.targetName ?? ''));
         const healerName = (0, _utils_js_1.safeName)(String(body.healerName ?? ''));
         const paySkip = body.paySkip === true;
+        const topUp = body.topUp === true;
         if (!targetName)
             return res.status(400).json({ error: 'Invalid target name.' });
         // Caller identity. For self-heal, identity must match targetName.
@@ -94,6 +95,51 @@ async function handler(req, res) {
         const targetMaxHp = Number(targetChar.maxHp ?? 0);
         const targetInjured = targetMaxHp > 0 && targetHp < targetMaxHp;
         if (isSelfHeal) {
+            if (topUp) {
+                if (targetHospitalized) {
+                    return res.status(400).json({ error: 'Use hospital discharge while admitted.' });
+                }
+                if (!identity.admin && targetChar.profession !== 'healer') {
+                    return res.status(403).json({ error: 'Only Healers can self-heal at the hospital.' });
+                }
+                if (!identity.admin && online_store_js_1.onlineStore.get(targetName)?.inBattle) {
+                    return res.status(409).json({ error: 'Cannot heal while in an active battle.' });
+                }
+                const topUpResult = await (0, _lock_js_1.withKvLock)(targetKey, async () => {
+                    const fresh = await _storage_js_1.kv.get(targetKey) ?? targetRecord;
+                    const freshChar = fresh.character ?? targetChar;
+                    if (!identity.admin && freshChar.profession !== 'healer') {
+                        return { status: 403, body: { error: 'Only Healers can self-heal at the hospital.' } };
+                    }
+                    if (freshChar.hospitalized) {
+                        return { status: 400, body: { error: 'Use hospital discharge while admitted.' } };
+                    }
+                    const updated = {
+                        ...fresh,
+                        character: {
+                            ...freshChar,
+                            hp: freshChar.maxHp,
+                            chakra: freshChar.maxChakra,
+                            stamina: freshChar.maxStamina,
+                        },
+                    };
+                    (0, _save_version_js_1.bumpSaveVersion)(updated);
+                    await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
+                    return {
+                        status: 200,
+                        body: {
+                            ok: true,
+                            kind: 'self-top-up',
+                            chargedRyo: 0,
+                            hp: updated.character.hp,
+                            chakra: updated.character.chakra,
+                            stamina: updated.character.stamina,
+                            _saveVersion: Number(updated._saveVersion ?? 0),
+                        },
+                    };
+                }, { failClosed: true });
+                return res.status(topUpResult.status).json(topUpResult.body);
+            }
             // Self-heal / hospital checkout. Three flavors:
             //   (a) Healer's free checkout — Healers always discharge free.
             //   (b) Wait-out checkout — anyone, after hospital timer expires.
@@ -145,7 +191,7 @@ async function handler(req, res) {
             // as the discharge button press) can wipe the ryo charge or
             // re-set the hospitalized flag using its stale snapshot. We
             // re-read inside the lock to fold in any fresh ryo gains.
-            await (0, _lock_js_1.withKvLock)(targetKey, async () => {
+            const saveVersion = await (0, _lock_js_1.withKvLock)(targetKey, async () => {
                 const fresh = await _storage_js_1.kv.get(targetKey) ?? targetRecord;
                 const freshChar = fresh.character ?? targetChar;
                 const healed = {
@@ -168,8 +214,9 @@ async function handler(req, res) {
                 };
                 (0, _save_version_js_1.bumpSaveVersion)(healed);
                 await _storage_js_1.kv.set(targetKey, (0, _utils_js_1.mergePreservingImages)(healed, fresh));
+                return Number(healed._saveVersion ?? 0);
             });
-            return res.status(200).json({ ok: true, kind: 'self', chargedRyo });
+            return res.status(200).json({ ok: true, kind: 'self', chargedRyo, _saveVersion: saveVersion });
         }
         // Cross-player heal — requires Healer profession.
         const healerKey = `save:${actorName}`;
@@ -398,6 +445,7 @@ async function handler(req, res) {
             professionXp: finalXp,
             professionRank: finalRank,
             chakraCost,
+            _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     }
     catch (err) {

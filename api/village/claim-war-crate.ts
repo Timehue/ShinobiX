@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? (c.claimedWarCrateIds as unknown[]).map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
-            if (!decision.granted) return decision;
+            if (!decision.granted) return { ...decision, _saveVersion: Number(fresh._saveVersion ?? 0) };
             const inventory = Array.isArray(c.inventory) ? [...(c.inventory as unknown[])] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const updated = bumpSaveVersion({
@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 character: { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] },
             });
             await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            return { granted: true as const, reason: 'granted' };
+            return { granted: true as const, reason: 'granted', _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
         }, { failClosed: true });
 
         return res.status(200).json({ ok: true, ...outcome });

@@ -69,7 +69,7 @@ async function handler(req, res) {
                     yesterday,
                 });
                 if (reward.alreadyClaimed)
-                    return reward;
+                    return { ...reward, saveVersion: Number(rec._saveVersion ?? 0) };
                 const nextChar = {
                     ...char,
                     ryo: num(char.ryo) + reward.ryo,
@@ -79,7 +79,7 @@ async function handler(req, res) {
                 };
                 const nextRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(nextRecord, rec));
-                return reward;
+                return { ...reward, saveVersion: Number(nextRecord._saveVersion ?? 0) };
             }, { failClosed: true });
         }
         catch (e) {
@@ -95,6 +95,7 @@ async function handler(req, res) {
             granted: { ryo: out.ryo, fateShards: out.fateShards },
             shardInterval: _daily_login_js_1.STREAK_SHARD_INTERVAL,
             daysUntilShardBonus: (0, _daily_login_js_1.daysUntilShardBonus)(out.streak),
+            _saveVersion: out.saveVersion,
         });
     }
     catch (err) {

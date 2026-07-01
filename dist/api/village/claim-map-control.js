@@ -117,7 +117,7 @@ async function handler(req, res) {
                 const granted = (0, _map_control_reward_js_1.computeMapControlReward)(sectors, isVanguard);
                 const placed = await _storage_js_1.kv.set(marker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
                 if (placed !== 'OK') {
-                    return { alreadyClaimed: true, granted: { ryo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0 } };
+                    return { alreadyClaimed: true, granted: { ryo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0 }, saveVersion: Number(rec._saveVersion ?? 0) };
                 }
                 const nextChar = {
                     ...char,
@@ -128,7 +128,7 @@ async function handler(req, res) {
                 };
                 const next = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(next, rec));
-                return { alreadyClaimed: false, granted };
+                return { alreadyClaimed: false, granted, saveVersion: Number(next._saveVersion ?? 0) };
             }, { failClosed: true });
             if ('error' in out)
                 return res.status(404).json({ error: 'Your save was not found.' });
@@ -148,7 +148,7 @@ async function handler(req, res) {
                 granted: result.granted,
             }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         }
-        return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted });
+        return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted, _saveVersion: result.saveVersion });
     }
     catch (err) {
         console.error('[village/claim-map-control]', err);

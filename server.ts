@@ -141,6 +141,7 @@ import missionsReportPvpWinHandler   from './api/missions/report-pvp-win.js';
 import missionsReportPetEventHandler from './api/missions/report-pet-event.js';
 import missionsReportAiFightHandler  from './api/missions/report-ai-fight.js';
 import missionsClaimMissionHandler   from './api/missions/claim-mission.js';
+import missionsQueueCombatClaimHandler from './api/missions/queue-combat-claim.js';
 import sectorWandererGiftHandler      from './api/sector/wanderer-gift.js';
 import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
@@ -741,6 +742,7 @@ route('/missions/report-pvp-win',   missionsReportPvpWinHandler);
 route('/missions/report-pet-event', missionsReportPetEventHandler);
 route('/missions/report-ai-fight',  missionsReportAiFightHandler);
 route('/missions/claim-mission',    missionsClaimMissionHandler);
+route('/missions/queue-combat-claim', missionsQueueCombatClaimHandler);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift',      sectorWandererGiftHandler);
 route('/sector/wanderer-quest',     sectorWandererQuestHandler);

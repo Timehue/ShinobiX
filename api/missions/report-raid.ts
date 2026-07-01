@@ -61,9 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    // 30s (was 15s). Halves the worst-case throughput even before the
-    // daily cap trips.
-    if (!enforceRateLimit(req, res, 'report-raid', 1, 30_000, peekName)) return;
+    // Allow a small burst for legitimate back-to-back raid completions while
+    // the token/idempotency gates and daily cap do the real anti-abuse work.
+    if (!enforceRateLimit(req, res, 'report-raid', 6, 60_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -148,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
         if (char?.profession !== 'vanguard') {
-            return res.status(200).json({ ok: true, vanguard: false });
+            return res.status(200).json({ ok: true, vanguard: false, _saveVersion: Number(record?._saveVersion ?? 0) });
         }
 
         // Idempotency: NX-reserve the raidId so a retry (or a double-fire
@@ -199,6 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 missionsCompleted: [],
                 bonusRyo: 0,
                 bonusSeals: 0,
+                _saveVersion: Number(record?._saveVersion ?? 0),
             });
         }
 
@@ -247,6 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        const finalRecord = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         return res.status(200).json({
             ok: true,
             vanguard: true,
@@ -254,6 +256,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             missionsCompleted,
             bonusRyo,
             bonusSeals,
+            _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     } catch (err) {
         console.error('[missions/report-raid]', err);

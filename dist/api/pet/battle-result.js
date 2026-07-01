@@ -213,7 +213,8 @@ async function handler(req, res) {
                     const l = (loserName !== winnerName) ? await settlePet(loserName, 'loser') : undefined;
                     return { rating: playerName === winnerName ? w : l };
                 }, { failClosed: true }), { failClosed: true });
-                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating });
+                const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
+                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
             }
             catch (rankedErr) {
                 // Lock contention/outage (failClosed) — receipt NOT placed, so
@@ -233,7 +234,8 @@ async function handler(req, res) {
                 // KV write errored — fail open to avoid denying real wins.
             }
             else if (!placed) {
-                return res.status(200).json({ ok: true, alreadyReported: true, reward: 0 });
+                const currentSave = await _storage_js_1.kv.get(saveKey).catch(() => null);
+                return res.status(200).json({ ok: true, alreadyReported: true, reward: 0, _saveVersion: Number(currentSave?._saveVersion ?? 0) });
             }
         }
         // Apply under a per-player lock so simultaneous result POSTs (e.g.
@@ -258,6 +260,7 @@ async function handler(req, res) {
                     reward: 0,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
+                    _saveVersion: Number(record._saveVersion ?? 0),
                 };
             }
             // Daily cap: stop further reward grants once the cap is hit, but
@@ -270,6 +273,7 @@ async function handler(req, res) {
                     capped: true,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
+                    _saveVersion: Number(record._saveVersion ?? 0),
                 };
             }
             const reward = petArenaRyoReward(opponentLevel);
@@ -288,6 +292,7 @@ async function handler(req, res) {
                 reward,
                 totalPetWins: updatedChar.totalPetWins,
                 dailyPetWins: updatedChar.dailyPetWins,
+                _saveVersion: Number(updated._saveVersion ?? 0),
             };
         });
         if ('error' in result) {

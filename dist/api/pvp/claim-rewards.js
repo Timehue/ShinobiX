@@ -325,11 +325,13 @@ async function handler(req, res) {
                     ratingDelta: out.rating?.delta,
                     note: creditBase ? 'base ryo+XP credited to winner' : undefined,
                 });
+                const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
                 return res.status(200).json({
                     ok: true,
                     alreadyClaimed: out.already,
                     ...(out.rating ? { rating: out.rating } : {}),
                     ...(out.base ? { base: out.base } : {}),
+                    _saveVersion: Number(finalSave?._saveVersion ?? 0),
                 });
             }
             catch (creditErr) {
@@ -356,11 +358,13 @@ async function handler(req, res) {
         try {
             const placed = await _storage_js_1.kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
             alreadyClaimed = !placed;
-            return res.status(200).json({ ok: true, alreadyClaimed });
+            const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
+            return res.status(200).json({ ok: true, alreadyClaimed, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
         }
         catch (reserveErr) {
             console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);
-            return res.status(200).json({ ok: true, alreadyClaimed: false, degraded: true });
+            const finalSave = await _storage_js_1.kv.get(`save:${playerName}`).catch(() => null);
+            return res.status(200).json({ ok: true, alreadyClaimed: false, degraded: true, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
         }
     }
     catch (err) {
