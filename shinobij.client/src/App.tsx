@@ -177,7 +177,7 @@ import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolved
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
-import { applyWarCrateGrants, claimPendingWarCrates, claimServerVillageWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
+import { applyWarCrateGrants, claimPendingWarCrates, claimServerWarCrates, damageSectorTerritory, extendHollowGateUnlock, grantTerritoryScrolls, hydrateSharedGameState, hydrateSharedWorldState, isHollowGateUnlocked, loadVillageState, normalizeVillageState, persistSharedGameState, recordVillageWarPvp, recordVillageWarRaid, saveVillageState, sectorRaidDamageAmount, setSharedGameStateOwnerName, unlockVillageKageSystem } from "./lib/world-state";
 import { warCrateServerAuthEnabled } from "./lib/war-crate-flag";
 import { masteryBonus } from "./lib/profession-mastery";
 import { StartScreen } from "./screens/StartScreen";
@@ -1984,7 +1984,7 @@ export default function App() {
         // verdict is authoritative; the functional setCharacter avoids clobbering a
         // concurrent poll, and applyWarCrateGrants dedups + no-ops when nothing's new.
         if (warCrateServerAuthEnabled()) {
-            void claimServerVillageWarCrates(updated).then((ids) => {
+            void claimServerWarCrates(updated).then((ids) => {
                 if (ids.length) setCharacter((prev) => prev ? applyWarCrateGrants(prev, ids).character : prev);
             });
         }
