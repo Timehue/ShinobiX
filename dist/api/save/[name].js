@@ -701,21 +701,15 @@ function sanitizeCharacterSave(incoming, existing) {
     }
     char.examsPassed = validatedExams.slice(0, 4);
     // ─── pendingCombatMissionClaims validation ────────────────────────────────
-    // Combat-mission rewards are claimed via api/missions/claim-mission.ts, which
-    // pays out the catalog ryo/XP/scrolls only when missionId is present in
-    // char.pendingCombatMissionClaims (queued by an Arena win, consumed on claim).
-    // It is the trust anchor for that payout — so a tampered save that injects
-    // arbitrary keys here could queue (and then claim) combat missions the player
-    // never fought (audit #4). Validate: keep only entries that are real catalog
-    // mission keys AT/ABOVE the player's level (combatMissionByKey is a cheap find
-    // over a 6-entry constant array, and each def carries its `min` level), dedupe,
-    // and cap the list length. Mirrors the examsPassed validator above. The claim
-    // endpoint still re-checks level + queued-membership, so this is defense in
-    // depth that also keeps the stored field clean.
+    // Combat-mission claims are server-owned by the queue and claim endpoints.
+    // A player save may preserve an already-stored flag, but it may not mint a
+    // new one or clear a server-queued one.
+    // Without this, a tampered save could add a valid catalog key and claim combat
+    // rewards without winning the fight.
     if (char.pendingCombatMissionClaims !== undefined) {
         const PENDING_COMBAT_CLAIMS_CAP = 50;
-        const rawPending = Array.isArray(char.pendingCombatMissionClaims)
-            ? char.pendingCombatMissionClaims
+        const rawPending = Array.isArray(exChar.pendingCombatMissionClaims)
+            ? exChar.pendingCombatMissionClaims
             : [];
         const validatedPending = [];
         const seenPending = new Set();

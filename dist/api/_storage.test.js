@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const node_assert_1 = require("node:assert");
 const _storage_js_1 = require("./_storage.js");
+const _single_use_token_js_1 = require("./_single-use-token.js");
 // The routed KV splits keys across two backends — a disk overlay for the
 // disk-routed prefixes ('save:', 'save-snapshot:', 'shared:images',
 // 'shared:imgfields') and the base store for everything else. For mget the routing layer must issue ONE
@@ -95,5 +96,31 @@ function makeStub(label, store, log) {
             'base.mget:[auth:alice]',
             'disk.mget:[save:alice,save-snapshot:alice:1700000000000]',
         ].sort());
+    });
+});
+(0, node_test_1.describe)('consumeSingleUseToken', () => {
+    (0, node_test_1.it)('returns the token when the delete actually consumed it', async () => {
+        const token = { playerName: 'rin' };
+        const store = {
+            async get() { return token; },
+            async del() { return 1; },
+        };
+        node_assert_1.strict.deepEqual(await (0, _single_use_token_js_1.consumeSingleUseToken)(store, 'token:key'), token);
+    });
+    (0, node_test_1.it)('refuses a raced duplicate when the token was read but delete removed nothing', async () => {
+        const store = {
+            async get() { return { playerName: 'rin' }; },
+            async del() { return 0; },
+        };
+        node_assert_1.strict.equal(await (0, _single_use_token_js_1.consumeSingleUseToken)(store, 'token:key'), null);
+    });
+    (0, node_test_1.it)('does not delete when the token is absent', async () => {
+        let delCalls = 0;
+        const store = {
+            async get() { return null; },
+            async del() { delCalls += 1; return 0; },
+        };
+        node_assert_1.strict.equal(await (0, _single_use_token_js_1.consumeSingleUseToken)(store, 'token:key'), null);
+        node_assert_1.strict.equal(delCalls, 0);
     });
 });

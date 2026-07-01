@@ -69,12 +69,19 @@ async function handler(req, res) {
                 if (!(0, _wanderer_ambush_js_1.ambushCleared)(num(fresh.baseline), num(char.totalAiKills))) {
                     return { status: 200, body: { ok: false, reason: 'incomplete' } };
                 }
-                // Burn a daily slot only now that the claim is verified, inside the
-                // lock and immediately before payout — failures never consume a slot.
-                const claimedToday = await _storage_js_1.kv.incr(`wanderer-ambush-count:${playerName}:${today}`, { ex: 25 * 60 * 60 });
-                if (claimedToday > _wanderer_ambush_js_1.AMBUSH_REWARDS_PER_DAY) {
+                // Burn the single-use token only now that the claim is verified,
+                // inside the save lock and before payout. The delete rowcount is
+                // the consume gate; a storage failure must not fail open into a
+                // replayable reward token.
+                const countKey = `wanderer-ambush-count:${playerName}:${today}`;
+                const claimedSoFar = Number((await _storage_js_1.kv.get(countKey)) ?? 0);
+                if (claimedSoFar >= _wanderer_ambush_js_1.AMBUSH_REWARDS_PER_DAY) {
                     return { status: 200, body: { ok: false, reason: 'daily-cap' } };
                 }
+                const consumed = await _storage_js_1.kv.del(tokenKey);
+                if (consumed <= 0)
+                    return { status: 200, body: { ok: false, reason: 'none' } };
+                await _storage_js_1.kv.incr(countKey, { ex: 25 * 60 * 60 });
                 const reward = (0, _wanderer_ambush_js_1.rollAmbushReward)(num(char.level) || 1, Math.random);
                 const updated = {
                     ...char,
@@ -84,7 +91,6 @@ async function handler(req, res) {
                 };
                 const record = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated });
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)(record, rec));
-                await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
                 return {
                     status: 200,
                     body: {

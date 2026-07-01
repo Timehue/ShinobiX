@@ -129,8 +129,11 @@ async function handler(req, res) {
                 // retry / racing duplicate can't double-claim. A cap-blocked claim
                 // returned above WITHOUT consuming it, so the player can still claim
                 // after the daily reset via the durable flag.
-                if (hasToken)
-                    await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+                if (hasToken) {
+                    const consumed = await _storage_js_1.kv.del(tokenKey);
+                    if (consumed <= 0 && !hasLegacyFlag)
+                        return { applied: false, reason: 'not-queued' };
+                }
                 baseXp = def.xp;
                 baseRyo = def.ryo;
                 scrolls = def.territoryScrolls;
