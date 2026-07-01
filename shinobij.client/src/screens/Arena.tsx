@@ -135,6 +135,7 @@ export function Arena({
     onBattleActiveChange,
     directCombat = false,
     onReturnFromCombat,
+    onImmediateSave,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -188,6 +189,14 @@ export function Arena({
     // instead send the player back to the screen they came from via onReturnFromCombat.
     directCombat?: boolean;
     onReturnFromCombat?: () => void;
+    // Persist the character to the server RIGHT NOW rather than waiting for the
+    // 3s debounced autosave. Used when a combat-mission win queues a claim
+    // (pendingCombatMissionClaims): the Mission Hall "Claim Reward" step is
+    // server-authoritative and rejects the claim unless the queued flag has
+    // already been saved, so a quick claim (or a refresh, or a background
+    // save-conflict refetch) that races the debounce would otherwise lose the
+    // mission. Mirrors PetYard's onImmediateSave.
+    onImmediateSave?: (character: Character) => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -2377,7 +2386,15 @@ export function Arena({
             const queued = (base.pendingCombatMissionClaims ?? []).includes(combatMission.key)
                 ? (base.pendingCombatMissionClaims ?? [])
                 : [...(base.pendingCombatMissionClaims ?? []), combatMission.key];
-            updateCharacter({ ...base, hp: playerHp, pendingCombatMissionClaims: queued });
+            const queuedChar = { ...base, hp: playerHp, pendingCombatMissionClaims: queued };
+            updateCharacter(queuedChar);
+            // Flush the queued claim to the server immediately. Winning only marks
+            // the claim as pending on the character; the Mission Hall claim step is
+            // server-authoritative and rejects `not-queued` unless this flag is
+            // already persisted. The 3s debounced autosave loses that race when the
+            // player claims (or refreshes) quickly, permanently dropping the mission
+            // (and its goal credit). Persist now so the claim always finds the flag.
+            onImmediateSave?.(queuedChar);
             setBattleEnded(true);
             setBattleResult("win");
             setRaidBattleKind("none");
