@@ -72,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetName = safeName(String(body.targetName ?? ''));
         const healerName = safeName(String(body.healerName ?? ''));
         const paySkip = body.paySkip === true;
+        const topUp = body.topUp === true;
         if (!targetName) return res.status(400).json({ error: 'Invalid target name.' });
 
         // Caller identity. For self-heal, identity must match targetName.
@@ -103,6 +104,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetInjured = targetMaxHp > 0 && targetHp < targetMaxHp;
 
         if (isSelfHeal) {
+            if (topUp) {
+                if (targetHospitalized) {
+                    return res.status(400).json({ error: 'Use hospital discharge while admitted.' });
+                }
+                if (!identity.admin && targetChar.profession !== 'healer') {
+                    return res.status(403).json({ error: 'Only Healers can self-heal at the hospital.' });
+                }
+                if (!identity.admin && onlineStore.get(targetName)?.inBattle) {
+                    return res.status(409).json({ error: 'Cannot heal while in an active battle.' });
+                }
+
+                const topUpResult = await withKvLock(targetKey, async () => {
+                    const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
+                    const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
+                    if (!identity.admin && freshChar.profession !== 'healer') {
+                        return { status: 403 as const, body: { error: 'Only Healers can self-heal at the hospital.' } };
+                    }
+                    if (freshChar.hospitalized) {
+                        return { status: 400 as const, body: { error: 'Use hospital discharge while admitted.' } };
+                    }
+                    const updated = {
+                        ...fresh,
+                        character: {
+                            ...freshChar,
+                            hp: freshChar.maxHp,
+                            chakra: freshChar.maxChakra,
+                            stamina: freshChar.maxStamina,
+                        },
+                    };
+                    bumpSaveVersion(updated);
+                    await kv.set(targetKey, mergePreservingImages(updated, fresh));
+                    return {
+                        status: 200 as const,
+                        body: {
+                            ok: true,
+                            kind: 'self-top-up',
+                            chargedRyo: 0,
+                            hp: updated.character.hp,
+                            chakra: updated.character.chakra,
+                            stamina: updated.character.stamina,
+                            _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+                        },
+                    };
+                }, { failClosed: true });
+                return res.status(topUpResult.status).json(topUpResult.body);
+            }
+
             // Self-heal / hospital checkout. Three flavors:
             //   (a) Healer's free checkout — Healers always discharge free.
             //   (b) Wait-out checkout — anyone, after hospital timer expires.
@@ -151,7 +199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // as the discharge button press) can wipe the ryo charge or
             // re-set the hospitalized flag using its stale snapshot. We
             // re-read inside the lock to fold in any fresh ryo gains.
-            await withKvLock(targetKey, async () => {
+            const saveVersion = await withKvLock(targetKey, async () => {
                 const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
                 const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
                 const healed = {
@@ -174,8 +222,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 bumpSaveVersion(healed);
                 await kv.set(targetKey, mergePreservingImages(healed, fresh));
+                return Number((healed as Record<string, unknown>)._saveVersion ?? 0);
             });
-            return res.status(200).json({ ok: true, kind: 'self', chargedRyo });
+            return res.status(200).json({ ok: true, kind: 'self', chargedRyo, _saveVersion: saveVersion });
         }
 
         // Cross-player heal — requires Healer profession.
@@ -420,6 +469,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             professionXp: finalXp,
             professionRank: finalRank,
             chakraCost,
+            _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     } catch (err) {
         console.error('[heal]', err);

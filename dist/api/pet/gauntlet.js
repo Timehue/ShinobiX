@@ -195,12 +195,14 @@ async function handler(req, res) {
             let village;
             let grantedFateShards = 0;
             let grantedBoneCharms = 0;
+            let saveVersion = 0;
             const saveKey = `save:${me}`;
             await (0, _lock_js_1.withKvLock)(saveKey, async () => {
                 const record = await _storage_js_1.kv.get(saveKey);
                 const char = record?.character;
                 if (!record || !char)
                     return;
+                saveVersion = Number(record._saveVersion ?? 0);
                 name = String(char.name ?? me).slice(0, 40);
                 if (typeof char.village === 'string')
                     village = char.village;
@@ -229,6 +231,7 @@ async function handler(req, res) {
                     };
                     const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: next });
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
+                    saveVersion = Number(updated._saveVersion ?? 0);
                 }
             }, { failClosed: true });
             // ── Update the weekly leaderboard (best-per-player). ────────────────
@@ -249,7 +252,7 @@ async function handler(req, res) {
                 const pos = trimmed.findIndex((e) => e.slug === me);
                 rank = pos >= 0 ? pos + 1 : null;
             }, { failClosed: true });
-            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft });
+            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
         }
         return res.status(400).json({ error: 'Invalid action.' });
     }

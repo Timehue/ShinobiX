@@ -131,7 +131,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // `granted` delta to its OWN balance (not the absolute — so concurrent ryo
         // gains elsewhere survive) and re-asserts via autosave; the two converge.
         const personalMarker = `agenda-personal:${playerName.toLowerCase()}:${date}`;
-        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number } };
+        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
         try {
             const out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -140,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const seals = char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0;
                 const placed = await kv.set(personalMarker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
                 if (placed !== 'OK') {
-                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 } };
+                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 }, saveVersion: Number(rec._saveVersion ?? 0) };
                 }
                 const granted = { ryo: AGENDA_PERSONAL.ryo, boneCharms: AGENDA_PERSONAL.boneCharms, honorSeals: seals };
                 const nextChar = {
@@ -151,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
-                return { alreadyClaimed: false, granted };
+                return { alreadyClaimed: false, granted, saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) };
             }, { failClosed: true });
             if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
             personal = out;
@@ -167,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const reserved = await kv.set(claimKey, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
         if (reserved !== 'OK') {
             const state = await kv.get<Record<string, unknown>>(villageStateKey);
-            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}), personal });
+            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}), personal, _saveVersion: personal.saveVersion });
         }
 
         // NOT failClosed (unlike the donate/transfer/collect endpoints): the NX
@@ -198,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             granted: AGENDA_TREASURY,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
-        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY, personal });
+        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY, personal, _saveVersion: personal.saveVersion });
     } catch (err) {
         console.error('[village/claim-daily-agenda]', err);
         return res.status(500).json({ error: 'Internal server error.' });

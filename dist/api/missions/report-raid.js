@@ -63,9 +63,9 @@ async function handler(req, res) {
         return {};
     } })() : (req.body ?? {});
     const peekName = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    // 30s (was 15s). Halves the worst-case throughput even before the
-    // daily cap trips.
-    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'report-raid', 1, 30_000, peekName))
+    // Allow a small burst for legitimate back-to-back raid completions while
+    // the token/idempotency gates and daily cap do the real anti-abuse work.
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'report-raid', 6, 60_000, peekName))
         return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -149,7 +149,7 @@ async function handler(req, res) {
         const record = await _storage_js_1.kv.get(`save:${playerName}`);
         const char = record?.character;
         if (char?.profession !== 'vanguard') {
-            return res.status(200).json({ ok: true, vanguard: false });
+            return res.status(200).json({ ok: true, vanguard: false, _saveVersion: Number(record?._saveVersion ?? 0) });
         }
         // Idempotency: NX-reserve the raidId so a retry (or a double-fire
         // from a flaky network) is a no-op. Admin path skips the reservation
@@ -198,6 +198,7 @@ async function handler(req, res) {
                 missionsCompleted: [],
                 bonusRyo: 0,
                 bonusSeals: 0,
+                _saveVersion: Number(record?._saveVersion ?? 0),
             });
         }
         const result = await (0, _progress_js_1.reportMissionEvent)({
@@ -244,6 +245,7 @@ async function handler(req, res) {
                 });
             }
         }
+        const finalRecord = await _storage_js_1.kv.get(`save:${playerName}`);
         return res.status(200).json({
             ok: true,
             vanguard: true,
@@ -251,6 +253,7 @@ async function handler(req, res) {
             missionsCompleted,
             bonusRyo,
             bonusSeals,
+            _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     }
     catch (err) {

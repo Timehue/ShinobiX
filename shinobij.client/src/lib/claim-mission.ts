@@ -38,6 +38,7 @@ export type ClaimMissionResult =
         completion: "daily" | "total" | "none" | "hunt";
         academyTrialClaimed?: boolean;
         academyChecklistClaimed?: boolean;
+        _saveVersion?: number;
     }
     | { ok: true; applied: false; reason: string; clientFallback?: boolean }
     | null;

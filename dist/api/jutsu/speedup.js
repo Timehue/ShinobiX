@@ -124,6 +124,7 @@ async function handler(req, res) {
                     minutesReduced,
                     honorSealsRemaining: balance - cost,
                     newEndsAt: updated.activeJutsuTraining.endsAt,
+                    _saveVersion: Number(updated._saveVersion ?? 0),
                 },
             };
         }, { failClosed: true });

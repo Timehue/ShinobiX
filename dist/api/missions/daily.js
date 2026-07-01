@@ -12,6 +12,7 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'GET')
         return res.status(405).end();
+    res.setHeader('Cache-Control', 'no-store');
     try {
         const playerName = (0, _utils_js_1.safeName)(String(req.query.playerName ?? ''));
         if (!playerName)

@@ -128,6 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     minutesReduced,
                     honorSealsRemaining: balance - cost,
                     newEndsAt: (updated.activeJutsuTraining as { endsAt: number }).endsAt,
+                    _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
                 },
             };
         }, { failClosed: true });

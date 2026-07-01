@@ -200,11 +200,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let village: string | undefined;
             let grantedFateShards = 0;
             let grantedBoneCharms = 0;
+            let saveVersion = 0;
             const saveKey = `save:${me}`;
             await withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = record?.character as Record<string, unknown> | undefined;
                 if (!record || !char) return;
+                saveVersion = Number(record._saveVersion ?? 0);
                 name = String(char.name ?? me).slice(0, 40);
                 if (typeof char.village === 'string') village = char.village;
                 // Daily once-per-currency claim via NX; fail CLOSED (a KV hiccup just
@@ -220,6 +222,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     const updated = bumpSaveVersion({ ...record, character: next });
                     await kv.set(saveKey, mergePreservingImages(updated, record));
+                    saveVersion = Number((updated as Record<string, unknown>)._saveVersion ?? 0);
                 }
             }, { failClosed: true });
 
@@ -238,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rank = pos >= 0 ? pos + 1 : null;
             }, { failClosed: true });
 
-            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft });
+            return res.status(200).json({ ryo, fateShards: grantedFateShards, boneCharms: grantedBoneCharms, score, rank, weekKey: sealed.weekKey, roundsCleared, heartsLeft, _saveVersion: saveVersion });
         }
 
         return res.status(400).json({ error: 'Invalid action.' });
