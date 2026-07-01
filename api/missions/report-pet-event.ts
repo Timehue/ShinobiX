@@ -36,8 +36,8 @@ function tamerXpForExpedition(durationMinutes: number, opts: { isFirstToday: boo
 
 // Pet Tamer mission progress reporter. Pet expedition/training state is
 // currently client-side, so this endpoint trusts the client's event claim
-// but is heavily rate-limited (1 per 30s per player) so it can't be spammed
-// to inflate mission progress. Profession XP impact is small (~150 XP per
+// but is rate-limited so it can't be spammed to inflate mission progress.
+// Profession XP impact is small (~150 XP per
 // mission completion); abuse risk is bounded by daily mission count + the
 // per-save professionXp cap.
 //
@@ -73,11 +73,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // 1 report per 30 s per player. Rate limit BEFORE auth check so spam
+    // A small burst is valid when collecting queued pet actions. Rate limit
+    // BEFORE auth check so spam
     // attempts at unknown names also get throttled.
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'report-pet-event', 1, 30_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'report-pet-event', 6, 60_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -253,6 +254,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Daily cap reached — short-circuit cleanly with the same shape
             // the pre-lock cap check used to return.
             if (dailyCapHit) {
+                const capRecord = await kv.get<Record<string, unknown>>(saveKey);
                 return res.status(200).json({
                     ok: true,
                     petTamer: isTamer,
@@ -263,6 +265,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     foundAura: 0,
                     foundFate: 0,
                     missionsCompleted: [],
+                    _saveVersion: Number(capRecord?._saveVersion ?? 0),
                 });
             }
 
@@ -320,6 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 professionXp: Number(finalChar?.professionXp ?? 0),
                 professionRank: Number(finalChar?.professionRank ?? 1),
             } : {}),
+            _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     } catch (err) {
         console.error('[missions/report-pet-event]', err);

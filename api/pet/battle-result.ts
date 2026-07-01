@@ -213,7 +213,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const l = (loserName !== winnerName) ? await settlePet(loserName, 'loser') : undefined;
                     return { rating: playerName === winnerName ? w : l };
                 }, { failClosed: true }), { failClosed: true });
-                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating });
+                const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null);
+                return res.status(200).json({ ok: true, ranked: true, reward: 0, rating: out.rating, _saveVersion: Number(finalSave?._saveVersion ?? 0) });
             } catch (rankedErr) {
                 // Lock contention/outage (failClosed) — receipt NOT placed, so
                 // the client can safely retry. 503 signals "transient, retry".
@@ -232,7 +233,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (placed === null) {
                 // KV write errored — fail open to avoid denying real wins.
             } else if (!placed) {
-                return res.status(200).json({ ok: true, alreadyReported: true, reward: 0 });
+                const currentSave = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
+                return res.status(200).json({ ok: true, alreadyReported: true, reward: 0, _saveVersion: Number(currentSave?._saveVersion ?? 0) });
             }
         }
 
@@ -258,6 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     reward: 0,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
+                    _saveVersion: Number(record._saveVersion ?? 0),
                 };
             }
 
@@ -271,6 +274,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     capped: true,
                     totalPetWins: Number(char.totalPetWins ?? 0),
                     dailyPetWins,
+                    _saveVersion: Number(record._saveVersion ?? 0),
                 };
             }
 
@@ -290,6 +294,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 reward,
                 totalPetWins: updatedChar.totalPetWins,
                 dailyPetWins: updatedChar.dailyPetWins,
+                _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
             };
         });
 

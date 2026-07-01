@@ -109,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // lock: exactly-once, and a contention abort (failClosed → 503) leaves
         // nothing placed for a clean retry (the claim-rewards pattern). isVanguard
         // is read from the locked save so honorSeals are credited correctly.
-        let result: { alreadyClaimed: boolean; granted: ReturnType<typeof computeMapControlReward> };
+        let result: { alreadyClaimed: boolean; granted: ReturnType<typeof computeMapControlReward>; saveVersion: number };
         try {
             const out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -119,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const granted = computeMapControlReward(sectors, isVanguard);
                 const placed = await kv.set(marker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
                 if (placed !== 'OK') {
-                    return { alreadyClaimed: true, granted: { ryo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0 } };
+                    return { alreadyClaimed: true, granted: { ryo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0 }, saveVersion: Number(rec._saveVersion ?? 0) };
                 }
                 const nextChar = {
                     ...char,
@@ -130,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 const next = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
-                return { alreadyClaimed: false, granted };
+                return { alreadyClaimed: false, granted, saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) };
             }, { failClosed: true });
             if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
             result = out;
@@ -150,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
         }
 
-        return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted });
+        return res.status(200).json({ ok: true, sectors, alreadyClaimed: result.alreadyClaimed, granted: result.granted, _saveVersion: result.saveVersion });
     } catch (err) {
         console.error('[village/claim-map-control]', err);
         return res.status(500).json({ error: 'Internal server error.' });

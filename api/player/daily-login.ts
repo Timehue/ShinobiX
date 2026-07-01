@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const today = utcDateOffset(0);
         const yesterday = utcDateOffset(-1);
 
-        let out: { error: 'no-save' } | { alreadyClaimed: boolean; streak: number; ryo: number; fateShards: number };
+        let out: { error: 'no-save' } | { alreadyClaimed: boolean; streak: number; ryo: number; fateShards: number; saveVersion: number };
         try {
             out = await withKvLock(`save:${playerName}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     today,
                     yesterday,
                 });
-                if (reward.alreadyClaimed) return reward;
+                if (reward.alreadyClaimed) return { ...reward, saveVersion: Number(rec._saveVersion ?? 0) };
 
                 const nextChar = {
                     ...char,
@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                return reward;
+                return { ...reward, saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0) };
             }, { failClosed: true });
         } catch (e) {
             console.error('[player/daily-login] credit failed', e);
@@ -95,6 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             granted: { ryo: out.ryo, fateShards: out.fateShards },
             shardInterval: STREAK_SHARD_INTERVAL,
             daysUntilShardBonus: daysUntilShardBonus(out.streak),
+            _saveVersion: out.saveVersion,
         });
     } catch (err) {
         console.error('[player/daily-login]', err);

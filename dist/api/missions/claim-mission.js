@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.applyClaimedMissionState = applyClaimedMissionState;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -33,6 +34,23 @@ const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Unknown / creator-authored mission ids are not in the catalog → the response
 // signals clientFallback so the (unchanged) client path can still pay those.
 const monthKeyOf = () => new Date().toISOString().slice(0, 7);
+function applyClaimedMissionState(record, missionType, missionId) {
+    if (missionType !== 'field' && missionType !== 'hunt')
+        return record;
+    const updated = { ...record };
+    if (Array.isArray(updated.acceptedMissionIds)) {
+        updated.acceptedMissionIds = updated.acceptedMissionIds.map(String).filter((id) => id !== missionId);
+    }
+    const progress = updated.missionProgress;
+    if (progress && typeof progress === 'object' && !Array.isArray(progress)) {
+        const nextProgress = { ...progress };
+        nextProgress[missionId] = 0;
+        if (missionType === 'field')
+            nextProgress[`${missionId}:raids`] = 0;
+        updated.missionProgress = nextProgress;
+    }
+    return updated;
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -91,11 +109,28 @@ async function handler(req, res) {
                     return { applied: false, reason: 'unknown-mission', clientFallback: true };
                 if (Number(char.level ?? 1) < def.min)
                     return { applied: false, reason: 'level' };
+                // Server-authoritative claim gate: the single-use token minted by
+                // /api/missions/queue-combat-claim when the fight was won. Preferred
+                // over the pendingCombatMissionClaims flag because the client can't
+                // forge a KV token via the save endpoint, and it's single-use.
+                // Legacy fallback: a client on the prior build (or a token that
+                // aged past its TTL) still carries the durable flag on the save —
+                // accept that too so no in-flight claim is ever stranded. We're
+                // inside the save lock, so this get→del is race-free per player.
+                const tokenKey = `missions:combat-claim:${playerName}:${def.key}`;
+                const hasToken = !!(await _storage_js_1.kv.get(tokenKey).catch(() => null));
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims : [];
-                if (!pending.includes(def.key))
+                const hasLegacyFlag = pending.includes(def.key);
+                if (!hasToken && !hasLegacyFlag)
                     return { applied: false, reason: 'not-queued' };
                 if (!(0, _mission_catalog_js_1.hasDailyMissionSlot)(char, todayKey))
                     return { applied: false, reason: 'daily-cap' };
+                // Consume the token once eligibility passes (before payout), so a
+                // retry / racing duplicate can't double-claim. A cap-blocked claim
+                // returned above WITHOUT consuming it, so the player can still claim
+                // after the daily reset via the durable flag.
+                if (hasToken)
+                    await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
                 baseXp = def.xp;
                 baseRyo = def.ryo;
                 scrolls = def.territoryScrolls;
@@ -227,11 +262,12 @@ async function handler(req, res) {
                 next = { ...next, academyTrialClaimed: true };
             if (academyChecklistClaimed)
                 next = { ...next, academyChecklistClaimed: true };
-            const updated = { ...record, character: next };
+            const updated = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             (0, _save_version_js_1.bumpSaveVersion)(updated);
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, record));
             return {
                 applied: true,
+                saveVersion: Number(updated._saveVersion ?? 0),
                 reward: {
                     xpBoosted,
                     ryo: ryoBoosted,
@@ -251,6 +287,7 @@ async function handler(req, res) {
         // who has a profession and takes its own locks, so it runs AFTER the
         // claim's save lock has released (no nested locking). Best-effort — a
         // failure here must never fail the (already-applied) claim.
+        let finalSaveVersion = outcome.applied ? outcome.saveVersion : 0;
         if (outcome.applied) {
             try {
                 await (0, _progress_js_1.reportNewbieEvent)({ playerName, kind: 'newbie-missions' });
@@ -270,6 +307,12 @@ async function handler(req, res) {
                 if (amt)
                     await (0, _economy_js_1.recordEconomyTxn)({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
+            const finalRecord = await _storage_js_1.kv.get(saveKey).catch(() => null);
+            finalSaveVersion = Number(finalRecord?._saveVersion ?? finalSaveVersion);
+        }
+        if (outcome.applied) {
+            const { saveVersion, ...body } = outcome;
+            return res.status(200).json({ ok: true, ...body, _saveVersion: finalSaveVersion });
         }
         return res.status(200).json({ ok: true, ...outcome });
     }

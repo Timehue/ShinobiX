@@ -141,6 +141,7 @@ const report_pvp_win_js_1 = __importDefault(require("./api/missions/report-pvp-w
 const report_pet_event_js_1 = __importDefault(require("./api/missions/report-pet-event.js"));
 const report_ai_fight_js_1 = __importDefault(require("./api/missions/report-ai-fight.js"));
 const claim_mission_js_1 = __importDefault(require("./api/missions/claim-mission.js"));
+const queue_combat_claim_js_1 = __importDefault(require("./api/missions/queue-combat-claim.js"));
 const wanderer_gift_js_1 = __importDefault(require("./api/sector/wanderer-gift.js"));
 const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest.js"));
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
@@ -683,6 +684,7 @@ route('/missions/report-pvp-win', report_pvp_win_js_1.default);
 route('/missions/report-pet-event', report_pet_event_js_1.default);
 route('/missions/report-ai-fight', report_ai_fight_js_1.default);
 route('/missions/claim-mission', claim_mission_js_1.default);
+route('/missions/queue-combat-claim', queue_combat_claim_js_1.default);
 // Sector Wanderers — server-authoritative gift (recompute + daily cap)
 route('/sector/wanderer-gift', wanderer_gift_js_1.default);
 route('/sector/wanderer-quest', wanderer_quest_js_1.default);

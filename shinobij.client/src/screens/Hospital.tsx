@@ -16,7 +16,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
-    // Healers heal themselves for free — both the topUp HP refill and the
+    // Healers heal themselves for free — both the server-backed topUp vitals refill and the
     // discharge action cost 0 ryo. Non-Healers pay a bumped 2,500 ryo to
     // discharge (or wait the 60-second free checkout) and can't topUp at all.
     const dischargeCost = isHealer ? 0 : discountCost(2500, hospitalDiscount);
@@ -154,10 +154,35 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
         }
     }
 
-    function topUp() {
+    async function topUp() {
+        if (busy) return;
         if (!isHealer) return alert("Only Healers can heal at the hospital. Non-Healers must wait the 60-second admission timer or pay the discharge fee.");
         if (character.ryo < topUpCost) return alert("Not enough ryo.");
-        updateCharacter({ ...character, ryo: character.ryo - topUpCost, hp: character.maxHp });
+        setBusy(true);
+        try {
+            const res = await fetch('/api/player/heal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: character.name, topUp: true }),
+            });
+            const data = await res.json().catch(() => ({})) as { error?: string; chargedRyo?: number; hp?: number; chakra?: number; stamina?: number };
+            if (!res.ok) {
+                alert(data.error ?? 'Failed to heal.');
+                return;
+            }
+            const chargedRyo = Number(data.chargedRyo ?? topUpCost);
+            updateCharacter(prev => prev ? ({
+                ...prev,
+                ryo: Math.max(0, prev.ryo - chargedRyo),
+                hp: Number(data.hp ?? prev.maxHp),
+                chakra: Number(data.chakra ?? prev.maxChakra),
+                stamina: Number(data.stamina ?? prev.maxStamina),
+            }) : prev);
+        } catch {
+            alert('Network error - heal failed.');
+        } finally {
+            setBusy(false);
+        }
     }
 
     if (character.hospitalized) {
@@ -234,7 +259,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster }: { cha
                 <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
             </div>
             {isHealer ? (
-                <button onClick={topUp}>✚ Full Heal — Free (Healer)</button>
+                <button onClick={topUp} disabled={busy}>{busy ? "..." : "✚ Full Heal — Free (Healer)"}</button>
             ) : (
                 <p className="hint" style={{ margin: "0.4rem 0", color: "#94a3b8" }}>
                     🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
