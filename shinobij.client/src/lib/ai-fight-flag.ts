@@ -11,18 +11,19 @@
  * counters — is untouched (the endpoint only caps XP/ryo, the progression-speed
  * faucet, never the PvP power ceiling — see feedback_balanced_pvp_design_pillar).
  *
- * DEFAULT OFF — flipping it is the activation switch for P0.2b. While OFF the
- * client never calls the endpoint and grants exactly as before (byte-identical).
- * On any network / endpoint failure the ON path falls back to the local grant, so
- * a server hiccup never costs the player their reward (the per-save / per-minute
- * save-sanitizer caps remain the floor against a tampered client). Per-device
- * persisted; force ON with localStorage.setItem("aiFightServerAuth.v1", "1").
+ * DEFAULT ON (2026-07-01) — the client reports every AI win to the endpoint and
+ * grants the server-capped amounts. On any network / non-2xx / endpoint failure the
+ * path falls back to the locally-computed base, so a server hiccup never costs the
+ * player their reward (the per-save / per-minute save-sanitizer caps remain the
+ * floor against a tampered client). Storage-less / SSR contexts read OFF (old inline
+ * grant). Per-device persisted; force OFF with
+ * localStorage.setItem("aiFightServerAuth.v1", "0").
  */
 const AI_FIGHT_SERVER_AUTH_KEY = "aiFightServerAuth.v1";
 
 export function aiFightServerAuthEnabled(): boolean {
     try {
-        return localStorage.getItem(AI_FIGHT_SERVER_AUTH_KEY) === "1";
+        return localStorage.getItem(AI_FIGHT_SERVER_AUTH_KEY) !== "0";
     } catch {
         return false;
     }
