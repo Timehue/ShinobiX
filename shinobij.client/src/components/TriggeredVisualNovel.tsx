@@ -142,6 +142,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
+                    {/* Scene picture (backdrop + portraits + narration). On mobile
+                        this becomes a fixed-height block and the dialogue stacks
+                        BELOW it (vn-picture display:contents on desktop = no change). */}
+                    <div className="vn-picture">
                     <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
                     {!hideLeft && (
                         <div className={"vn-character mentor-character" + (speakingSide === "left" ? " vn-speaking" : speakingSide === "right" ? " vn-dimmed" : "")}>
@@ -160,6 +164,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         </div>
                     )}
                     <div className="vn-scene-card">{page.scene || event.vnScene || "An event interrupts your path."}</div>
+                    </div>{/* end vn-picture */}
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>
                         <p>{spoken}</p>

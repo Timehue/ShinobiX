@@ -2408,6 +2408,13 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
     box-shadow: inset 0 0 0 2px rgba(250,204,21,.28), 0 18px 45px rgba(0,0,0,.38);
 }
 
+/* Scene-picture wrapper. On desktop it's transparent (display:contents) so the
+   backdrop / portraits / narration position against .vn-stage exactly as before;
+   mobile turns it into a real fixed-height box so the dialogue can stack below. */
+.vn-picture {
+    display: contents;
+}
+
 .vn-backdrop {
     position: absolute;
     inset: 0;
@@ -22288,30 +22295,51 @@ html[data-vp="xs"] .pmtab {
         display: block !important;
     }
 
-    /* ── Visual novel stage ──────────────────────────────────────────── */
+    /* ── Visual novel — mobile stacks the dialogue BELOW the scene picture, so the
+       variable-height text box (long lines / choice buttons) never overlaps the
+       portraits the way the desktop absolute-overlay did. ─────────────────────── */
     .vn-stage {
-        min-height: 280px !important;
+        min-height: 0 !important;
         border-width: 2px !important;
     }
 
+    .vn-picture {
+        display: block !important;
+        position: relative;
+        height: 210px;
+        overflow: hidden;
+    }
+
     .vn-character {
-        width: 90px !important;
-        height: 130px !important;
-        font-size: 28px !important;
+        width: 82px !important;
+        height: 112px !important;
+        font-size: 24px !important;
         border-width: 2px !important;
         border-radius: 10px 10px 4px 4px !important;
     }
 
-    .mentor-character { bottom: 90px !important; }
-    .hero-character   { bottom: 90px !important; }
+    .mentor-character { left: 5% !important; bottom: 6px !important; }
+    .hero-character   { right: 5% !important; bottom: 6px !important; }
 
+    .vn-scene-card {
+        top: 6px !important;
+        width: min(92%, 330px) !important;
+        font-size: 0.75rem !important;
+        padding: 6px 10px !important;
+    }
+
+    /* Dialogue leaves the absolute overlay and flows as a normal block under the
+       picture (position:relative keeps it above the .vn-stage::after vignette). */
     .vn-dialogue {
-        left: 10px !important;
-        right: 10px !important;
-        bottom: 10px !important;
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin-top: 8px !important;
         min-height: 0 !important;
-        padding: 10px 12px 10px !important;
+        padding: 12px 14px !important;
         border-width: 2px !important;
+        z-index: 7;
     }
 
     .vn-speaker {
@@ -22321,13 +22349,8 @@ html[data-vp="xs"] .pmtab {
     }
 
     .vn-dialogue p {
-        font-size: clamp(13px, 3.8vw, 16px) !important;
+        font-size: clamp(14px, 3.8vw, 17px) !important;
         line-height: 1.45 !important;
-    }
-
-    .vn-scene-card {
-        font-size: 0.75rem !important;
-        padding: 6px 10px !important;
     }
 
     /* ── VN controls / action row ────────────────────────────────────── */
