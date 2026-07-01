@@ -8911,6 +8911,7 @@ export default function App() {
                         missionBattleActive={missionBattleActive}
                         onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
                         onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack}
+                        onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }}
                         exploreAmbushActive={pendingExploreSector !== null}
                         onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}
