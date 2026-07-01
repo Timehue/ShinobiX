@@ -369,8 +369,10 @@ async function handler(req, res) {
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
         try {
-            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { id, image } = body;
+            const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+            if (!parsed.ok)
+                return res.status(400).json({ error: parsed.error });
+            const { id, image } = parsed.body;
             if (!id || typeof image !== 'string')
                 return res.status(400).json({ error: 'Missing id or image.' });
             if (id.length > 256)
@@ -447,7 +449,10 @@ async function handler(req, res) {
             const queryId = typeof req.query.id === 'string' ? req.query.id : '';
             let bodyId = '';
             if (req.body) {
-                const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+                const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+                if (!parsed.ok)
+                    return res.status(400).json({ error: parsed.error });
+                const body = parsed.body;
                 if (body && typeof body.id === 'string')
                     bodyId = body.id;
             }

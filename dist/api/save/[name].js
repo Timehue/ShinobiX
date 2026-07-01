@@ -1439,6 +1439,13 @@ async function handler(req, res) {
                 return res.status(200).json({ ok: true });
             }
             const isAdminSave = req.query.signal === '1';
+            const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+            if (!parsed.ok)
+                return res.status(400).json({ error: parsed.error });
+            const incoming = parsed.body;
+            if (!incoming || typeof incoming !== 'object') {
+                return res.status(400).json({ error: 'Invalid save payload.' });
+            }
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             let identityName = null;
             if (isAdminSave) {
@@ -1481,7 +1488,7 @@ async function handler(req, res) {
                             // First-claimer-wins semantics. Once a record
                             // exists, the membership check is the only path.
                             const existingClan = await _storage_js_1.kv.get(key);
-                            const incomingBody = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
+                            const incomingBody = incoming;
                             const bodyFounder = (0, _utils_js_1.safeName)(String(incomingBody?.founderName ?? ''));
                             const allowCreate = !existingClan && bodyFounder && bodyFounder === identity.name;
                             // Non-member self-join-request carve-out. A player
@@ -1545,7 +1552,6 @@ async function handler(req, res) {
             // silently drop the client auto-save so it can't overwrite admin changes.
             // Speculatively fetch the existing save in parallel with the signal checks —
             // saves one round-trip on every auto-save (the common path).
-            const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
                 // ── Atomicity (finding 14) ─────────────────────────────────
                 // Serialize the read-modify-write through withKvLock on the SAME

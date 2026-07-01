@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -26,8 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!identity.admin && !enforceRateLimit(req, res, 'player-attack', 6, 60_000, rlName)) return;
 
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { targetName, attacker } = body as { targetName?: string; attacker?: { name?: string } | null };
+        const parsed = parseJsonBody(req.body);
+        if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+        const { targetName, attacker } = parsed.body as { targetName?: string; attacker?: { name?: string } | null };
         if (!targetName) return res.status(400).json({ error: 'Missing targetName.' });
 
         // Attacker's reported name (if any) must match the authed identity —

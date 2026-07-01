@@ -78,6 +78,10 @@ type OpenAiImageResponse = {
     data?: Array<{ b64_json?: string }>;
 };
 
+const PRESENCE_TTL_MS = 60_000;
+const MAX_PROMPT_LENGTH = 1_500;
+const MAX_LABEL_LENGTH = 120;
+
 function recordId(value: unknown) {
     return value && typeof value === 'object' && 'id' in value
         ? String((value as { id?: unknown }).id)
@@ -90,6 +94,30 @@ function characterSummary(character: unknown): CharacterSummary {
 
 function errorMessage(err: unknown, fallback = 'Request failed.') {
     return err instanceof Error ? err.message : fallback;
+}
+
+function safeName(name: string) {
+    return name.replace(/[^a-z0-9\-_]/g, '').toLowerCase();
+}
+
+function sectorFrom(value: unknown, fallback: number): number {
+    const sector = Math.floor(Number(value));
+    return Number.isFinite(sector) && sector >= 0 ? sector : fallback;
+}
+
+type JsonBodyResult =
+    | { ok: true; body: unknown }
+    | { ok: false; error: string };
+
+function parseJsonBody(rawBody: string): JsonBodyResult {
+    const trimmed = rawBody.trim();
+    if (!trimmed) return { ok: true, body: {} };
+
+    try {
+        return { ok: true, body: JSON.parse(trimmed) as unknown };
+    } catch {
+        return { ok: false, error: 'Malformed JSON body.' };
+    }
 }
 
 function isImageField(key: string, value: unknown) {
@@ -138,7 +166,7 @@ type PlayerPresence = {
 };
 const playerPresence = new Map<string, PlayerPresence>();
 setInterval(() => {
-    const cutoff = Date.now() - 30_000;
+    const cutoff = Date.now() - PRESENCE_TTL_MS;
     for (const [key, p] of playerPresence) {
         if (p.lastSeen < cutoff) playerPresence.delete(key);
     }
@@ -191,13 +219,18 @@ export default defineConfig({
                 server.middlewares.use('/api/player/heartbeat', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
-                        const { name, sector, character } = JSON.parse(await readBody(req)) as { name?: string; sector?: number; character?: unknown };
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { name, sector, character } = parsed.body as { name?: string; sector?: number; character?: unknown };
                         if (!name) { sendJson(res, 400, { error: 'Missing name.' }); return; }
-                        const existing = playerPresence.get(name) ?? { name, sector: sector ?? 40, character, lastSeen: 0, pendingAttacker: null };
+                        const playerId = safeName(name);
+                        if (!playerId) { sendJson(res, 400, { error: 'Invalid name.' }); return; }
+                        const existing = playerPresence.get(playerId) ?? { name: name.trim(), sector: sectorFrom(sector, 40), character, lastSeen: 0, pendingAttacker: null };
                         const pendingAttacker = existing.pendingAttacker;
-                        playerPresence.set(name, { name, sector: sector ?? existing.sector, character: character ?? existing.character, lastSeen: Date.now(), pendingAttacker: null });
+                        const nextSector = sectorFrom(sector, existing.sector);
+                        playerPresence.set(playerId, { name: name.trim(), sector: nextSector, character: character ?? existing.character, lastSeen: Date.now(), pendingAttacker: null });
                         const sectorMates = [...playerPresence.values()]
-                            .filter(p => p.name !== name && p.sector === (sector ?? existing.sector))
+                            .filter(p => safeName(p.name) !== playerId && p.sector === nextSector)
                             .map(({ name: n, sector: s, character: c }) => {
                                 const summary = characterSummary(c);
                                 return {
@@ -216,11 +249,15 @@ export default defineConfig({
                 server.middlewares.use('/api/player/attack', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
-                        const { targetName, attacker } = JSON.parse(await readBody(req)) as { targetName?: string; attacker?: unknown };
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { targetName, attacker } = parsed.body as { targetName?: string; attacker?: unknown };
                         if (!targetName) { sendJson(res, 400, { error: 'Missing targetName.' }); return; }
-                        const target = playerPresence.get(targetName);
+                        const targetId = safeName(targetName);
+                        if (!targetId) { sendJson(res, 400, { error: 'Invalid targetName.' }); return; }
+                        const target = playerPresence.get(targetId);
                         if (!target) { sendJson(res, 404, { error: 'Target not online.' }); return; }
-                        playerPresence.set(targetName, { ...target, pendingAttacker: attacker ?? null });
+                        playerPresence.set(targetId, { ...target, pendingAttacker: attacker ?? null });
                         sendJson(res, 200, { ok: true });
                     } catch (err: unknown) {
                         sendJson(res, 500, { error: errorMessage(err) });
@@ -230,10 +267,14 @@ export default defineConfig({
                 server.middlewares.use('/api/player/clear-attack', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
-                        const { name } = JSON.parse(await readBody(req)) as { name?: string };
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { name } = parsed.body as { name?: string };
                         if (!name) { sendJson(res, 400, { error: 'Missing name.' }); return; }
-                        const p = playerPresence.get(name);
-                        if (p) playerPresence.set(name, { ...p, pendingAttacker: null });
+                        const playerId = safeName(name);
+                        if (!playerId) { sendJson(res, 400, { error: 'Invalid name.' }); return; }
+                        const p = playerPresence.get(playerId);
+                        if (p) playerPresence.set(playerId, { ...p, pendingAttacker: null });
                         sendJson(res, 200, { ok: true });
                     } catch (err: unknown) {
                         sendJson(res, 500, { error: errorMessage(err) });
@@ -247,9 +288,13 @@ export default defineConfig({
                 server.middlewares.use('/api/village-guard/queue', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
-                        const { name, village, level } = JSON.parse(await readBody(req)) as { name?: string; village?: string; level?: number };
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { name, village, level } = parsed.body as { name?: string; village?: string; level?: number };
                         if (!name || !village) { sendJson(res, 400, { error: 'Missing name or village.' }); return; }
-                        villageGuards.set(name, { name, village, level: level ?? 1, lastSeen: Date.now() });
+                        const guardId = safeName(name);
+                        if (!guardId) { sendJson(res, 400, { error: 'Invalid name.' }); return; }
+                        villageGuards.set(guardId, { name: name.trim(), village, level: level ?? 1, lastSeen: Date.now() });
                         sendJson(res, 200, { ok: true });
                     } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
@@ -257,9 +302,13 @@ export default defineConfig({
                 server.middlewares.use('/api/village-guard/dequeue', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
-                        const { name } = JSON.parse(await readBody(req)) as { name?: string };
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { name } = parsed.body as { name?: string };
                         if (!name) { sendJson(res, 400, { error: 'Missing name.' }); return; }
-                        villageGuards.delete(name);
+                        const guardId = safeName(name);
+                        if (!guardId) { sendJson(res, 400, { error: 'Invalid name.' }); return; }
+                        villageGuards.delete(guardId);
                         sendJson(res, 200, { ok: true });
                     } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
@@ -267,7 +316,9 @@ export default defineConfig({
                 server.middlewares.use('/api/village-guard/list', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
-                        const { village } = JSON.parse(await readBody(req)) as { village?: string };
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { village } = parsed.body as { village?: string };
                         if (!village) { sendJson(res, 400, { error: 'Missing village.' }); return; }
                         const guards = [...villageGuards.values()]
                             .filter(g => g.village === village)
@@ -282,10 +333,6 @@ export default defineConfig({
             configureServer(server) {
                 const savesDir = path.resolve(process.cwd(), 'saves');
                 if (!fs.existsSync(savesDir)) fs.mkdirSync(savesDir, { recursive: true });
-
-                function safeName(name: string) {
-                    return name.replace(/[^a-z0-9\-_]/g, '').toLowerCase();
-                }
 
                 server.middlewares.use('/api/clans/list', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'GET') { next(); return; }
@@ -323,9 +370,11 @@ export default defineConfig({
 
                     if (req.method === 'POST') {
                         try {
-                            const body = await readBody(req);
-                            const incoming = JSON.parse(body);
-                            let payload = incoming;
+                            const parsed = parseJsonBody(await readBody(req));
+                            if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                            const incoming = parsed.body;
+                            if (!incoming || typeof incoming !== 'object') { sendJson(res, 400, { error: 'Invalid save payload.' }); return; }
+                            let payload: unknown = incoming;
 
                             if (fs.existsSync(filePath)) {
                                 try {
@@ -360,11 +409,16 @@ export default defineConfig({
                     if (req.method !== 'POST') { next(); return; }
 
                     try {
-                        const body = JSON.parse(await readBody(req)) as { prompt?: string; label?: string };
-                        const { prompt, label } = body;
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                        const { prompt, label } = parsed.body as { prompt?: string; label?: string };
 
                         if (!prompt?.trim()) {
                             sendJson(res, 400, { error: 'Missing image prompt.' });
+                            return;
+                        }
+                        if (prompt.length > MAX_PROMPT_LENGTH || (label?.length ?? 0) > MAX_LABEL_LENGTH) {
+                            sendJson(res, 413, { error: 'Image prompt is too large.' });
                             return;
                         }
 

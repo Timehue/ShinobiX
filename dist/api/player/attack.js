@@ -28,8 +28,10 @@ async function handler(req, res) {
     if (!identity.admin && !(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'player-attack', 6, 60_000, rlName))
         return;
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { targetName, attacker } = body;
+        const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+        if (!parsed.ok)
+            return res.status(400).json({ error: parsed.error });
+        const { targetName, attacker } = parsed.body;
         if (!targetName)
             return res.status(400).json({ error: 'Missing targetName.' });
         // Attacker's reported name (if any) must match the authed identity —
