@@ -75,6 +75,32 @@ const _utils_js_1 = require("./_utils.js");
         node_assert_1.strict.deepEqual((0, _utils_js_1.parseJsonBody)('{"name":'), { ok: false, error: 'Malformed JSON body.' });
     });
 });
+(0, node_test_1.describe)('isMalformedJsonBodyError', () => {
+    (0, node_test_1.it)('recognizes Express JSON parser errors', () => {
+        const err = Object.assign(new SyntaxError('Unexpected token } in JSON at position 1'), {
+            body: '{',
+            status: 400,
+            type: 'entity.parse.failed',
+        });
+        node_assert_1.strict.equal((0, _utils_js_1.isMalformedJsonBodyError)(err), true);
+    });
+    (0, node_test_1.it)('recognizes handler-level JSON.parse failures on string request bodies', () => {
+        let err;
+        try {
+            JSON.parse('{"name":');
+        }
+        catch (caught) {
+            err = caught;
+        }
+        node_assert_1.strict.equal((0, _utils_js_1.isMalformedJsonBodyError)(err, '{"name":'), true);
+    });
+    (0, node_test_1.it)('does not hide unrelated server SyntaxErrors', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.isMalformedJsonBodyError)(new SyntaxError('bad code'), { already: 'parsed' }), false);
+    });
+    (0, node_test_1.it)('does not classify server SyntaxErrors just because the raw body is a string', () => {
+        node_assert_1.strict.equal((0, _utils_js_1.isMalformedJsonBodyError)(new SyntaxError('Unexpected identifier'), '{"ok":true}'), false);
+    });
+});
 (0, node_test_1.describe)('mergePreservingImages', () => {
     (0, node_test_1.it)('returns incoming for non-object types', () => {
         node_assert_1.strict.equal((0, _utils_js_1.mergePreservingImages)('foo', { existing: 'val' }), 'foo');

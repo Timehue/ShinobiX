@@ -160,6 +160,8 @@ export type JsonBodyResult =
     | { ok: true; body: unknown }
     | { ok: false; error: string };
 
+export const MALFORMED_JSON_BODY_ERROR = 'Malformed JSON body.';
+
 export function parseJsonBody(rawBody: unknown): JsonBodyResult {
     if (typeof rawBody !== 'string') {
         return { ok: true, body: rawBody ?? {} };
@@ -171,8 +173,28 @@ export function parseJsonBody(rawBody: unknown): JsonBodyResult {
     try {
         return { ok: true, body: JSON.parse(trimmed) as unknown };
     } catch {
-        return { ok: false, error: 'Malformed JSON body.' };
+        return { ok: false, error: MALFORMED_JSON_BODY_ERROR };
     }
+}
+
+export function isMalformedJsonBodyError(err: unknown, rawBody?: unknown): boolean {
+    if (!(err instanceof SyntaxError)) return false;
+
+    const details = err as SyntaxError & {
+        body?: unknown;
+        status?: unknown;
+        statusCode?: unknown;
+        type?: unknown;
+    };
+
+    if (details.type === 'entity.parse.failed') return true;
+    if ((details.status === 400 || details.statusCode === 400) && typeof details.body === 'string') return true;
+
+    // Vercel-style handlers can still receive an already-buffered string body
+    // and parse it themselves. If that parse throws, it is client input, not a
+    // server fault. Keep this narrow so unrelated server SyntaxErrors still
+    // surface as 500s.
+    return typeof rawBody === 'string' && /\bJSON\b/.test(err.message);
 }
 
 // Methods that browsers consider "safe" — these can't mutate state, so even

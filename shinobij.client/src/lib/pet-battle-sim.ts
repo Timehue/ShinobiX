@@ -35,7 +35,7 @@ import {
     PET_SPAWN_2V2,
 } from "../constants/pet-arena";
 import type { Pet, PetJutsu } from "../types/pet";
-import type { PetArenaFrame, PetBattleFighter } from "../App";
+import type { PetArenaFrame, PetBattleFighter } from "../types/pet-arena";
 
 /** Horizontal mirror of a grid tile index (left↔right within its row). */
 export function mirrorPetTile(tile: number): number {
