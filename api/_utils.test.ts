@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { safeName, mergePreservingImages, isAllowedOrigin, clanBareSlug, clanRecordKey } from './_utils.js';
+import { safeName, mergePreservingImages, isAllowedOrigin, clanBareSlug, clanRecordKey, parseJsonBody } from './_utils.js';
 
 describe('safeName', () => {
     it('lowercases', () => {
@@ -69,6 +69,21 @@ describe('clanRecordKey / clanBareSlug (#19)', () => {
     it('the old hyphenated form would NOT have matched (regression guard)', () => {
         const hyphenated = 'clan-' + 'Storm Clan'.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
         assert.notEqual(`save:${hyphenated}`, clanRecordKey('Storm Clan'));
+    });
+});
+
+describe('parseJsonBody', () => {
+    it('parses valid string bodies', () => {
+        assert.deepEqual(parseJsonBody('{"name":"Rill"}'), { ok: true, body: { name: 'Rill' } });
+    });
+
+    it('treats empty bodies as an empty object', () => {
+        assert.deepEqual(parseJsonBody('   '), { ok: true, body: {} });
+        assert.deepEqual(parseJsonBody(undefined), { ok: true, body: {} });
+    });
+
+    it('returns a controlled error for malformed JSON', () => {
+        assert.deepEqual(parseJsonBody('{"name":'), { ok: false, error: 'Malformed JSON body.' });
     });
 });
 

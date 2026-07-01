@@ -63,6 +63,18 @@ const _utils_js_1 = require("./_utils.js");
         node_assert_1.strict.notEqual(`save:${hyphenated}`, (0, _utils_js_1.clanRecordKey)('Storm Clan'));
     });
 });
+(0, node_test_1.describe)('parseJsonBody', () => {
+    (0, node_test_1.it)('parses valid string bodies', () => {
+        node_assert_1.strict.deepEqual((0, _utils_js_1.parseJsonBody)('{"name":"Rill"}'), { ok: true, body: { name: 'Rill' } });
+    });
+    (0, node_test_1.it)('treats empty bodies as an empty object', () => {
+        node_assert_1.strict.deepEqual((0, _utils_js_1.parseJsonBody)('   '), { ok: true, body: {} });
+        node_assert_1.strict.deepEqual((0, _utils_js_1.parseJsonBody)(undefined), { ok: true, body: {} });
+    });
+    (0, node_test_1.it)('returns a controlled error for malformed JSON', () => {
+        node_assert_1.strict.deepEqual((0, _utils_js_1.parseJsonBody)('{"name":'), { ok: false, error: 'Malformed JSON body.' });
+    });
+});
 (0, node_test_1.describe)('mergePreservingImages', () => {
     (0, node_test_1.it)('returns incoming for non-object types', () => {
         node_assert_1.strict.equal((0, _utils_js_1.mergePreservingImages)('foo', { existing: 'val' }), 'foo');

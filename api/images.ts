@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cors, safeName } from './_utils.js';
+import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
@@ -370,8 +370,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
-            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { id, image } = body as { id?: string; image?: string };
+            const parsed = parseJsonBody(req.body);
+            if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+            const { id, image } = parsed.body as { id?: string; image?: string };
             if (!id || typeof image !== 'string') return res.status(400).json({ error: 'Missing id or image.' });
             if (id.length > 256) return res.status(400).json({ error: 'Image id too long.' });
             if (!isValidImageString(image)) {
@@ -450,7 +451,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const queryId = typeof req.query.id === 'string' ? req.query.id : '';
             let bodyId = '';
             if (req.body) {
-                const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+                const parsed = parseJsonBody(req.body);
+                if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+                const body = parsed.body as { id?: unknown };
                 if (body && typeof body.id === 'string') bodyId = body.id;
             }
             const id = queryId || bodyId;

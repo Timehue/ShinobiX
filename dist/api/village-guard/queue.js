@@ -13,8 +13,10 @@ async function handler(req, res) {
     if (req.method !== 'POST')
         return res.status(405).end();
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name, village } = body;
+        const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+        if (!parsed.ok)
+            return res.status(400).json({ error: parsed.error });
+        const { name, village } = parsed.body;
         if (!name || !village)
             return res.status(400).json({ error: 'Missing name or village.' });
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);

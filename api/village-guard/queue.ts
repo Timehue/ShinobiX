@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { isAcademyProtectedLevel, ACADEMY_MIN_LEVEL } from '../_realtime/presence-gating.js';
@@ -11,8 +11,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).end();
 
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name, village } = body as { name?: string; village?: string; level?: number };
+        const parsed = parseJsonBody(req.body);
+        if (!parsed.ok) return res.status(400).json({ error: parsed.error });
+        const { name, village } = parsed.body as { name?: string; village?: string; level?: number };
         if (!name || !village) return res.status(400).json({ error: 'Missing name or village.' });
 
         const identity = await authedPlayerOrAdmin(req, name);

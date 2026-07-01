@@ -11,8 +11,10 @@ async function handler(req, res) {
     if (req.method !== 'POST')
         return res.status(405).end();
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name } = body;
+        const parsed = (0, _utils_js_1.parseJsonBody)(req.body);
+        if (!parsed.ok)
+            return res.status(400).json({ error: parsed.error });
+        const { name } = parsed.body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
         // Can only clear your own pending attacker.
