@@ -89,6 +89,7 @@ import villageWarTerrainHandler from './api/village/war-terrain.js';
 import villageSectorWarHandler from './api/village/sector-war.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageWarMapHandler from './api/village/war-map.js';
+import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -640,6 +641,10 @@ route('/village/sector-card', villageSectorCardHandler);
 // WR/seal pools, structures + upkeep + dormancy, tax tier, active contests.
 // GET only, gated (404 unless ENABLE_VILLAGE_WAR=1).
 route('/village/war-map', villageWarMapHandler);
+// War crate — server-authoritative claim of a village-war-win Legendary War
+// Crate, validated against the authoritative world:war record (P0.2c). POST,
+// idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.
+route('/village/claim-war-crate', villageClaimWarCrateHandler);
 // Bank interest — server-authoritative personal claim (server computes
 // floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
 route('/bank/claim-interest', bankClaimInterestHandler);
