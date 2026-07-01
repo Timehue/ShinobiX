@@ -2353,7 +2353,7 @@ export function WorldMap({
         const sectorMapMode = !!sectorMapSrc;
         return (
             <div className="map-instance">
-                <div className="sector-instance-wrap">
+                <div className="instance-frame">
                     <main className="tile-scene">
                         <div className="scene-title">
                             <strong>{loc.name} — Outer Territory</strong>
