@@ -238,6 +238,25 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
         return res.status(403).json({ error: 'That battle is not between the two villages at war over this sector.' });
     }
 
+    // Seal the DEFENDER's chosen sector terrain into the fight as its biome, so the
+    // home-terrain school bonus actually applies (+10% to the terrain's jutsu school
+    // via api/pvp/move.ts terrainMultiplier — §17.3 "defender home advantage"; the
+    // valid terrains forest/snow/volcano/shadow are exactly the buffed biomes, central
+    // is neutral). This is server-authoritative and runs at battle registration —
+    // BEFORE any move resolves and reads session.biome — so an attacker can't dodge
+    // the defender's home terrain by opening the duel on a biome that suits their own
+    // school. Best-effort: a hiccup here must never block the sanctioned attack.
+    try {
+        const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
+        const terrain = defRec.sectors[String(sector)]?.terrain;
+        const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+        if (terrain && session && session.biome !== terrain) {
+            await kv.set(`pvp:${battleId}`, { ...session, biome: terrain });
+        }
+    } catch (err) {
+        console.error('[sector-war] terrain-seal (non-fatal)', err);
+    }
+
     await mintSectorWarToken(newSectorWarBattleToken({
         battleId,
         sectorWarId: contest.id,
