@@ -307,6 +307,11 @@ export type Character = {
     // Set when you take a repeatable reward from a wanderer (fight/gift/pet/card) so
     // that NPC vanishes for a few hours. Additive/optional; expired entries are pruned.
     wandererCooldowns?: Record<string, number>;
+    // Per-NPC relocation for sector wanderers (wanderer id → destination sector).
+    // Set alongside the cooldown when you interact with a wanderer, so it doesn't
+    // reappear in the SAME sector when its cooldown lifts — it wanders off to the
+    // recorded sector instead. Additive/optional; self-clears each 6h roster window.
+    wandererMoves?: Record<string, number>;
     totalPvpKills?: number;
     monthlyPvpKills?: number;
     pvpKillMonth?: string;
