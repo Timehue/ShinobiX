@@ -104,7 +104,13 @@ import { readFileSync } from "node:fs";
 // → 10,145 (merge of main + the village-war branch — main's App.tsx plus the branch's
 // net-negative screen wiring; measured post-merge.)
 // → 10,147 (+2: lazy import + render line for the new Card Clash free-play duel screen).
-const MAX_LINES = 10_147;
+// → 10,152 (+5 P0.2c server-auth war-crate wiring: the war-crate-flag import (+1) and the
+// server-claim insert in the war-crate poll-effect (+4). It reads App-local character /
+// setCharacter at the poll-effect integration point, so it can't move to a module — the
+// same mandatory-App-local-wiring exception as the Sector-War block above. All crate LOGIC
+// lives in lib/world-state.ts (claimServerVillageWarCrates / applyWarCrateGrants); flag OFF
+// (warCrateServerAuth.v1) → the effect is byte-identical to before.)
+const MAX_LINES = 10_152;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
