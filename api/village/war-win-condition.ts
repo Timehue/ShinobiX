@@ -46,11 +46,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!(WIN_CONDITIONS as readonly string[]).includes(winCondition)) {
             return res.status(400).json({ error: 'Unknown win-condition.' });
         }
-        // Pet sector wars require the server-side sim (Phase 7); until then a
-        // client-claimed pet result could flip territory — disallow assigning it.
-        if (winCondition === 'pet') {
-            return res.status(409).json({ error: 'Pet-battle sectors are not available yet.' });
-        }
+        // (Pet sector wars are now server-resolved via api/village/sector-pet →
+        // api/_pet-sim, byte-identical parity-tested — so Pet is a first-class,
+        // cheat-proof win-condition and freely assignable, same as Combat/Card.)
         // The sector must be a home sector of this village.
         if (homeVillageForSector(sector) !== village) {
             return res.status(400).json({ error: 'That sector is not one of your home sectors.' });
