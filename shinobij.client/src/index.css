@@ -13761,6 +13761,14 @@ button.combat-jutsu-button,
     border-radius: 11px;
 }
 
+/* Mercenary tier cards show the full merc portrait a touch larger than the
+   structure/upgrade emblems so the character art reads clearly. */
+.town-upgrade-icon.town-merc-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+}
+
 .town-upgrade-topline strong {
     color: #facc15;
 }
