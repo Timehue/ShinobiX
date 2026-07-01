@@ -22,6 +22,7 @@ import {
     type MercLeaseView,
 } from "../lib/village-war-map";
 import { mercPortrait } from "../lib/merc-ai";
+import { mercTierName } from "../lib/merc-roam-client";
 import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../data/war-ui-images";
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
@@ -194,7 +195,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     return (
                                         <div key={t.id} className="vwm-merc-tier">
                                             {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
-                                            <div className="vwm-merc-name">{t.id} · L{t.level}</div>
+                                            <div className="vwm-merc-name">{mercTierName(t.id)} · L{t.level}</div>
                                             <button disabled={!!busy} onClick={() => act(`hire-${t.id}`, async () => { await hireMerc(character.name, myVillage, t.id); await loadMercs(); })}>
                                                 Hire · {t.costWr} WR
                                             </button>
