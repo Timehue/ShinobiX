@@ -135,7 +135,7 @@ export function Arena({
     onBattleActiveChange,
     directCombat = false,
     onReturnFromCombat,
-    onImmediateSave,
+    onQueueCombatClaim,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -189,14 +189,14 @@ export function Arena({
     // instead send the player back to the screen they came from via onReturnFromCombat.
     directCombat?: boolean;
     onReturnFromCombat?: () => void;
-    // Persist the character to the server RIGHT NOW rather than waiting for the
-    // 3s debounced autosave. Used when a combat-mission win queues a claim
-    // (pendingCombatMissionClaims): the Mission Hall "Claim Reward" step is
-    // server-authoritative and rejects the claim unless the queued flag has
-    // already been saved, so a quick claim (or a refresh, or a background
-    // save-conflict refetch) that races the debounce would otherwise lose the
-    // mission. Mirrors PetYard's onImmediateSave.
-    onImmediateSave?: (character: Character) => void;
+    // Queue a won combat-mission claim SERVER-SIDE (POST /api/missions/queue-combat-claim).
+    // The Mission Hall "Claim Reward" step is server-authoritative and rejects the
+    // claim unless the queue is already on the server, so winning must persist the
+    // queue durably — not rely on the 3s debounced autosave (which a quick claim,
+    // a refresh, or a save-conflict refetch races and drops). The endpoint mints a
+    // single-use claim token + writes the durable flag under the save lock; we
+    // still set the local flag optimistically for instant UI + an autosave fallback.
+    onQueueCombatClaim?: (missionKey: string) => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -2388,13 +2388,11 @@ export function Arena({
                 : [...(base.pendingCombatMissionClaims ?? []), combatMission.key];
             const queuedChar = { ...base, hp: playerHp, pendingCombatMissionClaims: queued };
             updateCharacter(queuedChar);
-            // Flush the queued claim to the server immediately. Winning only marks
-            // the claim as pending on the character; the Mission Hall claim step is
-            // server-authoritative and rejects `not-queued` unless this flag is
-            // already persisted. The 3s debounced autosave loses that race when the
-            // player claims (or refreshes) quickly, permanently dropping the mission
-            // (and its goal credit). Persist now so the claim always finds the flag.
-            onImmediateSave?.(queuedChar);
+            // Queue the claim SERVER-SIDE so it's durable and the Mission Hall claim
+            // can't be rejected `not-queued`. The endpoint mints a single-use claim
+            // token + writes the flag under the save lock; the local set above is
+            // just optimistic UI + an autosave fallback if this POST fails.
+            onQueueCombatClaim?.(combatMission.key);
             setBattleEnded(true);
             setBattleResult("win");
             setRaidBattleKind("none");

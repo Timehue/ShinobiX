@@ -80,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!save || !char) return { status: 404, body: { error: 'Your save was not found.' } };
             let record = await kv.get<WeeklyRecord>(key);
             if (!record) { record = { baseline: snapshotCounters(char), claimed: [] }; }
-            if (record.claimed.includes(mission.id)) return { status: 200, body: { ok: true, alreadyClaimed: true } };
+            if (record.claimed.includes(mission.id)) return { status: 200, body: { ok: true, alreadyClaimed: true, _saveVersion: Number(save._saveVersion ?? 0) } };
             const progress = computeProgress(mission, record.baseline, char);
             if (progress < mission.target) return { status: 400, body: { error: 'That mission is not complete yet.', progress, target: mission.target } };
 
@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(key, nextRecord, { ex: RECORD_TTL_SECONDS } as never);
             const updatedSave = bumpSaveVersion({ ...save, character: nextChar });
             await kv.set(`save:${playerName}`, mergePreservingImages(updatedSave, save));
-            return { status: 200, body: { ok: true, reward: r, missionId: mission.id } };
+            return { status: 200, body: { ok: true, reward: r, missionId: mission.id, _saveVersion: Number((updatedSave as Record<string, unknown>)._saveVersion ?? 0) } };
         }, { failClosed: true });
 
         if (out.status === 200 && out.body.ok && !out.body.alreadyClaimed) {

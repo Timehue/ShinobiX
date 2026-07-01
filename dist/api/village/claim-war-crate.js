@@ -114,7 +114,7 @@ async function handler(req, res) {
             const claimed = Array.isArray(c.claimedWarCrateIds) ? c.claimedWarCrateIds.map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
             if (!decision.granted)
-                return decision;
+                return { ...decision, _saveVersion: Number(fresh._saveVersion ?? 0) };
             const inventory = Array.isArray(c.inventory) ? [...c.inventory] : [];
             inventory.push(LEGENDARY_WAR_CRATE_ID);
             const updated = (0, _save_version_js_1.bumpSaveVersion)({
@@ -122,7 +122,7 @@ async function handler(req, res) {
                 character: { ...c, inventory, claimedWarCrateIds: [...claimed, warCrateId] },
             });
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
-            return { granted: true, reason: 'granted' };
+            return { granted: true, reason: 'granted', _saveVersion: Number(updated._saveVersion ?? 0) };
         }, { failClosed: true });
         return res.status(200).json({ ok: true, ...outcome });
     }

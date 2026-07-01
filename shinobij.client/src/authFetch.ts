@@ -123,6 +123,7 @@ export function setActiveToken(token: string | null): void {
 // Listen for it with: window.addEventListener('shinobix:session-expired', ...).
 // The latch resets whenever a fresh token is stored (setActiveToken above).
 export const SESSION_EXPIRED_EVENT = 'shinobix:session-expired';
+export const SAVE_VERSION_EVENT = 'shinobix:save-version';
 let _sessionExpiredNotified = false;
 function notifySessionExpired(): void {
     if (_sessionExpiredNotified) return;
@@ -132,6 +133,22 @@ function notifySessionExpired(): void {
     } catch {
         /* SSR / no window — ignore */
     }
+}
+
+function observeSaveVersion(response: Response): Response {
+    try {
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!contentType.toLowerCase().includes('application/json')) return response;
+        void response.clone().json().then((data: unknown) => {
+            if (!data || typeof data !== 'object') return;
+            const version = Number((data as Record<string, unknown>)._saveVersion);
+            if (!Number.isFinite(version)) return;
+            window.dispatchEvent(new CustomEvent(SAVE_VERSION_EVENT, { detail: { version } }));
+        }).catch(() => undefined);
+    } catch {
+        /* response clone / JSON parse unavailable — ignore */
+    }
+    return response;
 }
 
 /**
@@ -283,7 +300,7 @@ export function installAuthFetch(): void {
 
         if (hasAuthHeader(init, input)) {
             newInit.headers = newHeaders;
-            return originalFetch(input, newInit);
+            return observeSaveVersion(await originalFetch(input, newInit));
         }
 
         // Try admin auth first (higher priority when both exist)
@@ -297,7 +314,7 @@ export function installAuthFetch(): void {
         if (adminPw) {
             if (!newHeaders.has('x-admin-password')) newHeaders.set('x-admin-password', adminPw);
             newInit.headers = newHeaders;
-            return originalFetch(input, newInit);
+            return observeSaveVersion(await originalFetch(input, newInit));
         }
 
         // Fall back to player auth
@@ -307,7 +324,7 @@ export function installAuthFetch(): void {
         // Nothing to attach (logged out) — pass through unauthenticated.
         if (!activeName || (!pw && !token)) {
             newInit.headers = newHeaders;
-            return originalFetch(input, newInit);
+            return observeSaveVersion(await originalFetch(input, newInit));
         }
 
         if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
@@ -337,14 +354,14 @@ export function installAuthFetch(): void {
                 const retryHeaders = new Headers(newHeaders);
                 retryHeaders.set('x-player-token', fresh);
                 retryHeaders.delete('x-player-password');
-                return originalFetch(input, { ...newInit, headers: retryHeaders });
+                return observeSaveVersion(await originalFetch(input, { ...newInit, headers: retryHeaders }));
             }
             // No fresh token — couldn't re-mint (token-first client with no
             // stored password to refresh from). Tell the app so it can prompt a
             // clean re-login rather than silently returning the 401. (#14)
             if (!fresh) notifySessionExpired();
         }
-        return response;
+        return observeSaveVersion(response);
     };
 }
 

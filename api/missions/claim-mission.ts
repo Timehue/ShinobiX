@@ -58,6 +58,7 @@ type ClaimOutcome =
     | { applied: false; reason: string; clientFallback?: boolean }
     | {
         applied: true;
+        saveVersion: number;
         reward: {
             xpBoosted: number;        // base after town-hall boost; client passes to gainXp
             ryo: number;
@@ -71,6 +72,29 @@ type ClaimOutcome =
         academyTrialClaimed?: boolean;
         academyChecklistClaimed?: boolean;
     };
+
+export function applyClaimedMissionState(
+    record: Record<string, unknown>,
+    missionType: string,
+    missionId: string,
+): Record<string, unknown> {
+    if (missionType !== 'field' && missionType !== 'hunt') return record;
+
+    const updated: Record<string, unknown> = { ...record };
+    if (Array.isArray(updated.acceptedMissionIds)) {
+        updated.acceptedMissionIds = updated.acceptedMissionIds.map(String).filter((id) => id !== missionId);
+    }
+
+    const progress = updated.missionProgress;
+    if (progress && typeof progress === 'object' && !Array.isArray(progress)) {
+        const nextProgress = { ...(progress as Record<string, unknown>) };
+        nextProgress[missionId] = 0;
+        if (missionType === 'field') nextProgress[`${missionId}:raids`] = 0;
+        updated.missionProgress = nextProgress;
+    }
+
+    return updated;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -125,9 +149,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const def = combatMissionByKey(missionId);
                 if (!def) return { applied: false, reason: 'unknown-mission', clientFallback: true };
                 if (Number(char.level ?? 1) < def.min) return { applied: false, reason: 'level' };
+                // Server-authoritative claim gate: the single-use token minted by
+                // /api/missions/queue-combat-claim when the fight was won. Preferred
+                // over the pendingCombatMissionClaims flag because the client can't
+                // forge a KV token via the save endpoint, and it's single-use.
+                // Legacy fallback: a client on the prior build (or a token that
+                // aged past its TTL) still carries the durable flag on the save —
+                // accept that too so no in-flight claim is ever stranded. We're
+                // inside the save lock, so this get→del is race-free per player.
+                const tokenKey = `missions:combat-claim:${playerName}:${def.key}`;
+                const hasToken = !!(await kv.get(tokenKey).catch(() => null));
                 const pending = Array.isArray(char.pendingCombatMissionClaims) ? char.pendingCombatMissionClaims as string[] : [];
-                if (!pending.includes(def.key)) return { applied: false, reason: 'not-queued' };
+                const hasLegacyFlag = pending.includes(def.key);
+                if (!hasToken && !hasLegacyFlag) return { applied: false, reason: 'not-queued' };
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
+                // Consume the token once eligibility passes (before payout), so a
+                // retry / racing duplicate can't double-claim. A cap-blocked claim
+                // returned above WITHOUT consuming it, so the player can still claim
+                // after the daily reset via the durable flag.
+                if (hasToken) await kv.del(tokenKey).catch(() => undefined);
                 baseXp = def.xp; baseRyo = def.ryo; scrolls = def.territoryScrolls;
                 combat = { aiProfileId: def.aiProfileId, missionKey: def.key };
                 completion = 'daily';
@@ -236,12 +276,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (academyTrialClaimed) next = { ...next, academyTrialClaimed: true };
             if (academyChecklistClaimed) next = { ...next, academyChecklistClaimed: true };
 
-            const updated = { ...record, character: next };
+            const updated: Record<string, unknown> = { ...applyClaimedMissionState(record, missionType, missionId), character: next };
             bumpSaveVersion(updated);
             await kv.set(saveKey, mergePreservingImages(updated, record));
 
             return {
                 applied: true,
+                saveVersion: Number(updated._saveVersion ?? 0),
                 reward: {
                     xpBoosted,
                     ryo: ryoBoosted,
@@ -262,6 +303,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // who has a profession and takes its own locks, so it runs AFTER the
         // claim's save lock has released (no nested locking). Best-effort — a
         // failure here must never fail the (already-applied) claim.
+        let finalSaveVersion = outcome.applied ? outcome.saveVersion : 0;
         if (outcome.applied) {
             try {
                 await reportNewbieEvent({ playerName, kind: 'newbie-missions' });
@@ -278,8 +320,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const [cur, amt] of Object.entries(r.currency ?? {})) {
                 if (amt) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
+            const finalRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
+            finalSaveVersion = Number(finalRecord?._saveVersion ?? finalSaveVersion);
         }
 
+        if (outcome.applied) {
+            const { saveVersion, ...body } = outcome;
+            return res.status(200).json({ ok: true, ...body, _saveVersion: finalSaveVersion });
+        }
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {
         console.error('[missions/claim-mission]', err);

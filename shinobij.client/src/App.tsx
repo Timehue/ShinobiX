@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import "./index.css";
-import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT } from "./authFetch";
+import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVENT, SAVE_VERSION_EVENT } from "./authFetch";
 import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
@@ -4590,6 +4590,15 @@ export default function App() {
     // newer snapshot. Defaults to 0 = "no version known" which the server
     // treats as an allow (preserves backwards compat for stale tabs).
     const latestSaveVersionRef = useRef<number>(0);
+    useEffect(() => {
+        const onSaveVersion = (event: Event) => {
+            const version = Number((event as CustomEvent<{ version?: unknown }>).detail?.version);
+            if (!Number.isFinite(version)) return;
+            latestSaveVersionRef.current = Math.max(latestSaveVersionRef.current, version);
+        };
+        window.addEventListener(SAVE_VERSION_EVENT, onSaveVersion);
+        return () => window.removeEventListener(SAVE_VERSION_EVENT, onSaveVersion);
+    }, []);
     // Guard so we only run one conflict-recovery refetch at a time even if
     // multiple autosave timers fire 409s in close succession.
     const conflictRefetchInFlightRef = useRef<boolean>(false);
@@ -8910,8 +8919,7 @@ export default function App() {
                         onHuntBeastDefeated={completeHuntForAi}
                         missionBattleActive={missionBattleActive}
                         onMissionBattleResolved={() => { setMissionBattleActive(false); setPendingExploreSector(null); }}
-                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack}
-                        onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }}
+                        onBattleActiveChange={setArenaBattleActive} directCombat={screen === "arena"} onReturnFromCombat={goBack} onQueueCombatClaim={(missionKey) => { void fetch("/api/missions/queue-combat-claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ playerName: character.name, missionId: missionKey }) }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && typeof d._saveVersion === "number") latestSaveVersionRef.current = d._saveVersion; }).catch(() => { /* fallback: optimistic local flag + autosave persist it */ }); }}
                         exploreAmbushActive={pendingExploreSector !== null}
                         onExploreAmbushWon={() => { if (pendingExploreSector !== null) recordMissionExplore(pendingExploreSector); setPendingExploreSector(null); }}
                         setPvpBattleId={setPvpBattleId}

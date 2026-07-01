@@ -53,8 +53,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         type Out =
             | { error: 'no-save' }
-            | { credited: false; reason: string; nextClaimAt: number }
-            | { credited: true; interest: number; bankRyo: number; nextClaimAt: number };
+            | { credited: false; reason: string; nextClaimAt: number; saveVersion: number }
+            | { credited: true; interest: number; bankRyo: number; nextClaimAt: number; saveVersion: number };
         let out: Out;
         try {
             out = await withKvLock(saveKey, async (): Promise<Out> => {
@@ -63,13 +63,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!rec || !char) return { error: 'no-save' };
                 const result = computeBankInterest(char, now);
                 if (!result.eligible) {
-                    return { credited: false, reason: result.reason, nextClaimAt: result.nextClaimAt };
+                    return { credited: false, reason: result.reason, nextClaimAt: result.nextClaimAt, saveVersion: Number(rec._saveVersion ?? 0) };
                 }
                 const nextBankRyo = (Number(char.bankRyo) || 0) + result.interest;
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
                 const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
                 await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS };
+                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS, saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0) };
             }, { failClosed: true });
         } catch (e) {
             console.error('[bank/claim-interest] credit failed', e);
@@ -78,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
         if (!out.credited) {
-            return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt });
+            return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion });
         }
 
         await kv.set(`${AUDIT_LOG_PREFIX}${playerName}:${now}`, {
@@ -97,6 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             bankRyo: out.bankRyo,
             lastBankInterestAt: now,
             nextClaimAt: out.nextClaimAt,
+            _saveVersion: out.saveVersion,
         });
     } catch (err) {
         console.error('[bank/claim-interest]', err);

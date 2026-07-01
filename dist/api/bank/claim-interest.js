@@ -60,13 +60,13 @@ async function handler(req, res) {
                     return { error: 'no-save' };
                 const result = (0, _bank_interest_js_1.computeBankInterest)(char, now);
                 if (!result.eligible) {
-                    return { credited: false, reason: result.reason, nextClaimAt: result.nextClaimAt };
+                    return { credited: false, reason: result.reason, nextClaimAt: result.nextClaimAt, saveVersion: Number(rec._saveVersion ?? 0) };
                 }
                 const nextBankRyo = (Number(char.bankRyo) || 0) + result.interest;
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
                 const nextRecord = (0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: nextChar });
                 await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(nextRecord, rec));
-                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + _bank_interest_js_1.BANK_INTEREST_WINDOW_MS };
+                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + _bank_interest_js_1.BANK_INTEREST_WINDOW_MS, saveVersion: Number(nextRecord._saveVersion ?? 0) };
             }, { failClosed: true });
         }
         catch (e) {
@@ -76,7 +76,7 @@ async function handler(req, res) {
         if ('error' in out)
             return res.status(404).json({ error: 'Your save was not found.' });
         if (!out.credited) {
-            return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt });
+            return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion });
         }
         await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${playerName}:${now}`, {
             ts: now,
@@ -92,6 +92,7 @@ async function handler(req, res) {
             bankRyo: out.bankRyo,
             lastBankInterestAt: now,
             nextClaimAt: out.nextClaimAt,
+            _saveVersion: out.saveVersion,
         });
     }
     catch (err) {
