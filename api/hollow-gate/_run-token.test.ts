@@ -4,10 +4,11 @@ import {
     hollowShardDrop as serverShardDrop,
     HG_CLAWBACK_KEYS,
     HG_HIGH_VALUE_ITEM_ID,
+    clampFragmentTotal,
+    itemStackCount,
     maxFragmentsForDepth,
     maxHaulForDepth,
     maxShardsForDepth,
-    settleItemCount,
     AUGMENT_CATALOG,
     rollAugmentOffers,
     rewardMultiplierForToken,
@@ -109,28 +110,32 @@ test('HG_HIGH_VALUE_ITEM_ID mirrors the client DUNGEON_LEGENDARY_FRAGMENT_ID (dr
     );
 });
 
-test('maxFragmentsForDepth grows with depth, clamps to 1..20, and is always positive', () => {
-    assert.equal(maxFragmentsForDepth(1), 1);
-    assert.equal(maxFragmentsForDepth(5), 5);
-    assert.ok(maxFragmentsForDepth(5) > maxFragmentsForDepth(3), 'deeper runs allow more fragments');
-    assert.equal(maxFragmentsForDepth(0), 1, 'floors at 1');
-    assert.equal(maxFragmentsForDepth(999), 20, 'clamps at 20');
-    assert.equal(maxFragmentsForDepth(NaN as unknown as number), 1, 'junk → 1');
+test('maxFragmentsForDepth grows with depth, clamps to 2..40, and is always positive', () => {
+    assert.equal(maxFragmentsForDepth(1), 2);
+    assert.equal(maxFragmentsForDepth(5), 10);
+    assert.ok(maxFragmentsForDepth(5) > maxFragmentsForDepth(3), 'deeper runs allow a bigger ceiling');
+    assert.equal(maxFragmentsForDepth(0), 2, 'floors at the min ceiling');
+    assert.equal(maxFragmentsForDepth(999), 40, 'clamps at 40');
+    assert.equal(maxFragmentsForDepth(NaN as unknown as number), 2, 'junk → floor');
 });
 
-test('settleItemCount clamps an over-claim to the sealed ceiling', () => {
-    assert.equal(settleItemCount(99, 5, 1), 5);  // claimed 99, ceiling 5 → 5
-    assert.equal(settleItemCount(2, 5, 1), 2);   // under the ceiling → claimed
+test('itemStackCount sums the counted-stack total for an item id', () => {
+    const stacks = [{ itemId: 'dungeon-legendary-fragment', count: 3 }, { itemId: 'other', count: 9 }];
+    assert.equal(itemStackCount(stacks, 'dungeon-legendary-fragment'), 3);
+    assert.equal(itemStackCount(stacks, 'missing'), 0);
+    assert.equal(itemStackCount(null, 'x'), 0);                          // no stacks → 0
+    assert.equal(itemStackCount([{ itemId: 'x', count: -5 }], 'x'), 0);  // junk count floored
 });
 
-test('settleItemCount applies the death claw-back fraction and floors', () => {
-    assert.equal(settleItemCount(4, 10, 0.5), 2);  // floor(min(4,10)*0.5)
-    assert.equal(settleItemCount(1, 10, 0.5), 0);  // a lone fragment is lost on death
+test('clampFragmentTotal caps the run GAIN to the ceiling, byte-identical under it', () => {
+    // entry 4, ceiling 10 → allowed up to 14; a legit total under that is unchanged.
+    assert.equal(clampFragmentTotal(9, 4, 10), 9);   // gained 5 (<=10) → no clamp
+    assert.equal(clampFragmentTotal(14, 4, 10), 14); // gained exactly 10 → boundary, kept
+    assert.equal(clampFragmentTotal(99, 4, 10), 14); // gained 95 → clawed back to entry+ceiling
 });
 
-test('settleItemCount floors at 0 and ignores negative/junk input', () => {
-    assert.equal(settleItemCount(-3, 5, 1), 0);
-    assert.equal(settleItemCount(5, 0, 1), 0);              // zero ceiling → no credit
-    assert.equal(settleItemCount('junk', 5, 1), 0);
-    assert.equal(settleItemCount(undefined, 5, 1), 0);      // current clients send nothing → inert
+test('clampFragmentTotal never restores an in-run spend and never goes negative', () => {
+    assert.equal(clampFragmentTotal(2, 5, 10), 2);   // spent below entry mid-run → keep current, no refund
+    assert.equal(clampFragmentTotal(-3, 0, 10), 0);  // junk → 0
+    assert.equal(clampFragmentTotal(5, 0, 0), 0);    // zero entry + zero ceiling → 0
 });

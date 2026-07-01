@@ -42,11 +42,6 @@ async function handler(req, res) {
         const token = String(body.token ?? '').slice(0, 64);
         const outcome = body.outcome === 'death' ? 'death' : 'extract';
         const haul = (body.haul && typeof body.haul === 'object') ? body.haul : {};
-        // P0.2c — high-value ITEM drops (e.g. the boss Dungeon Legendary Fragment).
-        // INERT for current clients: they report only the currency `haul`; the credit
-        // below stays 0 until a client rewire defers the inline boss-fragment grant and
-        // reports the run's fragment count here. Server credits min(claimed, ceiling).
-        const items = (body.items && typeof body.items === 'object') ? body.items : {};
         if (!playerName || !token)
             return res.status(400).json({ error: 'Missing playerName or token.' });
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, playerName);
@@ -74,8 +69,8 @@ async function handler(req, res) {
         const ceiling = (0, _run_token_js_1.maxHaulForDepth)(run.floorDepth, mult);
         const frac = outcome === 'death' ? 0.5 : 1;
         const credited = {};
-        const creditedItems = {};
         const fragmentCeiling = (0, _run_token_js_1.maxFragmentsForDepth)(run.floorDepth);
+        let fragmentsClampedTo = null;
         const saveKey = `save:${playerName}`;
         const result = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
             const fresh = await _storage_js_1.kv.get(saveKey);
@@ -88,17 +83,23 @@ async function handler(req, res) {
                 next[k] = value;
                 credited[k] = Math.max(0, value - num(run.entryCurrencies[k]));
             }
-            // High-value item drop — append min(claimed, sealed ceiling) × death-frac
-            // to the inventory. Additive (no entry-snapshot anchor); only fires when a
-            // client reports `items` (inert for current clients → never double-grants
-            // alongside the still-inline boss-fragment grant until the rewire lands).
-            const fragmentCredit = (0, _run_token_js_1.settleItemCount)(items[_run_token_js_1.HG_HIGH_VALUE_ITEM_ID], fragmentCeiling, frac);
-            if (fragmentCredit > 0) {
-                const inv = Array.isArray(c.inventory) ? [...c.inventory] : [];
-                for (let i = 0; i < fragmentCredit; i++)
-                    inv.push(_run_token_js_1.HG_HIGH_VALUE_ITEM_ID);
-                next.inventory = inv;
-                creditedItems[_run_token_js_1.HG_HIGH_VALUE_ITEM_ID] = fragmentCredit;
+            // High-value forge item (Dungeon Legendary Fragment) — anti-fabrication.
+            // The client keeps its inline boss-drop grant (byte-identical, no reliability
+            // regression); here we only CLAMP this run's GAIN (current minus sealed entry)
+            // to the depth ceiling, clawing back a crafted client's excess. No-op for legit
+            // hauls. Guarded on entryFragments so tokens minted before this field skip it
+            // (a missing baseline can't distinguish run-gain from pre-run holdings).
+            const currentFragments = (0, _run_token_js_1.itemStackCount)(c.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID);
+            const allowedFragments = typeof run.entryFragments === 'number'
+                ? (0, _run_token_js_1.clampFragmentTotal)(currentFragments, run.entryFragments, fragmentCeiling)
+                : currentFragments; // token predates the sealed baseline — skip the clamp
+            if (allowedFragments < currentFragments && Array.isArray(c.itemStacks)) {
+                const others = c.itemStacks
+                    .filter((s) => !(s && String(s.itemId ?? '') === _run_token_js_1.HG_HIGH_VALUE_ITEM_ID));
+                next.itemStacks = allowedFragments > 0
+                    ? [...others, { itemId: _run_token_js_1.HG_HIGH_VALUE_ITEM_ID, count: allowedFragments }]
+                    : others;
+                fragmentsClampedTo = allowedFragments;
             }
             const updated = (0, _save_version_js_1.bumpSaveVersion)({ ...fresh, character: next });
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
@@ -106,7 +107,7 @@ async function handler(req, res) {
         }, { failClosed: true });
         if (!result.ok)
             return res.status(404).json({ error: 'Your save was not found.' });
-        return res.status(200).json({ ok: true, outcome, credited, creditedItems });
+        return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     }
     catch (err) {
         console.error('[hollow-gate/settle]', err);

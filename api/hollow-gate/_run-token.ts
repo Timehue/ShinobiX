@@ -78,30 +78,47 @@ export function maxHaulForDepth(depth: number, rewardMultiplier = 1): Record<HgC
 
 // ─── High-value ITEM drops (P0.2c) ─────────────────────────────────────────────
 // The clawback ceilings above bound the run's CURRENCY haul. The boss also drops a
-// discrete high-value ITEM (the Dungeon Legendary Fragment) that the per-save
-// sanitizer does NOT per-item cap (only the blanket INVENTORY_CAP). To make that
-// drop server-authoritative we seal an item ceiling here, mirroring maxHaulForDepth:
-// settle credits min(client-claimed, ceiling) of the item, so a crafted client
-// can't smuggle extra fragments. Mirror of DUNGEON_LEGENDARY_FRAGMENT_ID in
-// shinobij.client/src/constants/game.ts — the drift guard pins them equal.
+// discrete high-value ITEM (the Dungeon Legendary Fragment, an epic forge material)
+// that the per-save sanitizer does NOT per-item cap (only the blanket INVENTORY_CAP).
+// To make that drop server-authoritative WITHOUT deferring the grant (which would
+// risk losing a legit fragment on an un-settled run), we take the same shape as the
+// currency ceiling: START seals the entry fragment count, and SETTLE clamps the run's
+// GAIN (current − entry) to maxFragmentsForDepth. Legit hauls sit under the ceiling
+// so the clamp is a no-op (byte-identical); only a crafted client's excess is clawed
+// back. Fragments live as counted `itemStacks` (data/pet-config.ts). Mirror of
+// DUNGEON_LEGENDARY_FRAGMENT_ID in shinobij.client/src/constants/game.ts (drift-guarded).
 export const HG_HIGH_VALUE_ITEM_ID = 'dungeon-legendary-fragment';
 
-/** Max Dungeon Legendary Fragments a depth-`depth` run could legitimately yield.
- *  Generous (≈1 per floor of depth) — a too-low ceiling would wrongly confiscate a
- *  legit boss drop, while any finite ceiling still closes the unbounded-mint exploit.
- *  Mirrors the 1..20 depth clamp used by maxHaulForDepth. */
+/** Max Dungeon Legendary Fragments a depth-`depth` run may GAIN. Deliberately
+ *  generous (≈2 per floor of depth) — a too-low ceiling would wrongly confiscate a
+ *  legit multi-boss haul, while any finite ceiling still closes the unbounded-mint
+ *  exploit. Backstopped by the per-save itemStacks caps. */
 export function maxFragmentsForDepth(depth: number): number {
-    return Math.max(1, Math.min(20, Math.floor(Number(depth) || 1)));
+    return Math.max(2, Math.min(40, Math.floor(Number(depth) || 1) * 2));
 }
 
-/** Pure: credited count for a discrete high-value item given the sealed ceiling +
- *  death claw-back fraction. Never exceeds the ceiling, never goes negative; mirrors
- *  settleCurrency's clamp/floor discipline (items are additive, so there's no
- *  entry-snapshot anchor — only the ceiling and the death fraction bound it). */
-export function settleItemCount(claimed: unknown, ceiling: number, frac: number): number {
-    const c = Math.max(0, Math.floor(Number(claimed) || 0));
+/** Count of a given item id held as counted `itemStacks` ([{itemId,count}]). Used
+ *  to seal the entry baseline at START and to read the run total at SETTLE. */
+export function itemStackCount(itemStacks: unknown, itemId: string): number {
+    if (!Array.isArray(itemStacks)) return 0;
+    let total = 0;
+    for (const s of itemStacks as Array<Record<string, unknown>>) {
+        if (s && typeof s === 'object' && String(s.itemId ?? '') === itemId) {
+            total += Math.max(0, Math.floor(Number(s.count) || 0));
+        }
+    }
+    return total;
+}
+
+/** Pure: the allowed post-run fragment total. Clamps the GAIN (current − entry) to
+ *  the ceiling; never restores an in-run spend (min with current), never drops below
+ *  the sealed entry (don't confiscate pre-run fragments). Death does NOT claw items
+ *  back — the inline grant already keeps them (behavior-preserving, unlike currency). */
+export function clampFragmentTotal(current: unknown, entry: unknown, ceiling: number): number {
+    const cur = Math.max(0, Math.floor(Number(current) || 0));
+    const ent = Math.max(0, Math.floor(Number(entry) || 0));
     const cap = Math.max(0, Math.floor(Number(ceiling) || 0));
-    return Math.max(0, Math.floor(Math.min(c, cap) * (Number(frac) || 0)));
+    return Math.max(0, Math.min(cur, ent + cap));
 }
 
 // ─── Augments ─────────────────────────────────────────────────────────────────
@@ -149,6 +166,10 @@ export interface HollowGateRunToken {
     floorDepth: number;
     seed: string;
     entryCurrencies: Partial<Record<HgCurrencyKey, number>>;
+    // P0.2c: entry count of the high-value forge item (Dungeon Legendary Fragment)
+    // so settle can clamp the run's GAIN to the ceiling. Optional: tokens minted
+    // before this field existed skip the item clamp (settle guards on typeof).
+    entryFragments?: number;
     offeredAugmentIds: string[];
     chosenAugmentId: string | null;
     dailyRunOrdinal: number;

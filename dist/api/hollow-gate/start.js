@@ -60,6 +60,9 @@ async function handler(req, res) {
         const entry = {};
         for (const k of _run_token_js_1.HG_CLAWBACK_KEYS)
             entry[k] = Math.max(0, Math.floor(Number(char[k]) || 0));
+        // P0.2c: seal the entry count of the high-value forge item so settle can clamp
+        // this run's GAIN to the ceiling (anti-fabrication, byte-identical for legit).
+        const entryFragments = (0, _run_token_js_1.itemStackCount)(char.itemStacks, _run_token_js_1.HG_HIGH_VALUE_ITEM_ID);
         const offers = (0, _run_token_js_1.rollAugmentOffers)(3);
         const token = (0, node_crypto_1.randomUUID)().replace(/-/g, '');
         const runToken = {
@@ -68,6 +71,7 @@ async function handler(req, res) {
             floorDepth,
             seed: (0, node_crypto_1.randomUUID)(),
             entryCurrencies: entry,
+            entryFragments,
             offeredAugmentIds: offers.map((o) => o.id),
             chosenAugmentId: null,
             dailyRunOrdinal: ord,
