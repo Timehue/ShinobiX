@@ -119,6 +119,10 @@ export function SceneAmbience({
         let raf = 0;
         let last = 0;
         let running = true;
+        // Thunderstorm lightning state (procedural bolt + synced flash, all on-canvas).
+        let boltCooldown = rand(1.0, 3.0);
+        let flash = 0;
+        let bolt: { pts: { x: number; y: number }[]; branches: { x: number; y: number }[][]; t: number; dur: number } | null = null;
 
         const parent = canvas.parentElement;
 
@@ -128,7 +132,9 @@ export function SceneAmbience({
             const widthScale = Math.max(0.5, w / 1000);
             for (const kind of kinds) {
                 const cfg = KINDS[kind];
-                const n = Math.round(cfg.count * widthScale * effIntensity);
+                // Heavier rain during a thunderstorm so the bolts land in real weather.
+                const stormFactor = (kind === "rain" && lightning) ? 1.4 : 1;
+                const n = Math.round(cfg.count * widthScale * effIntensity * stormFactor);
                 for (let i = 0; i < n; i++) {
                     const c = cfg;
                     particles.push({
@@ -159,6 +165,51 @@ export function SceneAmbience({
             canvas!.style.height = h + "px";
             ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
             spawn();
+        }
+
+        // Build a jagged top-to-ground lightning bolt with the odd forking branch.
+        function makeBolt() {
+            const startX = rand(w * 0.15, w * 0.85);
+            const pts: { x: number; y: number }[] = [{ x: startX, y: -10 }];
+            let x = startX, y = 0;
+            const segH = Math.max(16, h / rand(10, 16));
+            while (y < h) {
+                y += segH * rand(0.7, 1.3);
+                x = Math.max(4, Math.min(w - 4, x + rand(-w * 0.06, w * 0.06)));
+                pts.push({ x, y });
+            }
+            const branches: { x: number; y: number }[][] = [];
+            const nb = (Math.random() < 0.75 ? 1 : 0) + (Math.random() < 0.3 ? 1 : 0);
+            for (let b = 0; b < nb && pts.length > 4; b++) {
+                const i = 2 + ((Math.random() * (pts.length - 3)) | 0);
+                let bx = pts[i].x, by = pts[i].y;
+                const bp: { x: number; y: number }[] = [{ x: bx, y: by }];
+                const steps = 3 + ((Math.random() * 4) | 0);
+                const dir = bx > startX ? 1 : -1;
+                for (let s = 0; s < steps; s++) {
+                    by += segH * rand(0.5, 1.0);
+                    bx += rand(-w * 0.05, w * 0.05) + dir * w * 0.02;
+                    bp.push({ x: bx, y: by });
+                }
+                branches.push(bp);
+            }
+            return { pts, branches, t: 0, dur: rand(0.18, 0.34) };
+        }
+
+        // Stroke a bolt path: soft blue glow underlay + bright white core.
+        function strokeBolt(pts: { x: number; y: number }[], coreW: number, glowW: number, alpha: number) {
+            if (pts.length < 2) return;
+            ctx!.beginPath();
+            ctx!.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx!.lineTo(pts[i].x, pts[i].y);
+            if (!lowEnd && glowW > 0) { ctx!.shadowBlur = glowW; ctx!.shadowColor = "rgba(150,190,255,0.9)"; }
+            ctx!.strokeStyle = `rgba(190,215,255,${0.5 * alpha})`;
+            ctx!.lineWidth = coreW + 3;
+            ctx!.stroke();
+            ctx!.shadowBlur = 0;
+            ctx!.strokeStyle = `rgba(255,255,255,${0.95 * alpha})`;
+            ctx!.lineWidth = coreW;
+            ctx!.stroke();
         }
 
         function draw(t: number) {
@@ -202,6 +253,43 @@ export function SceneAmbience({
                     ctx!.fill();
                 }
             }
+
+            // Thunderstorm lightning: fire a jagged bolt + a fast-decaying flash on a
+            // random cadence — reads as a real strike, not a strobing screen flicker.
+            if (lightning) {
+                boltCooldown -= dt;
+                if (boltCooldown <= 0 && !bolt) {
+                    bolt = makeBolt();
+                    flash = rand(0.5, 0.85);
+                    boltCooldown = rand(2.6, 7) * (lowEnd ? 1.7 : 1);
+                }
+                if (flash > 0) {
+                    ctx!.save();
+                    ctx!.globalCompositeOperation = "lighter";
+                    ctx!.globalAlpha = 1;
+                    ctx!.fillStyle = `rgba(202,224,255,${flash * 0.5})`;
+                    ctx!.fillRect(0, 0, w, h);
+                    ctx!.restore();
+                    flash = Math.max(0, flash - dt * 3.4);
+                }
+                if (bolt) {
+                    bolt.t += dt;
+                    const k = 1 - bolt.t / bolt.dur;
+                    if (k <= 0) {
+                        bolt = null;
+                    } else {
+                        const fa = k * (0.55 + 0.45 * Math.abs(Math.sin(bolt.t * 55)));
+                        ctx!.save();
+                        ctx!.globalCompositeOperation = "lighter";
+                        ctx!.globalAlpha = 1;
+                        ctx!.lineJoin = "round";
+                        ctx!.lineCap = "round";
+                        strokeBolt(bolt.pts, 2.2, 16, fa);
+                        for (const br of bolt.branches) strokeBolt(br, 1.3, 10, fa * 0.8);
+                        ctx!.restore();
+                    }
+                }
+            }
             ctx!.globalAlpha = 1;
             ctx!.shadowBlur = 0;
             raf = requestAnimationFrame(draw);
@@ -219,6 +307,16 @@ export function SceneAmbience({
                 ctx.globalAlpha = p.alpha;
                 ctx.fillStyle = p.color;
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+            }
+            // Reduced motion: one still bolt (no flashing) so the storm still reads.
+            if (lightning) {
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter";
+                ctx.globalAlpha = 1;
+                ctx.lineJoin = "round";
+                ctx.lineCap = "round";
+                strokeBolt(makeBolt().pts, 1.6, 0, 0.22);
+                ctx.restore();
             }
             ctx.globalAlpha = 1;
         } else {
@@ -238,13 +336,12 @@ export function SceneAmbience({
             ro.disconnect();
             document.removeEventListener("visibilitychange", onVis);
         };
-    }, [kinds, intensity]);
+    }, [kinds, intensity, lightning]);
 
     return (
         <div className={"scene-ambience" + (className ? " " + className : "")} aria-hidden="true">
             <canvas ref={canvasRef} className="scene-ambience-canvas" />
             <div className={"scene-ambience-rays scene-rays-" + biome} />
-            {lightning && <div className="scene-ambience-lightning" />}
         </div>
     );
 }
