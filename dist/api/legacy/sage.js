@@ -312,8 +312,14 @@ async function handler(req, res) {
                     }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
                 }
                 // The auto-started first trial ships with the Sage's charge so
-                // the client can open the trial ceremony immediately.
-                return { status: 200, body: { ok: true, legacy, trial, intro: (0, _legacy_core_js_1.trialIntroFor)(def, trialKind) } };
+                // the client can open the trial ceremony immediately —
+                // objectives DECORATED ({progress, done}) like every other
+                // trial payload (E2E smoke finding: raw pairs violate the
+                // TrialView contract clients render).
+                return {
+                    status: 200,
+                    body: { ok: true, legacy, trial: { ...trial, objectives: (0, _legacy_core_js_1.trialProgress)(trial, stats) }, intro: (0, _legacy_core_js_1.trialIntroFor)(def, trialKind) },
+                };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
