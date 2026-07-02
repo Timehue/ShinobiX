@@ -75,6 +75,10 @@ const PAIRS = [
     // soft-capped so linear stacking can't drive statFactor to the [0.35,1.85]
     // clamp. PvE and PvP must pool identically or the same buff diverges.
     ['K_GENERALS', 'K_GENERALS_PVE'],
+    // Increase Discipline (legacy signature jutsu): style-locked offense lift.
+    // Pool AND ×2 scale must match or the same buff hits differently in PvE/PvP.
+    ['K_DISCIPLINE', 'K_DISCIPLINE_PVE'],
+    ['DISCIPLINE_BONUS_SCALE', 'DISCIPLINE_BONUS_SCALE_PVE'],
     ['HEAL_FLAT', 'HEAL_FLAT_PVE'],
     ['SHIELD_FLAT', 'SHIELD_FLAT_PVE'],
     ['WOUND_HARD_CAP_PCT', 'WOUND_HARD_CAP_PCT_PVE'],

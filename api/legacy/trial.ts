@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
+import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import {
     legacyTrialKey, legacyAcceptedKey, trialObjectivesFor, trialProgress, nextTrialKind,
@@ -356,9 +357,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : trial.kind === 'prove' ? provenTitleFor(def.title)
                     : trial.kind === 'mythic' ? mythicTitleFor(def.title)
                     : null;
+                // Binding (Stage 3) unlocks the Legacy signature jutsu — herald it
+                // by name so the reward lands in the ceremony, not just the Profile.
+                const signatureName = trial.kind === 'bind' && def.specialtyJutsuId
+                    ? LEGACY_JUTSU_CATALOG[def.specialtyJutsuId]?.name ?? null
+                    : null;
+                const completionOut = signatureName
+                    ? `${trialCompletionFor(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, and it will deepen as you do.`
+                    : trialCompletionFor(trial.kind);
                 return {
                     status: 200,
-                    body: { ok: true, legacy: saveOut, title: grantedTitleOut, completion: trialCompletionFor(trial.kind) },
+                    body: { ok: true, legacy: saveOut, title: grantedTitleOut, completion: completionOut, ...(signatureName ? { signatureJutsu: { id: def.specialtyJutsuId, name: signatureName } } : {}) },
                 };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);

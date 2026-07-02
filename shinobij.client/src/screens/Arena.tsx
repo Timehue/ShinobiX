@@ -74,6 +74,7 @@ import { effectiveCharacterXpGain, rankedDelta } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
+import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import {
     gainXp,
     getAllJutsus,
@@ -205,6 +206,9 @@ export function Arena({
         activeRound?: number;
         amount?: number;
         percent?: number;
+        // 'Increase Discipline' only: the style the buff is locked to (captured
+        // from the cast jutsu's type; read by disciplineBonusFromStatuses).
+        discipline?: string;
         kind: "positive" | "negative";
     };
     type BattleActor = "player" | "enemy";
@@ -279,10 +283,18 @@ export function Arena({
         ninjutsuDefense: character.stats.ninjutsuDefense + getEquippedItemBonus(character, allItems, "ninjutsuDefense"),
     }, character.level);
     // Build the action-bar list in equippedJutsuIds (loadout) order so the slot
-    // arrangement players set in the Profile loadout carries into battle.
-    const equippedJutsus = character.equippedJutsuIds
-        .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
-        .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines));
+    // arrangement players set in the Profile loadout carries into battle. The
+    // Legacy signature (dedicated slot, derived from the server-owned
+    // character.legacy at Stage 3+) is appended LAST — outside the 15, matching
+    // the server's sealed-loadout injection in api/pvp/session.ts. Element
+    // "None" means it always passes the element gate.
+    const playerLegacySignature = legacySignatureFor(character);
+    const equippedJutsus = [
+        ...character.equippedJutsuIds
+            .map((id) => allJutsus.find((jutsu) => jutsu.id === id))
+            .filter((jutsu): jutsu is Jutsu => !!jutsu && canEquipElementJutsu(character, jutsu, savedBloodlines)),
+        ...(playerLegacySignature ? [playerLegacySignature] : []),
+    ];
     // Action-bar items: weapon + throwable + the three combat-item slots + potion
     // (combatLoadoutSlots, which also carries the legacy "item"/"weapon" aliases
     // so a not-yet-migrated save still loads). Set() dedupes any alias overlap.
@@ -570,10 +582,16 @@ export function Arena({
         enemyTurnDealtRef.current += guarded;
         return guarded;
     };
+    // PvE-vs-player-save opponents get their Legacy signature too (parity with
+    // the server's sealed loadout); AI profiles have no Legacy.
+    const opponentLegacySignature = !pendingAiProfile && opponentCharacter ? legacySignatureFor(opponentCharacter) : null;
     const enemyAiJutsus = pendingAiProfile
         ? allJutsus.filter((jutsu) => pendingAiProfile.jutsuIds.includes(jutsu.id))
         : opponentCharacter
-            ? getAllJutsus(savedBloodlines, creatorJutsus, opponentCharacter).filter((jutsu) => opponentCharacter.equippedJutsuIds.includes(jutsu.id))
+            ? [
+                ...getAllJutsus(savedBloodlines, creatorJutsus, opponentCharacter).filter((jutsu) => opponentCharacter.equippedJutsuIds.includes(jutsu.id)),
+                ...(opponentLegacySignature ? [opponentLegacySignature] : []),
+            ]
             : [];
     const playerSearchMatches = (player: PlayerRecord, search: string) =>
         player.name !== character.name && player.name.toLowerCase().includes(search.trim().toLowerCase());
@@ -2670,6 +2688,18 @@ export function Arena({
                 }
             }
 
+            // Increase Discipline (legacy signature jutsu): style-locked self-buff — lifts
+            // ONLY the offense composite of this jutsu's discipline. The stack stores the
+            // cast type; disciplineBonusFromStatuses inside calculateDamage applies it per
+            // cast. No-op on an 'Any'/typeless cast, mirroring the server guard.
+            if (tag.name === "Increase Discipline") {
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Discipline was prevented`);
+                else if (["Taijutsu", "Bukijutsu", "Genjutsu", "Ninjutsu"].includes(jutsu.type)) {
+                    queuePlayerStatus({ name: "Increase Discipline", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive", discipline: jutsu.type });
+                    effectLines.push(`Increase Discipline: ${character.name}'s ${jutsu.type} offense rises ${pct}% for 2 rounds${tagTimingText}.`);
+                }
+            }
+
             if (tag.name === "Increase Damage Taken") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists damage taken debuff`);
                 else {
@@ -3467,6 +3497,14 @@ export function Arena({
                 else {
                     queueToEnemy({ name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`${opponentName}'s general stats rise ${pct}% for ${AMP_STATUS_ROUNDS_PVE} rounds`);
+                }
+            }
+            // Increase Discipline: style-locked offense self-buff (see player branch).
+            if (tag.name === "Increase Discipline") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Increase Discipline was prevented`);
+                else if (["Taijutsu", "Bukijutsu", "Genjutsu", "Ninjutsu"].includes(jutsu.type)) {
+                    queueToEnemy({ name: "Increase Discipline", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive", discipline: jutsu.type });
+                    effectLines.push(`${opponentName}'s ${jutsu.type} offense rises ${pct}% for ${AMP_STATUS_ROUNDS_PVE} rounds`);
                 }
             }
             if (tag.name === "Decrease Damage Taken") {

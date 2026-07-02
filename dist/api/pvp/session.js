@@ -19,6 +19,8 @@ const online_store_js_1 = require("../_realtime/online-store.js");
 const presence_gating_js_1 = require("../_realtime/presence-gating.js");
 const _ranked_match_token_js_1 = require("../_ranked-match-token.js");
 const _jutsu_catalog_js_1 = require("./_jutsu-catalog.js");
+const _legacy_jutsu_catalog_js_1 = require("./_legacy-jutsu-catalog.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 const _multipliers_js_1 = require("./_multipliers.js");
 const _tags_js_1 = require("./_tags.js");
 const _jutsu_points_js_1 = require("../_jutsu-points.js");
@@ -563,6 +565,41 @@ function hydrateCharacterFromSave(saveCharacter, clientCharacter, save = null) {
     // jutsu only for old saves with no equippedJutsuIds and for NPCs.
     const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter);
     merged.jutsu = sanitizeJutsuList(resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu);
+    // ── Legacy signature slot (the dedicated 16th slot) ──────────────────────
+    // Derived ENTIRELY from the server-owned character.legacy (written only by
+    // api/legacy/sage.ts / trial.ts / admin — the save sanitizer discards client
+    // writes), so there is no equip field to spoof: reach Stage 3 (Bound) and
+    // the signature joins the sealed loadout; lose the Legacy and it's gone.
+    // Resolved from the SEPARATE legacy catalog — these ids never resolve out of
+    // equippedJutsuIds, so a tampered save can't put one inside the 15 or claim
+    // another Legacy's signature. Mastery is the legacy stage ×10 (3→30, 4→40,
+    // 5→50): signatures deepen with the Legacy, never via the training grind.
+    // Flag-gated like every legacy surface: a rollback keeps NEW sessions
+    // byte-identical to pre-legacy combat. Towers inherit via sealTowerFighter.
+    if ((0, _legacy_track_js_1.legacyEnabled)()) {
+        const lg = saveCharacter.legacy;
+        const stage = Number(lg?.stage);
+        const jutsuId = typeof lg?.legacyId === 'string' ? _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_ID_BY_LEGACY[lg.legacyId] : undefined;
+        const entry = jutsuId ? _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_CATALOG[jutsuId] : undefined;
+        if (entry && Number.isInteger(stage) && stage >= 3) {
+            // Adaptive typing: non-style damage signatures store type "Any"
+            // (any build can earn their Legacy) — stamp the owner's trained
+            // specialty so the damage formula reads the right offense composite
+            // (server getOffense has no "Any" branch and would silently scale
+            // them as Ninjutsu). Mirrors the client's stampLegacyJutsuType in
+            // shinobij.client/src/data/legacy-jutsu.ts — KEEP IN SYNC.
+            const specialty = String(merged.specialty ?? '');
+            const stamped = entry.type === 'Any' && entry.ap === 60
+                ? { ...entry, type: ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'].includes(specialty) ? specialty : 'Taijutsu' }
+                : { ...entry };
+            const withoutDupe = merged.jutsu.filter((j) => j?.id !== entry.id);
+            merged.jutsu = [...withoutDupe, ...sanitizeJutsuList([stamped])];
+            // Stage-scaled mastery, overriding any stray save-side entry for the id.
+            const mastery = merged.jutsuMastery.filter((m) => m.jutsuId !== entry.id);
+            mastery.push({ jutsuId: entry.id, level: Math.min(50, stage * 10) });
+            merged.jutsuMastery = mastery;
+        }
+    }
     // Resolve equipped items from the authoritative save (see resolveEquippedPvpItems);
     // fall back to the persisted/client pvpItems for save-less (NPC) callers.
     const resolvedItems = resolveEquippedPvpItems(saveCharacter, save);

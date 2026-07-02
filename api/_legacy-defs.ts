@@ -15,9 +15,13 @@
  * runtime through the `shared:legacy-defs` admin overlay (see _legacy-score.ts)
  * without a deploy, so balancing passes never need to edit this file.
  *
- * Specialty Jutsu are intentionally NOT defined here yet (design: jutsu pass
- * comes later); `specialtyJutsuId` stays optional and unused until that pass.
+ * Specialty Jutsu: every Legacy grants one signature jutsu, authored in
+ * shinobij.client/src/data/legacy-jutsu.ts and generated into the server
+ * catalog api/pvp/_legacy-jutsu-catalog.ts — `specialtyJutsuId` is derived from
+ * that catalog at construction (see LEGACY_DEFS below).
  */
+
+import { LEGACY_JUTSU_ID_BY_LEGACY } from './pvp/_legacy-jutsu-catalog.js';
 
 export type LegacyRarity = 'basic' | 'rare' | 'legendary' | 'mythic';
 
@@ -100,7 +104,11 @@ export type LegacyDef = {
     reqs: ReadonlyArray<LegacyReq>;
     /** Badge art at /badges/legacy-<badge>.png (subset generated so far). */
     badge?: string;
-    /** Deferred: the specialty-jutsu pass wires these later. */
+    /**
+     * The Legacy's signature jutsu id — derived at construction from the
+     * generated server catalog (api/pvp/_legacy-jutsu-catalog.ts), so the
+     * link can never drift from the authored data. Every launch Legacy has one.
+     */
     specialtyJutsuId?: string;
 };
 
@@ -488,7 +496,11 @@ const BASIC: LegacyDef[] = [
 // (rather than derived at render sites) because the client LegacyDefView
 // consumes it and a future legacy could still override the art.
 export const LEGACY_DEFS: readonly LegacyDef[] =
-    [...MYTHIC, ...LEGENDARY, ...RARE, ...BASIC].map((d) => ({ ...d, badge: d.badge ?? d.id }));
+    [...MYTHIC, ...LEGENDARY, ...RARE, ...BASIC].map((d) => ({
+        ...d,
+        badge: d.badge ?? d.id,
+        specialtyJutsuId: d.specialtyJutsuId ?? LEGACY_JUTSU_ID_BY_LEGACY[d.id],
+    }));
 
 export const LEGACY_BY_ID: ReadonlyMap<string, LegacyDef> = new Map(LEGACY_DEFS.map((d) => [d.id, d]));
 
