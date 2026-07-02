@@ -1,21 +1,45 @@
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
     type Character,
     type TavernMessage,
 } from "../App";
+import { type PlayerRecord } from "../types/character";
 
 export
-function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void }) {
+function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerRoster }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void; playerRoster: PlayerRecord[] }) {
     const [messages, setMessages] = useState<TavernMessage[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
     // The message the player is replying to (null = a fresh, un-quoted message).
     const [replyingTo, setReplyingTo] = useState<TavernMessage | null>(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
+    // The village's currently seated Kage (fetched once on mount) — used to
+    // badge that author's messages live, regardless of the stale snapshot the
+    // message was posted with.
+    const [seatedKage, setSeatedKage] = useState<string | null>(null);
+    const logRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     // Track last known message count so we skip re-renders when nothing changed
     const lastCountRef = useRef<number>(-1);
+
+    // Live identity lookup: name → the roster's CURRENT character, so a message
+    // shows the author's live level/rank/title instead of the values frozen in
+    // at post time. Falls back to the message snapshot when the author isn't in
+    // the roster (offline / not yet loaded). Zero extra server cost — the roster
+    // is already polled by the app shell. Self is always included so the
+    // player's own messages update the instant they level.
+    const liveByName = useMemo(() => {
+        const map = new Map<string, Character>();
+        for (const p of playerRoster) {
+            if (p?.name && p.character) map.set(p.name.toLowerCase(), p.character);
+        }
+        map.set(character.name.toLowerCase(), character);
+        return map;
+    }, [playerRoster, character]);
+
+    // Newest first — the tavern reads top-to-bottom with the latest message on
+    // top. The server stores oldest→newest, so reverse a shallow copy.
+    const ordered = useMemo(() => messages.slice().reverse(), [messages]);
 
     function startReply(m: TavernMessage) {
         setReplyingTo(m);
@@ -66,7 +90,25 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.village]);
 
-    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+    // Fetch the seated Kage once per village. Cheap (server caches the kage key
+    // ~30s) and one request per visit, not per poll — Kage changes are rare.
+    useEffect(() => {
+        let cancelled = false;
+        void (async () => {
+            try {
+                const res = await fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`);
+                if (!res.ok) return;
+                const data = await res.json().catch(() => null) as { seatedKage?: unknown } | null;
+                if (!cancelled) setSeatedKage(typeof data?.seatedKage === "string" ? data.seatedKage : null);
+            } catch { /* ignore — the badge just won't show */ }
+        })();
+        return () => { cancelled = true; };
+    }, [character.village]);
+
+    // Newest is on top, so jump the log to the top when a new message arrives
+    // (fetchMessages only calls setMessages when the count actually changed, so
+    // this never yanks a player who's merely re-polling with no new messages).
+    useEffect(() => { logRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [messages]);
 
     async function send() {
         const text = input.trim();
@@ -119,13 +161,19 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
                 </div>
             </div>
-            <div className="tavern-log">
+            <div className="tavern-log" ref={logRef}>
                 {loading && <p className="tavern-empty">Loading messages…</p>}
                 {!loading && messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
-                {messages.map((m, i) => {
+                {ordered.map((m) => {
                     const avatar = sharedImages['avatar:' + m.author.toLowerCase()] || (m.author === character.name ? character.avatarImage : '');
+                    // Live identity — falls back to the message's post-time snapshot.
+                    const live = liveByName.get(m.author.toLowerCase());
+                    const level = live?.level ?? m.level;
+                    const rankTitle = live?.rankTitle ?? m.rank;
+                    const customTitle = live?.customTitle ?? m.customTitle;
+                    const isKage = !!seatedKage && m.author.toLowerCase() === seatedKage.toLowerCase();
                     return (
-                        <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
+                        <div key={`${m.ts}-${m.author}`} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
                             <div className="tavern-avatar-col">
                                 <div
                                     className="tavern-avatar"
@@ -137,7 +185,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                                         ? <img src={avatar} alt={m.author} />
                                         : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
                                 </div>
-                                {m.level != null && <div className="tavern-level-badge">Lv{m.level}</div>}
+                                {level != null && <div className="tavern-level-badge">Lv{level}</div>}
                             </div>
                             <div className="tavern-body">
                                 <div className="tavern-meta">
@@ -150,8 +198,9 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                                         style={onViewProfile ? { cursor: "pointer" } : undefined}
                                         title={onViewProfile ? `View ${m.author}'s profile` : undefined}
                                     >{m.author}</span>
-                                    {m.customTitle && <span className="tavern-custom-title">«{m.customTitle}»</span>}
-                                    {m.rank && <span className="tavern-rank">{m.rank}</span>}
+                                    {isKage && <span className="tavern-kage" title={`${character.village} Kage`}>👑 Kage</span>}
+                                    {rankTitle && <span className="tavern-rank">{rankTitle}</span>}
+                                    {customTitle && <span className="tavern-custom-title">«{customTitle}»</span>}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                                     <button
                                         type="button"
@@ -171,7 +220,6 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                         </div>
                     );
                 })}
-                <div ref={bottomRef} />
             </div>
             <div className="tavern-compose">
                 {replyingTo && (
