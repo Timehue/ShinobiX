@@ -12027,24 +12027,24 @@ textarea {
 
     /* The popup card has a *lot* of content on a complex weapon item
        (image + 12-row detail grid + weapon tags + effect boxes + bonus
-       boxes), so the Equip/Sell/Close buttons end up far below the fold.
-       Pin them to the bottom of the scrollable popup so the player's
-       primary action is always one tap away — same pattern as iOS
-       share-sheet / App Store install button. */
+       boxes). A bottom-sticky action bar was tried here, but on short
+       items (e.g. a common hood) the content barely overflows, so the
+       sticky bar floats over the last effect line and the popup reads as
+       "cut off" until you happen to scroll the card to its exact bottom.
+       Instead, let the action bar sit in normal flow at the end of the
+       scrollable content with a divider — nothing ever overlaps, and the
+       full-width stacked buttons are the last thing the player scrolls to. */
     .item-popup-card {
-        padding: 14px 14px 0 !important;
+        padding: 14px 14px 14px !important;
     }
 
     .item-popup-actions {
-        position: sticky !important;
-        bottom: 0 !important;
-        margin: 12px -14px 0 !important;
-        padding: 10px 14px max(10px, env(safe-area-inset-bottom, 10px)) !important;
-        background: linear-gradient(180deg, rgba(51, 65, 85, 0), rgba(51, 65, 85, 0.96) 30%, rgba(51, 65, 85, 1)) !important;
+        margin: 14px -14px 0 !important;
+        padding: 12px 14px max(12px, env(safe-area-inset-bottom, 12px)) !important;
+        background: rgba(30, 41, 59, 0.6) !important;
         border-top: 1px solid rgba(250, 204, 21, 0.3) !important;
-        z-index: 5 !important;
         flex-direction: column !important;
-        gap: 6px !important;
+        gap: 8px !important;
     }
 
     /* Override the desktop min-width: 160px so each button takes the
