@@ -9,6 +9,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/village/claim-war-crate  — POST only  (P0.2c, warCrateServerAuth.v1)
  *
@@ -124,6 +125,11 @@ async function handler(req, res) {
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
             return { granted: true, reason: 'granted', _saveVersion: Number(updated._saveVersion ?? 0) };
         }, { failClosed: true });
+        // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war
+        // (server-stamped winner + idempotent via claimedWarCrateIds above).
+        if (outcome.granted) {
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { warsWon: 1 });
+        }
         return res.status(200).json({ ok: true, ...outcome });
     }
     catch (err) {

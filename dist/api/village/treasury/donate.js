@@ -7,6 +7,7 @@ const _auth_js_1 = require("../../_auth.js");
 const _ratelimit_js_1 = require("../../_ratelimit.js");
 const _lock_js_1 = require("../../_lock.js");
 const _treasury_donate_js_1 = require("../../_treasury-donate.js");
+const _legacy_track_js_1 = require("../../_legacy-track.js");
 /*
  * /api/village/treasury/donate  — POST only
  *
@@ -126,6 +127,13 @@ async function handler(req, res) {
                 ? { currency: donation.currency, amount: Math.floor(donation.amount) }
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        // Legacy tracking (ENABLE_LEGACY): villageDonations counts ryo-value
+        // donated (currency amount; items count a flat 500 each).
+        await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, {
+            villageDonations: donation.kind === 'currency'
+                ? Math.max(0, Math.floor(donation.amount))
+                : Math.max(0, Math.floor(donation.count)) * 500,
+        });
         return res.status(200).json({ ok: true, treasury: result.treasury });
     }
     catch (err) {

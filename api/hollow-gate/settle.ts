@@ -15,6 +15,7 @@ import {
     rewardMultiplierForToken,
     type HollowGateRunToken,
 } from './_run-token.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
@@ -113,6 +114,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
 
         if (!result.ok) return res.status(404).json({ error: 'Your save was not found.' });
+        // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
+        // as a clear — deaths settle currency but don't feed Legacy progress.
+        if (outcome === 'extract') {
+            await bumpLegacyStats(playerName, { hollowGateClears: 1, dungeonClears: 1 });
+        }
         return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     } catch (err) {
         console.error('[hollow-gate/settle]', err);

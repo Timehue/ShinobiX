@@ -8,6 +8,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { consumeSingleUseToken } from '../_single-use-token.js';
 import { reportMissionEvent, type CompletedMissionInfo } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 // Replay window for PvP-flavored raid reports — keyed off the same 24h
 // window report-pvp-win uses (session KV TTL is typically 1h but a player
@@ -207,6 +208,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             kind: 'vanguard-raids',
         });
         const missionsCompleted: CompletedMissionInfo[] = result.missionsCompleted;
+        // Legacy tracking (ENABLE_LEGACY): a validated raid completion.
+        await bumpLegacyStats(playerName, { raidsCompleted: 1 });
 
         // Even-rank Vanguard perks paid out when a raid mission completes.
         // Rank 4: +25% Ryo bonus (flat 250 Ryo per raid mission complete at R4+).

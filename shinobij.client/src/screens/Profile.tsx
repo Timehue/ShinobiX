@@ -13,6 +13,7 @@ import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
+import { LegacyPanel } from "./LegacyPanel";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { allocatedStatPoints, baseStats, capStat, reconcileCharacterStatBudget, xpNeeded } from "../lib/stats";
@@ -107,7 +108,7 @@ export function Profile({
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
     const TITLE_COST = 10;
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements'>('overview');
+    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'legacy'>('overview');
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     // Display-only lens for jutsu effect descriptions — names a discipline so
     // damage tags read e.g. "Taijutsu damage given". Defaults to the player's
@@ -300,6 +301,7 @@ export function Profile({
                     { id: 'stats',    label: '💪 Stats'   },
                     { id: 'jutsu',    label: '⚡ Jutsu'   },
                     { id: 'achievements', label: '🏆 Achievements' },
+                    { id: 'legacy',   label: '🌠 Legacy'  },
                 ] as const).map(({ id, label }) => (
                     <button
                         key={id}
@@ -643,6 +645,14 @@ export function Profile({
                 })()}
             </section>
             </div>{/* end achievements tab */}
+
+            {/* ── Legacy tab ───────────────────────────── */}
+            <div className={mobileTab !== 'legacy' ? 'profile-tab-hidden' : ''}>
+            <section className="profile-overview-panel" style={{ display: 'block' }}>
+                <h3 style={{ marginTop: 0 }}>Legacy</h3>
+                <LegacyPanel character={character} />
+            </section>
+            </div>{/* end legacy tab */}
 
             {selectedAchievement && (
                 <div className="achievement-detail-overlay" onClick={() => setSelectedAchievement(null)}>

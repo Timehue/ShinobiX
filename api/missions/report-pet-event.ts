@@ -7,6 +7,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
 import { masteryHasCapstone } from '../_profession-mastery.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
@@ -278,6 +279,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (expeditionXp > 0) {
                 await awardProfessionXp(playerName, 'petTamer', expeditionXp);
             }
+            // Legacy tracking (ENABLE_LEGACY): a token-validated expedition.
+            await bumpLegacyStats(playerName, { petExpeditions: 1 });
         }
 
         // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns

@@ -22,6 +22,7 @@ import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
+import { fetchHallOfLegends, fetchAnnouncements, isLegacyEnabled, RARITY_COLORS, type HallEntryView, type AnnouncementView, type LegacyRarity } from "../lib/legacy";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -90,6 +91,16 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         if (tab !== "gauntlet") return;
         let alive = true;
         fetchGauntletLeaderboard(25).then(({ weekKey, leaderboard }) => { if (alive) setGauntletLb({ weekKey, rows: leaderboard }); });
+        return () => { alive = false; };
+    }, [tab]);
+    // Legacy system: permanent server history + the world news feed.
+    const [hallEntries, setHallEntries] = useState<HallEntryView[]>([]);
+    const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
+    useEffect(() => {
+        if (tab !== "legends" && tab !== "news") return;
+        let alive = true;
+        if (tab === "legends") void fetchHallOfLegends().then(r => { if (alive && r) setHallEntries(r.entries); });
+        else void fetchAnnouncements(30).then(r => { if (alive && r) setWorldNews(r.announcements); });
         return () => { alive = false; };
     }, [tab]);
     const [bounties, setBounties] = useState<BountyEntry[]>([]);
@@ -167,6 +178,10 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         { id: "tournament",  label: "Tournament",    icon: <GiTrophy /> },
         { id: "professions", label: "Professions",   icon: <GiAnvil /> },
         { id: "bounties",    label: "Bounties",      icon: <GiTwoCoins /> },
+        ...(isLegacyEnabled() ? [
+            { id: "legends" as const, label: "Legends",    icon: <GiCrown /> },
+            { id: "news" as const,    label: "World News", icon: <GiCastle /> },
+        ] : []),
     ];
 
     // Profession leaderboard helpers. XP keeps accruing past the Rank 10
@@ -510,6 +525,34 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                 <Row key={b.target} rank={i + 1} name={b.target} value={b.amount} suffix=" ryo" />
                             ))}
                     </>
+                )}
+                {tab === "legends" && (
+                    hallEntries.length === 0
+                        ? <p className="hol-empty">No legends have been written yet. The first mythic awakening, era unlock, or server-first lands here — forever.</p>
+                        : hallEntries.map((e) => (
+                            <div key={e.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, opacity: e.status === "revoked" ? 0.55 : 1 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                                    <b style={{ color: e.rarity ? RARITY_COLORS[e.rarity as LegacyRarity] ?? "#e2e8f0" : "#e2e8f0", textDecoration: e.status === "revoked" ? "line-through" : "none" }}>{e.title}</b>
+                                    <span style={{ fontSize: ".7rem", color: "#9aa3b2" }}>{new Date(e.ts).toLocaleDateString()}</span>
+                                </div>
+                                <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>
+                                {e.status === "revoked" && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#f87171" }}>Revoked{e.correctionNote ? ` — ${e.correctionNote}` : ""}</p>}
+                                {e.status === "corrected" && e.correctionNote && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#fbbf24" }}>Corrected — {e.correctionNote}</p>}
+                            </div>
+                        ))
+                )}
+                {tab === "news" && (
+                    worldNews.length === 0
+                        ? <p className="hol-empty">The world is quiet. For now.</p>
+                        : worldNews.map((a) => (
+                            <div key={a.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#475569"}` }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                                    <b style={{ color: a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#e2e8f0" }}>{a.title}</b>
+                                    <span style={{ fontSize: ".7rem", color: "#9aa3b2" }}>{new Date(a.ts).toLocaleString()}</span>
+                                </div>
+                                <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{a.message}</p>
+                            </div>
+                        ))
                 )}
             </div>
         </div>

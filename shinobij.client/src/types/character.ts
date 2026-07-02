@@ -427,6 +427,17 @@ export type Character = {
     // TITLE_ACHIEVEMENT_IDS). Permanent once earned; selectable for free as the
     // displayed customTitle in Profile. Undefined = not yet backfilled.
     earnedTitles?: string[];
+    // Legacy (SERVER-OWNED — api/legacy/*). The save sanitizer re-injects the
+    // stored copy on every save, so client edits here never persist. One
+    // legacy per character, forever (docs/legacy-system-plan.md §8).
+    legacy?: {
+        legacyId: string;
+        stage: 1 | 2 | 3 | 4 | 5;
+        acceptedAt: number;
+        awakenedAt?: number;
+        boundAt?: number;
+        titles: string[];
+    };
     // Hollow Gate Shrine — in-progress run saved per-character (so refresh keeps state)
     // and a lifetime Warden-kill counter for telemetry / future achievements.
     hollowGateRun?: HollowGateShrineRun | null;

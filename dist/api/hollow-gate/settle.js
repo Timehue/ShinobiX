@@ -9,6 +9,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _run_token_js_1 = require("./_run-token.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
  *
@@ -107,6 +108,11 @@ async function handler(req, res) {
         }, { failClosed: true });
         if (!result.ok)
             return res.status(404).json({ error: 'Your save was not found.' });
+        // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
+        // as a clear — deaths settle currency but don't feed Legacy progress.
+        if (outcome === 'extract') {
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { hollowGateClears: 1, dungeonClears: 1 });
+        }
         return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     }
     catch (err) {

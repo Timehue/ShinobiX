@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/village/claim-war-crate  — POST only  (P0.2c, warCrateServerAuth.v1)
@@ -133,6 +134,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { granted: true as const, reason: 'granted', _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
         }, { failClosed: true });
 
+        // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war
+        // (server-stamped winner + idempotent via claimedWarCrateIds above).
+        if (outcome.granted) {
+            await bumpLegacyStats(playerName, { warsWon: 1 });
+        }
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {
         console.error('[village/claim-war-crate]', err);

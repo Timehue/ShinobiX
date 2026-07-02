@@ -17,7 +17,7 @@
  */
 
 export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel" | "quest";
-export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim" | "beast" | "sage";
+export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim" | "beast" | "sage" | "wanderingSage";
 
 export interface Wanderer {
     /** stable within (sector, dayBucket) */
@@ -100,11 +100,23 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
         verb: "quest",
         weight: 0.15,
         tellTint: "#8fd0ff",
-        names: ["Wandering Sage", "Old Hermit Roku", "Hermit Kaede", "The Grey Pilgrim", "Master Tobei"],
+        names: ["Old Hermit Roku", "Hermit Kaede", "The Grey Pilgrim", "Master Tobei", "Sister Uzune"],
         greetings: [
             "These roads aren't safe, traveler. Lend your blade to a task?",
             "The wilds grow bold. I'd ask a favor of a capable shinobi.",
             "Walk with purpose — I've a task that needs doing.",
+        ],
+    },
+    // The Legacy system's Wandering Sage (lib/legacy.ts synthSageWanderer).
+    // weight 0 = never rolled into the natural cast; spawned server-side only,
+    // per-player, when a Legacy offer is waiting (api/legacy/sage.ts).
+    wanderingSage: {
+        verb: "quest",
+        weight: 0,
+        tellTint: "#c084fc",
+        names: ["The Wandering Sage"],
+        greetings: [
+            "I have watched your path, shinobi.",
         ],
     },
 };

@@ -147,6 +147,15 @@ const wanderer_quest_js_1 = __importDefault(require("./api/sector/wanderer-quest
 const wanderer_ambush_js_1 = __importDefault(require("./api/sector/wanderer-ambush.js"));
 const questbook_js_1 = __importDefault(require("./api/sector/questbook.js"));
 const merc_roam_js_1 = __importDefault(require("./api/sector/merc-roam.js"));
+// Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
+const definitions_js_1 = __importDefault(require("./api/legacy/definitions.js"));
+const stats_js_1 = __importDefault(require("./api/legacy/stats.js"));
+const evaluate_js_1 = __importDefault(require("./api/legacy/evaluate.js"));
+const sage_js_1 = __importDefault(require("./api/legacy/sage.js"));
+const trial_js_1 = __importDefault(require("./api/legacy/trial.js"));
+const announcements_js_1 = __importDefault(require("./api/announcements.js"));
+const hall_of_legends_js_1 = __importDefault(require("./api/hall-of-legends.js"));
+const legacy_js_1 = __importDefault(require("./api/admin/legacy.js"));
 // PvP — realtime + rewards + queues
 const chat_js_2 = __importDefault(require("./api/pvp/chat.js"));
 const spectate_js_1 = __importDefault(require("./api/pvp/spectate.js"));
@@ -691,6 +700,18 @@ route('/sector/wanderer-quest', wanderer_quest_js_1.default);
 route('/sector/wanderer-ambush', wanderer_ambush_js_1.default);
 route('/sector/questbook', questbook_js_1.default);
 route('/sector/merc-roam', merc_roam_js_1.default);
+// ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
+// Earned identity paths: definitions codex, per-player stats/eligibility, the
+// Wandering Sage offer flow (permanent one-legacy-forever choice), trials,
+// plus the world announcements feed and the permanent Hall of Legends.
+route('/legacy/definitions', definitions_js_1.default);
+route('/legacy/stats', stats_js_1.default);
+route('/legacy/evaluate', evaluate_js_1.default);
+route('/legacy/sage', sage_js_1.default);
+route('/legacy/trial', trial_js_1.default);
+route('/announcements', announcements_js_1.default);
+route('/hall-of-legends', hall_of_legends_js_1.default);
+route('/admin/legacy', legacy_js_1.default);
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic
 // route() wrapper passes res straight through so the handlers stream normally.

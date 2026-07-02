@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL } from './_daily-login.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/player/daily-login — POST only
@@ -87,6 +88,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
+
+        // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
+        // (already once-per-UTC-day by the alreadyClaimed gate above).
+        if (!out.alreadyClaimed) {
+            await bumpLegacyStats(playerName, { villageTenureDays: 1 });
+        }
 
         return res.status(200).json({
             ok: true,

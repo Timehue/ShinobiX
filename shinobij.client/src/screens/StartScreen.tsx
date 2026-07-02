@@ -261,6 +261,8 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "tournament":
             case "bounties":
             case "gauntlet":
+            case "legends":
+            case "news":
                 return 0;
         }
     }
@@ -279,6 +281,8 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "tournament":
             case "bounties":
             case "gauntlet":
+            case "legends":
+            case "news":
                 return "";
         }
     }
@@ -297,6 +301,8 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "professions": return "Top Profession XP (all professions)";
             case "bounties": return "Active Bounties";
             case "gauntlet": return "Weekly Pet Gauntlet";
+            case "legends": return "Hall of Legends";
+            case "news": return "World News";
         }
     }
 

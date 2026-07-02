@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _ai_fight_reward_js_1 = require("./_ai-fight-reward.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
 // The client reports the base XP/ryo it computed for an AI win; the server applies
@@ -51,6 +52,24 @@ async function handler(req, res) {
         // Authoritative running daily count (atomic; TTL so date keys self-evict).
         const dailyCount = await _storage_js_1.kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: _ai_fight_reward_js_1.AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
         const reward = (0, _ai_fight_reward_js_1.aiFightReward)(body.xp, body.ryo, dailyCount);
+        // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
+        // daily soft cap as the reward — grinding past it stops feeding Legacy
+        // eligibility too. Style kills bucket by the save's declared specialty.
+        if ((0, _legacy_track_js_1.legacyEnabled)() && dailyCount <= _ai_fight_reward_js_1.AI_FIGHT_SOFT_CAP_PER_DAY) {
+            const record = await _storage_js_1.kv.get(`save:${playerName}`);
+            const char = record?.character;
+            const deltas = { pveKills: 1 };
+            const specialty = String(char?.specialty ?? '');
+            if (specialty === 'Ninjutsu')
+                deltas.ninjutsuKills = 1;
+            else if (specialty === 'Genjutsu')
+                deltas.genjutsuKills = 1;
+            else if (specialty === 'Taijutsu')
+                deltas.taijutsuKills = 1;
+            else if (specialty === 'Bukijutsu')
+                deltas.bukijutsuKills = 1;
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, deltas, { characterForBootstrap: char ?? null });
+        }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
     }
     catch (err) {

@@ -147,6 +147,15 @@ import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
+// Legacy system (ENABLE_LEGACY) — earned identity paths + Wandering Sage
+import legacyDefinitionsHandler       from './api/legacy/definitions.js';
+import legacyStatsHandler             from './api/legacy/stats.js';
+import legacyEvaluateHandler          from './api/legacy/evaluate.js';
+import legacySageHandler              from './api/legacy/sage.js';
+import legacyTrialHandler             from './api/legacy/trial.js';
+import announcementsHandler           from './api/announcements.js';
+import hallOfLegendsHandler           from './api/hall-of-legends.js';
+import adminLegacyHandler             from './api/admin/legacy.js';
 // PvP — realtime + rewards + queues
 import pvpChatHandler           from './api/pvp/chat.js';
 import pvpSpectateHandler       from './api/pvp/spectate.js';
@@ -749,6 +758,19 @@ route('/sector/wanderer-quest',     sectorWandererQuestHandler);
 route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
 route('/sector/questbook',          sectorQuestbookHandler);
 route('/sector/merc-roam',          sectorMercRoamHandler);
+
+// ─── Legacy system (ENABLE_LEGACY) ─────────────────────────────────────────────
+// Earned identity paths: definitions codex, per-player stats/eligibility, the
+// Wandering Sage offer flow (permanent one-legacy-forever choice), trials,
+// plus the world announcements feed and the permanent Hall of Legends.
+route('/legacy/definitions',        legacyDefinitionsHandler);
+route('/legacy/stats',              legacyStatsHandler);
+route('/legacy/evaluate',           legacyEvaluateHandler);
+route('/legacy/sage',               legacySageHandler);
+route('/legacy/trial',              legacyTrialHandler);
+route('/announcements',             announcementsHandler);
+route('/hall-of-legends',           hallOfLegendsHandler);
+route('/admin/legacy',              adminLegacyHandler);
 
 // ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
 // stream/spectate hold the connection open (SSE / long-poll); the generic

@@ -3,7 +3,8 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS } from './_ai-fight-reward.js';
+import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS, AI_FIGHT_SOFT_CAP_PER_DAY } from './_ai-fight-reward.js';
+import { legacyEnabled, bumpLegacyStats, type LegacyStatDeltas } from '../_legacy-track.js';
 
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
@@ -50,6 +51,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Authoritative running daily count (atomic; TTL so date keys self-evict).
         const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
         const reward = aiFightReward(body.xp, body.ryo, dailyCount);
+
+        // Legacy tracking (ENABLE_LEGACY): PvE kill credit follows the same
+        // daily soft cap as the reward — grinding past it stops feeding Legacy
+        // eligibility too. Style kills bucket by the save's declared specialty.
+        if (legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
+            const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const char = record?.character as Record<string, unknown> | undefined;
+            const deltas: LegacyStatDeltas = { pveKills: 1 };
+            const specialty = String(char?.specialty ?? '');
+            if (specialty === 'Ninjutsu') deltas.ninjutsuKills = 1;
+            else if (specialty === 'Genjutsu') deltas.genjutsuKills = 1;
+            else if (specialty === 'Taijutsu') deltas.taijutsuKills = 1;
+            else if (specialty === 'Bukijutsu') deltas.bukijutsuKills = 1;
+            await bumpLegacyStats(playerName, deltas, { characterForBootstrap: char ?? null });
+        }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
     } catch (err) {
         console.error('[missions/report-ai-fight]', err);
