@@ -8,7 +8,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legacy-score.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
-import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, nextTrialKind, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
+import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, trialProgress, nextTrialKind, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
 import { recordAudit } from '../_audit.js';
 import { announce, addHallEntry } from '../_announce.js';
 
@@ -329,8 +329,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
                 }
                 // The auto-started first trial ships with the Sage's charge so
-                // the client can open the trial ceremony immediately.
-                return { status: 200, body: { ok: true, legacy, trial, intro: trialIntroFor(def, trialKind) } };
+                // the client can open the trial ceremony immediately —
+                // objectives DECORATED ({progress, done}) like every other
+                // trial payload (E2E smoke finding: raw pairs violate the
+                // TrialView contract clients render).
+                return {
+                    status: 200,
+                    body: { ok: true, legacy, trial: { ...trial, objectives: trialProgress(trial, stats) }, intro: trialIntroFor(def, trialKind) },
+                };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
