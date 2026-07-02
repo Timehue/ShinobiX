@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _wanderer_ambush_js_1 = require("./_wanderer-ambush.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/sector/wanderer-ambush — POST { action: 'start' | 'claim', playerName }
  *
@@ -100,6 +101,11 @@ async function handler(req, res) {
                     },
                 };
             }, { failClosed: true });
+            // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a
+            // hidden find + an elite takedown (the warlord boss).
+            if (out.status === 200 && out.body?.ok === true) {
+                await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { hiddenFinds: 1, eliteKills: 1 });
+            }
             return res.status(out.status).json(out.body);
         }
         return res.status(400).json({ error: 'Unknown action.' });

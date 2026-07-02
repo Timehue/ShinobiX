@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/sector/wanderer-ambush — POST { action: 'start' | 'claim', playerName }
@@ -103,6 +104,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }, { failClosed: true });
 
+            // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a
+            // hidden find + an elite takedown (the warlord boss).
+            if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
+                await bumpLegacyStats(playerName, { hiddenFinds: 1, eliteKills: 1 });
+            }
             return res.status(out.status).json(out.body);
         }
 

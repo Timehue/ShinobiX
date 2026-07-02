@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _daily_login_js_1 = require("./_daily-login.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/player/daily-login — POST only
  *
@@ -88,6 +89,11 @@ async function handler(req, res) {
         }
         if ('error' in out)
             return res.status(404).json({ error: 'Your save was not found.' });
+        // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
+        // (already once-per-UTC-day by the alreadyClaimed gate above).
+        if (!out.alreadyClaimed) {
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { villageTenureDays: 1 });
+        }
         return res.status(200).json({
             ok: true,
             alreadyClaimed: out.alreadyClaimed,

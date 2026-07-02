@@ -12,6 +12,7 @@ import nemesisImg from "../assets/wanderers/nemesis.webp";
 import gamblerImg from "../assets/wanderers/gambler.webp";
 import pilgrimImg from "../assets/wanderers/pilgrim.webp";
 import sageImg from "../assets/wanderers/sage.webp";
+import wanderingSageImg from "../assets/wanderers/legacy/wandering-sage.webp";
 import beastImg from "../assets/coliseum/demo-emberfox.webp";
 import bossImg from "../assets/wanderers/bandit-warlord.webp";
 // Bespoke Quest Book bestiary bosses (gpt-image-1), keyed by bossId.
@@ -68,6 +69,8 @@ const ART: Record<WandererArchetypeId, string> = {
     pilgrim: pilgrimImg,
     beast: beastImg,
     sage: sageImg,
+    // The Legacy offer-giver (gpt-image-1, docs/legacy-assets.md).
+    wanderingSage: wanderingSageImg,
 };
 
 export function wandererAvatar(key: WandererArchetypeId): string {
