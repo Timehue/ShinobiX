@@ -122,6 +122,42 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok(baseline > 0, `baseline tower attack should deal damage (got ${baseline})`);
         node_assert_1.strict.ok(buffed > baseline, `Increase Generals should raise tower damage (buffed ${buffed} vs baseline ${baseline})`);
     });
+    // AOE_BURST — target-centred, no movement/ground tile. resolveHit → applyAoeSplash
+    // (radius 1) hits the struck foe plus the 6 hexes touching them at full damage, but
+    // NOT enemies two hexes out.
+    (0, node_test_1.it)('AOE_BURST splashes full damage to the touching hexes (radius 1), not beyond', () => {
+        // sq-1 @0, en-1 @1 (target, dist 1 → in range), en-2 @2 (touches en-1, dist 1),
+        // en-3 @3 (two hexes from en-1, dist 2 → must NOT be caught by radius 1).
+        const burst = { id: 'j-burst', name: 'Nova', type: 'Taijutsu', method: 'AOE_BURST', target: 'OPPONENT', ap: 60, range: 4, effectPower: 20 };
+        const single = { ...burst, id: 'j-single', method: 'SINGLE' };
+        const atkChar = { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 2500 }, jutsu: [burst, single] };
+        const defChar = { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 500 } };
+        function cast(jutsuId) {
+            const actors = [
+                makeActor('sq-1', 'squad', 0, { character: atkChar }),
+                makeActor('en-1', 'enemy', 1, { character: defChar, hp: 100_000, maxHp: 100_000 }),
+                makeActor('en-2', 'enemy', 2, { character: defChar, hp: 100_000, maxHp: 100_000 }),
+                makeActor('en-3', 'enemy', 3, { character: defChar, hp: 100_000, maxHp: 100_000 }),
+            ];
+            const s = makeSession(actors);
+            (0, _engine_js_1.startRound)(s);
+            node_assert_1.strict.equal((0, _tower_session_js_1.activeActor)(s).id, 'sq-1');
+            const r = (0, _engine_js_1.applyAction)(s, makeFloor('defeat-all'), { actorId: 'sq-1', type: 'jutsu', jutsuId, targetId: 'en-1' }, (0, _sim_js_1.makeRng)(1));
+            node_assert_1.strict.equal(r.applied, true, `${jutsuId} applies`);
+            return {
+                primary: 100_000 - (0, _tower_session_js_1.getActor)(s, 'en-1').hp,
+                touching: 100_000 - (0, _tower_session_js_1.getActor)(s, 'en-2').hp,
+                far: 100_000 - (0, _tower_session_js_1.getActor)(s, 'en-3').hp,
+            };
+        }
+        const b = cast('j-burst');
+        const sng = cast('j-single');
+        node_assert_1.strict.ok(b.primary > 0, 'AOE_BURST damages the primary target');
+        node_assert_1.strict.ok(b.touching > 0, `AOE_BURST splashes a touching enemy (got ${b.touching})`);
+        node_assert_1.strict.equal(b.touching, b.primary, 'splash is FULL damage (equals the primary hit)');
+        node_assert_1.strict.equal(b.far, 0, 'radius 1 does NOT reach an enemy two hexes away');
+        node_assert_1.strict.equal(sng.touching, 0, 'a SINGLE-method jutsu does NOT splash at all');
+    });
     (0, node_test_1.it)('move is adjacent-only and blocked by occupants', () => {
         const s = makeSession(frontline());
         (0, _engine_js_1.startRound)(s);
