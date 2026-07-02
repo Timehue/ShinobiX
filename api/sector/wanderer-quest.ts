@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/sector/wanderer-quest — POST { action: 'accept' | 'claim', playerName, questId? }
@@ -94,6 +95,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
                 await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                // Legacy tracking (ENABLE_LEGACY): a completed wanderer quest.
+                await bumpLegacyStats(playerName, { wandererQuests: 1 });
                 return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
             }, { failClosed: true });
 

@@ -14,6 +14,7 @@ const _sector_war_js_1 = require("../_sector-war.js");
 const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
 const _war_telemetry_js_1 = require("../_war-telemetry.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
  *
@@ -300,6 +301,17 @@ async function doResolve(req, res, identity, playerName, body) {
     if (!result.ok) {
         return res.status(409).json({
             error: result.error === 'already-resolved' ? 'That battle was already resolved.' : 'The contest is no longer active.',
+        });
+    }
+    // Legacy tracking (ENABLE_LEGACY): war credit from the authoritative
+    // resolve — winner banked a war kill + contribution; a defender hold is a
+    // defense, an attacker capture is a capture. Best-effort, after the lock.
+    if ((0, _legacy_track_js_1.legacyEnabled)() && winnerName) {
+        await (0, _legacy_track_js_1.bumpLegacyStats)(winnerName, {
+            warPvpKills: 1,
+            warContribution: Math.max(0, Math.floor(Number(result.outcome.hpDealt) || 0)),
+            ...(attackerWon && result.outcome.captured ? { sectorCaptures: 1 } : {}),
+            ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
         });
     }
     return res.status(200).json({

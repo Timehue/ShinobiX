@@ -94,6 +94,9 @@ import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { homeVillageForSector } from "../data/war-map-sectors";
+import { isLegacyEnabled, sageRoll, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { buildSageVnEvent } from "../lib/legacy-sage-vn";
+import { SageOfferModal } from "../components/SageOfferModal";
 
 
 // Which scene-image theme each sector shows. Single source of truth shared by
@@ -563,6 +566,30 @@ export function WorldMap({
         const cd = character.wandererCooldowns; const now = Date.now();
         return mercRoster.mercs.filter(m => !isWandererOnCooldown(cd, m.id, now)).map(synthMercWanderer);
     }, [mercRoster, selectedSector, character.wandererCooldowns]);
+    // Wandering Sage (Legacy system, legacy.v1 + server ENABLE_LEGACY). The
+    // OFFER is server-decided (eligibility, odds, pity, daily caps all live in
+    // api/legacy/sage.ts) — this roll call is a free no-op when nothing is due.
+    // While an offer is waiting the Sage stands in its sector until answered.
+    const [sageOffer, setSageOffer] = useState<SageOfferView | null>(null);
+    const [sageVnEvent, setSageVnEvent] = useState<CreatorEvent | null>(null);
+    const [sageVnPage, setSageVnPage] = useState(0);
+    const [sageVnLine, setSageVnLine] = useState(0);
+    const [sageChoiceOpen, setSageChoiceOpen] = useState(false);
+    useEffect(() => {
+        if (!isLegacyEnabled() || character.level < 50 || character.legacy) return;
+        let alive = true;
+        void sageRoll(character.name).then(r => {
+            if (!alive || !r?.spawn || !r.offer) return;
+            setSageOffer(r.offer);
+            if (r.reason !== "already-waiting") alert(`A Wandering Sage has appeared near sector ${r.offer.sector}. He has been watching your path.`);
+        });
+        return () => { alive = false; };
+    }, [character.name, character.level, character.legacy]);
+    const sageWanderers = useMemo(
+        () => (sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector
+            ? [synthSageWanderer(sageOffer.sector)] : []),
+        [sageOffer, selectedSector],
+    );
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -736,6 +763,15 @@ export function WorldMap({
     type WandererDialog = { w: Wanderer; msg?: string; busy?: boolean; nemesis?: boolean; standingLine?: string; peace?: boolean };
     const [wandererDialog, setWandererDialog] = useState<WandererDialog | null>(null);
     function handleWandererEngage(w: Wanderer) {
+        // The Wandering Sage opens his Legacy-offer VN instead of the dialog.
+        if (w.id === LEGACY_SAGE_WANDERER_ID) {
+            if (sageOffer) {
+                setSageVnPage(0);
+                setSageVnLine(0);
+                setSageVnEvent(buildSageVnEvent(sageOffer, character.name));
+            }
+            return;
+        }
         // A roaming mercenary doesn't parley — it forces a server-resolved fight.
         if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
         // A bandit you face while you have a rival has a chance of BEING that rival,
@@ -1678,6 +1714,11 @@ export function WorldMap({
             </div>
         );
     }
+    if (sageVnEvent) {
+        // The Wandering Sage's introduction. Completing it opens the offer
+        // sheet (SageOfferModal) where the permanent choice actually happens.
+        return <TriggeredVisualNovel event={sageVnEvent} character={character} pageIndex={sageVnPage} lineIndex={sageVnLine} setPageIndex={setSageVnPage} setLineIndex={setSageVnLine} onCancel={() => setSageVnEvent(null)} onComplete={() => { setSageVnEvent(null); setSageChoiceOpen(true); }} onBattle={() => { /* the Sage never fights */ }} sharedImages={sharedImages} />;
+    }
     if (selectedCreatorEvent) {
         return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} onChoice={(c) => { const t = c.trait; if (t) updateCharacter(prev => prev ? addStoryTrait(prev, t) : prev); }} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
@@ -2005,7 +2046,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...mercWanderers].map(w => (
+                            {[...sectorWanderers, ...mercWanderers, ...sageWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2014,6 +2055,17 @@ export function WorldMap({
                                     onEngage={handleWandererEngage}
                                 />
                             ))}
+                            {sageChoiceOpen && sageOffer && (
+                                <SageOfferModal
+                                    offer={sageOffer}
+                                    playerName={character.name}
+                                    onClose={() => setSageChoiceOpen(false)}
+                                    onAccepted={(legacy) => {
+                                        setSageOffer(null);
+                                        updateCharacter(prev => prev ? { ...prev, legacy } : prev);
+                                    }}
+                                />
+                            )}
                             {wandererDialog && createPortal(
                                 <div
                                     style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}

@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _single_use_token_js_1 = require("../_single-use-token.js");
 const _progress_js_1 = require("./_progress.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 // Replay window for PvP-flavored raid reports — keyed off the same 24h
 // window report-pvp-win uses (session KV TTL is typically 1h but a player
 // could re-submit a battleId pulled from browser history much later).
@@ -205,6 +206,8 @@ async function handler(req, res) {
             kind: 'vanguard-raids',
         });
         const missionsCompleted = result.missionsCompleted;
+        // Legacy tracking (ENABLE_LEGACY): a validated raid completion.
+        await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { raidsCompleted: 1 });
         // Even-rank Vanguard perks paid out when a raid mission completes.
         // Rank 4: +25% Ryo bonus (flat 250 Ryo per raid mission complete at R4+).
         // Rank 10: +1 bonus Honor Seal per raid mission complete.
