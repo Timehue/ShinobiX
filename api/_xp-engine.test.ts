@@ -44,8 +44,9 @@ const cBudget = (lvl: number, xp: number) => {
 };
 function cReconcile(ch: Record<string, unknown>) {
     const stats = cNorm(ch.stats as Record<string, unknown>);
-    const available = Math.max(0, cBudget(Number(ch.level), Number(ch.xp)) - cAllocated(stats));
-    return { ...ch, stats, unspentStats: available };
+    // Two-axis: preserve the stored pool (mirrors the server + client reconcile).
+    const unspentStats = Math.max(0, Math.floor(Number(ch.unspentStats) || 0));
+    return { ...ch, stats, unspentStats };
 }
 const cEffXp = (ch: { elderFocus?: unknown }, amount: number) => {
     const base = Math.max(0, Math.floor(amount));
@@ -152,11 +153,13 @@ describe('gainXp matches the client across a wide input sweep', () => {
 
 // ─── Hand-computed golden anchors (cross-check the transcription) ────────────
 describe('gainXp golden anchors', () => {
-    it('+0 XP only normalizes stats + sets unspentStats (level 1 fresh = 20 budget)', () => {
+    it('+0 XP only normalizes stats + preserves the stored pool (two-axis: no budget grant)', () => {
         const out = gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 0);
         assert.equal(out.level, 1);
         assert.equal(out.xp, 0);
-        assert.equal(out.unspentStats, 20);
+        assert.equal(out.unspentStats, 0); // no stored pool → 0; leveling grants no points
+        // a stored pool carries through unchanged (points come from training + combat)
+        assert.equal(gainXp({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {}, unspentStats: 42 }, 0).unspentStats, 42);
     });
     it('level 1 + 100 base XP (×1 = 100) climbs to level 4, xp 16', () => {
         // Under 6·L² the early curve: xpNeeded 1..3 = 6+24+54 = 84, so 100 XP reaches
@@ -169,7 +172,7 @@ describe('gainXp golden anchors', () => {
         assert.equal(out.maxChakra, 248);
         assert.equal(out.maxStamina, 248);
         assert.equal(out.rankTitle, 'Academy Student');
-        assert.equal(out.unspentStats, 975); // linear budget, interpolated at (4, 16)
+        assert.equal(out.unspentStats, 0); // two-axis: leveling grants no stat budget (pool preserved)
     });
     it('exam gate clamps level + XP (no genin exam → cap 20)', () => {
         const out = gainXp({ level: 19, xp: 0, examsPassed: [], stats: {} }, 5000);

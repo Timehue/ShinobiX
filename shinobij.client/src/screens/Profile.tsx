@@ -15,7 +15,7 @@ import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
-import { allocatedStatPoints, baseStats, capStat, reconcileCharacterStatBudget, xpNeeded } from "../lib/stats";
+import { allocatedStatPoints, baseStats, capStat, xpNeeded } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
 import { describeJutsuEffects, jutsuDisplayAtLevel } from "../lib/jutsu-effects";
 import { getAllItems, getItemById } from "../lib/items";
@@ -147,12 +147,12 @@ export function Profile({
         });
     }
 
-    // Pay Fate Shards to reset all 12 stats to base and refund every allocated
-    // point as unspentStats to re-allocate. Uses the canonical
-    // reconcileCharacterStatBudget so the refunded budget matches what the server
-    // recomputes (the save sanitizer allows stat DECREASES freely — only gains are
-    // clamped — so this client write persists cleanly). HP/Chakra/Stamina pools
-    // are untouched (they are not allocatable stats).
+    // Pay Fate Shards to reset all 12 stats to base and refund EVERY earned point
+    // (from training + combat) into the allocatable unspent pool to re-spend as you
+    // wish. Two-axis model: nothing is lost, only rearranged — a respec never nukes
+    // hard-earned training time. The save sanitizer allows stat DECREASES freely
+    // (only gains are clamped), so this client write persists cleanly. HP/Chakra/
+    // Stamina pools are untouched (they are not allocatable stats).
     async function respecStats() {
         const RESPEC_COST = 50;
         if ((character.fateShards ?? 0) < RESPEC_COST) {
@@ -160,15 +160,15 @@ export function Profile({
             setTimeout(() => setStatWarning(""), 4000);
             return;
         }
-        if (allocatedStatPoints(character.stats) <= 0) {
+        const refund = allocatedStatPoints(character.stats);
+        if (refund <= 0) {
             setStatWarning("Nothing to respec — all stats are already at base.");
             setTimeout(() => setStatWarning(""), 4000);
             return;
         }
-        if (!(await gameConfirm(`Reset all 12 stats to base and refund every allocated point for ${RESPEC_COST} 🔮 Fate Shards? You'll get your full level budget back as unspent points to re-allocate.`))) return;
-        const reset = reconcileCharacterStatBudget({ ...character, stats: baseStats() });
+        if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return;
         setStatWarning("");
-        updateCharacter({ ...reset, fateShards: (character.fateShards ?? 0) - RESPEC_COST });
+        updateCharacter({ ...character, stats: baseStats(), unspentStats: (character.unspentStats ?? 0) + refund, fateShards: (character.fateShards ?? 0) - RESPEC_COST });
     }
 
     function purchaseTitle() {

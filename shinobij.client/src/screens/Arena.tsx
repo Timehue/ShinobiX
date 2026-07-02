@@ -54,7 +54,7 @@ import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { minActionCost } from "../lib/combat-affordability";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
-import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
+import { applyStatGrowth, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
 import { relevelBuiltinAi } from "../lib/combat-ai";
@@ -2434,10 +2434,14 @@ export function Arena({
                 body: JSON.stringify({ playerName: character.name, xp: xpGain, ryo: ryoGain }),
             })
                 .then((r) => (r.ok ? r.json() : null))
-                .then((data: { xp?: unknown; ryo?: unknown } | null) => {
+                .then((data: { xp?: unknown; ryo?: unknown; statGrowth?: { allocated?: Record<string, number>; unspentGain?: number } } | null) => {
                     const okXp = typeof data?.xp === "number" ? data.xp : xpGain;
                     const okRyo = typeof data?.ryo === "number" ? data.ryo : ryoGain;
-                    updateCharacter(buildWin(okXp, okRyo));
+                    // Stage 4: apply the server-computed, daily-capped combat-use stat
+                    // growth on top of the base win (server is authoritative for the amount).
+                    let winChar = buildWin(okXp, okRyo);
+                    if (data?.statGrowth) winChar = applyStatGrowth(winChar, data.statGrowth.allocated ?? {}, data.statGrowth.unspentGain ?? 0);
+                    updateCharacter(winChar);
                 })
                 .catch(() => updateCharacter(buildWin(xpGain, ryoGain)));
         } else {

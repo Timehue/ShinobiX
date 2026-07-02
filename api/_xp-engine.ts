@@ -126,13 +126,16 @@ function statPointBudgetForProgress(level: number, xp: number): number {
 // Loose character shape — the server operates on the raw KV save object.
 export type XpCharacter = Record<string, unknown>;
 
+// Two-axis progression (docs/leveling-training-redesign-plan.md): unspentStats is a
+// STORED pool — stat points come from training (direct-to-stat) + combat (the pool),
+// NOT a level budget. Mirrors shinobij.client/src/lib/stats.ts. Reconcile only
+// normalizes stats + clamps the pool ≥ 0; it never rolls back spent stats and never
+// grants points on level-up. statBudgetAtLevel / statPointBudgetForProgress stay for
+// AI stat generation + the ai-stats parity, hence retained above.
 export function reconcileCharacterStatBudget(character: XpCharacter): XpCharacter {
     const stats = normalizeStats(character.stats as Record<string, unknown> | undefined);
-    const level = Number(character.level);
-    const xp = Number(character.xp);
-    const earnedBudget = statPointBudgetForProgress(level, xp);
-    const available = Math.max(0, earnedBudget - allocatedStatPoints(stats));
-    return { ...character, stats, unspentStats: available };
+    const unspentStats = Math.max(0, Math.floor(Number(character.unspentStats) || 0));
+    return { ...character, stats, unspentStats };
 }
 
 // ── lib/progression.ts ──────────────────────────────────────────────────────
