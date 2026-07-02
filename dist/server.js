@@ -78,6 +78,8 @@ const settle_js_1 = __importDefault(require("./api/towers/settle.js"));
 const my_run_js_1 = __importDefault(require("./api/towers/my-run.js"));
 const join_js_1 = __importDefault(require("./api/towers/join.js"));
 const expedition_start_js_1 = __importDefault(require("./api/missions/expedition-start.js"));
+const start_js_2 = __importDefault(require("./api/training/start.js"));
+const complete_js_1 = __importDefault(require("./api/training/complete.js"));
 const lock_js_1 = __importDefault(require("./api/battle/lock.js"));
 const transfer_js_1 = __importDefault(require("./api/village/treasury/transfer.js"));
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
@@ -123,7 +125,7 @@ const purchase_js_1 = __importDefault(require("./api/clan/upgrade/purchase.js"))
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 const claim_js_1 = __importDefault(require("./api/clan/mission/claim.js"));
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
-const start_js_2 = __importDefault(require("./api/hollow-gate/start.js"));
+const start_js_3 = __importDefault(require("./api/hollow-gate/start.js"));
 const choose_augment_js_1 = __importDefault(require("./api/hollow-gate/choose-augment.js"));
 const settle_js_2 = __importDefault(require("./api/hollow-gate/settle.js"));
 // Clan — membership: kick (server-authoritative cross-save removal)
@@ -570,6 +572,10 @@ route('/battle/lock', lock_js_1.default);
 // Missions — pet expedition token mint (single-use, time-gated; redeemed by
 // report-pet-event so expedition rewards require a real, fully-elapsed run).
 route('/missions/expedition-start', expedition_start_js_1.default);
+// Stat training — single-use token pair (server-auth). start seals the chosen
+// stat's gain; complete time-gates + consumes it and returns the sealed amount.
+route('/training/start', start_js_2.default);
+route('/training/complete', complete_js_1.default);
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
 route('/village/treasury/transfer', transfer_js_1.default);
@@ -663,7 +669,7 @@ route('/clan/mission/claim', claim_js_1.default);
 // start mints a sealed token (entry snapshot + depth + augment offers) under a
 // server daily-run cap; choose-augment re-seals the pick; settle credits
 // min(claimed, sealed ceiling) anchored to the entry snapshot, single-use.
-route('/hollow-gate/start', start_js_2.default);
+route('/hollow-gate/start', start_js_3.default);
 route('/hollow-gate/choose-augment', choose_augment_js_1.default);
 route('/hollow-gate/settle', settle_js_2.default);
 // ─── Clan: kick a member (server-authoritative) ─────────────────────────────────
