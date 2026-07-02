@@ -50,6 +50,7 @@ describe('parity: jutsu-points (api/_jutsu-points.ts ⇄ client lib/jutsu-points
             { ap: 60, range: 5, effectPower: 50, cooldown: 1, target: 'OPPONENT', method: 'SINGLE', tags: [] },
             { ap: 60, range: 4, effectPower: 36, cooldown: 7, target: 'OPPONENT', method: 'SINGLE', tags: [{ name: 'Stun' }, { name: 'Copy' }] },
             { ap: 40, range: 4, effectPower: 0, cooldown: 7, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT', tags: [{ name: 'Poison' }] },
+            { ap: 60, range: 4, effectPower: 30, cooldown: 7, target: 'OPPONENT', method: 'AOE_BURST', tags: [{ name: 'Increase Damage Given', percent: 35 }] },
         ];
         for (const r of RANKS) {
             for (const j of samples) {
