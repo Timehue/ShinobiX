@@ -2022,6 +2022,11 @@ export function Arena({
                 } else if (wt.name === "Increase Damage Given") {
                     setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% Damage Given`);
+                } else if (wt.name === "Increase Generals") {
+                    // Self-buff: raises str/spd/int/wil (read by generalsBonusFromStatuses
+                    // in calculateDamage). Mirrors the Increase Damage Given weapon branch.
+                    setPlayerStatuses((s) => [...s, { name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    effectLines.push(`+${p}% General stats`);
                 } else if (wt.name === "Decrease Damage Taken") {
                     setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`-${p}% Damage Taken`);
@@ -2650,6 +2655,18 @@ export function Arena({
                 else {
                     queuePlayerStatus({ name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`Increase Damage Given: ${character.name} deals ${pct}% more ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
+                }
+            }
+
+            // Increase Generals: self-buff to str/spd/int/wil. The stat lift is read from
+            // active stacks by generalsBonusFromStatuses inside calculateDamage, so it
+            // raises the caster's damage dealt AND lowers damage taken. Buff-Prevent-gated
+            // like the other self-buffs; the % is rank-capped via effectiveTagPercent.
+            if (tag.name === "Increase Generals") {
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Generals was prevented`);
+                else {
+                    queuePlayerStatus({ name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
+                    effectLines.push(`Increase Generals: ${character.name}'s general stats rise ${pct}% for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -3443,6 +3460,13 @@ export function Arena({
                 else {
                     queueToEnemy({ name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`${opponentName} deals ${pct}% more damage for ${AMP_STATUS_ROUNDS_PVE} rounds`);
+                }
+            }
+            if (tag.name === "Increase Generals") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Increase Generals was prevented`);
+                else {
+                    queueToEnemy({ name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName}'s general stats rise ${pct}% for ${AMP_STATUS_ROUNDS_PVE} rounds`);
                 }
             }
             if (tag.name === "Decrease Damage Taken") {
