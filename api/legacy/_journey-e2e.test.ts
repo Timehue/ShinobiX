@@ -141,10 +141,13 @@ test('accept seals the path, auto-starts a DECORATED awaken trial, returns the i
     chosen = offerIds[0];
     const { res, out } = fakeRes();
     await sage(fakeReq('POST', { action: 'accept', playerName: P, legacyId: chosen }), res);
-    const b = out.body as { ok: boolean; legacy: { stage: number; legacyId: string }; trial: { kind: string; objectives: Array<{ progress?: number; done?: boolean }> }; intro?: string };
+    const b = out.body as { ok: boolean; legacy: { stage: number; legacyId: string; eraBorn?: number }; trial: { kind: string; objectives: Array<{ progress?: number; done?: boolean }> }; intro?: string };
     assert.equal(b.ok, true);
     assert.equal(b.legacy.stage, 1);
     assert.equal(b.legacy.legacyId, chosen);
+    // The legacy is stamped with the world era it was taken up in (>=1, and the
+    // launch eras I-IV are unlocked so it lands at 4). Pins it to the timeline.
+    assert.ok(typeof b.legacy.eraBorn === 'number' && b.legacy.eraBorn >= 1, 'accept must stamp the world era (eraBorn)');
     assert.equal(b.trial.kind, 'awaken');
     assert.equal(typeof b.trial.objectives[0]?.progress, 'number', 'objectives must be decorated with progress/done');
     assert.ok((b.intro ?? '').length > 50, 'the Sage narrative intro must ship with the trial');
