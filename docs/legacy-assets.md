@@ -59,12 +59,18 @@ VN dialogue portrait (341×512 WebP, auto-resolved by speaker name via
   ever runs a full VN, copy its square face to
   `public/portraits/<speaker-slug>.webp`.
 
-## 2. Legacy badges (20)
+## 2. Legacy badges (100 — all generated)
 
 256×256 opaque PNG at `shinobij.client/public/badges/legacy-<slug>.png` —
 deliberately the same folder/format as achievement badges so the existing
 `/badges/${id}.png` render sites (Profile, UserView) work unchanged for
 Legacy badges.
+
+**All 100 are generated and live** (one per legacy; slug = legacy id, i.e.
+`badge: d.badge ?? d.id` in `api/_legacy-defs.ts` `LEGACY_DEFS` — that is the
+authoritative list, with a `.txt` prompt sidecar next to each file). The list
+below is the 20 hand-mapped launch originals; the remaining 80 were generated
+in the depth wave.
 
 Commons: `wandering-shinobi`, `village-veteran`, `proven-fighter`,
 `road-worn-shinobi` (bronze frames)
@@ -76,10 +82,24 @@ Village: `ashen-will` (Ashen Leaf), `storm-fang` (Stormveil),
 `frostbound-shield` (Frostfang), `moonlit-oath` (Moonshadow)
 Support: `village-guardian` · Explorer: `hidden-path`
 
-## 3. Specialty Jutsu icons (20)
+## 3. Specialty Jutsu icons (100 — 20 generated, 80 pending)
 
 320px WebP at `shinobij.client/public/legacy/jutsu/<jutsu-slug>.webp`, one per
-launch-roster Legacy (jutsu ids will be `legacy-<jutsu-slug>`, plan §10):
+Legacy. **The jutsu themselves are SHIPPED** (all 100, ids `legacy-<jutsu-slug>`
+in `shinobij.client/src/data/legacy-jutsu.ts`, server catalog
+`api/pvp/_legacy-jutsu-catalog.ts`); the 20 icons below are generated and wired
+(via `SHIPPED_ICON_SLUGS` in the data file, so a missing icon renders as an
+empty slot rather than a broken image). Generate the remaining 80 with the
+authored batch runner (resumable; needs `OPENAI_API_KEY`):
+
+```
+cd shinobij.client
+node --import tsx scripts/gen-legacy-jutsu-icons.mjs           # ~80 images, gen-quality low
+```
+
+then add the new slugs to `SHIPPED_ICON_SLUGS` (or make the image path
+unconditional) and rebuild both dists. The original 20, mapped at authoring
+time:
 
 | Legacy | Specialty Jutsu icon |
 |---|---|
