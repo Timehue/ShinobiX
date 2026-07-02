@@ -6,15 +6,15 @@
 
 | Legacy | Title | Category | Village | Requirements (all) | Flavor |
 |---|---|---|---|---|---|
-| **Legacy of the First Flame** | First Flame Bearer | mythic | — | firstClears ≥ 2; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Before the roads had names, someone had to walk them burning. The world remembers who lit the way first. |
+| **Legacy of the First Flame** | First Flame Bearer | mythic | — | firstClears ≥ 1; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Before the roads had names, someone had to walk them burning. The world remembers who lit the way first. |
 | **Legacy of the Sundered Seal** | Sundered Seal | pve | — | hollowGateClears ≥ 75; dungeonClears ≥ 40; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The seal beneath Central does not crack for the curious. It cracks for the one who kept coming back. |
 | **Legacy of the Hundred Storms** | Hundred Storms | ninjutsu | — | ninjutsuKills ≥ 400; genjutsuKills ≥ 400; taijutsuKills ≥ 400; bukijutsuKills ≥ 400; pveKills ≥ 3,000 | Ninjutsu, genjutsu, taijutsu, bukijutsu — the storm does not choose one wind. It is all of them at once. |
 | **Legacy of the Duel Sovereign** | Duel Sovereign | pvp | — | pvpWins ≥ 400; sameRankWins ≥ 150; bestKillStreak ≥ 15; rankedWins ≥ 120; higherLevelWins ≥ 60; warPvpKills ≥ 50; eliteKills ≥ 200; eventCompletions ≥ 8 | Kings are crowned. Sovereigns are proven — one challenger at a time, none of them lesser, none of them lucky. |
 | **Legacy of the Silent Empire** | Silent Emperor | genjutsu | — | genjutsuKills ≥ 800; genjutsuDamage ≥ 600,000; pvpWins ≥ 200; defensiveWins ≥ 75; missionCompletions ≥ 400; sectorDiscoveries ≥ 100 | No banners, no borders, no decree ever spoken aloud. An empire built entirely of moments its subjects cannot remember. |
-| **Legacy of the Last Bastion** | The Last Bastion | support | — | healingDone ≥ 1,000,000; damageBlocked ≥ 2,000,000; shieldsApplied ≥ 1,500; sectorDefenses ≥ 25; defensiveWins ≥ 100; villageTenureDays ≥ 45 | When every other wall fell, the line held — because the line was a person. |
+| **Legacy of the Last Bastion** | The Last Bastion | support | — | healingDone ≥ 500,000; damageBlocked ≥ 1,000,000; shieldsApplied ≥ 800; sectorDefenses ≥ 25; defensiveWins ≥ 100; villageTenureDays ≥ 45 | When every other wall fell, the line held — because the line was a person. |
 | **Legacy of the Founder's Shadow** | Founder's Shadow | village | — | villageTenureDays ≥ 75; villageDonations ≥ 1,000,000; warsWon ≥ 12; warPvpKills ≥ 150; sectorCaptures ≥ 25; missionCompletions ≥ 500; defensiveWins ≥ 50 | Some serve a village. A very few become the thing the village quietly stands on. |
 | **Legacy of the World Awakener** | World Awakener | mythic | — | weeklyBossTop10 ≥ 8; bossContribution ≥ 1,200,000; eventCompletions ≥ 15; pvpWins ≥ 150; firstClears ≥ 1; warContribution ≥ 100,000 | The great beasts do not stir for armies. They stir for the one name the world keeps repeating. |
-| **Legacy of the Horizon's End** | Horizon's End | explorer | — | tilesExplored ≥ 2,400; sectorDiscoveries ≥ 250; hiddenFinds ≥ 60; wandererQuests ≥ 75; huntCompletions ≥ 150; petExpeditions ≥ 50; firstClears ≥ 1 | Maps end where courage does. Somewhere past the last drawn line, the horizon finally learned this one’s name. |
+| **Legacy of the Horizon's End** | Horizon's End | explorer | — | tilesExplored ≥ 2,400; sectorDiscoveries ≥ 250; hiddenFinds ≥ 60; wandererQuests ≥ 75; huntCompletions ≥ 150; petExpeditions ≥ 50; eventCompletions ≥ 8 | Maps end where courage does. Somewhere past the last drawn line, the horizon finally learned this one’s name. |
 | **Legacy of the Deathless Ember** | Deathless Ember | taijutsu | — | comebackWins ≥ 40; defensiveWins ≥ 100; pvpWins ≥ 250; hollowGateClears ≥ 40; eliteKills ≥ 400; taijutsuDamage ≥ 400,000; damageBlocked ≥ 800,000 | Extinguished a hundred times, and a hundred times the coal came back red. Some fires simply refuse the dark. |
 
 ## LEGENDARY (25)
@@ -36,7 +36,7 @@
 | **Legacy of the Trial Conqueror** | Trial Conqueror | pve | — | dungeonClears ≥ 40; endlessTowerBest ≥ 40; missionCompletions ≥ 400; tilesExplored ≥ 1,500 | The trials were built to find the limit of a shinobi. They are still looking. |
 | **Legacy of the Ancient Hunter** | Ancient Hunter | pve | — | huntCompletions ≥ 150; eliteKills ≥ 250; hiddenFinds ≥ 25 | The old beasts teach one lesson each. This hunter finished the whole curriculum. |
 | **Legacy of the Ashen Will** | Ashen Will | village | Ashen Leaf | villageTenureDays ≥ 45; villageDonations ≥ 250,000; warContribution ≥ 30,000; sectorDefenses ≥ 12 | Ashen Leaf endures because someone always chooses to be the ember that will not go out. |
-| **Legacy of the Storm Fang** | Storm Fang | village | Stormveil | villageTenureDays ≥ 45; warPvpKills ≥ 60; sectorCaptures ≥ 15; warsWon ≥ 6 | Stormveil does not wait for weather. It sends its own. |
+| **Legacy of the Storm Fang** | Storm Fang | village | Stormveil | villageTenureDays ≥ 45; warPvpKills ≥ 60; raidsCompleted ≥ 40; warsWon ≥ 6 | Stormveil does not wait for weather. It sends its own. |
 | **Legacy of the Frostbound Shield** | Frostbound Shield | village | Frostfang | villageTenureDays ≥ 45; sectorDefenses ≥ 18; damageBlocked ≥ 500,000; defensiveWins ≥ 40 | The north holds because its shield never asks how cold it is. |
 | **Legacy of the Moonlit Oath** | Oath of the Moon | village | Moonshadow | villageTenureDays ≥ 45; genjutsuKills ≥ 300; sectorDiscoveries ≥ 80; warContribution ≥ 30,000 | Moonshadow keeps no written oaths. It keeps kept ones. |
 | **Legacy of the Village Guardian** | Village Guardian | support | — | healingDone ≥ 400,000; shieldsApplied ≥ 600; sectorDefenses ≥ 15 | Heroes are counted by the battles they won. Guardians, by the ones nobody else had to fight. |
@@ -89,16 +89,16 @@
 | **Legacy of the Wayfarer's Mark** | Wayfarer | explorer | — | tilesExplored ≥ 1,000; wandererQuests ≥ 10 | Home is a direction, not an address. |
 | **Legacy of the Rumor Chaser** | Rumor Chaser | explorer | — | sectorDiscoveries ≥ 40; wandererQuests ≥ 15 | Every tall tale in every tavern gets personally fact-checked. |
 | **Legacy of the Stranger's Friend** | Stranger's Friend | explorer | — | wandererQuests ≥ 25; sectorDiscoveries ≥ 25 | Wanderers on every road owe this one a favor, a meal, or an apology. |
-| **Legacy of the Shielding Palm** | Shielding Palm | support | — | shieldsApplied ≥ 200; damageBlocked ≥ 200,000 | An open hand that has stopped more blades than most swords. |
-| **Legacy of the Field Medic** | Field Medic | support | — | healingDone ≥ 100,000; missionCompletions ≥ 100 | Runs toward the scream. Bills nobody. |
-| **Legacy of the Purifying Light** | Purifier | support | — | healingDone ≥ 120,000; defensiveWins ≥ 10 | Curses, poisons, despair — all laundry, all washable. |
+| **Legacy of the Shielding Palm** | Shielding Palm | support | — | shieldsApplied ≥ 200; damageBlocked ≥ 100,000 | An open hand that has stopped more blades than most swords. |
+| **Legacy of the Field Medic** | Field Medic | support | — | healingDone ≥ 50,000; missionCompletions ≥ 100 | Runs toward the scream. Bills nobody. |
+| **Legacy of the Purifying Light** | Purifier | support | — | healingDone ≥ 60,000; defensiveWins ≥ 10 | Curses, poisons, despair — all laundry, all washable. |
 | **Legacy of the Pack Leader** | Pack Leader | pets | — | petDuelWins ≥ 50; petExpeditions ≥ 20 | Speaks fluent growl, purr, and dramatic silence. |
 | **Legacy of the Wild Heart** | Wild Heart | pets | — | petExpeditions ≥ 40; huntCompletions ≥ 30 | Half the menagerie followed them home. The other half is en route. |
 | **Legacy of the Coliseum Tamer** | Coliseum Tamer | pets | — | petDuelWins ≥ 75; arenaTournaments ≥ 8 | The crowd chants the pet’s name. The tamer prefers it that way. |
 | **Legacy of the Card Sharp** | Card Sharp | cards | — | cardClashWins ≥ 40; missionCompletions ≥ 100 | Shuffles like a magician, wins like an accountant. |
 | **Legacy of the Table's Shadow** | The Table's Shadow | cards | — | cardClashWins ≥ 60; pvpWins ≥ 25 | Nobody remembers inviting them to the game. Nobody dares un-invite them. |
 | **Legacy of the Sector Warden** | Sector Warden | war | — | sectorDefenses ≥ 8; warContribution ≥ 25,000 | Holds ground like the ground asked them personally. |
-| **Legacy of the Banner Taker** | Banner Taker | war | — | sectorCaptures ≥ 5; warPvpKills ≥ 15 | Collects enemy flags the way others collect excuses. |
+| **Legacy of the Banner Taker** | Banner Taker | war | — | raidsCompleted ≥ 20; warPvpKills ≥ 15 | Collects enemy flags the way others collect excuses. |
 | **Legacy of the Siege Runner** | Siege Runner | war | — | raidsCompleted ≥ 30; warContribution ≥ 20,000 | Between the lines, under the arrows, on schedule. |
 | **Legacy of the War Drummer** | War Drummer | war | — | warContribution ≥ 30,000; warsWon ≥ 3 | Every war has a heartbeat. Someone has to be it. |
 

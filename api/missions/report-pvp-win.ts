@@ -7,7 +7,7 @@ import { reportMissionEvent } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
 import { hasRecentIpOverlap, hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
-import { extractPvpLegacyDeltas } from '../_legacy-pvp.js';
+import { extractPvpLegacyDeltas, guardDefenseDeltas } from '../_legacy-pvp.js';
 import { bumpEraContribution } from '../_era.js';
 
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
@@ -110,6 +110,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await bumpLegacyStats(playerName, {}, { characterForBootstrap: char ?? null, suspicion: true });
                     } else {
                         const extract = extractPvpLegacyDeltas(session, winnerName, loserName);
+                        // Queue-defense credit (always available — no war needed):
+                        // village-guard/challenge.ts marked this battle server-side.
+                        // playerName IS the winner (validated at the 403 gate above);
+                        // guard-won → defensiveWins/sectorDefenses, raider-won →
+                        // warPvpKills. Marker del'd on read; the pvp-tracked NX above
+                        // already makes this whole block once-per-battle.
+                        try {
+                            const guardMarker = await kv.get<{ defender?: string; attacker?: string }>(`legacy:guard-defense:${battleId}`);
+                            if (guardMarker) {
+                                await kv.del(`legacy:guard-defense:${battleId}`).catch(() => undefined);
+                                const gd = guardDefenseDeltas({
+                                    defender: safeName(String(guardMarker.defender ?? '')),
+                                    attacker: safeName(String(guardMarker.attacker ?? '')),
+                                }, playerName);
+                                for (const [k, v] of Object.entries(gd)) {
+                                    const key = k as keyof typeof extract.winnerDeltas;
+                                    extract.winnerDeltas[key] = (extract.winnerDeltas[key] ?? 0) + (v as number);
+                                }
+                            }
+                        } catch { /* best-effort — defense credit is non-blocking */ }
                         const winnerLevel = Number(char?.level ?? 0) || 0;
                         const loserLevel = Number(opponentChar?.level ?? 0) || 0;
                         await bumpLegacyStats(playerName, extract.winnerDeltas, {
