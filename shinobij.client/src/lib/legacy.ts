@@ -23,8 +23,25 @@ export type CharacterLegacy = {
     boundAt?: number;
     provenAt?: number;
     mythicAt?: number;
+    /** World Era this legacy was taken up in (1-5) — server-stamped at accept,
+     *  permanent. Absent on legacies accepted before this shipped. */
+    eraBorn?: number;
     titles: string[];
 };
+
+/** Era number → the evocative "Age" name, for pinning a legacy to the world
+ *  timeline ("taken up in the Age of Village Dominion"). Mirrors the era roster
+ *  in api/_era-defs.ts; kept as a tiny static map so surfacing it needs no fetch. */
+export const ERA_AGE_NAMES: Record<number, string> = {
+    1: "the Age of Awakening",
+    2: "the Age of the Hollow Gate",
+    3: "the Age of Village Dominion",
+    4: "the Age of the World Boss",
+    5: "the Age of Mythic Legacies",
+};
+export function eraAgeName(n: number | undefined | null): string | null {
+    return n != null && ERA_AGE_NAMES[n] ? ERA_AGE_NAMES[n] : null;
+}
 
 export type LegacyDefView = {
     id: string; name: string; rarity: LegacyRarity; category: string;

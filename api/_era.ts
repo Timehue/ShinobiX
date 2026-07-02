@@ -58,6 +58,25 @@ export async function readEraContributions(): Promise<Record<EraMetric, number>>
     return out;
 }
 
+/** The highest-numbered era currently unlocked — the world's active chapter.
+ *  Used to stamp `eraBorn` on a legacy at accept, pinning the accomplishment to
+ *  the timeline. Reads the same state + overrides the roster/cron use, so it
+ *  can't drift. Defaults to 1 on any read failure (never blocks an accept). */
+export async function currentEraNumber(): Promise<number> {
+    try {
+        const state = await getEraState();
+        let highest = 1;
+        for (const def of ERA_DEFS) {
+            if (effectiveStatus(def, state.overrides[def.id]) === 'unlocked' && def.number > highest) {
+                highest = def.number;
+            }
+        }
+        return highest;
+    } catch {
+        return 1;
+    }
+}
+
 /** Fire-and-forget global contribution bump from settle endpoints. */
 export async function bumpEraContribution(metric: EraMetric, n = 1): Promise<void> {
     if (!legacyEnabled() || n <= 0) return;

@@ -173,24 +173,18 @@ const ROWS: RawRow[] = [
     { legacyId: "steadfast-neighbor", j: { id: "legacy-neighbors-vigil", name: "Neighbor's Vigil", type: "Any", element: "None", ap: 40, range: 4, effectPower: 0, cooldown: 10, chakraCost: 125, staminaCost: 125, target: "SELF", method: "SINGLE", isUtility: true, tags: [{ name: "Shield", percent: 0 }, { name: "Decrease Damage Taken", percent: 30 }], battleDescription: "The Neighbor keeps the vigil — nothing gets past the fence tonight.", description: "Steadfast's signature: defense the way neighbors do it — a raised shield, a set jaw, and a watch that doesn't end." } },
 ];
 
-// Icon art shipped so far — 320px WebP at /legacy/jutsu/<slug>.webp
-// (docs/legacy-assets.md §3; slug = jutsu id minus the "legacy-" prefix).
-// Only listed slugs get an image path so un-generated art never renders as a
-// broken icon; extend this set as the icon pass lands the remaining slugs.
-const SHIPPED_ICON_SLUGS = new Set([
-    "break-stance", "camp-respite", "cinder-charge", "crimson-draw", "duelists-riposte",
-    "ember-oath", "false-opening", "hollow-break", "immovable-oath", "moonlit-execution",
-    "oathkeepers-guard", "rallying-banner", "second-wind", "shielding-palm", "steady-stride",
-    "tempest-convergence", "throne-challenge", "tide-fang-bolt", "vanish-step", "veiled-crescent",
-]);
+// All 100 signature icons are generated — 320px WebP at /legacy/jutsu/<slug>.webp
+// (docs/legacy-assets.md §3; slug = jutsu id minus the "legacy-" prefix), so the
+// image path is set unconditionally. A jutsu added later without art would 404,
+// but the combat/inspect UIs degrade gracefully (jutsu.image || shared || "").
+// Regenerate any missing art with shinobij.client/scripts/gen-legacy-jutsu-icons.mjs.
 
 // Tier caps ride on bloodlineRank, which normalizeJutsu deliberately drops
 // (starters get theirs stamped at read time by markRank) — so re-stamp after
 // normalizing, the same trailing-map pattern the bloodline data uses.
 export const LEGACY_JUTSU_DEFS: LegacyJutsuDef[] = ROWS.map(({ legacyId, rank, j }) => {
     const jutsu: Jutsu = { ...normalizeJutsu(j), ...(rank ? { bloodlineRank: rank } : {}) };
-    const slug = jutsu.id.replace(/^legacy-/, "");
-    if (SHIPPED_ICON_SLUGS.has(slug)) jutsu.image = `/legacy/jutsu/${slug}.webp`;
+    jutsu.image = `/legacy/jutsu/${jutsu.id.replace(/^legacy-/, "")}.webp`;
     return { legacyId, jutsu };
 });
 
