@@ -302,31 +302,35 @@ function sanitizeCharacterSave(incoming, existing) {
         // keeps flag-off behavior byte-identical, and — critically — never
         // re-confiscates a title a player already wears (an existing, unchanged
         // "Kage Slayer" is not re-evaluated). Verification finding.
-        if ((0, _legacy_track_js_1.legacyEnabled)() && masked !== storedTitle) {
-            const norm = (0, _titles_registry_js_1.normalizeTitleKey)(masked);
+        const titleChanged = masked !== storedTitle;
+        const norm = (0, _titles_registry_js_1.normalizeTitleKey)(masked);
+        if (titleChanged && (0, _titles_registry_js_1.isServerCreditedTitle)(masked)) {
+            // ALWAYS-ON (deliberate flag-off exception): the legacy/era title
+            // strings are server-granted only, and the changed-only grandfather
+            // above is permanent — so a title squatted while ENABLE_LEGACY is
+            // still off would survive the flag flip forever. A CHANGED title
+            // can claim one of these strings only if the stored server-owned
+            // vault already contains it. Verification finding.
+            const storedLegacy = existing?.character?.legacy;
+            const storedServer = existing?.character?.serverTitles;
+            // Server-owned ownership: stored legacy.titles ∪ serverTitles
+            // (both re-injected by this sanitizer, never client-mutable).
+            const serverOwned = new Set([
+                ...(Array.isArray(storedLegacy?.titles) ? storedLegacy.titles : []),
+                ...(Array.isArray(storedServer) ? storedServer : []),
+            ].map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))));
+            char.customTitle = serverOwned.has(norm) ? masked : '';
+        }
+        else if ((0, _legacy_track_js_1.legacyEnabled)() && titleChanged) {
             if ((0, _titles_registry_js_1.isKnownEarnedTitle)(masked)) {
-                const storedLegacy = existing?.character?.legacy;
+                // Achievement titles: earnedTitles is acceptable (same
+                // client-trust level as the achievements that grant them).
                 const storedServer = existing?.character?.serverTitles;
-                // Server-owned ownership: stored legacy.titles ∪ serverTitles
-                // (both re-injected by this sanitizer, never client-mutable).
-                const serverOwned = new Set([
-                    ...(Array.isArray(storedLegacy?.titles) ? storedLegacy.titles : []),
-                    ...(Array.isArray(storedServer) ? storedServer : []),
-                ].map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))));
-                if ((0, _titles_registry_js_1.isServerCreditedTitle)(masked)) {
-                    // Legacy + era titles: STRICT server-owned check only —
-                    // earnedTitles is client-writable and would self-grant.
-                    char.customTitle = serverOwned.has(norm) ? masked : '';
-                }
-                else {
-                    // Achievement titles: earnedTitles is acceptable (same
-                    // client-trust level as the achievements that grant them).
-                    const owned = new Set([
-                        ...(Array.isArray(char.earnedTitles) ? char.earnedTitles : []).map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))),
-                        ...serverOwned,
-                    ]);
-                    char.customTitle = owned.has(norm) ? masked : '';
-                }
+                const owned = new Set([
+                    ...(Array.isArray(char.earnedTitles) ? char.earnedTitles : []).map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))),
+                    ...(Array.isArray(storedServer) ? storedServer : []).map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))),
+                ]);
+                char.customTitle = owned.has(norm) ? masked : '';
             }
             else {
                 char.customTitle = (0, _text_moderation_js_1.isAllowedCustomTitle)(masked) ? masked : '';
@@ -350,6 +354,31 @@ function sanitizeCharacterSave(incoming, existing) {
             char.serverTitles = exServer;
         else
             delete char.serverTitles;
+    }
+    // Custom-title cosmetics — allowlist only (TITLE_STYLE_IDS/TITLE_ICON_SET
+    // in _titles-registry.ts, mirroring the client's lib/legacy.ts). Cosmetic;
+    // anything off-list clamps to ''. Legacy-wave feature: while ENABLE_LEGACY
+    // is off the fields are inert — the stored copy wins, so flag-off stays
+    // byte-identical for saves that never had them and a temporary kill-switch
+    // toggle can't strip an already-purchased style. Verification finding.
+    if ((0, _legacy_track_js_1.legacyEnabled)()) {
+        if ('customTitleStyle' in char) {
+            char.customTitleStyle = (typeof char.customTitleStyle === 'string' && _titles_registry_js_1.TITLE_STYLE_IDS.has(char.customTitleStyle)) ? char.customTitleStyle : '';
+        }
+        if ('customTitleIcon' in char) {
+            char.customTitleIcon = (typeof char.customTitleIcon === 'string' && _titles_registry_js_1.TITLE_ICON_SET.has(char.customTitleIcon)) ? char.customTitleIcon : '';
+        }
+    }
+    else {
+        const exChar = existing?.character;
+        if (typeof exChar?.customTitleStyle === 'string')
+            char.customTitleStyle = exChar.customTitleStyle;
+        else
+            delete char.customTitleStyle;
+        if (typeof exChar?.customTitleIcon === 'string')
+            char.customTitleIcon = exChar.customTitleIcon;
+        else
+            delete char.customTitleIcon;
     }
     // ── Legacy (server-owned) ───────────────────────────────────────
     // character.legacy is written ONLY by the server (api/legacy/sage.ts /

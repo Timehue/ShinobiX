@@ -9,6 +9,7 @@ import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-tra
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import {
     legacyTrialKey, legacyAcceptedKey, trialObjectivesFor, trialProgress, nextTrialKind,
+    provenTitleFor, mythicTitleFor,
     type LegacyTrial, type CharacterLegacy,
 } from '../_legacy-core.js';
 import { announce, addHallEntry } from '../_announce.js';
@@ -124,21 +125,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!rec || !char || !legacy || legacy.legacyId !== trial.legacyId) return null;
 
                     const next: CharacterLegacy = { ...legacy };
+                    let grantedTitle: string | null = null;
                     if (trial.kind === 'awaken' && legacy.stage === 1) {
                         next.stage = 2;
                         next.awakenedAt = now;
-                        next.titles = [...new Set([...(legacy.titles ?? []), def.title])];
+                        grantedTitle = def.title;
                     } else if (trial.kind === 'bind' && legacy.stage === 2) {
                         next.stage = 3;
                         next.boundAt = now;
+                    } else if (trial.kind === 'prove' && legacy.stage === 3) {
+                        next.stage = 4;
+                        next.provenAt = now;
+                        grantedTitle = provenTitleFor(def.title);
+                    } else if (trial.kind === 'mythic' && legacy.stage === 4) {
+                        next.stage = 5;
+                        next.mythicAt = now;
+                        grantedTitle = mythicTitleFor(def.title);
                     } else {
                         return null; // stale trial for a stage that already moved
+                    }
+                    if (grantedTitle) {
+                        next.titles = [...new Set([...(legacy.titles ?? []), grantedTitle])];
                     }
                     const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
                     const updated = {
                         ...char,
                         legacy: next,
-                        earnedTitles: trial.kind === 'awaken' ? [...new Set([...earned, def.title])] : earned,
+                        earnedTitles: grantedTitle ? [...new Set([...earned, grantedTitle])] : earned,
                     };
                     await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                     return next;
@@ -202,8 +215,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         message: `${playerName} has bound the ${def.name} to their soul. Stage III — few will ever stand here.`,
                         player: playerName, village, legacyId: def.id,
                     });
+                } else if (trial.kind === 'mythic') {
+                    // Stage 5 — the summit. Handoff: server announcement + a
+                    // permanent Hall of Legends entry, whatever the rarity.
+                    // (Stage 4 "Proven" stays event-log quiet by design.)
+                    const rec2 = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                    const village = String((rec2?.character as Record<string, unknown> | undefined)?.village ?? '') || undefined;
+                    await announce({
+                        type: 'legacy_completion', importance: 'mythic',
+                        title: 'A LEGACY REACHES ITS SUMMIT',
+                        message: `${playerName} has carried the ${def.name} to Stage V — Mythic. "${mythicTitleFor(def.title)}" now walks the world.`,
+                        player: playerName, village, legacyId: def.id,
+                    });
+                    await addHallEntry({
+                        entryType: 'legacy_summit',
+                        title: `${def.name} — Stage V`,
+                        description: `${playerName}${village ? ` of ${village}` : ''} carried this legacy to its mythic summit. ${def.flavor}`,
+                        player: playerName, village, legacyId: def.id, rarity: def.rarity,
+                    }, { nxKey: `legacy-summit:${def.id}:${playerName}` });
                 }
-                return { status: 200, body: { ok: true, legacy: saveOut, title: trial.kind === 'awaken' ? def.title : null } };
+                const grantedTitleOut = trial.kind === 'awaken' ? def.title
+                    : trial.kind === 'prove' ? provenTitleFor(def.title)
+                    : trial.kind === 'mythic' ? mythicTitleFor(def.title)
+                    : null;
+                return { status: 200, body: { ok: true, legacy: saveOut, title: grantedTitleOut } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }

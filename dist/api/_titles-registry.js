@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CUSTOM_TITLE_LOG_KEY = exports.ERA_TRIGGER_TITLES = exports.LEGACY_ONLY_TITLES = exports.KNOWN_EARNED_TITLES = exports.ACHIEVEMENT_TITLES = void 0;
+exports.CUSTOM_TITLE_LOG_KEY = exports.TITLE_ICON_SET = exports.TITLE_STYLE_IDS = exports.ERA_TRIGGER_TITLES = exports.LEGACY_ONLY_TITLES = exports.KNOWN_EARNED_TITLES = exports.ACHIEVEMENT_TITLES = void 0;
 exports.normalizeTitleKey = normalizeTitleKey;
 exports.isKnownEarnedTitle = isKnownEarnedTitle;
 exports.isServerCreditedTitle = isServerCreditedTitle;
@@ -23,6 +23,12 @@ exports.appendCustomTitleLog = appendCustomTitleLog;
  */
 const _legacy_defs_js_1 = require("./_legacy-defs.js");
 const _era_defs_js_1 = require("./_era-defs.js");
+const _legacy_core_js_1 = require("./_legacy-core.js");
+/** Every legacy title plus its Stage-4/5 prestige variants ("Proven X",
+ *  "Eternal X") — all server-credited, granted only by the trial endpoint. */
+const ALL_LEGACY_TITLES = _legacy_defs_js_1.LEGACY_DEFS.flatMap((d) => [
+    d.title, (0, _legacy_core_js_1.provenTitleFor)(d.title), (0, _legacy_core_js_1.mythicTitleFor)(d.title),
+]);
 /** Wearable achievement titles (client constants/achievements.ts mirror). */
 exports.ACHIEVEMENT_TITLES = [
     'Centenarian', // level-100
@@ -51,7 +57,7 @@ exports.ACHIEVEMENT_TITLES = [
 /** Every title the game can grant, lowercased for comparisons. */
 exports.KNOWN_EARNED_TITLES = new Set([
     ...exports.ACHIEVEMENT_TITLES,
-    ..._legacy_defs_js_1.LEGACY_DEFS.map((d) => d.title),
+    ...ALL_LEGACY_TITLES,
     ..._era_defs_js_1.ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
 ].map((t) => t.toLowerCase()));
 /**
@@ -62,7 +68,7 @@ exports.KNOWN_EARNED_TITLES = new Set([
  * titles would let a tampered save wear "Moonlit Ghost" without the trial —
  * exactly the impersonation the handoff forbids.
  */
-exports.LEGACY_ONLY_TITLES = new Set(_legacy_defs_js_1.LEGACY_DEFS.map((d) => d.title.toLowerCase()));
+exports.LEGACY_ONLY_TITLES = new Set(ALL_LEGACY_TITLES.map((t) => t.toLowerCase()));
 /** Era trigger titles ("Herald of the Mythic Age") are server-credited
  *  once-ever rewards — like legacy titles they must NOT be verifiable against
  *  the client-writable earnedTitles. They live in the server-owned title vault
@@ -73,6 +79,16 @@ exports.ERA_TRIGGER_TITLES = new Set(_era_defs_js_1.ERA_DEFS.flatMap((e) => (e.t
 function normalizeTitleKey(text) {
     return text.trim().replace(/\s+/g, ' ').toLowerCase();
 }
+/** Title-cosmetic allowlists (canonical server copy — mirror of the client's
+ *  TITLE_STYLES/TITLE_ICONS in shinobij.client/src/lib/legacy.ts). Used by the
+ *  save sanitizer AND the presence slimmer so a hostile client can neither
+ *  persist nor broadcast an off-list value. '' = the free default. */
+exports.TITLE_STYLE_IDS = new Set([
+    '', 'ember', 'frost', 'verdant', 'shadow', 'royal', 'crimson',
+]);
+exports.TITLE_ICON_SET = new Set([
+    '', '⚔️', '🌙', '🔥', '❄️', '🍃', '👑', '🐺', '⭐',
+]);
 function isKnownEarnedTitle(text) {
     return exports.KNOWN_EARNED_TITLES.has(normalizeTitleKey(text));
 }

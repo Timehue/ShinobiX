@@ -150,6 +150,7 @@ async function handler(req, res) {
                     return {
                         legacyId: def.id, name: def.name, rarity: def.rarity, category: def.category,
                         flavor: def.flavor, title: def.title, villageAffinity: def.villageAffinity ?? null,
+                        badge: def.badge ?? null,
                     };
                 }),
                 sector: homeSector(char.village, body.sector),
