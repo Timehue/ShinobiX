@@ -12,8 +12,9 @@ const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
 const _audit_js_1 = require("../_audit.js");
 const _announce_js_1 = require("../_announce.js");
-const _era_js_1 = require("../_era.js");
 const _titles_registry_js_1 = require("../_titles-registry.js");
+const _era_js_1 = require("../_era.js");
+const _titles_registry_js_2 = require("../_titles-registry.js");
 /*
  * POST /api/admin/legacy — the Legacy admin MVP (docs/legacy-system-plan.md §16).
  * Full-admin only. Every mutating action records an audit entry in the
@@ -171,7 +172,7 @@ async function handler(req, res) {
         }
         // ── Custom-title moderation (§11.4: filter-first + post-hoc review) ──
         if (action === 'titles-log') {
-            const log = (await _storage_js_1.kv.get(_titles_registry_js_1.CUSTOM_TITLE_LOG_KEY)) ?? [];
+            const log = (await _storage_js_1.kv.get(_titles_registry_js_2.CUSTOM_TITLE_LOG_KEY)) ?? [];
             return res.status(200).json({ log: Array.isArray(log) ? log.slice(0, 100) : [] });
         }
         if (action === 'title-revoke') {
@@ -207,6 +208,63 @@ async function handler(req, res) {
                 });
             }
             return res.status(out.status).json(out.body);
+        }
+        if (action === 'title-grant') {
+            // Manual grant of a REGISTERED earned title (handoff Admin MVP:
+            // "grant/revoke titles"). Registry-only so an admin can't mint an
+            // arbitrary string that dodges moderation; lands in the
+            // server-owned vault so strict titles become wearable. Audited.
+            const player = (0, _utils_js_1.safeName)(String(body.player ?? ''));
+            const title = typeof body.title === 'string' ? body.title.trim() : '';
+            const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+            if (!player || !title)
+                return res.status(400).json({ error: 'Missing player or title.' });
+            if (!reason)
+                return res.status(400).json({ error: 'A reason is required to grant a title.' });
+            if (!(0, _titles_registry_js_1.isKnownEarnedTitle)(title))
+                return res.status(400).json({ error: 'Unknown title — only registered earned titles can be granted.' });
+            const out = await (0, _lock_js_1.withKvLock)(`save:${player}`, async () => {
+                const rec = await _storage_js_1.kv.get(`save:${player}`);
+                const char = (rec?.character ?? null);
+                if (!rec || !char)
+                    return { status: 404, body: { error: 'Save not found.' } };
+                const earned = Array.isArray(char.earnedTitles) ? char.earnedTitles : [];
+                const server = Array.isArray(char.serverTitles) ? char.serverTitles : [];
+                if (server.includes(title))
+                    return { status: 200, body: { ok: false, reason: 'already-granted' } };
+                const updated = {
+                    ...char,
+                    serverTitles: [...server, title],
+                    earnedTitles: earned.includes(title) ? earned : [...earned, title],
+                };
+                await _storage_js_1.kv.set(`save:${player}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
+                return { status: 200, body: { ok: true } };
+            }, { failClosed: true });
+            if (out.status === 200 && out.body.ok) {
+                await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'title.grant', entityType: 'player', entityId: player, after: title, reason });
+            }
+            return res.status(out.status).json(out.body);
+        }
+        if (action === 'announce') {
+            // Manual announcement (handoff Admin MVP). Importance allowlisted;
+            // rides the normal announce() pipeline (news feed + chat lines +
+            // webhook per importance). Audited.
+            const importance = String(body.importance ?? 'high');
+            const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
+            const message = typeof body.message === 'string' ? body.message.trim().slice(0, 500) : '';
+            if (!title || !message)
+                return res.status(400).json({ error: 'Missing title or message.' });
+            if (!['low', 'medium', 'high', 'mythic'].includes(importance))
+                return res.status(400).json({ error: 'Bad importance.' });
+            const posted = await (0, _announce_js_1.announce)({
+                type: 'event', importance: importance,
+                title, message,
+                ...(body.player ? { player: (0, _utils_js_1.safeName)(String(body.player)) } : {}),
+                ...(typeof body.village === 'string' && body.village ? { village: body.village } : {}),
+                meta: { manual: true },
+            });
+            await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'announcement.create', after: { importance, title }, meta: { posted: !!posted } });
+            return res.status(200).json({ ok: !!posted, announcement: posted });
         }
         // ── Era controls (docs/legacy-system-plan.md §14, admin-tunable) ─────
         if (action === 'era-view') {

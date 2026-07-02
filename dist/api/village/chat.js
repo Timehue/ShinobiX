@@ -34,9 +34,14 @@ async function handler(req, res) {
             return res.status(401).json({ error: 'Authentication required.' });
         const messages = await _storage_js_1.kv.get(key) ?? [];
         res.setHeader('X-Message-Count', String(messages.length));
-        // Expose X-Message-Count so cross-origin clients can read it (the client
-        // uses it to skip re-parsing the body when the count is unchanged).
-        res.setHeader('Access-Control-Expose-Headers', 'X-Message-Count');
+        // X-Last-Ts too: once the log sits at MAX_MESSAGES, every append keeps
+        // the count at 30, so a count-only skip check would never show new
+        // lines (World Herald broadcasts made this visible). The client skips
+        // re-parsing only when count AND newest-ts are both unchanged.
+        res.setHeader('X-Last-Ts', String(messages.length ? messages[messages.length - 1].ts : 0));
+        // Expose both so cross-origin clients can read them (the client uses
+        // them to skip re-parsing the body when nothing changed).
+        res.setHeader('Access-Control-Expose-Headers', 'X-Message-Count, X-Last-Ts');
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(messages);
     }
@@ -73,6 +78,8 @@ async function handler(req, res) {
             // can't be spoofed via the request body (no posing as "Kage" etc.).
             let derivedRank;
             let derivedCustomTitle;
+            let derivedTitleStyle;
+            let derivedTitleIcon;
             let derivedLevel;
             if (!identity.admin) {
                 try {
@@ -83,6 +90,12 @@ async function handler(req, res) {
                             derivedRank = char.rank;
                         if (typeof char.customTitle === 'string')
                             derivedCustomTitle = char.customTitle;
+                        // Paid title cosmetics ride along (save-sanitizer
+                        // allowlisted, same trust as customTitle itself).
+                        if (typeof char.customTitleStyle === 'string' && char.customTitleStyle)
+                            derivedTitleStyle = char.customTitleStyle;
+                        if (typeof char.customTitleIcon === 'string' && char.customTitleIcon)
+                            derivedTitleIcon = char.customTitleIcon;
                         if (typeof char.level === 'number')
                             derivedLevel = char.level;
                     }
@@ -113,6 +126,8 @@ async function handler(req, res) {
                 ts: Date.now(),
                 ...(derivedRank ? { rank: derivedRank } : {}),
                 ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
+                ...(derivedTitleStyle ? { customTitleStyle: derivedTitleStyle } : {}),
+                ...(derivedTitleIcon ? { customTitleIcon: derivedTitleIcon } : {}),
                 ...(derivedLevel != null ? { level: derivedLevel } : {}),
                 ...(replyRef ? { replyTo: replyRef } : {}),
             };

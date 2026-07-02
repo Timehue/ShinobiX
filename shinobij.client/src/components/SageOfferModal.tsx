@@ -86,8 +86,17 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                             background: selected === o.legacyId ? "rgba(148,163,184,.08)" : "transparent",
                         }}
                     >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                            <b style={{ color: RARITY_COLORS[o.rarity] }}>{o.name}</b>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                {o.badge && (
+                                    <img
+                                        src={`/badges/legacy-${o.badge}.png`} alt=""
+                                        style={{ width: 34, height: 34, borderRadius: 6, flexShrink: 0 }}
+                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                    />
+                                )}
+                                <b style={{ color: RARITY_COLORS[o.rarity] }}>{o.name}</b>
+                            </span>
                             <span style={{ fontSize: ".7rem", color: RARITY_COLORS[o.rarity], whiteSpace: "nowrap" }}>{RARITY_LABELS[o.rarity]}</span>
                         </div>
                         <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1", fontStyle: "italic" }}>{o.flavor}</p>

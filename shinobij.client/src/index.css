@@ -6286,6 +6286,61 @@ body {
     background: linear-gradient(135deg, rgba(120,53,15,.26), rgba(2,6,23,.72)) !important;
 }
 
+/* ── Legacy auras (docs/legacy-system-plan.md §17) ─────────────────────────
+   Cosmetic identity ring on the profile avatar, escalating with legacy stage:
+   S2 Awakened → faint violet, S3 Bound → solid ring, S4 Proven → ring + halo,
+   S5 Mythic → animated violet-gold halo. Stacks visually beside the (gold)
+   Aura Sphere glow; both are pure CSS — zero image cost. */
+.legacy-aura-s2 {
+    position: relative;
+    box-shadow: 0 0 0 2px rgba(192,132,252,.45), 0 0 16px rgba(192,132,252,.45) !important;
+}
+.legacy-aura-s3 {
+    position: relative;
+    box-shadow: 0 0 0 3px rgba(192,132,252,.65), 0 0 26px rgba(192,132,252,.65) !important;
+}
+.legacy-aura-s4 {
+    position: relative;
+    /* z-index:0 forces a stacking context so the ::after halo (z-index:-1)
+       sits behind the badge/avatar but in FRONT of the opaque card behind it —
+       without it the halo can vanish behind the card background. */
+    z-index: 0;
+    box-shadow: 0 0 0 3px rgba(192,132,252,.8), 0 0 30px rgba(192,132,252,.75), 0 0 60px rgba(232,121,249,.4) !important;
+}
+.legacy-aura-s5 {
+    position: relative;
+    z-index: 0;
+    box-shadow: 0 0 0 3px rgba(232,121,249,.9), 0 0 34px rgba(192,132,252,.85), 0 0 70px rgba(250,204,21,.45) !important;
+    animation: legacy-mythic-pulse 3s ease-in-out infinite;
+}
+.legacy-aura-s4::after,
+.legacy-aura-s5::after {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(232,121,249,.35), rgba(192,132,252,.18) 45%, transparent 72%);
+    filter: blur(6px);
+    z-index: -1;
+}
+@keyframes legacy-mythic-pulse {
+    0%, 100% { filter: none; }
+    50% { filter: brightness(1.25) saturate(1.2); }
+}
+
+/* World Herald system lines in the village tavern (api/_announce.ts
+   broadcastToVillageChats). `system` is server-authored only, so this styling
+   can't be claimed by a player mimicking the herald's name. */
+.tavern-message.tavern-herald {
+    border-left: 2px solid rgba(192,132,252,.75);
+    background: rgba(192,132,252,.07);
+    border-radius: 6px;
+    padding-left: 8px;
+}
+.tavern-herald .tavern-author { color: #c084fc; }
+.tavern-herald .tavern-rank { color: #c084fc; opacity: .8; }
+
 .avatar-upload-button {
     display: block;
     margin-top: 10px;

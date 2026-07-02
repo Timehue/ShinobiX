@@ -31,6 +31,7 @@ import { useSharedNow } from "../lib/use-shared-now";
 import { petDisplayName } from "../lib/pet";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
+import { fetchAnnouncements, isLegacyEnabled, type AnnouncementView } from "../lib/legacy";
 import { loadVillageState } from "../lib/world-state";
 import {
     buildRecommendations,
@@ -77,6 +78,20 @@ export function DailyBriefingModal({
     const claimingRef = useRef(false);
 
     useEffect(() => subscribeUnreadMail(setUnread), []);
+
+    // World news (Legacy system): the top high/mythic moments in the login
+    // briefing (handoff §Server Announcements: "Login news panel"). Empty and
+    // invisible while the server flag is off (endpoint returns []).
+    const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
+    useEffect(() => {
+        if (!shouldShow || !isLegacyEnabled()) return;
+        let alive = true;
+        void fetchAnnouncements(15).then((r) => {
+            if (!alive || !r) return;
+            setWorldNews(r.announcements.filter((a) => a.importance === "high" || a.importance === "mythic").slice(0, 4));
+        });
+        return () => { alive = false; };
+    }, [shouldShow]);
 
     if (!shouldShow) return null;
 
@@ -310,6 +325,26 @@ export function DailyBriefingModal({
                                     </ul>
                                 </section>
                             </div>
+
+                            {/* ── World news (Legacy system: high/mythic moments) ── */}
+                            {worldNews.length > 0 && (
+                                <section className="db-section">
+                                    <h3>World news</h3>
+                                    <ul className="db-wars">
+                                        {worldNews.map((n) => (
+                                            <li key={n.id}>
+                                                <button type="button" className="db-war" onClick={() => go("hallOfLegends")}>
+                                                    <span className={`db-war-tag db-war-${n.importance === "mythic" ? "clan" : "village"}`}>
+                                                        {n.importance === "mythic" ? "Mythic" : "News"}
+                                                    </span>
+                                                    <span className="db-war-vs">{n.title}</span>
+                                                    <span className="db-war-note">{n.message.slice(0, 90)}</span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            )}
 
                             {/* ── World report ──────────────────────────────── */}
                             <section className="db-section">

@@ -11,7 +11,8 @@
  */
 import type { LegacyCategory, LegacyDef, LegacyRarity, LegacyStatKey } from './_legacy-defs.js';
 
-export type TrialKind = 'awaken' | 'bind';   // stage 1→2 and stage 2→3
+export type TrialKind = 'awaken' | 'bind' | 'prove' | 'mythic';
+// stage 1→2 (Awakened), 2→3 (Bound), 3→4 (Proven), 4→5 (Mythic)
 
 export type TrialObjective = { stat: LegacyStatKey; delta: number };
 
@@ -33,9 +34,21 @@ export type CharacterLegacy = {
     acceptedAt: number;
     awakenedAt?: number;
     boundAt?: number;
+    provenAt?: number;
+    mythicAt?: number;
     /** Titles granted by this legacy (also appended to earnedTitles). */
     titles: string[];
 };
+
+/** Prestige title variants granted at the later stages (handoff: Stage 4
+ *  "stronger/prestige title", Stage 5 "mythic title"). Registered as
+ *  server-credited in api/_titles-registry.ts so they can't be typed in. */
+export function provenTitleFor(baseTitle: string): string {
+    return `Proven ${baseTitle}`;
+}
+export function mythicTitleFor(baseTitle: string): string {
+    return `Eternal ${baseTitle}`;
+}
 
 export const legacyTrialKey = (player: string) => `legacy:trial:${player}`;
 export const legacyAcceptedKey = (player: string) => `legacy:accepted:${player}`;
@@ -63,10 +76,10 @@ const TRIAL_TEMPLATES: Record<LegacyCategory, ReadonlyArray<TrialObjective>> = {
 };
 
 const RARITY_FACTOR: Record<LegacyRarity, number> = { basic: 1, rare: 1.75, legendary: 3, mythic: 4.5 };
-const BIND_FACTOR = 1.5;
+const KIND_FACTOR: Record<TrialKind, number> = { awaken: 1, bind: 1.5, prove: 2.5, mythic: 4 };
 
 export function trialObjectivesFor(def: LegacyDef, kind: TrialKind): TrialObjective[] {
-    const factor = RARITY_FACTOR[def.rarity] * (kind === 'bind' ? BIND_FACTOR : 1);
+    const factor = RARITY_FACTOR[def.rarity] * KIND_FACTOR[kind];
     return TRIAL_TEMPLATES[def.category].map((t) => ({
         stat: t.stat,
         delta: Math.max(1, Math.round(t.delta * factor)),
@@ -77,7 +90,9 @@ export function trialObjectivesFor(def: LegacyDef, kind: TrialKind): TrialObject
 export function nextTrialKind(stage: number): TrialKind | null {
     if (stage === 1) return 'awaken';
     if (stage === 2) return 'bind';
-    return null;   // stages 4-5 (Proven/Mythic) arrive in a later wave
+    if (stage === 3) return 'prove';
+    if (stage === 4) return 'mythic';
+    return null;   // stage 5 is the summit
 }
 
 export function trialProgress(
