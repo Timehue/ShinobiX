@@ -14,6 +14,7 @@ type AdminView = {
     player: string;
     stats: Record<string, unknown>;
     legacy: { legacyId: string; stage: number; titles: string[] } | null;
+    customTitle?: string;
     sealed: { legacyId: string } | null;
     offer: { status: string; offers: Array<{ legacyId: string; rarity: string }>; sector: number } | null;
     trial: { legacyId: string; kind: string; objectives: Array<{ stat: string; delta: number }> } | null;
@@ -132,6 +133,12 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
     }
     const [grantPlayer, setGrantPlayer] = useState("");
     const [grantTitle, setGrantTitle] = useState("");
+    // Sage funnel counters (admin action 'metrics') — launch-week visibility.
+    const [metrics, setMetrics] = useState<Array<{ date: string; offers: number; accepts: number; declines: number }>>([]);
+    async function loadMetrics() {
+        const data = await post({ action: 'metrics' });
+        if (data) { setMetrics((data.days as typeof metrics) ?? []); setStatus('Sage funnel refreshed.'); }
+    }
     async function grantTitleAction() {
         if (!grantPlayer.trim() || !grantTitle.trim()) { setStatus('✗ Grant needs a player and a registered title.'); return; }
         if (!revokeReason.trim()) { setStatus('✗ Title grants require a reason (same box as revocations).'); return; }
@@ -208,12 +215,15 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
     const [hallEntries, setHallEntries] = useState<Array<{ id: number; title: string; status: string; player?: string; ts: number }>>([]);
     const [hallReason, setHallReason] = useState("");
     async function loadHall() {
-        try {
-            const res = await fetch('/api/hall-of-legends', { headers: { 'x-admin-password': adminPw } });
-            const data = await res.json();
+        // Admin action, not the public endpoint: the public read returns []
+        // while ENABLE_LEGACY is off, and corrections must survive a rollback.
+        const data = await post({ action: 'hall-list' });
+        if (data) {
             setHallEntries((data.entries as typeof hallEntries) ?? []);
             setStatus('Hall entries refreshed (hidden included).');
-        } catch { setStatus('✗ Could not load hall entries.'); }
+        } else {
+            setStatus('✗ Could not load hall entries.');
+        }
     }
     async function correctHall(entryId: number, statusValue: string) {
         if (!hallReason.trim()) { setStatus('✗ Hall corrections require a reason.'); return; }
@@ -244,6 +254,17 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
                             {view.offer && <> · <b>offer:</b> {view.offer.status} ({view.offer.offers.map((o) => o.legacyId).join(', ')})</>}
                             {view.trial && <> · <b>trial:</b> {view.trial.kind} for {view.trial.legacyId}</>}
                         </p>
+                        {view.customTitle && (
+                            <p style={{ margin: 0 }}>
+                                <b>Worn title:</b> «{view.customTitle}»
+                                <button
+                                    disabled={busy}
+                                    style={{ marginLeft: 8, fontSize: '.72rem' }}
+                                    title="Clears the title and refunds the 10 shards (audited). Enter a reason in the moderation box below first."
+                                    onClick={() => void revokeTitle(view.player)}
+                                >Revoke title</button>
+                            </p>
+                        )}
                         <details>
                             <summary>Server counters ({nonZeroStats.length})</summary>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 3, marginTop: 6 }}>
@@ -310,6 +331,18 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
                 </div>
             </section>
 
+            {/* Sage funnel (launch-week observability) */}
+            <section className="card" style={{ padding: 12 }}>
+                <h4 style={{ margin: '0 0 8px' }}>Sage Funnel <button style={{ marginLeft: 8 }} onClick={() => void loadMetrics()}>Refresh</button></h4>
+                {metrics.length === 0
+                    ? <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>Daily offers / accepts / declines — press Refresh after launch to watch the Sage work.</p>
+                    : metrics.map((m) => (
+                        <p key={m.date} style={{ margin: '2px 0', fontSize: '.78rem' }}>
+                            <b>{m.date}</b>: {m.offers} offers · {m.accepts} accepted · {m.declines} declined
+                        </p>
+                    ))}
+            </section>
+
             {/* Manual announcement */}
             <section className="card" style={{ padding: 12 }}>
                 <h4 style={{ margin: '0 0 8px' }}>Post Announcement</h4>
@@ -329,6 +362,9 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             <section className="card" style={{ padding: 12 }}>
                 <h4 style={{ margin: '0 0 8px' }}>World Eras <button style={{ marginLeft: 8 }} onClick={() => void loadEras()}>Refresh</button></h4>
                 <input placeholder="era action reason (required for force-unlock)" value={eraReason} onChange={(e) => setEraReason(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
+                {eras.length === 0 && (
+                    <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>Press <b>Refresh</b> to load the five world eras and their live milestone counters.</p>
+                )}
                 {eras.map((e) => (
                     <div key={e.id} style={{ borderTop: '1px solid rgba(148,163,184,.15)', padding: '8px 0', fontSize: '.78rem' }}>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

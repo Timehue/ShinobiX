@@ -13,7 +13,7 @@ const _audit_js_1 = require("../_audit.js");
 //
 //   GET /api/admin/audit-log?domain=content&limit=200   (x-admin-password header)
 //   → 200 { domain, count, entries }
-const DOMAINS = ['content', 'reward', 'sector', 'combat'];
+const DOMAINS = ['content', 'reward', 'sector', 'combat', 'legacy'];
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')

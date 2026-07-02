@@ -7,6 +7,7 @@ import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
+import { legacyEnabled } from '../_legacy-track.js';
 
 // A quoted reference to the message being replied to. Display-only — just the
 // original author + a short snippet so the client can render a quote block.
@@ -130,12 +131,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (typeof char.customTitleStyle === 'string' && char.customTitleStyle) derivedTitleStyle = char.customTitleStyle;
                         if (typeof char.customTitleIcon === 'string' && char.customTitleIcon) derivedTitleIcon = char.customTitleIcon;
                         // Legacy prestige (character.legacy is server-owned).
-                        const lg = char.legacy as { legacyId?: unknown; stage?: unknown } | null;
-                        const lgDef = lg && typeof lg.legacyId === 'string' ? LEGACY_BY_ID.get(lg.legacyId) : undefined;
-                        const lgStage = Number(lg?.stage);
-                        if (lgDef && Number.isInteger(lgStage) && lgStage >= 1 && lgStage <= 5) {
-                            derivedLegacyStage = lgStage;
-                            derivedLegacyRarity = lgDef.rarity;
+                        // Flag-gated: a rollback freezes prestige chips on NEW
+                        // messages too (final-gate finding).
+                        if (legacyEnabled()) {
+                            const lg = char.legacy as { legacyId?: unknown; stage?: unknown } | null;
+                            const lgDef = lg && typeof lg.legacyId === 'string' ? LEGACY_BY_ID.get(lg.legacyId) : undefined;
+                            const lgStage = Number(lg?.stage);
+                            if (lgDef && Number.isInteger(lgStage) && lgStage >= 1 && lgStage <= 5) {
+                                derivedLegacyStage = lgStage;
+                                derivedLegacyRarity = lgDef.rarity;
+                            }
                         }
                         if (typeof char.level === 'number') derivedLevel = char.level;
                     }
