@@ -9,7 +9,8 @@ import { evaluateAllLegacies, getLegacyOverlay, LEGACY_OVERLAY_KEY, type LegacyO
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, type CharacterLegacy } from '../_legacy-core.js';
 import { recordAudit } from '../_audit.js';
-import { updateHallEntry } from '../_announce.js';
+import { updateHallEntry, announce } from '../_announce.js';
+import { isKnownEarnedTitle } from '../_titles-registry.js';
 import { getEraViews, getEraState, checkEraUnlocks, unlockEra, ERA_STATE_KEY, ERA_BY_ID } from '../_era.js';
 import type { EraMetric, EraStatus } from '../_era-defs.js';
 import { CUSTOM_TITLE_LOG_KEY, type CustomTitleLogEntry } from '../_titles-registry.js';
@@ -201,6 +202,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
             return res.status(out.status).json(out.body);
+        }
+
+        if (action === 'title-grant') {
+            // Manual grant of a REGISTERED earned title (handoff Admin MVP:
+            // "grant/revoke titles"). Registry-only so an admin can't mint an
+            // arbitrary string that dodges moderation; lands in the
+            // server-owned vault so strict titles become wearable. Audited.
+            const player = safeName(String(body.player ?? ''));
+            const title = typeof body.title === 'string' ? body.title.trim() : '';
+            const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+            if (!player || !title) return res.status(400).json({ error: 'Missing player or title.' });
+            if (!reason) return res.status(400).json({ error: 'A reason is required to grant a title.' });
+            if (!isKnownEarnedTitle(title)) return res.status(400).json({ error: 'Unknown title — only registered earned titles can be granted.' });
+            const out = await withKvLock<{ status: number; body: unknown }>(`save:${player}`, async () => {
+                const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return { status: 404, body: { error: 'Save not found.' } };
+                const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
+                const server = Array.isArray(char.serverTitles) ? (char.serverTitles as string[]) : [];
+                if (server.includes(title)) return { status: 200, body: { ok: false, reason: 'already-granted' } };
+                const updated = {
+                    ...char,
+                    serverTitles: [...server, title],
+                    earnedTitles: earned.includes(title) ? earned : [...earned, title],
+                };
+                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                return { status: 200, body: { ok: true } };
+            }, { failClosed: true });
+            if (out.status === 200 && (out.body as { ok?: boolean }).ok) {
+                await recordAudit({ actor: 'admin', domain: 'legacy', action: 'title.grant', entityType: 'player', entityId: player, after: title, reason });
+            }
+            return res.status(out.status).json(out.body);
+        }
+
+        if (action === 'announce') {
+            // Manual announcement (handoff Admin MVP). Importance allowlisted;
+            // rides the normal announce() pipeline (news feed + chat lines +
+            // webhook per importance). Audited.
+            const importance = String(body.importance ?? 'high');
+            const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
+            const message = typeof body.message === 'string' ? body.message.trim().slice(0, 500) : '';
+            if (!title || !message) return res.status(400).json({ error: 'Missing title or message.' });
+            if (!['low', 'medium', 'high', 'mythic'].includes(importance)) return res.status(400).json({ error: 'Bad importance.' });
+            const posted = await announce({
+                type: 'event', importance: importance as 'low' | 'medium' | 'high' | 'mythic',
+                title, message,
+                ...(body.player ? { player: safeName(String(body.player)) } : {}),
+                ...(typeof body.village === 'string' && body.village ? { village: body.village } : {}),
+                meta: { manual: true },
+            });
+            await recordAudit({ actor: 'admin', domain: 'legacy', action: 'announcement.create', after: { importance, title }, meta: { posted: !!posted } });
+            return res.status(200).json({ ok: !!posted, announcement: posted });
         }
 
         // ── Era controls (docs/legacy-system-plan.md §14, admin-tunable) ─────

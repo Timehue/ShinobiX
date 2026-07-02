@@ -11,6 +11,7 @@
  */
 import type { OnlinePlayer } from './types.js';
 import { sanitizeUserText, hasReservedTitleTerm, TEXT_LIMITS } from '../_text-moderation.js';
+import { TITLE_STYLE_IDS, TITLE_ICON_SET } from '../_titles-registry.js';
 
 // Max time the client can claim to be traveling (10 min). Caps an exploited
 // travelingUntil that would make a player permanently unreachable.
@@ -53,6 +54,7 @@ export function capTravelingUntil(travelingUntil: number | undefined, now: numbe
 // battle or PvP behavior.
 const PRESENCE_CHAR_KEEP = new Set<string>([
     'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
+    'customTitleStyle', 'customTitleIcon',
     'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
     'clan', 'clanFounder', 'hp', 'maxHp',
 ]);
@@ -82,6 +84,16 @@ export function slimPresenceCharacter(input: unknown): Record<string, unknown> |
         out.customTitle = hasReservedTitleTerm(cleaned) ? '' : cleaned;
     } else if (out.customTitle !== undefined && typeof out.customTitle !== 'string') {
         delete out.customTitle;
+    }
+    // Title cosmetics ride the presence frame so other players see the paid
+    // style/icon (roster, sector chips). Same public-display defense as
+    // customTitle: allowlist-clamped here, so a hostile client can't broadcast
+    // arbitrary strings through the fields.
+    if ('customTitleStyle' in out && (typeof out.customTitleStyle !== 'string' || !TITLE_STYLE_IDS.has(out.customTitleStyle))) {
+        delete out.customTitleStyle;
+    }
+    if ('customTitleIcon' in out && (typeof out.customTitleIcon !== 'string' || !TITLE_ICON_SET.has(out.customTitleIcon))) {
+        delete out.customTitleIcon;
     }
     if (Array.isArray(src.pets)) {
         out.pets = src.pets.map((p) => {

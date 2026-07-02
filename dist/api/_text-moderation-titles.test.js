@@ -43,6 +43,17 @@ const _legacy_defs_js_1 = require("./_legacy-defs.js");
     strict_1.default.equal((0, _titles_registry_js_1.normalizeTitleKey)('Moonlit   Ghost'), 'moonlit ghost');
     strict_1.default.equal((0, _titles_registry_js_1.isServerCreditedTitle)('Moonlit   Ghost'), true, 'doubled space still matched');
 });
+(0, node_test_1.test)('stage 4/5 prestige variants are registered and strict for every legacy', () => {
+    strict_1.default.equal((0, _titles_registry_js_1.isServerCreditedTitle)('Proven Moonlit Ghost'), true);
+    strict_1.default.equal((0, _titles_registry_js_1.isServerCreditedTitle)('Eternal Moonlit Ghost'), true);
+    strict_1.default.equal((0, _titles_registry_js_1.isKnownEarnedTitle)('Proven Duel King'), true);
+    for (const d of _legacy_defs_js_1.LEGACY_DEFS) {
+        strict_1.default.ok((0, _titles_registry_js_1.isServerCreditedTitle)(`Proven ${d.title}`), `missing proven variant: ${d.title}`);
+        strict_1.default.ok((0, _titles_registry_js_1.isServerCreditedTitle)(`Eternal ${d.title}`), `missing eternal variant: ${d.title}`);
+    }
+    // 100 base + 100 proven + 100 eternal + 22 achievements + era titles.
+    strict_1.default.ok(_titles_registry_js_1.KNOWN_EARNED_TITLES.size >= 320, `registry too small: ${_titles_registry_js_1.KNOWN_EARNED_TITLES.size}`);
+});
 (0, node_test_1.test)('titles registry covers every legacy + achievement title and flags them', () => {
     strict_1.default.equal(_titles_registry_js_1.ACHIEVEMENT_TITLES.length, 22, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
     for (const d of _legacy_defs_js_1.LEGACY_DEFS) {
@@ -52,7 +63,7 @@ const _legacy_defs_js_1 = require("./_legacy-defs.js");
     strict_1.default.ok((0, _titles_registry_js_1.isKnownEarnedTitle)('  season champion  '), 'case/space-insensitive');
     strict_1.default.ok((0, _titles_registry_js_1.isKnownEarnedTitle)('Herald of the Mythic Age'), 'era trigger title registered');
     strict_1.default.equal((0, _titles_registry_js_1.isKnownEarnedTitle)('Ramen Enthusiast'), false);
-    // Registry sanity: no earned title trips the reserved filter EXCEPT via
-    // ownership (owned titles bypass it in the sanitizer).
+    // Registry sanity: base legacy(100) + achievements(22) + era titles at
+    // minimum (prestige variants push it past 320 — asserted below).
     strict_1.default.ok(_titles_registry_js_1.KNOWN_EARNED_TITLES.size >= 120, 'legacy(100) + achievements(22) + era titles');
 });

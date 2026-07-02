@@ -3,21 +3,35 @@ import {
     type Character,
     type TavernMessage,
 } from "../App";
+import { titleStyleColor } from "../lib/legacy";
+
+// Server-added optional fields (api/village/chat.ts ChatMessage): paid title
+// cosmetics derived from the author's save, and the server-authored `system`
+// flag on World Herald announcement lines (never settable by players).
+type TavernMsg = TavernMessage & {
+    customTitleStyle?: string;
+    customTitleIcon?: string;
+    system?: boolean;
+};
 
 export
 function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void }) {
-    const [messages, setMessages] = useState<TavernMessage[]>([]);
+    const [messages, setMessages] = useState<TavernMsg[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
     // The message the player is replying to (null = a fresh, un-quoted message).
-    const [replyingTo, setReplyingTo] = useState<TavernMessage | null>(null);
+    const [replyingTo, setReplyingTo] = useState<TavernMsg | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     // Track last known message count so we skip re-renders when nothing changed
     const lastCountRef = useRef<number>(-1);
+    // …and the newest message ts: at the 30-message cap every append keeps the
+    // count constant, so count alone would hide new lines (e.g. World Herald
+    // broadcasts). Server sends X-Last-Ts alongside X-Message-Count.
+    const lastTsRef = useRef<number>(-1);
 
-    function startReply(m: TavernMessage) {
+    function startReply(m: TavernMsg) {
         setReplyingTo(m);
         // Focus the box so the mobile keyboard opens straight onto the reply.
         inputRef.current?.focus();
@@ -27,12 +41,17 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
         try {
             const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`);
             if (!res.ok) return;
-            // Server sends X-Message-Count so we can skip JSON parse when unchanged
+            // Server sends X-Message-Count + X-Last-Ts so we can skip the JSON
+            // parse when nothing changed. Both must match: at the cap the count
+            // never moves, only the newest ts does. Older servers without
+            // X-Last-Ts fall back to the count-only check (lastTs stays -1).
             const count = Number(res.headers.get("X-Message-Count") ?? -1);
-            if (count !== -1 && count === lastCountRef.current) return;
+            const lastTs = Number(res.headers.get("X-Last-Ts") ?? -1);
+            if (count !== -1 && count === lastCountRef.current && (lastTs === -1 || lastTs === lastTsRef.current)) return;
             const parsed = await res.json();
-            const data: TavernMessage[] = Array.isArray(parsed) ? parsed : [];
+            const data: TavernMsg[] = Array.isArray(parsed) ? parsed : [];
             lastCountRef.current = data.length;
+            lastTsRef.current = data.length ? data[data.length - 1].ts : 0;
             setMessages(data);
         } catch { /* silently ignore network errors */ }
         finally { setLoading(false); }
@@ -125,7 +144,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                 {messages.map((m, i) => {
                     const avatar = sharedImages['avatar:' + m.author.toLowerCase()] || (m.author === character.name ? character.avatarImage : '');
                     return (
-                        <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
+                        <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}${m.system ? " tavern-herald" : ""}`}>
                             <div className="tavern-avatar-col">
                                 <div
                                     className="tavern-avatar"
@@ -150,7 +169,11 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                                         style={onViewProfile ? { cursor: "pointer" } : undefined}
                                         title={onViewProfile ? `View ${m.author}'s profile` : undefined}
                                     >{m.author}</span>
-                                    {m.customTitle && <span className="tavern-custom-title">«{m.customTitle}»</span>}
+                                    {m.customTitle && (
+                                        <span className="tavern-custom-title" style={m.customTitleStyle ? { color: titleStyleColor(m.customTitleStyle) } : undefined}>
+                                            «{m.customTitleIcon ? `${m.customTitleIcon} ` : ""}{m.customTitle}»
+                                        </span>
+                                    )}
                                     {m.rank && <span className="tavern-rank">{m.rank}</span>}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                                     <button

@@ -21,6 +21,8 @@ export type CharacterLegacy = {
     acceptedAt: number;
     awakenedAt?: number;
     boundAt?: number;
+    provenAt?: number;
+    mythicAt?: number;
     titles: string[];
 };
 
@@ -31,7 +33,7 @@ export type LegacyDefView = {
 
 export type SageOfferView = {
     status: "spawned" | "declined" | "accepted" | "expired";
-    offers: Array<{ legacyId: string; name: string; rarity: LegacyRarity; category: string; flavor: string; title: string; villageAffinity: string | null }>;
+    offers: Array<{ legacyId: string; name: string; rarity: LegacyRarity; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null }>;
     sector: number;
     spawnedAt: number;
     expiresAt: number;
@@ -99,6 +101,18 @@ export function fetchLegacyDefinitions(): Promise<{ minLevel: number; legacies: 
     return getJson(`/api/legacy/definitions`);
 }
 
+// Whether the SERVER's ENABLE_LEGACY flag is actually on (isLegacyEnabled above
+// is only the client kill-switch). Probed once per session via the public
+// definitions endpoint, which 404s while the flag is off. Gates paid legacy-wave
+// UI (title style/icon pickers) so a player can't spend shards on a cosmetic the
+// server would strip at save time.
+let legacyServerLive: boolean | null = null;
+export async function isLegacyServerLive(): Promise<boolean> {
+    if (!isLegacyEnabled()) return false;
+    if (legacyServerLive === null) legacyServerLive = (await fetchLegacyDefinitions()) !== null;
+    return legacyServerLive;
+}
+
 export function sageRoll(playerName: string, sector?: number | null): Promise<{ spawn: boolean; offer?: SageOfferView; reason?: string } | null> {
     return postJson(`/api/legacy/sage`, { action: "roll", playerName, ...(sector != null ? { sector } : {}) });
 }
@@ -138,6 +152,27 @@ export type EraView = {
 
 export function fetchEras(): Promise<{ eras: EraView[] } | null> {
     return getJson(`/api/eras`);
+}
+
+// ── Custom-title cosmetics (handoff §Title System pricing tiers) ────────────
+// Style + icon are pure cosmetics on the title chip; the SERVER allowlists
+// both fields at save-sanitize (api/save/[name].ts), so nothing outside these
+// sets ever persists. Costs follow the plan's recommendation: base text title
+// stays 10 shards (grandfathered pricing); the new options are the premium.
+export const TITLE_STYLE_COST = 40;
+export const TITLE_ICON_COST = 25;
+export const TITLE_STYLES: ReadonlyArray<{ id: string; label: string; color: string }> = [
+    { id: "", label: "Classic Gold", color: "#fde68a" },
+    { id: "ember", label: "Ember", color: "#fb923c" },
+    { id: "frost", label: "Frost", color: "#7dd3fc" },
+    { id: "verdant", label: "Verdant", color: "#86efac" },
+    { id: "shadow", label: "Shadow", color: "#c084fc" },
+    { id: "royal", label: "Royal", color: "#818cf8" },
+    { id: "crimson", label: "Crimson", color: "#f87171" },
+];
+export const TITLE_ICONS: readonly string[] = ["", "⚔️", "🌙", "🔥", "❄️", "🍃", "👑", "🐺", "⭐"];
+export function titleStyleColor(styleId: string | undefined | null): string {
+    return TITLE_STYLES.find((s) => s.id === (styleId ?? ""))?.color ?? "#fde68a";
 }
 
 /** Stable id the WorldMap engage handler keys off. */

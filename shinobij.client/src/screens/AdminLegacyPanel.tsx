@@ -130,6 +130,29 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
         const data = await post({ action: 'title-revoke', player, reason: revokeReason.trim() });
         if (data) { setStatus(`✓ Title revoked for ${player}.`); void loadTitleLog(); }
     }
+    const [grantPlayer, setGrantPlayer] = useState("");
+    const [grantTitle, setGrantTitle] = useState("");
+    async function grantTitleAction() {
+        if (!grantPlayer.trim() || !grantTitle.trim()) { setStatus('✗ Grant needs a player and a registered title.'); return; }
+        if (!revokeReason.trim()) { setStatus('✗ Title grants require a reason (same box as revocations).'); return; }
+        const data = await post({ action: 'title-grant', player: grantPlayer.trim(), title: grantTitle.trim(), reason: revokeReason.trim() });
+        if (data) setStatus((data as { ok?: boolean }).ok ? `✓ Granted "${grantTitle.trim()}" to ${grantPlayer.trim()}.` : `✗ ${(data as { reason?: string }).reason ?? 'not granted'}`);
+    }
+
+    // ── Manual announcement ──────────────────────────────────────────────
+    const [annTitle, setAnnTitle] = useState("");
+    const [annMessage, setAnnMessage] = useState("");
+    const [annImportance, setAnnImportance] = useState("high");
+    async function createAnnouncement() {
+        if (!annTitle.trim() || !annMessage.trim()) { setStatus('✗ Announcement needs a title and a message.'); return; }
+        const sure = await gameConfirm(
+            `Post "${annTitle.trim()}" at ${annImportance.toUpperCase()} importance? High/mythic reach every village chat${annImportance === 'mythic' ? ' and the Discord webhook' : ''}.`,
+            { title: 'Post Announcement', confirmLabel: 'Post It', danger: annImportance === 'mythic' },
+        );
+        if (!sure) return;
+        const data = await post({ action: 'announce', importance: annImportance, title: annTitle.trim(), message: annMessage.trim() });
+        if (data) { setStatus((data as { ok?: boolean }).ok ? '✓ Announcement posted.' : '✗ Rate-limited or rejected.'); setAnnTitle(""); setAnnMessage(""); }
+    }
 
     // ── Era dashboard ────────────────────────────────────────────────────
     const [eras, setEras] = useState<EraView[]>([]);
@@ -280,6 +303,26 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
                             <button className="danger-button" style={{ marginLeft: 8 }} onClick={() => void revokeTitle(t.player)}>Revoke + Refund</button>
                         </p>
                     ))}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, borderTop: '1px solid rgba(148,163,184,.15)', paddingTop: 8 }}>
+                    <input placeholder="player" value={grantPlayer} onChange={(e) => setGrantPlayer(e.target.value)} style={{ width: 130 }} />
+                    <input placeholder="registered earned title (exact)" value={grantTitle} onChange={(e) => setGrantTitle(e.target.value)} style={{ minWidth: 200 }} />
+                    <button onClick={() => void grantTitleAction()}>Grant Title</button>
+                </div>
+            </section>
+
+            {/* Manual announcement */}
+            <section className="card" style={{ padding: 12 }}>
+                <h4 style={{ margin: '0 0 8px' }}>Post Announcement</h4>
+                <div style={{ display: 'grid', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <select value={annImportance} onChange={(e) => setAnnImportance(e.target.value)}>
+                            {['low', 'medium', 'high', 'mythic'].map((i) => <option key={i} value={i}>{i}</option>)}
+                        </select>
+                        <input placeholder="headline" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
+                    </div>
+                    <textarea rows={2} placeholder="message" value={annMessage} onChange={(e) => setAnnMessage(e.target.value)} />
+                    <button onClick={() => void createAnnouncement()}>Post to the World</button>
+                </div>
             </section>
 
             {/* Eras */}

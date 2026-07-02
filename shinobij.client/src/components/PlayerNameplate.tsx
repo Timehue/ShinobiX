@@ -8,7 +8,7 @@
  * enforced server-side (api/save/[name].ts + api/_titles-registry.ts).
  */
 import type { CSSProperties } from "react";
-import { RARITY_COLORS, type LegacyRarity } from "../lib/legacy";
+import { RARITY_COLORS, titleStyleColor, type LegacyRarity } from "../lib/legacy";
 
 const CHIP: CSSProperties = {
     display: "inline-block", padding: "1px 8px", borderRadius: 999,
@@ -17,15 +17,18 @@ const CHIP: CSSProperties = {
     background: "rgba(148,163,184,.08)",
 };
 
-export function PlayerNameplate({ name, level, customTitle, legacyTitle, legacyRarity, village }: {
+export function PlayerNameplate({ name, level, customTitle, customTitleStyle, customTitleIcon, legacyTitle, legacyRarity, village }: {
     name: string;
     level?: number;
     customTitle?: string | null;
+    customTitleStyle?: string | null;
+    customTitleIcon?: string | null;
     legacyTitle?: string | null;
     legacyRarity?: LegacyRarity | null;
     village?: string | null;
 }) {
     const rarityColor = legacyRarity ? RARITY_COLORS[legacyRarity] : "#c084fc";
+    const titleColor = titleStyleColor(customTitleStyle);
     return (
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
             <b style={{ fontSize: "1.05rem", color: "#f1f5f9" }}>{name}</b>
@@ -33,7 +36,9 @@ export function PlayerNameplate({ name, level, customTitle, legacyTitle, legacyR
                 <span style={CHIP}>Lvl {level}</span>
             )}
             {customTitle && customTitle !== legacyTitle && (
-                <span style={{ ...CHIP, borderColor: "rgba(250,204,21,.45)", color: "#fde68a", background: "rgba(250,204,21,.08)" }}>{customTitle}</span>
+                <span style={{ ...CHIP, borderColor: `${titleColor}73`, color: titleColor, background: `${titleColor}14` }}>
+                    {customTitleIcon ? `${customTitleIcon} ` : ""}{customTitle}
+                </span>
             )}
             {legacyTitle && (
                 <span style={{ ...CHIP, borderColor: `${rarityColor}66`, color: rarityColor, background: `${rarityColor}14` }}>{legacyTitle}</span>
