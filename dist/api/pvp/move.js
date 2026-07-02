@@ -119,6 +119,16 @@ const K_DR = 0.5; // DR pool soft cap: effDR = raw / (raw + K_DR)
 // (defender), and Ignition (defender) all feed one pool with diminishing
 // returns, so 4 stacks of 35% multiply by ~1.74× instead of ~3.32×.
 const K_AMP = 0.5;
+// Increase Generals soft-cap pool. The tag raises str/spd/int/wil, which feed
+// BOTH offense and defense composites (getOffense/getDefense) — so it rides
+// statFactor, a multiplier with no pool of its own. Left un-pooled, linear
+// stacking would race to the [0.35,1.85] statFactor clamp (3× 30% ≈ maxes
+// offense AND floors incoming). So the stacks' summed percent is soft-capped the
+// same way the amp tags are: effFrac = rawFrac/(rawFrac+K_GENERALS); the per-stat
+// bonus is effFrac × MAX_STAT, added ABOVE the per-rank stat cap. Mirrors the
+// client (combat-math.ts generalsBonusFromStatuses) — KEEP IN SYNC (parity test).
+const K_GENERALS = 0.5;
+const GENERAL_STAT_FIELDS = ['strength', 'speed', 'intelligence', 'willpower'];
 const DR_DOT_SCALE = 0.5; // DR mitigation against DoT ticks (0..1)
 const HEAL_FLAT = 750; // Heal tag value at max jutsu mastery
 const SHIELD_FLAT = 750; // Shield tag value at max jutsu mastery
@@ -150,6 +160,7 @@ const STATUS_DURATIONS_OVERRIDE = {
     'Increase Damage Taken': 2,
     'Decrease Damage Given': 2,
     'Decrease Damage Taken': 2,
+    'Increase Generals': 2,
 };
 function statusDurationFor(name, fallback = 2) {
     return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
@@ -248,6 +259,34 @@ function getDefense(stats, type) {
     if (type === 'Genjutsu')
         return (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
     return (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
+}
+// Flat per-general bonus from a fighter's active Increase Generals stacks, soft-
+// capped through the K_GENERALS pool (diminishing returns), applied ABOVE the
+// per-rank stat cap. Bloodline Seal suppresses it entirely — parallel to how Seal
+// zeroes the bloodline damage multiplier (resolveBaseDamage). Because generals
+// feed both offense and defense, this one number lifts the fighter's damage dealt
+// AND lowers damage taken. Mirrors client combat-math generalsBonusFromStatuses.
+function generalsBonus(f, round) {
+    if (hasStatus(f, 'Bloodline Seal', round))
+        return 0;
+    let rawFrac = 0;
+    for (const s of activeStatuses(f, round)) {
+        if (s.name === 'Increase Generals')
+            rawFrac += (s.percent ?? 0) / 100;
+    }
+    if (rawFrac <= 0)
+        return 0;
+    const effFrac = rawFrac / (rawFrac + K_GENERALS);
+    return Math.floor(effFrac * MAX_STAT);
+}
+// Add a flat bonus to the four general stats (post-cap copy). No-op at bonus ≤ 0.
+function withGeneralsBonus(stats, bonus) {
+    if (bonus <= 0)
+        return stats;
+    const out = { ...stats };
+    for (const k of GENERAL_STAT_FIELDS)
+        out[k] = (out[k] ?? 0) + bonus;
+    return out;
 }
 function cappedPostDamage(damage, percent) {
     return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
@@ -779,6 +818,18 @@ function resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg,
             }
             continue;
         }
+        // Increase Generals: self-buff to str/spd/int/wil for 2 turns. The stat lift is
+        // read from active stacks in generalsBonus (pooled + Seal-gated) when the capped
+        // fighters are built, so it raises this fighter's offense AND defense. Stores the
+        // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
+        // summed effect is soft-capped by K_GENERALS.
+        if (tagName === 'Increase Generals') {
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round);
+                lines.push(`Increase Generals: ${s.name}'s general stats rise ${pct}% for 2 turns.`);
+            }
+            continue;
+        }
         // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
         // for non-ground jutsus. Displacement happens on cast.
         if (tagName === 'Push') {
@@ -980,8 +1031,12 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
     // fighter's rank ceiling — never the stored/sealed stat. Only the offStats/defStats
     // read (statFactor + the returned offStats that feeds pierce) sees the capped copy;
     // status mutation + HP application below keep the ORIGINAL fighters.
-    const cappedSelf = { ...self, character: { ...self.character, stats: perRankStatCap(self.character.stats ?? {}, Number(self.character.level) || 1) } };
-    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: perRankStatCap(opponent.character.stats ?? {}, Number(opponent.character.level) || 1) } };
+    // Increase Generals is folded in AFTER the cap (generalsBonus is pooled + Seal-gated)
+    // so an active buff can push the effective generals above the per-rank ceiling — the
+    // only intended way to break the maxed-mirror statFactor=1.0 parity. Applied to both
+    // fighters so it lifts the caster's offense AND (on the opponent's copy) their defense.
+    const cappedSelf = { ...self, character: { ...self.character, stats: withGeneralsBonus(perRankStatCap(self.character.stats ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)) } };
+    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withGeneralsBonus(perRankStatCap(opponent.character.stats ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)) } };
     // Phase 1 — base damage + defensive DR pool (reads the rank-capped fighters).
     const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(cappedSelf, cappedOpp, jutsu, wMult, biome, round, masteryLevel);
     const healBoost = increaseHealMult(self, round);
