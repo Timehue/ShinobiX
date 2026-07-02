@@ -10,7 +10,7 @@ import { patchBattleSettlement } from '../_receipts.js';
 import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
+import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
@@ -289,14 +289,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // applyServerBaseReward, carries it with no stat clobber. Shares the
                     // `combat-stat-count` daily budget with AI-fight wins.
                     if (!isRankedClaim) {
+                        // Serious (non-ranked, non-spar) PvP win → combat-use stat growth:
+                        // auto-grow the stats you fought with + a free-pool share, hard-
+                        // capped per day. Spars never reach here (baseRewards=false → no
+                        // creditBase). Ranked = 0 (skill-pure). The client mirrors the
+                        // allocated stats via summary.statGrowth and the pool via
+                        // summary.unspentStats (applyServerBaseReward + applyStatGrowth).
                         const budgetKey = `combat-stat-count:${winnerSlug}:${new Date().toISOString().slice(0, 10)}`;
                         const spentToday = Number((await kv.get<number>(budgetKey)) ?? 0);
-                        const gained = Math.max(0, Math.min(PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP - spentToday));
-                        if (gained > 0) {
-                            await kv.set(budgetKey, spentToday + gained, { ex: 25 * 60 * 60 }).catch(() => undefined);
-                            const newUnspent = (Number(finalChar.unspentStats) || 0) + gained;
-                            finalChar = { ...finalChar, unspentStats: newUnspent };
-                            summary = { ...summary, unspentStats: newUnspent };
+                        const remaining = Math.max(0, DAILY_COMBAT_STAT_CAP - spentToday);
+                        const statsNow = (finalChar.stats ?? {}) as Record<string, number>;
+                        const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, PVP_CASUAL_STAT_POINTS_PER_WIN, remaining);
+                        if (g.spent > 0) {
+                            await kv.set(budgetKey, spentToday + g.spent, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                            const newStats: Record<string, number> = { ...statsNow };
+                            for (const [k, v] of Object.entries(g.allocated)) newStats[k] = (Number(newStats[k]) || 0) + (v ?? 0);
+                            const newUnspent = (Number(finalChar.unspentStats) || 0) + g.unspentGain;
+                            finalChar = { ...finalChar, stats: newStats, unspentStats: newUnspent };
+                            summary = { ...summary, unspentStats: newUnspent, statGrowth: { allocated: g.allocated as Record<string, number>, unspentGain: g.unspentGain } };
                         }
                     }
                     const next = bumpSaveVersion({ ...record, character: finalChar });

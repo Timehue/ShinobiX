@@ -61,6 +61,10 @@ export type PvpWinBaseSummary = {
     maxChakra: number;
     maxStamina: number;
     unspentStats: number;
+    // Serious (non-ranked) PvP combat-use stat growth. The pool share is already in
+    // `unspentStats`; `allocated` is the per-stat auto-growth the client adds on top
+    // via applyStatGrowth (server wrote the same delta, so no double-count/clobber).
+    statGrowth?: { allocated: Partial<Record<string, number>>; unspentGain: number };
 };
 
 // Apply a server-credited base reward onto the local character, replacing the

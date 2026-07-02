@@ -3,9 +3,7 @@ import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
 import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS } from './_ai-fight-reward.js';
-import { computeCombatStatGrowth, AI_FIGHT_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
@@ -52,32 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Authoritative running daily count (atomic; TTL so date keys self-evict).
         const dailyCount = await kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
         const reward = aiFightReward(body.xp, body.ryo, dailyCount);
-
-        // Combat-use stat growth (Stage 4): a small, hard-daily-capped stat reward
-        // for the win — auto-grown into the stats the player has invested in, plus a
-        // free-pool share. The client applies the returned allocation in its single
-        // save write (sanitizer-bounded). A bonus — never a reason to fail the report.
-        let statGrowth: { allocated: Record<string, number>; unspentGain: number } = { allocated: {}, unspentGain: 0 };
-        try {
-            const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = record?.character as Record<string, unknown> | undefined;
-            if (char) {
-                const stats = (char.stats ?? {}) as Record<string, number>;
-                const level = Number(char.level) || 1;
-                const budgetKey = `combat-stat-count:${playerName}:${utcDateKey()}`;
-                statGrowth = await withKvLock(budgetKey, async () => {
-                    const spentToday = Number((await kv.get<number>(budgetKey)) ?? 0);
-                    const remaining = Math.max(0, DAILY_COMBAT_STAT_CAP - spentToday);
-                    const g = computeCombatStatGrowth(stats, level, AI_FIGHT_STAT_POINTS_PER_WIN, remaining);
-                    if (g.spent > 0) await kv.set(budgetKey, spentToday + g.spent, { ex: 25 * 60 * 60 }).catch(() => undefined);
-                    return { allocated: g.allocated as Record<string, number>, unspentGain: g.unspentGain };
-                });
-            }
-        } catch (err) {
-            console.warn('[missions/report-ai-fight] stat-growth skipped:', err);
-        }
-
-        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, statGrowth });
+        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
     } catch (err) {
         console.error('[missions/report-ai-fight]', err);
         return res.status(500).json({ error: 'Internal server error.' });
