@@ -29,6 +29,7 @@ const SHORT_LABELS: Record<string, string> = {
     "Decrease Damage Given": "Damage dealt ↓",
     "Increase Damage Taken": "Damage taken ↑",
     "Decrease Damage Taken": "Damage taken ↓",
+    "Increase Generals": "General stats ↑",
 };
 
 // Tiny labels for the compact mobile strip (full name lives in the chip tooltip).
@@ -37,6 +38,7 @@ const TINY_LABELS: Record<string, string> = {
     "Decrease Damage Given": "DMG↓",
     "Increase Damage Taken": "TKN↑",
     "Decrease Damage Taken": "TKN↓",
+    "Increase Generals": "GEN↑",
     "Lifesteal": "Steal",
     "Absorb": "Absorb",
     "Reflect": "Reflect",
