@@ -8996,10 +8996,10 @@ export default function App() {
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        // Spars grant NO XP / stat growth / ryo (pure practice); ranked = no stats.
+                        // Spars grant NOTHING (no XP/stats/ryo/currency/scrolls/kills); ranked = no stats.
                         let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
                         if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
-                        const rewarded = grantTerritoryScrolls(leveled, 5);
+                        const rewarded = grantTerritoryScrolls(leveled, isFriendlyDuel ? 0 : 5);
                         // Vanguard rewards (Honor Seals + profession XP + all the
                         // daily-tracking fields) are granted server-side in
                         // api/pvp/move.ts via grantVanguardRewardsForSession. The
@@ -9015,15 +9015,15 @@ export default function App() {
                             // for non-raid wins or when already claimed today.
                             ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
-                            auraDust: (rewarded.auraDust ?? 0) + 6,
+                            auraDust: (rewarded.auraDust ?? 0) + (isFriendlyDuel ? 0 : 6),
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
                             // Stamp the canonical crate ID so claimPendingWarCrates'
                             // next sweep skips this war (already credited inline).
                             claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
                                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                                 : (rewarded.claimedWarCrateIds ?? []),
-                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
-                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
+                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
+                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
                             pvpKillMonth: currentMonthKey(),
                             // Read-back (audit #7 / Stage 3): when the session is
                             // ranked the server credits the rating via claim-rewards
