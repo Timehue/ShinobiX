@@ -16,6 +16,8 @@ import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment"
 import { rollEmissarySpawn } from "../lib/legacy-emissaries";
 import { rumorLog } from "../lib/legacy-rumors";
 import { wandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
+import { LEGACY_JUTSU_BY_ID, LEGACY_JUTSU_ID_BY_LEGACY } from "../data/legacy-jutsu";
+import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureMasteryLevel } from "../lib/legacy-jutsu-slot";
 
 const CODEX_RARITY_ORDER: LegacyRarity[] = ["mythic", "legendary", "rare", "basic"];
 
@@ -173,6 +175,25 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
                         Your path is sealed forever. Trials may be retried, but a legacy is never exchanged.
                     </p>
+                    {(() => {
+                        // The Legacy signature (dedicated jutsu slot): revealed from
+                        // Stage 3 (Bound); before that, shown as the road ahead.
+                        const sigId = LEGACY_JUTSU_ID_BY_LEGACY.get(status.legacy.legacyId);
+                        const sig = sigId ? LEGACY_JUTSU_BY_ID.get(sigId) : undefined;
+                        if (!sig) return null;
+                        return status.legacy.stage >= LEGACY_SIGNATURE_MIN_STAGE ? (
+                            <p style={{ margin: "6px 0 0", fontSize: ".74rem", color: "#c4b5fd" }}>
+                                ◆ Signature jutsu: <b style={{ color: "#e2e8f0" }}>{sig.name}</b> — always
+                                equipped beside your loadout (mastery {legacySignatureMasteryLevel(status.legacy.stage)}/50,
+                                deepens with your stage).
+                            </p>
+                        ) : (
+                            <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
+                                ◆ At Stage III — Bound, this path grants its signature jutsu:{" "}
+                                <b style={{ color: "#cbd5e1" }}>{sig.name}</b>.
+                            </p>
+                        );
+                    })()}
                     {(() => {
                         // Where the player's trial-giver emissary roams this 6h
                         // window (same deterministic roll the world map uses).

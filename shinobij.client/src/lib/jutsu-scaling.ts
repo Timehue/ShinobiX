@@ -11,6 +11,7 @@
 
 import { effectiveTagPercent } from "./tags";
 import { JUTSU_MAX_LEVEL, MASTERY_MIN_DAMAGE_FRAC, jutsuLevelCapForLevel } from "../constants/game";
+import { isLegacyJutsuId, legacySignatureMasteryLevel, LEGACY_SIGNATURE_MIN_STAGE } from "./legacy-jutsu-slot";
 import type { Jutsu, JutsuMastery } from "../types/combat";
 import type { Character } from "../types/character";
 
@@ -30,10 +31,21 @@ export function jutsuXpNeeded(level: number) {
 }
 
 export function getJutsuMastery(character: Character, jutsuId: string): JutsuMastery {
+    // Legacy signatures: mastery is DERIVED from the server-owned Legacy stage
+    // (Bound 3→30, Proven 4→40, Mythic 5→50), never from stored entries — so it
+    // can't be trained, spoofed, or sit at level 0 when the signature unlocks.
+    // Mirrors the server's stage-scaled injection in api/pvp/session.ts.
+    if (isLegacyJutsuId(jutsuId)) {
+        const stage = character.legacy?.stage ?? 0;
+        return { jutsuId, level: stage >= LEGACY_SIGNATURE_MIN_STAGE ? legacySignatureMasteryLevel(stage) : 0, xp: 0 };
+    }
     return character.jutsuMastery?.find((j) => j.jutsuId === jutsuId) ?? { jutsuId, level: 0, xp: 0 };
 }
 
 export function gainJutsuXp(character: Character, jutsuId: string, amount: number, maxLevelAllowed: number): Character {
+    // Legacy signatures never gain XP — their mastery IS the Legacy stage (see
+    // getJutsuMastery above); writing entries would only add dead rows to the save.
+    if (isLegacyJutsuId(jutsuId)) return character;
     const existing = character.jutsuMastery?.length ? character.jutsuMastery : [];
     const mastery = existing.find((j) => j.jutsuId === jutsuId) ?? { jutsuId, level: 1, xp: 0 };
     let level = mastery.level;

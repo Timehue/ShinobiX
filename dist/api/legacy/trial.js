@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _legacy_jutsu_catalog_js_1 = require("../pvp/_legacy-jutsu-catalog.js");
 const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
 const _announce_js_1 = require("../_announce.js");
@@ -353,9 +354,17 @@ async function handler(req, res) {
                     : trial.kind === 'prove' ? (0, _legacy_core_js_1.provenTitleFor)(def.title)
                         : trial.kind === 'mythic' ? (0, _legacy_core_js_1.mythicTitleFor)(def.title)
                             : null;
+                // Binding (Stage 3) unlocks the Legacy signature jutsu — herald it
+                // by name so the reward lands in the ceremony, not just the Profile.
+                const signatureName = trial.kind === 'bind' && def.specialtyJutsuId
+                    ? _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_CATALOG[def.specialtyJutsuId]?.name ?? null
+                    : null;
+                const completionOut = signatureName
+                    ? `${(0, _legacy_core_js_1.trialCompletionFor)(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, and it will deepen as you do.`
+                    : (0, _legacy_core_js_1.trialCompletionFor)(trial.kind);
                 return {
                     status: 200,
-                    body: { ok: true, legacy: saveOut, title: grantedTitleOut, completion: (0, _legacy_core_js_1.trialCompletionFor)(trial.kind) },
+                    body: { ok: true, legacy: saveOut, title: grantedTitleOut, completion: completionOut, ...(signatureName ? { signatureJutsu: { id: def.specialtyJutsuId, name: signatureName } } : {}) },
                 };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);

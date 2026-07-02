@@ -128,6 +128,21 @@ const K_AMP = 0.5;
 // client (combat-math.ts generalsBonusFromStatuses) — KEEP IN SYNC (parity test).
 const K_GENERALS = 0.5;
 const GENERAL_STAT_FIELDS = ['strength', 'speed', 'intelligence', 'willpower'] as const;
+// Increase Discipline soft-cap pool (legacy signature jutsu): the style-locked
+// sibling of Increase Generals. Where Generals lifts all four generals (two of
+// which feed EVERY composite), Discipline lifts exactly ONE discipline's offense
+// stat — so the ×2 scale makes an X% stack match the OFFENSIVE half of an X%
+// Generals stack on that one discipline (a composite reads two generals), and
+// nothing else: no defense side, no other styles. Mirrors the client
+// (combat-math.ts disciplineBonusFromStatuses) — KEEP IN SYNC (parity test).
+const K_DISCIPLINE = 0.5;
+const DISCIPLINE_BONUS_SCALE = 2;
+const DISCIPLINE_OFFENSE_FIELD: Record<string, string> = {
+    Taijutsu: 'taijutsuOffense',
+    Bukijutsu: 'bukijutsuOffense',
+    Genjutsu: 'genjutsuOffense',
+    Ninjutsu: 'ninjutsuOffense',
+};
 const DR_DOT_SCALE = 0.5;              // DR mitigation against DoT ticks (0..1)
 const HEAL_FLAT = 750;                 // Heal tag value at max jutsu mastery
 const SHIELD_FLAT = 750;               // Shield tag value at max jutsu mastery
@@ -160,6 +175,7 @@ const STATUS_DURATIONS_OVERRIDE: Record<string, number> = {
     'Decrease Damage Given':  2,
     'Decrease Damage Taken':  2,
     'Increase Generals':      2,
+    'Increase Discipline':    2,
 };
 function statusDurationFor(name: string, fallback: number = 2): number {
     return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
@@ -316,6 +332,38 @@ function withGeneralsBonus(stats: Record<string, number>, bonus: number): Record
     if (bonus <= 0) return stats;
     const out = { ...stats };
     for (const k of GENERAL_STAT_FIELDS) out[k] = (out[k] ?? 0) + bonus;
+    return out;
+}
+// Flat per-discipline offense bonuses from a fighter's active Increase Discipline
+// stacks (legacy signature jutsu). Pooled PER DISCIPLINE through K_DISCIPLINE and
+// scaled ×2 (see DISCIPLINE_BONUS_SCALE) so an X% stack equals the offensive half
+// of an X% Increase Generals on that one style. Bloodline Seal suppresses it,
+// parallel to generalsBonus. Returns { '<disc>Offense': flat } — folding into the
+// stat record means getOffense (statFactor AND Pierce) picks it up only for casts
+// of the buffed discipline; getDefense never reads *Offense, so no defense side.
+// Mirrors client combat-math disciplineBonusFromStatuses — KEEP IN SYNC.
+function disciplineBonuses(f: PvpFighter, round: number): Record<string, number> {
+    if (hasStatus(f, 'Bloodline Seal', round)) return {};
+    const rawFrac: Record<string, number> = {};
+    for (const s of activeStatuses(f, round)) {
+        if (s.name !== 'Increase Discipline') continue;
+        const field = DISCIPLINE_OFFENSE_FIELD[s.discipline ?? ''];
+        if (field) rawFrac[field] = (rawFrac[field] ?? 0) + (s.percent ?? 0) / 100;
+    }
+    const out: Record<string, number> = {};
+    for (const [field, raw] of Object.entries(rawFrac)) {
+        if (raw <= 0) continue;
+        const effFrac = raw / (raw + K_DISCIPLINE);
+        out[field] = Math.floor(effFrac * MAX_STAT * DISCIPLINE_BONUS_SCALE);
+    }
+    return out;
+}
+// Add the per-discipline offense bonuses to the (post-cap) stat copy.
+function withDisciplineBonuses(stats: Record<string, number>, bonuses: Record<string, number>): Record<string, number> {
+    const entries = Object.entries(bonuses);
+    if (!entries.length) return stats;
+    const out = { ...stats };
+    for (const [field, bonus] of entries) out[field] = (out[field] ?? 0) + bonus;
     return out;
 }
 
@@ -730,6 +778,19 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
         // summed effect is soft-capped by K_GENERALS.
         if (tagName === 'Increase Generals') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name}'s general stats rise ${pct}% for 2 turns.`); } continue; }
+        // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
+        // ONLY the offense composite of the cast jutsu's discipline — the discipline is
+        // captured server-side from jutsu.type here (never client-supplied) and read
+        // back by disciplineBonuses when the capped fighters are built. No-op on a
+        // typeless/'Any' cast so it can't ride the 40-AP utility convention.
+        if (tagName === 'Increase Discipline') {
+            const disc = DISCIPLINE_OFFENSE_FIELD[String(jutsu.type ?? '')] ? (jutsu.type as PvpStatus['discipline']) : undefined;
+            if (disc && !hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Increase Discipline', rounds: 2, percent: pct, kind: 'positive', discipline: disc }, round);
+                lines.push(`Increase Discipline: ${s.name}'s ${disc} offense rises ${pct}% for 2 turns.`);
+            }
+            continue;
+        }
         // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
         // for non-ground jutsus. Displacement happens on cast.
         if (tagName === 'Push') { if (!hasStatus(o, 'Debuff Prevent', round)) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o)); if (!away.length) break; nextPos = away[0]!; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`); } continue; }
@@ -874,8 +935,8 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     // so an active buff can push the effective generals above the per-rank ceiling — the
     // only intended way to break the maxed-mirror statFactor=1.0 parity. Applied to both
     // fighters so it lifts the caster's offense AND (on the opponent's copy) their defense.
-    const cappedSelf = { ...self, character: { ...self.character, stats: withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)) } };
-    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withGeneralsBonus(perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)) } };
+    const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((self.character.stats as Record<string, number>) ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)), disciplineBonuses(self, round)) } };
+    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap((opponent.character.stats as Record<string, number>) ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)), disciplineBonuses(opponent, round)) } };
 
     // Phase 1 — base damage + defensive DR pool (reads the rank-capped fighters).
     const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(cappedSelf, cappedOpp, jutsu, wMult, biome, round, masteryLevel);

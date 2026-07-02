@@ -129,6 +129,21 @@ const K_AMP = 0.5;
 // client (combat-math.ts generalsBonusFromStatuses) — KEEP IN SYNC (parity test).
 const K_GENERALS = 0.5;
 const GENERAL_STAT_FIELDS = ['strength', 'speed', 'intelligence', 'willpower'];
+// Increase Discipline soft-cap pool (legacy signature jutsu): the style-locked
+// sibling of Increase Generals. Where Generals lifts all four generals (two of
+// which feed EVERY composite), Discipline lifts exactly ONE discipline's offense
+// stat — so the ×2 scale makes an X% stack match the OFFENSIVE half of an X%
+// Generals stack on that one discipline (a composite reads two generals), and
+// nothing else: no defense side, no other styles. Mirrors the client
+// (combat-math.ts disciplineBonusFromStatuses) — KEEP IN SYNC (parity test).
+const K_DISCIPLINE = 0.5;
+const DISCIPLINE_BONUS_SCALE = 2;
+const DISCIPLINE_OFFENSE_FIELD = {
+    Taijutsu: 'taijutsuOffense',
+    Bukijutsu: 'bukijutsuOffense',
+    Genjutsu: 'genjutsuOffense',
+    Ninjutsu: 'ninjutsuOffense',
+};
 const DR_DOT_SCALE = 0.5; // DR mitigation against DoT ticks (0..1)
 const HEAL_FLAT = 750; // Heal tag value at max jutsu mastery
 const SHIELD_FLAT = 750; // Shield tag value at max jutsu mastery
@@ -161,6 +176,7 @@ const STATUS_DURATIONS_OVERRIDE = {
     'Decrease Damage Given': 2,
     'Decrease Damage Taken': 2,
     'Increase Generals': 2,
+    'Increase Discipline': 2,
 };
 function statusDurationFor(name, fallback = 2) {
     return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
@@ -286,6 +302,44 @@ function withGeneralsBonus(stats, bonus) {
     const out = { ...stats };
     for (const k of GENERAL_STAT_FIELDS)
         out[k] = (out[k] ?? 0) + bonus;
+    return out;
+}
+// Flat per-discipline offense bonuses from a fighter's active Increase Discipline
+// stacks (legacy signature jutsu). Pooled PER DISCIPLINE through K_DISCIPLINE and
+// scaled ×2 (see DISCIPLINE_BONUS_SCALE) so an X% stack equals the offensive half
+// of an X% Increase Generals on that one style. Bloodline Seal suppresses it,
+// parallel to generalsBonus. Returns { '<disc>Offense': flat } — folding into the
+// stat record means getOffense (statFactor AND Pierce) picks it up only for casts
+// of the buffed discipline; getDefense never reads *Offense, so no defense side.
+// Mirrors client combat-math disciplineBonusFromStatuses — KEEP IN SYNC.
+function disciplineBonuses(f, round) {
+    if (hasStatus(f, 'Bloodline Seal', round))
+        return {};
+    const rawFrac = {};
+    for (const s of activeStatuses(f, round)) {
+        if (s.name !== 'Increase Discipline')
+            continue;
+        const field = DISCIPLINE_OFFENSE_FIELD[s.discipline ?? ''];
+        if (field)
+            rawFrac[field] = (rawFrac[field] ?? 0) + (s.percent ?? 0) / 100;
+    }
+    const out = {};
+    for (const [field, raw] of Object.entries(rawFrac)) {
+        if (raw <= 0)
+            continue;
+        const effFrac = raw / (raw + K_DISCIPLINE);
+        out[field] = Math.floor(effFrac * MAX_STAT * DISCIPLINE_BONUS_SCALE);
+    }
+    return out;
+}
+// Add the per-discipline offense bonuses to the (post-cap) stat copy.
+function withDisciplineBonuses(stats, bonuses) {
+    const entries = Object.entries(bonuses);
+    if (!entries.length)
+        return stats;
+    const out = { ...stats };
+    for (const [field, bonus] of entries)
+        out[field] = (out[field] ?? 0) + bonus;
     return out;
 }
 function cappedPostDamage(damage, percent) {
@@ -830,6 +884,19 @@ function resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg,
             }
             continue;
         }
+        // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
+        // ONLY the offense composite of the cast jutsu's discipline — the discipline is
+        // captured server-side from jutsu.type here (never client-supplied) and read
+        // back by disciplineBonuses when the capped fighters are built. No-op on a
+        // typeless/'Any' cast so it can't ride the 40-AP utility convention.
+        if (tagName === 'Increase Discipline') {
+            const disc = DISCIPLINE_OFFENSE_FIELD[String(jutsu.type ?? '')] ? jutsu.type : undefined;
+            if (disc && !hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Increase Discipline', rounds: 2, percent: pct, kind: 'positive', discipline: disc }, round);
+                lines.push(`Increase Discipline: ${s.name}'s ${disc} offense rises ${pct}% for 2 turns.`);
+            }
+            continue;
+        }
         // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
         // for non-ground jutsus. Displacement happens on cast.
         if (tagName === 'Push') {
@@ -1035,8 +1102,8 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
     // so an active buff can push the effective generals above the per-rank ceiling — the
     // only intended way to break the maxed-mirror statFactor=1.0 parity. Applied to both
     // fighters so it lifts the caster's offense AND (on the opponent's copy) their defense.
-    const cappedSelf = { ...self, character: { ...self.character, stats: withGeneralsBonus(perRankStatCap(self.character.stats ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)) } };
-    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withGeneralsBonus(perRankStatCap(opponent.character.stats ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)) } };
+    const cappedSelf = { ...self, character: { ...self.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap(self.character.stats ?? {}, Number(self.character.level) || 1), generalsBonus(self, round)), disciplineBonuses(self, round)) } };
+    const cappedOpp = { ...opponent, character: { ...opponent.character, stats: withDisciplineBonuses(withGeneralsBonus(perRankStatCap(opponent.character.stats ?? {}, Number(opponent.character.level) || 1), generalsBonus(opponent, round)), disciplineBonuses(opponent, round)) } };
     // Phase 1 — base damage + defensive DR pool (reads the rank-capped fighters).
     const { baseDmg, effectiveDR, offStats } = resolveBaseDamage(cappedSelf, cappedOpp, jutsu, wMult, biome, round, masteryLevel);
     const healBoost = increaseHealMult(self, round);
