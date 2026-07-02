@@ -158,6 +158,26 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.equal(b.far, 0, 'radius 1 does NOT reach an enemy two hexes away');
         node_assert_1.strict.equal(sng.touching, 0, 'a SINGLE-method jutsu does NOT splash at all');
     });
+    // The 20 starter AOE Burst jutsu each carry ONE rider tag (Wound/Ignition/…). Prove
+    // applyAoeSplash applies the tag to EVERY splashed enemy (via applyJutsu), not just the
+    // primary — so a real starter AOE jutsu bleeds/ignites the whole touched cluster.
+    (0, node_test_1.it)('AOE_BURST applies its rider tag (Wound) to splash victims, not just the primary', () => {
+        const burst = { id: 'j-wound-aoe', name: 'Shrapnel', type: 'Bukijutsu', method: 'AOE_BURST', target: 'OPPONENT', ap: 60, range: 4, effectPower: 20, tags: [{ name: 'Wound', percent: 14 }] };
+        const atkChar = { specialty: 'Bukijutsu', level: 100, stats: { bukijutsuOffense: 2500 }, jutsu: [burst] };
+        const defChar = { specialty: 'Bukijutsu', level: 100, stats: { bukijutsuDefense: 500 } };
+        const actors = [
+            makeActor('sq-1', 'squad', 0, { character: atkChar }),
+            makeActor('en-1', 'enemy', 1, { character: defChar, hp: 100_000, maxHp: 100_000 }),
+            makeActor('en-2', 'enemy', 2, { character: defChar, hp: 100_000, maxHp: 100_000 }),
+        ];
+        const s = makeSession(actors);
+        (0, _engine_js_1.startRound)(s);
+        const r = (0, _engine_js_1.applyAction)(s, makeFloor('defeat-all'), { actorId: 'sq-1', type: 'jutsu', jutsuId: 'j-wound-aoe', targetId: 'en-1' }, (0, _sim_js_1.makeRng)(1));
+        node_assert_1.strict.equal(r.applied, true);
+        const en2 = (0, _tower_session_js_1.getActor)(s, 'en-2');
+        node_assert_1.strict.ok(100_000 - en2.hp > 0, 'the touching enemy takes splash damage');
+        node_assert_1.strict.ok(en2.statuses.some((st) => st.name === 'Wound'), 'the touching enemy ALSO gets the Wound rider tag from the splash');
+    });
     (0, node_test_1.it)('move is adjacent-only and blocked by occupants', () => {
         const s = makeSession(frontline());
         (0, _engine_js_1.startRound)(s);
