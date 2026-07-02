@@ -13,6 +13,7 @@ const _receipts_js_1 = require("../_receipts.js");
 const _reward_farm_js_1 = require("./_reward-farm.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _save_version_js_1 = require("../save/_save-version.js");
+const _stat_growth_js_1 = require("../_stat-growth.js");
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
 // have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
 // the evidence by 23+ hours. 2 hours gives players with bad connections,
@@ -277,9 +278,28 @@ async function handler(req, res) {
                     const dXp = Math.max(0, Math.floor(xpGain * decay));
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = (0, _xp_engine_js_1.creditPvpWinBase)(char, dXp, dRyo);
-                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: credit.char });
+                    let finalChar = credit.char;
+                    let summary = credit.summary;
+                    // Stage 4: casual PvP grants a small, daily-capped combat stat
+                    // reward into the unspent POOL (ranked = 0, skill-pure — this branch
+                    // only runs when !isRankedClaim). Pool-only keeps this write clean:
+                    // the summary's unspentStats, mirrored by the client via
+                    // applyServerBaseReward, carries it with no stat clobber. Shares the
+                    // `combat-stat-count` daily budget with AI-fight wins.
+                    if (!isRankedClaim) {
+                        const budgetKey = `combat-stat-count:${winnerSlug}:${new Date().toISOString().slice(0, 10)}`;
+                        const spentToday = Number((await _storage_js_1.kv.get(budgetKey)) ?? 0);
+                        const gained = Math.max(0, Math.min(_stat_growth_js_1.PVP_CASUAL_STAT_POINTS_PER_WIN, _stat_growth_js_1.DAILY_COMBAT_STAT_CAP - spentToday));
+                        if (gained > 0) {
+                            await _storage_js_1.kv.set(budgetKey, spentToday + gained, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                            const newUnspent = (Number(finalChar.unspentStats) || 0) + gained;
+                            finalChar = { ...finalChar, unspentStats: newUnspent };
+                            summary = { ...summary, unspentStats: newUnspent };
+                        }
+                    }
+                    const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: finalChar });
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(next, record));
-                    return credit.summary;
+                    return summary;
                 }
                 return {
                     ryo: Number(char.ryo) || 0,
