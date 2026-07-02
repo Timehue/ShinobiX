@@ -90,6 +90,8 @@ export function jutsuPoints(jutsu: RawJutsu, rank: string | null | undefined): n
         else if (jutsu.method === 'INSTANT_EFFECT') sum += 1;
         else if (jutsu.method === 'AOE_SPIRAL') sum += 1;
     }
+    // AOE Burst — OPPONENT-targeted target-centred splash (not a ground zone). +1 point.
+    if (jutsu?.method === 'AOE_BURST') sum += 1;
     const namedTags = tags.map((t) => ({ name: typeof t?.name === 'string' ? t.name : undefined }));
     if (!jutsuHasFixedEffectPower(namedTags) && ap === 60 && effectPower >= 45) sum += 1; // nuke
     if (cooldown <= 1) sum += 0.5;                             // low cooldown

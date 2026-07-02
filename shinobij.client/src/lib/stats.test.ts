@@ -64,10 +64,11 @@ describe('statPointBudgetForProgress — interpolates within a level', () => {
     });
 });
 
-describe('migration safety — reconcile keeps levels + spent stats, never goes negative', () => {
-    // Spread `allocated` points across the 12 stats, each capped at MAX_STAT-10
-    // over base (so large totals are representable, not clipped into one stat).
-    const mk = (level: number, allocated: number): Character => {
+describe('reconcile (two-axis) — normalizes stats + preserves the stored pool, never negative', () => {
+    // Two-axis model: stat points come from training (direct-to-stat) + combat (the
+    // pool), NOT a level budget — so reconcile preserves the stored unspentStats and
+    // never rolls back spent stats. Spread `allocated` across the 12 stats.
+    const mk = (level: number, allocated: number, unspent = 0): Character => {
         const stats: Record<string, number> = { ...baseStats() };
         let rem = allocated;
         for (const k of STAT_KEYS) {
@@ -76,21 +77,20 @@ describe('migration safety — reconcile keeps levels + spent stats, never goes 
             rem -= add;
             if (rem <= 0) break;
         }
-        return { level, xp: 0, stats } as unknown as Character;
+        return { level, xp: 0, stats, unspentStats: unspent } as unknown as Character;
     };
-    it('preserves level and never reduces allocated stats', () => {
+    it('preserves level, spent stats, and the stored pool (points are NOT budget-derived)', () => {
         for (const L of [5, 20, 50, 80]) {
-            const before = mk(L, 100);
+            const before = mk(L, 100, 42);
             const after = reconcileCharacterStatBudget(structuredClone(before));
             assert.equal(after.level, L, `level kept @${L}`);
             assert.equal(allocatedStatPoints(normalizeStats(after.stats)), 100, `spent kept @${L}`);
-            assert.equal(after.unspentStats, Math.max(0, statBudgetAtLevel(L) - 100), `unspent @${L}`);
+            assert.equal(after.unspentStats, 42, `stored pool preserved, not re-derived @${L}`);
             assert.ok((after.unspentStats ?? 0) >= 0, `non-negative @${L}`);
         }
     });
-    it('an over-allocated character floors unspent at 0 (no rollback of spent stats)', () => {
-        // A low-level character somehow holding more allocated than its budget.
-        const before = mk(2, 5000);
+    it('a missing/negative pool floors at 0; spent stats untouched', () => {
+        const before = mk(2, 5000, -7);
         const after = reconcileCharacterStatBudget(structuredClone(before));
         assert.equal(after.unspentStats, 0);
         assert.equal(allocatedStatPoints(normalizeStats(after.stats)), 5000); // spent stats untouched
@@ -121,25 +121,23 @@ describe('per-rank stat cap (anti-twink) — clamps the value combat reads, save
     });
 });
 
-describe('pacing guardrail — engaged daily-active reaches L90 in ~90-110 days, slow late', () => {
+describe('pacing guardrail — engaged daily-active reaches L90 in ~120-190 days, slow late', () => {
     // Daily character-XP income modeled from the REAL faucets (api/missions/
-    // _mission-catalog.ts), not a synthetic curve — this is the canary that flags if
-    // the curve coefficient OR the faucet values drift off the 90-day target. An
-    // "engaged daily-active" player: clears each field + hunt mission once (they're
-    // one-per-day, claim-mission.ts:168), ~10 combat fights at the best unlocked tier,
-    // + a daily training session, ~60 explore tiles, and some PvP. Level-gating means
-    // higher tiers unlock at 15/30/50/70, so income steps up there (a mild sawtooth).
+    // _mission-catalog.ts), not a synthetic curve — the canary that flags if the
+    // xpNeeded curve OR the faucet values drift. An "engaged daily-active" player
+    // clears each field + hunt mission once, does a daily training session, ~60
+    // explore tiles, and some PvP. Plain-practice AI ("normal battle arena") battles
+    // grant NO XP now — progression comes from missions/hunts/raids + real PvP +
+    // training — so the old "10 combat fights" term is gone and L90 lands ~150 days.
     const income = (L: number): number => {
         const fetch = [[1, 90], [15, 240], [30, 520], [50, 1100], [70, 2400]].filter(([r]) => L >= r).reduce((s, [, x]) => s + x, 0);
         const hunts = [[1, 80], [15, 200], [30, 420], [50, 900], [70, 2000]].filter(([r]) => L >= r).reduce((s, [, x]) => s + 2 * x, 0);
-        let bestCombat = 0;
-        for (const [r, x] of [[1, 15], [5, 25], [15, 75], [30, 150], [50, 300], [70, 700]]) if (L >= r) bestCombat = x;
-        return fetch + hunts + 10 * bestCombat + 800 /*training*/ + 60 * 28 /*explore*/ + 700 /*pvp*/;
+        return fetch + hunts + 800 /*training*/ + 60 * 28 /*explore*/ + 700 /*pvp*/;
     };
-    it('cumulative days to reach L90 sits in [90, 135]', () => {
+    it('cumulative days to reach L90 sits in [120, 190]', () => {
         let days = 0;
         for (let L = 1; L < 90; L++) days += xpNeeded(L) / income(L);
-        assert.ok(days >= 90 && days <= 135, `days-to-90 = ${days.toFixed(1)} (expected 90–135 for the engaged daily-active model)`);
+        assert.ok(days >= 120 && days <= 190, `days-to-90 = ${days.toFixed(1)} (expected 120–190 without plain-practice XP)`);
     });
     it('is strongly slow-late: the back half (L46-90) takes >2x the front half (L1-45)', () => {
         let front = 0, back = 0;

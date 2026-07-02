@@ -44,7 +44,7 @@ export function tagNameMatches(name: string, canonicalName: string): boolean {
 export const CANONICAL_TAG_NAMES: readonly string[] = [
     'Heal', 'Shield', 'Barrier', 'Pierce', 'Stun', 'Poison', 'Drain', 'Absorb', 'Reflect',
     'Lifesteal', 'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
-    'Decrease Damage Taken', 'Increase Heal', 'Debuff Prevent', 'Buff Prevent',
+    'Decrease Damage Taken', 'Increase Heal', 'Increase Generals', 'Debuff Prevent', 'Buff Prevent',
     'Cleanse Prevent', 'Clear Prevent', 'Stun Prevent', 'Copy', 'Mirror', 'Push', 'Pull',
     'Bloodline Seal', 'Elemental Seal', 'Wound', 'Recoil', 'Move',
     'Ignition', 'Lag', 'Overclock', 'Siphon',
@@ -64,7 +64,7 @@ export const KNOWN_TAG_NAMES: ReadonlySet<string> = new Set<string>([
 export const STACKABLE_STATUS: ReadonlySet<string> = new Set([
     'Increase Damage Given', 'Increase Damage Taken', 'Ignition',
     'Decrease Damage Given', 'Decrease Damage Taken',
-    'Wound', 'Lifesteal', 'Reflect', 'Absorb',
+    'Wound', 'Lifesteal', 'Reflect', 'Absorb', 'Increase Generals',
 ]);
 
 // Amp/DR tags whose percent is clamped to the bloodline rank cap. Mirrors the
@@ -73,6 +73,9 @@ export const STACKABLE_STATUS: ReadonlySet<string> = new Set([
 export const CAPPED_AMP_TAGS: ReadonlySet<string> = new Set([
     'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
     'Decrease Damage Taken', 'Absorb', 'Siphon', 'Ignition', 'Reflect', 'Recoil', 'Lifesteal',
+    // Increase Generals rides statFactor (not the amp pool) but its per-cast percent
+    // is rank-capped exactly like the amp tags (30/35/40 via ampTagCapForRank).
+    'Increase Generals',
 ]);
 
 // ─── Validation predicates ────────────────────────────────────────────────────

@@ -49,15 +49,15 @@ describe('applyJutsu characterization — base damage', () => {
 });
 
 describe('applyJutsu characterization — heal / shield / siphon', () => {
-    it('Heal restores a flat 750 (capped at maxHp) and deals no damage', () => {
+    it('Heal ramps by jutsu mastery (225 at mastery 0, hard-capped at 750/maxHp) and deals no damage', () => {
         const r = applyJutsu(fighter('A', 500), fighter('B'), jutsu([{ name: 'Heal' }]), 1, 'central', 1);
-        assert.equal(r.self.hp, 1000);          // 500 + 750 capped at 1000
+        assert.equal(r.self.hp, 725);           // 500 + floor(750 × masteryFrac(0)=0.3)=225; a maxed jutsu heals the full 750
         assert.equal(r.opponent.hp, 1000);      // damage zeroed
     });
 
-    it('Shield grants a flat 750 and deals no damage', () => {
+    it('Shield ramps by jutsu mastery (225 at mastery 0, hard-capped at 750) and deals no damage', () => {
         const r = applyJutsu(fighter('A'), fighter('B'), jutsu([{ name: 'Shield' }]), 1, 'central', 1);
-        assert.equal(r.self.shield, 750);
+        assert.equal(r.self.shield, 225);       // floor(750 × masteryFrac(0)=0.3); a maxed jutsu grants the full 750
         assert.equal(r.opponent.hp, 1000);
     });
 
@@ -72,6 +72,16 @@ describe('applyJutsu characterization — heal / shield / siphon', () => {
         const wound = r.opponent.statuses.find(s => s.name === 'Wound');
         assert.equal(wound?.amount, 240);       // cappedPostDamage(960, 25)
         assert.equal(wound?.activeRound, 2);    // deferred to next round
+    });
+
+    it('Wound stacks are capped at 2 — a 3rd cast does not add a 3rd ticking stack', () => {
+        const woundJutsu = jutsu([{ name: 'Wound', percent: 30 }]);
+        let def = fighter('B');
+        for (let i = 0; i < 3; i++) {
+            const r = applyJutsu(fighter('A'), def, woundJutsu, 1, 'central', 1);
+            def = { ...r.opponent, hp: 1000 };  // refill so the target survives all 3 casts
+        }
+        assert.equal(def.statuses.filter(s => s.name === 'Wound').length, 2);
     });
 });
 

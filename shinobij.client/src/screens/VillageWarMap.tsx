@@ -38,6 +38,18 @@ interface TerritoryLite {
     ownerVillage?: string;
 }
 
+// Terrain → home-ground edge (the defender gets +10% when the sector's fight
+// matches its terrain). Mirrors the server exactly: Combat = api/pvp/move.ts
+// terrainMultiplier, Pet = pet-duel-sim.ts terrainPetMult. Central is neutral,
+// and Card is always fought on random neutral locations (kept fair).
+const TERRAIN_LEGEND: readonly { key: string; label: string; effect: string }[] = [
+    { key: "forest", label: "Forest", effect: "Taijutsu · Earth pets" },
+    { key: "snow", label: "Snow", effect: "Bukijutsu · Water pets" },
+    { key: "volcano", label: "Volcano", effect: "Ninjutsu · Fire pets" },
+    { key: "shadow", label: "Shadow", effect: "Genjutsu · Lightning pets" },
+    { key: "central", label: "Central", effect: "Neutral — no edge" },
+];
+
 export function VillageWarMap({ character, onBack, setScreen }: { character: Character; onBack: () => void; setScreen: (s: Screen) => void }) {
     const [data, setData] = useState<WarMapResponse | null>(null);
     const [owners, setOwners] = useState<Record<number, string>>({});
@@ -60,7 +72,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         // server declare / win-condition / structure endpoints check — so the Kage
         // controls only appear when the server will actually accept them (avoids the
         // "you're shown the tools but the server says you're not the Kage" mismatch).
-        fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`).then((r) => r.json()).then((d) => {
+        fetch(`/api/village/kage?village=${encodeURIComponent(myVillage)}`, { cache: "no-store" }).then((r) => r.json()).then((d) => {
             if (!alive) return;
             setIsKage(String((d as { seatedKage?: string }).seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
         }).catch(() => {});
@@ -165,6 +177,19 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                 )}
             </div>
 
+            <div className="card vwm-terrain-legend">
+                <h4><img src={WAR_CREST} alt="" style={{ height: 18, width: 18, verticalAlign: "middle", marginRight: 6, borderRadius: 4 }} />Terrain — home-ground edge</h4>
+                <div className="vwm-terrain-grid">
+                    {TERRAIN_LEGEND.map((t) => (
+                        <div key={t.key} className="vwm-terrain-cell">
+                            {TERRAIN_IMAGES[t.key] && <img src={TERRAIN_IMAGES[t.key]} alt="" />}
+                            <div className="vwm-terrain-text"><b>{t.label}</b><span>{t.effect}</span></div>
+                        </div>
+                    ))}
+                </div>
+                <p className="hint">The Kage sets each sector's terrain. When it matches the fight, the <b>defender</b> gets <b>+10%</b> — Combat boosts a jutsu type, Pet boosts an element. <b>Central</b> is neutral; <b>Card</b> is always fought on random neutral locations.</p>
+            </div>
+
             {loading && <p className="hint">Loading the war map…</p>}
             {disabled && <p className="hint">Sector War is not active yet.</p>}
             {error && <p className="vwm-error">{error}</p>}
@@ -206,9 +231,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                         </div>
                     )}
 
-                    {isKage && mercData && (
+                    {mercData && (
                         <div className="card vwm-mercs">
                             <h3>Mercenaries</h3>
+                            {!isKage && <p className="hint" style={{ color: "#fbbf24" }}>👑 This is the merc roster your village can field — only your seated Kage can hire and deploy them.</p>}
                             <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're besieging. Fights resolve server-side — a merc win chips Control HP, a loss gives the defender only 25% back.</p>
                             <div className="vwm-merc-tiers">
                                 {mercData.tiers.map((t) => {
@@ -219,7 +245,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                         <div key={t.id} className="vwm-merc-tier">
                                             {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
                                             <div className="vwm-merc-name">{mercTierName(t.id)} · L{t.level}</div>
-                                            <button disabled={!!busy} onClick={() => act(`hire-${t.id}`, async () => { await hireMerc(character.name, myVillage, t.id); await loadMercs(); })}>
+                                            <button disabled={!isKage || !!busy} title={isKage ? undefined : "Only the seated Kage can hire mercenaries"} onClick={() => act(`hire-${t.id}`, async () => { await hireMerc(character.name, myVillage, t.id); await loadMercs(); })}>
                                                 Hire · {t.costWr} WR
                                             </button>
                                             {band && <div className="vwm-merc-band">{band.count} merc{band.count === 1 ? "" : "s"} ready</div>}
@@ -244,7 +270,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 })}
                             </div>
                             {mercMsg && <p className="vwm-merc-msg">{mercMsg}</p>}
-                            {myCombatContests.length === 0 && <p className="hint">Declare a Combat sector war first, then deploy mercs at its defenders.</p>}
+                            {isKage && myCombatContests.length === 0 && <p className="hint">Declare a Combat sector war first, then deploy mercs at its defenders.</p>}
                         </div>
                     )}
 

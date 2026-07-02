@@ -99,6 +99,9 @@ function jutsuPoints(jutsu, rank) {
         else if (jutsu.method === 'AOE_SPIRAL')
             sum += 1;
     }
+    // AOE Burst — OPPONENT-targeted target-centred splash (not a ground zone). +1 point.
+    if (jutsu?.method === 'AOE_BURST')
+        sum += 1;
     const namedTags = tags.map((t) => ({ name: typeof t?.name === 'string' ? t.name : undefined }));
     if (!(0, _tags_js_1.jutsuHasFixedEffectPower)(namedTags) && ap === 60 && effectPower >= 45)
         sum += 1; // nuke

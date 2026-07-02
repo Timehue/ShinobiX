@@ -835,6 +835,10 @@ export function AdminPanel({
     useEffect(() => { if (adminPw) void loadRankedSeasonStatus(); }, [adminPw]);
     const [kageResetVillage, setKageResetVillage] = useState(villages[0]);
     const [kageResetMsg, setKageResetMsg] = useState("");
+    const [kageSeatVillage, setKageSeatVillage] = useState(villages[0]);
+    const [kageSeatPlayer, setKageSeatPlayer] = useState("");
+    const [kageSeatMsg, setKageSeatMsg] = useState("");
+    const [seedSectorsMsg, setSeedSectorsMsg] = useState("");
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
     const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
@@ -4810,6 +4814,79 @@ export function AdminPanel({
                                 >👑 Reset Kage to NPC</button>
                             </div>
                             {kageResetMsg && <p className="hint" style={{ color: kageResetMsg.startsWith("✅") ? "#4ade80" : kageResetMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{kageResetMsg}</p>}
+                        </section>
+
+                        {/* -- Seat Kage -- */}
+                        <section className="summary-box" style={{ borderColor: "#a16207" }}>
+                            <h4>👑 Seat Village Kage</h4>
+                            <p className="hint">Installs a player as a village's <strong>seated Kage</strong> — unlocking the Kage system for that village if needed (skips the level-100 story requirement) and replacing any current Kage. The seated Kage is who the Sector War Map, treasury, and merc/structure endpoints authorize, so use this to hand a player the war controls (e.g. seat a test account to verify Sector War).</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                                <select value={kageSeatVillage} onChange={e => setKageSeatVillage(e.target.value)} style={{ minWidth: 170 }}>
+                                    {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                                </select>
+                                <input
+                                    style={{ flex: 1, minWidth: 150 }}
+                                    value={kageSeatPlayer}
+                                    onChange={e => setKageSeatPlayer(e.target.value)}
+                                    placeholder="Player name to seat"
+                                />
+                                <button
+                                    style={{ background: "#a16207", borderColor: "#fbbf24", color: "#fde68a" }}
+                                    disabled={!adminPw || !kageSeatPlayer.trim()}
+                                    onClick={async () => {
+                                        const player = kageSeatPlayer.trim();
+                                        if (!player) return;
+                                        if (!(await gameConfirm(`Seat ${player} as Kage of ${kageSeatVillage}? This unlocks the Kage system for that village and installs ${player} as the seated Kage, replacing any current Kage.`, { confirmLabel: "Seat" }))) return;
+                                        setKageSeatMsg("Seating…");
+                                        try {
+                                            const post = (action: string) => fetch('/api/village/kage', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                                                body: JSON.stringify({ village: kageSeatVillage, playerName: player, action }),
+                                            }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error ?? `${action} failed`); return d as { seatedKage?: string }; });
+                                            // `unlock` seats `player` when the system is fresh (admin skips the
+                                            // level/story gate). If it was already unlocked to someone else,
+                                            // force the seat with a follow-up `seat`.
+                                            const d1 = await post('unlock');
+                                            if (String(d1.seatedKage ?? '').toLowerCase() !== player.toLowerCase()) await post('seat');
+                                            setKageSeatMsg(`✅ ${player} is now the seated Kage of ${kageSeatVillage}. They can open Town Hall → Sector War Map to command the war.`);
+                                        } catch (err) {
+                                            setKageSeatMsg(`❌ ${String((err as Error).message || err)}`);
+                                        }
+                                    }}
+                                >👑 Seat as Kage</button>
+                            </div>
+                            {kageSeatMsg && <p className="hint" style={{ color: kageSeatMsg.startsWith("✅") ? "#4ade80" : kageSeatMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{kageSeatMsg}</p>}
+                        </section>
+
+                        {/* -- Seed Sector Ownership -- */}
+                        <section className="summary-box" style={{ borderColor: "#166534" }}>
+                            <h4>🗺 Seed Sector Ownership</h4>
+                            <p className="hint">One-time launch step for Sector War: stamps each war village's home sectors with their starting owner (<code>world:territory.ownerVillage</code>). Until this runs, a Kage's <b>Declare War</b> is rejected ("that sector has no current owner"), "Sectors held" reads 0, and Map-Control rewards don't pay out. Idempotent — safe to re-run; it only fills in sectors whose owner is unset.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                                <button
+                                    style={{ background: "#166534", borderColor: "#4ade80", color: "#dcfce7" }}
+                                    disabled={!adminPw}
+                                    onClick={async () => {
+                                        if (!(await gameConfirm("Seed home-sector ownership for all war villages? Assigns each home sector to its home village (only where unset) and unblocks Declare War."))) return;
+                                        setSeedSectorsMsg("Seeding…");
+                                        try {
+                                            const r = await fetch('/api/village/sector-war', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                                                body: JSON.stringify({ action: 'seed', playerName: 'admin' }),
+                                            });
+                                            const d = await r.json();
+                                            if (!r.ok) throw new Error(d.error ?? 'seed failed');
+                                            const n = typeof d.seeded === 'number' ? d.seeded : null;
+                                            setSeedSectorsMsg(`✅ Sector ownership seeded${n !== null ? ` — ${n} sector${n === 1 ? '' : 's'} set` : ''}. Kages can now Declare War.`);
+                                        } catch (err) {
+                                            setSeedSectorsMsg(`❌ ${String((err as Error).message || err)}`);
+                                        }
+                                    }}
+                                >🗺 Seed Home-Sector Ownership</button>
+                            </div>
+                            {seedSectorsMsg && <p className="hint" style={{ color: seedSectorsMsg.startsWith("✅") ? "#4ade80" : seedSectorsMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{seedSectorsMsg}</p>}
                         </section>
 
                         {/* -- Ranked Seasons -- */}

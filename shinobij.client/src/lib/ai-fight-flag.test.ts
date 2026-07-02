@@ -13,25 +13,25 @@ class MemStore {
     clear(): void { this.m.clear(); }
 }
 
-test("aiFightServerAuth: default OFF, opt-in only via exactly '1'", () => {
+test("aiFightServerAuth: default ON, opt-out only via exactly '0'", () => {
     (globalThis as unknown as { localStorage: MemStore }).localStorage = new MemStore();
     try {
-        // Unset → OFF (the byte-identical / no-endpoint-call default).
-        assert.equal(aiFightServerAuthEnabled(), false);
-
-        // Opt in.
-        setAiFightServerAuthEnabled(true);
+        // Unset → ON (the server-authoritative default).
         assert.equal(aiFightServerAuthEnabled(), true);
 
-        // Opt back out (stored "0", not absent).
+        // Opt out (stored "0", not absent).
         setAiFightServerAuthEnabled(false);
         assert.equal(aiFightServerAuthEnabled(), false);
 
-        // Only the literal "1" enables it — any other stored value is OFF.
-        localStorage.setItem("aiFightServerAuth.v1", "true");
-        assert.equal(aiFightServerAuthEnabled(), false);
-        localStorage.setItem("aiFightServerAuth.v1", "1");
+        // Opt back in.
+        setAiFightServerAuthEnabled(true);
         assert.equal(aiFightServerAuthEnabled(), true);
+
+        // Only the literal "0" disables it — any other stored value is ON.
+        localStorage.setItem("aiFightServerAuth.v1", "false");
+        assert.equal(aiFightServerAuthEnabled(), true);
+        localStorage.setItem("aiFightServerAuth.v1", "0");
+        assert.equal(aiFightServerAuthEnabled(), false);
     } finally {
         delete (globalThis as Partial<{ localStorage: unknown }>).localStorage;
     }

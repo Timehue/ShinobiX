@@ -77,9 +77,8 @@ export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
     baseStats,
     normalizeStats,
-    allocatedStatPoints,
     addToAllStats,
-    maxedStats,
+    maxedStats, applyStatGrowth,
     xpNeeded,
     maxHpForLevel,
     maxChakraForLevel,
@@ -1314,7 +1313,7 @@ export function normalizeCharacter(parsed: Character): Character {
         inventory: parsed.inventory ?? [],
         equipment: parsed.equipment ?? {},
         stats,
-        unspentStats: Math.max(0, statPointBudgetForProgress(level, xp) - allocatedStatPoints(stats)),
+        unspentStats: Math.max(0, Math.floor(parsed.unspentStats ?? STARTING_STAT_POINTS)), // two-axis: stored pool, not budget-derived
         equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
         jutsuMastery: parsed.jutsuMastery ?? [],
         pets: (parsed.pets ?? []).slice(0, 5).map(normalizePet),
@@ -3273,8 +3272,8 @@ export default function App() {
                     // practice spars — so spar round-robins are throttled by the
                     // same decay instead of paying full ryo/XP every rematch (the
                     // honest first win/hour is unchanged). rewardSector feeds ONLY
-                    // the Death's Gate (99) 2× bonus and mirrors handlePvpWin.
-                    baseRewards: true,
+                    // the Death's Gate 2× bonus. Spars (standard, no clan-war/sector stakes) → baseRewards false so the server grants nothing (matches isFriendlyDuel).
+                    baseRewards: !(!challenge.mode || (challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack)),
                     rewardSector: currentSector,
                     // Biome + weather. Ranked forces neutral; everything else
                     // ships the live values so terrainMultiplier/weatherMultiplier
@@ -7505,7 +7504,11 @@ export default function App() {
                 {/* Suspense for lazy screens; the per-screen ErrorBoundary (keyed by screen) isolates a render crash to one view so the nav stays usable and navigating away clears it. */}
                 <Suspense fallback={<div className="lazy-screen-fallback" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>}>
                 <ScreenErrorBoundary key={screen}>
-                {character && screen !== "start" && (
+                {/* Hidden on the full-screen battle boards — the in-combat side HUDs
+                    already show the player's HP/chakra/stamina, so the top status bar
+                    is redundant there and just costs vertical space (matches the
+                    LeftProfileCard hide-set above). */}
+                {character && screen !== "start" && screen !== "arena" && screen !== "storyBoss" && screen !== "battleTowers" && screen !== "pvpBattle" && (
                     <MobileStatusHUD
                         character={character}
                         onBack={canGoBack ? goBack : undefined}
@@ -8830,7 +8833,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "professions" && character && <Professions character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} />}
+                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
@@ -8991,12 +8994,12 @@ export default function App() {
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                        const leveled = serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
-                        const rewarded = grantTerritoryScrolls(leveled, 5);
-                        // Spar/friendly-duel detection for non-Vanguard local effects
-                        // (e.g., ranked rating still uses isFriendlyDuel implicitly).
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        // Spars grant NOTHING (no XP/stats/ryo/currency/scrolls/kills); ranked = no stats.
+                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
+                        if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
+                        const rewarded = grantTerritoryScrolls(leveled, isFriendlyDuel ? 0 : 5);
                         // Vanguard rewards (Honor Seals + profession XP + all the
                         // daily-tracking fields) are granted server-side in
                         // api/pvp/move.ts via grantVanguardRewardsForSession. The
@@ -9010,17 +9013,17 @@ export default function App() {
                             // ryo / fateShards include the war-ground bounty
                             // when it fires; bountyRyo+bountyFateShards are 0
                             // for non-raid wins or when already claimed today.
-                            ryo: (serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
+                            ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
-                            auraDust: (rewarded.auraDust ?? 0) + 6,
+                            auraDust: (rewarded.auraDust ?? 0) + (isFriendlyDuel ? 0 : 6),
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
                             // Stamp the canonical crate ID so claimPendingWarCrates'
                             // next sweep skips this war (already credited inline).
                             claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
                                 ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
                                 : (rewarded.claimedWarCrateIds ?? []),
-                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
-                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
+                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
+                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (isFriendlyDuel ? 0 : 1),
                             pvpKillMonth: currentMonthKey(),
                             // Read-back (audit #7 / Stage 3): when the session is
                             // ranked the server credits the rating via claim-rewards
