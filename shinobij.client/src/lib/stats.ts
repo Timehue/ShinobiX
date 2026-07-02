@@ -174,9 +174,39 @@ export function progressAfterXp(level: number, xp: number, amount: number) {
     return { level: nextLevel, xp: nextXp };
 }
 
+// Two-axis progression (docs/leveling-training-redesign-plan.md): stat points come
+// from TRAINING (added directly to a stat, bounded by the per-rank cap) and COMBAT
+// (the unspentStats pool), NOT from a level budget. So `unspentStats` is a STORED
+// pool — reconcile only normalizes the stats and clamps the pool ≥ 0. It never
+// rolls back spent stats and never grants points on level-up (leveling raises caps
+// + pools + content instead). statBudgetAtLevel / statPointBudgetForProgress stay
+// exported for AI stat generation (lib/ai-stats) + the api/_xp-engine parity pin.
 export function reconcileCharacterStatBudget(character: Character): Character {
     const stats = normalizeStats(character.stats);
-    const earnedBudget = statPointBudgetForProgress(character.level, character.xp);
-    const available = Math.max(0, earnedBudget - allocatedStatPoints(stats));
-    return { ...character, stats, unspentStats: available };
+    const unspentStats = Math.max(0, Math.floor(character.unspentStats ?? 0));
+    return { ...character, stats, unspentStats };
+}
+
+// Apply a server-computed combat-use stat reward (Stage 4): add the per-stat
+// auto-growth (cap-clamped) into the stats the player used, plus the free-pool
+// points into unspentStats. The server is authoritative for the amounts (daily-
+// capped, ranked-excluded); this just mirrors them into the local character.
+export function applyStatGrowth(character: Character, allocated: Partial<Record<keyof Stats, number>>, unspentGain: number): Character {
+    const stats = normalizeStats(character.stats);
+    let used = 0;
+    for (const key of STAT_KEYS) {
+        const add = Math.max(0, Math.floor(Number(allocated[key] ?? 0)));
+        if (add > 0) {
+            const before = stats[key];
+            stats[key] = capStat(stats[key] + add);
+            used += stats[key] - before;
+        }
+    }
+    const free = Math.max(0, Math.floor(Number(unspentGain) || 0));
+    return {
+        ...character,
+        stats,
+        unspentStats: Math.max(0, Math.floor(character.unspentStats ?? 0) + free),
+        totalStatsTrained: (character.totalStatsTrained ?? 0) + used,
+    };
 }

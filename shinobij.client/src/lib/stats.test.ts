@@ -64,10 +64,11 @@ describe('statPointBudgetForProgress — interpolates within a level', () => {
     });
 });
 
-describe('migration safety — reconcile keeps levels + spent stats, never goes negative', () => {
-    // Spread `allocated` points across the 12 stats, each capped at MAX_STAT-10
-    // over base (so large totals are representable, not clipped into one stat).
-    const mk = (level: number, allocated: number): Character => {
+describe('reconcile (two-axis) — normalizes stats + preserves the stored pool, never negative', () => {
+    // Two-axis model: stat points come from training (direct-to-stat) + combat (the
+    // pool), NOT a level budget — so reconcile preserves the stored unspentStats and
+    // never rolls back spent stats. Spread `allocated` across the 12 stats.
+    const mk = (level: number, allocated: number, unspent = 0): Character => {
         const stats: Record<string, number> = { ...baseStats() };
         let rem = allocated;
         for (const k of STAT_KEYS) {
@@ -76,21 +77,20 @@ describe('migration safety — reconcile keeps levels + spent stats, never goes 
             rem -= add;
             if (rem <= 0) break;
         }
-        return { level, xp: 0, stats } as unknown as Character;
+        return { level, xp: 0, stats, unspentStats: unspent } as unknown as Character;
     };
-    it('preserves level and never reduces allocated stats', () => {
+    it('preserves level, spent stats, and the stored pool (points are NOT budget-derived)', () => {
         for (const L of [5, 20, 50, 80]) {
-            const before = mk(L, 100);
+            const before = mk(L, 100, 42);
             const after = reconcileCharacterStatBudget(structuredClone(before));
             assert.equal(after.level, L, `level kept @${L}`);
             assert.equal(allocatedStatPoints(normalizeStats(after.stats)), 100, `spent kept @${L}`);
-            assert.equal(after.unspentStats, Math.max(0, statBudgetAtLevel(L) - 100), `unspent @${L}`);
+            assert.equal(after.unspentStats, 42, `stored pool preserved, not re-derived @${L}`);
             assert.ok((after.unspentStats ?? 0) >= 0, `non-negative @${L}`);
         }
     });
-    it('an over-allocated character floors unspent at 0 (no rollback of spent stats)', () => {
-        // A low-level character somehow holding more allocated than its budget.
-        const before = mk(2, 5000);
+    it('a missing/negative pool floors at 0; spent stats untouched', () => {
+        const before = mk(2, 5000, -7);
         const after = reconcileCharacterStatBudget(structuredClone(before));
         assert.equal(after.unspentStats, 0);
         assert.equal(allocatedStatPoints(normalizeStats(after.stats)), 5000); // spent stats untouched

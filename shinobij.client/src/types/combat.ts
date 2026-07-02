@@ -152,6 +152,11 @@ export type ActiveTraining = {
     // reward by elapsed time. Optional: saves created before this field shipped
     // fall back to a label-based duration lookup.
     durationMs?: number;
+    // Single-use token minted by /api/training/start (server-auth). The chosen
+    // stat's gain is sealed server-side; /complete redeems it. Absent when the
+    // server is unavailable — the client then applies the local gain (bounded by
+    // the save sanitizer) so a hiccup never strands a player mid-session.
+    token?: string;
 };
 
 // A 2nd jutsu training lined up behind the active one. Ryo is paid up-front at
