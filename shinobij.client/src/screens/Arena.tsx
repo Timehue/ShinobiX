@@ -22,6 +22,8 @@ import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { BattleTabBar } from "../components/BattleTabBar";
+import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { playPetSfx } from "../lib/pet-sfx";
 import { masteryHasCapstone } from "../lib/profession-mastery";
@@ -653,6 +655,8 @@ export function Arena({
     const [activeActor, setActiveActor] = useState<BattleActor>(rollInitiative);
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
+    // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
+    const battleTabs = useBattleTabs(battleHistory.length);
     // Keep the PvE battle log pinned to the newest entry (parity with
     // PvpBattleScreen.tsx) — without this the latest action scrolls below the
     // fold in a long fight and the player can't see what just happened.
@@ -4755,7 +4759,7 @@ export function Arena({
                     statuses={displayStatuses(playerStatuses)}
                 />
 
-                <main className="combat-main-area">
+                <main className={`combat-main-area bt-${battleTabs.tab}`}>
                     <div className="arena-top-panel">
                         <div className="arena-title-panel">
                             <h2>{biomeLabel(currentBiome)}</h2>
@@ -4956,6 +4960,8 @@ export function Arena({
                             />
                         )}
                     </div>
+
+                    <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
 
                     <div className="basic-action-bar shinobi-command-bar">
                         {/* Affordance feedback: each action disables when it can't be
