@@ -69,6 +69,7 @@ function extractPvpLegacyDeltas(session, winnerName, loserName) {
     const winnerDeltas = {
         pvpWins: 1,
         pvpKills: 1,
+        ...(session.ranked ? { rankedWins: 1 } : {}),
     };
     const style = STYLE_STATS[String(winner.character?.specialty ?? '')];
     if (style) {

@@ -33,8 +33,12 @@ async function getLegacyOverlay() {
 exports.SUSPICION_RARITY_CAP = 2;
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 function floorFor(def, stat, base, overlay) {
-    const o = overlay.thresholds?.[def.id]?.[stat];
-    return Number.isFinite(Number(o)) && Number(o) > 0 ? Number(o) : base;
+    const o = Number(overlay.thresholds?.[def.id]?.[stat]);
+    // An explicit overlay 0 WAIVES the requirement (every value passes a
+    // 0 floor) — the admin hot-fix lever for a requirement that turns out to
+    // be broken in production (verification finding: the old >0 check made a
+    // dead requirement untunable at runtime).
+    return Number.isFinite(o) && o >= 0 ? o : base;
 }
 function evaluateLegacy(def, stats, opts = {}) {
     const overlay = opts.overlay ?? {};

@@ -9,12 +9,13 @@ const _legacy_score_js_1 = require("./_legacy-score.js");
 const _legacy_defs_js_1 = require("./_legacy-defs.js");
 const _legacy_track_js_1 = require("./_legacy-track.js");
 const NOW = 1_750_000_000_000;
-(0, node_test_1.test)('repeat-kill decay: 1,1,0.5,0.25 then zero', () => {
+(0, node_test_1.test)('repeat-kill decay: 1st and 2nd full, 3rd half, 4th quarter, then zero', () => {
     strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(0), 1);
     strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(1), 1);
-    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(2), 0.5);
-    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(3), 0.25);
-    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(4), 0);
+    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(2), 1);
+    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(3), 0.5);
+    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(4), 0.25);
+    strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(5), 0);
     strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(99), 0);
     strict_1.default.ok(_legacy_track_js_1.LEVEL_GAP_ZERO >= 10);
 });
@@ -26,7 +27,7 @@ const NOW = 1_750_000_000_000;
         lifetimeWarDamage: 80_000, cardClashWins: 33, totalPetWins: 61,
     }, NOW);
     strict_1.default.equal(seeded.missionCompletions, 320);
-    strict_1.default.equal(seeded.pveKills, 6000, 'capped at plausibility ceiling');
+    strict_1.default.equal(seeded.pveKills, 1200, 'capped at plausibility ceiling');
     strict_1.default.equal(seeded.pvpWins, 90);
     strict_1.default.equal(seeded.rankedWins, 40);
     strict_1.default.equal(seeded.tilesExplored, 2500);

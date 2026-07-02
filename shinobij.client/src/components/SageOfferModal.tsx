@@ -15,11 +15,14 @@ import {
 } from "../lib/legacy";
 import wanderingSagePortrait from "../assets/wanderers/legacy/wandering-sage.webp";
 
-export function SageOfferModal({ offer, playerName, onClose, onAccepted }: {
+export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDeclined }: {
     offer: SageOfferView;
     playerName: string;
     onClose: () => void;
     onAccepted: (legacy: CharacterLegacy) => void;
+    /** Fired after a server-confirmed decline so the caller can despawn the
+     *  Sage — otherwise a ghost NPC lingers with a dead offer behind him. */
+    onDeclined: () => void;
 }) {
     const [busy, setBusy] = useState(false);
     const [selected, setSelected] = useState<string | null>(null);
@@ -29,6 +32,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted }: {
         setBusy(true);
         await sageDecline(playerName);
         setBusy(false);
+        onDeclined();
         onClose();
     }
 

@@ -65,9 +65,6 @@ async function handler(req, res) {
         // ── START: seal baselines for the next stage's trial ────────────────
         if (action === 'start') {
             const out = await (0, _lock_js_1.withKvLock)((0, _legacy_core_js_1.legacyTrialKey)(playerName), async () => {
-                const existing = await _storage_js_1.kv.get((0, _legacy_core_js_1.legacyTrialKey)(playerName));
-                if (existing)
-                    return { status: 200, body: { ok: false, reason: 'busy' } };
                 const sealed = await _storage_js_1.kv.get((0, _legacy_core_js_1.legacyAcceptedKey)(playerName));
                 const rec = await _storage_js_1.kv.get(`save:${playerName}`);
                 const char = (rec?.character ?? null);
@@ -79,6 +76,15 @@ async function handler(req, res) {
                 const kind = (0, _legacy_core_js_1.nextTrialKind)(legacy.stage);
                 if (!def || !kind)
                     return { status: 200, body: { ok: false, reason: 'complete' } };
+                // A live trial that still matches the current stage is 'busy';
+                // one left behind by a stage move or an admin correction is
+                // STALE and gets replaced, not honored — otherwise a failed
+                // post-completion delete bricks progression forever
+                // (verification finding).
+                const existing = await _storage_js_1.kv.get((0, _legacy_core_js_1.legacyTrialKey)(playerName));
+                if (existing && existing.legacyId === legacy.legacyId && existing.kind === kind) {
+                    return { status: 200, body: { ok: false, reason: 'busy' } };
+                }
                 const stats = await (0, _legacy_track_js_1.getLegacyStats)(playerName, char);
                 const objectives = (0, _legacy_core_js_1.trialObjectivesFor)(def, kind);
                 const trial = {
@@ -135,8 +141,13 @@ async function handler(req, res) {
                     await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
                     return next;
                 }, { failClosed: true });
-                if (!saveOut)
-                    return { status: 200, body: { ok: false, reason: 'none' } };
+                if (!saveOut) {
+                    // Stage already moved (crash between stage write and trial
+                    // delete, or admin correction) — clear the stale trial so
+                    // 'start' can mint the right one instead of 'busy' forever.
+                    await _storage_js_1.kv.del((0, _legacy_core_js_1.legacyTrialKey)(playerName)).catch(() => undefined);
+                    return { status: 200, body: { ok: false, reason: 'stale-cleared' } };
+                }
                 await _storage_js_1.kv.del((0, _legacy_core_js_1.legacyTrialKey)(playerName));
                 await (0, _legacy_track_js_1.appendLegacyEvent)(playerName, { type: 'trial-complete', key: `${trial.legacyId}:${trial.kind}` });
                 await (0, _audit_js_1.recordAudit)({
@@ -170,14 +181,18 @@ async function handler(req, res) {
                             player: playerName, village, legacyId: def.id, rarity: def.rarity,
                         }, { nxKey: `mythic-legacy:${def.id}:${playerName}` });
                     }
-                    else if (def.rarity === 'rare') {
-                        await (0, _announce_js_1.announce)({
-                            type: 'legacy_awakening', importance: 'medium',
-                            title: 'A Legacy Awakens',
-                            message: `${playerName} has awakened the ${def.name}.`,
-                            player: playerName, village, legacyId: def.id,
-                        });
-                    }
+                    // Basic/rare awakenings stay quiet by design (importance
+                    // matrix: event log only — verification finding restored).
+                }
+                else if (trial.kind === 'bind' && def.rarity === 'mythic') {
+                    const rec2 = await _storage_js_1.kv.get(`save:${playerName}`);
+                    const village = String(rec2?.character?.village ?? '') || undefined;
+                    await (0, _announce_js_1.announce)({
+                        type: 'mythic_legacy', importance: 'high',
+                        title: 'A MYTHIC LEGACY IS BOUND',
+                        message: `${playerName} has bound the ${def.name} to their soul. Stage III — few will ever stand here.`,
+                        player: playerName, village, legacyId: def.id,
+                    });
                 }
                 return { status: 200, body: { ok: true, legacy: saveOut, title: trial.kind === 'awaken' ? def.title : null } };
             }, { failClosed: true });

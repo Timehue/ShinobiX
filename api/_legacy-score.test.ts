@@ -7,12 +7,13 @@ import type { LegacyStats } from './_legacy-track.js';
 
 const NOW = 1_750_000_000_000;
 
-test('repeat-kill decay: 1,1,0.5,0.25 then zero', () => {
+test('repeat-kill decay: 1st and 2nd full, 3rd half, 4th quarter, then zero', () => {
     assert.equal(repeatKillWeight(0), 1);
     assert.equal(repeatKillWeight(1), 1);
-    assert.equal(repeatKillWeight(2), 0.5);
-    assert.equal(repeatKillWeight(3), 0.25);
-    assert.equal(repeatKillWeight(4), 0);
+    assert.equal(repeatKillWeight(2), 1);
+    assert.equal(repeatKillWeight(3), 0.5);
+    assert.equal(repeatKillWeight(4), 0.25);
+    assert.equal(repeatKillWeight(5), 0);
     assert.equal(repeatKillWeight(99), 0);
     assert.ok(LEVEL_GAP_ZERO >= 10);
 });
@@ -25,7 +26,7 @@ test('bootstrap seeds from save counters with plausibility caps', () => {
         lifetimeWarDamage: 80_000, cardClashWins: 33, totalPetWins: 61,
     }, NOW);
     assert.equal(seeded.missionCompletions, 320);
-    assert.equal(seeded.pveKills, 6000, 'capped at plausibility ceiling');
+    assert.equal(seeded.pveKills, 1200, 'capped at plausibility ceiling');
     assert.equal(seeded.pvpWins, 90);
     assert.equal(seeded.rankedWins, 40);
     assert.equal(seeded.tilesExplored, 2500);

@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from './_auth.js';
 import { withKvLock } from './_lock.js';
 import { gainXp, type XpCharacter } from './_xp-engine.js';
 import { bumpSaveVersion } from './save/_save-version.js';
+import { bumpLegacyStats } from './_legacy-track.js';
 
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
@@ -316,7 +317,20 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                     throw creditErr;
                 }
             });
-            if (did) newlyCredited.push(entry.name);
+            if (did) {
+                newlyCredited.push(entry.name);
+                // Legacy tracking (ENABLE_LEGACY): the weekly boss is the live
+                // source for boss/event legacy proof — contribution damage,
+                // top-10 placements, event participation, and (for the MVP) a
+                // server-history first-clear. Rides the exactly-once receipt
+                // above; best-effort by design.
+                await bumpLegacyStats(entry.name, {
+                    bossContribution: Math.max(0, Math.floor(entry.damage ?? 0)),
+                    eventCompletions: 1,
+                    ...(entry.rank <= 10 ? { weeklyBossTop10: 1, eliteKills: 5 } : {}),
+                    ...(entry.isMvp ? { firstClears: 1 } : {}),
+                });
+            }
         } catch (err) {
             // Leave this player OUT of creditedPlayers so a later run retries.
             console.warn(`[weekly-boss] credit ${entry.name} failed (will retry):`, err);

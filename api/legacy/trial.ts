@@ -66,9 +66,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // ── START: seal baselines for the next stage's trial ────────────────
         if (action === 'start') {
             const out = await withKvLock<{ status: number; body: unknown }>(legacyTrialKey(playerName), async () => {
-                const existing = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
-                if (existing) return { status: 200, body: { ok: false, reason: 'busy' } };
-
                 const sealed = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
                 const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
@@ -79,6 +76,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const def = LEGACY_BY_ID.get(legacy.legacyId);
                 const kind = nextTrialKind(legacy.stage);
                 if (!def || !kind) return { status: 200, body: { ok: false, reason: 'complete' } };
+
+                // A live trial that still matches the current stage is 'busy';
+                // one left behind by a stage move or an admin correction is
+                // STALE and gets replaced, not honored — otherwise a failed
+                // post-completion delete bricks progression forever
+                // (verification finding).
+                const existing = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
+                if (existing && existing.legacyId === legacy.legacyId && existing.kind === kind) {
+                    return { status: 200, body: { ok: false, reason: 'busy' } };
+                }
 
                 const stats = await getLegacyStats(playerName, char);
                 const objectives = trialObjectivesFor(def, kind);
@@ -136,7 +143,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return next;
                 }, { failClosed: true });
 
-                if (!saveOut) return { status: 200, body: { ok: false, reason: 'none' } };
+                if (!saveOut) {
+                    // Stage already moved (crash between stage write and trial
+                    // delete, or admin correction) — clear the stale trial so
+                    // 'start' can mint the right one instead of 'busy' forever.
+                    await kv.del(legacyTrialKey(playerName)).catch(() => undefined);
+                    return { status: 200, body: { ok: false, reason: 'stale-cleared' } };
+                }
                 await kv.del(legacyTrialKey(playerName));
                 await appendLegacyEvent(playerName, { type: 'trial-complete', key: `${trial.legacyId}:${trial.kind}` });
                 await recordAudit({
@@ -169,14 +182,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             description: `Awakened by ${playerName}${village ? ` of ${village}` : ''}. ${def.flavor}`,
                             player: playerName, village, legacyId: def.id, rarity: def.rarity,
                         }, { nxKey: `mythic-legacy:${def.id}:${playerName}` });
-                    } else if (def.rarity === 'rare') {
-                        await announce({
-                            type: 'legacy_awakening', importance: 'medium',
-                            title: 'A Legacy Awakens',
-                            message: `${playerName} has awakened the ${def.name}.`,
-                            player: playerName, village, legacyId: def.id,
-                        });
                     }
+                    // Basic/rare awakenings stay quiet by design (importance
+                    // matrix: event log only — verification finding restored).
+                } else if (trial.kind === 'bind' && def.rarity === 'mythic') {
+                    const rec2 = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                    const village = String((rec2?.character as Record<string, unknown> | undefined)?.village ?? '') || undefined;
+                    await announce({
+                        type: 'mythic_legacy', importance: 'high',
+                        title: 'A MYTHIC LEGACY IS BOUND',
+                        message: `${playerName} has bound the ${def.name} to their soul. Stage III — few will ever stand here.`,
+                        player: playerName, village, legacyId: def.id,
+                    });
                 }
                 return { status: 200, body: { ok: true, legacy: saveOut, title: trial.kind === 'awaken' ? def.title : null } };
             }, { failClosed: true });

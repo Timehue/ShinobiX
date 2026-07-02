@@ -10,7 +10,7 @@ import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legac
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, nextTrialKind, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
 import { recordAudit } from '../_audit.js';
-import { announce } from '../_announce.js';
+import { announce, addHallEntry } from '../_announce.js';
 
 /*
  * /api/legacy/sage — the Wandering Sage.
@@ -149,7 +149,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ spawn: false, reason: 'not-eligible' });
             }
 
-            const eligibleSince = pity.eligibleSince ?? now;
+            // Pity clock starts at first eligibility and RESETS on every spawn —
+            // otherwise letting an offer expire would bank an ever-guaranteed
+            // on-demand Sage, strictly better than the designed decline
+            // cooldown (verification finding).
+            const eligibleSince = Math.max(pity.eligibleSince ?? now, pity.lastSpawnAt ?? 0);
             const daysWaiting = Math.floor((now - eligibleSince) / DAY_MS);
             const chance = Math.min(1, baseChance + pityPerDay * daysWaiting);
             const guaranteed = daysWaiting >= guaranteeDays;
@@ -200,23 +204,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!def) return res.status(400).json({ error: 'Unknown legacy.' });
 
             const out = await withKvLock<{ status: number; body: unknown }>(`legacy:accept:${playerName}`, async () => {
-                const offer = await kv.get<SageOffer>(offerKey(playerName));
-                if (!offer || offer.status !== 'spawned' || Date.now() > offer.expiresAt) {
-                    return { status: 200, body: { ok: false, reason: 'no-offer' } };
-                }
-                if (!offer.offers.some((o) => o.legacyId === legacyId)) {
-                    return { status: 200, body: { ok: false, reason: 'not-offered' } };
-                }
-
-                // The one-legacy-forever constraint: an atomic NX marker.
                 const now = Date.now();
-                const claimed = await kv.set(legacyAcceptedKey(playerName), { legacyId, ts: now }, { nx: true });
-                if (claimed !== 'OK') {
-                    const sealed = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
-                    if (sealed?.legacyId !== legacyId) {
-                        return { status: 409, body: { ok: false, reason: 'sealed', legacyId: sealed?.legacyId ?? null } };
+                // Sealed-marker check FIRST: if a previous accept crashed after
+                // claiming the NX marker but before the save/trial writes, the
+                // repair must not depend on the offer still existing — the
+                // player was sealed the moment the marker landed, and this path
+                // finishes the job even after the offer expired (verification
+                // finding: the old order could seal a player with NO legacy).
+                const sealed = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
+                if (sealed && sealed.legacyId !== legacyId) {
+                    return { status: 409, body: { ok: false, reason: 'sealed', legacyId: sealed.legacyId } };
+                }
+                if (!sealed) {
+                    const offer = await kv.get<SageOffer>(offerKey(playerName));
+                    if (!offer || offer.status !== 'spawned' || now > offer.expiresAt) {
+                        return { status: 200, body: { ok: false, reason: 'no-offer' } };
                     }
-                    // Same legacy: a crashed earlier accept — fall through and repair.
+                    if (!offer.offers.some((o) => o.legacyId === legacyId)) {
+                        return { status: 200, body: { ok: false, reason: 'not-offered' } };
+                    }
+                    // The one-legacy-forever constraint: an atomic NX marker.
+                    const claimed = await kv.set(legacyAcceptedKey(playerName), { legacyId, ts: now }, { nx: true });
+                    if (claimed !== 'OK') {
+                        const raced = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
+                        if (raced?.legacyId !== legacyId) {
+                            return { status: 409, body: { ok: false, reason: 'sealed', legacyId: raced?.legacyId ?? null } };
+                        }
+                    }
                 }
 
                 const trialKind = nextTrialKind(1)!;
@@ -239,19 +253,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     objectives,
                 };
                 await kv.set(legacyTrialKey(playerName), trial);
-                await kv.set(offerKey(playerName), { ...offer, status: 'accepted', acceptedAt: now, acceptedLegacyId: legacyId }, { ex: OFFER_TTL_SECONDS });
+                // Mark the offer consumed if it still exists (a crash-repair
+                // accept may arrive after the offer record expired — fine).
+                const offerNow = await kv.get<SageOffer>(offerKey(playerName));
+                if (offerNow) {
+                    await kv.set(offerKey(playerName), { ...offerNow, status: 'accepted', acceptedAt: now, acceptedLegacyId: legacyId }, { ex: OFFER_TTL_SECONDS });
+                }
                 await appendLegacyEvent(playerName, { type: 'offer-accepted', key: legacyId });
                 await recordAudit({
                     actor: identity.admin ? 'admin' : playerName, domain: 'legacy', action: 'legacy.accept',
                     entityType: 'legacy', entityId: legacyId, meta: { rarity: def.rarity },
                 });
-                if (def.rarity === 'mythic') {
+                // Mythic acceptance is world history: announcement + Hall entry
+                // (the handoff's importance matrix requires both; a re-run of a
+                // crash-repair accept can't duplicate either — announce is
+                // per-day rate-limited only below 'high', but the Hall NX key
+                // makes the entry exactly-once).
+                if (def.rarity === 'mythic' && !sealed) {
                     await announce({
                         type: 'mythic_legacy', importance: 'mythic',
                         title: 'MYTHIC LEGACY CLAIMED',
                         message: `${playerName} accepted the ${def.name}. From this moment, their path is sealed forever.`,
                         player: playerName, legacyId,
                     });
+                    await addHallEntry({
+                        entryType: 'mythic_legacy_claim',
+                        title: `${def.name} — Claimed`,
+                        description: `${playerName} accepted the ${def.name}. Their path is sealed forever.`,
+                        player: playerName, legacyId, rarity: def.rarity,
+                    }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
                 }
                 return { status: 200, body: { ok: true, legacy, trial } };
             }, { failClosed: true });

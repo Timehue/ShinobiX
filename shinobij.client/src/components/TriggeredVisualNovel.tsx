@@ -70,6 +70,10 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number } | null>(null);
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     const isStoryChapterEvent = event.id.startsWith("story-");
+    // The Wandering Sage's Legacy offer (lib/legacy-sage-vn.ts): no battle, no
+    // reward — completing hands off to the offer sheet, so the finale must
+    // never route into the generic "Enter Battle" dead-end.
+    const isSageEvent = event.id === "legacy-sage-offer";
     function previousLine() { if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
     function nextLine() { if (isAtChoicePoint) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
     function chooseOption(choice: VnChoice) {
@@ -95,13 +99,15 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 <p className="vn-scene-card">
                     {isAuraSphereEvent
                         ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
-                        : isStoryChapterEvent
-                            ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
-                            : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
+                        : isSageEvent
+                            ? "The Sage falls silent, watching you. The paths he named still hang in the air — and only one of them can ever be yours."
+                            : isStoryChapterEvent
+                                ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
+                                : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
                 </p>
             </div>
             <div className="menu">
-                {!isAuraSphereEvent && !isStoryChapterEvent ? (
+                {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent ? (
                     <>
                         <button className="admin-button" onClick={() => onBattle(event)}>
                             Enter Battle — {biomeLabel(event.biome)}
@@ -115,7 +121,7 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                     </>
                 ) : (
                     <button onClick={onComplete}>
-                        {isAuraSphereEvent ? "Claim Aura Sphere" : "Continue to Story Hall"}
+                        {isAuraSphereEvent ? "Claim Aura Sphere" : isSageEvent ? "Hear the Sage's Offer" : "Continue to Story Hall"}
                     </button>
                 )}
             </div>
@@ -123,9 +129,11 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                 <span>
                     {isAuraSphereEvent
                         ? "Reward: Aura Sphere item"
-                        : isStoryChapterEvent
-                            ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
-                            : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
+                        : isSageEvent
+                            ? "One Legacy, forever. Turning him down is always free."
+                            : isStoryChapterEvent
+                                ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
+                                : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
                 </span>
             </div>
         </div>
@@ -186,20 +194,22 @@ export function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, s
                         ) : (
                             <div className="vn-controls">
                                 <button disabled={!canBack} onClick={previousLine}>Back</button>
-                                <button onClick={nextLine}>{isLastLine ? "Begin Battle" : "Next"}</button>
+                                <button onClick={nextLine}>{isLastLine ? (isSageEvent ? "Continue" : "Begin Battle") : "Next"}</button>
                             </div>
                         )}
                     </div>
                 </div>
                 <div className="vn-choice-row">
                     <button onClick={() => { setPageIndex(0); setLineIndex(0); }}>Replay Scene</button>
-                    <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>
-                    <button onClick={onComplete}>Claim Reward + Continue</button>
+                    {!isSageEvent && <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>}
+                    <button onClick={onComplete}>{isSageEvent ? "Skip to the Offer" : "Claim Reward + Continue"}</button>
                 </div>
-                <div className="vn-reward-strip">
-                    <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
-                    <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
-                </div>
+                {!isSageEvent && (
+                    <div className="vn-reward-strip">
+                        <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
+                        <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                    </div>
+                )}
             </div>
         </div>
     );

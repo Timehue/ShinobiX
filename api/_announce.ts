@@ -100,16 +100,22 @@ export async function addHallEntry(
     opts?: { nxKey?: string },
 ): Promise<HallEntry | null> {
     try {
-        if (opts?.nxKey) {
-            const claimed = await kv.set(`hall:nx:${opts.nxKey}`, '1', { nx: true });
-            if (claimed !== 'OK') return null;
-        }
-        const id = await kv.incr(HALL_SEQ);
-        const full: HallEntry = { id, ts: Date.now(), status: 'active', ...entry };
+        // The NX claim and the list write commit together under a fail-closed
+        // lock — claiming first and then failing the (previously fail-open)
+        // write would permanently lose a "permanent" entry (verification
+        // finding). Lock contention throws to the catch: callers are
+        // best-effort and the NX stays unclaimed for the retry.
+        let full: HallEntry | null = null;
         await withKvLock(HALL_KEY, async () => {
+            if (opts?.nxKey) {
+                const claimed = await kv.set(`hall:nx:${opts.nxKey}`, '1', { nx: true });
+                if (claimed !== 'OK') return;
+            }
+            const id = await kv.incr(HALL_SEQ);
+            full = { id, ts: Date.now(), status: 'active', ...entry };
             const list = (await kv.get<HallEntry[]>(HALL_KEY)) ?? [];
             await kv.set(HALL_KEY, [full, ...(Array.isArray(list) ? list : [])].slice(0, HALL_CAP));
-        });
+        }, { failClosed: true });
         return full;
     } catch (err) {
         console.error('[hall] add failed:', err instanceof Error ? err.message : err);

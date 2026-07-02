@@ -110,8 +110,12 @@ async function handler(req, res) {
             return res.status(404).json({ error: 'Your save was not found.' });
         // Legacy tracking (ENABLE_LEGACY): only a successful EXTRACTION counts
         // as a clear — deaths settle currency but don't feed Legacy progress.
-        if (outcome === 'extract') {
-            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { hollowGateClears: 1, dungeonClears: 1 });
+        // Anti-farm gate: an instant start→settle round-trip is not a dive; a
+        // clear needs the run to have lived a few real minutes (the currency
+        // ceiling already bounds the loot side; verification finding).
+        const runAgeMs = Date.now() - Number(run.mintedAt ?? 0);
+        if (outcome === 'extract' && runAgeMs >= 3 * 60 * 1000) {
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 });
         }
         return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     }

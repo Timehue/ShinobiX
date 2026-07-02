@@ -56,19 +56,26 @@ async function handler(req, res) {
         // daily soft cap as the reward — grinding past it stops feeding Legacy
         // eligibility too. Style kills bucket by the save's declared specialty.
         if ((0, _legacy_track_js_1.legacyEnabled)() && dailyCount <= _ai_fight_reward_js_1.AI_FIGHT_SOFT_CAP_PER_DAY) {
-            const record = await _storage_js_1.kv.get(`save:${playerName}`);
-            const char = record?.character;
-            const deltas = { pveKills: 1 };
-            const specialty = String(char?.specialty ?? '');
-            if (specialty === 'Ninjutsu')
-                deltas.ninjutsuKills = 1;
-            else if (specialty === 'Genjutsu')
-                deltas.genjutsuKills = 1;
-            else if (specialty === 'Taijutsu')
-                deltas.taijutsuKills = 1;
-            else if (specialty === 'Bukijutsu')
-                deltas.bukijutsuKills = 1;
-            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, deltas, { characterForBootstrap: char ?? null });
+            try {
+                const record = await _storage_js_1.kv.get(`save:${playerName}`);
+                const char = record?.character;
+                const deltas = { pveKills: 1 };
+                const specialty = String(char?.specialty ?? '');
+                if (specialty === 'Ninjutsu')
+                    deltas.ninjutsuKills = 1;
+                else if (specialty === 'Genjutsu')
+                    deltas.genjutsuKills = 1;
+                else if (specialty === 'Taijutsu')
+                    deltas.taijutsuKills = 1;
+                else if (specialty === 'Bukijutsu')
+                    deltas.bukijutsuKills = 1;
+                await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, deltas, { characterForBootstrap: char ?? null });
+            }
+            catch (legacyErr) {
+                // Tracking must never 500 a reward response whose daily counter
+                // already advanced (verification finding).
+                console.error('[report-ai-fight] legacy tracking failed:', legacyErr);
+            }
         }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
     }
