@@ -98,6 +98,8 @@ export const EP_MULTIPLIER_PVE = 32;       // Raw dmg = scaledEp × 32
 export const K_DR_PVE          = 0.5;      // Defensive DR pool soft-cap
 export const K_AMP_PVE         = 0.5;      // Offensive amp pool soft-cap
 export const K_GENERALS_PVE    = 0.5;      // Increase Generals stack pool soft-cap (mirrors move.ts K_GENERALS)
+export const K_DISCIPLINE_PVE  = 0.5;      // Increase Discipline stack pool soft-cap (mirrors move.ts K_DISCIPLINE)
+export const DISCIPLINE_BONUS_SCALE_PVE = 2; // ×2 = two generals' worth (mirrors move.ts DISCIPLINE_BONUS_SCALE)
 export const HEAL_FLAT_PVE     = 750;      // Heal tag value at max jutsu mastery
 export const SHIELD_FLAT_PVE   = 750;      // Shield tag value at max jutsu mastery
 export const WOUND_HARD_CAP_PCT_PVE = 60;  // Wound max cap (in % of finalDmg)
@@ -165,7 +167,7 @@ export function dotMitigationPVE(armorRawDR: number, defenderStatuses: PvpStatus
 export const STACKABLE_STATUS_PVE: ReadonlySet<string> = new Set([
     'Increase Damage Given', 'Increase Damage Taken', 'Ignition',
     'Decrease Damage Given', 'Decrease Damage Taken',
-    'Wound', 'Lifesteal', 'Reflect', 'Absorb', 'Increase Generals',
+    'Wound', 'Lifesteal', 'Reflect', 'Absorb', 'Increase Generals', 'Increase Discipline',
 ]);
 
 // Apply a status to a PvE status list, mirroring api/pvp/move.ts addStatus:
@@ -199,7 +201,9 @@ export function capWoundStacks<T extends { name: string; amount?: number }>(list
 // Structural type used by the helpers below — CombatStatus is declared
 // locally inside the battle component (out of module scope here), so we
 // accept any object shape that exposes the fields these helpers read.
-export type PvpStatusLike = { name: string; percent?: number };
+// `discipline` is only present on 'Increase Discipline' stacks (the style the
+// buff is locked to, captured from the cast jutsu's type at apply time).
+export type PvpStatusLike = { name: string; percent?: number; discipline?: string };
 
 // Sum of attacker IDG% + defender IDT% + defender Ignition%, fed into a
 // soft-cap pool. Mirrors server ampMultiplierFor in api/pvp/move.ts.
@@ -231,6 +235,23 @@ export function generalsBonusFromStatuses(statuses: PvpStatusLike[] = []): numbe
     if (rawFrac <= 0) return 0;
     const effFrac = rawFrac / (rawFrac + K_GENERALS_PVE);
     return Math.floor(effFrac * MAX_STAT);
+}
+
+// Flat offense bonus for casts of ONE discipline, from the fighter's active
+// Increase Discipline stacks (legacy signature jutsu) matching the cast jutsu's
+// type. Pooled through K_DISCIPLINE_PVE and scaled ×2 so an X% stack equals the
+// offensive half of an X% Increase Generals on that one style — no defense side,
+// no other disciplines. Bloodline Seal suppresses it, matching generalsBonus.
+// Mirrors api/pvp/move.ts disciplineBonuses EXACTLY — KEEP IN SYNC (parity test).
+export function disciplineBonusFromStatuses(statuses: PvpStatusLike[] = [], jutsuType: string): number {
+    if (statuses.some((s) => statusMatchesName(s, "Bloodline Seal"))) return 0;
+    let rawFrac = 0;
+    for (const s of statuses) {
+        if (s.name === "Increase Discipline" && s.discipline === jutsuType) rawFrac += (s.percent ?? 0) / 100;
+    }
+    if (rawFrac <= 0) return 0;
+    const effFrac = rawFrac / (rawFrac + K_DISCIPLINE_PVE);
+    return Math.floor(effFrac * MAX_STAT * DISCIPLINE_BONUS_SCALE_PVE);
 }
 
 // Sum of attacker DDG% + defender DDT% (raw, not yet pooled with armor).
@@ -299,7 +320,11 @@ export function calculateDamage(
     // matching how the server folds generalsBonus into the capped fighters in move.ts.
     const attackerGeneralsBonus = generalsBonusFromStatuses(attackerStatuses);
     const defenderGeneralsBonus = generalsBonusFromStatuses(defenderStatuses);
-    const offense = getOffenseStat(attackerStats, jutsu.type, attackerGeneralsBonus);
+    // Increase Discipline: style-locked offense lift — applies only when THIS cast's
+    // type matches the buffed discipline. Added to the offense composite (so it feeds
+    // Pierce too), never the defense side — matching the server's *Offense-field fold.
+    const attackerDisciplineBonus = disciplineBonusFromStatuses(attackerStatuses, jutsu.type);
+    const offense = getOffenseStat(attackerStats, jutsu.type, attackerGeneralsBonus) + attackerDisciplineBonus;
     const defense = getDefenseStat(defenderStats, jutsu.type, defenderGeneralsBonus);
     const statFactor = clampNumber(1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85, 0.35, 1.85);
 

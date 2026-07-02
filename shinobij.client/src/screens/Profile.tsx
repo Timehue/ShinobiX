@@ -23,6 +23,7 @@ import { describeJutsuEffects, jutsuDisplayAtLevel } from "../lib/jutsu-effects"
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
+import { legacySignatureFor } from "../lib/legacy-jutsu-slot";
 import { getAllJutsus, playerLensDiscipline } from "../App";
 
 export function Profile({
@@ -585,6 +586,24 @@ export function Profile({
                         Unequip All
                     </button>
                 </div>
+                {/* The dedicated Legacy signature slot — derived from the server-owned
+                    character.legacy at Stage 3 (Bound), outside the 15, always equipped.
+                    Mastery is the Legacy stage ×10, so it deepens with the Legacy. */}
+                {(() => {
+                    const signature = legacySignatureFor(character);
+                    if (!signature) return null;
+                    const mastery = getJutsuMastery(character, signature.id);
+                    const display = jutsuDisplayAtLevel(signature, mastery.level);
+                    return (
+                        <div className="legacy-signature-slot" style={{ border: "1px solid #a78bfa55", background: "#a78bfa12", borderRadius: 8, padding: "8px 10px", margin: "8px 0" }}>
+                            <h4 style={{ margin: "0 0 4px", color: "#c4b5fd", fontSize: "0.82rem" }}>◆ Legacy Signature — always equipped, does not use a loadout slot</h4>
+                            <p style={{ margin: "2px 0" }}><strong>{signature.name}</strong>{signature.bloodlineRank ? ` · ${signature.bloodlineRank}` : ""} · Mastery {mastery.level}/50 <span className="hint">(grows with your Legacy stage)</span></p>
+                            <p style={{ margin: "2px 0" }}>{signature.type} | {signature.ap} AP | R{signature.range} | EP {display.effectPower} | Cooldown {signature.cooldown}</p>
+                            <p style={{ margin: "2px 0" }}>Tags: {display.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
+                            <p className="hint" style={{ margin: "2px 0" }}>{signature.description}</p>
+                        </div>
+                    );
+                })()}
                 <div className="jutsu-lens-row" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "4px 0 10px" }}>
                     <label htmlFor="jutsu-lens-discipline" style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Read effects as:</label>
                     <select

@@ -16,11 +16,14 @@
  * runtime through the `shared:legacy-defs` admin overlay (see _legacy-score.ts)
  * without a deploy, so balancing passes never need to edit this file.
  *
- * Specialty Jutsu are intentionally NOT defined here yet (design: jutsu pass
- * comes later); `specialtyJutsuId` stays optional and unused until that pass.
+ * Specialty Jutsu: every Legacy grants one signature jutsu, authored in
+ * shinobij.client/src/data/legacy-jutsu.ts and generated into the server
+ * catalog api/pvp/_legacy-jutsu-catalog.ts — `specialtyJutsuId` is derived from
+ * that catalog at construction (see LEGACY_DEFS below).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EXPECTED_RARITY_COUNTS = exports.RARITY_ORDER = exports.LEGACY_MIN_LEVEL = exports.LEGACY_BY_ID = exports.LEGACY_DEFS = exports.STAT_CATEGORY = void 0;
+const _legacy_jutsu_catalog_js_1 = require("./pvp/_legacy-jutsu-catalog.js");
 /** Which category a stat counts toward for the multi-proof rarity rule. */
 exports.STAT_CATEGORY = {
     ninjutsuKills: 'ninjutsu', ninjutsuDamage: 'ninjutsu',
@@ -422,7 +425,11 @@ const BASIC = [
 // docs/legacy-assets.md §2), so `badge` is simply the id. Kept as a field
 // (rather than derived at render sites) because the client LegacyDefView
 // consumes it and a future legacy could still override the art.
-exports.LEGACY_DEFS = [...MYTHIC, ...LEGENDARY, ...RARE, ...BASIC].map((d) => ({ ...d, badge: d.badge ?? d.id }));
+exports.LEGACY_DEFS = [...MYTHIC, ...LEGENDARY, ...RARE, ...BASIC].map((d) => ({
+    ...d,
+    badge: d.badge ?? d.id,
+    specialtyJutsuId: d.specialtyJutsuId ?? _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_ID_BY_LEGACY[d.id],
+}));
 exports.LEGACY_BY_ID = new Map(exports.LEGACY_DEFS.map((d) => [d.id, d]));
 /** Global minimum level for any Legacy offer (Jonin threshold). */
 exports.LEGACY_MIN_LEVEL = 50;
