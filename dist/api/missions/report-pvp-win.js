@@ -113,6 +113,27 @@ async function handler(req, res) {
                     }
                     else {
                         const extract = (0, _legacy_pvp_js_1.extractPvpLegacyDeltas)(session, winnerName, loserName);
+                        // Queue-defense credit (always available — no war needed):
+                        // village-guard/challenge.ts marked this battle server-side.
+                        // playerName IS the winner (validated at the 403 gate above);
+                        // guard-won → defensiveWins/sectorDefenses, raider-won →
+                        // warPvpKills. Marker del'd on read; the pvp-tracked NX above
+                        // already makes this whole block once-per-battle.
+                        try {
+                            const guardMarker = await _storage_js_1.kv.get(`legacy:guard-defense:${battleId}`);
+                            if (guardMarker) {
+                                await _storage_js_1.kv.del(`legacy:guard-defense:${battleId}`).catch(() => undefined);
+                                const gd = (0, _legacy_pvp_js_1.guardDefenseDeltas)({
+                                    defender: (0, _utils_js_1.safeName)(String(guardMarker.defender ?? '')),
+                                    attacker: (0, _utils_js_1.safeName)(String(guardMarker.attacker ?? '')),
+                                }, playerName);
+                                for (const [k, v] of Object.entries(gd)) {
+                                    const key = k;
+                                    extract.winnerDeltas[key] = (extract.winnerDeltas[key] ?? 0) + v;
+                                }
+                            }
+                        }
+                        catch { /* best-effort — defense credit is non-blocking */ }
                         const winnerLevel = Number(char?.level ?? 0) || 0;
                         const loserLevel = Number(opponentChar?.level ?? 0) || 0;
                         await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, extract.winnerDeltas, {

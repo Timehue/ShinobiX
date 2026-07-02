@@ -19,6 +19,10 @@ import { BOOTSTRAP_CAPS } from './_legacy-track.js';
 // mythics unobtainable and stranding village/explorer/pets trials forever.)
 const LIVE_STATS: ReadonlySet<LegacyStatKey> = new Set<LegacyStatKey>([
     'pvpWins', 'pvpKills', 'pvpLosses', 'rankedWins', 'sameRankWins', 'higherLevelWins',
+    // defensiveWins/sectorDefenses (defender wins) + warPvpKills (raider wins)
+    // are credited by report-pvp-win from an authoritative village-guard queue
+    // marker (village-guard/challenge.ts) — an ALWAYS-AVAILABLE faucet, not just
+    // Kage-declared sector wars (eligibility-audit finding).
     'defensiveWins', 'comebackWins', 'bestKillStreak', 'warPvpKills',
     'ninjutsuKills', 'ninjutsuDamage', 'genjutsuKills', 'genjutsuDamage',
     'taijutsuKills', 'taijutsuDamage', 'bukijutsuKills', 'bukijutsuDamage',

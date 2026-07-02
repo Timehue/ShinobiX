@@ -55,7 +55,7 @@ const MYTHIC = [
         id: 'first-flame', name: 'Legacy of the First Flame', rarity: 'mythic', category: 'mythic',
         title: 'First Flame Bearer',
         flavor: 'Before the roads had names, someone had to walk them burning. The world remembers who lit the way first.',
-        reqs: [r('firstClears', 2, 3), r('missionCompletions', 600), r('pveKills', 3000), r('warContribution', 200_000), r('eventCompletions', 10), r('tilesExplored', 2000)],
+        reqs: [r('firstClears', 1, 3), r('missionCompletions', 600), r('pveKills', 3000), r('warContribution', 200_000), r('eventCompletions', 10), r('tilesExplored', 2000)],
     },
     {
         // Renamed from "Gate Opener" — it collided with the legendary
@@ -87,7 +87,7 @@ const MYTHIC = [
         id: 'last-bastion', name: 'Legacy of the Last Bastion', rarity: 'mythic', category: 'support',
         title: 'The Last Bastion',
         flavor: 'When every other wall fell, the line held — because the line was a person.',
-        reqs: [r('healingDone', 1_000_000, 3), r('damageBlocked', 2_000_000), r('shieldsApplied', 1500), r('sectorDefenses', 25), r('defensiveWins', 100), r('villageTenureDays', 45)],
+        reqs: [r('healingDone', 500_000, 3), r('damageBlocked', 1_000_000), r('shieldsApplied', 800), r('sectorDefenses', 25), r('defensiveWins', 100), r('villageTenureDays', 45)],
     },
     {
         id: 'founders-shadow', name: "Legacy of the Founder's Shadow", rarity: 'mythic', category: 'village',
@@ -105,7 +105,7 @@ const MYTHIC = [
         id: 'horizons-end', name: "Legacy of the Horizon's End", rarity: 'mythic', category: 'explorer',
         title: "Horizon's End",
         flavor: 'Maps end where courage does. Somewhere past the last drawn line, the horizon finally learned this one’s name.',
-        reqs: [r('tilesExplored', 2400, 3), r('sectorDiscoveries', 250), r('hiddenFinds', 60), r('wandererQuests', 75), r('huntCompletions', 150), r('petExpeditions', 50), r('firstClears', 1)],
+        reqs: [r('tilesExplored', 2400, 3), r('sectorDiscoveries', 250), r('hiddenFinds', 60), r('wandererQuests', 75), r('huntCompletions', 150), r('petExpeditions', 50), r('eventCompletions', 8)],
     },
     {
         id: 'deathless-ember', name: 'Legacy of the Deathless Ember', rarity: 'mythic', category: 'taijutsu',
@@ -207,7 +207,7 @@ const LEGENDARY = [
         id: 'storm-fang', name: 'Legacy of the Storm Fang', rarity: 'legendary', category: 'village',
         villageAffinity: 'Stormveil', title: 'Storm Fang',
         flavor: 'Stormveil does not wait for weather. It sends its own.',
-        reqs: [r('villageTenureDays', 45, 2), r('warPvpKills', 60), r('sectorCaptures', 15), r('warsWon', 6)],
+        reqs: [r('villageTenureDays', 45, 2), r('warPvpKills', 60), r('raidsCompleted', 40), r('warsWon', 6)],
     },
     {
         id: 'frostbound-shield', name: 'Legacy of the Frostbound Shield', rarity: 'legendary', category: 'village',
@@ -355,11 +355,11 @@ const RARE = [
         flavor: 'Wanderers on every road owe this one a favor, a meal, or an apology.', reqs: [r('wandererQuests', 25, 2), r('sectorDiscoveries', 25)] },
     // — support (3) —
     { id: 'shielding-palm', name: 'Legacy of the Shielding Palm', rarity: 'rare', category: 'support', title: 'Shielding Palm',
-        flavor: 'An open hand that has stopped more blades than most swords.', reqs: [r('shieldsApplied', 200, 2), r('damageBlocked', 200_000)] },
+        flavor: 'An open hand that has stopped more blades than most swords.', reqs: [r('shieldsApplied', 200, 2), r('damageBlocked', 100_000)] },
     { id: 'field-medic', name: 'Legacy of the Field Medic', rarity: 'rare', category: 'support', title: 'Field Medic',
-        flavor: 'Runs toward the scream. Bills nobody.', reqs: [r('healingDone', 100_000, 2), r('missionCompletions', 100)] },
+        flavor: 'Runs toward the scream. Bills nobody.', reqs: [r('healingDone', 50_000, 2), r('missionCompletions', 100)] },
     { id: 'purifying-light', name: 'Legacy of the Purifying Light', rarity: 'rare', category: 'support', title: 'Purifier',
-        flavor: 'Curses, poisons, despair — all laundry, all washable.', reqs: [r('healingDone', 120_000, 2), r('defensiveWins', 10)] },
+        flavor: 'Curses, poisons, despair — all laundry, all washable.', reqs: [r('healingDone', 60_000, 2), r('defensiveWins', 10)] },
     // — pets (3) —
     { id: 'pack-leader', name: 'Legacy of the Pack Leader', rarity: 'rare', category: 'pets', title: 'Pack Leader',
         flavor: 'Speaks fluent growl, purr, and dramatic silence.', reqs: [r('petDuelWins', 50, 2), r('petExpeditions', 20)] },
@@ -376,7 +376,7 @@ const RARE = [
     { id: 'sector-warden', name: 'Legacy of the Sector Warden', rarity: 'rare', category: 'war', title: 'Sector Warden',
         flavor: 'Holds ground like the ground asked them personally.', reqs: [r('sectorDefenses', 8, 2), r('warContribution', 25_000)] },
     { id: 'banner-taker', name: 'Legacy of the Banner Taker', rarity: 'rare', category: 'war', title: 'Banner Taker',
-        flavor: 'Collects enemy flags the way others collect excuses.', reqs: [r('sectorCaptures', 5, 2), r('warPvpKills', 15)] },
+        flavor: 'Collects enemy flags the way others collect excuses.', reqs: [r('raidsCompleted', 20, 2), r('warPvpKills', 15)] },
     { id: 'siege-runner', name: 'Legacy of the Siege Runner', rarity: 'rare', category: 'war', title: 'Siege Runner',
         flavor: 'Between the lines, under the arrows, on schedule.', reqs: [r('raidsCompleted', 30, 2), r('warContribution', 20_000)] },
     { id: 'war-drummer', name: 'Legacy of the War Drummer', rarity: 'rare', category: 'war', title: 'War Drummer',
