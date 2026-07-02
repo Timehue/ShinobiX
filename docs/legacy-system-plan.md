@@ -1009,12 +1009,17 @@ with max-3 offers, free decline, permanent accept, one-forever, retryable
 trials, no respec, audited admin correction (#12–20), titles/badges from
 trials (#21), announcements with importance levels + spam control (#31–32),
 permanent correctable Hall (#33–34), discovery cooldowns (#35), server-side
-validation throughout (#38). **Deferred to later waves (planned in this doc,
-not yet code):** Specialty Jutsu #22–25 (design direction: "jutsus later"),
-pre-50 rumor toasts #7 (the vague strongest-paths reading exists in the
-LegacyPanel), reserved-terms custom-title moderation #27–29, Era milestones
-#30, the AdminPanel UI for the admin endpoint #36 (the endpoint itself is
-live). *Intentional deviations:* no new Legacy materials at launch (§1.3),
+validation throughout (#38), pre-50 rumor toasts #7 (level-milestone hints on
+the world map + the strongest-paths reading in the LegacyPanel),
+reserved-terms custom-title moderation with post-hoc admin review/revoke +
+refund #26–29 (earned-title impersonation blocked; legacy titles verify
+against the server-owned grant), anti-chore Era milestones with the credited
+first-mythic-awakening trigger, live progress in the Hall's World Eras tab,
+and admin tuning #30, and the full AdminLegacyPanel #36 (player inspector,
+force-spawn, emergency change, suspects queue incl. win-trading-ring flags,
+title review, era dashboard, overlay editor, hall corrections). **Deferred
+(the final wave):** Specialty Jutsu #22–25 — by design direction, "jutsus
+last." *Intentional deviations:* no new Legacy materials at launch (§1.3),
 filter+revoke/refund instead of a pre-approval queue (§1.4).
 
 ---

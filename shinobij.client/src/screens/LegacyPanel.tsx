@@ -9,8 +9,11 @@ import type { Character } from "../types/character";
 import {
     fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete,
     isLegacyEnabled, RARITY_COLORS, RARITY_LABELS, TRIAL_STAT_LABELS,
-    type LegacyStatusView, type LegacyDefView,
+    type LegacyStatusView, type LegacyDefView, type LegacyRarity,
 } from "../lib/legacy";
+import { PlayerNameplate } from "../components/PlayerNameplate";
+
+const CODEX_RARITY_ORDER: LegacyRarity[] = ["mythic", "legendary", "rare", "basic"];
 
 const STAGE_NAMES: Record<number, string> = {
     1: "Path Accepted", 2: "Awakened", 3: "Bound", 4: "Proven", 5: "Mythic",
@@ -70,6 +73,16 @@ export function LegacyPanel({ character, onLegacyChanged }: {
 
     return (
         <div style={{ display: "grid", gap: 12 }}>
+            {/* ── Nameplate (handoff badge row) ───────────────────────── */}
+            <PlayerNameplate
+                name={character.name}
+                level={character.level}
+                customTitle={character.customTitle}
+                legacyTitle={status.legacy?.titles?.[0] ?? null}
+                legacyRarity={def?.rarity ?? null}
+                village={character.village}
+            />
+
             {/* ── Accepted legacy ─────────────────────────────────────── */}
             {status.legacy && def ? (
                 <div className="card" style={{ padding: 14, border: `1px solid ${rarityColor}55` }}>
@@ -147,6 +160,44 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                             {Object.values(status.eligibleCounts).reduce((a, b) => a + b, 0)} legacies would answer you today.
                         </p>
                     )}
+                </div>
+            )}
+
+            {/* ── The Legacy Codex — all 100 paths, browsable ─────────── */}
+            {defs && defs.size > 0 && (
+                <div className="card" style={{ padding: 14 }}>
+                    <h4 style={{ margin: "0 0 4px" }}>The Legacy Codex</h4>
+                    <p style={{ margin: "0 0 8px", fontSize: ".72rem", color: "#6b7280" }}>
+                        Every path the world remembers. What opens them stays a mystery — the life
+                        you live is the key. {defs.size} legacies recorded.
+                    </p>
+                    {CODEX_RARITY_ORDER.map((rarity) => {
+                        const group = [...defs.values()].filter((d) => d.rarity === rarity);
+                        if (group.length === 0) return null;
+                        return (
+                            <details key={rarity} style={{ marginBottom: 6 }}>
+                                <summary style={{ cursor: "pointer", color: RARITY_COLORS[rarity], fontWeight: 700, fontSize: ".82rem" }}>
+                                    {RARITY_LABELS[rarity]} — {group.length}
+                                </summary>
+                                <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+                                    {group.map((d) => (
+                                        <div key={d.id} style={{ borderLeft: `3px solid ${RARITY_COLORS[rarity]}55`, paddingLeft: 8 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+                                                <b style={{ fontSize: ".8rem", color: status.legacy?.legacyId === d.id ? RARITY_COLORS[rarity] : "#e2e8f0" }}>
+                                                    {status.legacy?.legacyId === d.id ? "★ " : ""}{d.name}
+                                                </b>
+                                                <span style={{ fontSize: ".68rem", color: "#9aa3b2" }}>
+                                                    {d.category}{d.villageAffinity ? ` · favored by ${d.villageAffinity}` : ""}
+                                                </span>
+                                            </div>
+                                            <p style={{ margin: "2px 0 0", fontSize: ".74rem", color: "#9aa3b2", fontStyle: "italic" }}>{d.flavor}</p>
+                                            <p style={{ margin: "2px 0 0", fontSize: ".68rem", color: "#6b7280" }}>Title: {d.title}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        );
+                    })}
                 </div>
             )}
         </div>
