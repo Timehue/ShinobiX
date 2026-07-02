@@ -29,7 +29,7 @@ import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
 import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
-import { emissaryQuestById } from "../lib/legacy-emissaries";
+import { emissaryQuestById, emissaryByQuestId } from "../lib/legacy-emissaries";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
 const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -383,13 +383,22 @@ export function Missions({
                         <div className={`mh-fetch-card${done ? " mh-fetch-complete" : ""}`}>
                             <div className="mh-fetch-info">
                                 <strong><GiScrollUnfurled style={MH_ICON} />{wanderBountyDef?.label ?? "Wanderer bounty"}</strong>
-                                <span className="mh-fetch-meta">Bounty from a Wandering Sage</span>
+                                <span className="mh-fetch-meta">{(() => {
+                                    const em = emissaryByQuestId(wanderBounty.id);
+                                    return em ? `Errand for ${em.name}` : "Bounty from a Wandering Sage";
+                                })()}</span>
                             </div>
                             <div className="mh-fetch-progress-wrap">
                                 <div className="mh-fetch-progress-label"><span>{Math.min(got, wanderBounty.target)} / {wanderBounty.target} {metricLabel(metric)}</span></div>
                                 <div className="mission-progress"><span style={{ width: `${pct}%` }} /></div>
                             </div>
-                            <span className="hint">{done ? "Done — return to any Wandering Sage to claim your reward." : "Return to a Wandering Sage once complete to claim."}</span>
+                            <span className="hint">{(() => {
+                                // Any quest-giving wanderer can settle the claim —
+                                // don't send the player hunting one specific NPC.
+                                const em = emissaryByQuestId(wanderBounty.id);
+                                const who = em ? `${em.name} — or any wandering sage —` : "any Wandering Sage";
+                                return done ? `Done — return to ${who} to claim your reward.` : `Return to ${who} once complete to claim.`;
+                            })()}</span>
                         </div>
                     );
                 })()}

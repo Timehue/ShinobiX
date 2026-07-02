@@ -39,7 +39,7 @@ type AuditEntry = {
     entityType?: string; entityId?: string; before?: unknown; after?: unknown;
     reason?: string; meta?: Record<string, unknown>;
 };
-type AuditDomain = "content" | "reward" | "sector" | "combat";
+type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
 
 // Built-in catalogs whose stored image id is `<cat>:<entityId>`. Cross-referenced
 // against what's actually in storage to find catalog entries with no image.
@@ -309,6 +309,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                             <option value="reward">reward</option>
                             <option value="sector">sector</option>
                             <option value="combat">combat</option>
+                            <option value="legacy">legacy</option>
                         </select>
                         <button onClick={() => void loadAudit(auditDomain)} disabled={!adminPw}>↻ Refresh</button>
                         {auditStatus && <span style={{ color: "#f88" }}>{auditStatus}</span>}

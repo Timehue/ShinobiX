@@ -906,8 +906,13 @@ mobile-hardened).
 
 Flags: server `ENABLE_LEGACY` (default **off**; hooks and endpoints no-op
 404/skip when off — byte-identical live behavior) + client `legacy.v1`
-localStorage (default off until launch, flipping to default-on at Wave 5 like
-`wanderers.v1` did). `LEGACY_SPECIALTY_PVP` stays 0 pending §10.6 sign-off.
+localStorage. As SHIPPED, `legacy.v1` defaults **on** (a per-device
+kill-switch only — set to "off" to hide the legacy client surfaces on that
+device); the real gate is the server env var, so nothing is visible or
+acceptable until `ENABLE_LEGACY=1`. `LEGACY_SPECIALTY_PVP` stays 0 pending
+§10.6 sign-off (the specialty-jutsu wave is not yet built — no code reads it).
+The operational flip/rollback procedure lives in
+**docs/legacy-launch-checklist.md**.
 
 | Wave | Ships | Player-visible? |
 |---|---|---|

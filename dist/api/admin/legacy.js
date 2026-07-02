@@ -15,6 +15,7 @@ const _announce_js_1 = require("../_announce.js");
 const _titles_registry_js_1 = require("../_titles-registry.js");
 const _era_js_1 = require("../_era.js");
 const _titles_registry_js_2 = require("../_titles-registry.js");
+const sage_js_1 = require("../legacy/sage.js");
 /*
  * POST /api/admin/legacy — the Legacy admin MVP (docs/legacy-system-plan.md §16).
  * Full-admin only. Every mutating action records an audit entry in the
@@ -39,11 +40,18 @@ async function handler(req, res) {
         return res.status(405).end();
     if (!(0, _auth_js_1.isFullAdmin)(req))
         return res.status(401).json({ error: 'Admin authentication required.' });
-    if (!(0, _legacy_track_js_1.legacyEnabled)())
-        return res.status(404).json({ error: 'ENABLE_LEGACY is not set.' });
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {}));
         const action = typeof body.action === 'string' ? body.action : '';
+        // Moderation + read tooling must SURVIVE a rollback: if launch week
+        // goes wrong and ENABLE_LEGACY is unset, custom titles minted during
+        // the on-window keep rendering (customTitle predates Legacy), so the
+        // operator still needs to see and revoke them, inspect players, and
+        // correct Hall history. Only gameplay-mutating actions stay gated.
+        const FLAG_OFF_ALLOWED = new Set(['view', 'recalc', 'suspects', 'clear-suspicion', 'titles-log', 'title-revoke', 'hall-list', 'hall-correct', 'metrics']);
+        if (!(0, _legacy_track_js_1.legacyEnabled)() && !FLAG_OFF_ALLOWED.has(action)) {
+            return res.status(404).json({ error: 'ENABLE_LEGACY is not set.' });
+        }
         if (action === 'view' || action === 'recalc') {
             const player = (0, _utils_js_1.safeName)(String(body.player ?? ''));
             if (!player)
@@ -66,6 +74,9 @@ async function handler(req, res) {
             return res.status(200).json({
                 player, stats,
                 legacy: (char.legacy ?? null),
+                // Moderation surface: the worn title (revocable from the
+                // inspector even when it predates the titles log's 100-row cap).
+                customTitle: typeof char.customTitle === 'string' ? char.customTitle : '',
                 sealed: sealed ?? null,
                 offer: offer ?? null,
                 trial: trial ?? null,
@@ -174,6 +185,27 @@ async function handler(req, res) {
         if (action === 'titles-log') {
             const log = (await _storage_js_1.kv.get(_titles_registry_js_2.CUSTOM_TITLE_LOG_KEY)) ?? [];
             return res.status(200).json({ log: Array.isArray(log) ? log.slice(0, 100) : [] });
+        }
+        // ── Hall entries for the corrections list ────────────────────────────
+        // Reads directly (hidden included) rather than via the PUBLIC hall
+        // endpoint, which returns [] while ENABLE_LEGACY is off — corrections
+        // must survive a rollback (final-gate finding).
+        if (action === 'hall-list') {
+            const entries = await (0, _announce_js_1.readHallEntries)({ includeHidden: true, limit: 200 });
+            return res.status(200).json({ entries });
+        }
+        // ── Sage funnel counters (launch-week observability) ────────────────
+        if (action === 'metrics') {
+            const day = (offset) => new Date(Date.now() - offset * 24 * 60 * 60 * 1000);
+            const read = async (d) => {
+                const [offers, accepts, declines] = await Promise.all([
+                    _storage_js_1.kv.get((0, sage_js_1.sageMetricKey)('offers', d)),
+                    _storage_js_1.kv.get((0, sage_js_1.sageMetricKey)('accepts', d)),
+                    _storage_js_1.kv.get((0, sage_js_1.sageMetricKey)('declines', d)),
+                ]);
+                return { date: d.toISOString().slice(0, 10), offers: num(offers), accepts: num(accepts), declines: num(declines) };
+            };
+            return res.status(200).json({ days: [await read(day(0)), await read(day(1)), await read(day(2))] });
         }
         if (action === 'title-revoke') {
             const player = (0, _utils_js_1.safeName)(String(body.player ?? ''));

@@ -66,7 +66,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
         trialLine: "Your trial is already happening in the space between what you do and what they see. Continue.",
         quests: [
-            { id: "eq-veil-unseen", label: "Win 5 battles without losing her moths' sight", metric: "totalAiKills", target: 5 },
+            { id: "eq-veil-unseen", label: "Win 5 battles under the lantern-moths' sight", metric: "totalAiKills", target: 5 },
             { id: "eq-veil-moths", label: "Trace 12 tiles by lantern-moth light", metric: "totalTilesExplored", target: 12 },
         ],
     },
@@ -141,7 +141,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
         ],
         trialLine: "Your trial is the quiet kind — the kind villages never thank properly. The lantern sees it. Proceed.",
         quests: [
-            { id: "eq-lantern-rounds", label: "Walk 14 tiles of her lantern rounds", metric: "totalTilesExplored", target: 14 },
+            { id: "eq-lantern-rounds", label: "Walk 14 tiles of Mei's lantern rounds", metric: "totalTilesExplored", target: 14 },
             { id: "eq-lantern-watch", label: "Turn back 6 threats to the village", metric: "totalAiKills", target: 6 },
         ],
     },
@@ -174,6 +174,12 @@ export function emissaryForCategory(category: string | null | undefined): Emissa
 /** Emissary quest lookup for the shared activeWandererQuest slot. */
 export function emissaryQuestById(id: string): EmissaryQuestDef | null {
     for (const d of EMISSARY_DEFS) for (const q of d.quests) if (q.id === id) return q;
+    return null;
+}
+
+/** The emissary who GAVE a quest — for attribution in the Mission journal. */
+export function emissaryByQuestId(id: string): EmissaryDef | null {
+    for (const d of EMISSARY_DEFS) if (d.quests.some((q) => q.id === id)) return d;
     return null;
 }
 

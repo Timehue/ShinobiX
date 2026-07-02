@@ -712,7 +712,19 @@ export function Profile({
             <div className={mobileTab !== 'legacy' ? 'profile-tab-hidden' : ''}>
             <section className="profile-overview-panel" style={{ display: 'block' }}>
                 <h3 style={{ marginTop: 0 }}>Legacy</h3>
-                <LegacyPanel character={character} />
+                <LegacyPanel
+                    character={character}
+                    onLegacyChanged={(legacy, grantedTitle) => {
+                        // Sync the client character so the avatar aura, stage,
+                        // and title picker update without a relog (the server
+                        // save already carries these; this mirrors it).
+                        updateCharacter(prev => prev ? ({
+                            ...prev,
+                            ...(legacy ? { legacy } : {}),
+                            ...(grantedTitle ? { earnedTitles: Array.from(new Set([...(prev.earnedTitles ?? []), grantedTitle])) } : {}),
+                        }) : prev);
+                    }}
+                />
             </section>
             </div>{/* end legacy tab */}
 

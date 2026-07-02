@@ -182,7 +182,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                                     {(m.legacyStage ?? 0) >= 2 && (
                                         <span
                                             title={`Legacy — Stage ${STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}`}
-                                            style={{ fontSize: ".68rem", fontWeight: 800, color: RARITY_COLORS[(m.legacyRarity as LegacyRarity)] ?? "#c084fc" }}
+                                            style={{ fontSize: ".72rem", fontWeight: 800, color: RARITY_COLORS[(m.legacyRarity as LegacyRarity)] ?? "#c084fc" }}
                                         >★{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
                                     )}
                                     {m.rank && <span className="tavern-rank">{m.rank}</span>}

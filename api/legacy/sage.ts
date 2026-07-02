@@ -8,7 +8,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legacy-score.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
-import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, nextTrialKind, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
+import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, nextTrialKind, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
 import { recordAudit } from '../_audit.js';
 import { announce, addHallEntry } from '../_announce.js';
 
@@ -34,6 +34,13 @@ const OFFER_TTL_SECONDS = 7 * 24 * 60 * 60;
 const offerKey = (p: string) => `legacy:sage-offer:${p}`;
 const pityKey = (p: string) => `legacy:sage-pity:${p}`;
 const rollCountKey = (p: string) => `legacy:sage-roll:${p}:${new Date().toISOString().slice(0, 10)}`;
+// Aggregate daily funnel counters (offers spawned / accepted / declined) so a
+// launch-week operator can see the Sage working without inspecting players one
+// by one. Read by api/admin/legacy.ts action 'metrics'. Best-effort.
+export const sageMetricKey = (field: 'offers' | 'accepts' | 'declines', d = new Date()) =>
+    `legacy:metrics:${d.toISOString().slice(0, 10)}:${field}`;
+const bumpSageMetric = (field: 'offers' | 'accepts' | 'declines') =>
+    kv.incr(sageMetricKey(field), { ex: 8 * 24 * 60 * 60 }).catch(() => 0);
 
 const VILLAGE_OUTSKIRTS: Record<string, number> = {
     stormveil: 31, 'ashen leaf': 38, frostfang: 47, moonshadow: 11,
@@ -179,6 +186,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(offerKey(playerName), offer, { ex: OFFER_TTL_SECONDS });
             await kv.set(pityKey(playerName), { eligibleSince, lastSpawnAt: now });
             await appendLegacyEvent(playerName, { type: 'sage-spawned', meta: { offers: offer.offers.map((o) => o.legacyId), forced } });
+            await bumpSageMetric('offers');
             return res.status(200).json({ spawn: true, offer });
         }
 
@@ -194,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const pity = (await kv.get<PityState>(pityKey(playerName))) ?? {};
             await kv.set(pityKey(playerName), { declinedUntil: now + declineCooldownDays * DAY_MS });
             await appendLegacyEvent(playerName, { type: 'offer-declined', meta: { offers: offer.offers.map((o) => o.legacyId) } });
+            await bumpSageMetric('declines');
             return res.status(200).json({ ok: true });
         }
 
@@ -215,6 +224,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const sealed = await kv.get<{ legacyId: string }>(legacyAcceptedKey(playerName));
                 if (sealed && sealed.legacyId !== legacyId) {
                     return { status: 409, body: { ok: false, reason: 'sealed', legacyId: sealed.legacyId } };
+                }
+                // Idempotency guard: if the save ALREADY carries this legacy the
+                // accept fully succeeded before — return the current state and
+                // touch NOTHING. Without this, re-POSTing accept (stale second
+                // tab, curl) would reset a stage-5 player to stage 1, wipe
+                // legacy.titles, overwrite a live bind/prove/mythic trial with a
+                // fresh awaken trial, and let awaken announcements + Era V
+                // counters be replayed in a loop (verification finding). The
+                // stage-1 write below runs only for the genuine crash-repair
+                // case: sealed marker present, save write missing/mismatched.
+                if (sealed) {
+                    const recNow = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                    const charNow = (recNow?.character ?? null) as Record<string, unknown> | null;
+                    const legacyNow = (charNow?.legacy ?? null) as CharacterLegacy | null;
+                    if (legacyNow && legacyNow.legacyId === legacyId) {
+                        // A retry can still owe the mythic Hall entry (crash
+                        // AFTER the save write but BEFORE the entry minted) —
+                        // its NX key makes this exactly-once, so run it here
+                        // too rather than letting the early return skip it
+                        // forever (final-gate finding).
+                        if (def.rarity === 'mythic') {
+                            await addHallEntry({
+                                entryType: 'mythic_legacy_claim',
+                                title: `${def.name} — Claimed`,
+                                description: `${playerName} accepted the ${def.name}. Their path is sealed forever.`,
+                                player: playerName, legacyId, rarity: def.rarity,
+                            }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
+                        }
+                        const trialNow = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
+                        return { status: 200, body: { ok: true, legacy: legacyNow, trial: trialNow ?? null, repaired: false } };
+                    }
                 }
                 if (!sealed) {
                     const offer = await kv.get<SageOffer>(offerKey(playerName));
@@ -261,22 +301,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(offerKey(playerName), { ...offerNow, status: 'accepted', acceptedAt: now, acceptedLegacyId: legacyId }, { ex: OFFER_TTL_SECONDS });
                 }
                 await appendLegacyEvent(playerName, { type: 'offer-accepted', key: legacyId });
+                if (!sealed) await bumpSageMetric('accepts');
                 await recordAudit({
                     actor: identity.admin ? 'admin' : playerName, domain: 'legacy', action: 'legacy.accept',
                     entityType: 'legacy', entityId: legacyId, meta: { rarity: def.rarity },
                 });
-                // Mythic acceptance is world history: announcement + Hall entry
-                // (the handoff's importance matrix requires both; a re-run of a
-                // crash-repair accept can't duplicate either — announce is
-                // per-day rate-limited only below 'high', but the Hall NX key
-                // makes the entry exactly-once).
-                if (def.rarity === 'mythic' && !sealed) {
-                    await announce({
-                        type: 'mythic_legacy', importance: 'mythic',
-                        title: 'MYTHIC LEGACY CLAIMED',
-                        message: `${playerName} accepted the ${def.name}. From this moment, their path is sealed forever.`,
-                        player: playerName, legacyId,
-                    });
+                // Mythic acceptance is world history: announcement + Hall entry.
+                // The Hall entry runs on EVERY path (its NX key makes it exactly-
+                // once, so a crash-repair accept still mints the permanent entry
+                // — previously the !sealed guard skipped it forever after a
+                // mid-accept crash; verification finding). The announcement has
+                // no NX, so it stays gated to the first, non-repair pass.
+                if (def.rarity === 'mythic') {
+                    if (!sealed) {
+                        await announce({
+                            type: 'mythic_legacy', importance: 'mythic',
+                            title: 'MYTHIC LEGACY CLAIMED',
+                            message: `${playerName} accepted the ${def.name}. From this moment, their path is sealed forever.`,
+                            player: playerName, legacyId,
+                        });
+                    }
                     await addHallEntry({
                         entryType: 'mythic_legacy_claim',
                         title: `${def.name} — Claimed`,
@@ -284,7 +328,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         player: playerName, legacyId, rarity: def.rarity,
                     }, { nxKey: `mythic-claim:${legacyId}:${playerName}` });
                 }
-                return { status: 200, body: { ok: true, legacy, trial } };
+                // The auto-started first trial ships with the Sage's charge so
+                // the client can open the trial ceremony immediately.
+                return { status: 200, body: { ok: true, legacy, trial, intro: trialIntroFor(def, trialKind) } };
             }, { failClosed: true });
 
             return res.status(out.status).json(out.body);
