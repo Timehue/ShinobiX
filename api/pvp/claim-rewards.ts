@@ -10,6 +10,7 @@ import { patchBattleSettlement } from '../_receipts.js';
 import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../_stat-growth.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — tightened from 24h to 2h. Sessions themselves
@@ -279,9 +280,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const dXp = Math.max(0, Math.floor(xpGain * decay));
                     const dRyo = Math.max(0, Math.floor(ryoGain * decay));
                     const credit = creditPvpWinBase(char, dXp, dRyo);
-                    const next = bumpSaveVersion({ ...record, character: credit.char });
+                    let finalChar: Record<string, unknown> = credit.char;
+                    let summary = credit.summary;
+                    // Stage 4: casual PvP grants a small, daily-capped combat stat
+                    // reward into the unspent POOL (ranked = 0, skill-pure — this branch
+                    // only runs when !isRankedClaim). Pool-only keeps this write clean:
+                    // the summary's unspentStats, mirrored by the client via
+                    // applyServerBaseReward, carries it with no stat clobber. Shares the
+                    // `combat-stat-count` daily budget with AI-fight wins.
+                    if (!isRankedClaim) {
+                        const budgetKey = `combat-stat-count:${winnerSlug}:${new Date().toISOString().slice(0, 10)}`;
+                        const spentToday = Number((await kv.get<number>(budgetKey)) ?? 0);
+                        const gained = Math.max(0, Math.min(PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP - spentToday));
+                        if (gained > 0) {
+                            await kv.set(budgetKey, spentToday + gained, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                            const newUnspent = (Number(finalChar.unspentStats) || 0) + gained;
+                            finalChar = { ...finalChar, unspentStats: newUnspent };
+                            summary = { ...summary, unspentStats: newUnspent };
+                        }
+                    }
+                    const next = bumpSaveVersion({ ...record, character: finalChar });
                     await kv.set(saveKey, mergePreservingImages(next, record));
-                    return credit.summary;
+                    return summary;
                 }
                 return {
                     ryo: Number(char.ryo) || 0,

@@ -77,6 +77,8 @@ import towersSettleHandler from './api/towers/settle.js';
 import towersMyRunHandler  from './api/towers/my-run.js';
 import towersJoinHandler   from './api/towers/join.js';
 import expeditionStartHandler from './api/missions/expedition-start.js';
+import trainingStartHandler from './api/training/start.js';
+import trainingCompleteHandler from './api/training/complete.js';
 import battleLockHandler  from './api/battle/lock.js';
 import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
@@ -614,6 +616,10 @@ route('/battle/lock', battleLockHandler);
 // Missions — pet expedition token mint (single-use, time-gated; redeemed by
 // report-pet-event so expedition rewards require a real, fully-elapsed run).
 route('/missions/expedition-start', expeditionStartHandler);
+// Stat training — single-use token pair (server-auth). start seals the chosen
+// stat's gain; complete time-gates + consumes it and returns the sealed amount.
+route('/training/start', trainingStartHandler);
+route('/training/complete', trainingCompleteHandler);
 
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
