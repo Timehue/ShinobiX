@@ -46,7 +46,8 @@ function tagNameMatches(name, canonicalName) {
 exports.CANONICAL_TAG_NAMES = [
     'Heal', 'Shield', 'Barrier', 'Pierce', 'Stun', 'Poison', 'Drain', 'Absorb', 'Reflect',
     'Lifesteal', 'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
-    'Decrease Damage Taken', 'Increase Heal', 'Increase Generals', 'Debuff Prevent', 'Buff Prevent',
+    'Decrease Damage Taken', 'Increase Heal', 'Increase Generals', 'Increase Discipline',
+    'Debuff Prevent', 'Buff Prevent',
     'Cleanse Prevent', 'Clear Prevent', 'Stun Prevent', 'Copy', 'Mirror', 'Push', 'Pull',
     'Bloodline Seal', 'Elemental Seal', 'Wound', 'Recoil', 'Move',
     'Ignition', 'Lag', 'Overclock', 'Siphon',
@@ -64,7 +65,7 @@ exports.KNOWN_TAG_NAMES = new Set([
 exports.STACKABLE_STATUS = new Set([
     'Increase Damage Given', 'Increase Damage Taken', 'Ignition',
     'Decrease Damage Given', 'Decrease Damage Taken',
-    'Wound', 'Lifesteal', 'Reflect', 'Absorb', 'Increase Generals',
+    'Wound', 'Lifesteal', 'Reflect', 'Absorb', 'Increase Generals', 'Increase Discipline',
 ]);
 // Amp/DR tags whose percent is clamped to the bloodline rank cap. Mirrors the
 // client's cappedDamageTags (shinobij.client/src/lib/tags.ts). Wound is NOT here
@@ -75,6 +76,10 @@ exports.CAPPED_AMP_TAGS = new Set([
     // Increase Generals rides statFactor (not the amp pool) but its per-cast percent
     // is rank-capped exactly like the amp tags (30/35/40 via ampTagCapForRank).
     'Increase Generals',
+    // Increase Discipline (legacy signature jutsu): the style-locked sibling of
+    // Increase Generals — lifts ONE discipline's offense composite only. Same
+    // statFactor ride, same per-cast rank cap (30/35/40).
+    'Increase Discipline',
 ]);
 // ─── Validation predicates ────────────────────────────────────────────────────
 // Tags that can ONLY resolve when the cast actually deals damage (or pierces) —
