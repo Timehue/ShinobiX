@@ -121,6 +121,34 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.ok(s.activeAp === 100 - BASIC_ATTACK_AP);
     });
 
+    // Increase Generals is a self-buff resolved by api/pvp/move.ts applyJutsu, which the
+    // tower reuses for ALL combat (runJutsu → applyJutsu). This proves the buff's stat
+    // lift actually flows through the actor→fighter→applyJutsu delegation, not just in
+    // isolated PvP (api/pvp/_increase-generals.test.ts covers applyJutsu directly).
+    it('Increase Generals raises tower damage (self-buff flows through applyJutsu delegation)', () => {
+        const attackerChar = { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 2500 } };
+        const defenderChar = { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 1000 } };
+
+        function attackOnce(attackerStatuses: TowerActor['statuses']): number {
+            const actors = [
+                makeActor('sq-1', 'squad', 0, { character: attackerChar, statuses: attackerStatuses }),
+                makeActor('en-1', 'enemy', 1, { character: defenderChar, hp: 100_000, maxHp: 100_000 }),
+            ];
+            const s = makeSession(actors);
+            startRound(s);
+            assert.equal(activeActor(s)!.id, 'sq-1', 'squad acts first');
+            const before = getActor(s, 'en-1')!.hp;
+            const r = applyAction(s, makeFloor('defeat-all'), { actorId: 'sq-1', type: 'attack', targetId: 'en-1' }, makeRng(1));
+            assert.equal(r.applied, true, 'basic attack applies');
+            return before - getActor(s, 'en-1')!.hp;
+        }
+
+        const baseline = attackOnce([]);
+        const buffed = attackOnce([{ name: 'Increase Generals', percent: 30, rounds: 2, kind: 'positive' }]);
+        assert.ok(baseline > 0, `baseline tower attack should deal damage (got ${baseline})`);
+        assert.ok(buffed > baseline, `Increase Generals should raise tower damage (buffed ${buffed} vs baseline ${baseline})`);
+    });
+
     it('move is adjacent-only and blocked by occupants', () => {
         const s = makeSession(frontline());
         startRound(s);

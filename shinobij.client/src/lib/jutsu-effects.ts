@@ -65,6 +65,7 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP for 1 round.", duration: "1 round", value: "Always" };
     if (tagMatchesName(tag.name, "Overclock")) return { summary: "Reduces the user's AP costs.", rule: "Always adds a positive status that makes the user's actions cost less AP for 1 round.", duration: "1 round", value: "Always" };
     if (tag.name === "Increase Heal") return { summary: `Increases healing by ${pct}%.`, rule: "Always adds a positive status that boosts future healing and lifesteal by this amount.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Increase Generals") return { summary: `Raises your general stats (strength, speed, intelligence, willpower) by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster. Because generals feed both offense and defense, it increases the damage you deal AND lowers the damage you take. Stacks with diminishing returns; blocked by Buff Prevent, removed by Clear, and suppressed by Bloodline Seal.", duration: "2 rounds", value: `${pct}%` };
     return { summary: tag.name || "Unnamed effect", rule: "Custom effect tag.", duration: "Varies", value: percentLabel };
 }
 

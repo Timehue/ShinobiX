@@ -182,7 +182,7 @@ export function CentralHub({
     const NAMED_WEAPON_TAGS = [
         "Siphon", "Absorb", "Poison", "Wound",
         "Reflect", "Shield", "Drain", "Ignition", "Heal",
-        "Increase Damage Given", "Decrease Damage Taken",
+        "Increase Damage Given", "Increase Generals", "Decrease Damage Taken",
     ];
 
     function rollNamedWeapon() {

@@ -88,6 +88,7 @@ export interface PlayerRead {
 // excluded so a single throwaway buff doesn't bait the AI into wasting a turn.
 const MEANINGFUL_BUFFS = new Set<string>([
     "Increase Damage Given",
+    "Increase Generals",
     "Decrease Damage Taken",
     "Absorb",
     "Reflect",
@@ -99,7 +100,9 @@ const MEANINGFUL_BUFFS = new Set<string>([
     "Clear Prevent",
 ]);
 
-const OFFENSIVE_BUFFS = new Set<string>(["Increase Damage Given", "Increase Heal", "Overclock"]);
+// Increase Generals raises damage dealt AND lowers damage taken, so the AI treats
+// it as an offensive buff worth clearing (mirrors Increase Damage Given).
+const OFFENSIVE_BUFFS = new Set<string>(["Increase Damage Given", "Increase Generals", "Increase Heal", "Overclock"]);
 const DEFENSIVE_BUFFS = new Set<string>(["Decrease Damage Taken", "Absorb", "Reflect", "Shield"]);
 const DOT_NAMES = new Set<string>(["Wound", "Poison", "Drain"]);
 const SUSTAIN_ACTIONS = new Set<PlayerActionKind>(["heal", "shield", "cleanse"]);
