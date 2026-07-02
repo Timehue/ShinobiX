@@ -191,7 +191,7 @@ export function reconcileCharacterStatBudget(character: Character): Character {
 // auto-growth (cap-clamped) into the stats the player used, plus the free-pool
 // points into unspentStats. The server is authoritative for the amounts (daily-
 // capped, ranked-excluded); this just mirrors them into the local character.
-export function applyStatGrowth(character: Character, allocated: Partial<Record<keyof Stats, number>>, unspentGain: number): Character {
+export function applyStatGrowth(character: Character, allocated: Partial<Record<string, number>>, unspentGain: number): Character {
     const stats = normalizeStats(character.stats);
     let used = 0;
     for (const key of STAT_KEYS) {
