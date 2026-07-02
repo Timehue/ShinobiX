@@ -79,8 +79,12 @@ async function handler(req, res) {
                     const save = await _storage_js_1.kv.get(`save:${identity.name}`);
                     const char = (save?.character ?? null);
                     if (char) {
-                        if (typeof char.rank === 'string')
-                            derivedRank = char.rank;
+                        // `rankTitle` is the display rank ("Genin"/"Jonin"/…). The
+                        // character has no plain `rank` field, so the old
+                        // `char.rank` read was always undefined and the tavern
+                        // rank chip never showed for offline authors.
+                        if (typeof char.rankTitle === 'string')
+                            derivedRank = char.rankTitle;
                         if (typeof char.customTitle === 'string')
                             derivedCustomTitle = char.customTitle;
                         if (typeof char.level === 'number')

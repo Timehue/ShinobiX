@@ -103,7 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                     const char = (save?.character ?? null) as Record<string, unknown> | null;
                     if (char) {
-                        if (typeof char.rank === 'string') derivedRank = char.rank;
+                        // `rankTitle` is the display rank ("Genin"/"Jonin"/…). The
+                        // character has no plain `rank` field, so the old
+                        // `char.rank` read was always undefined and the tavern
+                        // rank chip never showed for offline authors.
+                        if (typeof char.rankTitle === 'string') derivedRank = char.rankTitle;
                         if (typeof char.customTitle === 'string') derivedCustomTitle = char.customTitle;
                         if (typeof char.level === 'number') derivedLevel = char.level;
                     }
