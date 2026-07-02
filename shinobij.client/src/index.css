@@ -18813,6 +18813,22 @@ button.combat-jutsu-button,
     letter-spacing: 0.04em;
 }
 
+/* Kage seat — the top village honorific. Distinctly gilded so it reads above
+   the regular rank chip. Author is badged live from the seated-Kage lookup, so
+   it tracks the real seat, not a stale post-time snapshot. */
+.tavern-kage {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #fde68a;
+    white-space: nowrap;
+    background: linear-gradient(180deg, rgba(202, 138, 4, 0.4), rgba(120, 53, 15, 0.35));
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    padding: 1px 8px;
+    border-radius: 99px;
+    letter-spacing: 0.03em;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.22);
+}
+
 .tavern-text {
     color: #d6d3d1;
     font-size: 0.9rem;
@@ -19014,6 +19030,51 @@ button.combat-jutsu-button,
 .tavern-reply-cancel:active {
     background: rgba(202, 138, 4, 0.2);
     color: #fde68a;
+}
+
+/* ===== Mobile: the tavern is a full-page chat — only the message log scrolls =====
+   The mobile shell is a document-scroll page (html/body/#root scroll, .center-game
+   is height:auto). That let the whole page scroll around the chat. On the tavern
+   screen only, pin the chat to the viewport so the page itself can't scroll and the
+   sole scroller is .tavern-log. */
+@media (max-width: 800px) {
+    /* Stop the tavern screen's container from growing/scrolling. */
+    .center-game.screen-tavern {
+        min-height: 0 !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+
+    /* The tavern carries its own Back button + title, so the sticky top status
+       HUD is redundant here and would otherwise sit above the full-page chat. */
+    .screen-tavern .mobile-top-hud { display: none !important; }
+
+    /* Fill the viewport from the top edge down to just above the fixed bottom
+       nav (~62px + safe area). Global banners (z-index 99999) and the nav
+       (z-index 1000) still render above this. */
+    .screen-tavern .tavern-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+        height: auto;
+        min-height: 0;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;
+        z-index: 5;
+    }
+
+    /* Keep overscroll from chaining to the body (no rubber-band behind the chat). */
+    .screen-tavern .tavern-log {
+        overscroll-behavior: contain;
+    }
 }
 
 @media (max-width: 480px) {
