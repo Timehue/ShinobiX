@@ -29,7 +29,9 @@ async function handler(req, res) {
         let entries = await (0, _announce_js_1.readHallEntries)({ includeHidden: admin, limit: 500 });
         if (type)
             entries = entries.filter((e) => e.entryType === type);
-        res.setHeader('Cache-Control', 'public, max-age=60');
+        // Admin responses include hidden entries — never let a shared cache
+        // serve one to a player (verification finding).
+        res.setHeader('Cache-Control', admin ? 'no-store' : 'public, max-age=60');
         return res.status(200).json({ entries: entries.slice(0, limit) });
     }
     catch (err) {

@@ -21,6 +21,8 @@ type SessionLike = {
     log?: string[];
     p1: FighterLike;
     p2: FighterLike;
+    /** Set by session create for ranked matches (rating snapshot lives beside it). */
+    ranked?: boolean;
 };
 
 const RE_HEAL = /^Heal: (.+) restores (\d+) HP\.$/;
@@ -82,6 +84,7 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
     const winnerDeltas: LegacyStatDeltas = {
         pvpWins: 1,
         pvpKills: 1,
+        ...(session.ranked ? { rankedWins: 1 } : {}),
     };
     const style = STYLE_STATS[String(winner.character?.specialty ?? '')];
     if (style) {

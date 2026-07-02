@@ -8,8 +8,12 @@ reproducibility sidecar `.txt` with the exact prompt next to every file.
 Regeneration: rerun the batch manifest script (idempotent, skips existing
 files) or regenerate one file with `gen-asset.mjs` using the sidecar prompt.
 
-**Nothing is wired into code yet** — these are content assets staged for the
-implementation waves. Wiring notes for each group are below.
+**Wiring status:** the Wandering Sage is fully wired (sector face via the
+`wanderingSage` archetype in `lib/wanderer-art.ts`, VN portrait auto-resolved,
+`scenes/legacy-sage-offer.png` used by the offer VN). The 8 emissary faces,
+badges beyond the defs' `badge` fields, jutsu icons, era banners,
+`legacy-trial.png`, the hall banner, and the map marker are STAGED for their
+deferred waves — wiring notes below.
 
 ---
 

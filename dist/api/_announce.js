@@ -72,17 +72,23 @@ async function recentAnnouncements(limit = 20, sinceId = 0) {
  */
 async function addHallEntry(entry, opts) {
     try {
-        if (opts?.nxKey) {
-            const claimed = await _storage_js_1.kv.set(`hall:nx:${opts.nxKey}`, '1', { nx: true });
-            if (claimed !== 'OK')
-                return null;
-        }
-        const id = await _storage_js_1.kv.incr(HALL_SEQ);
-        const full = { id, ts: Date.now(), status: 'active', ...entry };
+        // The NX claim and the list write commit together under a fail-closed
+        // lock — claiming first and then failing the (previously fail-open)
+        // write would permanently lose a "permanent" entry (verification
+        // finding). Lock contention throws to the catch: callers are
+        // best-effort and the NX stays unclaimed for the retry.
+        let full = null;
         await (0, _lock_js_1.withKvLock)(exports.HALL_KEY, async () => {
+            if (opts?.nxKey) {
+                const claimed = await _storage_js_1.kv.set(`hall:nx:${opts.nxKey}`, '1', { nx: true });
+                if (claimed !== 'OK')
+                    return;
+            }
+            const id = await _storage_js_1.kv.incr(HALL_SEQ);
+            full = { id, ts: Date.now(), status: 'active', ...entry };
             const list = (await _storage_js_1.kv.get(exports.HALL_KEY)) ?? [];
             await _storage_js_1.kv.set(exports.HALL_KEY, [full, ...(Array.isArray(list) ? list : [])].slice(0, HALL_CAP));
-        });
+        }, { failClosed: true });
         return full;
     }
     catch (err) {

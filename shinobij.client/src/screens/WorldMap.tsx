@@ -2060,6 +2060,7 @@ export function WorldMap({
                                     offer={sageOffer}
                                     playerName={character.name}
                                     onClose={() => setSageChoiceOpen(false)}
+                                    onDeclined={() => setSageOffer(null)}
                                     onAccepted={(legacy) => {
                                         setSageOffer(null);
                                         updateCharacter(prev => prev ? { ...prev, legacy } : prev);

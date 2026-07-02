@@ -134,10 +134,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { granted: true as const, reason: 'granted', _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
         }, { failClosed: true });
 
-        // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war
-        // (server-stamped winner + idempotent via claimedWarCrateIds above).
+        // Legacy tracking (ENABLE_LEGACY): a granted crate proves a won war.
+        // Own NX per (player, war) — claimedWarCrateIds lives on the
+        // client-writable save, so strip-and-reclaim could re-mint the crate
+        // grant but must NOT re-mint war legacy credit (verification finding).
         if (outcome.granted) {
-            await bumpLegacyStats(playerName, { warsWon: 1 });
+            try {
+                const onceKey = `legacy:war-won:${playerName}:${warCrateId}`;
+                const first = await kv.set(onceKey, true, { nx: true });
+                if (first) await bumpLegacyStats(playerName, { warsWon: 1 });
+            } catch (legacyErr) {
+                console.error('[claim-war-crate] legacy tracking failed:', legacyErr);
+            }
         }
         return res.status(200).json({ ok: true, ...outcome });
     } catch (err) {

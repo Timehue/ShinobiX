@@ -6,6 +6,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_test_1 = require("node:test");
 const strict_1 = __importDefault(require("node:assert/strict"));
 const _legacy_defs_js_1 = require("./_legacy-defs.js");
+const _legacy_core_js_1 = require("./_legacy-core.js");
+const _legacy_track_js_1 = require("./_legacy-track.js");
+// ─── Stat liveness registry ─────────────────────────────────────────────────
+// LIVE: incremented by a server settle hook (grep the bumpLegacyStats call
+// sites before moving a stat here). MIRRORED: fed only by the capped
+// bootstrap/daily-reconcile from client-tracked save counters. Anything in
+// neither set is DEAD — usable in the LegacyStatKey type for future wiring,
+// but the lint below forbids requirements or trial objectives on it.
+// (Verification finding: 8 dead stats shipped in requirements, making 7/10
+// mythics unobtainable and stranding village/explorer/pets trials forever.)
+const LIVE_STATS = new Set([
+    'pvpWins', 'pvpKills', 'pvpLosses', 'rankedWins', 'sameRankWins', 'higherLevelWins',
+    'defensiveWins', 'comebackWins', 'bestKillStreak', 'warPvpKills',
+    'ninjutsuKills', 'ninjutsuDamage', 'genjutsuKills', 'genjutsuDamage',
+    'taijutsuKills', 'taijutsuDamage', 'bukijutsuKills', 'bukijutsuDamage',
+    'healingDone', 'shieldsApplied', 'damageBlocked',
+    'pveKills', 'eliteKills', 'missionCompletions', 'huntCompletions',
+    'raidsCompleted', 'hollowGateClears', 'dungeonClears',
+    'bossContribution', 'weeklyBossTop10', 'eventCompletions', 'firstClears',
+    'sectorDiscoveries', 'hiddenFinds', 'wandererQuests',
+    'villageDonations', 'warContribution', 'sectorCaptures', 'sectorDefenses',
+    'warsWon', 'villageTenureDays', 'petExpeditions', 'cardClashWins',
+]);
+const MIRRORED_STATS = new Set([
+    'tilesExplored', 'petDuelWins', 'endlessTowerBest', 'arenaTournaments',
+]);
 (0, node_test_1.test)('roster has exactly 100 legacies with the design rarity split', () => {
     strict_1.default.equal(_legacy_defs_js_1.LEGACY_DEFS.length, 100);
     const counts = {};
@@ -98,6 +124,44 @@ function reqCategories(d) {
         if (basic !== undefined && mythic !== undefined) {
             strict_1.default.ok(mythic > basic, `${stat}: mythic floor ${mythic} <= basic floor ${basic}`);
         }
+    }
+});
+(0, node_test_1.test)('every requirement stat has a write path (no dead-stat legacies)', () => {
+    for (const d of _legacy_defs_js_1.LEGACY_DEFS) {
+        for (const req of d.reqs) {
+            const floors = 'stat' in req ? [req] : req.anyOf;
+            for (const f of floors) {
+                strict_1.default.ok(LIVE_STATS.has(f.stat) || MIRRORED_STATS.has(f.stat), `${d.id}: requirement on DEAD stat ${f.stat} — no hook or mirror ever writes it`);
+                // Mirrored stats are capped by BOOTSTRAP_CAPS forever, so a
+                // floor above the cap is unreachable for everyone.
+                if (MIRRORED_STATS.has(f.stat)) {
+                    const cap = _legacy_track_js_1.BOOTSTRAP_CAPS[f.stat] ?? 0;
+                    strict_1.default.ok(f.atLeast <= cap, `${d.id}: ${f.stat} floor ${f.atLeast} exceeds the mirror cap ${cap}`);
+                }
+            }
+        }
+    }
+});
+(0, node_test_1.test)('trial objectives only use strictly LIVE stats (mirrors move once a day at best)', () => {
+    for (const d of _legacy_defs_js_1.LEGACY_DEFS) {
+        for (const kind of ['awaken', 'bind']) {
+            for (const o of (0, _legacy_core_js_1.trialObjectivesFor)(d, kind)) {
+                strict_1.default.ok(LIVE_STATS.has(o.stat), `${d.id} ${kind} trial: objective on non-live stat ${o.stat} would strand the player`);
+            }
+        }
+    }
+});
+(0, node_test_1.test)('legendary and mythic tiers cannot be fully covered by bootstrap-seeded counters', () => {
+    // For every legendary+ def, at least one requirement must exceed what the
+    // (client-writable) bootstrap/reconcile can ever seed for that stat.
+    for (const d of _legacy_defs_js_1.LEGACY_DEFS) {
+        if (_legacy_defs_js_1.RARITY_ORDER[d.rarity] < _legacy_defs_js_1.RARITY_ORDER.legendary)
+            continue;
+        const hasLiveProof = d.reqs.some((req) => {
+            const floors = 'stat' in req ? [req] : req.anyOf;
+            return floors.some((f) => f.atLeast > (_legacy_track_js_1.BOOTSTRAP_CAPS[f.stat] ?? 0));
+        });
+        strict_1.default.ok(hasLiveProof, `${d.rarity} ${d.id}: every floor is coverable by a tampered pre-Legacy save`);
     }
 });
 (0, node_test_1.test)('village affinities only reference real villages', () => {

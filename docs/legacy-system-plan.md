@@ -1,9 +1,16 @@
 # Legacy System — Implementation Plan
 
-**Status:** PLAN ONLY — no code written. This document translates the "Final Master
-Handoff" (Legacy system, Wandering Sage, Titles, Eras, Announcements, Hall of
-Legends) into a concrete, phased implementation plan mapped onto the actual
-ShinobiX codebase, storage model, and anti-cheat patterns.
+**Status:** CORE BUILT (see the §5.1 status banner for exactly what shipped and
+what's deferred), then hardened by a 47-agent adversarial verification pass
+(35 confirmed findings fixed — dead-stat requirements, trial strands, the
+accept-transaction repair path, pity reset, announcement-matrix drift, and
+client dead-ends). This document remains the design source of truth for the
+deferred waves (Specialty Jutsu, Eras, nameplates, reserved-title moderation).
+Historical note: rarity tiers were revised by design direction from the
+five-tier model in early passages to four tiers — 15 basic / 50 rare /
+25 legendary / 10 mythic ("epic"/"common" no longer exist); where older
+sections mention five tiers, the four-tier model and
+[legacy-roster.md](legacy-roster.md) win.
 
 **Prime directives preserved throughout:**
 1. Bloodlines and Legacies are completely separate. Nothing here reads
@@ -994,12 +1001,21 @@ manual NPM install before restart.
 
 ## 25. Acceptance-criteria coverage
 
-All 39 handoff criteria are satisfied by the sections above; the only
-*intentional partials*: #3/#4 (no new Legacy materials at launch — §1.3,
-stricter than the handoff, reversible), #27-pricing (open decision 2),
-Era retro-gating nuance (open decision 3), and pre-approval queue replaced by
-filter+revoke/refund (#28–29 still met: titles are moderated and shards are
-never lost — open decision 5).
+All 39 handoff criteria are covered by the sections above — as built, planned,
+or explicitly deferred. **Built and verified:** separation from bloodlines
+(#1–4), server-side 1–50 tracking with aggregate counters + event log (#5–6),
+eligibility + anti-gaming (#8–9), existing-player fallback (#10–11), the Sage
+with max-3 offers, free decline, permanent accept, one-forever, retryable
+trials, no respec, audited admin correction (#12–20), titles/badges from
+trials (#21), announcements with importance levels + spam control (#31–32),
+permanent correctable Hall (#33–34), discovery cooldowns (#35), server-side
+validation throughout (#38). **Deferred to later waves (planned in this doc,
+not yet code):** Specialty Jutsu #22–25 (design direction: "jutsus later"),
+pre-50 rumor toasts #7 (the vague strongest-paths reading exists in the
+LegacyPanel), reserved-terms custom-title moderation #27–29, Era milestones
+#30, the AdminPanel UI for the admin endpoint #36 (the endpoint itself is
+live). *Intentional deviations:* no new Legacy materials at launch (§1.3),
+filter+revoke/refund instead of a pre-approval queue (§1.4).
 
 ---
 

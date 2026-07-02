@@ -24,7 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const limit = Math.max(1, Math.min(200, Math.floor(Number(req.query.limit) || 100)));
         let entries = await readHallEntries({ includeHidden: admin, limit: 500 });
         if (type) entries = entries.filter((e) => e.entryType === type);
-        res.setHeader('Cache-Control', 'public, max-age=60');
+        // Admin responses include hidden entries — never let a shared cache
+        // serve one to a player (verification finding).
+        res.setHeader('Cache-Control', admin ? 'no-store' : 'public, max-age=60');
         return res.status(200).json({ entries: entries.slice(0, limit) });
     } catch (err) {
         console.error('[hall-of-legends]', err);

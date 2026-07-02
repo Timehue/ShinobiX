@@ -56,15 +56,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // daily soft cap as the reward — grinding past it stops feeding Legacy
         // eligibility too. Style kills bucket by the save's declared specialty.
         if (legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
-            const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = record?.character as Record<string, unknown> | undefined;
-            const deltas: LegacyStatDeltas = { pveKills: 1 };
-            const specialty = String(char?.specialty ?? '');
-            if (specialty === 'Ninjutsu') deltas.ninjutsuKills = 1;
-            else if (specialty === 'Genjutsu') deltas.genjutsuKills = 1;
-            else if (specialty === 'Taijutsu') deltas.taijutsuKills = 1;
-            else if (specialty === 'Bukijutsu') deltas.bukijutsuKills = 1;
-            await bumpLegacyStats(playerName, deltas, { characterForBootstrap: char ?? null });
+            try {
+                const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                const char = record?.character as Record<string, unknown> | undefined;
+                const deltas: LegacyStatDeltas = { pveKills: 1 };
+                const specialty = String(char?.specialty ?? '');
+                if (specialty === 'Ninjutsu') deltas.ninjutsuKills = 1;
+                else if (specialty === 'Genjutsu') deltas.genjutsuKills = 1;
+                else if (specialty === 'Taijutsu') deltas.taijutsuKills = 1;
+                else if (specialty === 'Bukijutsu') deltas.bukijutsuKills = 1;
+                await bumpLegacyStats(playerName, deltas, { characterForBootstrap: char ?? null });
+            } catch (legacyErr) {
+                // Tracking must never 500 a reward response whose daily counter
+                // already advanced (verification finding).
+                console.error('[report-ai-fight] legacy tracking failed:', legacyErr);
+            }
         }
         return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
     } catch (err) {

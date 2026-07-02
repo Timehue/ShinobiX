@@ -153,10 +153,15 @@ function resolveCommittedTurn(session: FreePlaySession, now: number): void {
 async function persistAndMaybeFinalize(session: FreePlaySession): Promise<void> {
     await saveSession(session);
     if (legacyEnabled() && session.status === 'done' && session.winner && session.winner !== 'draw') {
-        const winnerName = safeName(String((session.winner === 'p1' ? session.p1?.name : session.p2?.name) ?? ''));
-        if (winnerName) {
-            const marked = await kv.set(`legacy:cc-tracked:${session.matchId}`, true, { nx: true, ex: 24 * 60 * 60 });
-            if (marked) await bumpLegacyStats(winnerName, { cardClashWins: 1 });
+        try {
+            const winnerName = safeName(String((session.winner === 'p1' ? session.p1?.name : session.p2?.name) ?? ''));
+            if (winnerName) {
+                const marked = await kv.set(`legacy:cc-tracked:${session.matchId}`, true, { nx: true, ex: 24 * 60 * 60 });
+                if (marked) await bumpLegacyStats(winnerName, { cardClashWins: 1 });
+            }
+        } catch (legacyErr) {
+            // Best-effort — a tracking hiccup must not fail the match poll.
+            console.error('[card-clash] legacy tracking failed:', legacyErr);
         }
     }
 }

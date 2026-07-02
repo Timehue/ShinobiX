@@ -209,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         const missionsCompleted: CompletedMissionInfo[] = result.missionsCompleted;
         // Legacy tracking (ENABLE_LEGACY): a validated raid completion.
-        await bumpLegacyStats(playerName, { raidsCompleted: 1 });
+        await bumpLegacyStats(playerName, { raidsCompleted: 1, warContribution: 500 });
 
         // Even-rank Vanguard perks paid out when a raid mission completes.
         // Rank 4: +25% Ryo bonus (flat 250 Ryo per raid mission complete at R4+).
