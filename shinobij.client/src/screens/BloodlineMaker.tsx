@@ -116,10 +116,15 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             // AOE Movement (ground nova) is locked to the 60-AP damage tier — it
             // can never be a 40-AP utility. Force the AP before deriving resource
             // costs so chakra/stamina backing and effect power resolve at 60-AP.
-            if (merged.method === "AOE_SPIRAL") merged.ap = 60;
+            // AOE_SPIRAL (ground nova) and AOE_BURST (target-centred blast) are both
+            // locked to the 60-AP damage tier — force AP before deriving resource costs.
+            if (merged.method === "AOE_SPIRAL" || merged.method === "AOE_BURST") merged.ap = 60;
             const next = normalizeJutsu(lockJutsuResourceCosts(merged));
             if (!bloodlineJutsuMethods.includes(next.method)) next.method = "SINGLE";
             if (next.method === "INSTANT_EFFECT") next.target = "EMPTY_GROUND";
+            // AOE_BURST is a direct-target nuke (not a ground zone): lock it to OPPONENT
+            // so switching from a ground method doesn't strand it on EMPTY_GROUND.
+            if (next.method === "AOE_BURST") next.target = "OPPONENT";
             if (next.target === "SELF") next.range = 0;
             else if (![4, 5].includes(next.range)) next.range = 4;
             next.cooldown = 7;
@@ -330,12 +335,13 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <div className="inline-grid">
                         <select value={jutsu.target} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
                         <select value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
-                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method}</option>)}
+                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "Circle Movement (Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method === "AOE_SPIRAL" ? "AOE Movement (Ground Nova)" : method === "AOE_BURST" ? "AOE Burst (Area Damage)" : method}</option>)}
                         </select>
                     </div>
                     {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">Circle Movement: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
                     {jutsu.method === "INSTANT_EFFECT" && <div className="summary-box bloodline-element-lock">Instant Effect: target is locked to GROUND. Click an open ground tile in battle; that tile and its surrounding hexes become a 2-round defensive zone. Decrease Damage Given, Recoil, or Poison apply immediately if the enemy is caught and again while they stand in it. Costs +1 jutsu point.</div>}
                     {jutsu.method === "AOE_SPIRAL" && <div className="summary-box bloodline-element-lock">AOE Movement: you dash to a chosen ground tile, then erupt a spiral ground nova — a filled hex disk (radius 2) around your landing tile becomes a 2-round zone. Move tag is required and auto-added; the other slots take Decrease Damage Given, Recoil, or Poison. The effect hits the enemy immediately if they're inside the burst and again while they stand in it. A bigger footprint than Instant Effect. Locked to 60 AP. Costs +1 jutsu point.</div>}
+                    {jutsu.method === "AOE_BURST" && <div className="summary-box bloodline-element-lock">AOE Burst: a direct area nuke — no movement, no ground tile. Target an enemy in range; they take the hit and every other enemy in the 6 hexes touching them takes the same full damage. In a 1v1 fight it just hits your target like a normal nuke; in multi-enemy fights (Battle Towers, team battles) it blasts the whole cluster. Locked to 60 AP. Costs +1 jutsu point.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
                         <button className={jutsu.ap === 40 ? "active" : ""} disabled={jutsu.method === "AOE_SPIRAL"} title={jutsu.method === "AOE_SPIRAL" ? "AOE Movement is locked to 60 AP" : undefined} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
