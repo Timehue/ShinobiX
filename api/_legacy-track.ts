@@ -57,9 +57,9 @@ const MAX_STATS: ReadonlySet<LegacyStatKey> = new Set<LegacyStatKey>([
  * 1st and 2nd full, 3rd half, 4th quarter, then nothing.
  */
 export function repeatKillWeight(priorKillsOnTarget: number): number {
-    if (priorKillsOnTarget <= 1) return 1;
-    if (priorKillsOnTarget === 2) return 0.5;
-    if (priorKillsOnTarget === 3) return 0.25;
+    if (priorKillsOnTarget <= 2) return 1;
+    if (priorKillsOnTarget === 3) return 0.5;
+    if (priorKillsOnTarget === 4) return 0.25;
     return 0;
 }
 
@@ -68,15 +68,19 @@ export const LEVEL_GAP_ZERO = 15;
 
 /**
  * Plausibility ceilings applied when seeding from pre-Legacy save counters
- * (which were client-writable). Bootstrapped history can qualify a veteran for
- * the lower tiers; mythic-scale numbers must be earned under server tracking.
+ * (which were client-writable). Each cap sits BELOW the lowest legendary
+ * requirement floor that uses the stat, so bootstrapped history can qualify a
+ * veteran for basic/rare identities but legendary/mythic tiers must be earned
+ * under server tracking (verification finding: the old caps let a tampered
+ * save fully cover two legendaries). Kept in sync with api/_legacy-defs.ts by
+ * the cross-check in _legacy-score.test.ts.
  */
-const BOOTSTRAP_CAPS: Partial<Record<LegacyStatKey, number>> = {
-    missionCompletions: 1500, pveKills: 6000, pvpWins: 800, pvpKills: 800,
-    rankedWins: 400, raidsCompleted: 400, tilesExplored: 8640,
-    arenaTournaments: 150, endlessTowerBest: 100, petDuelWins: 600,
-    cardClashWins: 500, warsWon: 40, warMvps: 20, warContribution: 500_000,
-    hollowGateClears: 150, huntCompletions: 800,
+export const BOOTSTRAP_CAPS: Partial<Record<LegacyStatKey, number>> = {
+    missionCompletions: 350, pveKills: 1200, pvpWins: 140, pvpKills: 140,
+    rankedWins: 50, raidsCompleted: 40, tilesExplored: 2500,
+    arenaTournaments: 12, endlessTowerBest: 45, petDuelWins: 120,
+    cardClashWins: 100, warsWon: 6, warMvps: 2, warContribution: 80_000,
+    hollowGateClears: 25, huntCompletions: 120,
 };
 
 /** Seed a fresh stats record from the save's existing lifetime counters. */
@@ -111,7 +115,10 @@ export function seedLegacyStatsFromSave(character: Record<string, unknown> | nul
     return seed;
 }
 
-/** Read the stats record, lazily bootstrapping it from the save on first touch. */
+/** Read the stats record, lazily bootstrapping it from the save on first touch.
+ *  If the caller has no character handy, the save is fetched here — otherwise a
+ *  hook that fires first (e.g. daily-login) would NX-claim an EMPTY seed and
+ *  permanently discard the veteran's pre-Legacy history (verification finding). */
 export async function getLegacyStats(
     playerName: string,
     characterForBootstrap?: Record<string, unknown> | null,
@@ -119,7 +126,12 @@ export async function getLegacyStats(
     const key = legacyStatsKey(playerName);
     const existing = await kv.get<LegacyStats>(key);
     if (existing && typeof existing === 'object') return existing;
-    const seeded = seedLegacyStatsFromSave(characterForBootstrap, Date.now());
+    let char = characterForBootstrap ?? null;
+    if (!char) {
+        const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        char = (rec?.character ?? null) as Record<string, unknown> | null;
+    }
+    const seeded = seedLegacyStatsFromSave(char, Date.now());
     // NX so two concurrent first-touches can't double-seed.
     const claimed = await kv.set(key, seeded, { nx: true });
     if (claimed !== 'OK') {
@@ -142,7 +154,7 @@ export async function bumpLegacyStats(
     deltas: LegacyStatDeltas,
     opts?: {
         characterForBootstrap?: Record<string, unknown> | null;
-        /** PvP target name — applies repeat-kill decay to pvpKills/pvpWins. */
+        /** PvP target name — applies repeat-kill decay to EVERY delta in the call. */
         pvpTarget?: string;
         /** Winner-minus-loser level; >=LEVEL_GAP_ZERO zeroes PvP credit. */
         pvpLevelGap?: number;
@@ -173,21 +185,27 @@ export async function bumpLegacyStats(
                 }
                 pvpWeight = Math.min(pvpWeight, repeatKillWeight(prior));
             }
+            // Decay applies to EVERY stat in a pvp-attributed call — style kills,
+            // same-rank wins, comeback wins, support totals — not just pvpKills.
+            // (Verification finding: farming one consenting target previously
+            // earned full credit everywhere except the two headline counters.)
+            const decayed = opts?.pvpTarget !== undefined || opts?.pvpLevelGap !== undefined;
             for (const [rawStat, rawDelta] of Object.entries(deltas)) {
                 const stat = rawStat as LegacyStatKey;
                 let delta = num(rawDelta);
                 if (delta <= 0) continue;
-                if ((stat === 'pvpKills' || stat === 'pvpWins') && (opts?.pvpTarget || opts?.pvpLevelGap !== undefined)) {
-                    delta *= pvpWeight;
-                }
+                if (decayed) delta *= pvpWeight;
                 if (delta <= 0) continue;
                 const prev = num(next[stat]);
                 next[stat] = MAX_STATS.has(stat) ? Math.max(prev, delta) : prev + delta;
             }
             if (opts?.suspicion) next.suspicionFlags = num(next.suspicionFlags) + 1;
             if (opts?.streak === 'win') {
-                next.winStreak = num(stats.winStreak) + 1;
-                next.bestKillStreak = Math.max(num(next.bestKillStreak), next.winStreak);
+                // A fully-decayed farm win doesn't extend the streak either.
+                if (!decayed || pvpWeight > 0) {
+                    next.winStreak = num(stats.winStreak) + 1;
+                    next.bestKillStreak = Math.max(num(next.bestKillStreak), next.winStreak);
+                }
             } else if (opts?.streak === 'reset') {
                 next.winStreak = 0;
             }
@@ -195,6 +213,46 @@ export async function bumpLegacyStats(
         }, { ttlSec: 5 });
     } catch (err) {
         console.error(`[legacy-track] bump failed for ${playerName}:`, err instanceof Error ? err.message : err);
+    }
+}
+
+/**
+ * Daily reconcile: floor-raise the handful of stats whose only source is
+ * client-tracked gameplay (sector exploring, pet duels, tower waves, arena
+ * tournaments) from the save's lifetime counters, bounded by BOOTSTRAP_CAPS.
+ * Client-trusted but capped below every legendary floor, exactly like the
+ * bootstrap — it keeps basic/rare exploration-and-pets identities reachable
+ * for ONGOING play without giving tampered saves a path to high tiers.
+ * Called once per UTC day from the daily-login hook. Best-effort.
+ */
+export async function reconcileLegacyStatsFromSave(
+    playerName: string,
+    character: Record<string, unknown> | null | undefined,
+): Promise<void> {
+    if (!legacyEnabled() || !playerName || !character) return;
+    try {
+        const MIRRORS: Array<[LegacyStatKey, string]> = [
+            ['tilesExplored', 'totalTilesExplored'],
+            ['petDuelWins', 'totalPetWins'],
+            ['endlessTowerBest', 'endlessTowerBestWave'],
+            ['arenaTournaments', 'totalTournamentsCompleted'],
+        ];
+        await withKvLock(legacyStatsKey(playerName), async () => {
+            const stats = await getLegacyStats(playerName, character);
+            const next: LegacyStats = { ...stats };
+            let changed = false;
+            for (const [stat, field] of MIRRORS) {
+                const cap = BOOTSTRAP_CAPS[stat] ?? Number.MAX_SAFE_INTEGER;
+                const fromSave = Math.min(Math.max(0, Math.floor(num(character[field]))), cap);
+                if (fromSave > num(next[stat])) { next[stat] = fromSave; changed = true; }
+            }
+            if (changed) {
+                next.updatedAt = Date.now();
+                await kv.set(legacyStatsKey(playerName), next);
+            }
+        }, { ttlSec: 5 });
+    } catch (err) {
+        console.error(`[legacy-track] reconcile failed for ${playerName}:`, err instanceof Error ? err.message : err);
     }
 }
 

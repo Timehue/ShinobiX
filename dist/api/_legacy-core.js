@@ -10,6 +10,10 @@ const legacyAcceptedKey = (player) => `legacy:accepted:${player}`;
 exports.legacyAcceptedKey = legacyAcceptedKey;
 /** Per-category trial templates: the stat(s) a trial re-proves, with the delta
  *  a BASIC-rarity awaken trial demands. Rarity and stage scale from here. */
+// Every template stat here MUST have a live server-side write path (enforced
+// by the dead-stat lint in _legacy-defs.test.ts) — a trial objective over a
+// stat nothing increments would strand the player at their current stage
+// FOREVER, because a legacy can never be exchanged (verification finding).
 const TRIAL_TEMPLATES = {
     ninjutsu: [{ stat: 'ninjutsuKills', delta: 12 }],
     genjutsu: [{ stat: 'genjutsuKills', delta: 12 }],
@@ -17,12 +21,12 @@ const TRIAL_TEMPLATES = {
     bukijutsu: [{ stat: 'bukijutsuKills', delta: 12 }],
     pvp: [{ stat: 'pvpWins', delta: 6 }],
     pve: [{ stat: 'missionCompletions', delta: 10 }, { stat: 'pveKills', delta: 40 }],
-    village: [{ stat: 'warMissions', delta: 6 }, { stat: 'villageDonations', delta: 5000 }],
+    village: [{ stat: 'villageDonations', delta: 5000 }, { stat: 'warContribution', delta: 3000 }],
     support: [{ stat: 'healingDone', delta: 15_000 }],
-    explorer: [{ stat: 'tilesExplored', delta: 120 }, { stat: 'sectorDiscoveries', delta: 4 }],
-    pets: [{ stat: 'petDuelWins', delta: 8 }],
+    explorer: [{ stat: 'sectorDiscoveries', delta: 3 }, { stat: 'wandererQuests', delta: 2 }],
+    pets: [{ stat: 'petExpeditions', delta: 6 }],
     cards: [{ stat: 'cardClashWins', delta: 8 }],
-    war: [{ stat: 'warContribution', delta: 8000 }],
+    war: [{ stat: 'warContribution', delta: 4500 }],
     mythic: [{ stat: 'missionCompletions', delta: 12 }, { stat: 'pvpWins', delta: 6 }],
 };
 const RARITY_FACTOR = { basic: 1, rare: 1.75, legendary: 3, mythic: 4.5 };

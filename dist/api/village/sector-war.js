@@ -309,7 +309,10 @@ async function doResolve(req, res, identity, playerName, body) {
     if ((0, _legacy_track_js_1.legacyEnabled)() && winnerName) {
         await (0, _legacy_track_js_1.bumpLegacyStats)(winnerName, {
             warPvpKills: 1,
-            warContribution: Math.max(0, Math.floor(Number(result.outcome.hpDealt) || 0)),
+            // Flat war-contribution points per validated war battle (control-HP
+            // swings are tiny numbers — using them raw made every
+            // warContribution floor unreachable; verification finding).
+            warContribution: 2000,
             ...(attackerWon && result.outcome.captured ? { sectorCaptures: 1 } : {}),
             ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
         });

@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL } from './_daily-login.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, reconcileLegacyStatsFromSave } from '../_legacy-track.js';
 
 /*
  * /api/player/daily-login — POST only
@@ -90,9 +90,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
 
         // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
-        // (already once-per-UTC-day by the alreadyClaimed gate above).
+        // (already once-per-UTC-day by the alreadyClaimed gate above), plus the
+        // daily capped reconcile of client-tracked progression counters.
         if (!out.alreadyClaimed) {
             await bumpLegacyStats(playerName, { villageTenureDays: 1 });
+            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            await reconcileLegacyStatsFromSave(playerName, (rec?.character ?? null) as Record<string, unknown> | null);
         }
 
         return res.status(200).json({

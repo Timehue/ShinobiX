@@ -7,6 +7,7 @@ const _auth_js_1 = require("./_auth.js");
 const _lock_js_1 = require("./_lock.js");
 const _xp_engine_js_1 = require("./_xp-engine.js");
 const _save_version_js_1 = require("./save/_save-version.js");
+const _legacy_track_js_1 = require("./_legacy-track.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -273,8 +274,20 @@ async function distributeRewardsIfExpired(boss) {
                     throw creditErr;
                 }
             });
-            if (did)
+            if (did) {
                 newlyCredited.push(entry.name);
+                // Legacy tracking (ENABLE_LEGACY): the weekly boss is the live
+                // source for boss/event legacy proof — contribution damage,
+                // top-10 placements, event participation, and (for the MVP) a
+                // server-history first-clear. Rides the exactly-once receipt
+                // above; best-effort by design.
+                await (0, _legacy_track_js_1.bumpLegacyStats)(entry.name, {
+                    bossContribution: Math.max(0, Math.floor(entry.damage ?? 0)),
+                    eventCompletions: 1,
+                    ...(entry.rank <= 10 ? { weeklyBossTop10: 1, eliteKills: 5 } : {}),
+                    ...(entry.isMvp ? { firstClears: 1 } : {}),
+                });
+            }
         }
         catch (err) {
             // Leave this player OUT of creditedPlayers so a later run retries.
