@@ -12,6 +12,7 @@
 import type { OnlinePlayer } from './types.js';
 import { sanitizeUserText, hasReservedTitleTerm, TEXT_LIMITS } from '../_text-moderation.js';
 import { TITLE_STYLE_IDS, TITLE_ICON_SET } from '../_titles-registry.js';
+import { LEGACY_BY_ID } from '../_legacy-defs.js';
 
 // Max time the client can claim to be traveling (10 min). Caps an exploited
 // travelingUntil that would make a player permanently unreachable.
@@ -54,7 +55,7 @@ export function capTravelingUntil(travelingUntil: number | undefined, now: numbe
 // battle or PvP behavior.
 const PRESENCE_CHAR_KEEP = new Set<string>([
     'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
-    'customTitleStyle', 'customTitleIcon',
+    'customTitleStyle', 'customTitleIcon', 'legacy',
     'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
     'clan', 'clanFounder', 'hp', 'maxHp',
 ]);
@@ -94,6 +95,25 @@ export function slimPresenceCharacter(input: unknown): Record<string, unknown> |
     }
     if ('customTitleIcon' in out && (typeof out.customTitleIcon !== 'string' || !TITLE_ICON_SET.has(out.customTitleIcon))) {
         delete out.customTitleIcon;
+    }
+    // Legacy prestige chip (roster/UserView). Projected down to the two display
+    // fields, gated on the server flag (nobody can broadcast a legacy while the
+    // system is off), and the id validated against the real roster; display-
+    // only, same client-claim trust level as presence level/rank/customTitle —
+    // the SAVE copy (server-owned, sanitizer-reinjected) stays the source of
+    // truth everywhere it matters. Env read inline: importing legacyEnabled()
+    // would pull the KV layer into this pure, hot-path module.
+    if ('legacy' in out) {
+        const lg = out.legacy as Record<string, unknown> | null;
+        const stage = Number(lg?.stage);
+        if (process.env.ENABLE_LEGACY === '1'
+            && lg && typeof lg === 'object'
+            && typeof lg.legacyId === 'string' && LEGACY_BY_ID.has(lg.legacyId)
+            && Number.isInteger(stage) && stage >= 1 && stage <= 5) {
+            out.legacy = { legacyId: lg.legacyId, stage };
+        } else {
+            delete out.legacy;
+        }
     }
     if (Array.isArray(src.pets)) {
         out.pets = src.pets.map((p) => {

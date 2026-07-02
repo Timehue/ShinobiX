@@ -29,6 +29,7 @@ import { postClaimMission, applyServerMissionReward, claimReasonMessage } from "
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
 import { WANDERER_QUEST_CATALOG, questMetricForId } from "../lib/wanderers";
+import { emissaryQuestById } from "../lib/legacy-emissaries";
 
 // Inline glyph that prefixes a tab/heading/button label — seated on the text baseline.
 const MH_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -140,7 +141,10 @@ export function Missions({
     const wanderEpicEntry = wanderEpic ? questbookEntry(wanderEpic.id) : null;
     const wanderEpicStage = wanderEpic && wanderEpicEntry ? questbookStage(wanderEpic.id, wanderEpic.stage) : null;
     const wanderBounty = character.activeWandererQuest ?? null;
-    const wanderBountyDef = wanderBounty ? WANDERER_QUEST_CATALOG.find((q) => q.id === wanderBounty.id) : null;
+    // Emissary errands (eq-*) share the bounty slot — resolve their catalog first.
+    const wanderBountyDef = wanderBounty
+        ? (emissaryQuestById(wanderBounty.id) ?? WANDERER_QUEST_CATALOG.find((q) => q.id === wanderBounty.id) ?? null)
+        : null;
     const hasWanderingQuest = !!(wanderEpicEntry || wanderBounty);
 
     return (
@@ -371,7 +375,7 @@ export function Missions({
                 })()}
 
                 {wanderBounty && (() => {
-                    const metric = questMetricForId(wanderBounty.id);
+                    const metric = emissaryQuestById(wanderBounty.id)?.metric ?? questMetricForId(wanderBounty.id);
                     const got = Math.max(0, ((character[metric] as number | undefined) ?? 0) - wanderBounty.baseline);
                     const done = got >= wanderBounty.target;
                     const pct = Math.min(100, (Math.min(got, wanderBounty.target) / Math.max(1, wanderBounty.target)) * 100);

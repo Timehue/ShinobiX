@@ -16,8 +16,13 @@
  * See also docs/sector-wanderers-content.md for the written character voice.
  */
 
-export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel" | "quest";
-export type WandererArchetypeId = "bandit" | "gambler" | "pilgrim" | "beast" | "sage" | "wanderingSage";
+export type WandererVerb = "attack" | "gift" | "gamble" | "petDuel" | "quest" | "legacyQuest";
+export type WandererArchetypeId =
+    | "bandit" | "gambler" | "pilgrim" | "beast" | "sage" | "wanderingSage"
+    // The eight Legacy Emissaries (lib/legacy-emissaries.ts) — weight-0 like the
+    // Sage: never rolled into the natural cast, synthed per-player per window.
+    | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
+    | "duel-broker-kesshi" | "hollow-warden" | "lantern-warden-mei" | "mapless-ojii";
 
 export interface Wanderer {
     /** stable within (sector, dayBucket) */
@@ -119,6 +124,18 @@ const ARCHETYPES: Record<WandererArchetypeId, ArchetypeMeta> = {
             "I have watched your path, shinobi.",
         ],
     },
+    // The eight Legacy Emissaries. All weight 0: like the Sage they are synthed
+    // per-player (lib/legacy-emissaries.ts rollEmissarySpawn), never rolled into
+    // the natural cast — these entries exist to satisfy the archetype record;
+    // the synth supplies the real voice/tint from EMISSARY_DEFS.
+    "storm-caller-ryn":   { verb: "legacyQuest", weight: 0, tellTint: "#60a5fa", names: ["Storm-Caller Ryn"],   greetings: ["The clouds told me you were coming."] },
+    "veil-mother-suzu":   { verb: "legacyQuest", weight: 0, tellTint: "#c084fc", names: ["Veil-Mother Suzu"],   greetings: ["Do not mind the moths."] },
+    "iron-pilgrim-daigo": { verb: "legacyQuest", weight: 0, tellTint: "#f59e0b", names: ["Iron Pilgrim Daigo"], greetings: ["Every bead is a fight without a weapon."] },
+    "blade-keeper-hana":  { verb: "legacyQuest", weight: 0, tellTint: "#e2e8f0", names: ["Blade-Keeper Hana"],  greetings: ["The swords are listening."] },
+    "duel-broker-kesshi": { verb: "legacyQuest", weight: 0, tellTint: "#f87171", names: ["Duel-Broker Kesshi"], greetings: ["Everything is a wager."] },
+    "hollow-warden":      { verb: "legacyQuest", weight: 0, tellTint: "#4ade80", names: ["The Hollow Warden"],  greetings: ["Speak softly, or interestingly."] },
+    "lantern-warden-mei": { verb: "legacyQuest", weight: 0, tellTint: "#fbbf24", names: ["Lantern-Warden Mei"], greetings: ["Shield in one hand, lantern in the other."] },
+    "mapless-ojii":       { verb: "legacyQuest", weight: 0, tellTint: "#7be0a3", names: ["Mapless Ojii"],       greetings: ["This map is blank on purpose."] },
 };
 
 const ARCHETYPE_IDS = Object.keys(ARCHETYPES) as WandererArchetypeId[];
