@@ -17,6 +17,7 @@ import { hasActiveBattleLock, hasActiveTowerFight } from "./screen-guards";
 import {
     buildNotifications,
     isBattleOnlyScreen,
+    isBattleViewScreen,
     isLobbyFightScreen,
     type GameNotification,
 } from "./notifications-core";
@@ -79,7 +80,10 @@ export function computeNotifications(ctx: NotifContext): GameNotification[] {
     }
 
     return buildNotifications({
-        inBattle: isInBattle(ctx.screen),
+        // Only a reminder when you've stepped AWAY from a live fight — on the
+        // battle board itself the chip is redundant (you're looking at it) and
+        // just overlaps the field on mobile.
+        inBattle: isInBattle(ctx.screen) && !isBattleViewScreen(ctx.screen),
         clanWar,
         villageWar,
         tournament,

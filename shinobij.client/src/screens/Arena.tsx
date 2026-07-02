@@ -11,7 +11,6 @@ const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
 import type { Character, PlayerRecord } from "../types/character";
-import { gameConfirm } from "../components/GameAlert";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
@@ -23,6 +22,8 @@ import { SparCoach } from "../components/SparCoach";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
+import { BattleTabBar } from "../components/BattleTabBar";
+import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { playPetSfx } from "../lib/pet-sfx";
 import { masteryHasCapstone } from "../lib/profession-mastery";
@@ -35,7 +36,7 @@ import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
-import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
+import { AMP_STATUS_ROUNDS_PVE, HEAL_FLAT_PVE, SHIELD_FLAT_PVE, armorFactorToRawDr, calculateDamage, capWoundStacks, dotMitigationPVE, drainTickPVE, getBloodlineMultiplier, masteryDamageFrac, mergeCombatStatus, multiplicativeTagMultiplier, woundCapForRankPVE } from "../lib/combat-math";
 import { petRankedChallengeEnabled } from "../lib/pet-coliseum-flag";
 import { aiFightServerAuthEnabled } from "../lib/ai-fight-flag";
 import { warCrateServerAuthEnabled } from "../lib/war-crate-flag";
@@ -216,7 +217,7 @@ export function Arena({
         actionNumber: number;
         createdAt: number;
     };
-    type SelectedCombatAction = "move" | "dash" | undefined;
+    type SelectedCombatAction = "move" | undefined;
 
     const gridWidth = 12;
     const gridHeight = 10;
@@ -337,11 +338,6 @@ export function Arena({
     const combatFastRef = useRef(false);
     useEffect(() => { combatFastRef.current = combatFast; }, [combatFast]);
     useEffect(() => { try { setCombatFast(localStorage.getItem("combatFast.v1") === "1"); } catch { /* ignore */ } }, []);
-    const toggleCombatFast = () => setCombatFast((v) => {
-        const next = !v;
-        try { localStorage.setItem("combatFast.v1", next ? "1" : "0"); } catch { /* ignore */ }
-        return next;
-    });
     const combatFxSeq = useRef(0);
     const [combatFx, setCombatFx] = useState<{ id: number; focusPos: number; spec: ReturnType<typeof jutsuVfxBurst>; frames: string[] | null; single: boolean; variant?: string } | null>(null);
     // The currently-playing sprite-sheet FX overlay. Resolved from combatFx in
@@ -637,7 +633,6 @@ export function Arena({
     const isAcademySpar = pendingStoryBattle?.kind === "academySparring";
     const [sparAttacked, setSparAttacked] = useState(false);
     const [sparCasted, setSparCasted] = useState(false);
-    const [dashMode, setDashMode] = useState(false);
     const [hoveredBattleTile, setHoveredBattleTile] = useState<number | null>(null);
 
     const [playerStatuses, setPlayerStatuses] = useState<CombatStatus[]>([]);
@@ -660,6 +655,8 @@ export function Arena({
     const [activeActor, setActiveActor] = useState<BattleActor>(rollInitiative);
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
+    // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
+    const battleTabs = useBattleTabs(battleHistory.length);
     // Keep the PvE battle log pinned to the newest entry (parity with
     // PvpBattleScreen.tsx) — without this the latest action scrolls below the
     // fold in a long fight and the player can't see what just happened.
@@ -800,14 +797,14 @@ export function Arena({
     }
 
     // Cheapest AP cost of ANY action the player could still take this turn —
-    // move/dash, basic attack, an equipped jutsu, or an equipped weapon /
+    // move, basic attack, an equipped jutsu, or an equipped weapon /
     // throwable / consumable. Used to decide whether to auto-pass the turn.
     // MUST include the cheap (20-AP) throwables/consumables: the old auto-pass
     // checked only the 30-AP move cost, so it ended the turn with ~20 AP left
     // even though a 20-AP item/jutsu was still usable.
     function pveMinActionCost(): number {
         const costs = [
-            adjustedApCost(30), // move / dash
+            adjustedApCost(30), // move
             adjustedApCost(40), // basic attack
             ...equippedJutsus.map((j) => adjustedApCost(j.ap ?? 40)),
             // Only items the player can still USE count — a thrown/consumable/
@@ -882,7 +879,6 @@ export function Arena({
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key.toLowerCase() === "m") {
                 setSelectedActionId((current) => current === "move" ? undefined : "move");
-                setDashMode(false);
                 setLog("Move selected. Click an adjacent tile.");
             }
             if (event.key.toLowerCase() === "w") {
@@ -1671,7 +1667,6 @@ export function Arena({
             setPlayerPos(tile);
             setPendingTargetJutsuId("");
             setSelectedActionId(undefined);
-            setDashMode(false);
             setJutsuCooldowns((c) => ({ ...c, [pendingTargetJutsu.id]: pendingTargetJutsu.cooldown }));
 
             updateCharacter({
@@ -1747,36 +1742,6 @@ export function Arena({
         }
 
         const dist = distance(playerPos, tile);
-
-        if (dashMode) {
-            if ((cooldowns.dash ?? 0) > 0) {
-                setDashMode(false);
-                setSelectedActionId(undefined);
-                setLog(`Dash cooldown: ${cooldowns.dash} rounds.`);
-                return;
-            }
-
-            if (dist < 1 || dist > 3) {
-                setLog("Dash can move up to 3 tiles.");
-                return;
-            }
-
-            if (!spendAp(30, "dash")) return;
-
-            if (barrierTiles.some((b) => b.tile === tile)) {
-                setLog("A barrier wall blocks that tile.");
-                return;
-            }
-
-            setPlayerPos(tile);
-            setDashMode(false);
-            setSelectedActionId(undefined);
-            setPendingTargetJutsuId("");
-            setCooldowns((c) => ({ ...c, dash: 2 }));
-            setLog(`Dashed ${dist} tile(s).`);
-            addCombatLog(`${character.name} uses Dash, moving ${dist} tile(s). Dash is on cooldown for 2 rounds.`, "dash", character.name);
-            return;
-        }
 
         if (dist !== 1) {
             setLog("Normal movement is 1 tile at a time.");
@@ -1904,7 +1869,6 @@ export function Arena({
         setPendingTargetJutsuId("");
         setPendingTargetWeaponRaw(null);
         setSelectedActionId(undefined);
-        setDashMode(false);
 
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
             setLog(`${item.name} requires the ${item.weaponElement} element.`);
@@ -2005,7 +1969,7 @@ export function Arena({
             effectLines.push(`Shield: ${character.name} gains ${effectVal} shield.`);
         }
         if (item.weaponEffect === "Wound") {
-            setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]);
+            setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]));
             effectLines.push(`Wound: ${opponentName} takes ${effectVal} damage per round for 2 rounds.`);
         }
         if (item.weaponEffect === "Poison") {
@@ -2041,7 +2005,7 @@ export function Arena({
                     setPlayerHp((hp) => Math.min(character.maxHp, hp + HEAL_FLAT_PVE));
                     effectLines.push(`Heal +${HEAL_FLAT_PVE} HP`);
                 } else if (wt.name === "Wound") {
-                    setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]);
+                    setEnemyStatuses((s) => capWoundStacks([...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]));
                     effectLines.push(`Wound ${p}%`);
                 } else if (wt.name === "Poison") {
                     setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }));
@@ -2058,6 +2022,11 @@ export function Arena({
                 } else if (wt.name === "Increase Damage Given") {
                     setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`+${p}% Damage Given`);
+                } else if (wt.name === "Increase Generals") {
+                    // Self-buff: raises str/spd/int/wil (read by generalsBonusFromStatuses
+                    // in calculateDamage). Mirrors the Increase Damage Given weapon branch.
+                    setPlayerStatuses((s) => [...s, { name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
+                    effectLines.push(`+${p}% General stats`);
                 } else if (wt.name === "Decrease Damage Taken") {
                     setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: AMP_STATUS_ROUNDS_PVE, percent: p, kind: "positive" }]);
                     effectLines.push(`-${p}% Damage Taken`);
@@ -2135,7 +2104,6 @@ export function Arena({
         }
         setPendingTargetJutsuId("");
         setSelectedActionId(undefined);
-        setDashMode(false);
 
         const apCost = item.apCost ?? 35;
         if (!spendAp(apCost, item.id)) return;
@@ -2221,7 +2189,6 @@ export function Arena({
             // Arm for targeting — clear any pending jutsu
             setPendingTargetJutsuIdRaw("");
             setPendingTargetJutsuDirect(null);
-            setDashMode(false);
             setSelectedActionId(undefined);
             setPendingTargetWeaponRaw(item);
             const weapRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
@@ -2286,7 +2253,7 @@ export function Arena({
         if (!spendAp(100, "flee")) return;
 
         const hpCost = Math.max(1, Math.floor(character.maxHp * 0.1));
-        const escaped = Math.random() < 0.2;
+        const escaped = Math.random() < 0.5;
         setPlayerHp((hp) => Math.max(0, hp - hpCost));
 
         if (escaped) {
@@ -2296,26 +2263,9 @@ export function Arena({
             setLog("You escaped the fight.");
             addCombatLog(`${character.name} successfully fled the battle, losing ${hpCost} HP in the retreat.`, "flee", character.name);
         } else {
-            setLog("Flee failed. 20% odds missed.");
+            setLog("Flee failed. 50% odds missed.");
             addCombatLog(`${character.name} tried to flee, lost ${hpCost} HP, but failed.`, "flee", character.name);
         }
-    }
-
-    // Sanctioned exit for the navigation lock: forfeit = an immediate loss.
-    // Mirrors the canonical in-combat defeat (hp:0 / hospitalized, or ranked Elo
-    // loss) and drives the fight into the standard "loss" end-state, so the
-    // existing per-type loss UI (endless run-end, dungeon fail, hospital, …) and
-    // the battleEnded effect (mission-flag clear) take it from there.
-    async function forfeit() {
-        if (battleEnded) return;
-        if (!(await gameConfirm("Forfeit this battle? It counts as a loss.", { danger: true, confirmLabel: "Forfeit" }))) return;
-        setBattleEnded(true);
-        setBattleResult("loss");
-        setRaidBattleKind("none");
-        setLog(`${character.name} forfeited the battle.`);
-        addCombatLog(`${character.name} forfeited the battle — counted as a loss.`, "defeat", character.name);
-        if (rankedBattleActive) applyRankedLoss();
-        else updateCharacter({ ...character, hp: 0, hospitalized: true });
     }
 
     function applyRankedLoss() {
@@ -2410,6 +2360,23 @@ export function Arena({
         // intrinsically zero or only set when opponentCharacter is truthy.
         // Stripped to keep the function honest (a future code change can't
         // resurrect a dead branch and start writing PvP counters by accident).
+        // "Normal battle arena" = a plain practice AI fight — NOT a mission, raid,
+        // hunt (raidAi), or explore ambush (story / PvP / combat-mission already
+        // returned above). Per design these grant NOTHING: no XP, ryo, stats,
+        // currency, items, or kill credit — just end the battle. Progression comes
+        // from missions/hunts/raids + real PvP + training.
+        const isPlainPractice = !missionBattleActive && raidBattleKind === "none" && !exploreAmbushActive;
+        if (isPlainPractice) {
+            updateCharacter({ ...base, hp: playerHp });
+            setBattleEnded(true);
+            setBattleResult("win");
+            setRaidBattleKind("none");
+            setClanWarPointsActive(0);
+            const note = `${opponentName} defeated. Practice bout — no rewards.`;
+            setLog(note);
+            addCombatLog(note);
+            return;
+        }
         const activeTrait = getActivePetTrait(character);
         const xpGain = activeTrait === "Swift" ? 125 : 100;
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
@@ -2539,7 +2506,6 @@ export function Arena({
         }
 
         setSelectedActionId(undefined);
-        setDashMode(false);
 
         // Uniform two-step flow for EVERY jutsu (matches PvP): clicking the card
         // only ARMS it — the cast fires on the follow-up target click. Self-buffs
@@ -2567,7 +2533,6 @@ export function Arena({
         if (needsTargetClick && !targetConfirmed) {
             armPendingTargetJutsu(jutsu);
             setSelectedActionId(undefined);
-            setDashMode(false);
 
             if (moveJutsu) {
                 setLog(`${jutsu.name} selected. Choose an open tile within ${moveJutsuRange(jutsu)} spaces.`);
@@ -2656,7 +2621,7 @@ export function Arena({
         const currentPlayerStatuses = activeStatuses(playerStatuses);
         const currentEnemyStatuses = activeStatuses(enemyStatuses);
         const queuePlayerStatus = (status: CombatStatus) => setPlayerStatuses((s) => mergeCombatStatus(s, statusForJutsu(jutsu, status)));
-        const queueEnemyStatus = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, statusForJutsu(jutsu, status)));
+        const queueEnemyStatus = (status: CombatStatus) => setEnemyStatuses((s) => capWoundStacks(mergeCombatStatus(s, statusForJutsu(jutsu, status))));
         const tagTimingText = bloodlineTagsResolveNextRound(jutsu) ? " starting next round" : "";
         const activeDamageTakenTags = currentEnemyStatuses.filter((s) => s.name === "Increase Damage Taken");
         const activeDamageGivenDebuffs = currentPlayerStatuses.filter((s) => s.name === "Decrease Damage Given");
@@ -2690,6 +2655,18 @@ export function Arena({
                 else {
                     queuePlayerStatus({ name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`Increase Damage Given: ${character.name} deals ${pct}% more ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
+                }
+            }
+
+            // Increase Generals: self-buff to str/spd/int/wil. The stat lift is read from
+            // active stacks by generalsBonusFromStatuses inside calculateDamage, so it
+            // raises the caster's damage dealt AND lowers damage taken. Buff-Prevent-gated
+            // like the other self-buffs; the % is rank-capped via effectiveTagPercent.
+            if (tag.name === "Increase Generals") {
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Generals was prevented`);
+                else {
+                    queuePlayerStatus({ name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
+                    effectLines.push(`Increase Generals: ${character.name}'s general stats rise ${pct}% for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -2737,18 +2714,20 @@ export function Arena({
             }
 
             if (tag.name === "Heal") {
-                // Increase Heal boosts the flat Heal too (matches PvP
-                // api/pvp/move.ts:479 `HEAL_FLAT * healBoost`); was unboosted.
-                const healAmt = Math.floor(HEAL_FLAT_PVE * healMultiplier);
+                // Increase Heal boosts the flat Heal too (matches PvP move.ts
+                // `HEAL_FLAT * healBoost`); ramp by jutsu mastery + hard-cap at
+                // HEAL_FLAT_PVE, identical to the server.
+                const healAmt = Math.min(HEAL_FLAT_PVE, Math.floor(HEAL_FLAT_PVE * masteryDamageFrac(effMasteryLevel) * healMultiplier));
                 healing += healAmt;
                 damage = 0;
                 effectLines.push(`Heal: ${character.name} restores ${healAmt} HP.`);
             }
 
             if (tag.name === "Shield") {
-                shield += SHIELD_FLAT_PVE;
+                const shieldAmt = Math.min(SHIELD_FLAT_PVE, Math.floor(SHIELD_FLAT_PVE * masteryDamageFrac(effMasteryLevel)));
+                shield += shieldAmt;
                 damage = 0;
-                effectLines.push(`Shield: ${character.name} gains ${SHIELD_FLAT_PVE} shield.`);
+                effectLines.push(`Shield: ${character.name} gains ${shieldAmt} shield.`);
             }
 
             if (tag.name === "Barrier") {
@@ -3417,20 +3396,21 @@ export function Arena({
             !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
                 ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 }
                 : status;
-        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
+        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => capWoundStacks(mergeCombatStatus(s, deferEnemyStatus(status))));
         const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => mergeCombatStatus(s, deferEnemyStatus(status)));
 
         jutsu.tags.forEach((tag) => {
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, pveAiMastery);
             if (tag.name === "Heal") {
                 const enemyHealMult = multiplicativeTagMultiplier(activeStatuses(enemyStatuses).filter((s) => s.name === "Increase Heal"), "increase");
-                const healAmt = Math.floor(HEAL_FLAT_PVE * enemyHealMult);
+                const healAmt = Math.min(HEAL_FLAT_PVE, Math.floor(HEAL_FLAT_PVE * masteryDamageFrac(pveAiMastery) * enemyHealMult));
                 healing += healAmt;
                 effectLines.push(`${opponentName} heals ${healAmt} HP`);
             }
             if (tag.name === "Shield") {
-                shield += SHIELD_FLAT_PVE;
-                effectLines.push(`${opponentName} gains ${SHIELD_FLAT_PVE} shield`);
+                const shieldAmt = Math.min(SHIELD_FLAT_PVE, Math.floor(SHIELD_FLAT_PVE * masteryDamageFrac(pveAiMastery)));
+                shield += shieldAmt;
+                effectLines.push(`${opponentName} gains ${shieldAmt} shield`);
             }
             if (tag.name === "Barrier") {
                 const barrierTile = nextStepToward(enemyPos, playerPos);
@@ -3480,6 +3460,13 @@ export function Arena({
                 else {
                     queueToEnemy({ name: "Increase Damage Given", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
                     effectLines.push(`${opponentName} deals ${pct}% more damage for ${AMP_STATUS_ROUNDS_PVE} rounds`);
+                }
+            }
+            if (tag.name === "Increase Generals") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Increase Generals was prevented`);
+                else {
+                    queueToEnemy({ name: "Increase Generals", rounds: AMP_STATUS_ROUNDS_PVE, percent: pct, kind: "positive" });
+                    effectLines.push(`${opponentName}'s general stats rise ${pct}% for ${AMP_STATUS_ROUNDS_PVE} rounds`);
                 }
             }
             if (tag.name === "Decrease Damage Taken") {
@@ -4195,7 +4182,6 @@ export function Arena({
         setJutsuCooldowns({});
         setBattleEnded(false);
         setBattleResult(null);
-        setDashMode(false);
         setSelectedActionId(undefined);
         setPotionUsesThisBattle(0);
         setSummonedPetId("");
@@ -4255,12 +4241,6 @@ export function Arena({
 
                 const isBarrierTile = barrierTiles.some((b) => b.tile === i);
                 const isGroundZoneTile = groundZones.some((z) => z.tiles.includes(i));
-                const canDashHere =
-                    dashMode &&
-                    distance(playerPos, i) <= 3 &&
-                    i !== playerPos &&
-                    i !== enemyPos &&
-                    !isBarrierTile;
                 const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
                 const isMoveAoeAffectedTile = pendingTargetJutsu != null &&
                     isMoveJutsu(pendingTargetJutsu) &&
@@ -4303,7 +4283,6 @@ export function Arena({
                         className={`hex-tile ${i === playerPos ? "hex-player" : ""
                             } ${i === enemyPos ? "hex-enemy" : ""
                             } ${isBarrierTile ? "hex-barrier" : ""
-                            } ${canDashHere ? "dash-target-tile" : ""
                             } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
                             } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
                             } ${(isGroundAffectedTile || isMoveAoeAffectedTile || isGroundZoneTile) ? "ground-affected-tile" : ""
@@ -4333,7 +4312,7 @@ export function Arena({
                 );
             })
         )
-    ), [playerPos, enemyPos, barrierTiles, groundZones, dashMode, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, opponentAvatar, opponentName]);
+    ), [playerPos, enemyPos, barrierTiles, groundZones, pendingTargetJutsu, pendingTargetWeapon, hoveredBattleTile, activeJutsuRangeTiles, activeJutsuAoeTiles, activeWeaponRangeTiles, activeGroundAffectedTiles, character.avatarImage, opponentAvatar, opponentName]);
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
@@ -4821,7 +4800,7 @@ export function Arena({
                     statuses={displayStatuses(playerStatuses)}
                 />
 
-                <main className="combat-main-area">
+                <main className={`combat-main-area bt-${battleTabs.tab}`}>
                     <div className="arena-top-panel">
                         <div className="arena-title-panel">
                             <h2>{biomeLabel(currentBiome)}</h2>
@@ -5023,15 +5002,16 @@ export function Arena({
                         )}
                     </div>
 
+                    <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
+
                     <div className="basic-action-bar shinobi-command-bar">
                         {/* Affordance feedback: each action disables when it can't be
                             taken (not your turn / 5 actions used / not enough AP·SP·CP /
                             on cooldown), mirroring each handler's own guards so a
-                            disabled button can never block a legal action. Wait + Forfeit
-                            stay live (Wait also skips the enemy-turn delay). */}
+                            disabled button can never block a legal action. Wait stays
+                            live (it also skips the enemy-turn delay). */}
                         <button onClick={basicAttack} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || character.stamina < 10 || ap < adjustedApCost(40)}><span>Attack</span><small>40 AP | 10 SP</small></button>
-                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setDashMode(false); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
-                        <button className={dashMode || selectedActionId === "dash" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "dash" ? undefined : "dash"); setDashMode((current) => !current); setLog("Dash selected. Click a tile within 3 spaces."); }}><span>Dash</span><small>3 tiles | {adjustedApCost(30)} AP | CD {cooldowns.dash ?? 0}</small></button>
+                        <button className={selectedActionId === "move" ? "selected-action" : ""} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(30)} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
                         <button onClick={basicHeal} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.basicHeal ?? 0) > 0 || character.chakra < 10 || ap < adjustedApCost(60)}><span>Heal</span><small>60 AP | 10 CP | CD {cooldowns.basicHeal ?? 0}</small></button>
                         <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
@@ -5041,10 +5021,8 @@ export function Arena({
                                 <small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
                             </button>
                         )}
-                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 20%</small></button>
-                        {!isAcademySpar && <button onClick={forfeit} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}><span>Forfeit</span><small>Take the loss</small></button>}
+                        <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 50%</small></button>
                         <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
-                        <button onClick={toggleCombatFast} className={combatFast ? "selected-action" : ""} title="Toggle battle speed (remembered)"><span>{combatFast ? "Fast ⏩" : "Speed"}</span><small>{combatFast ? "Fast battles" : "Normal"}</small></button>
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
