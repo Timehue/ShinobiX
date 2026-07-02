@@ -26,7 +26,6 @@ import {
 
 export const ERA_STATE_KEY = 'game:era-state';
 const contribKey = (m: EraMetric) => `era:contrib:${m}`;
-const unlockedNxKey = (id: string) => `era:unlocked:${id}`;
 const triggerKey = (id: string) => `era:trigger:${id}`;
 
 export type EraOverride = {
@@ -149,8 +148,13 @@ export async function recordEraTrigger(
 ): Promise<void> {
     if (!legacyEnabled()) return;
     try {
+        const state = await getEraState();
         for (const def of ERA_DEFS) {
             if (def.trigger?.kind !== kind) continue;
+            // Only bank a trigger while the era is actually running its
+            // milestone phase — a locked / admin_available / already-unlocked
+            // era must not claim its once-ever finisher (verification finding).
+            if (effectiveStatus(def, state.overrides[def.id]) !== 'milestone_active') continue;
             await kv.set(triggerKey(def.id), { player: credited.player, village: credited.village, ts: Date.now() } satisfies EraTriggerRecord, { nx: true });
             await checkEraUnlocks();
         }
@@ -181,78 +185,126 @@ export async function checkEraUnlocks(): Promise<string[]> {
             const did = await unlockEra(def, credited, 'milestone');
             if (did) unlocked.push(def.id);
         }
+        // Recovery sweep: finish side effects for any gated era that is
+        // unlocked but whose effects didn't complete (e.g. a crash between the
+        // state flip and the announcement). Idempotent — no-op once done.
+        for (const def of ERA_DEFS) {
+            if (!isGatedEra(def)) continue;
+            if (effectiveStatus(def, state.overrides[def.id]) !== 'unlocked') continue;
+            if (await kv.get(effectsDoneKey(def.id))) continue;
+            await completeEraEffects(def);
+        }
     } catch (err) {
         console.error('[era] unlock check failed:', err instanceof Error ? err.message : err);
     }
     return unlocked;
 }
 
-/** The unlock transaction. Returns true only for the run that actually flips it.
- *  Order matters (same lesson as the Sage accept fix): the STATE write commits
- *  first under the fail-closed lock — it is the source of truth and is
- *  repairable by retry. The NX marker guards only the once-ever side effects
- *  (announcement/hall/title), so a crash between the two can never leave the
- *  era half-unlocked, and an admin later cycling the status back to
- *  milestone_active can't re-announce world history. */
+const effectsDoneKey = (id: string) => `era:effects-done:${id}`;
+const announcedNxKey = (id: string) => `era:announced:${id}`;
+
+/** Only eras with milestones or a credited trigger emit world-history side
+ *  effects. Launch eras (I–IV: no milestones, no trigger, initialStatus
+ *  'unlocked') are history that already happened — force-unlocking them must
+ *  never broadcast breaking mythic news (verification finding). */
+function isGatedEra(def: EraDef): boolean {
+    return def.milestones.length > 0 || !!def.trigger;
+}
+
+/**
+ * Flip an era to unlocked and drive its once-ever side effects to completion.
+ * The STATE flip is idempotent and PRESERVES existing credit (an admin cycling
+ * the status can't overwrite unlockedBy/At). The side effects
+ * (announce/hall/title) are each individually idempotent and driven by a
+ * separate `era:effects-done:<id>` marker — so a crash after the flip is fully
+ * recovered by ANY later call (the nightly pass sweeps unlocked-but-incomplete
+ * eras), closing the "stranded announcement" window. Returns true when this
+ * call performed the state transition.
+ */
 export async function unlockEra(
     def: EraDef,
     credited: EraTriggerRecord | null,
-    source: 'milestone' | 'admin',
+    _source: 'milestone' | 'admin',
 ): Promise<boolean> {
     const now = Date.now();
-    let flipped = false;
+    let transitioned = false;
     await withKvLock(ERA_STATE_KEY, async () => {
         const state = await getEraState();
-        if (state.overrides[def.id]?.status === 'unlocked') return;
+        const override = state.overrides[def.id];
+        // Guard on EFFECTIVE status: a launch-unlocked era (I–IV) has no
+        // override but is already 'unlocked', so force-unlocking it is a no-op.
+        if (effectiveStatus(def, override) === 'unlocked') return;
         state.overrides[def.id] = {
-            ...state.overrides[def.id],
+            ...override,
             status: 'unlocked',
-            unlockedBy: credited?.player ?? null,
-            unlockedVillage: credited?.village ?? null,
-            unlockedAt: now,
+            // Preserve any credit already recorded; only fill it in on the
+            // genuine first unlock.
+            unlockedBy: override?.unlockedBy ?? credited?.player ?? null,
+            unlockedVillage: override?.unlockedVillage ?? credited?.village ?? null,
+            unlockedAt: override?.unlockedAt ?? now,
         };
         await kv.set(ERA_STATE_KEY, state);
-        flipped = true;
+        transitioned = true;
     }, { failClosed: true });
-    if (!flipped) return false;
 
-    const claimed = await kv.set(unlockedNxKey(def.id), { ts: now, source }, { nx: true });
-    if (claimed !== 'OK') return true; // state repaired; history already written
+    if (!isGatedEra(def)) return transitioned; // launch era: no side effects, ever
+    await completeEraEffects(def);
+    return transitioned;
+}
 
+/** Idempotently finish an unlocked era's side effects. Safe to call repeatedly
+ *  (each effect self-guards); the daily pass calls it for any unlocked-but-
+ *  incomplete gated era, so nothing stays half-unlocked. */
+export async function completeEraEffects(def: EraDef): Promise<boolean> {
+    if (await kv.get(effectsDoneKey(def.id))) return false;
+    const state = await getEraState();
+    const override = state.overrides[def.id];
+    if (effectiveStatus(def, override) !== 'unlocked') return false;
+
+    const player = override?.unlockedBy ?? undefined;
+    const village = override?.unlockedVillage ?? undefined;
     const message = def.unlockMessage
-        .replace('{player}', credited?.player ?? 'the shinobi of the world')
-        .replace('{village}', credited?.village ?? 'every village');
-    await announce({
-        type: 'era_unlock', importance: 'mythic',
-        title: def.unlockTitle, message,
-        player: credited?.player, village: credited?.village,
-        meta: { eraId: def.id, source },
-    });
+        .replace('{player}', player ?? 'the shinobi of the world')
+        .replace('{village}', village ?? 'every village');
+
+    // Announce once (NX-guarded so a retry after a crash never double-posts).
+    if ((await kv.set(announcedNxKey(def.id), '1', { nx: true })) === 'OK') {
+        await announce({
+            type: 'era_unlock', importance: 'mythic',
+            title: def.unlockTitle, message,
+            player, village, meta: { eraId: def.id },
+        });
+    }
+    // Permanent Hall entry (own NX via nxKey).
     await addHallEntry({
-        entryType: 'era_unlock',
-        title: def.name,
-        description: message,
-        player: credited?.player, village: credited?.village,
-        meta: { eraId: def.id },
+        entryType: 'era_unlock', title: def.name, description: message,
+        player, village, meta: { eraId: def.id },
     }, { nxKey: `era:${def.id}` });
 
-    // Grant the credited finisher their era title (best-effort, save-locked).
-    if (credited?.player && def.trigger?.title) {
+    // Grant the credited finisher their era title (serverTitles = the
+    // server-owned ownership source; idempotent includes-check).
+    if (player && def.trigger?.title) {
         try {
-            await withKvLock(`save:${credited.player}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${credited.player}`);
+            await withKvLock(`save:${player}`, async () => {
+                const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return;
                 const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
-                if (earned.includes(def.trigger!.title)) return;
-                const updated = { ...char, earnedTitles: [...earned, def.trigger!.title] };
-                await kv.set(`save:${credited.player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                const server = Array.isArray(char.serverTitles) ? (char.serverTitles as string[]) : [];
+                if (server.includes(def.trigger!.title)) return;
+                const updated = {
+                    ...char,
+                    serverTitles: [...server, def.trigger!.title],
+                    earnedTitles: earned.includes(def.trigger!.title) ? earned : [...earned, def.trigger!.title],
+                };
+                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
             });
         } catch (err) {
             console.error('[era] title grant failed:', err instanceof Error ? err.message : err);
         }
     }
-    console.log(`[era] UNLOCKED ${def.id} (${source})${credited ? ` credited to ${credited.player}` : ''}`);
+    await kv.set(effectsDoneKey(def.id), true);
+    console.log(`[era] side effects complete for ${def.id}${player ? ` (credited ${player})` : ''}`);
     return true;
 }
 

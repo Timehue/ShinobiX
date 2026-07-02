@@ -18,7 +18,7 @@ test('repeat-kill decay: 1st and 2nd full, 3rd half, 4th quarter, then zero', ()
     assert.ok(LEVEL_GAP_ZERO >= 10);
 });
 
-test('win-trading ring detection: rotations trip it, honest diversity does not', () => {
+test('win-trading ring detection: rotations + single-target dominance trip it', () => {
     // A→B→C→A rotation across 12 wins: only 3 distinct victims.
     const ring = Array.from({ length: 12 }, (_, i) => ['bob', 'carl', 'dana'][i % 3]);
     assert.equal(isWinTradingRing(ring), true);
@@ -27,8 +27,12 @@ test('win-trading ring detection: rotations trip it, honest diversity does not',
     assert.equal(isWinTradingRing(honest), false);
     // Too few wins to judge — never flags early.
     assert.equal(isWinTradingRing(ring.slice(0, RING_MIN_WINS - 1)), false);
-    // Borderline: 4 distinct in the window stays clean.
-    assert.equal(isWinTradingRing(['a', 'b', 'c', 'd', 'a', 'b', 'c', 'd', 'a', 'b', 'c', 'd']), false);
+    // 4 distinct but ONE target dominates the window (farm F + 3 throwaways):
+    // dominance rule catches it even though distinct-count is 4.
+    const dominated = ['F', 'x', 'F', 'y', 'F', 'z', 'F', 'x', 'F', 'y', 'F', 'z']; // F = 6/12
+    assert.equal(isWinTradingRing(dominated), true);
+    // Genuinely diverse 4-target window (no single dominator) stays clean.
+    assert.equal(isWinTradingRing(['a', 'b', 'c', 'd', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']), false);
 });
 
 test('bootstrap seeds from save counters with plausibility caps', () => {

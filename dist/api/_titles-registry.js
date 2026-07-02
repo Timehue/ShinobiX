@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CUSTOM_TITLE_LOG_KEY = exports.LEGACY_ONLY_TITLES = exports.KNOWN_EARNED_TITLES = exports.ACHIEVEMENT_TITLES = void 0;
+exports.CUSTOM_TITLE_LOG_KEY = exports.ERA_TRIGGER_TITLES = exports.LEGACY_ONLY_TITLES = exports.KNOWN_EARNED_TITLES = exports.ACHIEVEMENT_TITLES = void 0;
+exports.normalizeTitleKey = normalizeTitleKey;
 exports.isKnownEarnedTitle = isKnownEarnedTitle;
+exports.isServerCreditedTitle = isServerCreditedTitle;
 exports.isLegacyOnlyTitle = isLegacyOnlyTitle;
 exports.appendCustomTitleLog = appendCustomTitleLog;
 /*
@@ -61,11 +63,27 @@ exports.KNOWN_EARNED_TITLES = new Set([
  * exactly the impersonation the handoff forbids.
  */
 exports.LEGACY_ONLY_TITLES = new Set(_legacy_defs_js_1.LEGACY_DEFS.map((d) => d.title.toLowerCase()));
+/** Era trigger titles ("Herald of the Mythic Age") are server-credited
+ *  once-ever rewards — like legacy titles they must NOT be verifiable against
+ *  the client-writable earnedTitles. They live in the server-owned title vault
+ *  (character.serverTitles), which the save sanitizer re-injects. */
+exports.ERA_TRIGGER_TITLES = new Set(_era_defs_js_1.ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title.toLowerCase()] : [])));
+/** Normalize a title for comparison: collapse internal whitespace + lowercase
+ *  so "Moonlit  Ghost" can't wear a pixel-identical unowned title. */
+function normalizeTitleKey(text) {
+    return text.trim().replace(/\s+/g, ' ').toLowerCase();
+}
 function isKnownEarnedTitle(text) {
-    return exports.KNOWN_EARNED_TITLES.has(text.trim().toLowerCase());
+    return exports.KNOWN_EARNED_TITLES.has(normalizeTitleKey(text));
+}
+/** Server-credited titles that require the strict (server-owned) ownership
+ *  source rather than client-writable earnedTitles. */
+function isServerCreditedTitle(text) {
+    const key = normalizeTitleKey(text);
+    return exports.LEGACY_ONLY_TITLES.has(key) || exports.ERA_TRIGGER_TITLES.has(key);
 }
 function isLegacyOnlyTitle(text) {
-    return exports.LEGACY_ONLY_TITLES.has(text.trim().toLowerCase());
+    return exports.LEGACY_ONLY_TITLES.has(normalizeTitleKey(text));
 }
 exports.CUSTOM_TITLE_LOG_KEY = 'titles:custom-log';
 const CUSTOM_TITLE_LOG_CAP = 200;

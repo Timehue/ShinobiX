@@ -61,12 +61,33 @@ export const LEGACY_ONLY_TITLES: ReadonlySet<string> = new Set(
     LEGACY_DEFS.map((d) => d.title.toLowerCase()),
 );
 
+/** Era trigger titles ("Herald of the Mythic Age") are server-credited
+ *  once-ever rewards — like legacy titles they must NOT be verifiable against
+ *  the client-writable earnedTitles. They live in the server-owned title vault
+ *  (character.serverTitles), which the save sanitizer re-injects. */
+export const ERA_TRIGGER_TITLES: ReadonlySet<string> = new Set(
+    ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title.toLowerCase()] : [])),
+);
+
+/** Normalize a title for comparison: collapse internal whitespace + lowercase
+ *  so "Moonlit  Ghost" can't wear a pixel-identical unowned title. */
+export function normalizeTitleKey(text: string): string {
+    return text.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 export function isKnownEarnedTitle(text: string): boolean {
-    return KNOWN_EARNED_TITLES.has(text.trim().toLowerCase());
+    return KNOWN_EARNED_TITLES.has(normalizeTitleKey(text));
+}
+
+/** Server-credited titles that require the strict (server-owned) ownership
+ *  source rather than client-writable earnedTitles. */
+export function isServerCreditedTitle(text: string): boolean {
+    const key = normalizeTitleKey(text);
+    return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key);
 }
 
 export function isLegacyOnlyTitle(text: string): boolean {
-    return LEGACY_ONLY_TITLES.has(text.trim().toLowerCase());
+    return LEGACY_ONLY_TITLES.has(normalizeTitleKey(text));
 }
 
 // ─── Custom-title review log ────────────────────────────────────────────────

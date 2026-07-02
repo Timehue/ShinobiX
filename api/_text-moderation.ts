@@ -75,8 +75,16 @@ const LEET_MAP: Readonly<Record<string, string>> = {
 // works for plain text (which needs whitespace preserved) while the
 // whitespace-separation bypass also gets caught.
 function leetCollapse(text: string): string {
+    // NFKD-fold accents/diacritics ("Ádmín" → "admin") and drop zero-width /
+    // joiner / bidi characters ("Ad​min" → "admin") BEFORE mapping, so
+    // homoglyph and invisible-character evasion collapses to the canonical
+    // form the blocklist / reserved-term scan uses.
+    const normalized = text
+        .normalize('NFKD')
+        .replace(/[̀-ͯ]/g, '')          // combining diacritics
+        .replace(/[​-‏‪-‮⁠﻿­]/g, ''); // zero-width / bidi / soft hyphen
     let out = '';
-    for (const ch of text.toLowerCase()) {
+    for (const ch of normalized.toLowerCase()) {
         out += LEET_MAP[ch] ?? ch;
     }
     // Aggressive repeat collapse — squash any run of the same char to 1.
@@ -191,13 +199,17 @@ export function isCleanText(input: unknown): boolean {
 // ownership against server-trusted grants via api/_titles-registry.ts).
 
 /** Authority / impersonation / system terms banned inside custom titles.
- *  Matched leetspeak-collapsed with word boundaries, same as the blocklist. */
+ *  Matched leetspeak-collapsed with word boundaries, same as the blocklist.
+ *  Deliberately does NOT include bare game-vocabulary tokens that collide with
+ *  legitimate titles — "kage" (villages have Kages), "mod"/"dev"/"gm"/"system"/
+ *  "server" as standalone words — only full impersonation phrases. "Kage" as an
+ *  EARNED rank is protected separately via the earned-title ownership check. */
 export const RESERVED_TITLE_TERMS: readonly string[] = [
-    'admin', 'administrator', 'moderator', 'mod', 'owner', 'developer', 'dev',
-    'gm', 'staff', 'official', 'support', 'system', 'server',
-    'kage', 'hokage', 'kazekage', 'raikage', 'mizukage', 'tsuchikage',
-    'server first', 'world first', 'first to', 'hall of legends',
-    'event winner', 'gamemaster', 'game master', 'anthropic',
+    'admin', 'administrator', 'moderator', 'owner', 'developer',
+    'staff', 'official', 'game master', 'gamemaster',
+    'hokage', 'kazekage', 'raikage', 'mizukage', 'tsuchikage',
+    'server first', 'world first', 'hall of legends',
+    'anthropic', 'system message', 'game master',
 ];
 
 const COLLAPSED_RESERVED = RESERVED_TITLE_TERMS.map((t) => leetCollapseStripSpace(t));

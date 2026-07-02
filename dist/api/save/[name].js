@@ -13,6 +13,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _clan_save_validate_js_1 = require("../_clan-save-validate.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
 const _titles_registry_js_1 = require("../_titles-registry.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 const _tags_js_1 = require("../pvp/_tags.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _mission_catalog_js_1 = require("../missions/_mission-catalog.js");
@@ -293,30 +294,62 @@ function sanitizeCharacterSave(incoming, existing) {
     //    plus earnedTitles (achievement grants, same trust level as
     //    achievements themselves).
     if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
+        // OLD behavior (always, every build): profanity mask + length cap.
         const masked = (0, _text_moderation_js_1.sanitizeUserText)(char.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
-        if ((0, _titles_registry_js_1.isKnownEarnedTitle)(masked)) {
-            const storedLegacy = existing?.character?.legacy;
-            const legacyOwned = new Set((Array.isArray(storedLegacy?.titles) ? storedLegacy.titles : []).map((t) => String(t).toLowerCase()));
-            const wanted = masked.trim().toLowerCase();
-            if ((0, _titles_registry_js_1.isLegacyOnlyTitle)(masked)) {
-                // Legacy titles: STRICT — only the server-owned stored
-                // legacy.titles counts (earnedTitles is client-writable and
-                // would allow self-granting "Moonlit Ghost" etc.).
-                char.customTitle = legacyOwned.has(wanted) ? masked : '';
+        const storedTitle = String(existing?.character?.customTitle ?? '');
+        // NEW moderation (reserved terms + earned-title ownership) applies ONLY
+        // when the Legacy system is live AND the title actually CHANGED. This
+        // keeps flag-off behavior byte-identical, and — critically — never
+        // re-confiscates a title a player already wears (an existing, unchanged
+        // "Kage Slayer" is not re-evaluated). Verification finding.
+        if ((0, _legacy_track_js_1.legacyEnabled)() && masked !== storedTitle) {
+            const norm = (0, _titles_registry_js_1.normalizeTitleKey)(masked);
+            if ((0, _titles_registry_js_1.isKnownEarnedTitle)(masked)) {
+                const storedLegacy = existing?.character?.legacy;
+                const storedServer = existing?.character?.serverTitles;
+                // Server-owned ownership: stored legacy.titles ∪ serverTitles
+                // (both re-injected by this sanitizer, never client-mutable).
+                const serverOwned = new Set([
+                    ...(Array.isArray(storedLegacy?.titles) ? storedLegacy.titles : []),
+                    ...(Array.isArray(storedServer) ? storedServer : []),
+                ].map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))));
+                if ((0, _titles_registry_js_1.isServerCreditedTitle)(masked)) {
+                    // Legacy + era titles: STRICT server-owned check only —
+                    // earnedTitles is client-writable and would self-grant.
+                    char.customTitle = serverOwned.has(norm) ? masked : '';
+                }
+                else {
+                    // Achievement titles: earnedTitles is acceptable (same
+                    // client-trust level as the achievements that grant them).
+                    const owned = new Set([
+                        ...(Array.isArray(char.earnedTitles) ? char.earnedTitles : []).map((t) => (0, _titles_registry_js_1.normalizeTitleKey)(String(t))),
+                        ...serverOwned,
+                    ]);
+                    char.customTitle = owned.has(norm) ? masked : '';
+                }
             }
             else {
-                // Achievement/era titles: earnedTitles is acceptable (same
-                // client-trust level as the achievements that grant them).
-                const owned = new Set([
-                    ...(Array.isArray(char.earnedTitles) ? char.earnedTitles : []).map((t) => String(t).toLowerCase()),
-                    ...legacyOwned,
-                ]);
-                char.customTitle = owned.has(wanted) ? masked : '';
+                char.customTitle = (0, _text_moderation_js_1.isAllowedCustomTitle)(masked) ? masked : '';
             }
         }
         else {
-            char.customTitle = (0, _text_moderation_js_1.isAllowedCustomTitle)(masked) ? masked : '';
+            char.customTitle = masked;
         }
+    }
+    else if (char.customTitle !== undefined && typeof char.customTitle !== 'string') {
+        // Non-string tamper (array/object) would skip the whole gate above and
+        // render raw client-controlled content — clear it. Verification finding.
+        char.customTitle = '';
+    }
+    // Server-owned title vault (era Herald + any future server grant). Like
+    // character.legacy, the STORED copy always wins so a tampered save can't
+    // self-grant one; unlockEra (api/_era.ts) is the only writer.
+    {
+        const exServer = existing?.character?.serverTitles;
+        if (Array.isArray(exServer))
+            char.serverTitles = exServer;
+        else
+            delete char.serverTitles;
     }
     // ── Legacy (server-owned) ───────────────────────────────────────
     // character.legacy is written ONLY by the server (api/legacy/sage.ts /
@@ -1661,7 +1694,8 @@ async function handler(req, res) {
                         // Custom-title review log (§11.4): every NEW free-text
                         // title a save adopts is recorded for post-hoc admin
                         // review + revoke. Fire-and-forget; earned titles skipped.
-                        if (!isClanSave && identityName) {
+                        // Gated on the Legacy flag so flag-off writes no new KV.
+                        if ((0, _legacy_track_js_1.legacyEnabled)() && !isClanSave && identityName) {
                             const exTitle = String(existing?.character?.customTitle ?? '');
                             const inTitle = String(safeIncoming.character?.customTitle ?? '');
                             if (inTitle && inTitle !== exTitle && !(0, _titles_registry_js_1.isKnownEarnedTitle)(inTitle)) {
