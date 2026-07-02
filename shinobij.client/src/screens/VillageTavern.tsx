@@ -3,16 +3,21 @@ import {
     type Character,
     type TavernMessage,
 } from "../App";
-import { titleStyleColor } from "../lib/legacy";
+import { titleStyleColor, RARITY_COLORS, type LegacyRarity } from "../lib/legacy";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
-// cosmetics derived from the author's save, and the server-authored `system`
-// flag on World Herald announcement lines (never settable by players).
+// cosmetics + legacy prestige derived from the author's save, and the
+// server-authored `system` flag on World Herald lines (never settable by
+// players).
 type TavernMsg = TavernMessage & {
     customTitleStyle?: string;
     customTitleIcon?: string;
+    legacyStage?: number;
+    legacyRarity?: string;
     system?: boolean;
 };
+
+const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
 
 export
 function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { character: Character; onBack: () => void; sharedImages: Record<string, string>; onViewProfile?: (name: string) => void }) {
@@ -173,6 +178,12 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile }: { cha
                                         <span className="tavern-custom-title" style={m.customTitleStyle ? { color: titleStyleColor(m.customTitleStyle) } : undefined}>
                                             «{m.customTitleIcon ? `${m.customTitleIcon} ` : ""}{m.customTitle}»
                                         </span>
+                                    )}
+                                    {(m.legacyStage ?? 0) >= 2 && (
+                                        <span
+                                            title={`Legacy — Stage ${STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}`}
+                                            style={{ fontSize: ".68rem", fontWeight: 800, color: RARITY_COLORS[(m.legacyRarity as LegacyRarity)] ?? "#c084fc" }}
+                                        >★{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
                                     )}
                                     {m.rank && <span className="tavern-rank">{m.rank}</span>}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>

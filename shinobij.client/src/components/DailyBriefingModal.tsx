@@ -31,7 +31,7 @@ import { useSharedNow } from "../lib/use-shared-now";
 import { petDisplayName } from "../lib/pet";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
-import { fetchAnnouncements, isLegacyEnabled, type AnnouncementView } from "../lib/legacy";
+import { fetchAnnouncements, fetchEras, isLegacyEnabled, type AnnouncementView, type EraView } from "../lib/legacy";
 import { loadVillageState } from "../lib/world-state";
 import {
     buildRecommendations,
@@ -83,12 +83,19 @@ export function DailyBriefingModal({
     // briefing (handoff §Server Announcements: "Login news panel"). Empty and
     // invisible while the server flag is off (endpoint returns []).
     const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
+    // Era V server-effort strip: world events live or die on ambient
+    // visibility (depth-audit finding) — one line of collective progress.
+    const [activeEra, setActiveEra] = useState<EraView | null>(null);
     useEffect(() => {
         if (!shouldShow || !isLegacyEnabled()) return;
         let alive = true;
         void fetchAnnouncements(15).then((r) => {
             if (!alive || !r) return;
             setWorldNews(r.announcements.filter((a) => a.importance === "high" || a.importance === "mythic").slice(0, 4));
+        });
+        void fetchEras().then((r) => {
+            if (!alive || !r) return;
+            setActiveEra(r.eras.find((e) => e.status === "milestone_active" && e.milestones.length > 0) ?? null);
         });
         return () => { alive = false; };
     }, [shouldShow]);
@@ -326,6 +333,34 @@ export function DailyBriefingModal({
                                 </section>
                             </div>
 
+                            {/* ── Era effort strip (server-wide progress at a glance) ── */}
+                            {activeEra && (() => {
+                                const total = activeEra.milestones.reduce((s, m) => s + m.required, 0);
+                                const done = activeEra.milestones.reduce((s, m) => s + Math.min(m.current, m.required), 0);
+                                const pct = Math.min(100, Math.round((done / Math.max(1, total)) * 100));
+                                const nextUp = activeEra.milestones.find((m) => !m.done);
+                                return (
+                                    <section className="db-section">
+                                        <h3>{activeEra.name}</h3>
+                                        <button
+                                            type="button" className="db-war"
+                                            onClick={() => {
+                                                try { window.sessionStorage?.setItem("hall.initialTab", "eras"); } catch { /* best-effort */ }
+                                                go("hallOfLegends");
+                                            }}
+                                        >
+                                            <span className="db-war-tag db-war-clan">{pct}%</span>
+                                            <span className="db-war-vs">The world pushes toward the next age</span>
+                                            <span className="db-war-note">
+                                                {nextUp
+                                                    ? `${nextUp.label}: ${nextUp.current.toLocaleString()} / ${nextUp.required.toLocaleString()} — the world needs you`
+                                                    : "Milestones complete — the final trigger awaits"}
+                                            </span>
+                                        </button>
+                                    </section>
+                                );
+                            })()}
+
                             {/* ── World news (Legacy system: high/mythic moments) ── */}
                             {worldNews.length > 0 && (
                                 <section className="db-section">
@@ -333,7 +368,15 @@ export function DailyBriefingModal({
                                     <ul className="db-wars">
                                         {worldNews.map((n) => (
                                             <li key={n.id}>
-                                                <button type="button" className="db-war" onClick={() => go("hallOfLegends")}>
+                                                <button
+                                                    type="button" className="db-war"
+                                                    onClick={() => {
+                                                        // Land on the News tab, not the Ranked table
+                                                        // (one-shot hint read by HallOfLegends).
+                                                        try { window.sessionStorage?.setItem("hall.initialTab", "news"); } catch { /* best-effort */ }
+                                                        go("hallOfLegends");
+                                                    }}
+                                                >
                                                     <span className={`db-war-tag db-war-${n.importance === "mythic" ? "clan" : "village"}`}>
                                                         {n.importance === "mythic" ? "Mythic" : "News"}
                                                     </span>

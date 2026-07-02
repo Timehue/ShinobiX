@@ -20,7 +20,7 @@ import { sendStandardDuel } from "../lib/duel-challenge";
 import { RankBadge } from "../components/RankBadge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
-import { titleStyleColor } from "../lib/legacy";
+import { titleStyleColor, fetchLegacyDefinitions, RARITY_COLORS as LEGACY_RARITY_COLORS, RARITY_LABELS as LEGACY_RARITY_LABELS, type LegacyDefView } from "../lib/legacy";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "#f87171", water: "#60a5fa", earth: "#d4a574", lightning: "#fbbf24",
@@ -84,6 +84,22 @@ export function UserView({
     const [following, setFollowing] = useState<string[]>([]);
     const [challengeBusy, setChallengeBusy] = useState(false);
     useEffect(() => subscribeFollowing(viewerCharacter.name, setFollowing), [viewerCharacter.name]);
+
+    // The viewed player's Legacy (public prestige — depth-audit finding: an
+    // identity system only the owner could see). Resolves the def for badge/
+    // rarity from the public definitions endpoint; null while flag-off (404).
+    // A stale def never renders: the chip below also checks the def's id
+    // against the currently viewed legacy, so no synchronous reset is needed.
+    const [viewedLegacyDef, setViewedLegacyDef] = useState<LegacyDefView | null>(null);
+    const viewedLegacyId = viewedCharacter?.legacy?.legacyId ?? null;
+    useEffect(() => {
+        if (!viewedLegacyId) return;
+        let alive = true;
+        void fetchLegacyDefinitions().then(d => {
+            if (alive) setViewedLegacyDef(d?.legacies.find(l => l.id === viewedLegacyId) ?? null);
+        });
+        return () => { alive = false; };
+    }, [viewedLegacyId]);
 
     if (!viewedCharacter) {
         return (
@@ -171,7 +187,10 @@ export function UserView({
                 )}
 
                 <section className="profile-build-panel" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-                    <div style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid #facc15", boxShadow: "0 0 0 3px rgba(250,204,21,0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
+                    <div
+                        className={(viewedCharacter.legacy?.stage ?? 0) >= 2 ? `legacy-aura-s${Math.min(5, viewedCharacter.legacy!.stage)}` : undefined}
+                        style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid #facc15", boxShadow: "0 0 0 3px rgba(250,204,21,0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
+                    >
                         {avatar
                             ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             : <span style={{ fontSize: "2rem", fontWeight: 700, color: "#facc15" }}>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
@@ -196,6 +215,21 @@ export function UserView({
                             {ownedElements.map((el) => <span key={el} style={chipStyle(elementColor(el))}>{el}</span>)}
                             {viewedCharacter.clan && <span style={chipStyle("#facc15")}>🏳 {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
                             {professionLabel && <span style={chipStyle("#38bdf8")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
+                            {viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (
+                                <span
+                                    style={{ ...chipStyle(LEGACY_RARITY_COLORS[viewedLegacyDef.rarity]), display: "inline-flex", alignItems: "center", gap: 5 }}
+                                    title={`${viewedLegacyDef.name} — ${LEGACY_RARITY_LABELS[viewedLegacyDef.rarity]} legacy, Stage ${["", "I", "II", "III", "IV", "V"][viewedCharacter.legacy.stage] ?? viewedCharacter.legacy.stage}`}
+                                >
+                                    {viewedLegacyDef.badge && (
+                                        <img
+                                            src={`/badges/legacy-${viewedLegacyDef.badge}.png`} alt=""
+                                            style={{ width: 16, height: 16, borderRadius: 3 }}
+                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                        />
+                                    )}
+                                    {viewedLegacyDef.name.replace(/^Legacy of the /, "")} · {["", "I", "II", "III", "IV", "V"][viewedCharacter.legacy.stage] ?? viewedCharacter.legacy.stage}
+                                </span>
+                            )}
                         </div>
                     </div>
                 </section>

@@ -26,6 +26,24 @@ exports.WANDERER_QUESTS = {
     "wq-highroller": { metric: "cardClashWins", target: 4, weight: 4 },
     "wq-scout": { metric: "totalTilesExplored", target: 10, weight: 3 },
     "wq-trailblaze": { metric: "totalTilesExplored", target: 25, weight: 6 },
+    // Legacy Emissary mini-quests (client mirror: lib/legacy-emissaries.ts).
+    // Same metrics, same reward band — flavored errands, not a new economy.
+    "eq-storm-conduits": { metric: "totalAiKills", target: 8, weight: 8 },
+    "eq-storm-skyward": { metric: "totalTilesExplored", target: 15, weight: 4 },
+    "eq-veil-unseen": { metric: "totalAiKills", target: 5, weight: 5 },
+    "eq-veil-moths": { metric: "totalTilesExplored", target: 12, weight: 4 },
+    "eq-iron-tally": { metric: "totalAiKills", target: 10, weight: 9 },
+    "eq-iron-road": { metric: "totalTilesExplored", target: 20, weight: 5 },
+    "eq-blade-rites": { metric: "totalAiKills", target: 8, weight: 8 },
+    "eq-blade-vigil": { metric: "totalAiKills", target: 6, weight: 6 },
+    "eq-broker-ledger": { metric: "cardClashWins", target: 4, weight: 4 },
+    "eq-broker-debts": { metric: "totalAiKills", target: 8, weight: 8 },
+    "eq-hollow-toll": { metric: "totalAiKills", target: 10, weight: 9 },
+    "eq-hollow-depths": { metric: "totalTilesExplored", target: 18, weight: 5 },
+    "eq-lantern-rounds": { metric: "totalTilesExplored", target: 14, weight: 4 },
+    "eq-lantern-watch": { metric: "totalAiKills", target: 6, weight: 6 },
+    "eq-mapless-edges": { metric: "totalTilesExplored", target: 25, weight: 6 },
+    "eq-mapless-companions": { metric: "totalPetWins", target: 3, weight: 6 },
 };
 function isWandererQuestId(id) {
     return Object.prototype.hasOwnProperty.call(exports.WANDERER_QUESTS, id);

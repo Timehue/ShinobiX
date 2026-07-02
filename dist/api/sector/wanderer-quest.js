@@ -50,6 +50,12 @@ async function handler(req, res) {
             const questId = typeof body.questId === 'string' ? body.questId : '';
             if (!(0, _wanderer_quest_js_1.isWandererQuestId)(questId))
                 return res.status(400).json({ error: 'Unknown quest.' });
+            // Emissary errands (eq-*) belong to the Legacy wave: no new accepts
+            // while ENABLE_LEGACY is off (already-sealed ones still claim, so a
+            // kill-switch flip mid-quest never eats a player's progress).
+            if (questId.startsWith('eq-') && !(0, _legacy_track_js_1.legacyEnabled)()) {
+                return res.status(400).json({ error: 'Unknown quest.' });
+            }
             const def = _wanderer_quest_js_1.WANDERER_QUESTS[questId];
             const out = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
                 const existing = await _storage_js_1.kv.get(questKey);

@@ -90,6 +90,7 @@ export function eraMilestonesMet(
 
 export type EraView = {
     id: string; number: number; name: string; description: string; lore: string; banner: string;
+    chronicle: string[];
     status: EraStatus;
     milestones: Array<{ metric: EraMetric; label: string; required: number; current: number; done: boolean }>;
     trigger: { label: string; fired: boolean; firedBy?: string } | null;
@@ -110,6 +111,7 @@ export function buildEraViews(
         return {
             id: def.id, number: def.number, name: def.name,
             description: def.description, lore: def.lore, banner: def.banner,
+            chronicle: def.chronicle,
             status,
             milestones: def.milestones.map((m) => {
                 const required = effectiveRequired(def, m.metric, override);

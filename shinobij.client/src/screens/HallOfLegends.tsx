@@ -37,7 +37,20 @@ type WeeklyBossLb = {
 
 export 
 function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
-    const [tab, setTab] = useState<LbTab>("ranked");
+    // Deep-link support: the Daily Briefing's "World news" teaser (and any
+    // other surface) can land the player on a specific tab via a one-shot
+    // sessionStorage hint — previously a mythic headline opened the Ranked
+    // Elo table (depth-audit finding).
+    const [tab, setTab] = useState<LbTab>(() => {
+        try {
+            const hint = window.sessionStorage?.getItem("hall.initialTab");
+            if (hint) {
+                window.sessionStorage.removeItem("hall.initialTab");
+                if (hint === "news" || hint === "legends" || hint === "eras") return hint as LbTab;
+            }
+        } catch { /* private mode */ }
+        return "ranked";
+    });
     const [professionFilter, setProfessionFilter] = useState<Profession>("healer");
     const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
     useEffect(() => {
@@ -530,6 +543,15 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                     </>
                 )}
                 {tab === "legends" && (
+                    /* Hall banner — generated header art (docs/legacy-assets.md),
+                       same cover treatment as the era cards. */
+                    <img
+                        src="/legacy/hall-of-legends-banner.webp" alt=""
+                        style={{ width: "100%", maxHeight: 120, objectFit: "cover", display: "block", borderRadius: 10, marginBottom: 10 }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                )}
+                {tab === "legends" && (
                     hallEntries.length === 0
                         ? <p className="hol-empty">No legends have been written yet. The first mythic awakening, era unlock, or server-first lands here — forever.</p>
                         : hallEntries.map((e) => (
@@ -561,6 +583,13 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                 <div style={{ padding: "10px 12px" }}>
                                     <p style={{ margin: 0, fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>
                                     <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2", fontStyle: "italic" }}>{e.lore}</p>
+                                    {(e.chronicle?.length ?? 0) > 0 && (
+                                        <ul style={{ margin: "8px 0 0", paddingLeft: 16, display: "grid", gap: 3 }}>
+                                            {e.chronicle!.map((line, i) => (
+                                                <li key={i} style={{ fontSize: ".72rem", color: "#9aa3b2", lineHeight: 1.4 }}>{line}</li>
+                                            ))}
+                                        </ul>
+                                    )}
                                     {e.unlockedBy && (
                                         <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c084fc" }}>
                                             Opened by <b>{e.unlockedBy}</b>{e.unlockedVillage ? ` of ${e.unlockedVillage}` : ""}{e.unlockedAt ? ` · ${new Date(e.unlockedAt).toLocaleDateString()}` : ""}

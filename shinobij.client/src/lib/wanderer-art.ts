@@ -13,6 +13,15 @@ import gamblerImg from "../assets/wanderers/gambler.webp";
 import pilgrimImg from "../assets/wanderers/pilgrim.webp";
 import sageImg from "../assets/wanderers/sage.webp";
 import wanderingSageImg from "../assets/wanderers/legacy/wandering-sage.webp";
+// The eight Legacy Emissaries (gpt-image-1, docs/legacy-assets.md §1).
+import stormCallerRynImg from "../assets/wanderers/legacy/storm-caller-ryn.webp";
+import veilMotherSuzuImg from "../assets/wanderers/legacy/veil-mother-suzu.webp";
+import ironPilgrimDaigoImg from "../assets/wanderers/legacy/iron-pilgrim-daigo.webp";
+import bladeKeeperHanaImg from "../assets/wanderers/legacy/blade-keeper-hana.webp";
+import duelBrokerKesshiImg from "../assets/wanderers/legacy/duel-broker-kesshi.webp";
+import hollowWardenImg from "../assets/wanderers/legacy/hollow-warden.webp";
+import lanternWardenMeiImg from "../assets/wanderers/legacy/lantern-warden-mei.webp";
+import maplessOjiiImg from "../assets/wanderers/legacy/mapless-ojii.webp";
 import beastImg from "../assets/coliseum/demo-emberfox.webp";
 import bossImg from "../assets/wanderers/bandit-warlord.webp";
 // Bespoke Quest Book bestiary bosses (gpt-image-1), keyed by bossId.
@@ -71,6 +80,15 @@ const ART: Record<WandererArchetypeId, string> = {
     sage: sageImg,
     // The Legacy offer-giver (gpt-image-1, docs/legacy-assets.md).
     wanderingSage: wanderingSageImg,
+    // The eight Legacy Emissaries — bespoke faces, one per served category.
+    "storm-caller-ryn": stormCallerRynImg,
+    "veil-mother-suzu": veilMotherSuzuImg,
+    "iron-pilgrim-daigo": ironPilgrimDaigoImg,
+    "blade-keeper-hana": bladeKeeperHanaImg,
+    "duel-broker-kesshi": duelBrokerKesshiImg,
+    "hollow-warden": hollowWardenImg,
+    "lantern-warden-mei": lanternWardenMeiImg,
+    "mapless-ojii": maplessOjiiImg,
 };
 
 export function wandererAvatar(key: WandererArchetypeId): string {
