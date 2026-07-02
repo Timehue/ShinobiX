@@ -71,6 +71,10 @@ const PAIRS = [
     ['EP_MULTIPLIER', 'EP_MULTIPLIER_PVE'],
     ['K_DR', 'K_DR_PVE'],
     ['K_AMP', 'K_AMP_PVE'],
+    // Increase Generals stack pool: raises str/spd/int/wil (feeds statFactor),
+    // soft-capped so linear stacking can't drive statFactor to the [0.35,1.85]
+    // clamp. PvE and PvP must pool identically or the same buff diverges.
+    ['K_GENERALS', 'K_GENERALS_PVE'],
     ['HEAL_FLAT', 'HEAL_FLAT_PVE'],
     ['SHIELD_FLAT', 'SHIELD_FLAT_PVE'],
     ['WOUND_HARD_CAP_PCT', 'WOUND_HARD_CAP_PCT_PVE'],

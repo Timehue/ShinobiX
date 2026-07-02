@@ -97,6 +97,31 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.equal(ok.applied, true);
         node_assert_1.strict.ok(s.activeAp === 100 - _engine_js_1.BASIC_ATTACK_AP);
     });
+    // Increase Generals is a self-buff resolved by api/pvp/move.ts applyJutsu, which the
+    // tower reuses for ALL combat (runJutsu → applyJutsu). This proves the buff's stat
+    // lift actually flows through the actor→fighter→applyJutsu delegation, not just in
+    // isolated PvP (api/pvp/_increase-generals.test.ts covers applyJutsu directly).
+    (0, node_test_1.it)('Increase Generals raises tower damage (self-buff flows through applyJutsu delegation)', () => {
+        const attackerChar = { specialty: 'Taijutsu', level: 100, stats: { taijutsuOffense: 2500 } };
+        const defenderChar = { specialty: 'Taijutsu', level: 100, stats: { taijutsuDefense: 1000 } };
+        function attackOnce(attackerStatuses) {
+            const actors = [
+                makeActor('sq-1', 'squad', 0, { character: attackerChar, statuses: attackerStatuses }),
+                makeActor('en-1', 'enemy', 1, { character: defenderChar, hp: 100_000, maxHp: 100_000 }),
+            ];
+            const s = makeSession(actors);
+            (0, _engine_js_1.startRound)(s);
+            node_assert_1.strict.equal((0, _tower_session_js_1.activeActor)(s).id, 'sq-1', 'squad acts first');
+            const before = (0, _tower_session_js_1.getActor)(s, 'en-1').hp;
+            const r = (0, _engine_js_1.applyAction)(s, makeFloor('defeat-all'), { actorId: 'sq-1', type: 'attack', targetId: 'en-1' }, (0, _sim_js_1.makeRng)(1));
+            node_assert_1.strict.equal(r.applied, true, 'basic attack applies');
+            return before - (0, _tower_session_js_1.getActor)(s, 'en-1').hp;
+        }
+        const baseline = attackOnce([]);
+        const buffed = attackOnce([{ name: 'Increase Generals', percent: 30, rounds: 2, kind: 'positive' }]);
+        node_assert_1.strict.ok(baseline > 0, `baseline tower attack should deal damage (got ${baseline})`);
+        node_assert_1.strict.ok(buffed > baseline, `Increase Generals should raise tower damage (buffed ${buffed} vs baseline ${baseline})`);
+    });
     (0, node_test_1.it)('move is adjacent-only and blocked by occupants', () => {
         const s = makeSession(frontline());
         (0, _engine_js_1.startRound)(s);
