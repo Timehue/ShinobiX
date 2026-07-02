@@ -371,6 +371,12 @@ function runJutsu(session, actor, target, jutsu, wMult) {
 // positioning, so the zone is applied immediately rather than placed on a tile).
 function jutsuAreaRadius(jutsu) {
     const m = String(jutsu.method ?? 'SINGLE');
+    // AOE_BURST: a target-centred blast on a 60-AP OPPONENT-targeted damage jutsu (no
+    // movement / no ground tile). Radius 1 = full-damage splash to the struck foe plus
+    // the 6 hexes touching them (resolveHit → applyAoeSplash). In 1v1 modes there is only
+    // one enemy, so it behaves as a normal single-target nuke.
+    if (m === 'AOE_BURST')
+        return 1;
     if (m === 'AOE_SPIRAL')
         return 2;
     if (m === 'AOE_CIRCLE' || m === 'INSTANT_EFFECT' || m === 'AOE_LINE')
