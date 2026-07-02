@@ -9,6 +9,7 @@ import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
+import { BattleTabBar } from "../components/BattleTabBar";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { formatJutsuResourcePercent, getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
@@ -18,6 +19,7 @@ import { normalizeJutsu } from "../lib/jutsu";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { useBoardScale } from "../lib/use-board-scale";
+import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import {
@@ -150,6 +152,8 @@ export function PvpBattleScreen({
     const [pendingBasicAttack, setPendingBasicAttack] = useState(false);
     const [pendingWeaponId, setPendingWeaponId] = useState("");
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
+    // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
+    const battleTabs = useBattleTabs(session?.log?.length ?? 0);
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
     // Auto-fit board scale + manual zoom — shared hook (see lib/use-board-scale).
@@ -1176,7 +1180,7 @@ export function PvpBattleScreen({
                     isActive={isMyTurn && !done}
                 />
 
-                <main className="combat-main-area">
+                <main className={`combat-main-area bt-${battleTabs.tab}`}>
                     <div className="arena-top-panel">
                         <div className="arena-title-panel">
                             <h2>{biomeLabel(arenaBiome)}</h2>
@@ -1380,6 +1384,8 @@ export function PvpBattleScreen({
                             </div>
                         </div>
                     </div>
+
+                    <BattleTabBar tab={battleTabs.tab} setTab={battleTabs.setTab} unread={battleTabs.unread} />
 
                     {/* Action bar stays visible on the opponent's turn (dimmed +
                         non-interactive) so the player can review their kit and plan.
