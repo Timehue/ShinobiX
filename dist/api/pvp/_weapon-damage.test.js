@@ -54,4 +54,16 @@ function asJutsu(j) {
         const r = (0, move_js_1.applyJutsu)(self, opp, asJutsu({ id: 'basic-attack', name: 'Basic Attack', ap: 40, effectPower: 10 }), 1, 'central', 1);
         node_assert_1.strict.ok(r.opponent.hp < 1000, `basic attack should deal damage, opponent hp=${r.opponent.hp}`);
     });
+    (0, node_test_1.it)('a weapon carrying an Increase Generals tag applies the self-buff (named-weapon roll path)', () => {
+        const self = fighter('A');
+        const opp = fighter('B');
+        // Named weapons carry weaponTags → move.ts builds a weaponJutsu with those tags
+        // (id 'weapon', isUtility:false) → applyJutsu resolves them. Prove the rolled
+        // Increase Generals tag lands as a buff on the wielder AND the weapon still hits.
+        const r = (0, move_js_1.applyJutsu)(self, opp, asJutsu({ id: 'weapon', name: 'Named Blade', isUtility: false, ap: 40, effectPower: 18, tags: [{ name: 'Increase Generals', percent: 35 }] }), 1, 'central', 1);
+        const st = r.self.statuses.find(s => s.name === 'Increase Generals');
+        node_assert_1.strict.ok(st, "the weapon's Increase Generals tag should apply a status to the wielder");
+        node_assert_1.strict.equal(st?.rounds, 2, 'buff lasts 2 rounds');
+        node_assert_1.strict.ok(r.opponent.hp < 1000, 'the weapon still deals its damage');
+    });
 });
