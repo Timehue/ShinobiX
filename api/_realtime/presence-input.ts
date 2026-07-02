@@ -10,6 +10,7 @@
  * these functions.
  */
 import type { OnlinePlayer } from './types.js';
+import { sanitizeUserText, hasReservedTitleTerm, TEXT_LIMITS } from '../_text-moderation.js';
 
 // Max time the client can claim to be traveling (10 min). Caps an exploited
 // travelingUntil that would make a player permanently unreachable.
@@ -70,6 +71,18 @@ export function slimPresenceCharacter(input: unknown): Record<string, unknown> |
     const src = input as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const k of PRESENCE_CHAR_KEEP) if (k in src) out[k] = src[k];
+    // Public-roster defense: the presence blob is client-supplied and shown to
+    // every player, so its customTitle would otherwise bypass the save
+    // sanitizer entirely (verification finding: a hostile client could show
+    // "Admin" to all). Cheap always-on impersonation/profanity scrub — display
+    // only, never touches the save. Earned-title ownership isn't checkable here
+    // (no save read on the hot path), but the authority-impersonation cases are.
+    if (typeof out.customTitle === 'string' && out.customTitle) {
+        const cleaned = sanitizeUserText(out.customTitle, TEXT_LIMITS.customTitle);
+        out.customTitle = hasReservedTitleTerm(cleaned) ? '' : cleaned;
+    } else if (out.customTitle !== undefined && typeof out.customTitle !== 'string') {
+        delete out.customTitle;
+    }
     if (Array.isArray(src.pets)) {
         out.pets = src.pets.map((p) => {
             if (!p || typeof p !== 'object') return p;

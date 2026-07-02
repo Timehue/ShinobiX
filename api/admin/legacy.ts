@@ -158,8 +158,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!stats) return;
                 await kv.set(legacyStatsKey(player), { ...stats, suspicionFlags: 0, ringFlagAt: 0, recentWinTargets: [] });
             }, { failClosed: true });
-            const suspects = (await kv.get<Array<{ player: string }>>(LEGACY_SUSPECTS_KEY)) ?? [];
-            await kv.set(LEGACY_SUSPECTS_KEY, (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== player));
+            await withKvLock(LEGACY_SUSPECTS_KEY, async () => {
+                const suspects = (await kv.get<Array<{ player: string }>>(LEGACY_SUSPECTS_KEY)) ?? [];
+                await kv.set(LEGACY_SUSPECTS_KEY, (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== player));
+            }, { ttlSec: 5 });
             await recordAudit({ actor: 'admin', domain: 'legacy', action: 'legacy.clear-suspicion', entityType: 'player', entityId: player, reason });
             return res.status(200).json({ ok: true });
         }

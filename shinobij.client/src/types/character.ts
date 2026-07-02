@@ -438,6 +438,10 @@ export type Character = {
         boundAt?: number;
         titles: string[];
     };
+    // Server-owned title vault (era "Herald of the Mythic Age" + future
+    // server-credited titles). Sanitizer re-injects the stored copy — client
+    // edits never persist. Wearable-title ownership is verified against it.
+    serverTitles?: string[];
     // Hollow Gate Shrine — in-progress run saved per-character (so refresh keeps state)
     // and a lifetime Warden-kill counter for telemetry / future achievements.
     hollowGateRun?: HollowGateShrineRun | null;

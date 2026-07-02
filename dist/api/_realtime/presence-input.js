@@ -6,6 +6,7 @@ exports.normalizeTile = normalizeTile;
 exports.capTravelingUntil = capTravelingUntil;
 exports.slimPresenceCharacter = slimPresenceCharacter;
 exports.toPlayerRecord = toPlayerRecord;
+const _text_moderation_js_1 = require("../_text-moderation.js");
 // Max time the client can claim to be traveling (10 min). Caps an exploited
 // travelingUntil that would make a player permanently unreachable.
 exports.MAX_TRAVEL_WINDOW_MS = 10 * 60_000;
@@ -66,6 +67,19 @@ function slimPresenceCharacter(input) {
     for (const k of PRESENCE_CHAR_KEEP)
         if (k in src)
             out[k] = src[k];
+    // Public-roster defense: the presence blob is client-supplied and shown to
+    // every player, so its customTitle would otherwise bypass the save
+    // sanitizer entirely (verification finding: a hostile client could show
+    // "Admin" to all). Cheap always-on impersonation/profanity scrub — display
+    // only, never touches the save. Earned-title ownership isn't checkable here
+    // (no save read on the hot path), but the authority-impersonation cases are.
+    if (typeof out.customTitle === 'string' && out.customTitle) {
+        const cleaned = (0, _text_moderation_js_1.sanitizeUserText)(out.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
+        out.customTitle = (0, _text_moderation_js_1.hasReservedTitleTerm)(cleaned) ? '' : cleaned;
+    }
+    else if (out.customTitle !== undefined && typeof out.customTitle !== 'string') {
+        delete out.customTitle;
+    }
     if (Array.isArray(src.pets)) {
         out.pets = src.pets.map((p) => {
             if (!p || typeof p !== 'object')
