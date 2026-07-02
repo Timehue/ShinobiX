@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
+import { currentEraNumber } from '../_era.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legacy-score.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, trialProgress, nextTrialKind, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
@@ -275,7 +276,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const trialKind = nextTrialKind(1)!;
-                const legacy: CharacterLegacy = { legacyId, stage: 1, acceptedAt: now, titles: [] };
+                // Stamp the world era this legacy is taken up in — permanent, pins
+                // the accomplishment to the timeline ("taken up in the Age of ...").
+                const eraBorn = await currentEraNumber();
+                const legacy: CharacterLegacy = { legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [] };
                 const saveOut = await withKvLock<boolean>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;

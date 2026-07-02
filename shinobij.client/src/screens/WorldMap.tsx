@@ -621,7 +621,13 @@ export function WorldMap({
             // don't whisper about a system that isn't live, and don't burn the
             // one-time seen marker so the rumor still fires once it's on.
             if (!s) return;
-            const text = rumorForCategory(s.strongest?.[0]?.category, milestone);
+            // Pass the player name + this path's server-bucketed tier so the
+            // deterministic variant pick is per-player (two players / a replay
+            // never hear the identical sequence) and tier-aware.
+            const text = rumorForCategory(s.strongest?.[0]?.category, milestone, {
+                playerName: character.name,
+                tier: s.strongest?.[0]?.tier,
+            });
             markLevelRumorSeen(milestone);
             recordRumorHeard(milestone, text);
             setWhisper({ text });

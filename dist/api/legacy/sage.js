@@ -9,6 +9,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _era_js_1 = require("../_era.js");
 const _legacy_score_js_1 = require("../_legacy-score.js");
 const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
@@ -256,7 +257,10 @@ async function handler(req, res) {
                     }
                 }
                 const trialKind = (0, _legacy_core_js_1.nextTrialKind)(1);
-                const legacy = { legacyId, stage: 1, acceptedAt: now, titles: [] };
+                // Stamp the world era this legacy is taken up in — permanent, pins
+                // the accomplishment to the timeline ("taken up in the Age of ...").
+                const eraBorn = await (0, _era_js_1.currentEraNumber)();
+                const legacy = { legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [] };
                 const saveOut = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
                     const rec = await _storage_js_1.kv.get(`save:${playerName}`);
                     const char = (rec?.character ?? null);

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import {
     fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
-    isLegacyEnabled, RARITY_COLORS, RARITY_LABELS, TRIAL_STAT_LABELS,
+    isLegacyEnabled, RARITY_COLORS, RARITY_LABELS, TRIAL_STAT_LABELS, eraAgeName,
     type LegacyStatusView, type LegacyDefView, type LegacyRarity,
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
@@ -175,6 +175,13 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
                         Your path is sealed forever. Trials may be retried, but a legacy is never exchanged.
                     </p>
+                    {eraAgeName(status.legacy.eraBorn) && (
+                        // The world era this legacy was taken up in — pins the
+                        // accomplishment to the timeline (server-stamped at accept).
+                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
+                            📜 Taken up in <b style={{ color: "#e2e8f0" }}>{eraAgeName(status.legacy.eraBorn)}</b>.
+                        </p>
+                    )}
                     {(() => {
                         // The Legacy signature (dedicated jutsu slot): revealed from
                         // Stage 3 (Bound); before that, shown as the road ahead.
