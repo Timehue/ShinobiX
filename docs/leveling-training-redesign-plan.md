@@ -444,12 +444,20 @@ makes migration risk low. Implementation progress:
   daily budget, returns `statGrowth`); client applies it via `applyStatGrowth`
   (lib/stats.ts) in `Arena.tsx`. Cap-clamped per rank; unusable points roll to the
   pool. **Full suite 1997/1997, server tsc + client lint clean.**
-- ⏳ **Remaining: Stage 4 (PvP casual) — deferred.** Extend `api/pvp/claim-rewards.ts`
-  (server-writes the save) to grant the same growth on **non-ranked** wins (ranked =
-  0, skill-pure) using the same `_stat-growth` helper + shared daily budget. Left as
-  a focused follow-up because it edits the balance-critical PvP reward write-path.
-- ⚠️ **dist rebuild required before cPanel deploy** — Railway self-builds from
-  source; cPanel serves committed `dist/` (now stale for both server + client).
+- ✅ **Stage 4 (PvP casual) — DONE, verified:** non-ranked PvP wins now grant a
+  small, daily-capped stat reward into the **unspent pool** (ranked = 0, skill-pure)
+  via `api/pvp/claim-rewards.ts`, sharing the `combat-stat-count` budget. Pool-only
+  (not auto-to-used) so the server-written amount rides the existing
+  `summary.unspentStats` → `applyServerBaseReward` mirror with no stat clobber.
+- ✅ **Server parity fix (required):** the client budget decouple had left the
+  SERVER `api/_xp-engine.ts` `reconcileCharacterStatBudget` on the old budget model,
+  so `creditPvpWinBase` would have re-injected budget-based `unspentStats` on every
+  PvP win. Fixed to two-axis (mirrors the client) + updated `_xp-engine.test.ts`.
+- ✅ **Committed** to branch `claude/hungry-austin-9aed71` (07ed4747), source only —
+  full build passes. **dist NOT committed** (churn-prone; Railway self-builds from
+  source; cPanel needs a deliberate both-dists rebuild + commit before deploy).
+
+**REDESIGN COMPLETE.** All stages shipped + verified (full suite 1997/1997).
 - ⚠️ **dist NOT rebuilt** — Railway self-builds; cPanel needs a client dist
   rebuild + commit before deploy.
 
