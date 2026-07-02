@@ -22,7 +22,7 @@ import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
-import { fetchHallOfLegends, fetchAnnouncements, isLegacyEnabled, RARITY_COLORS, type HallEntryView, type AnnouncementView, type LegacyRarity } from "../lib/legacy";
+import { fetchHallOfLegends, fetchAnnouncements, fetchEras, isLegacyEnabled, RARITY_COLORS, type HallEntryView, type AnnouncementView, type LegacyRarity, type EraView } from "../lib/legacy";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -93,14 +93,16 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         fetchGauntletLeaderboard(25).then(({ weekKey, leaderboard }) => { if (alive) setGauntletLb({ weekKey, rows: leaderboard }); });
         return () => { alive = false; };
     }, [tab]);
-    // Legacy system: permanent server history + the world news feed.
+    // Legacy system: permanent server history + the world news feed + eras.
     const [hallEntries, setHallEntries] = useState<HallEntryView[]>([]);
     const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
+    const [eraViews, setEraViews] = useState<EraView[]>([]);
     useEffect(() => {
-        if (tab !== "legends" && tab !== "news") return;
+        if (tab !== "legends" && tab !== "news" && tab !== "eras") return;
         let alive = true;
         if (tab === "legends") void fetchHallOfLegends().then(r => { if (alive && r) setHallEntries(r.entries); });
-        else void fetchAnnouncements(30).then(r => { if (alive && r) setWorldNews(r.announcements); });
+        else if (tab === "news") void fetchAnnouncements(30).then(r => { if (alive && r) setWorldNews(r.announcements); });
+        else void fetchEras().then(r => { if (alive && r) setEraViews(r.eras); });
         return () => { alive = false; };
     }, [tab]);
     const [bounties, setBounties] = useState<BountyEntry[]>([]);
@@ -181,6 +183,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         ...(isLegacyEnabled() ? [
             { id: "legends" as const, label: "Legends",    icon: <GiCrown /> },
             { id: "news" as const,    label: "World News", icon: <GiCastle /> },
+            { id: "eras" as const,    label: "World Eras", icon: <GiShield /> },
         ] : []),
     ];
 
@@ -538,6 +541,48 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                 <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>
                                 {e.status === "revoked" && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#f87171" }}>Revoked{e.correctionNote ? ` — ${e.correctionNote}` : ""}</p>}
                                 {e.status === "corrected" && e.correctionNote && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#fbbf24" }}>Corrected — {e.correctionNote}</p>}
+                            </div>
+                        ))
+                )}
+                {tab === "eras" && (
+                    eraViews.length === 0
+                        ? <p className="hol-empty">The chapters of this world have not been written yet.</p>
+                        : eraViews.map((e) => (
+                            <div key={e.id} className="card" style={{ padding: 0, marginBottom: 12, overflow: "hidden", opacity: e.status === "locked" ? 0.55 : 1 }}>
+                                <div style={{ position: "relative" }}>
+                                    <img src={e.banner} alt={e.name} style={{ width: "100%", maxHeight: 130, objectFit: "cover", display: "block", filter: e.status === "unlocked" ? "none" : "saturate(.35) brightness(.7)" }} onError={(ev) => { (ev.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                    <div style={{ position: "absolute", left: 12, bottom: 8, textShadow: "0 1px 6px rgba(0,0,0,.9)" }}>
+                                        <b style={{ fontSize: "1rem", color: e.status === "unlocked" ? "#fde68a" : "#cbd5e1" }}>{e.name}</b>
+                                        <span style={{ marginLeft: 8, fontSize: ".7rem", color: e.status === "unlocked" ? "#86efac" : "#c084fc" }}>
+                                            {e.status === "unlocked" ? "UNLOCKED" : e.status === "milestone_active" ? "IN PROGRESS" : "SEALED"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style={{ padding: "10px 12px" }}>
+                                    <p style={{ margin: 0, fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>
+                                    <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2", fontStyle: "italic" }}>{e.lore}</p>
+                                    {e.unlockedBy && (
+                                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c084fc" }}>
+                                            Opened by <b>{e.unlockedBy}</b>{e.unlockedVillage ? ` of ${e.unlockedVillage}` : ""}{e.unlockedAt ? ` · ${new Date(e.unlockedAt).toLocaleDateString()}` : ""}
+                                        </p>
+                                    )}
+                                    {e.status === "milestone_active" && e.milestones.map((m) => (
+                                        <div key={m.metric} style={{ marginTop: 6 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".72rem", color: m.done ? "#86efac" : "#cbd5e1" }}>
+                                                <span>{m.done ? "✓ " : ""}{m.label}</span>
+                                                <span>{m.current.toLocaleString()} / {m.required.toLocaleString()}</span>
+                                            </div>
+                                            <div style={{ height: 6, borderRadius: 3, background: "rgba(148,163,184,.15)", overflow: "hidden" }}>
+                                                <div style={{ height: "100%", width: `${Math.min(100, (m.current / Math.max(1, m.required)) * 100)}%`, background: m.done ? "#4ade80" : "#c084fc" }} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {e.status === "milestone_active" && e.trigger && (
+                                        <p style={{ margin: "8px 0 0", fontSize: ".72rem", color: e.trigger.fired ? "#86efac" : "#fbbf24" }}>
+                                            {e.trigger.fired ? `✓ Final trigger struck by ${e.trigger.firedBy}` : `Final trigger: ${e.trigger.label}`}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         ))
                 )}

@@ -6,6 +6,7 @@ import { withKvLock } from './_lock.js';
 import { gainXp, type XpCharacter } from './_xp-engine.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { bumpLegacyStats } from './_legacy-track.js';
+import { bumpEraContribution } from './_era.js';
 
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
@@ -257,6 +258,11 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
     const alreadyCredited = new Set<string>(finalBoss.creditedPlayers ?? []);
     const newlyCredited: string[] = [];
     const weekKey = finalBoss.weekKey;
+    // Era contribution: one felled boss per spawn, exactly once (NX per week).
+    try {
+        const counted = await kv.set(`era:boss-counted:${weekKey}`, true, { nx: true, ex: 35 * 24 * 60 * 60 });
+        if (counted) await bumpEraContribution('bossKills');
+    } catch { /* best-effort */ }
     for (const entry of summary as WeeklyBossRewardEntry[]) {
         if (alreadyCredited.has(entry.name)) continue;
         try {

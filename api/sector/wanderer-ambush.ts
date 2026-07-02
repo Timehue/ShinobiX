@@ -7,6 +7,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpEraContribution } from '../_era.js';
 
 /*
  * /api/sector/wanderer-ambush — POST { action: 'start' | 'claim', playerName }
@@ -108,6 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // hidden find + an elite takedown (the warlord boss).
             if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
                 await bumpLegacyStats(playerName, { hiddenFinds: 1, eliteKills: 1 });
+                await bumpEraContribution('discoveries');
             }
             return res.status(out.status).json(out.body);
         }

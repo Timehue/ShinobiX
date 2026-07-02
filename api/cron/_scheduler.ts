@@ -19,6 +19,7 @@ import { runSnapshotSaves } from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runVillageWarDailyPass } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
+import { runEraDailyPass } from '../_era.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
@@ -72,6 +73,17 @@ async function fire(): Promise<void> {
         }
     } catch (err) {
         console.error('[cron-scheduler] village-war daily pass threw:', (err as Error).message);
+    }
+    // Era milestone pass (Legacy system). No-op unless ENABLE_LEGACY=1. Covers
+    // the case where the credited trigger fired BEFORE the server-wide
+    // milestones finished — the recorded finisher keeps their credit.
+    try {
+        const e = await runEraDailyPass();
+        if (e.enabled && e.unlocked.length > 0) {
+            console.log(`[cron-scheduler] era pass UNLOCKED: ${e.unlocked.join(', ')}`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] era pass threw:', (err as Error).message);
     }
 }
 

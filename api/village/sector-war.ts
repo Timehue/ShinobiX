@@ -35,6 +35,7 @@ import {
 import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
+import { bumpEraContribution } from '../_era.js';
 
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
@@ -337,6 +338,7 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
             ...(attackerWon && result.outcome.captured ? { sectorCaptures: 1 } : {}),
             ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
         });
+        await bumpEraContribution('warBattles');
     }
     return res.status(200).json({
         ok: true,

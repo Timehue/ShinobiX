@@ -15,6 +15,7 @@ const _sector_war_store_js_1 = require("../_sector-war-store.js");
 const world_state_js_1 = require("../world-state.js");
 const _war_telemetry_js_1 = require("../_war-telemetry.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _era_js_1 = require("../_era.js");
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
  *
@@ -316,6 +317,7 @@ async function doResolve(req, res, identity, playerName, body) {
             ...(attackerWon && result.outcome.captured ? { sectorCaptures: 1 } : {}),
             ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
         });
+        await (0, _era_js_1.bumpEraContribution)('warBattles');
     }
     return res.status(200).json({
         ok: true,

@@ -5,9 +5,10 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { reportMissionEvent } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
-import { hasRecentIpOverlap } from '../_player-ips.js';
+import { hasRecentIpOverlap, hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { extractPvpLegacyDeltas } from '../_legacy-pvp.js';
+import { bumpEraContribution } from '../_era.js';
 
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
@@ -102,7 +103,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (tracked && inSessionDuration >= MIN_FIGHT_DURATION_MS) {
                     const opponentCreatedForLegacy = Number(opponentChar?.createdAt ?? 0);
                     const youngOpponent = opponentCreatedForLegacy > 0 && (Date.now() - opponentCreatedForLegacy) < ACCOUNT_AGE_MIN_MS;
-                    const farmedIp = await hasRecentIpOverlap(playerName, opponentName);
+                    // IP OR device-fingerprint overlap — alts feeding a main
+                    // usually share one of the two (anti-farm wave 2).
+                    const farmedIp = await hasRecentIpOrFpOverlap(playerName, opponentName);
                     if (youngOpponent || farmedIp) {
                         await bumpLegacyStats(playerName, {}, { characterForBootstrap: char ?? null, suspicion: true });
                     } else {
@@ -119,6 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             characterForBootstrap: opponentChar ?? null,
                             streak: 'reset',
                         });
+                        await bumpEraContribution('pvpWins');
                     }
                 }
             } catch (legacyErr) {

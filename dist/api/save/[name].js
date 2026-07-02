@@ -12,6 +12,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _clan_save_validate_js_1 = require("../_clan-save-validate.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
+const _titles_registry_js_1 = require("../_titles-registry.js");
 const _tags_js_1 = require("../pvp/_tags.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
 const _mission_catalog_js_1 = require("../missions/_mission-catalog.js");
@@ -282,9 +283,40 @@ function sanitizeCharacterSave(incoming, existing) {
     // customTitle is the only character-level field a player can put
     // arbitrary text into. Mask profanity, redact PII, cap length so a
     // tampered save can't park a slur as their public title or stuff
-    // a 10 KB string into the field.
+    // a 10 KB string into the field. On top of the profanity mask
+    // (docs/legacy-system-plan.md §11.4):
+    //  • reserved authority/impersonation terms ("Admin", "Kage", "Server
+    //    First", …) are rejected outright — the title clears to '';
+    //  • EARNED-title strings ("Season Champion", legacy titles, era titles)
+    //    are wearable only by players who actually own them — ownership is
+    //    checked against the STORED character.legacy.titles (server-owned)
+    //    plus earnedTitles (achievement grants, same trust level as
+    //    achievements themselves).
     if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
-        char.customTitle = (0, _text_moderation_js_1.sanitizeUserText)(char.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
+        const masked = (0, _text_moderation_js_1.sanitizeUserText)(char.customTitle, _text_moderation_js_1.TEXT_LIMITS.customTitle);
+        if ((0, _titles_registry_js_1.isKnownEarnedTitle)(masked)) {
+            const storedLegacy = existing?.character?.legacy;
+            const legacyOwned = new Set((Array.isArray(storedLegacy?.titles) ? storedLegacy.titles : []).map((t) => String(t).toLowerCase()));
+            const wanted = masked.trim().toLowerCase();
+            if ((0, _titles_registry_js_1.isLegacyOnlyTitle)(masked)) {
+                // Legacy titles: STRICT — only the server-owned stored
+                // legacy.titles counts (earnedTitles is client-writable and
+                // would allow self-granting "Moonlit Ghost" etc.).
+                char.customTitle = legacyOwned.has(wanted) ? masked : '';
+            }
+            else {
+                // Achievement/era titles: earnedTitles is acceptable (same
+                // client-trust level as the achievements that grant them).
+                const owned = new Set([
+                    ...(Array.isArray(char.earnedTitles) ? char.earnedTitles : []).map((t) => String(t).toLowerCase()),
+                    ...legacyOwned,
+                ]);
+                char.customTitle = owned.has(wanted) ? masked : '';
+            }
+        }
+        else {
+            char.customTitle = (0, _text_moderation_js_1.isAllowedCustomTitle)(masked) ? masked : '';
+        }
     }
     // ── Legacy (server-owned) ───────────────────────────────────────
     // character.legacy is written ONLY by the server (api/legacy/sage.ts /
@@ -1624,6 +1656,16 @@ async function handler(req, res) {
                             // seal pool via clan/seal-pool/distribute).
                             if (identityName) {
                                 safeIncoming = await validateClanAndVillageIdentity(safeIncoming, existing ?? null, identityName);
+                            }
+                        }
+                        // Custom-title review log (§11.4): every NEW free-text
+                        // title a save adopts is recorded for post-hoc admin
+                        // review + revoke. Fire-and-forget; earned titles skipped.
+                        if (!isClanSave && identityName) {
+                            const exTitle = String(existing?.character?.customTitle ?? '');
+                            const inTitle = String(safeIncoming.character?.customTitle ?? '');
+                            if (inTitle && inTitle !== exTitle && !(0, _titles_registry_js_1.isKnownEarnedTitle)(inTitle)) {
+                                void (0, _titles_registry_js_1.appendCustomTitleLog)(identityName, inTitle);
                             }
                         }
                         // ── Rolling-window gain caps (finding 6) ──────────────────

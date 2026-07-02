@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BOOTSTRAP_CAPS = exports.LEVEL_GAP_ZERO = exports.legacyEventsKey = exports.legacyStatsKey = void 0;
+exports.BOOTSTRAP_CAPS = exports.RING_MAX_DISTINCT = exports.RING_MIN_WINS = exports.RING_WINDOW = exports.LEVEL_GAP_ZERO = exports.LEGACY_SUSPECTS_KEY = exports.legacyEventsKey = exports.legacyStatsKey = void 0;
 exports.legacyEnabled = legacyEnabled;
 exports.repeatKillWeight = repeatKillWeight;
+exports.isWinTradingRing = isWinTradingRing;
 exports.seedLegacyStatsFromSave = seedLegacyStatsFromSave;
 exports.getLegacyStats = getLegacyStats;
 exports.bumpLegacyStats = bumpLegacyStats;
@@ -31,6 +32,8 @@ const legacyStatsKey = (player) => `legacy:stats:${player}`;
 exports.legacyStatsKey = legacyStatsKey;
 const legacyEventsKey = (player) => `legacy:events:${player}`;
 exports.legacyEventsKey = legacyEventsKey;
+/** Admin suspects queue: players whose suspicionFlags moved recently. */
+exports.LEGACY_SUSPECTS_KEY = 'legacy:suspects';
 const EVENTS_CAP = 200;
 const REPEAT_KILLS_CAP = 30;
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -53,6 +56,21 @@ function repeatKillWeight(priorKillsOnTarget) {
 }
 /** Kills >=15 levels down contribute nothing to Legacy PvP credit. */
 exports.LEVEL_GAP_ZERO = 15;
+/**
+ * Win-trading RING detection (research finding: per-pair decay stops
+ * A-farms-B, but 3+ accounts rotating victims — A→B, B→C, C→A — keep every
+ * pair under the decay knee). A healthy player's recent win targets are
+ * diverse; a ring's are not. Pure and unit-tested.
+ */
+exports.RING_WINDOW = 12;
+exports.RING_MIN_WINS = 8;
+exports.RING_MAX_DISTINCT = 3;
+function isWinTradingRing(recentTargets) {
+    const window = recentTargets.slice(0, exports.RING_WINDOW);
+    if (window.length < exports.RING_MIN_WINS)
+        return false;
+    return new Set(window).size <= exports.RING_MAX_DISTINCT;
+}
 /**
  * Plausibility ceilings applied when seeding from pre-Legacy save counters
  * (which were client-writable). Each cap sits BELOW the lowest legendary
@@ -175,7 +193,19 @@ async function bumpLegacyStats(playerName, deltas, opts) {
                 const prev = num(next[stat]);
                 next[stat] = MAX_STATS.has(stat) ? Math.max(prev, delta) : prev + delta;
             }
-            if (opts?.suspicion)
+            let suspicionRaised = Boolean(opts?.suspicion);
+            // Ring detection: track credited win targets and flag rotations
+            // (at most one flag per 24h so a ring doesn't nuke the counter
+            // in a single session — admins see it on the suspects queue).
+            if (opts?.pvpTarget && pvpWeight > 0) {
+                next.recentWinTargets = [opts.pvpTarget, ...(stats.recentWinTargets ?? [])].slice(0, exports.RING_WINDOW);
+                const lastFlag = num(stats.ringFlagAt);
+                if (isWinTradingRing(next.recentWinTargets) && Date.now() - lastFlag > 24 * 60 * 60 * 1000) {
+                    next.ringFlagAt = Date.now();
+                    suspicionRaised = true;
+                }
+            }
+            if (suspicionRaised)
                 next.suspicionFlags = num(next.suspicionFlags) + 1;
             if (opts?.streak === 'win') {
                 // A fully-decayed farm win doesn't extend the streak either.
@@ -188,6 +218,19 @@ async function bumpLegacyStats(playerName, deltas, opts) {
                 next.winStreak = 0;
             }
             await _storage_js_1.kv.set((0, exports.legacyStatsKey)(playerName), next);
+            // Surface flagged players on the admin suspects queue (dedup,
+            // newest-first, capped). Best-effort side write.
+            if (suspicionRaised) {
+                try {
+                    const suspects = (await _storage_js_1.kv.get(exports.LEGACY_SUSPECTS_KEY)) ?? [];
+                    const rest = (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== playerName);
+                    await _storage_js_1.kv.set(exports.LEGACY_SUSPECTS_KEY, [
+                        { player: playerName, ts: Date.now(), flags: num(next.suspicionFlags) },
+                        ...rest,
+                    ].slice(0, 50));
+                }
+                catch { /* best-effort */ }
+            }
         }, { ttlSec: 5 });
     }
     catch (err) {

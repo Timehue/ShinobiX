@@ -8,7 +8,8 @@ import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
-import { sanitizeUserText, isCleanText, TEXT_LIMITS } from '../_text-moderation.js';
+import { sanitizeUserText, isCleanText, isAllowedCustomTitle, TEXT_LIMITS } from '../_text-moderation.js';
+import { isKnownEarnedTitle, isLegacyOnlyTitle, appendCustomTitleLog } from '../_titles-registry.js';
 import { KNOWN_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
 import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { combatMissionByKey } from '../missions/_mission-catalog.js';
@@ -291,9 +292,40 @@ export function sanitizeCharacterSave(
     // customTitle is the only character-level field a player can put
     // arbitrary text into. Mask profanity, redact PII, cap length so a
     // tampered save can't park a slur as their public title or stuff
-    // a 10 KB string into the field.
+    // a 10 KB string into the field. On top of the profanity mask
+    // (docs/legacy-system-plan.md §11.4):
+    //  • reserved authority/impersonation terms ("Admin", "Kage", "Server
+    //    First", …) are rejected outright — the title clears to '';
+    //  • EARNED-title strings ("Season Champion", legacy titles, era titles)
+    //    are wearable only by players who actually own them — ownership is
+    //    checked against the STORED character.legacy.titles (server-owned)
+    //    plus earnedTitles (achievement grants, same trust level as
+    //    achievements themselves).
     if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
-        char.customTitle = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
+        const masked = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
+        if (isKnownEarnedTitle(masked)) {
+            const storedLegacy = (existing?.character as Record<string, unknown> | undefined)?.legacy as { titles?: string[] } | undefined;
+            const legacyOwned = new Set(
+                (Array.isArray(storedLegacy?.titles) ? storedLegacy!.titles! : []).map((t) => String(t).toLowerCase()),
+            );
+            const wanted = masked.trim().toLowerCase();
+            if (isLegacyOnlyTitle(masked)) {
+                // Legacy titles: STRICT — only the server-owned stored
+                // legacy.titles counts (earnedTitles is client-writable and
+                // would allow self-granting "Moonlit Ghost" etc.).
+                char.customTitle = legacyOwned.has(wanted) ? masked : '';
+            } else {
+                // Achievement/era titles: earnedTitles is acceptable (same
+                // client-trust level as the achievements that grant them).
+                const owned = new Set([
+                    ...(Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : []).map((t) => String(t).toLowerCase()),
+                    ...legacyOwned,
+                ]);
+                char.customTitle = owned.has(wanted) ? masked : '';
+            }
+        } else {
+            char.customTitle = isAllowedCustomTitle(masked) ? masked : '';
+        }
     }
 
     // ── Legacy (server-owned) ───────────────────────────────────────
@@ -1623,6 +1655,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 (existing as Record<string, unknown> | null) ?? null,
                                 identityName,
                             );
+                        }
+                    }
+
+                    // Custom-title review log (§11.4): every NEW free-text
+                    // title a save adopts is recorded for post-hoc admin
+                    // review + revoke. Fire-and-forget; earned titles skipped.
+                    if (!isClanSave && identityName) {
+                        const exTitle = String(((existing as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined)?.customTitle ?? '');
+                        const inTitle = String(((safeIncoming as Record<string, unknown>).character as Record<string, unknown> | undefined)?.customTitle ?? '');
+                        if (inTitle && inTitle !== exTitle && !isKnownEarnedTitle(inTitle)) {
+                            void appendCustomTitleLog(identityName, inTitle);
                         }
                     }
 
