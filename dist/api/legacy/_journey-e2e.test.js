@@ -137,6 +137,9 @@ const chosenDef = () => LEGACY_BY_ID.get(chosen);
     strict_1.default.equal(b.ok, true);
     strict_1.default.equal(b.legacy.stage, 1);
     strict_1.default.equal(b.legacy.legacyId, chosen);
+    // The legacy is stamped with the world era it was taken up in (>=1, and the
+    // launch eras I-IV are unlocked so it lands at 4). Pins it to the timeline.
+    strict_1.default.ok(typeof b.legacy.eraBorn === 'number' && b.legacy.eraBorn >= 1, 'accept must stamp the world era (eraBorn)');
     strict_1.default.equal(b.trial.kind, 'awaken');
     strict_1.default.equal(typeof b.trial.objectives[0]?.progress, 'number', 'objectives must be decorated with progress/done');
     strict_1.default.ok((b.intro ?? '').length > 50, 'the Sage narrative intro must ship with the trial');

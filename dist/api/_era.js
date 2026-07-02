@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ERA_BY_ID = exports.ERA_DEFS = exports.ERA_STATE_KEY = void 0;
 exports.getEraState = getEraState;
 exports.readEraContributions = readEraContributions;
+exports.currentEraNumber = currentEraNumber;
 exports.bumpEraContribution = bumpEraContribution;
 exports.effectiveStatus = effectiveStatus;
 exports.effectiveRequired = effectiveRequired;
@@ -56,6 +57,25 @@ async function readEraContributions() {
         out[m] = Math.max(0, Math.floor(Number(await _storage_js_1.kv.get(contribKey(m))) || 0));
     }
     return out;
+}
+/** The highest-numbered era currently unlocked — the world's active chapter.
+ *  Used to stamp `eraBorn` on a legacy at accept, pinning the accomplishment to
+ *  the timeline. Reads the same state + overrides the roster/cron use, so it
+ *  can't drift. Defaults to 1 on any read failure (never blocks an accept). */
+async function currentEraNumber() {
+    try {
+        const state = await getEraState();
+        let highest = 1;
+        for (const def of _era_defs_js_1.ERA_DEFS) {
+            if (effectiveStatus(def, state.overrides[def.id]) === 'unlocked' && def.number > highest) {
+                highest = def.number;
+            }
+        }
+        return highest;
+    }
+    catch {
+        return 1;
+    }
 }
 /** Fire-and-forget global contribution bump from settle endpoints. */
 async function bumpEraContribution(metric, n = 1) {

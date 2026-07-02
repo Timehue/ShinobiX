@@ -438,6 +438,8 @@ export type Character = {
         boundAt?: number;
         provenAt?: number;
         mythicAt?: number;
+        /** World Era (1-5) this legacy was taken up in — server-stamped, permanent. */
+        eraBorn?: number;
         titles: string[];
     };
     // Server-owned title vault (era "Herald of the Mythic Age" + future

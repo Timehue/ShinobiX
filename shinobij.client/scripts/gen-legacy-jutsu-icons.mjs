@@ -136,18 +136,31 @@ if (gaps.length) {
 const todo = rows.filter((r) => !r.exists && (!only || only.has(r.slug)));
 console.log(`legacy jutsu icons: ${rows.length} total, ${rows.filter((r) => r.exists).length} on disk, ${todo.length} to generate${dryRun ? " (dry run)" : ""}`);
 
+const failed = [];
 let done = 0;
 for (const { slug, name } of todo) {
     const prompt = `${SCENES[slug]}, ${STYLE_TAIL}`;
     console.log(`\n[${++done}/${todo.length}] ${slug} — ${name}`);
     if (dryRun) { console.log(`  prompt: ${prompt}`); continue; }
-    execFileSync(process.execPath, [
-        path.join(CLIENT_ROOT, "scripts", "gen-asset.mjs"),
-        "--id", `jutsu:legacy:${slug}`,
-        "--prompt", prompt,
-        "--out", OUT_DIR,
-        "--max-px", "320",
-    ], { stdio: "inherit" });
+    // Retry each icon: gpt-image-1 / sharp occasionally crash the child process
+    // hard (network blips, native OOM). One flaky call must NOT abort the batch,
+    // so catch + retry up to 3 attempts, then record and move on.
+    let ok = false;
+    for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
+        try {
+            execFileSync(process.execPath, [
+                path.join(CLIENT_ROOT, "scripts", "gen-asset.mjs"),
+                "--id", `jutsu:legacy:${slug}`,
+                "--prompt", prompt,
+                "--out", OUT_DIR,
+                "--max-px", "320",
+            ], { stdio: "inherit" });
+            ok = true;
+        } catch (err) {
+            console.warn(`  ! attempt ${attempt} failed for ${slug}${attempt < 3 ? " — retrying" : ""}`);
+        }
+    }
+    if (!ok) { failed.push(slug); continue; }
     // gen-asset writes legacy_<slug>.webp/.txt (colon → underscore); normalize
     // to the bare <slug> names the 20 existing icons (and the client) use.
     for (const ext of [".webp", ".txt"]) {
@@ -157,5 +170,10 @@ for (const { slug, name } of todo) {
     }
 }
 if (!dryRun && todo.length) {
-    console.log("\nAll generated. Now add the new slugs to SHIPPED_ICON_SLUGS in src/data/legacy-jutsu.ts (or make it unconditional) and rebuild.");
+    if (failed.length) {
+        console.log(`\n⚠ ${failed.length} failed after retries (rerun to resume — done ones are skipped): ${failed.join(", ")}`);
+        process.exitCode = 1;
+    } else {
+        console.log("\nAll generated. Now add the new slugs to SHIPPED_ICON_SLUGS in src/data/legacy-jutsu.ts (or make it unconditional) and rebuild.");
+    }
 }

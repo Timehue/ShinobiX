@@ -82,24 +82,24 @@ Village: `ashen-will` (Ashen Leaf), `storm-fang` (Stormveil),
 `frostbound-shield` (Frostfang), `moonlit-oath` (Moonshadow)
 Support: `village-guardian` · Explorer: `hidden-path`
 
-## 3. Specialty Jutsu icons (100 — 20 generated, 80 pending)
+## 3. Specialty Jutsu icons (100 — all generated)
 
 320px WebP at `shinobij.client/public/legacy/jutsu/<jutsu-slug>.webp`, one per
 Legacy. **The jutsu themselves are SHIPPED** (all 100, ids `legacy-<jutsu-slug>`
 in `shinobij.client/src/data/legacy-jutsu.ts`, server catalog
-`api/pvp/_legacy-jutsu-catalog.ts`); the 20 icons below are generated and wired
-(via `SHIPPED_ICON_SLUGS` in the data file, so a missing icon renders as an
-empty slot rather than a broken image). Generate the remaining 80 with the
-authored batch runner (resumable; needs `OPENAI_API_KEY`):
+`api/pvp/_legacy-jutsu-catalog.ts`), and **all 100 icons are generated and wired
+unconditionally** (`jutsu.image = /legacy/jutsu/<slug>.webp` in the data file).
+Regenerate any single icon, or the whole set, with the resumable batch runner
+(needs `OPENAI_API_KEY`; skips slugs already on disk, retries transient crashes):
 
 ```
 cd shinobij.client
-node --import tsx scripts/gen-legacy-jutsu-icons.mjs           # ~80 images, gen-quality low
+node --import tsx scripts/gen-legacy-jutsu-icons.mjs           # all missing, gen-quality low
+node --import tsx scripts/gen-legacy-jutsu-icons.mjs --only <slug>,<slug>
 ```
 
-then add the new slugs to `SHIPPED_ICON_SLUGS` (or make the image path
-unconditional) and rebuild both dists. The original 20, mapped at authoring
-time:
+The runner carries an authored scene prompt for every slug (preflight fails if a
+slug has neither art nor a prompt). The 20 hand-mapped launch originals:
 
 | Legacy | Specialty Jutsu icon |
 |---|---|

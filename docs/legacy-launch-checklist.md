@@ -125,10 +125,9 @@ Deliberate flag-off exceptions (they keep working, by design):
   `ENABLE_LEGACY=1`, via the dedicated 16th slot injected server-side in
   `api/pvp/session.ts` `hydrateCharacterFromSave` at Stage 3+. There is **no
   per-feature flag** (`LEGACY_SPECIALTY_PVP` was never wired); the only lever is
-  the full `ENABLE_LEGACY` rollback. *Remaining:* 80 of 100 signature-jutsu
-  icons are un-generated (they render as empty slots, not broken images) — run
-  `shinobij.client/scripts/gen-legacy-jutsu-icons.mjs` and extend
-  `SHIPPED_ICON_SLUGS` when the art lands.
+  the full `ENABLE_LEGACY` rollback. All 100 signature-jutsu icons are generated
+  and wired (`shinobij.client/public/legacy/jutsu/`); regenerate any with
+  `shinobij.client/scripts/gen-legacy-jutsu-icons.mjs`.
 - Real-device viewport smoke pass — the layouts were code-audited for 390px
   mobile; do one live phone pass (Sage modal, trial card, Hall, wanderer
   dialog, Profile signature card) during the smoke test.

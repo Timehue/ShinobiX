@@ -38,6 +38,11 @@ export type CharacterLegacy = {
     boundAt?: number;
     provenAt?: number;
     mythicAt?: number;
+    /** The World Era (number, 1-5) this legacy was taken up in — stamped once at
+     *  accept, permanent. Pins a personal accomplishment to the world timeline
+     *  ("taken up in the Age of Village Dominion"). Absent on legacies accepted
+     *  before this shipped. */
+    eraBorn?: number;
     /** Titles granted by this legacy (also appended to earnedTitles). */
     titles: string[];
 };
