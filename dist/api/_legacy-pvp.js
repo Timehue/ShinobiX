@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.guardDefenseDeltas = guardDefenseDeltas;
 exports.rankBand = rankBand;
 exports.extractPvpLegacyDeltas = extractPvpLegacyDeltas;
 const RE_HEAL = /^Heal: (.+) restores (\d+) HP\.$/;
@@ -13,6 +14,26 @@ const STYLE_STATS = {
     Taijutsu: { kills: 'taijutsuKills', damage: 'taijutsuDamage' },
     Bukijutsu: { kills: 'bukijutsuKills', damage: 'bukijutsuDamage' },
 };
+/**
+ * Legacy credit for a village-guard QUEUE DEFENSE (the always-available faucet
+ * for defensiveWins — eligibility-audit fix). The marker is written server-side
+ * by api/village-guard/challenge.ts and read by report-pvp-win once per battle
+ * (NX-guarded). All three names must be pre-normalized (safeName) by the caller.
+ * Defender won → they held the line; attacker won → they raided the guard.
+ * Deltas are merged into the winner's PvP deltas, so they inherit repeat-kill
+ * decay / level-gap zeroing through bumpLegacyStats.
+ */
+function guardDefenseDeltas(marker, winnerSafeName) {
+    if (!marker || !winnerSafeName)
+        return {};
+    if (String(marker.defender ?? '') === winnerSafeName) {
+        return { defensiveWins: 1, sectorDefenses: 1 };
+    }
+    if (String(marker.attacker ?? '') === winnerSafeName) {
+        return { warPvpKills: 1 };
+    }
+    return {};
+}
 function rankBand(level) {
     if (level >= 80)
         return 4; // Special Jonin
