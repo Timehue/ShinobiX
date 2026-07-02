@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const session_js_1 = require("../pvp/session.js");
 const notify_js_1 = require("../_realtime/notify.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
 // Match the public projection in api/player/challenge.ts. The challenges:*
 // key prefix is anon-readable via Supabase Realtime, so the attacker's
@@ -131,6 +132,19 @@ async function handler(req, res) {
                 const existing = await _storage_js_1.kv.get(challengeKey) ?? [];
                 await _storage_js_1.kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
             });
+            // Legacy tracking (ENABLE_LEGACY): mark this battle as a QUEUE
+            // DEFENSE so report-pvp-win can credit the outcome authoritatively —
+            // defender wins → defensiveWins + sectorDefenses, attacker wins →
+            // warPvpKills (raided the village's guard). Server-written from the
+            // guard queue state, so it can't be spoofed by the client, and it
+            // needs no war to be active. Best-effort, keyed by the shared
+            // battleId report-pvp-win validates against (pvp:<battleId>).
+            if ((0, _legacy_track_js_1.legacyEnabled)()) {
+                try {
+                    await _storage_js_1.kv.set(`legacy:guard-defense:${battleId}`, { defender: guard.name, attacker: String(attackerCharacter.name ?? '') }, { ex: 2 * 60 * 60 });
+                }
+                catch { /* best-effort — a missed marker just skips the defense credit */ }
+            }
             // Instant delivery: nudge the guard to run an immediate heartbeat —
             // same one-shot "poll now" kick the player attack/challenge paths use.
             // The Supabase Realtime challenges:* subscription also pushes this, but

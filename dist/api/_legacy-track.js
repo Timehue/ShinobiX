@@ -91,12 +91,16 @@ function isWinTradingRing(recentTargets) {
 }
 /**
  * Plausibility ceilings applied when seeding from pre-Legacy save counters
- * (which were client-writable). Each cap sits BELOW the lowest legendary
- * requirement floor that uses the stat, so bootstrapped history can qualify a
- * veteran for basic/rare identities but legendary/mythic tiers must be earned
- * under server tracking (verification finding: the old caps let a tampered
- * save fully cover two legendaries). Kept in sync with api/_legacy-defs.ts by
- * the cross-check in _legacy-score.test.ts.
+ * (which were client-writable). The invariant that actually matters — and the
+ * one _legacy-score.test.ts enforces — is that NO legendary/mythic can be FULLY
+ * covered by bootstrap+reconcile: every high-tier def retains at least one
+ * requirement on a stat these caps can't reach (an un-capped/un-seeded stat, or
+ * a floor above its cap). So bootstrapped history can qualify a veteran for
+ * basic/rare identities immediately, but legendary/mythic tiers must be earned
+ * under server tracking. (NOTE: an individual cap is NOT guaranteed to sit below
+ * every legendary floor on that same stat — the guarantee is per-DEF, not
+ * per-stat; the lint checks the def-level coverage, which is what closes the
+ * tampered-save exploit.)
  */
 exports.BOOTSTRAP_CAPS = {
     missionCompletions: 350, pveKills: 1200, pvpWins: 140, pvpKills: 140,

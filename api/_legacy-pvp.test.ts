@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractPvpLegacyDeltas, rankBand } from './_legacy-pvp.js';
+import { extractPvpLegacyDeltas, guardDefenseDeltas, rankBand } from './_legacy-pvp.js';
 
 function fighter(name: string, opts: { hp?: number; maxHp?: number; level?: number; specialty?: string } = {}) {
     return {
@@ -58,4 +58,21 @@ test('comeback, upset, and ranked flags', () => {
     assert.equal(winnerDeltas.comebackWins, 1, 'won under 15% HP');
     assert.equal(winnerDeltas.higherLevelWins, 1, 'beat someone 10 levels up');
     assert.equal(winnerDeltas.rankedWins, 1, 'session.ranked flows through');
+});
+
+test('guardDefenseDeltas — queue-defense faucet (defender wins, attacker wins, no marker)', () => {
+    // Names are pre-normalized (safeName) by the caller; compare literally.
+    const marker = { defender: 'guard', attacker: 'raider' };
+    // Defender (guard) won → held the line.
+    assert.deepEqual(guardDefenseDeltas(marker, 'guard'), { defensiveWins: 1, sectorDefenses: 1 });
+    // Attacker (raider) won → raided the village's guard.
+    assert.deepEqual(guardDefenseDeltas(marker, 'raider'), { warPvpKills: 1 });
+    // A winner who is neither (should never happen) gets nothing.
+    assert.deepEqual(guardDefenseDeltas(marker, 'bystander'), {});
+    // No marker / empty winner → no credit (best-effort skip).
+    assert.deepEqual(guardDefenseDeltas(null, 'guard'), {});
+    assert.deepEqual(guardDefenseDeltas(undefined, 'guard'), {});
+    assert.deepEqual(guardDefenseDeltas(marker, ''), {});
+    // Missing marker fields don't false-credit an empty winner name.
+    assert.deepEqual(guardDefenseDeltas({}, 'guard'), {});
 });

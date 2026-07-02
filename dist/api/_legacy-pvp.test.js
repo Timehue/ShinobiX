@@ -60,3 +60,19 @@ function fighter(name, opts = {}) {
     strict_1.default.equal(winnerDeltas.higherLevelWins, 1, 'beat someone 10 levels up');
     strict_1.default.equal(winnerDeltas.rankedWins, 1, 'session.ranked flows through');
 });
+(0, node_test_1.test)('guardDefenseDeltas — queue-defense faucet (defender wins, attacker wins, no marker)', () => {
+    // Names are pre-normalized (safeName) by the caller; compare literally.
+    const marker = { defender: 'guard', attacker: 'raider' };
+    // Defender (guard) won → held the line.
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)(marker, 'guard'), { defensiveWins: 1, sectorDefenses: 1 });
+    // Attacker (raider) won → raided the village's guard.
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)(marker, 'raider'), { warPvpKills: 1 });
+    // A winner who is neither (should never happen) gets nothing.
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)(marker, 'bystander'), {});
+    // No marker / empty winner → no credit (best-effort skip).
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)(null, 'guard'), {});
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)(undefined, 'guard'), {});
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)(marker, ''), {});
+    // Missing marker fields don't false-credit an empty winner name.
+    strict_1.default.deepEqual((0, _legacy_pvp_js_1.guardDefenseDeltas)({}, 'guard'), {});
+});
