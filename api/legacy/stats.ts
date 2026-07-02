@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { evaluateAllLegacies, getLegacyOverlay } from '../_legacy-score.js';
-import { legacyTrialKey, trialProgress, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
+import { legacyTrialKey, trialProgress, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 
 /*
@@ -68,13 +68,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const trial = trialRaw && LEGACY_BY_ID.has(trialRaw.legacyId)
             ? { ...trialRaw, objectives: trialProgress(trialRaw, stats) }
             : null;
+        const trialIntro = trialRaw && LEGACY_BY_ID.has(trialRaw.legacyId)
+            ? trialIntroFor(LEGACY_BY_ID.get(trialRaw.legacyId)!, trialRaw.kind)
+            : null;
         const offer = await kv.get<Record<string, unknown>>(`legacy:sage-offer:${playerName}`);
 
         return res.status(200).json({
             level,
             minLevelReached: level >= 50,
             legacy,
+            // The accepted legacy's category, resolved server-side so the client
+            // can match the player to their trial-giver emissary without
+            // shipping the 100-def table (lib/legacy-emissaries.ts).
+            legacyCategory: legacy ? (LEGACY_BY_ID.get(legacy.legacyId)?.category ?? null) : null,
             trial,
+            trialIntro,
             offer: offer && offer.status === 'spawned' ? offer : null,
             strongest,
             eligibleCounts,

@@ -39,9 +39,11 @@ export type SageOfferView = {
     expiresAt: number;
 };
 
+export type TrialKindView = "awaken" | "bind" | "prove" | "mythic";
 export type TrialObjectiveView = { stat: string; delta: number; progress: number; done: boolean };
 export type TrialView = {
-    legacyId: string; kind: "awaken" | "bind"; startedAt: number; attempt: number;
+    legacyId: string; kind: TrialKindView; startedAt: number; attempt: number;
+    variant?: number;
     objectives: TrialObjectiveView[];
 };
 
@@ -49,7 +51,11 @@ export type LegacyStatusView = {
     level: number;
     minLevelReached: boolean;
     legacy: CharacterLegacy | null;
+    /** Accepted legacy's category (server-resolved) — emissary matching. */
+    legacyCategory?: string | null;
     trial: TrialView | null;
+    /** The Sage's charge for the active trial (server-authored narrative). */
+    trialIntro?: string | null;
     offer: SageOfferView | null;
     strongest: Array<{ category: string; tier: string }>;
     eligibleCounts: Record<LegacyRarity, number>;
@@ -125,11 +131,16 @@ export function sageAccept(playerName: string, legacyId: string): Promise<{ ok: 
     return postJson(`/api/legacy/sage`, { action: "accept", playerName, legacyId });
 }
 
-export function trialStart(playerName: string): Promise<{ ok: boolean; reason?: string; trial?: TrialView } | null> {
+export function trialStart(playerName: string): Promise<{ ok: boolean; reason?: string; trial?: TrialView; intro?: string } | null> {
     return postJson(`/api/legacy/trial`, { action: "start", playerName });
 }
 
-export function trialComplete(playerName: string): Promise<{ ok: boolean; reason?: string; legacy?: CharacterLegacy; title?: string | null; objectives?: TrialObjectiveView[] } | null> {
+/** Swap the active trial's proof for its alternate (fresh baselines, attempt++). */
+export function trialReroll(playerName: string): Promise<{ ok: boolean; reason?: string; trial?: TrialView; intro?: string } | null> {
+    return postJson(`/api/legacy/trial`, { action: "reroll", playerName });
+}
+
+export function trialComplete(playerName: string): Promise<{ ok: boolean; reason?: string; legacy?: CharacterLegacy; title?: string | null; completion?: string; objectives?: TrialObjectiveView[] } | null> {
     return postJson(`/api/legacy/trial`, { action: "complete", playerName });
 }
 
@@ -144,6 +155,7 @@ export function fetchHallOfLegends(): Promise<{ entries: HallEntryView[] } | nul
 export type EraMilestoneView = { metric: string; label: string; required: number; current: number; done: boolean };
 export type EraView = {
     id: string; number: number; name: string; description: string; lore: string; banner: string;
+    chronicle?: string[];
     status: "locked" | "admin_available" | "milestone_active" | "unlocked";
     milestones: EraMilestoneView[];
     trigger: { label: string; fired: boolean; firedBy?: string } | null;
@@ -198,13 +210,27 @@ export function synthSageWanderer(sector: number): Wanderer {
 }
 
 /** Human labels for trial objective stats (server stat keys → player words). */
+// Human labels for every stat a trial objective can surface. Drift-guarded:
+// the server lint (api/_legacy-defs.test.ts) fails if a trial template uses a
+// stat with no label here.
 export const TRIAL_STAT_LABELS: Record<string, string> = {
     ninjutsuKills: "Ninjutsu victories", genjutsuKills: "Genjutsu victories",
     taijutsuKills: "Taijutsu victories", bukijutsuKills: "Bukijutsu victories",
-    pvpWins: "PvP wins", missionCompletions: "missions completed",
-    pveKills: "foes defeated", warMissions: "war missions",
+    ninjutsuDamage: "Ninjutsu damage dealt", genjutsuDamage: "Genjutsu damage dealt",
+    taijutsuDamage: "Taijutsu damage dealt", bukijutsuDamage: "Bukijutsu damage dealt",
+    pvpWins: "PvP wins", pvpKills: "PvP takedowns",
+    sameRankWins: "wins against your own rank", defensiveWins: "defensive wins",
+    missionCompletions: "missions completed",
+    pveKills: "foes defeated", eliteKills: "elite foes defeated",
+    huntCompletions: "hunts completed", dungeonClears: "dungeons cleared",
+    hollowGateClears: "Hollow Gate clears", raidsCompleted: "raids completed",
+    bossContribution: "weekly-boss damage dealt", warMissions: "war missions",
     villageDonations: "ryo donated to your village", healingDone: "HP healed in battle",
+    shieldsApplied: "shields granted", damageBlocked: "damage blocked",
+    sectorDefenses: "sector defenses held",
     tilesExplored: "tiles explored", sectorDiscoveries: "sector discoveries",
-    petDuelWins: "pet duel wins", cardClashWins: "Card Clash wins",
-    warContribution: "war contribution dealt",
+    hiddenFinds: "hidden places found", wandererQuests: "wanderer quests finished",
+    petDuelWins: "pet duel wins", petExpeditions: "pet expeditions completed",
+    cardClashWins: "Card Clash wins",
+    warContribution: "war contribution dealt", warPvpKills: "war PvP takedowns",
 };

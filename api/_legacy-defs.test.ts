@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     LEGACY_DEFS, LEGACY_BY_ID, EXPECTED_RARITY_COUNTS, STAT_CATEGORY, RARITY_ORDER,
     type LegacyDef, type LegacyRarity, type LegacyCategory, type LegacyStatKey,
 } from './_legacy-defs.js';
-import { trialObjectivesFor } from './_legacy-core.js';
+import { trialObjectivesFor, TRIAL_VARIANT_COUNT } from './_legacy-core.js';
 import { BOOTSTRAP_CAPS } from './_legacy-track.js';
 
 // ─── Stat liveness registry ─────────────────────────────────────────────────
@@ -148,12 +150,56 @@ test('every requirement stat has a write path (no dead-stat legacies)', () => {
 
 test('trial objectives only use strictly LIVE stats (mirrors move once a day at best)', () => {
     for (const d of LEGACY_DEFS) {
-        for (const kind of ['awaken', 'bind'] as const) {
-            for (const o of trialObjectivesFor(d, kind)) {
-                assert.ok(LIVE_STATS.has(o.stat),
-                    `${d.id} ${kind} trial: objective on non-live stat ${o.stat} would strand the player`);
+        for (const kind of ['awaken', 'bind', 'prove', 'mythic'] as const) {
+            for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant++) {
+                for (const o of trialObjectivesFor(d, kind, variant)) {
+                    assert.ok(LIVE_STATS.has(o.stat),
+                        `${d.id} ${kind} v${variant} trial: objective on non-live stat ${o.stat} would strand the player`);
+                    assert.ok(o.delta >= 1, `${d.id} ${kind} v${variant}: zero-delta objective on ${o.stat}`);
+                }
             }
         }
+    }
+});
+
+test('trial variants differ, later kinds add breadth, and the client labels every trial stat', () => {
+    const statsUsed = new Set<string>();
+    for (const d of LEGACY_DEFS) {
+        // Reroll must actually change the ask.
+        const v0 = JSON.stringify(trialObjectivesFor(d, 'awaken', 0).map((o) => o.stat));
+        const v1 = JSON.stringify(trialObjectivesFor(d, 'awaken', 1).map((o) => o.stat));
+        assert.notEqual(v0, v1, `${d.id}: awaken variants are identical — reroll would be a no-op`);
+        // Bind/prove/mythic must add breadth beyond the awaken shape, not just
+        // scale it (depth-audit finding: "same objectives, bigger numbers").
+        // Checked for EVERY variant — a secondary that collides with a variant's
+        // primary is deduped away and would silently flatten that stage
+        // (verification finding: village v1 bind lost its cross-category proof).
+        for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant++) {
+            const awakenCount = trialObjectivesFor(d, 'awaken', variant).length;
+            assert.ok(trialObjectivesFor(d, 'bind', variant).length > awakenCount, `${d.id} v${variant}: bind adds no secondary`);
+            assert.ok(trialObjectivesFor(d, 'prove', variant).length > awakenCount, `${d.id} v${variant}: prove adds no extra`);
+            assert.ok(trialObjectivesFor(d, 'mythic', variant).length >= trialObjectivesFor(d, 'prove', variant).length,
+                `${d.id} v${variant}: the mythic trial is not the culmination`);
+        }
+        for (const kind of ['awaken', 'bind', 'prove', 'mythic'] as const) {
+            for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant++) {
+                for (const o of trialObjectivesFor(d, kind, variant)) statsUsed.add(o.stat);
+            }
+        }
+    }
+    // Client-label drift guard: every stat a trial can surface must have a
+    // human label in shinobij.client/src/lib/legacy.ts TRIAL_STAT_LABELS —
+    // raw camelCase keys leaked to players (depth-audit finding). Resolved
+    // from process.cwd() like the other cross-package tests (npm test runs
+    // from the repo root; import.meta is unavailable under the CJS build).
+    const clientLib = fs.readFileSync(
+        path.join(process.cwd(), 'shinobij.client', 'src', 'lib', 'legacy.ts'),
+        'utf8',
+    );
+    const labelsBlock = clientLib.slice(clientLib.indexOf('TRIAL_STAT_LABELS'));
+    for (const stat of statsUsed) {
+        assert.ok(new RegExp(`\\b${stat}\\b\\s*:`).test(labelsBlock),
+            `TRIAL_STAT_LABELS (client lib/legacy.ts) is missing a label for trial stat "${stat}"`);
     }
 });
 

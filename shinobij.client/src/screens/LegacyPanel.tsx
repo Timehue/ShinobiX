@@ -7,20 +7,29 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import {
-    fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete,
+    fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
     isLegacyEnabled, RARITY_COLORS, RARITY_LABELS, TRIAL_STAT_LABELS,
     type LegacyStatusView, type LegacyDefView, type LegacyRarity,
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
+import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
+import { rollEmissarySpawn } from "../lib/legacy-emissaries";
+import { rumorLog } from "../lib/legacy-rumors";
+import { wandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
 
 const CODEX_RARITY_ORDER: LegacyRarity[] = ["mythic", "legendary", "rare", "basic"];
 
+const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
 const STAGE_NAMES: Record<number, string> = {
     1: "Path Accepted", 2: "Awakened", 3: "Bound", 4: "Proven", 5: "Mythic",
 };
 const TRIAL_NAMES: Record<string, string> = {
     awaken: "Trial of Awakening", bind: "Trial of Binding",
     prove: "Trial of Proving", mythic: "The Mythic Trial",
+};
+// Per-kind card accent: the four trials should not look interchangeable.
+const TRIAL_ACCENTS: Record<string, string> = {
+    awaken: "#60a5fa", bind: "#4ade80", prove: "#f59e0b", mythic: "#c084fc",
 };
 
 export function LegacyPanel({ character, onLegacyChanged }: {
@@ -31,6 +40,12 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     const [status, setStatus] = useState<LegacyStatusView | null>(null);
     const [defs, setDefs] = useState<Map<string, LegacyDefView> | null>(null);
     const [busy, setBusy] = useState(false);
+    // The ceremonial full-screen beat (trial start / stage-up) + inline notes.
+    const [moment, setMoment] = useState<LegacyMomentData | null>(null);
+    const [trialNote, setTrialNote] = useState<string | null>(null);
+    // Mount-time clock for the offer countdown (hour granularity — a render-
+    // pure snapshot is plenty; Date.now() in render trips react-hooks/purity).
+    const [nowTs] = useState(() => Date.now());
     // Flag-off mounts have nothing to load; they render the null branch below.
     const [loaded, setLoaded] = useState(!enabled);
 
@@ -55,20 +70,37 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     const def = status.legacy ? defs?.get(status.legacy.legacyId) ?? null : null;
     const rarityColor = def ? RARITY_COLORS[def.rarity] : "#9aa3b2";
 
-    async function handleTrial(action: "start" | "complete") {
+    async function handleTrial(action: "start" | "complete" | "reroll") {
         if (busy) return;
         setBusy(true);
-        if (action === "start") {
-            await trialStart(character.name);
+        if (action === "start" || action === "reroll") {
+            const result = action === "start" ? await trialStart(character.name) : await trialReroll(character.name);
+            if (result?.ok && result.trial && def) {
+                setMoment({
+                    mode: "trial-start",
+                    kindName: TRIAL_NAMES[result.trial.kind] ?? "Legacy Trial",
+                    legacyName: def.name,
+                    rarity: def.rarity,
+                    text: result.intro ?? "Walk your path where the world can see it.",
+                });
+            }
         } else {
             const result = await trialComplete(character.name);
-            if (result?.ok) {
-                alert(result.title
-                    ? `Your trial is complete. The title "${result.title}" is yours.`
-                    : "Your trial is complete. Your legacy deepens.");
+            if (result?.ok && result.legacy && def) {
+                setMoment({
+                    mode: "stage-up",
+                    stage: result.legacy.stage,
+                    stageName: STAGE_NAMES[result.legacy.stage] ?? "Advanced",
+                    legacyName: def.name,
+                    rarity: def.rarity,
+                    badge: def.badge,
+                    grantedTitle: result.title ?? null,
+                    text: result.completion ?? "Your legacy deepens.",
+                });
                 onLegacyChanged?.();
             } else if (result?.reason === "incomplete") {
-                alert("The trial is not finished yet — the objectives below still wait.");
+                setTrialNote("The trial is not finished yet — the objectives below still wait.");
+                setTimeout(() => setTrialNote(null), 5000);
             }
         }
         setBusy(false);
@@ -115,12 +147,25 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     </div>
                     <p style={{ margin: "6px 0", fontStyle: "italic", fontSize: ".8rem", color: "#cbd5e1" }}>{def.flavor}</p>
                     <p style={{ margin: 0, fontSize: ".78rem", color: "#9aa3b2" }}>
-                        Stage {status.legacy.stage} — <b style={{ color: "#e2e8f0" }}>{STAGE_NAMES[status.legacy.stage]}</b>
+                        Stage {STAGE_ROMAN[status.legacy.stage] ?? status.legacy.stage} — <b style={{ color: "#e2e8f0" }}>{STAGE_NAMES[status.legacy.stage]}</b>
                         {status.legacy.titles.length > 0 && <> · Titles: <b style={{ color: "#e2e8f0" }}>{status.legacy.titles.join(", ")}</b></>}
                     </p>
                     <p style={{ margin: "6px 0 0", fontSize: ".7rem", color: "#6b7280" }}>
                         Your path is sealed forever. Trials may be retried, but a legacy is never exchanged.
                     </p>
+                    {(() => {
+                        // Where the player's trial-giver emissary roams this 6h
+                        // window (same deterministic roll the world map uses).
+                        // Hidden when the device opted out of wanderers — the
+                        // map wouldn't render the NPC, so the hint would lie.
+                        if (!isWanderersEnabled()) return null;
+                        const spawn = rollEmissarySpawn(character.name, status.level, status.legacyCategory ?? def.category, wandererDayBucket(new Date()));
+                        return spawn ? (
+                            <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
+                                🏮 {spawn.def.name}, keeper of your path, was last seen in <b>sector {spawn.sector}</b>.
+                            </p>
+                        ) : null;
+                    })()}
                 </div>
             ) : (
                 <div className="card" style={{ padding: 14 }}>
@@ -129,7 +174,14 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                         <p style={{ margin: 0, fontSize: ".8rem", color: "#cbd5e1" }}>
                             You have come far enough for a Legacy. A <b style={{ color: "#c084fc" }}>Wandering Sage</b> watches
                             shinobi like you — keep playing, and he will find you on the world map.
-                            {status.offer && <> He is <b>waiting in sector {status.offer.sector}</b> right now.</>}
+                            {status.offer && (() => {
+                                const msLeft = (status.offer.expiresAt ?? 0) - nowTs;
+                                const hours = Math.max(0, Math.floor(msLeft / 3_600_000));
+                                return (
+                                    <> He is <b>waiting in sector {status.offer.sector}</b> right now.
+                                    {msLeft > 0 && <> He will not wait forever — <b style={{ color: "#fbbf24" }}>about {hours >= 1 ? `${hours}h` : "less than an hour"}</b> remains.</>}</>
+                                );
+                            })()}
                         </p>
                     ) : (
                         <p style={{ margin: 0, fontSize: ".8rem", color: "#cbd5e1" }}>
@@ -137,16 +189,40 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                             discovery is quietly shaping which paths will open to you.
                         </p>
                     )}
+                    {(() => {
+                        // The rumor arc, accumulated — the whispers heard at level
+                        // milestones stay readable instead of evaporating.
+                        const log = rumorLog();
+                        return log.length > 0 ? (
+                            <details style={{ marginTop: 8 }}>
+                                <summary style={{ cursor: "pointer", fontSize: ".74rem", color: "#c4b5fd" }}>
+                                    Rumors you have heard ({log.length})
+                                </summary>
+                                {log.map((r) => (
+                                    <p key={r.milestone} style={{ margin: "6px 0 0", fontSize: ".73rem", color: "#9aa3b2", fontStyle: "italic" }}>
+                                        <b style={{ color: "#6b7280" }}>Lv {r.milestone}:</b> “{r.text}”
+                                    </p>
+                                ))}
+                            </details>
+                        ) : null;
+                    })()}
                 </div>
             )}
 
             {/* ── Active trial ────────────────────────────────────────── */}
-            {status.trial && (
-                <div className="card" style={{ padding: 14 }}>
-                    <h4 style={{ margin: "0 0 8px" }}>
+            {status.trial && (() => {
+                const accent = TRIAL_ACCENTS[status.trial.kind] ?? "#c084fc";
+                return (
+                <div className="card" style={{ padding: 14, borderLeft: `3px solid ${accent}` }}>
+                    <h4 style={{ margin: "0 0 4px", color: accent }}>
                         {TRIAL_NAMES[status.trial.kind] ?? "Legacy Trial"}
                         <span style={{ fontSize: ".7rem", color: "#9aa3b2", marginLeft: 8 }}>attempt {status.trial.attempt}</span>
                     </h4>
+                    {status.trialIntro && (
+                        <p style={{ margin: "0 0 10px", fontSize: ".74rem", fontStyle: "italic", color: "#cbd5e1", lineHeight: 1.45 }}>
+                            “{status.trialIntro}” <span style={{ color: "#6b7280" }}>— the Sage</span>
+                        </p>
+                    )}
                     {status.trial.objectives.map((o) => (
                         <div key={o.stat} style={{ marginBottom: 8 }}>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".75rem", color: o.done ? "#86efac" : "#cbd5e1" }}>
@@ -154,15 +230,27 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                                 <span>{o.progress.toLocaleString()} / {o.delta.toLocaleString()}</span>
                             </div>
                             <div style={{ height: 6, borderRadius: 3, background: "rgba(148,163,184,.15)", overflow: "hidden" }}>
-                                <div style={{ height: "100%", width: `${Math.min(100, (o.progress / Math.max(1, o.delta)) * 100)}%`, background: o.done ? "#4ade80" : "#c084fc" }} />
+                                <div style={{ height: "100%", width: `${Math.min(100, (o.progress / Math.max(1, o.delta)) * 100)}%`, background: o.done ? "#4ade80" : accent }} />
                             </div>
                         </div>
                     ))}
+                    {trialNote && <p style={{ fontSize: ".74rem", color: "#fbbf24", margin: "0 0 6px" }}>{trialNote}</p>}
                     <button disabled={busy} onClick={() => void handleTrial("complete")} style={{ width: "100%", marginTop: 4 }}>
                         {status.trial.objectives.every((o) => o.done) ? "Complete the Trial" : "Check Progress"}
                     </button>
+                    {!status.trial.objectives.every((o) => o.done) && (
+                        <button
+                            disabled={busy}
+                            onClick={() => void handleTrial("reroll")}
+                            title="The Sage will pose the same trial a different way. Progress resets — the ask changes, the height doesn't."
+                            style={{ width: "100%", marginTop: 6, background: "transparent", borderColor: "#6b7280", color: "#9aa3b2", fontSize: ".78rem" }}
+                        >
+                            Ask for a different proof (progress resets)
+                        </button>
+                    )}
                 </div>
-            )}
+                );
+            })()}
             {!status.trial && status.legacy && status.legacy.stage < 5 && (
                 <button disabled={busy} onClick={() => void handleTrial("start")} style={{ width: "100%" }}>
                     {(() => {
@@ -241,6 +329,9 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     })}
                 </div>
             )}
+
+            {/* Ceremonial trial-start / stage-up moment (replaces alert()s). */}
+            {moment && <LegacyMoment moment={moment} onClose={() => setMoment(null)} />}
         </div>
     );
 }
