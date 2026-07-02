@@ -54,7 +54,7 @@ import { hasCharacterElement, weatherElementOf } from "../lib/elements";
 import { minActionCost } from "../lib/combat-affordability";
 import { getActivePetTrait, getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
 import { combatLoadoutSlots, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
-import { applyStatGrowth, maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
+import { maxChakraForLevel, maxHpForLevel, maxStaminaForLevel } from "../lib/stats";
 import { markMissionCompleted } from "../lib/character-progress";
 import { combatMissionByAiId, missionAiLevelAndBonus } from "../data/combat-missions";
 import { relevelBuiltinAi } from "../lib/combat-ai";
@@ -2355,8 +2355,14 @@ export function Arena({
         // intrinsically zero or only set when opponentCharacter is truthy.
         // Stripped to keep the function honest (a future code change can't
         // resurrect a dead branch and start writing PvP counters by accident).
+        // "Normal battle arena" = a plain practice AI fight — NOT a mission, raid,
+        // hunt (raidAi), or explore ambush (story / PvP / combat-mission already
+        // returned above). Per design these grant NO XP and NO stat growth
+        // (progression comes from missions/hunts/raids + real PvP + training). Ryo
+        // is kept. Missions/hunts/raids/explore keep their full XP.
+        const isPlainPractice = !missionBattleActive && raidBattleKind === "none" && !exploreAmbushActive;
         const activeTrait = getActivePetTrait(character);
-        const xpGain = activeTrait === "Swift" ? 125 : 100;
+        const xpGain = isPlainPractice ? 0 : (activeTrait === "Swift" ? 125 : 100);
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
         const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
@@ -2434,14 +2440,10 @@ export function Arena({
                 body: JSON.stringify({ playerName: character.name, xp: xpGain, ryo: ryoGain }),
             })
                 .then((r) => (r.ok ? r.json() : null))
-                .then((data: { xp?: unknown; ryo?: unknown; statGrowth?: { allocated?: Record<string, number>; unspentGain?: number } } | null) => {
+                .then((data: { xp?: unknown; ryo?: unknown } | null) => {
                     const okXp = typeof data?.xp === "number" ? data.xp : xpGain;
                     const okRyo = typeof data?.ryo === "number" ? data.ryo : ryoGain;
-                    // Stage 4: apply the server-computed, daily-capped combat-use stat
-                    // growth on top of the base win (server is authoritative for the amount).
-                    let winChar = buildWin(okXp, okRyo);
-                    if (data?.statGrowth) winChar = applyStatGrowth(winChar, data.statGrowth.allocated ?? {}, data.statGrowth.unspentGain ?? 0);
-                    updateCharacter(winChar);
+                    updateCharacter(buildWin(okXp, okRyo));
                 })
                 .catch(() => updateCharacter(buildWin(xpGain, ryoGain)));
         } else {
