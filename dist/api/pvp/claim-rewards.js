@@ -287,14 +287,25 @@ async function handler(req, res) {
                     // applyServerBaseReward, carries it with no stat clobber. Shares the
                     // `combat-stat-count` daily budget with AI-fight wins.
                     if (!isRankedClaim) {
+                        // Serious (non-ranked, non-spar) PvP win → combat-use stat growth:
+                        // auto-grow the stats you fought with + a free-pool share, hard-
+                        // capped per day. Spars never reach here (baseRewards=false → no
+                        // creditBase). Ranked = 0 (skill-pure). The client mirrors the
+                        // allocated stats via summary.statGrowth and the pool via
+                        // summary.unspentStats (applyServerBaseReward + applyStatGrowth).
                         const budgetKey = `combat-stat-count:${winnerSlug}:${new Date().toISOString().slice(0, 10)}`;
                         const spentToday = Number((await _storage_js_1.kv.get(budgetKey)) ?? 0);
-                        const gained = Math.max(0, Math.min(_stat_growth_js_1.PVP_CASUAL_STAT_POINTS_PER_WIN, _stat_growth_js_1.DAILY_COMBAT_STAT_CAP - spentToday));
-                        if (gained > 0) {
-                            await _storage_js_1.kv.set(budgetKey, spentToday + gained, { ex: 25 * 60 * 60 }).catch(() => undefined);
-                            const newUnspent = (Number(finalChar.unspentStats) || 0) + gained;
-                            finalChar = { ...finalChar, unspentStats: newUnspent };
-                            summary = { ...summary, unspentStats: newUnspent };
+                        const remaining = Math.max(0, _stat_growth_js_1.DAILY_COMBAT_STAT_CAP - spentToday);
+                        const statsNow = (finalChar.stats ?? {});
+                        const g = (0, _stat_growth_js_1.computeCombatStatGrowth)(statsNow, Number(finalChar.level) || 1, _stat_growth_js_1.PVP_CASUAL_STAT_POINTS_PER_WIN, remaining);
+                        if (g.spent > 0) {
+                            await _storage_js_1.kv.set(budgetKey, spentToday + g.spent, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                            const newStats = { ...statsNow };
+                            for (const [k, v] of Object.entries(g.allocated))
+                                newStats[k] = (Number(newStats[k]) || 0) + (v ?? 0);
+                            const newUnspent = (Number(finalChar.unspentStats) || 0) + g.unspentGain;
+                            finalChar = { ...finalChar, stats: newStats, unspentStats: newUnspent };
+                            summary = { ...summary, unspentStats: newUnspent, statGrowth: { allocated: g.allocated, unspentGain: g.unspentGain } };
                         }
                     }
                     const next = (0, _save_version_js_1.bumpSaveVersion)({ ...record, character: finalChar });
