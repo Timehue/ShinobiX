@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
     buildNotifications,
     isBattleOnlyScreen,
+    isBattleViewScreen,
     isLobbyFightScreen,
     type NotifInputs,
 } from "./notifications-core";
@@ -65,4 +66,16 @@ test("battle-only vs lobby-fight screen classification", () => {
     assert.equal(isLobbyFightScreen("arena"), true);
     assert.equal(isLobbyFightScreen("petArena"), true);
     assert.equal(isLobbyFightScreen("village"), false);
+});
+
+test("battle-view screens suppress the redundant in-battle chip", () => {
+    // On the actual fight board the chip is redundant (you're looking at it).
+    assert.equal(isBattleViewScreen("arena"), true);
+    assert.equal(isBattleViewScreen("pvpBattle"), true);
+    assert.equal(isBattleViewScreen("battleTowers"), true);
+    assert.equal(isBattleViewScreen("dungeon"), true);
+    // Lobbies / non-battle screens keep the "return to your fight" reminder.
+    assert.equal(isBattleViewScreen("arenaDistrict"), false);
+    assert.equal(isBattleViewScreen("petArena"), false);
+    assert.equal(isBattleViewScreen("village"), false);
 });

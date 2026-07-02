@@ -29,6 +29,7 @@ const SHORT_LABELS: Record<string, string> = {
     "Decrease Damage Given": "Damage dealt ↓",
     "Increase Damage Taken": "Damage taken ↑",
     "Decrease Damage Taken": "Damage taken ↓",
+    "Increase Generals": "General stats ↑",
 };
 
 // Tiny labels for the compact mobile strip (full name lives in the chip tooltip).
@@ -37,6 +38,7 @@ const TINY_LABELS: Record<string, string> = {
     "Decrease Damage Given": "DMG↓",
     "Increase Damage Taken": "TKN↑",
     "Decrease Damage Taken": "TKN↓",
+    "Increase Generals": "GEN↑",
     "Lifesteal": "Steal",
     "Absorb": "Absorb",
     "Reflect": "Reflect",
@@ -137,6 +139,12 @@ export function CombatSideHud({
                 </div>
             </div>
 
+            {/* Compact glanceable strip — the ONLY effects readout on mobile,
+                where the verbose Buffs/Debuffs columns below are hidden (they
+                overflow the clamped HUD). Sits right under HP so active buffs/
+                debuffs are read where turns are decided. Hidden on desktop via CSS. */}
+            <MobileEffectsStrip statuses={statuses} />
+
             <div className="resource-line">
                 <span className="resource-label">Chakra <small>{chakra} / {maxChakra}</small></span>
                 <div className="hud-bar chakra-bar">
@@ -163,11 +171,6 @@ export function CombatSideHud({
             <div className="combat-hud-meta">
                 <span>Round {turn}</span>
             </div>
-
-            {/* Compact glanceable strip — the ONLY effects readout on mobile,
-                where the verbose Buffs/Debuffs columns below are hidden (they
-                overflow the clamped HUD). Hidden on desktop via CSS. */}
-            <MobileEffectsStrip statuses={statuses} />
 
             <CombatEffectsPanel title="Buffs" tone="positive" statuses={statuses.filter((s) => s.kind === "positive")} />
             <CombatEffectsPanel title="Debuffs" tone="negative" statuses={statuses.filter((s) => s.kind === "negative")} />

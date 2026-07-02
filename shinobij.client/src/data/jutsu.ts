@@ -98,6 +98,32 @@ const nonBloodlineTagTable: Record<string, string[]> = {
     "starter-buki-water-1": ["Shield", "Decrease Damage Taken"],
     "starter-buki-water-2": ["Siphon"],
     "starter-buki-water-3": ["Recoil", "Drain"],
+
+    // ── Increase Generals utility set ────────────────────────────────────────
+    // One 40-AP self-buff per offense discipline × element (20 total). Each pairs
+    // Increase Generals (raises str/spd/int/wil → lifts offense AND defense) with a
+    // second self-buff, matching the 2-tag → 40-AP utility convention. Buff-Prevent
+    // gated, Clear-able, Bloodline-Seal-suppressed (see api/pvp/move.ts generalsBonus).
+    "starter-nin-earth-4": ["Increase Generals", "Decrease Damage Taken"],
+    "starter-nin-wind-4": ["Increase Generals", "Overclock"],
+    "starter-nin-lightning-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-nin-fire-4": ["Increase Generals", "Lifesteal"],
+    "starter-nin-water-4": ["Increase Generals", "Increase Heal"],
+    "starter-tai-earth-4": ["Increase Generals", "Shield"],
+    "starter-tai-wind-4": ["Increase Generals", "Reflect"],
+    "starter-tai-lightning-4": ["Increase Generals", "Overclock"],
+    "starter-tai-fire-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-tai-water-4": ["Increase Generals", "Absorb"],
+    "starter-gen-earth-4": ["Increase Generals", "Absorb"],
+    "starter-gen-wind-4": ["Increase Generals", "Debuff Prevent"],
+    "starter-gen-lightning-4": ["Increase Generals", "Reflect"],
+    "starter-gen-fire-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-gen-water-4": ["Increase Generals", "Decrease Damage Taken"],
+    "starter-buki-earth-4": ["Increase Generals", "Decrease Damage Taken"],
+    "starter-buki-wind-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-buki-lightning-4": ["Increase Generals", "Lifesteal"],
+    "starter-buki-fire-4": ["Increase Generals", "Overclock"],
+    "starter-buki-water-4": ["Increase Generals", "Increase Heal"],
 };
 
 // ── Non-bloodline (starter) flavor text ──────────────────────────────────
@@ -171,6 +197,28 @@ const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
     "starter-buki-water-1": { battle: "A spray of needles scatters through the mist into the enemy.", desc: "Concealing mist hides a spread of senbon that drains the target." },
     "starter-buki-water-2": { battle: "A water-wreathed chain slashes across the enemy in a torrent.", desc: "A surging chain-blade that cuts deep and siphons vitality back to the user." },
     "starter-buki-water-3": { battle: "The user weaves a hidden current that lashes back at attackers.", desc: "A deceptive guarding current that punishes and drains those who strike it." },
+
+    // ── Increase Generals utility set flavor ──
+    "starter-nin-earth-4": { battle: "The user roots their chakra deep into the earth, steeling every attribute.", desc: "A grounding rite that hardens the user's core stats and blunts the blows to come." },
+    "starter-nin-wind-4": { battle: "The user breathes with the wind, sharpening body and mind in one gust.", desc: "A soaring focus that lifts every attribute and quickens the user's actions." },
+    "starter-nin-lightning-4": { battle: "Lightning courses through the user's coils, electrifying every attribute.", desc: "A charged focus that surges the user's core stats and sharpens their strikes." },
+    "starter-nin-fire-4": { battle: "The user stokes an inner ember, warming strength, speed, wit and will.", desc: "A kindling rite that raises every attribute and draws life from the wounds it opens." },
+    "starter-nin-water-4": { battle: "The user draws a cleansing tide inward, renewing every attribute.", desc: "A flowing rite that lifts the user's core stats and deepens their recovery." },
+    "starter-tai-earth-4": { battle: "The user sets their stance like bedrock, tempering every attribute.", desc: "A hardening drill that raises the user's core stats and shields the body." },
+    "starter-tai-wind-4": { battle: "The user exhales and rises light as wind, keen in every attribute.", desc: "An awakening step that lifts every attribute and turns blows back on the attacker." },
+    "starter-tai-lightning-4": { battle: "A thunderous pulse floods the user's muscles, spiking every attribute.", desc: "An overdrive surge that raises the user's core stats and quickens their actions." },
+    "starter-tai-fire-4": { battle: "The user's spirit blazes up, firing strength, speed, wit and will.", desc: "A burning focus that lifts every attribute and sharpens the user's strikes." },
+    "starter-tai-water-4": { battle: "The user settles into a flowing calm, balancing every attribute.", desc: "A harmonizing form that raises the user's core stats and turns damage into healing." },
+    "starter-gen-earth-4": { battle: "The user sinks into a stone-still trance, fortifying every attribute.", desc: "A grounded meditation that raises the user's core stats and drinks in incoming harm." },
+    "starter-gen-wind-4": { battle: "A whispering calm clears the user's mind, honing every attribute.", desc: "A serene focus that lifts every attribute and wards the mind against debuffs." },
+    "starter-gen-lightning-4": { battle: "The user's thoughts crackle like a storm, charging every attribute.", desc: "A charged focus that raises the user's core stats and reflects harm back." },
+    "starter-gen-fire-4": { battle: "The user conjures an inner flame that burns strength, speed, wit and will higher.", desc: "A blazing vision that lifts every attribute and sharpens the user's strikes." },
+    "starter-gen-water-4": { battle: "The user's mind stills like deep water, steadying every attribute.", desc: "A tranquil focus that raises the user's core stats and softens the blows they take." },
+    "starter-buki-earth-4": { battle: "The user plants an adamant stance, tempering every attribute.", desc: "A weapon drill that raises the user's core stats and blunts incoming blows." },
+    "starter-buki-wind-4": { battle: "The user's blade sings on the wind, quickening every attribute.", desc: "A swift attunement that lifts every attribute and sharpens the user's strikes." },
+    "starter-buki-lightning-4": { battle: "The user's grip crackles with charge, keying up every attribute.", desc: "A charged focus that raises the user's core stats and draws life on every hit." },
+    "starter-buki-fire-4": { battle: "The user tempers themselves in an inner forge, hardening every attribute.", desc: "A forge-hot rite that lifts every attribute and quickens the user's actions." },
+    "starter-buki-water-4": { battle: "The user's edge ripples like water, refining every attribute.", desc: "A flowing ritual that raises the user's core stats and deepens their recovery." },
 };
 
 // Flat-value or binary tags carry no percent; every other starter tag uses the
@@ -269,6 +317,57 @@ export const starterJutsus: Jutsu[] = [
     makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 24, 1, 125, 125, [{ name: "Drain", percent: 0 }], "Water"),
     makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 250, 250, [{ name: "Siphon", percent: 16 }], "Water"),
     makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Shield", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
+
+    // Increase Generals utility set — 40-AP self-buff, one per discipline × element.
+    // The second tag is added by rebalanceNonBloodlineJutsu from nonBloodlineTagTable.
+    makeJutsu("starter-nin-earth-4", "Bedrock Chakra Focus", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-nin-wind-4", "Galewind Attunement", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-nin-lightning-4", "Voltaic Surge Focus", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-nin-fire-4", "Emberheart Kindling", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-nin-water-4", "Tidal Renewal Rite", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+    makeJutsu("starter-tai-earth-4", "Ironbody Conditioning", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-tai-wind-4", "Windstep Awakening", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-tai-lightning-4", "Thunderpulse Overdrive", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-tai-fire-4", "Blazing Spirit Focus", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-tai-water-4", "Flowing Chi Harmony", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+    makeJutsu("starter-gen-earth-4", "Stoneheart Meditation", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-gen-wind-4", "Whispering Calm", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-gen-lightning-4", "Stormmind Focus", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-gen-fire-4", "Inner Flame Vision", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-gen-water-4", "Still Water Mind", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+    makeJutsu("starter-buki-earth-4", "Adamant Stance Drill", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-buki-wind-4", "Swiftblade Attunement", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-buki-lightning-4", "Charged Grip Focus", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-buki-fire-4", "Forgeheart Temper", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-buki-water-4", "Rippling Edge Ritual", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+
+    // AOE Burst set — 60-AP OPPONENT-targeted damage jutsu, one per discipline × element.
+    // method AOE_BURST: full damage to the target + every enemy in the 6 touching hexes (no
+    // movement, no ground tile). Defined via normalizeJutsu (makeJutsu can't set a method)
+    // and NOT listed in nonBloodlineTagTable, so rebalanceNonBloodlineJutsu passes them
+    // through unchanged. Each carries ONE combat tag (like the other 60-AP damage jutsu),
+    // which applies to the primary AND every splashed enemy via applyAoeSplash.
+    normalizeJutsu({ id: "starter-nin-earth-aoe", name: "Seismic Shatter", type: "Ninjutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "The ground erupts beneath the enemy in a shattering seismic burst.", description: "An earthquake nova that fractures the ground around the target and everyone beside them." }),
+    normalizeJutsu({ id: "starter-nin-wind-aoe", name: "Vacuum Detonation", type: "Ninjutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 16 }], battleDescription: "A compressed sphere of air implodes and detonates in a concussive burst.", description: "A vacuum blast that ruptures outward, catching the target and all who stand close." }),
+    normalizeJutsu({ id: "starter-nin-lightning-aoe", name: "Forked Lightning Nova", type: "Ninjutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "Lightning splits into a dozen forks and erupts across the battlefield.", description: "A branching bolt that arcs from the target to every foe touching them." }),
+    normalizeJutsu({ id: "starter-nin-fire-aoe", name: "Great Fireball Burst", type: "Ninjutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 16 }], battleDescription: "A massive fireball detonates on impact, engulfing the enemy and their surroundings.", description: "A roaring fireball that bursts into a ring of flame around the target." }),
+    normalizeJutsu({ id: "starter-nin-water-aoe", name: "Tidal Crash", type: "Ninjutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Drain", percent: 0 }], battleDescription: "A towering wave crashes down and floods the ground in a violent burst.", description: "A crushing tide that slams the target and washes over everyone nearby." }),
+    normalizeJutsu({ id: "starter-tai-earth-aoe", name: "Fault Line Stomp", type: "Taijutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Recoil", percent: 12 }], battleDescription: "A thunderous stomp splits the earth in a shockwave of stone.", description: "A ground-shattering stomp that ruptures the earth around the target and their allies." }),
+    normalizeJutsu({ id: "starter-tai-wind-aoe", name: "Whirlwind Sweep", type: "Taijutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 16 }], battleDescription: "The user spins into a whirlwind that batters everyone in reach.", description: "A cyclonic sweep that lashes the target and every foe beside them." }),
+    normalizeJutsu({ id: "starter-tai-lightning-aoe", name: "Thunderclap Shockwave", type: "Taijutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "A lightning-charged clap unleashes a shockwave across the field.", description: "A thunderous burst that jolts the target and all who stand close." }),
+    normalizeJutsu({ id: "starter-tai-fire-aoe", name: "Blazing Spin Kick", type: "Taijutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 16 }], battleDescription: "A blazing spin kick trails fire in a scorching arc.", description: "A whirling fire kick that sears the target and the ground around them." }),
+    normalizeJutsu({ id: "starter-tai-water-aoe", name: "Surging Wave Palm", type: "Taijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Siphon", percent: 16 }], battleDescription: "A surge of water bursts from the user's palm in a crashing arc.", description: "A tidal palm strike that hurls a wave over the target and their neighbors." }),
+    normalizeJutsu({ id: "starter-gen-earth-aoe", name: "Crumbling World Illusion", type: "Genjutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 14 }], battleDescription: "The world seems to crumble as the earth swallows the enemy's mind.", description: "An illusion of collapsing ground that buries the target and all who share their fate." }),
+    normalizeJutsu({ id: "starter-gen-wind-aoe", name: "Screaming Void", type: "Genjutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Decrease Damage Given", percent: 16 }], battleDescription: "A howling void tears open, screaming through the enemy's senses.", description: "A shrieking wind illusion that ruptures the minds of the target and those beside them." }),
+    normalizeJutsu({ id: "starter-gen-lightning-aoe", name: "Blinding Flash Field", type: "Genjutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "A blinding sheet of light detonates across the battlefield.", description: "A searing flash illusion that overloads the target and every foe near them." }),
+    normalizeJutsu({ id: "starter-gen-fire-aoe", name: "Hellfire Mirage", type: "Genjutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 14 }], battleDescription: "Phantom hellfire erupts and consumes the enemy's world.", description: "An illusion of all-consuming fire that engulfs the target and their surroundings." }),
+    normalizeJutsu({ id: "starter-gen-water-aoe", name: "Drowning Delusion", type: "Genjutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Drain", percent: 0 }], battleDescription: "A crushing tide of illusion drags the enemy under.", description: "A drowning nightmare that floods the minds of the target and those close by." }),
+    normalizeJutsu({ id: "starter-buki-earth-aoe", name: "Stone Shrapnel Burst", type: "Bukijutsu", element: "Earth", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "A packed charge bursts into a hail of stone shrapnel.", description: "An exploding stone charge that peppers the target and everyone around them." }),
+    normalizeJutsu({ id: "starter-buki-wind-aoe", name: "Fan Blade Storm", type: "Bukijutsu", element: "Wind", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Wound", percent: 14 }], battleDescription: "A storm of wind-borne blades fans out across the field.", description: "A spread of spinning blades on the wind that shreds the target and their neighbors." }),
+    normalizeJutsu({ id: "starter-buki-lightning-aoe", name: "Charged Shuriken Spread", type: "Bukijutsu", element: "Lightning", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Increase Damage Taken", percent: 16 }], battleDescription: "A fan of charged shuriken scatters and crackles on impact.", description: "A spread of electrified shuriken that arcs into the target and all beside them." }),
+    normalizeJutsu({ id: "starter-buki-fire-aoe", name: "Explosive Tag Barrage", type: "Bukijutsu", element: "Fire", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Ignition", percent: 16 }], battleDescription: "A barrage of explosive tags detonates in a chain of blasts.", description: "A volley of explosive tags that erupts around the target and their surroundings." }),
+    normalizeJutsu({ id: "starter-buki-water-aoe", name: "Mist Blade Torrent", type: "Bukijutsu", element: "Water", ap: 60, range: 4, effectPower: 36, cooldown: 7, chakraCost: 250, staminaCost: 250, target: "OPPONENT", method: "AOE_BURST", tags: [{ name: "Poison", percent: 14 }], battleDescription: "A torrent of mist-wreathed blades sweeps across the enemy.", description: "A surging spread of water blades that slices the target and everyone nearby." }),
+
     // Universal jutsus — no element, available to all
     normalizeJutsu({
         id: "starter-universal-flicker",
@@ -357,7 +456,7 @@ export const starterSavedBloodlines: SavedBloodline[] = [
 ].map((bloodline) => ({ ...bloodline, totalPoints: bloodlinePoints(bloodline.jutsus) }));
 
 export const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
-export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL"];
-export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL"];
+export const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL", "AOE_BURST"];
+export const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT", "AOE_SPIRAL", "AOE_BURST"];
 export const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
 export const fortyApBlockedBloodlineTags = ["Pierce", "Siphon", "Mirror", "Copy", "Wound"];

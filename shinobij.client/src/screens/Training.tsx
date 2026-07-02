@@ -29,13 +29,30 @@ import { effectiveCharacterXpGain } from "../lib/progression";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { getCharacterElements } from "../lib/elements";
 import { useWarLossDebuff } from "../lib/war-debuff";
-import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP, MAX_STAT } from "../constants/game";
-import { gainXp, getAllJutsus, playerLensDiscipline, statPointsEarnedFromXp } from "../App";
+import { CHARACTER_XP_GAIN_MULTIPLIER, JUTSU_TRAINING_CAP, statCapForLevel } from "../constants/game";
+import { gainXp, getAllJutsus, playerLensDiscipline } from "../App";
+import { TRAINING_TIERS, trainingStatGain } from "../lib/training-config";
 import type { Character } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 
+// "2h 14m 03s" / "14m 03s" countdown for the Active Training box.
+function formatTrainingRemaining(ms: number): string {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${h > 0 ? `${h}h ` : ""}${h > 0 ? m.toString().padStart(2, "0") : m}m ${s.toString().padStart(2, "0")}s`;
+}
+
 export function Training({ character, updateCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
+    // Live 1s tick so the Active Training box shows a real countdown (not a static
+    // end-time) and the Collect button unlocks the moment training is ready.
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, []);
     // -10% stat-training XP while the village is "demoralized" from a war loss.
     const warDebuff = useWarLossDebuff(character.village);
     const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -57,34 +74,88 @@ export function Training({ character, updateCharacter, activeTraining, setActive
         { title: "Offense", description: "Damage scaling by jutsu style.", stats: ["ninjutsuOffense", "taijutsuOffense", "genjutsuOffense", "bukijutsuOffense"] as (keyof Stats)[] },
         { title: "Defense", description: "Damage resistance by incoming style.", stats: ["ninjutsuDefense", "taijutsuDefense", "genjutsuDefense", "bukijutsuDefense"] as (keyof Stats)[] },
     ];
-    const timers = [
-        { label: "15 Minutes", icon: <GiStopwatch />, ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 },
-        { label: "1 Hour",     icon: <GiAlarmClock />, ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 },
-        { label: "4 Hours",    icon: <GiSandsOfTime />, ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 },
-        { label: "8 Hours",    icon: <GiNightSleep />, ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 },
-    ];
+    // Timer tiers come from lib/training-config (per-hour rates + XP trickle +
+    // stamina), decorated with the duration glyph for display.
+    const TIMER_ICONS: Record<string, React.ReactNode> = { "15m": <GiStopwatch />, "1h": <GiAlarmClock />, "4h": <GiSandsOfTime />, "8h": <GiNightSleep /> };
+    const timers = TRAINING_TIERS.map((tier) => ({ ...tier, icon: TIMER_ICONS[tier.id] }));
     const trainingXpBonus = getTrainingXpBonus(character);
-    function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult)); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms, durationMs: timer.ms }); }
-    // Cancel an in-progress stat training and keep the prorated reward — the XP
-    // (and the stat points it yields) scaled by the fraction of time elapsed.
-    // Runs the exact completion logic on the prorated XP so leveling, stat caps
-    // and unspent-point limits behave identically to a full claim. Stamina spent
-    // to start is not refunded.
+    // Apply a training reward: the XP trickle (may level up) then the direct stat
+    // gain, clamped to the per-rank cap. Returns the points actually applied + the
+    // cap (for the "already at rank cap" message).
+    function applyTrainingReward(stat: keyof Stats, gain: number, xp: number): { applied: number; cap: number } {
+        const leveled = gainXp(character, xp);
+        const cap = statCapForLevel(leveled.level);
+        const current = leveled.stats[stat];
+        const applied = Math.max(0, Math.min(gain, cap - current));
+        updateCharacter({ ...leveled, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + applied, stats: { ...leveled.stats, [stat]: capStat(current + applied) } });
+        return { applied, cap };
+    }
+    // Two-axis training: /api/training/start seals the full-session STAT gain
+    // (village bonus + war debuff baked in, clamped server-side) into a single-use
+    // token; the chosen stat grows directly on collect. Falls back to a locally
+    // computed gain (sanitizer-bounded) if the server is unreachable, so a hiccup
+    // never blocks training. The modest XP trickle still feeds leveling.
+    async function startTraining(timer: typeof timers[number]) {
+        if (activeTraining) return alert("You are already training.");
+        if (character.stamina < timer.staminaCost) return alert("Not enough stamina.");
+        const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
+        const localGain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
+        let token: string | undefined;
+        let xp = boostedXp, statGain = localGain, endsAt = Date.now() + timer.ms;
+        try {
+            const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id, trainingBonusPct: trainingXpBonus, warMult: warDebuff.xpMult }) });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.token) {
+                token = String(data.token);
+                statGain = Math.max(0, Math.floor(Number(data.sealedGain ?? localGain)));
+                xp = Math.max(0, Math.floor(Number(data.sealedXp ?? boostedXp)));
+                endsAt = Number(data.endsAt) || endsAt;
+            }
+        } catch { /* offline / server down — use the local seal */ }
+        updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost });
+        setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp, statGain, staminaCost: timer.staminaCost, endsAt, durationMs: timer.ms, token });
+    }
+    // Cancel an in-progress stat training and bank the prorated reward (server
+    // consumes the token; local proration if it can't). Stamina is not refunded.
     async function cancelTraining() {
         if (!activeTraining) return;
         const totalMs = activeTraining.durationMs ?? timers.find((t) => activeTraining.label.startsWith(t.label))?.ms ?? 0;
         const remaining = Math.max(0, activeTraining.endsAt - Date.now());
         const progress = totalMs > 0 ? Math.min(1, Math.max(0, 1 - remaining / totalMs)) : 1;
-        const proratedXp = Math.floor(activeTraining.xp * progress);
-        if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (${proratedXp} XP) and the stat points it earns. Stamina already spent is not refunded.`))) return;
-        const earnedStatPoints = statPointsEarnedFromXp(character, proratedXp);
-        const leveled = gainXp(character, proratedXp);
-        const focusedGain = Math.min(earnedStatPoints, leveled.unspentStats, MAX_STAT - leveled.stats[activeTraining.stat]);
-        updateCharacter({ ...leveled, unspentStats: leveled.unspentStats - focusedGain, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + focusedGain, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + focusedGain) } });
-        alert(`Training cancelled. ${focusedGain > 0 ? `${focusedGain} prorated stat point${focusedGain !== 1 ? "s" : ""} went into ${formatStatName(activeTraining.stat)}.` : "Not enough progress to earn a stat point."}`);
+        let proratedGain = Math.floor(activeTraining.statGain * progress);
+        let proratedXp = Math.floor(activeTraining.xp * progress);
+        if (!(await gameConfirm(`Cancel ${activeTraining.label}? You'll keep ${Math.round(progress * 100)}% of the progress (+${proratedGain} ${formatStatName(activeTraining.stat)}${proratedXp > 0 ? `, ${proratedXp} XP` : ""}). Stamina already spent is not refunded.`))) return;
+        if (activeTraining.token) {
+            try {
+                const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, cancel: true }) });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data?.granted) { proratedGain = Math.max(0, Math.floor(Number(data.gain ?? proratedGain))); proratedXp = Math.max(0, Math.floor(Number(data.xp ?? proratedXp))); }
+            } catch { /* fall through to local prorate */ }
+        }
+        const { applied } = applyTrainingReward(activeTraining.stat, proratedGain, proratedXp);
+        alert(`Training cancelled. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)} banked.` : "Not enough progress to bank a stat point."}`);
         setActiveTraining(null);
     }
-    function completeTraining() { if (!activeTraining) return; if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`); const earnedStatPoints = statPointsEarnedFromXp(character, activeTraining.xp); const leveled = gainXp(character, activeTraining.xp); const focusedGain = Math.min(earnedStatPoints, leveled.unspentStats, MAX_STAT - leveled.stats[activeTraining.stat]); updateCharacter({ ...leveled, unspentStats: leveled.unspentStats - focusedGain, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + focusedGain, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + focusedGain) } }); alert(`${activeTraining.label} complete. ${focusedGain > 0 ? `${focusedGain} earned stat point${focusedGain !== 1 ? "s" : ""} went into ${formatStatName(activeTraining.stat)}.` : "No new stat point was earned from this XP tick."}`); setActiveTraining(null); }
+    // Collect a finished training. Redeems the server-sealed gain (single-use
+    // token); falls back to the locally sealed gain if the server can't confirm.
+    async function completeTraining() {
+        if (!activeTraining) return;
+        if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`);
+        let gain = activeTraining.statGain, xp = activeTraining.xp;
+        if (activeTraining.token) {
+            try {
+                const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token }) });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data?.granted) { gain = Math.max(0, Math.floor(Number(data.gain ?? gain))); xp = Math.max(0, Math.floor(Number(data.xp ?? xp))); }
+                else if (data?.reason === 'not-yet-complete') return alert("Training isn't finished yet — give it a moment.");
+            } catch { /* fall through to local seal */ }
+        }
+        const { applied, cap } = applyTrainingReward(activeTraining.stat, gain, xp);
+        alert(`${activeTraining.label} complete. ${applied > 0 ? `+${applied} ${formatStatName(activeTraining.stat)}.` : `${formatStatName(activeTraining.stat)} is already at your rank cap (${cap}). Rank up to train it higher.`}`);
+        setActiveTraining(null);
+    }
+    const remainingMs = activeTraining ? Math.max(0, activeTraining.endsAt - now) : 0;
+    const trainingReady = !!activeTraining && remainingMs <= 0;
     return (
         <div className="card">
             <BackToVillageButton onClick={onBack} label="← Back" />
@@ -95,8 +166,10 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                 <div className="summary-box">
                     <h3>Active Training</h3>
                     <p>{activeTraining.label}</p>
-                    <p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p>
-                    <button onClick={completeTraining}>Complete Training</button>
+                    <p>{trainingReady
+                        ? <strong style={{ color: "#4ade80" }}>Ready to collect!</strong>
+                        : <>Time remaining: <strong>{formatTrainingRemaining(remainingMs)}</strong> · ends {new Date(activeTraining.endsAt).toLocaleTimeString()}</>}</p>
+                    <button onClick={completeTraining} disabled={!trainingReady}>{trainingReady ? "Collect Training" : "Training…"}</button>
                     <button onClick={cancelTraining} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
             )}
@@ -134,12 +207,12 @@ export function Training({ character, updateCharacter, activeTraining, setActive
                 {timers.map((timer) => {
                     const boostedXp = Math.max(0, Math.round(boostAmount(timer.xp, trainingXpBonus) * warDebuff.xpMult));
                     const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
-                    const earnedPoints = statPointsEarnedFromXp(character, boostedXp);
+                    const gain = Math.max(0, Math.round(trainingStatGain(timer, timer.ms, trainingXpBonus) * warDebuff.xpMult));
                     return (
                         <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}>
                             <span className="tile-icon">{timer.icon}</span>
                             <span>{timer.label}</span>
-                            <small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small>
+                            <small>+{gain} {formatStatName(selectedStat)} · +{effectiveXp} XP</small>
                         </button>
                     );
                 })}

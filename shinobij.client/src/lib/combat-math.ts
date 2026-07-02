@@ -21,30 +21,41 @@ import type { Stats, Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuType } from "../types/core";
 import type { Character } from "../types/character";
 
-export function getOffenseStat(stats: Stats, type: JutsuType | string) {
+// `generalsBonus` is a flat lift to the four general stats (str/spd/int/wil) from
+// active Increase Generals stacks — computed by generalsBonusFromStatuses and added
+// ABOVE any per-rank stat cap. Defaults to 0, so every existing caller is unchanged.
+export function getOffenseStat(stats: Stats, type: JutsuType | string, generalsBonus = 0) {
+    const str = stats.strength + generalsBonus;
+    const spd = stats.speed + generalsBonus;
+    const int = stats.intelligence + generalsBonus;
+    const wil = stats.willpower + generalsBonus;
     if (type === "Any") return Math.max(
-        stats.ninjutsuOffense + stats.willpower + stats.speed,
-        stats.taijutsuOffense + stats.strength + stats.speed,
-        stats.genjutsuOffense + stats.intelligence + stats.willpower,
-        stats.bukijutsuOffense + stats.intelligence + stats.strength,
+        stats.ninjutsuOffense + wil + spd,
+        stats.taijutsuOffense + str + spd,
+        stats.genjutsuOffense + int + wil,
+        stats.bukijutsuOffense + int + str,
     );
-    if (type === "Taijutsu") return stats.taijutsuOffense + stats.strength + stats.speed;
-    if (type === "Bukijutsu") return stats.bukijutsuOffense + stats.intelligence + stats.strength;
-    if (type === "Genjutsu") return stats.genjutsuOffense + stats.intelligence + stats.willpower;
-    return stats.ninjutsuOffense + stats.willpower + stats.speed;
+    if (type === "Taijutsu") return stats.taijutsuOffense + str + spd;
+    if (type === "Bukijutsu") return stats.bukijutsuOffense + int + str;
+    if (type === "Genjutsu") return stats.genjutsuOffense + int + wil;
+    return stats.ninjutsuOffense + wil + spd;
 }
 
-export function getDefenseStat(stats: Stats, type: JutsuType | string) {
+export function getDefenseStat(stats: Stats, type: JutsuType | string, generalsBonus = 0) {
+    const str = stats.strength + generalsBonus;
+    const spd = stats.speed + generalsBonus;
+    const int = stats.intelligence + generalsBonus;
+    const wil = stats.willpower + generalsBonus;
     if (type === "Any") return Math.max(
-        stats.ninjutsuDefense + stats.willpower + stats.speed,
-        stats.taijutsuDefense + stats.strength + stats.speed,
-        stats.genjutsuDefense + stats.intelligence + stats.willpower,
-        stats.bukijutsuDefense + stats.intelligence + stats.strength,
+        stats.ninjutsuDefense + wil + spd,
+        stats.taijutsuDefense + str + spd,
+        stats.genjutsuDefense + int + wil,
+        stats.bukijutsuDefense + int + str,
     );
-    if (type === "Taijutsu") return stats.taijutsuDefense + stats.strength + stats.speed;
-    if (type === "Bukijutsu") return stats.bukijutsuDefense + stats.intelligence + stats.strength;
-    if (type === "Genjutsu") return stats.genjutsuDefense + stats.intelligence + stats.willpower;
-    return stats.ninjutsuDefense + stats.willpower + stats.speed;
+    if (type === "Taijutsu") return stats.taijutsuDefense + str + spd;
+    if (type === "Bukijutsu") return stats.bukijutsuDefense + int + str;
+    if (type === "Genjutsu") return stats.genjutsuDefense + int + wil;
+    return stats.ninjutsuDefense + wil + spd;
 }
 
 export function diminishingPercent(percent: number, stackIndex: number) {
@@ -86,6 +97,7 @@ export function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, "id" | "ap" | "isUti
 export const EP_MULTIPLIER_PVE = 32;       // Raw dmg = scaledEp × 32
 export const K_DR_PVE          = 0.5;      // Defensive DR pool soft-cap
 export const K_AMP_PVE         = 0.5;      // Offensive amp pool soft-cap
+export const K_GENERALS_PVE    = 0.5;      // Increase Generals stack pool soft-cap (mirrors move.ts K_GENERALS)
 export const HEAL_FLAT_PVE     = 750;      // Heal tag value at max jutsu mastery
 export const SHIELD_FLAT_PVE   = 750;      // Shield tag value at max jutsu mastery
 export const WOUND_HARD_CAP_PCT_PVE = 60;  // Wound max cap (in % of finalDmg)
@@ -153,7 +165,7 @@ export function dotMitigationPVE(armorRawDR: number, defenderStatuses: PvpStatus
 export const STACKABLE_STATUS_PVE: ReadonlySet<string> = new Set([
     'Increase Damage Given', 'Increase Damage Taken', 'Ignition',
     'Decrease Damage Given', 'Decrease Damage Taken',
-    'Wound', 'Lifesteal', 'Reflect', 'Absorb',
+    'Wound', 'Lifesteal', 'Reflect', 'Absorb', 'Increase Generals',
 ]);
 
 // Apply a status to a PvE status list, mirroring api/pvp/move.ts addStatus:
@@ -164,6 +176,24 @@ export const STACKABLE_STATUS_PVE: ReadonlySet<string> = new Set([
 export function mergeCombatStatus<T extends { name: string }>(list: T[], status: T): T[] {
     if (STACKABLE_STATUS_PVE.has(status.name)) return [...list, status];
     return [...list.filter((x) => x.name !== status.name), status];
+}
+
+// Cap concurrent Wound stacks (mirrors server api/pvp/move.ts capWoundStacks): keep
+// at most MAX_WOUND_STACKS_PVE Wound statuses, the highest-amount ones (ties → most
+// recently applied wins, so a re-cast refreshes rather than being dropped). Per-hit
+// Wound magnitude is already rank-capped; this bounds the STACK COUNT so repeated
+// Wound casts can't compound bleed without limit. KEEP IN SYNC (parity test).
+export const MAX_WOUND_STACKS_PVE = 2;
+export function capWoundStacks<T extends { name: string; amount?: number }>(list: T[]): T[] {
+    const wounds = list.filter((s) => s.name === "Wound");
+    if (wounds.length <= MAX_WOUND_STACKS_PVE) return list;
+    const keep = new Set(
+        wounds.map((s, i) => ({ s, i }))
+            .sort((a, b) => ((b.s.amount ?? 0) - (a.s.amount ?? 0)) || (b.i - a.i))
+            .slice(0, MAX_WOUND_STACKS_PVE)
+            .map((o) => o.s),
+    );
+    return list.filter((s) => s.name !== "Wound" || keep.has(s));
 }
 
 // Structural type used by the helpers below — CombatStatus is declared
@@ -184,6 +214,23 @@ export function pvpAmpMultiplier(attackerStatuses: PvpStatusLike[] = [], defende
     }
     if (rawAmp <= 0) return 1;
     return 1 + rawAmp / (rawAmp + K_AMP_PVE);
+}
+
+// Flat per-general bonus (str/spd/int/wil) from a fighter's active Increase
+// Generals stacks, soft-capped through the K_GENERALS_PVE pool and applied ABOVE
+// any per-rank stat cap. Bloodline Seal suppresses it (parallels getBloodlineMultiplier).
+// Because generals feed both offense and defense composites, this one number lifts
+// the fighter's damage dealt AND lowers damage taken. Mirrors api/pvp/move.ts
+// generalsBonus EXACTLY — KEEP IN SYNC (api/_combat-formula-parity.test.ts).
+export function generalsBonusFromStatuses(statuses: PvpStatusLike[] = []): number {
+    if (statuses.some((s) => statusMatchesName(s, "Bloodline Seal"))) return 0;
+    let rawFrac = 0;
+    for (const s of statuses) {
+        if (s.name === "Increase Generals") rawFrac += (s.percent ?? 0) / 100;
+    }
+    if (rawFrac <= 0) return 0;
+    const effFrac = rawFrac / (rawFrac + K_GENERALS_PVE);
+    return Math.floor(effFrac * MAX_STAT);
 }
 
 // Sum of attacker DDG% + defender DDT% (raw, not yet pooled with armor).
@@ -221,6 +268,15 @@ export function armorFactorToRawDr(armorFactor: number): number {
 //   ampMult    = 1 + rawAmp / (rawAmp + K_AMP_PVE)
 //   damage     = baseDmg × (1 - effDR) × ampMult     (or pierce true damage)
 //
+// Steep mastery→magnitude ramp, shared by EP damage (below) and the flat Heal/Shield
+// tags in Arena.tsx: an untrained jutsu is MASTERY_MIN_DAMAGE_FRAC of its fully-mastered
+// value, ramping to 100% at JUTSU_MAX_LEVEL. Hard-capped at the FLAT ceiling where it's
+// applied, so maxed play is byte-identical. Mirrors server move.ts masteryDamageFrac —
+// KEEP IN SYNC (api/_combat-formula-parity.test.ts).
+export function masteryDamageFrac(masteryLevel: number): number {
+    return MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (clampNumber(masteryLevel, 0, JUTSU_MAX_LEVEL) / JUTSU_MAX_LEVEL);
+}
+
 // Backward-compatible signature: old callers pass armorFactor + itemMult and
 // the function derives armorRawDR + uses default empty status arrays. New
 // callers pass attackerStatuses + defenderStatuses so amp/status DR pool work.
@@ -238,8 +294,13 @@ export function calculateDamage(
     masteryLevel: number = JUTSU_MAX_LEVEL,
 ) {
     if (isZeroDamageFortyApJutsu(jutsu)) return 0;
-    const offense = getOffenseStat(attackerStats, jutsu.type);
-    const defense = getDefenseStat(defenderStats, jutsu.type);
+    // Increase Generals: pooled + Seal-gated stat lift, added above any per-rank cap.
+    // Feeds both the statFactor below AND the pierce true-damage path (offense-scaled),
+    // matching how the server folds generalsBonus into the capped fighters in move.ts.
+    const attackerGeneralsBonus = generalsBonusFromStatuses(attackerStatuses);
+    const defenderGeneralsBonus = generalsBonusFromStatuses(defenderStatuses);
+    const offense = getOffenseStat(attackerStats, jutsu.type, attackerGeneralsBonus);
+    const defense = getDefenseStat(defenderStats, jutsu.type, defenderGeneralsBonus);
     const statFactor = clampNumber(1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85, 0.35, 1.85);
 
     // Pierce short-circuits to true damage (capped 900). Caller still needs
@@ -255,7 +316,7 @@ export function calculateDamage(
     // MASTERY_MIN_DAMAGE_FRAC of it, scaling to 100% at max mastery. Keeps maxed
     // damage (and max-mastery PvP) identical to before.
     const epAtMax = Math.max(0, jutsu.effectPower) + JUTSU_MAX_LEVEL * 0.2;
-    const masteryFrac = MASTERY_MIN_DAMAGE_FRAC + (1 - MASTERY_MIN_DAMAGE_FRAC) * (clampNumber(masteryLevel, 0, JUTSU_MAX_LEVEL) / JUTSU_MAX_LEVEL);
+    const masteryFrac = masteryDamageFrac(masteryLevel);
     const scaledEp = Math.max(0, epAtMax * masteryFrac);
     const baseDmg = Math.max(0, Math.floor(
         scaledEp * EP_MULTIPLIER_PVE * statFactor * weatherMult * bloodlineMult * itemMult

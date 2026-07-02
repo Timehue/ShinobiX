@@ -125,13 +125,16 @@ function statPointBudgetForProgress(level, xp) {
     const frac = need > 0 ? Math.max(0, Math.min(1, Math.floor(xp) / need)) : 0;
     return Math.min(TOTAL_STAT_POINTS_TO_CAP, Math.round(base + (next - base) * frac));
 }
+// Two-axis progression (docs/leveling-training-redesign-plan.md): unspentStats is a
+// STORED pool — stat points come from training (direct-to-stat) + combat (the pool),
+// NOT a level budget. Mirrors shinobij.client/src/lib/stats.ts. Reconcile only
+// normalizes stats + clamps the pool ≥ 0; it never rolls back spent stats and never
+// grants points on level-up. statBudgetAtLevel / statPointBudgetForProgress stay for
+// AI stat generation + the ai-stats parity, hence retained above.
 function reconcileCharacterStatBudget(character) {
     const stats = normalizeStats(character.stats);
-    const level = Number(character.level);
-    const xp = Number(character.xp);
-    const earnedBudget = statPointBudgetForProgress(level, xp);
-    const available = Math.max(0, earnedBudget - allocatedStatPoints(stats));
-    return { ...character, stats, unspentStats: available };
+    const unspentStats = Math.max(0, Math.floor(Number(character.unspentStats) || 0));
+    return { ...character, stats, unspentStats };
 }
 // ── lib/progression.ts ──────────────────────────────────────────────────────
 function effectiveCharacterXpGain(character, amount) {

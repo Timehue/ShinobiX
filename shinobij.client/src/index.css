@@ -93,13 +93,14 @@
         font-size: 15px !important;
     }
 
-    /* Hollow Gate marker inside the wider .world-map-scroll layout —
-       same image-only treatment, slightly larger. */
+    /* Hollow Gate marker inside the wider .world-map-scroll layout — image-only,
+       sized just under the 54px sector nodes so it reads as a landmark instead of
+       covering the numbered nodes around it ("eating the map"). */
     .world-map-scroll .atlas-hollowGate {
-        min-width: 64px !important;
-        width: 64px !important;
-        height: 64px !important;
-        max-width: 64px !important;
+        min-width: 52px !important;
+        width: 52px !important;
+        height: 52px !important;
+        max-width: 52px !important;
         padding: 0 !important;
         font-size: 0 !important;
         line-height: 1 !important;
@@ -1660,6 +1661,22 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
     max-width: none !important;
     padding: 4px 7px !important;
     font-size: 11px !important;
+}
+/* The Hollow Gate carries its own image-only sizing (52px in the fallback scroll
+   layout) that the .atlas-landmark rule above doesn't touch — so at overview scale
+   it needs its own shrink or it towers over the 22px nodes and covers them. Sized a
+   hair above the sector nodes, with a transparent hit-ring so it still catches taps. */
+html.wm-zoom .world-map-scroll .atlas-hollowGate {
+    min-width: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    max-width: 24px !important;
+}
+html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
 }
 /* Zoom controls live in the top bar (beside "← Village"); the region chips sit
    in a row BELOW the map — neither overlays the painted map anymore. */
@@ -12065,24 +12082,24 @@ textarea {
 
     /* The popup card has a *lot* of content on a complex weapon item
        (image + 12-row detail grid + weapon tags + effect boxes + bonus
-       boxes), so the Equip/Sell/Close buttons end up far below the fold.
-       Pin them to the bottom of the scrollable popup so the player's
-       primary action is always one tap away — same pattern as iOS
-       share-sheet / App Store install button. */
+       boxes). A bottom-sticky action bar was tried here, but on short
+       items (e.g. a common hood) the content barely overflows, so the
+       sticky bar floats over the last effect line and the popup reads as
+       "cut off" until you happen to scroll the card to its exact bottom.
+       Instead, let the action bar sit in normal flow at the end of the
+       scrollable content with a divider — nothing ever overlaps, and the
+       full-width stacked buttons are the last thing the player scrolls to. */
     .item-popup-card {
-        padding: 14px 14px 0 !important;
+        padding: 14px 14px 14px !important;
     }
 
     .item-popup-actions {
-        position: sticky !important;
-        bottom: 0 !important;
-        margin: 12px -14px 0 !important;
-        padding: 10px 14px max(10px, env(safe-area-inset-bottom, 10px)) !important;
-        background: linear-gradient(180deg, rgba(51, 65, 85, 0), rgba(51, 65, 85, 0.96) 30%, rgba(51, 65, 85, 1)) !important;
+        margin: 14px -14px 0 !important;
+        padding: 12px 14px max(12px, env(safe-area-inset-bottom, 12px)) !important;
+        background: rgba(30, 41, 59, 0.6) !important;
         border-top: 1px solid rgba(250, 204, 21, 0.3) !important;
-        z-index: 5 !important;
         flex-direction: column !important;
-        gap: 6px !important;
+        gap: 8px !important;
     }
 
     /* Override the desktop min-width: 160px so each button takes the
@@ -12975,9 +12992,11 @@ textarea {
         gap: 4px !important;
     }
 
+    /* 4-up on phones: with Dash/Forfeit/Speed removed the bar is short enough that
+       four columns fit, halving the row count so the action bar barely scrolls. */
     .shinobi-command-bar,
     .basic-action-bar {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
         gap: 3px !important;
         padding: 3px !important;
     }
@@ -13795,6 +13814,14 @@ button.combat-jutsu-button,
     height: 100%;
     object-fit: cover;
     border-radius: 11px;
+}
+
+/* Mercenary tier cards show the full merc portrait a touch larger than the
+   structure/upgrade emblems so the character art reads clearly. */
+.town-upgrade-icon.town-merc-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
 }
 
 .town-upgrade-topline strong {
@@ -18841,6 +18868,22 @@ button.combat-jutsu-button,
     letter-spacing: 0.04em;
 }
 
+/* Kage seat — the top village honorific. Distinctly gilded so it reads above
+   the regular rank chip. Author is badged live from the seated-Kage lookup, so
+   it tracks the real seat, not a stale post-time snapshot. */
+.tavern-kage {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #fde68a;
+    white-space: nowrap;
+    background: linear-gradient(180deg, rgba(202, 138, 4, 0.4), rgba(120, 53, 15, 0.35));
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    padding: 1px 8px;
+    border-radius: 99px;
+    letter-spacing: 0.03em;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.22);
+}
+
 .tavern-text {
     color: #d6d3d1;
     font-size: 0.9rem;
@@ -19042,6 +19085,51 @@ button.combat-jutsu-button,
 .tavern-reply-cancel:active {
     background: rgba(202, 138, 4, 0.2);
     color: #fde68a;
+}
+
+/* ===== Mobile: the tavern is a full-page chat — only the message log scrolls =====
+   The mobile shell is a document-scroll page (html/body/#root scroll, .center-game
+   is height:auto). That let the whole page scroll around the chat. On the tavern
+   screen only, pin the chat to the viewport so the page itself can't scroll and the
+   sole scroller is .tavern-log. */
+@media (max-width: 800px) {
+    /* Stop the tavern screen's container from growing/scrolling. */
+    .center-game.screen-tavern {
+        min-height: 0 !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+
+    /* The tavern carries its own Back button + title, so the sticky top status
+       HUD is redundant here and would otherwise sit above the full-page chat. */
+    .screen-tavern .mobile-top-hud { display: none !important; }
+
+    /* Fill the viewport from the top edge down to just above the fixed bottom
+       nav (~62px + safe area). Global banners (z-index 99999) and the nav
+       (z-index 1000) still render above this. */
+    .screen-tavern .tavern-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+        height: auto;
+        min-height: 0;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        border-left: 0;
+        border-right: 0;
+        border-top: 0;
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px;
+        z-index: 5;
+    }
+
+    /* Keep overscroll from chaining to the body (no rubber-band behind the chat). */
+    .screen-tavern .tavern-log {
+        overscroll-behavior: contain;
+    }
 }
 
 @media (max-width: 480px) {
@@ -20789,13 +20877,14 @@ button.combat-jutsu-button,
         font-size: 15px !important;
     }
 
-    /* Hollow Gate marker inside the wider .world-map-scroll layout —
-       same image-only treatment, slightly larger. */
+    /* Hollow Gate marker inside the wider .world-map-scroll layout — image-only,
+       sized just under the 54px sector nodes so it reads as a landmark instead of
+       covering the numbered nodes around it ("eating the map"). */
     .world-map-scroll .atlas-hollowGate {
-        min-width: 64px !important;
-        width: 64px !important;
-        height: 64px !important;
-        max-width: 64px !important;
+        min-width: 52px !important;
+        width: 52px !important;
+        height: 52px !important;
+        max-width: 52px !important;
         padding: 0 !important;
         font-size: 0 !important;
         line-height: 1 !important;

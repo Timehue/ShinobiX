@@ -74,6 +74,10 @@ const PAIRS: Array<[string, string]> = [
     ['EP_MULTIPLIER', 'EP_MULTIPLIER_PVE'],
     ['K_DR', 'K_DR_PVE'],
     ['K_AMP', 'K_AMP_PVE'],
+    // Increase Generals stack pool: raises str/spd/int/wil (feeds statFactor),
+    // soft-capped so linear stacking can't drive statFactor to the [0.35,1.85]
+    // clamp. PvE and PvP must pool identically or the same buff diverges.
+    ['K_GENERALS', 'K_GENERALS_PVE'],
     ['HEAL_FLAT', 'HEAL_FLAT_PVE'],
     ['SHIELD_FLAT', 'SHIELD_FLAT_PVE'],
     ['WOUND_HARD_CAP_PCT', 'WOUND_HARD_CAP_PCT_PVE'],
@@ -94,6 +98,16 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
     }
     it('WOUND_CAP_BY_RANK matches (basic / AB / S)', () => {
         assert.deepEqual(woundCaps(SERVER), woundCaps(CLIENT), 'wound rank caps diverged between server and client');
+    });
+    // Wound STACK cap (2026-07-01). Per-hit Wound magnitude is rank-capped above; this
+    // bounds the concurrent STACK COUNT so repeated Wound casts can't compound bleed.
+    // Both engines must cap at the same number or PvE and PvP bleed diverge.
+    it('MAX_WOUND_STACKS (server) === MAX_WOUND_STACKS_PVE (client) + both engines cap at apply', () => {
+        assert.equal(num(SERVER, 'MAX_WOUND_STACKS'), num(CLIENT, 'MAX_WOUND_STACKS_PVE'), 'Wound stack cap diverged between server and client');
+        assert.match(SERVER, /function capWoundStacks/, 'move.ts lost capWoundStacks');
+        assert.match(CLIENT, /export function capWoundStacks/, 'combat-math.ts lost capWoundStacks');
+        assert.match(SERVER, /capWoundStacks\(addJutsuStatus/, 'move.ts no longer caps Wound stacks at apply');
+        assert.match(CLIENT_APP, /capWoundStacks\(/, 'Arena.tsx no longer caps Wound stacks at apply');
     });
     // Stun AP penalty: server move.ts uses `100 - STUN_AP_PENALTY` for the
     // stunned fighter's starting AP; client App.tsx uses `STUN_AP_PENALTY`
@@ -202,6 +216,23 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             num(CLIENT_GAME_CONSTS, 'MASTERY_MIN_DAMAGE_FRAC'),
             'MASTERY_MIN_DAMAGE_FRAC diverged between server move.ts and client constants/game.ts',
         );
+    });
+    // Heal/Shield mastery ramp parity (2026-07-01). The flat Heal/Shield magnitudes
+    // now scale by the SAME masteryDamageFrac curve as damage and are hard-capped at
+    // the FLAT ceiling on BOTH engines — so a low-mastery heal/shield is identical in
+    // PvE and PvP, and a maxed one is exactly HEAL_FLAT/SHIELD_FLAT as before.
+    it('Heal/Shield ramp by masteryDamageFrac + hard-cap (server move.ts ⇄ client Arena.tsx)', () => {
+        assert.match(SERVER, /function masteryDamageFrac/, 'move.ts lost the masteryDamageFrac helper');
+        assert.match(CLIENT, /export function masteryDamageFrac/, 'combat-math.ts lost the masteryDamageFrac export');
+        for (const src of [SERVER, CLIENT]) {
+            assert.match(src, /MASTERY_MIN_DAMAGE_FRAC \+ \(1 - MASTERY_MIN_DAMAGE_FRAC\)/, 'masteryDamageFrac formula drifted between engines');
+        }
+        // Server (move.ts): Heal/Shield = min(FLAT, floor(FLAT × magnitudeFrac × …)).
+        assert.match(SERVER, /Math\.min\(HEAL_FLAT,[^)]*magnitudeFrac/, 'move.ts Heal no longer ramps + hard-caps by mastery');
+        assert.match(SERVER, /Math\.min\(SHIELD_FLAT,[^)]*magnitudeFrac/, 'move.ts Shield no longer ramps + hard-caps by mastery');
+        // Client PvE engine (Arena.tsx): same cap via the shared masteryDamageFrac.
+        assert.match(CLIENT_APP, /Math\.min\(HEAL_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Heal no longer ramps + hard-caps by mastery');
+        assert.match(CLIENT_APP, /Math\.min\(SHIELD_FLAT_PVE,[^)]*masteryDamageFrac/, 'Arena.tsx Shield no longer ramps + hard-caps by mastery');
     });
     it('JUTSU_MAX_LEVEL (server) === JUTSU_MAX_LEVEL (client constants/game.ts)', () => {
         assert.equal(
