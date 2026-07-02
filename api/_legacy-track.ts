@@ -40,6 +40,9 @@ export type LegacyStats = Partial<Record<LegacyStatKey, number>> & {
     recentWinTargets?: string[];
     /** Last time the ring detector flagged this player (24h re-flag gate). */
     ringFlagAt?: number;
+    /** Last time ANY suspicion flag was raised — drives the slow decay that
+     *  lets honest CGNAT / shared-device false positives self-heal. */
+    lastSuspicionAt?: number;
 };
 
 export type LegacyEvent = {
@@ -50,7 +53,12 @@ export type LegacyEvent = {
 };
 
 const EVENTS_CAP = 200;
-const REPEAT_KILLS_CAP = 30;
+// Large enough that realistic diverse play never evicts an active farm pair
+// (eviction resets a pair's count to 0, which would restore full decay weight
+// on its next kill — verification finding). At 300 a farmer would need 300
+// distinct real victims to cycle one out, which the IP/FP + level-gap gates
+// already catch as alts.
+const REPEAT_KILLS_CAP = 300;
 
 const num = (v: unknown): number => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -73,6 +81,9 @@ export function repeatKillWeight(priorKillsOnTarget: number): number {
 /** Kills >=15 levels down contribute nothing to Legacy PvP credit. */
 export const LEVEL_GAP_ZERO = 15;
 
+/** One suspicion flag decays per this many days with no new flag. */
+export const SUSPICION_DECAY_DAYS = 10;
+
 /**
  * Win-trading RING detection (research finding: per-pair decay stops
  * A-farms-B, but 3+ accounts rotating victims — A→B, B→C, C→A — keep every
@@ -82,10 +93,19 @@ export const LEVEL_GAP_ZERO = 15;
 export const RING_WINDOW = 12;
 export const RING_MIN_WINS = 8;
 export const RING_MAX_DISTINCT = 3;
+/** A single target this fraction+ of the window = win-trading even if the rest
+ *  is diverse — catches the "farm F, then rotate 3 throwaway victims to keep
+ *  distinct-count at 4" evasion (verification finding). */
+export const RING_DOMINANCE = 0.5;
 export function isWinTradingRing(recentTargets: readonly string[]): boolean {
     const window = recentTargets.slice(0, RING_WINDOW);
     if (window.length < RING_MIN_WINS) return false;
-    return new Set(window).size <= RING_MAX_DISTINCT;
+    if (new Set(window).size <= RING_MAX_DISTINCT) return true;
+    // Single-target dominance: any opponent >= half the window.
+    const counts = new Map<string, number>();
+    for (const t of window) counts.set(t, (counts.get(t) ?? 0) + 1);
+    const max = Math.max(...counts.values());
+    return max >= Math.ceil(window.length * RING_DOMINANCE);
 }
 
 /**
@@ -233,7 +253,10 @@ export async function bumpLegacyStats(
                     suspicionRaised = true;
                 }
             }
-            if (suspicionRaised) next.suspicionFlags = num(next.suspicionFlags) + 1;
+            if (suspicionRaised) {
+                next.suspicionFlags = num(next.suspicionFlags) + 1;
+                next.lastSuspicionAt = Date.now();
+            }
             if (opts?.streak === 'win') {
                 // A fully-decayed farm win doesn't extend the streak either.
                 if (!decayed || pvpWeight > 0) {
@@ -245,15 +268,21 @@ export async function bumpLegacyStats(
             }
             await kv.set(legacyStatsKey(playerName), next);
             // Surface flagged players on the admin suspects queue (dedup,
-            // newest-first, capped). Best-effort side write.
+            // newest-first, capped). Own lock on the GLOBAL list — two
+            // different players flagged concurrently must not clobber each
+            // other (verification finding). Best-effort; runs after the
+            // per-player stats write above.
             if (suspicionRaised) {
+                const flagsNow = num(next.suspicionFlags);
                 try {
-                    const suspects = (await kv.get<Array<{ player: string; ts: number; flags: number }>>(LEGACY_SUSPECTS_KEY)) ?? [];
-                    const rest = (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== playerName);
-                    await kv.set(LEGACY_SUSPECTS_KEY, [
-                        { player: playerName, ts: Date.now(), flags: num(next.suspicionFlags) },
-                        ...rest,
-                    ].slice(0, 50));
+                    await withKvLock(LEGACY_SUSPECTS_KEY, async () => {
+                        const suspects = (await kv.get<Array<{ player: string; ts: number; flags: number }>>(LEGACY_SUSPECTS_KEY)) ?? [];
+                        const rest = (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== playerName);
+                        await kv.set(LEGACY_SUSPECTS_KEY, [
+                            { player: playerName, ts: Date.now(), flags: flagsNow },
+                            ...rest,
+                        ].slice(0, 50));
+                    }, { ttlSec: 5 });
                 } catch { /* best-effort */ }
             }
         }, { ttlSec: 5 });
@@ -291,6 +320,16 @@ export async function reconcileLegacyStatsFromSave(
                 const cap = BOOTSTRAP_CAPS[stat] ?? Number.MAX_SAFE_INTEGER;
                 const fromSave = Math.min(Math.max(0, Math.floor(num(character[field]))), cap);
                 if (fromSave > num(next[stat])) { next[stat] = fromSave; changed = true; }
+            }
+            // Slow suspicion decay: honest CGNAT / shared-device collisions and
+            // occasional false ring flags shouldn't lock a player out of
+            // legendary tiers forever. One flag decays per SUSPICION_DECAY_DAYS
+            // with no new flag (verification finding: flags never decayed).
+            const flags = num(next.suspicionFlags);
+            if (flags > 0 && Date.now() - num(next.lastSuspicionAt) > SUSPICION_DECAY_DAYS * 24 * 60 * 60 * 1000) {
+                next.suspicionFlags = flags - 1;
+                next.lastSuspicionAt = Date.now();
+                changed = true;
             }
             if (changed) {
                 next.updatedAt = Date.now();

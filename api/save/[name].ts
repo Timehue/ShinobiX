@@ -9,7 +9,8 @@ import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { sanitizeUserText, isCleanText, isAllowedCustomTitle, TEXT_LIMITS } from '../_text-moderation.js';
-import { isKnownEarnedTitle, isLegacyOnlyTitle, appendCustomTitleLog } from '../_titles-registry.js';
+import { isKnownEarnedTitle, isServerCreditedTitle, normalizeTitleKey, appendCustomTitleLog } from '../_titles-registry.js';
+import { legacyEnabled } from '../_legacy-track.js';
 import { KNOWN_TAG_NAMES, canonicalTagName } from '../pvp/_tags.js';
 import { masteryBudget, sanitizeMasterySpec } from '../_profession-mastery.js';
 import { combatMissionByKey } from '../missions/_mission-catalog.js';
@@ -302,30 +303,57 @@ export function sanitizeCharacterSave(
     //    plus earnedTitles (achievement grants, same trust level as
     //    achievements themselves).
     if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
+        // OLD behavior (always, every build): profanity mask + length cap.
         const masked = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
-        if (isKnownEarnedTitle(masked)) {
-            const storedLegacy = (existing?.character as Record<string, unknown> | undefined)?.legacy as { titles?: string[] } | undefined;
-            const legacyOwned = new Set(
-                (Array.isArray(storedLegacy?.titles) ? storedLegacy!.titles! : []).map((t) => String(t).toLowerCase()),
-            );
-            const wanted = masked.trim().toLowerCase();
-            if (isLegacyOnlyTitle(masked)) {
-                // Legacy titles: STRICT — only the server-owned stored
-                // legacy.titles counts (earnedTitles is client-writable and
-                // would allow self-granting "Moonlit Ghost" etc.).
-                char.customTitle = legacyOwned.has(wanted) ? masked : '';
+        const storedTitle = String((existing?.character as Record<string, unknown> | undefined)?.customTitle ?? '');
+        // NEW moderation (reserved terms + earned-title ownership) applies ONLY
+        // when the Legacy system is live AND the title actually CHANGED. This
+        // keeps flag-off behavior byte-identical, and — critically — never
+        // re-confiscates a title a player already wears (an existing, unchanged
+        // "Kage Slayer" is not re-evaluated). Verification finding.
+        if (legacyEnabled() && masked !== storedTitle) {
+            const norm = normalizeTitleKey(masked);
+            if (isKnownEarnedTitle(masked)) {
+                const storedLegacy = (existing?.character as Record<string, unknown> | undefined)?.legacy as { titles?: string[] } | undefined;
+                const storedServer = (existing?.character as Record<string, unknown> | undefined)?.serverTitles;
+                // Server-owned ownership: stored legacy.titles ∪ serverTitles
+                // (both re-injected by this sanitizer, never client-mutable).
+                const serverOwned = new Set([
+                    ...(Array.isArray(storedLegacy?.titles) ? storedLegacy!.titles! : []),
+                    ...(Array.isArray(storedServer) ? (storedServer as string[]) : []),
+                ].map((t) => normalizeTitleKey(String(t))));
+                if (isServerCreditedTitle(masked)) {
+                    // Legacy + era titles: STRICT server-owned check only —
+                    // earnedTitles is client-writable and would self-grant.
+                    char.customTitle = serverOwned.has(norm) ? masked : '';
+                } else {
+                    // Achievement titles: earnedTitles is acceptable (same
+                    // client-trust level as the achievements that grant them).
+                    const owned = new Set([
+                        ...(Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : []).map((t) => normalizeTitleKey(String(t))),
+                        ...serverOwned,
+                    ]);
+                    char.customTitle = owned.has(norm) ? masked : '';
+                }
             } else {
-                // Achievement/era titles: earnedTitles is acceptable (same
-                // client-trust level as the achievements that grant them).
-                const owned = new Set([
-                    ...(Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : []).map((t) => String(t).toLowerCase()),
-                    ...legacyOwned,
-                ]);
-                char.customTitle = owned.has(wanted) ? masked : '';
+                char.customTitle = isAllowedCustomTitle(masked) ? masked : '';
             }
         } else {
-            char.customTitle = isAllowedCustomTitle(masked) ? masked : '';
+            char.customTitle = masked;
         }
+    } else if (char.customTitle !== undefined && typeof char.customTitle !== 'string') {
+        // Non-string tamper (array/object) would skip the whole gate above and
+        // render raw client-controlled content — clear it. Verification finding.
+        char.customTitle = '';
+    }
+
+    // Server-owned title vault (era Herald + any future server grant). Like
+    // character.legacy, the STORED copy always wins so a tampered save can't
+    // self-grant one; unlockEra (api/_era.ts) is the only writer.
+    {
+        const exServer = (existing?.character as Record<string, unknown> | undefined)?.serverTitles;
+        if (Array.isArray(exServer)) char.serverTitles = exServer;
+        else delete char.serverTitles;
     }
 
     // ── Legacy (server-owned) ───────────────────────────────────────
@@ -1661,7 +1689,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Custom-title review log (§11.4): every NEW free-text
                     // title a save adopts is recorded for post-hoc admin
                     // review + revoke. Fire-and-forget; earned titles skipped.
-                    if (!isClanSave && identityName) {
+                    // Gated on the Legacy flag so flag-off writes no new KV.
+                    if (legacyEnabled() && !isClanSave && identityName) {
                         const exTitle = String(((existing as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined)?.customTitle ?? '');
                         const inTitle = String(((safeIncoming as Record<string, unknown>).character as Record<string, unknown> | undefined)?.customTitle ?? '');
                         if (inTitle && inTitle !== exTitle && !isKnownEarnedTitle(inTitle)) {

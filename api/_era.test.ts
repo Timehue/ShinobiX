@@ -32,6 +32,17 @@ test('status override wins over the definition', () => {
     assert.equal(effectiveStatus(MYTHIC_ERA, { status: 'unlocked' }), 'unlocked');
 });
 
+test('only gated eras emit history — launch eras I–IV have no milestones and no trigger', () => {
+    // The unlock transaction only announces / mints Hall history for eras with
+    // milestones or a trigger. Launch eras must have neither, so an admin
+    // force-unlock on them is a silent no-op (verification finding).
+    for (const e of ERA_DEFS.filter((x) => x.number <= 4)) {
+        assert.equal(e.milestones.length, 0, `${e.id} must have no milestones`);
+        assert.equal(e.trigger, undefined, `${e.id} must have no trigger`);
+    }
+    assert.ok(MYTHIC_ERA.milestones.length > 0 || MYTHIC_ERA.trigger, 'Era V is gated');
+});
+
 test('view builder: progress clamps to required, trigger + credit surface', () => {
     const views = buildEraViews(
         { overrides: { 'mythic-legacies': { milestoneOverrides: { pvpWins: 100 } } } },

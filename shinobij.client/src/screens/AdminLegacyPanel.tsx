@@ -103,9 +103,17 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
 
     // ── Suspects queue ───────────────────────────────────────────────────
     const [suspects, setSuspects] = useState<Array<{ player: string; ts: number; flags: number }>>([]);
+    const [suspectReason, setSuspectReason] = useState("");
     async function loadSuspects() {
         const data = await post({ action: 'suspects' });
         if (data) { setSuspects((data.suspects as typeof suspects) ?? []); setStatus('Suspects refreshed.'); }
+    }
+    async function clearSuspicion(player: string) {
+        if (!suspectReason.trim()) { setStatus('✗ Clearing suspicion requires a reason.'); return; }
+        const sure = await gameConfirm(`Clear ${player}'s suspicion flags? Use for honest false positives (shared network / small-server trios) — this does NOT wipe their progression.`, { title: 'Clear Suspicion', confirmLabel: 'Clear Flags' });
+        if (!sure) return;
+        const data = await post({ action: 'clear-suspicion', player, reason: suspectReason.trim() });
+        if (data) { setStatus(`✓ Suspicion cleared for ${player}.`); void loadSuspects(); }
     }
 
     // ── Custom-title review ──────────────────────────────────────────────
@@ -131,19 +139,31 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
         if (data) { setEras((data.eras as EraView[]) ?? []); setStatus('Eras refreshed.'); }
     }
     async function setEraStatus(eraId: string, statusValue: string) {
+        const sure = await gameConfirm(`Set ${eraId} status to "${statusValue}"? Cycling an unlocked era back to milestone_active can retrigger its unlock — use with care.`, { title: 'Change Era Status', confirmLabel: 'Set Status', danger: statusValue !== 'unlocked' });
+        if (!sure) { void loadEras(); return; } // revert the select to server truth
         const data = await post({ action: 'era-set-status', eraId, status: statusValue });
-        if (data) { setStatus(`✓ ${eraId} → ${statusValue}`); void loadEras(); }
+        if (data) { setStatus(`✓ ${eraId} → ${statusValue}`); }
+        void loadEras();
     }
     async function setEraMilestone(eraId: string, metric: string, required: number) {
+        // Guard against an emptied / NaN / negative box silently waiving the
+        // milestone (verification finding). Only 0 explicitly waives.
+        if (!Number.isFinite(required) || required < 0) { setStatus('✗ Milestone must be 0 (waive) or a positive number.'); void loadEras(); return; }
         const data = await post({ action: 'era-set-milestone', eraId, metric, required });
         if (data) { setStatus(`✓ ${eraId}.${metric} → ${required.toLocaleString()}`); void loadEras(); }
     }
     async function forceUnlockEra(eraId: string) {
         if (!eraReason.trim()) { setStatus('✗ Era force-unlocks require a reason.'); return; }
-        const sure = await gameConfirm(`Force-unlock ${eraId}? This announces server-wide and writes permanent Hall history.`, { title: 'Force Era Unlock', confirmLabel: 'Unlock the Era', danger: true });
+        const credit = inspectName.trim();
+        const sure = await gameConfirm(
+            `Force-unlock ${eraId}? This announces server-wide and writes PERMANENT Hall history` +
+            (credit ? `, credited to "${credit}" (the Player Inspector name).` : ', with NO credited player.') +
+            ' Launch eras (I–IV) are already unlocked and will no-op.',
+            { title: 'Force Era Unlock', confirmLabel: credit ? `Unlock, credit ${credit}` : 'Unlock (no credit)', danger: true },
+        );
         if (!sure) return;
-        const data = await post({ action: 'era-force-unlock', eraId, reason: eraReason.trim(), player: inspectName.trim() || undefined });
-        if (data) { setStatus(`✓ ${eraId} unlock ${data.applied ? 'APPLIED' : 'was already done'}.`); void loadEras(); }
+        const data = await post({ action: 'era-force-unlock', eraId, reason: eraReason.trim(), player: credit || undefined });
+        if (data) { setStatus(`✓ ${eraId} unlock ${data.applied ? 'APPLIED' : 'was already done / launch era'}.`); void loadEras(); }
     }
 
     // ── Tuning overlay ───────────────────────────────────────────────────
@@ -238,11 +258,13 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
             {/* Suspects */}
             <section className="card" style={{ padding: 12 }}>
                 <h4 style={{ margin: '0 0 8px' }}>Suspicion Queue <button style={{ marginLeft: 8 }} onClick={() => void loadSuspects()}>Refresh</button></h4>
+                <input placeholder="clear-suspicion reason (required, audited)" value={suspectReason} onChange={(e) => setSuspectReason(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
                 {suspects.length === 0 ? <p style={{ margin: 0, fontSize: '.78rem', color: '#9aa3b2' }}>No flagged players.</p>
                     : suspects.map((s) => (
                         <p key={s.player} style={{ margin: '2px 0', fontSize: '.78rem' }}>
                             ⚠ <b>{s.player}</b> — {s.flags} flag{s.flags === 1 ? '' : 's'} · {new Date(s.ts).toLocaleString()}
                             <button style={{ marginLeft: 8 }} onClick={() => { setInspectName(s.player); void inspect(); }}>Inspect</button>
+                            <button style={{ marginLeft: 4 }} onClick={() => void clearSuspicion(s.player)}>Clear Flags</button>
                         </p>
                     ))}
             </section>
@@ -279,9 +301,15 @@ export function AdminLegacyPanel({ adminPw }: { adminPw: string }) {
                             <p key={m.metric} style={{ margin: '2px 0', color: m.done ? '#86efac' : '#cbd5e1' }}>
                                 {m.label}: {m.current.toLocaleString()} / {' '}
                                 <input
+                                    key={`${e.id}:${m.metric}:${m.required}`}
                                     type="number" defaultValue={m.required} min={0}
                                     style={{ width: 90 }}
-                                    onBlur={(ev) => { const v = Math.floor(Number(ev.target.value)); if (Number.isFinite(v) && v >= 0 && v !== m.required) void setEraMilestone(e.id, m.metric, v); }}
+                                    onBlur={(ev) => {
+                                        const raw = ev.target.value.trim();
+                                        if (raw === '') { ev.target.value = String(m.required); return; } // empty ≠ waive
+                                        const v = Math.floor(Number(raw));
+                                        if (Number.isFinite(v) && v >= 0 && v !== m.required) void setEraMilestone(e.id, m.metric, v);
+                                    }}
                                 />
                             </p>
                         ))}
