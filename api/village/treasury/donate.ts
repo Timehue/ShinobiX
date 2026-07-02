@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
+import { bumpLegacyStats } from '../../_legacy-track.js';
 
 /*
  * /api/village/treasury/donate  — POST only
@@ -140,6 +141,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { itemId: donation.itemId, count: Math.floor(donation.count) }),
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
+        // Legacy tracking (ENABLE_LEGACY): villageDonations counts ryo-value
+        // donated (currency amount; items count a flat 500 each).
+        await bumpLegacyStats(playerName, {
+            villageDonations: donation.kind === 'currency'
+                ? Math.max(0, Math.floor(donation.amount))
+                : Math.max(0, Math.floor(donation.count)) * 500,
+        });
         return res.status(200).json({ ok: true, treasury: result.treasury });
     } catch (err) {
         console.error('[village/treasury/donate]', err);

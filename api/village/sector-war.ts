@@ -34,6 +34,7 @@ import {
 } from '../_sector-war-store.js';
 import { villageHasActiveWar, captureSectorForVillage, seedHomeSectorOwnership } from '../world-state.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
+import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
@@ -321,6 +322,17 @@ async function doResolve(req: VercelRequest, res: VercelResponse, identity: Iden
     if (!result.ok) {
         return res.status(409).json({
             error: result.error === 'already-resolved' ? 'That battle was already resolved.' : 'The contest is no longer active.',
+        });
+    }
+    // Legacy tracking (ENABLE_LEGACY): war credit from the authoritative
+    // resolve — winner banked a war kill + contribution; a defender hold is a
+    // defense, an attacker capture is a capture. Best-effort, after the lock.
+    if (legacyEnabled() && winnerName) {
+        await bumpLegacyStats(winnerName, {
+            warPvpKills: 1,
+            warContribution: Math.max(0, Math.floor(Number(result.outcome.hpDealt) || 0)),
+            ...(attackerWon && result.outcome.captured ? { sectorCaptures: 1 } : {}),
+            ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
         });
     }
     return res.status(200).json({

@@ -296,6 +296,18 @@ export function sanitizeCharacterSave(
         char.customTitle = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
     }
 
+    // ── Legacy (server-owned) ───────────────────────────────────────
+    // character.legacy is written ONLY by the server (api/legacy/sage.ts /
+    // api/legacy/trial.ts / api/admin/legacy.ts). Whatever the client
+    // autosaves, the STORED copy wins — a tampered save can neither claim a
+    // legacy, move a stage, nor grant itself legacy titles. (Admin saves
+    // bypass this sanitizer like everything else here.)
+    {
+        const exLegacy = (existing?.character as Record<string, unknown> | undefined)?.legacy;
+        if (exLegacy !== undefined) char.legacy = exLegacy;
+        else delete char.legacy;
+    }
+
     // ── Nindo (player-authored profile creed) ──────────────────────
     // BBCode subset, rendered SAFELY client-side by lib/nindo-bbcode (never raw
     // HTML). Server job here is storage hygiene: strip control chars, cap length,

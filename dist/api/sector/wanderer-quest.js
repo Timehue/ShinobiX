@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _wanderer_quest_js_1 = require("./_wanderer-quest.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/sector/wanderer-quest — POST { action: 'accept' | 'claim', playerName, questId? }
  *
@@ -90,6 +91,8 @@ async function handler(req, res) {
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
                 await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
+                // Legacy tracking (ENABLE_LEGACY): a completed wanderer quest.
+                await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { wandererQuests: 1 });
                 return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);

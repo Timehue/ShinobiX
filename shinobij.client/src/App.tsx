@@ -9071,11 +9071,11 @@ export default function App() {
                             void autoReportClanWarBattleResult(true, opponent?.name);
                             setPvpBattleContext(prev => prev ? { ...prev, clanWarChallengeId: undefined } : prev);
                         }
-                        // Vanguard daily mission progress — server validates the
-                        // win against the actual PvpSession and enforces its own
-                        // anti-abuse rules (quick-surrender, account age, IP),
-                        // so the client only needs to skip the spar case.
-                        if (!isFriendlyDuel && opponent && rewarded.profession === "vanguard") {
+                        // Win report — server validates against the real
+                        // PvpSession + its own anti-abuse rules. Feeds Vanguard
+                        // mission progress AND server-side Legacy tracking, so
+                        // it fires for every real (non-spar) win, any profession.
+                        if (!isFriendlyDuel && opponent) {
                             fetch('/api/missions/report-pvp-win', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },

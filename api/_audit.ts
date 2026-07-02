@@ -9,14 +9,14 @@ import { withKvLock } from './_lock.js';
 // reward grants/corrections, and sector/territory changes.
 //
 // One capped list per domain, newest-first:
-//   audit:content   audit:reward   audit:sector   audit:combat
+//   audit:content   audit:reward   audit:sector   audit:combat   audit:legacy
 //
 // Every write is best-effort and lock-serialized so concurrent admin actions
 // can't clobber each other's entries. `before`/`after` are COMPACT SUMMARIES
 // (changed fields only) — never whole entities — so the list stays small and
 // never leaks base64 image blobs into the log.
 
-export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat';
+export type AuditDomain = 'content' | 'reward' | 'sector' | 'combat' | 'legacy';
 
 export interface AuditEntry {
     ts: number;

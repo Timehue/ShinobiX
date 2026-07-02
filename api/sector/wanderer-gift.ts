@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './_wanderer-gift.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/sector/wanderer-gift — POST only
@@ -79,6 +80,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         }, { failClosed: true });
 
+        // Legacy tracking (ENABLE_LEGACY): a wanderer encounter is a sector
+        // discovery. Rides the same daily cap as the gift itself.
+        if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
+            await bumpLegacyStats(playerName, { sectorDiscoveries: 1 });
+        }
         return res.status(out.status).json(out.body);
     } catch (err) {
         if (err instanceof LockContendedError) {

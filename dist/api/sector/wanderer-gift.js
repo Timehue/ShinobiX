@@ -8,6 +8,7 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _wanderer_gift_js_1 = require("./_wanderer-gift.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 /*
  * /api/sector/wanderer-gift — POST only
  *
@@ -77,6 +78,11 @@ async function handler(req, res) {
                 },
             };
         }, { failClosed: true });
+        // Legacy tracking (ENABLE_LEGACY): a wanderer encounter is a sector
+        // discovery. Rides the same daily cap as the gift itself.
+        if (out.status === 200 && out.body?.ok === true) {
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { sectorDiscoveries: 1 });
+        }
         return res.status(out.status).json(out.body);
     }
     catch (err) {

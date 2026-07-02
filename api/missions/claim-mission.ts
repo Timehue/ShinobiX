@@ -8,6 +8,7 @@ import { gainXp } from '../_xp-engine.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { utcDateKey, reportNewbieEvent } from './_progress.js';
 import { recordEconomyTxn } from '../_economy.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 import {
     combatMissionByKey,
     fieldMissionById,
@@ -315,6 +316,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             } catch (e) {
                 console.error('[claim-mission newbie]', e);
+            }
+            // Legacy tracking (ENABLE_LEGACY): mission/hunt completions are the
+            // PvE spine of Legacy eligibility. Best-effort, after the save lock.
+            {
+                const legacyDeltas: Record<string, number> = {};
+                if (outcome.completion === 'hunt') legacyDeltas.huntCompletions = 1;
+                else if (outcome.completion === 'daily' || outcome.completion === 'total') legacyDeltas.missionCompletions = 1;
+                if (missionType === 'combat') legacyDeltas.pveKills = 1;
+                if (Object.keys(legacyDeltas).length > 0) await bumpLegacyStats(playerName, legacyDeltas);
             }
             // Economy telemetry — log the server-computed faucet deltas (ryo +
             // any premium currency) so created-vs-destroyed is measurable.

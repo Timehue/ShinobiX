@@ -7,6 +7,8 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _progress_js_1 = require("./_progress.js");
 const _player_ips_js_1 = require("../_player-ips.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
+const _legacy_pvp_js_1 = require("../_legacy-pvp.js");
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
 const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
@@ -78,9 +80,55 @@ async function handler(req, res) {
         if ((0, _utils_js_1.safeName)(loserName) !== opponentName) {
             return res.status(400).json({ error: 'Opponent name does not match the recorded loser.' });
         }
-        // Look up player's profession.
+        // Look up player's profession. (Both records also feed the Legacy
+        // tracking block below, so they're fetched before the Vanguard gate.)
         const record = await _storage_js_1.kv.get(`save:${playerName}`);
         const char = record?.character;
+        const opponentRecord = await _storage_js_1.kv.get(`save:${opponentName}`);
+        const opponentChar = opponentRecord?.character;
+        // Quick-surrender duration (shared by Legacy tracking + the Vanguard
+        // mission checks below — same numbers, computed once).
+        const sessionCreatedAt = Number(session.createdAt ?? 0);
+        const sessionLastMove = Number(session.lastMoveAt ?? 0);
+        const inSessionDuration = sessionLastMove > sessionCreatedAt
+            ? sessionLastMove - sessionCreatedAt
+            : (sessionCreatedAt ? Date.now() - sessionCreatedAt : 0);
+        // ── Legacy tracking (ENABLE_LEGACY) ─────────────────────────────────
+        // Server-owned progression counters for BOTH fighters, recorded before
+        // the Vanguard-only mission gate so every player's real wins count.
+        // Own NX idempotency key; abuse signals feed suspicionFlags instead of
+        // credit. Best-effort — a tracking hiccup never fails the report.
+        if ((0, _legacy_track_js_1.legacyEnabled)()) {
+            try {
+                const tracked = await _storage_js_1.kv.set(`legacy:pvp-tracked:${battleId}`, true, { nx: true, ex: 24 * 60 * 60 });
+                if (tracked && inSessionDuration >= MIN_FIGHT_DURATION_MS) {
+                    const opponentCreatedForLegacy = Number(opponentChar?.createdAt ?? 0);
+                    const youngOpponent = opponentCreatedForLegacy > 0 && (Date.now() - opponentCreatedForLegacy) < ACCOUNT_AGE_MIN_MS;
+                    const farmedIp = await (0, _player_ips_js_1.hasRecentIpOverlap)(playerName, opponentName);
+                    if (youngOpponent || farmedIp) {
+                        await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, {}, { characterForBootstrap: char ?? null, suspicion: true });
+                    }
+                    else {
+                        const extract = (0, _legacy_pvp_js_1.extractPvpLegacyDeltas)(session, winnerName, loserName);
+                        const winnerLevel = Number(char?.level ?? 0) || 0;
+                        const loserLevel = Number(opponentChar?.level ?? 0) || 0;
+                        await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, extract.winnerDeltas, {
+                            characterForBootstrap: char ?? null,
+                            pvpTarget: opponentName,
+                            pvpLevelGap: winnerLevel - loserLevel,
+                            streak: 'win',
+                        });
+                        await (0, _legacy_track_js_1.bumpLegacyStats)(opponentName, extract.loserDeltas, {
+                            characterForBootstrap: opponentChar ?? null,
+                            streak: 'reset',
+                        });
+                    }
+                }
+            }
+            catch (legacyErr) {
+                console.error('[report-pvp-win] legacy tracking failed:', legacyErr);
+            }
+        }
         if (char?.profession !== 'vanguard') {
             // Not a Vanguard — nothing to do, but return 200 so the client
             // doesn't treat it as an error.
@@ -96,16 +144,10 @@ async function handler(req, res) {
         // actual fighting had ~0 duration. session.lastMoveAt is server-
         // stamped on every successful api/pvp/move call, so spoofing it
         // requires real moves landing 15s apart (which IS legitimate play).
-        const sessionCreatedAt = Number(session.createdAt ?? 0);
-        const sessionLastMove = Number(session.lastMoveAt ?? 0);
-        const inSessionDuration = sessionLastMove > sessionCreatedAt
-            ? sessionLastMove - sessionCreatedAt
-            : (sessionCreatedAt ? Date.now() - sessionCreatedAt : 0);
+        // (Duration + opponent record computed above, shared with Legacy tracking.)
         if (inSessionDuration < MIN_FIGHT_DURATION_MS) {
             return res.status(200).json({ ok: true, vanguard: true, reason: 'quick-surrender', xpAwarded: 0, missionsCompleted: [] });
         }
-        const opponentRecord = await _storage_js_1.kv.get(`save:${opponentName}`);
-        const opponentChar = opponentRecord?.character;
         const opponentCreated = Number(opponentChar?.createdAt ?? 0);
         if (opponentCreated > 0 && (Date.now() - opponentCreated) < ACCOUNT_AGE_MIN_MS) {
             return res.status(200).json({ ok: true, vanguard: true, reason: 'account-too-young', xpAwarded: 0, missionsCompleted: [] });

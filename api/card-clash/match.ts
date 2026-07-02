@@ -20,6 +20,7 @@ import {
     type ClashPlay,
 } from '../clan/war/_card-clash-engine.js';
 import { canonicalClashStats, buildCreatorBaseMap } from '../clan/war/_card-catalog.js';
+import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 
 /*
  * /api/card-clash/match — POST only. FREE-PLAY Shinobi Card Clash PvP (the open
@@ -147,8 +148,17 @@ function resolveCommittedTurn(session: FreePlaySession, now: number): void {
 
 // Free-play is unranked: finishing just persists the recorded winner. No currency,
 // no rating — nothing to settle (deliberately, to remove any win-trading incentive).
+// Legacy tracking (ENABLE_LEGACY) is the one exception: a decided match banks a
+// cardClashWins counter once (NX per matchId), which feeds identity, not rewards.
 async function persistAndMaybeFinalize(session: FreePlaySession): Promise<void> {
     await saveSession(session);
+    if (legacyEnabled() && session.status === 'done' && session.winner && session.winner !== 'draw') {
+        const winnerName = safeName(String((session.winner === 'p1' ? session.p1?.name : session.p2?.name) ?? ''));
+        if (winnerName) {
+            const marked = await kv.set(`legacy:cc-tracked:${session.matchId}`, true, { nx: true, ex: 24 * 60 * 60 });
+            if (marked) await bumpLegacyStats(winnerName, { cardClashWins: 1 });
+        }
+    }
 }
 
 // ── Per-viewer projection — strips the opponent's hand contents + staged plays ──

@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 const _profession_mastery_js_1 = require("../_profession-mastery.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
 // Expedition, x1.2 if petEscortBonusReady is consumed).
@@ -276,6 +277,8 @@ async function handler(req, res) {
             if (expeditionXp > 0) {
                 await (0, _progress_js_1.awardProfessionXp)(playerName, 'petTamer', expeditionXp);
             }
+            // Legacy tracking (ENABLE_LEGACY): a token-validated expedition.
+            await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { petExpeditions: 1 });
         }
         // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns
         // just the half-rate currency credited above (no missions, no XP).
