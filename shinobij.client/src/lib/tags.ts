@@ -11,6 +11,12 @@
 import type { Rank, JutsuMethod } from "../types/core";
 import type { JutsuTag, Jutsu } from "../types/combat";
 
+// NB: "Increase Discipline" is a LEGACY-signature-only tag — it lives in the
+// combat-math lists (percentageTags / cappedDamageTags, so effectiveTagPercent
+// rank-caps it) but is deliberately ABSENT from allTags / tagGroups below, so
+// the bloodline maker and custom-jutsu editor never offer it. Keep it out of
+// those picker lists (on a 40-AP jutsu its type is forced to "Any", where it
+// no-ops — an offerable trap — and bloodlines already have Increase Generals).
 export const percentageTags = [
     "Increase Damage Given",
     "Decrease Damage Given",
@@ -121,7 +127,6 @@ export const allTags = [
     "Increase Damage Given",
     "Increase Damage Taken",
     "Increase Generals",
-    "Increase Discipline",
     "Increase Heal",
     "Lifesteal",
     "Mirror",
@@ -147,7 +152,7 @@ export const allTags = [
 // to whatever the picker currently allows, preserving group + member order.
 export const tagGroups: { label: string; tags: string[] }[] = [
     { label: "Damage & DoT", tags: ["Wound", "Poison", "Ignition", "Drain", "Recoil"] },
-    { label: "Offense (you)", tags: ["Increase Damage Given", "Increase Generals", "Increase Discipline", "Lifesteal", "Siphon", "Increase Heal", "Overclock"] },
+    { label: "Offense (you)", tags: ["Increase Damage Given", "Increase Generals", "Lifesteal", "Siphon", "Increase Heal", "Overclock"] },
     { label: "Defense (you)", tags: ["Shield", "Heal", "Absorb", "Reflect", "Decrease Damage Taken", "Debuff Prevent", "Stun Prevent"] },
     { label: "Debuffs (enemy)", tags: ["Decrease Damage Given", "Increase Damage Taken", "Buff Prevent", "Cleanse Prevent", "Clear Prevent", "Lag"] },
     { label: "Control", tags: ["Stun", "Bloodline Seal", "Elemental Seal", "Copy", "Mirror"] },

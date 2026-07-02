@@ -14,7 +14,7 @@ week, and turning it off cleanly if needed. Design source of truth:
 | `ENABLE_LEGACY` | server env (Railway **and** cPanel) | unset (**off**) | The real gate. Off = every legacy endpoint 404s, every hook no-ops, save behavior is byte-identical. |
 | `legacy.v1` | client localStorage | **on** | Per-device kill-switch only. Set to `"off"` in a device's console to hide legacy client surfaces there. No server effect. |
 | `DISCORD_ANNOUNCE_WEBHOOK_URL` | server env | unset | Optional. When set, mythic announcements also post a rich embed to Discord. |
-| `LEGACY_SPECIALTY_PVP` | — | reserved | Not read by any code yet — the Specialty Jutsu wave is unbuilt. Never set it without the PvP sign-off (plan §10.6). |
+| `LEGACY_SPECIALTY_PVP` | — | retired (never wired) | Historical plan flag — **no code ever read it**. Specialty Jutsu shipped PvP-enabled (owner signed off) gated only by `ENABLE_LEGACY`. Setting this does nothing; the only kill-switch for signatures in PvP/Towers is the full `ENABLE_LEGACY` rollback (§6). |
 
 ## 2. The flip (launch)
 
@@ -48,6 +48,12 @@ week, and turning it off cleanly if needed. Design source of truth:
 4. Check Hall of Legends → World Eras: Era V shows live milestone counters.
 5. Post a `low` announcement from the admin panel; confirm it appears under
    Hall of Legends → News.
+6. **Signature slot**: on an account with a Stage-3+ legacy (Inspector →
+   Emergency Correction can set one on the test account), Profile → Jutsu tab
+   shows the pinned "◆ Legacy Signature" card (mastery 30/40/50 by stage);
+   start a PvE arena fight → the signature sits at the END of the action bar
+   and casts (cd 10); open a PvP duel → it appears in the sealed loadout too.
+   Below Stage 3 the card and bar slot are absent.
 
 ## 4. Launch-week dashboards (all in Admin → 🌠 Legacy unless noted)
 
@@ -91,6 +97,15 @@ messages; trials pause exactly where they are (fresh-delta baselines keep,
 since the side-car stops moving too). Flipping back on resumes everything with
 no data loss.
 
+**Signature-slot rollback nuance**: flag-off removes Legacy signatures from
+NEW PvP/Towers sessions immediately (the seal-time injection is flag-gated;
+in-flight sessions keep their already-sealed copy). The PvE action bar reads
+the CLIENT kill-switch (`legacy.v1`), not the server flag — so during a
+server-only rollback a Bound player still sees and uses their signature in PvE
+until `legacy.v1` is flipped off client-side. Combat-safe either way (the tag
+and jutsu code paths ship regardless); flip both if you need the signature
+gone everywhere.
+
 Deliberate flag-off exceptions (they keep working, by design):
 - **Moderation survives**: admin `view`, `suspects`, `clear-suspicion`,
   `titles-log`, `title-revoke`, `hall-list`, `hall-correct`, and `metrics`
@@ -105,9 +120,15 @@ Deliberate flag-off exceptions (they keep working, by design):
 
 ## 7. Known deferred items
 
-- **Specialty Jutsu** (plan §10) — the only unbuilt handoff item. Ships
-  PvE-only behind `LEGACY_SPECIALTY_PVP` when built; PvP enablement requires
-  explicit owner sign-off.
+- **Specialty Jutsu** (plan §10) — **BUILT and live** (owner signed off on PvP).
+  All 100 signatures ship in PvP, PvE, and Battle Towers whenever
+  `ENABLE_LEGACY=1`, via the dedicated 16th slot injected server-side in
+  `api/pvp/session.ts` `hydrateCharacterFromSave` at Stage 3+. There is **no
+  per-feature flag** (`LEGACY_SPECIALTY_PVP` was never wired); the only lever is
+  the full `ENABLE_LEGACY` rollback. *Remaining:* 80 of 100 signature-jutsu
+  icons are un-generated (they render as empty slots, not broken images) — run
+  `shinobij.client/scripts/gen-legacy-jutsu-icons.mjs` and extend
+  `SHIPPED_ICON_SLUGS` when the art lands.
 - Real-device viewport smoke pass — the layouts were code-audited for 390px
   mobile; do one live phone pass (Sage modal, trial card, Hall, wanderer
-  dialog) during the smoke test.
+  dialog, Profile signature card) during the smoke test.

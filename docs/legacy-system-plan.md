@@ -562,6 +562,30 @@ anti-snowball posture; the moment already feels huge).
 
 ## 10. Specialty Jutsu
 
+> **⚠ AS-SHIPPED (supersedes the original design below).** The feature shipped
+> with owner-approved changes to this section's assumptions. What actually
+> shipped:
+> - **100 signatures**, one per Legacy, in
+>   `shinobij.client/src/data/legacy-jutsu.ts` → generated server catalog
+>   `api/pvp/_legacy-jutsu-catalog.ts`. Ids `legacy-<slug>`.
+> - **PvP + PvE + Towers**, not PvE-only. Owner signed off on PvP. There is **no
+>   `LEGACY_SPECIALTY_PVP` flag** (it was never wired) — gated solely by
+>   `ENABLE_LEGACY`.
+> - **A dedicated 16th slot**, outside the 15-jutsu loadout — NOT a normal
+>   ≤15 loadout entry. Derived server-side from the server-owned
+>   `character.legacy` at Stage 3+ (`hydrateCharacterFromSave` in
+>   `api/pvp/session.ts`), resolved from a SEPARATE catalog so the ids can never
+>   come from `equippedJutsuIds`. Mastery = stage × 10.
+> - **One combat-engine change**, not zero: a new `Increase Discipline` tag
+>   (style-locked offense self-buff, the legacy-only sibling of Increase
+>   Generals) in `api/pvp/move.ts` + `combat-math.ts` + `Arena.tsx`, parity-
+>   pinned. Tiers: cd 10; Mythic 40% / Legendary 40+35 / Rare 35 / Basic 30
+>   (Wound on its own 35/35/30/25 ladder). Bloodline-unique control tags are
+>   deliberately excluded (bloodline STRENGTH, not CONTROL).
+> - **Rollback**: no per-feature flag; `ENABLE_LEGACY=0` removes signatures from
+>   new PvP/Tower sessions, but PvE keeps them until the client `legacy.v1`
+>   switch flips (see checklist §6).
+
 ### 10.1 Definitions
 
 Static additions to the jutsu content set with ids `legacy-*`, one per Legacy,
@@ -972,7 +996,7 @@ manual NPM install before restart.
 | Level 50+, no existing Legacy, offer active/unexpired, chosen was offered | `sage accept` re-validation inside failClosed lock (§8.2) |
 | One Legacy forever | `legacy:accepted` NX marker + save sanitizer ignores client `legacy` field |
 | Decline never locks; failed trial never switches | decline only mutates offer status; trial state has no legacy-change path |
-| Specialty: owned-only, one, normal slot, ≤15 | `resolveEquippedLoadout` extension (§10.2); 15-cap already enforced both sides |
+| Specialty: owned-only, one, **dedicated 16th slot** (outside the 15) | *As shipped (supersedes §10.2):* derived server-side in `hydrateCharacterFromSave` (`api/pvp/session.ts`) from the server-owned `character.legacy` at Stage 3+, resolved from the SEPARATE `LEGACY_JUTSU_CATALOG` — ids never resolve from `equippedJutsuIds`, so a tampered save can't equip one inside the 15 or claim another Legacy's signature (tests: `api/pvp/_legacy-slot.test.ts`) |
 | Titles unowned can't equip; shards never negative | equip validates against earned set server-side at sanitize; purchase validates before debit |
 | Custom title filtered/reserved | `isAllowedCustomTitle` at save sanitize (server) (§11.4) |
 | Era can't double-unlock; server-firsts can't dupe | NX markers (§13, §14.3) |
