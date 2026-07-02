@@ -78,7 +78,7 @@ import {
     baseStats,
     normalizeStats,
     addToAllStats,
-    maxedStats,
+    maxedStats, applyStatGrowth,
     xpNeeded,
     maxHpForLevel,
     maxChakraForLevel,
@@ -3272,8 +3272,8 @@ export default function App() {
                     // practice spars — so spar round-robins are throttled by the
                     // same decay instead of paying full ryo/XP every rematch (the
                     // honest first win/hour is unchanged). rewardSector feeds ONLY
-                    // the Death's Gate (99) 2× bonus and mirrors handlePvpWin.
-                    baseRewards: true,
+                    // the Death's Gate 2× bonus. Spars (standard, no clan-war/sector stakes) → baseRewards false so the server grants nothing (matches isFriendlyDuel).
+                    baseRewards: !(!challenge.mode || (challenge.mode === "standard" && !challenge.clanWarPoints && !challenge.sectorAttack)),
                     rewardSector: currentSector,
                     // Biome + weather. Ranked forces neutral; everything else
                     // ships the live values so terrainMultiplier/weatherMultiplier
@@ -8994,12 +8994,12 @@ export default function App() {
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         // Sector War: apply this win to the sector-war contest (server reads the authoritative session winner).
                         if (context?.sectorAttack && pvpBattleId) void resolveSectorBattle(character.name, pvpBattleId).catch(() => {});
-                        const leveled = serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
-                        const rewarded = grantTerritoryScrolls(leveled, 5);
-                        // Spar/friendly-duel detection for non-Vanguard local effects
-                        // (e.g., ranked rating still uses isFriendlyDuel implicitly).
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        // Spars grant NO XP / stat growth / ryo (pure practice); ranked = no stats.
+                        let leveled = isFriendlyDuel ? character : serverBase ? applyServerBaseReward(character, serverBase) : gainXp(character, xpGain);
+                        if (!isFriendlyDuel && serverBase?.statGrowth?.allocated) leveled = applyStatGrowth(leveled, serverBase.statGrowth.allocated, 0);
+                        const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Vanguard rewards (Honor Seals + profession XP + all the
                         // daily-tracking fields) are granted server-side in
                         // api/pvp/move.ts via grantVanguardRewardsForSession. The
@@ -9013,7 +9013,7 @@ export default function App() {
                             // ryo / fateShards include the war-ground bounty
                             // when it fires; bountyRyo+bountyFateShards are 0
                             // for non-raid wins or when already claimed today.
-                            ryo: (serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
+                            ryo: (isFriendlyDuel ? rewarded.ryo : serverBase ? rewarded.ryo : rewarded.ryo + ryoGain) + villageWarRaid.bountyRyo,
                             fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,

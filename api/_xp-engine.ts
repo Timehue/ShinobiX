@@ -244,7 +244,7 @@ export function computePvpWinGains(char: XpCharacter, rewardSector: unknown): Pv
 
 export type PvpWinCredit = {
     char: XpCharacter;
-    summary: { ryo: number; xp: number; level: number; rankTitle: string; maxHp: number; maxChakra: number; maxStamina: number; unspentStats: number };
+    summary: { ryo: number; xp: number; level: number; rankTitle: string; maxHp: number; maxChakra: number; maxStamina: number; unspentStats: number; statGrowth?: { allocated: Record<string, number>; unspentGain: number } };
 };
 
 /** Apply the base PvP-win reward to `char`: gainXp(xpGain) then ryo += ryoGain.
