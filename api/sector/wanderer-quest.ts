@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
-import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraContribution } from '../_era.js';
 
 /*
@@ -49,6 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'accept') {
             const questId = typeof body.questId === 'string' ? body.questId : '';
             if (!isWandererQuestId(questId)) return res.status(400).json({ error: 'Unknown quest.' });
+            // Emissary errands (eq-*) belong to the Legacy wave: no new accepts
+            // while ENABLE_LEGACY is off (already-sealed ones still claim, so a
+            // kill-switch flip mid-quest never eats a player's progress).
+            if (questId.startsWith('eq-') && !legacyEnabled()) {
+                return res.status(400).json({ error: 'Unknown quest.' });
+            }
             const def = WANDERER_QUESTS[questId];
 
             const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {

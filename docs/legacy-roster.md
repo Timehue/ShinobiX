@@ -7,7 +7,7 @@
 | Legacy | Title | Category | Village | Requirements (all) | Flavor |
 |---|---|---|---|---|---|
 | **Legacy of the First Flame** | First Flame Bearer | mythic | — | firstClears ≥ 2; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Before the roads had names, someone had to walk them burning. The world remembers who lit the way first. |
-| **Legacy of the Gate Opener** | Gate Opener | pve | — | hollowGateClears ≥ 75; dungeonClears ≥ 40; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The seal beneath Central does not crack for the curious. It cracks for the one who kept coming back. |
+| **Legacy of the Sundered Seal** | Sundered Seal | pve | — | hollowGateClears ≥ 75; dungeonClears ≥ 40; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The seal beneath Central does not crack for the curious. It cracks for the one who kept coming back. |
 | **Legacy of the Hundred Storms** | Hundred Storms | ninjutsu | — | ninjutsuKills ≥ 400; genjutsuKills ≥ 400; taijutsuKills ≥ 400; bukijutsuKills ≥ 400; pveKills ≥ 3,000 | Ninjutsu, genjutsu, taijutsu, bukijutsu — the storm does not choose one wind. It is all of them at once. |
 | **Legacy of the Duel Sovereign** | Duel Sovereign | pvp | — | pvpWins ≥ 400; sameRankWins ≥ 150; bestKillStreak ≥ 15; rankedWins ≥ 120; higherLevelWins ≥ 60; warPvpKills ≥ 50; eliteKills ≥ 200; eventCompletions ≥ 8 | Kings are crowned. Sovereigns are proven — one challenger at a time, none of them lesser, none of them lucky. |
 | **Legacy of the Silent Empire** | Silent Emperor | genjutsu | — | genjutsuKills ≥ 800; genjutsuDamage ≥ 600,000; pvpWins ≥ 200; defensiveWins ≥ 75; missionCompletions ≥ 400; sectorDiscoveries ≥ 100 | No banners, no borders, no decree ever spoken aloud. An empire built entirely of moments its subjects cannot remember. |
@@ -30,7 +30,7 @@
 | **Legacy of the Blade Saint** | Blade Saint | bukijutsu | — | bukijutsuKills ≥ 700; bukijutsuDamage ≥ 500,000; sameRankWins ≥ 50 | To others, ten thousand draws of the sword. To the saint, one draw — practiced ten thousand times. |
 | **Legacy of the Thousand Cuts** | Thousand Cuts | bukijutsu | — | bukijutsuKills ≥ 500; pveKills ≥ 1,500; huntCompletions ≥ 150 | No single wound was fatal. That was never the point. |
 | **Legacy of the Duel King** | Duel King | pvp | — | pvpWins ≥ 200; rankedWins ≥ 60; bestKillStreak ≥ 10; eliteKills ≥ 150 | The throne is a circle of scorched ground, and nobody has taken it back yet. |
-| **Legacy of the Village Reaper** | Village Reaper | war | — | warPvpKills ≥ 100; warsWon ≥ 8; pvpWins ≥ 150 | Enemy sectors do not fall to armies. They fall to the one name their defenders will not say. |
+| **Legacy of the Village Reaper** | Village Reaper | war | — | warPvpKills ≥ 100; warsWon ≥ 8; pvpWins ≥ 150 | Ask a fallen sector who took it, and watch how quiet the survivors get. |
 | **Legacy of the Bloodstained Path** | Bloodstained | pvp | — | pvpKills ≥ 250; higherLevelWins ≥ 30; comebackWins ≥ 15; huntCompletions ≥ 80 | Every step of the road behind is marked. The road ahead has already started bleeding. |
 | **Legacy of the Gatebreaker** | Gatebreaker | pve | — | hollowGateClears ≥ 30; eliteKills ≥ 200; bossContribution ≥ 400,000; hiddenFinds ≥ 15 | Doors are a suggestion. Ancient sealed doors are a slightly longer suggestion. |
 | **Legacy of the Trial Conqueror** | Trial Conqueror | pve | — | dungeonClears ≥ 40; endlessTowerBest ≥ 40; missionCompletions ≥ 400; tilesExplored ≥ 1,500 | The trials were built to find the limit of a shinobi. They are still looking. |
@@ -43,9 +43,9 @@
 | **Legacy of the Oathkeeper** | Oathkeeper | support | — | shieldsApplied ≥ 400; healingDone ≥ 250,000; defensiveWins ≥ 40; sectorDefenses ≥ 8 | Promised to stand between. Has never once defined between what. |
 | **Legacy of the Mapless One** | The Mapless One | explorer | — | tilesExplored ≥ 2,400; sectorDiscoveries ≥ 60; hiddenFinds ≥ 25; huntCompletions ≥ 80 | Threw the map away at the first fork. The land has been introducing itself ever since. |
 | **Legacy of the Shrine Seeker** | Shrine Seeker | explorer | — | sectorDiscoveries ≥ 100; wandererQuests ≥ 40; tilesExplored ≥ 2,000; missionCompletions ≥ 250 | Every forgotten shrine has one visitor left. They are all the same visitor. |
-| **Legacy of the Beast Sovereign** | Beast Sovereign | pets | — | petDuelWins ≥ 100; petExpeditions ≥ 80; eliteKills ≥ 150 | Beasts do not follow strength. They follow the one who bled beside them. |
+| **Legacy of the Beast Sovereign** | Beast Sovereign | pets | — | petDuelWins ≥ 100; petExpeditions ≥ 80; eliteKills ≥ 150 | Every beast in the wild owes this one a scar, a meal, or a life — and they pay their debts in loyalty. |
 | **Legacy of the Silent Gambit** | The Silent Gambit | cards | — | cardClashWins ≥ 120; pvpWins ≥ 40; missionCompletions ≥ 300 | Won the hall’s deadliest hands without ever once needing the cards to be good. |
-| **Legacy of the Warborn Banner** | Warborn | war | — | warsWon ≥ 8; warPvpKills ≥ 40; warContribution ≥ 60,000; raidsCompleted ≥ 50; pvpWins ≥ 100 | Some carry the banner. Some are what the banner is a picture of. |
+| **Legacy of the Warborn Banner** | Bannerlord | war | — | warsWon ≥ 8; warPvpKills ≥ 40; warContribution ≥ 60,000; raidsCompleted ≥ 50; pvpWins ≥ 100 | Some carry the banner. Some are what the banner is a picture of. |
 
 ## RARE (50)
 
@@ -54,17 +54,17 @@
 | **Legacy of the Elemental Storm** | Elemental Storm | ninjutsu | — | ninjutsuKills ≥ 250; ninjutsuDamage ≥ 150,000 | Five elements, one temper. |
 | **Legacy of the Burning Vanguard** | Burning Vanguard | ninjutsu | Ashen Leaf | ninjutsuKills ≥ 200; raidsCompleted ≥ 25 | First through every breach, and the breach is usually on fire because of them. |
 | **Legacy of the Chakra Tempest** | Chakra Tempest | ninjutsu | — | ninjutsuDamage ≥ 250,000; pveKills ≥ 600 | Too much power, aimed just well enough. |
-| **Legacy of the Stormcaller's Path** | Stormcaller | ninjutsu | Stormveil | ninjutsuKills ≥ 200; missionCompletions ≥ 150 | Learned ninjutsu the Stormveil way: outside, mid-tempest, on purpose. |
+| **Legacy of the Stormcaller's Path** | Stormcaller | ninjutsu | Stormveil | ninjutsuKills ≥ 200; raidsCompleted ≥ 20 | Learned ninjutsu the Stormveil way: outside, mid-tempest, on purpose. |
 | **Legacy of the Shadow Strategist** | Shadow Strategist | genjutsu | — | genjutsuKills ≥ 200; genjutsuDamage ≥ 120,000 | Wins the fight during the bow before it. |
-| **Legacy of the Silent Fang** | Silent Fang | genjutsu | Moonshadow | genjutsuKills ≥ 200; pvpWins ≥ 40 | The bite arrives before the bark, instead of it. |
-| **Legacy of the Dream Weaver** | Dream Weaver | genjutsu | — | genjutsuKills ≥ 150; missionCompletions ≥ 150 | Enemies wake up defeated and rested. Nobody knows how to feel about it. |
+| **Legacy of the Silent Fang** | Silent Fang | genjutsu | Moonshadow | genjutsuKills ≥ 200; bestKillStreak ≥ 5 | The bite arrives before the bark, instead of it. |
+| **Legacy of the Dream Weaver** | Dream Weaver | genjutsu | — | genjutsuKills ≥ 150; healingDone ≥ 30,000 | Enemies wake up defeated and rested. Nobody knows how to feel about it. |
 | **Legacy of the Mirage Dancer** | Mirage Dancer | genjutsu | — | genjutsuDamage ≥ 150,000; defensiveWins ≥ 15 | Every step is a lie, and every lie lands. |
 | **Legacy of the Iron Fist** | Iron Fist | taijutsu | — | taijutsuKills ≥ 250; taijutsuDamage ≥ 150,000 | The training posts filed a complaint. It was denied. |
 | **Legacy of the Bloodied Knuckle** | Bloodied Knuckle | taijutsu | — | taijutsuKills ≥ 200; pvpWins ≥ 40 | No weapon ever felt necessary. |
-| **Legacy of the Mountain Stance** | Mountain Stance | taijutsu | — | taijutsuDamage ≥ 200,000; damageBlocked ≥ 150,000 | Has been moved exactly once, and still disputes it. |
-| **Legacy of the Crashing Wave** | Crashing Wave | taijutsu | Stormveil | taijutsuKills ≥ 200; huntCompletions ≥ 50 | Stormveil taijutsu: hit like the tide, leave like it too. |
+| **Legacy of the Mountain Stance** | Mountain Stance | taijutsu | Frostfang | taijutsuDamage ≥ 200,000; damageBlocked ≥ 150,000 | Has been moved exactly once, and still disputes it. |
+| **Legacy of the Crashing Wave** | Crashing Wave | taijutsu | Stormveil | taijutsuKills ≥ 200; comebackWins ≥ 8 | Stormveil taijutsu: hit like the tide, leave like it too. |
 | **Legacy of the Warborn Blade** | Warborn Blade | bukijutsu | — | bukijutsuKills ≥ 250; bukijutsuDamage ≥ 150,000 | Forged in a war, quenched in the next one. |
-| **Legacy of the Crimson Duelist** | Crimson Duelist | bukijutsu | — | bukijutsuKills ≥ 200; pvpWins ≥ 40 | Accepts every duel, apologizes to none of them. |
+| **Legacy of the Crimson Duelist** | Crimson Duelist | bukijutsu | — | bukijutsuKills ≥ 200; sameRankWins ≥ 15 | Accepts every duel, apologizes to none of them. |
 | **Legacy of the Quiet Scabbard** | Quiet Scabbard | bukijutsu | — | bukijutsuDamage ≥ 200,000; sameRankWins ≥ 15 | The blade speaks once per conversation. |
 | **Legacy of the Hunter's Edge** | Hunter's Edge | bukijutsu | — | bukijutsuKills ≥ 200; huntCompletions ≥ 50 | Every notch on the haft is a story the prey did not finish. |
 | **Legacy of the Proving Grounds** | Proven | pvp | — | pvpWins ≥ 75; sameRankWins ≥ 20 | Never asks for a rematch. Never needs one. |
@@ -78,10 +78,10 @@
 | **Legacy of the Boss Breaker** | Boss Breaker | pve | — | bossContribution ≥ 100,000; weeklyBossTop10 ≥ 1 | Big health bars are just long to-do lists. |
 | **Legacy of the Dungeon Delver** | Dungeon Delver | pve | — | dungeonClears ≥ 15; tilesExplored ≥ 800 | If it is dark, locked, and humming — they are already inside. |
 | **Legacy of the Ashen Hearth** | Hearthkeeper | village | Ashen Leaf | villageTenureDays ≥ 21; villageDonations ≥ 50,000 | Ashen Leaf’s fires stay lit because someone keeps feeding them quietly. |
-| **Legacy of the Ember's Discipline** | Ember Disciple | village | Ashen Leaf | villageTenureDays ≥ 21; villageDonations ≥ 30,000 | Trained where the drills end when the instructor gets bored. The instructor never gets bored. |
+| **Legacy of the Ember's Discipline** | Ember Disciple | village | Ashen Leaf | villageTenureDays ≥ 21; pveKills ≥ 400 | Trained where the drills end when the instructor gets bored. The instructor never gets bored. |
 | **Legacy of the Tidebreaker** | Tidebreaker | village | Stormveil | villageTenureDays ≥ 21; warPvpKills ≥ 25 | Stormveil counts its storms survived. This one counts storms caused. |
 | **Legacy of the Thunder Raider** | Thunder Raider | village | Stormveil | villageTenureDays ≥ 21; raidsCompleted ≥ 25 | Arrives with the thunder. The lightning is just the announcement. |
-| **Legacy of the Northern Fang** | Northern Fang | village | Frostfang | villageTenureDays ≥ 21; sectorDefenses ≥ 8 | The cold does not test Frostfang shinobi. It apprentices under them. |
+| **Legacy of the Northern Fang** | Northern Fang | village | Frostfang | villageTenureDays ≥ 21; sectorDefenses ≥ 8 | In the north the frost bites first — and it learned the hard way who bites back. |
 | **Legacy of the Winter Sentinel** | Winter Sentinel | village | Frostfang | villageTenureDays ≥ 21; defensiveWins ≥ 12 | Stood the long watch. The long watch blinked first. |
 | **Legacy of the Veiled Lantern** | Veiled Lantern | village | Moonshadow | villageTenureDays ≥ 21; sectorDiscoveries ≥ 30 | Moonshadow’s streets are safe because something politely unseen keeps them so. |
 | **Legacy of the Midnight Errand** | Midnight Runner | village | Moonshadow | villageTenureDays ≥ 21; missionCompletions ≥ 150 | The missions nobody logs, delivered by the shinobi nobody saw. |
@@ -109,7 +109,7 @@
 | **Legacy of the Wandering Shinobi** | Wanderer | explorer | — | tilesExplored ≥ 400 | The road never asked for credentials. Neither did they. |
 | **Legacy of the Village Veteran** | Veteran | village | — | villageTenureDays ≥ 10 | Fifty levels of showing up. It counts for more than anyone admits. |
 | **Legacy of the Proven Fighter** | Fighter | pvp | — | pvpWins ≥ 15 | Not the strongest in the ring. Reliably in the ring. |
-| **Legacy of the Road-Worn Shinobi** | Road-Worn | explorer | — | missionCompletions ≥ 40 | Boots resoled six times. Resolve, zero times. |
+| **Legacy of the Road-Worn Shinobi** | Road-Worn | explorer | — | huntCompletions ≥ 25 | Boots resoled six times. Resolve, zero times. |
 | **Legacy of the Ember Student** | Ember Student | ninjutsu | — | ninjutsuKills ≥ 60 | The first spark was an accident. The next thousand were not. |
 | **Legacy of the Quiet Mind** | Quiet Mind | genjutsu | — | genjutsuKills ≥ 60 | Learned early that the loudest jutsu is rarely the one that ends it. |
 | **Legacy of the Calloused Fist** | Calloused Fist | taijutsu | — | taijutsuKills ≥ 60 | Gloves kept wearing out. The hands did not. |
@@ -118,7 +118,6 @@
 | **Legacy of the Beast Friend** | Beast Friend | pets | — | petDuelWins ≥ 10 | Was adopted by a pet, technically. |
 | **Legacy of the Table Regular** | Table Regular | cards | — | cardClashWins ≥ 10 | Has a usual seat, a usual bet, and an unusual win rate. |
 | **Legacy of the Lantern Bearer** | Lantern Bearer | support | — | healingDone ≥ 20,000 | Someone has to hold the light. Someone always did. |
-| **Legacy of the First Steps** | Trailblazer | explorer | — | tilesExplored ≥ 250 | Every map starts with somebody’s first wrong turn. |
+| **Legacy of the First Steps** | Trailblazer | explorer | — | sectorDiscoveries ≥ 10 | Every map starts with somebody’s first wrong turn. |
 | **Legacy of the Honest Ryo** | Honest Hand | village | — | villageDonations ≥ 10,000 | Paid their dues. Then paid a little extra, quietly. |
-| **Legacy of the Steadfast Neighbor** | Steadfast | village | — | villageDonations ≥ 5,000 | The village remembers who answered the bell without asking whose fire it was. |
-
+| **Legacy of the Steadfast Neighbor** | Steadfast | village | — | sectorDefenses ≥ 4 | The village remembers who answered the bell without asking whose fire it was. |

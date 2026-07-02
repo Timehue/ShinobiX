@@ -58,11 +58,12 @@ const MYTHIC = [
         reqs: [r('firstClears', 2, 3), r('missionCompletions', 600), r('pveKills', 3000), r('warContribution', 200_000), r('eventCompletions', 10), r('tilesExplored', 2000)],
     },
     {
-        id: 'gate-opener', name: 'Legacy of the Gate Opener', rarity: 'mythic', category: 'pve',
-        title: 'Gate Opener',
+        // Renamed from "Gate Opener" — it collided with the legendary
+        // Gatebreaker in both name and (formerly) badge art (depth audit).
+        id: 'gate-opener', name: 'Legacy of the Sundered Seal', rarity: 'mythic', category: 'pve',
+        title: 'Sundered Seal',
         flavor: 'The seal beneath Central does not crack for the curious. It cracks for the one who kept coming back.',
         reqs: [r('hollowGateClears', 75, 3), r('dungeonClears', 40), r('eliteKills', 500), r('bossContribution', 1_000_000), r('firstClears', 1), r('hiddenFinds', 30), r('damageBlocked', 500_000)],
-        badge: 'gatebreaker',
     },
     {
         id: 'hundred-storms', name: 'Legacy of the Hundred Storms', rarity: 'mythic', category: 'ninjutsu',
@@ -131,7 +132,7 @@ const LEGENDARY = [
     },
     {
         id: 'moonlit-ghost', name: 'Legacy of the Moonlit Ghost', rarity: 'legendary', category: 'genjutsu',
-        villageAffinity: 'Moonshadow', title: 'Moonlit Ghost', badge: 'moonlit-ghost',
+        villageAffinity: 'Moonshadow', title: 'Moonlit Ghost',
         flavor: 'Seen only twice: once in the moment before, and once in the nightmare after.',
         reqs: [r('genjutsuKills', 600, 2), r('pvpWins', 150), r('sectorDiscoveries', 80)],
     },
@@ -147,7 +148,7 @@ const LEGENDARY = [
     },
     {
         id: 'unbroken-body', name: 'Legacy of the Unbroken Body', rarity: 'legendary', category: 'taijutsu',
-        title: 'Unbroken', badge: 'unbroken-body',
+        title: 'Unbroken',
         flavor: 'Bones remember every fracture. These bones remember winning anyway.',
         reqs: [r('taijutsuDamage', 500_000, 2), r('damageBlocked', 700_000), r('comebackWins', 15)],
     },
@@ -164,13 +165,13 @@ const LEGENDARY = [
     // — pvp (3) —
     {
         id: 'duel-king', name: 'Legacy of the Duel King', rarity: 'legendary', category: 'pvp',
-        title: 'Duel King', badge: 'duel-king',
+        title: 'Duel King',
         flavor: 'The throne is a circle of scorched ground, and nobody has taken it back yet.',
         reqs: [r('pvpWins', 200, 2), r('rankedWins', 60), r('bestKillStreak', 10), r('eliteKills', 150)],
     },
     {
         id: 'village-reaper', name: 'Legacy of the Village Reaper', rarity: 'legendary', category: 'war',
-        title: 'Village Reaper', flavor: 'Enemy sectors do not fall to armies. They fall to the one name their defenders will not say.',
+        title: 'Village Reaper', flavor: 'Ask a fallen sector who took it, and watch how quiet the survivors get.',
         reqs: [r('warPvpKills', 100, 2), r('warsWon', 8), r('pvpWins', 150)],
     },
     {
@@ -181,7 +182,7 @@ const LEGENDARY = [
     // — pve (3) —
     {
         id: 'gatebreaker', name: 'Legacy of the Gatebreaker', rarity: 'legendary', category: 'pve',
-        title: 'Gatebreaker', badge: 'gatebreaker',
+        title: 'Gatebreaker',
         flavor: 'Doors are a suggestion. Ancient sealed doors are a slightly longer suggestion.',
         reqs: [r('hollowGateClears', 30, 2), r('eliteKills', 200), r('bossContribution', 400_000), r('hiddenFinds', 15)],
     },
@@ -198,32 +199,32 @@ const LEGENDARY = [
     // — village champions (4) —
     {
         id: 'ashen-will', name: 'Legacy of the Ashen Will', rarity: 'legendary', category: 'village',
-        villageAffinity: 'Ashen Leaf', title: 'Ashen Will', badge: 'ashen-will',
+        villageAffinity: 'Ashen Leaf', title: 'Ashen Will',
         flavor: 'Ashen Leaf endures because someone always chooses to be the ember that will not go out.',
         reqs: [r('villageTenureDays', 45, 2), r('villageDonations', 250_000), r('warContribution', 30_000), r('sectorDefenses', 12)],
     },
     {
         id: 'storm-fang', name: 'Legacy of the Storm Fang', rarity: 'legendary', category: 'village',
-        villageAffinity: 'Stormveil', title: 'Storm Fang', badge: 'storm-fang',
+        villageAffinity: 'Stormveil', title: 'Storm Fang',
         flavor: 'Stormveil does not wait for weather. It sends its own.',
         reqs: [r('villageTenureDays', 45, 2), r('warPvpKills', 60), r('sectorCaptures', 15), r('warsWon', 6)],
     },
     {
         id: 'frostbound-shield', name: 'Legacy of the Frostbound Shield', rarity: 'legendary', category: 'village',
-        villageAffinity: 'Frostfang', title: 'Frostbound Shield', badge: 'frostbound-shield',
+        villageAffinity: 'Frostfang', title: 'Frostbound Shield',
         flavor: 'The north holds because its shield never asks how cold it is.',
         reqs: [r('villageTenureDays', 45, 2), r('sectorDefenses', 18), r('damageBlocked', 500_000), r('defensiveWins', 40)],
     },
     {
         id: 'moonlit-oath', name: 'Legacy of the Moonlit Oath', rarity: 'legendary', category: 'village',
-        villageAffinity: 'Moonshadow', title: 'Oath of the Moon', badge: 'moonlit-oath',
+        villageAffinity: 'Moonshadow', title: 'Oath of the Moon',
         flavor: 'Moonshadow keeps no written oaths. It keeps kept ones.',
         reqs: [r('villageTenureDays', 45, 2), r('genjutsuKills', 300), r('sectorDiscoveries', 80), r('warContribution', 30_000)],
     },
     // — support (2) —
     {
         id: 'village-guardian', name: 'Legacy of the Village Guardian', rarity: 'legendary', category: 'support',
-        title: 'Village Guardian', badge: 'village-guardian',
+        title: 'Village Guardian',
         flavor: 'Heroes are counted by the battles they won. Guardians, by the ones nobody else had to fight.',
         reqs: [r('healingDone', 400_000, 2), r('shieldsApplied', 600), r('sectorDefenses', 15)],
     },
@@ -246,7 +247,7 @@ const LEGENDARY = [
     // — pets / cards / war (3) —
     {
         id: 'beast-sovereign', name: 'Legacy of the Beast Sovereign', rarity: 'legendary', category: 'pets',
-        title: 'Beast Sovereign', flavor: 'Beasts do not follow strength. They follow the one who bled beside them.',
+        title: 'Beast Sovereign', flavor: 'Every beast in the wild owes this one a scar, a meal, or a life — and they pay their debts in loyalty.',
         reqs: [r('petDuelWins', 100, 2), r('petExpeditions', 80), r('eliteKills', 150)],
     },
     {
@@ -255,8 +256,10 @@ const LEGENDARY = [
         reqs: [r('cardClashWins', 120, 2), r('pvpWins', 40), r('missionCompletions', 300)],
     },
     {
+        // Title renamed from "Warborn" — it read as an accidental collision
+        // with the rare Warborn Blade (depth audit).
         id: 'warborn-banner', name: 'Legacy of the Warborn Banner', rarity: 'legendary', category: 'war',
-        title: 'Warborn', badge: 'warborn-blade',
+        title: 'Bannerlord',
         flavor: 'Some carry the banner. Some are what the banner is a picture of.',
         reqs: [r('warsWon', 8, 2), r('warPvpKills', 40), r('warContribution', 60_000), r('raidsCompleted', 50), r('pvpWins', 100)],
     },
@@ -267,37 +270,37 @@ const LEGENDARY = [
 // ————————————————————————————————————————————————————————————————————————
 const RARE = [
     // — ninjutsu (4) —
-    { id: 'elemental-storm', name: 'Legacy of the Elemental Storm', rarity: 'rare', category: 'ninjutsu', title: 'Elemental Storm', badge: 'elemental-storm',
+    { id: 'elemental-storm', name: 'Legacy of the Elemental Storm', rarity: 'rare', category: 'ninjutsu', title: 'Elemental Storm',
         flavor: 'Five elements, one temper.', reqs: [r('ninjutsuKills', 250, 2), r('ninjutsuDamage', 150_000)] },
-    { id: 'burning-vanguard', name: 'Legacy of the Burning Vanguard', rarity: 'rare', category: 'ninjutsu', villageAffinity: 'Ashen Leaf', title: 'Burning Vanguard', badge: 'burning-vanguard',
+    { id: 'burning-vanguard', name: 'Legacy of the Burning Vanguard', rarity: 'rare', category: 'ninjutsu', villageAffinity: 'Ashen Leaf', title: 'Burning Vanguard',
         flavor: 'First through every breach, and the breach is usually on fire because of them.', reqs: [r('ninjutsuKills', 200, 2), r('raidsCompleted', 25)] },
     { id: 'chakra-tempest', name: 'Legacy of the Chakra Tempest', rarity: 'rare', category: 'ninjutsu', title: 'Chakra Tempest',
         flavor: 'Too much power, aimed just well enough.', reqs: [r('ninjutsuDamage', 250_000, 2), r('pveKills', 600)] },
     { id: 'stormcallers-path', name: "Legacy of the Stormcaller's Path", rarity: 'rare', category: 'ninjutsu', villageAffinity: 'Stormveil', title: 'Stormcaller',
-        flavor: 'Learned ninjutsu the Stormveil way: outside, mid-tempest, on purpose.', reqs: [r('ninjutsuKills', 200, 2), r('missionCompletions', 150)] },
+        flavor: 'Learned ninjutsu the Stormveil way: outside, mid-tempest, on purpose.', reqs: [r('ninjutsuKills', 200, 2), r('raidsCompleted', 20)] },
     // — genjutsu (4) —
-    { id: 'shadow-strategist', name: 'Legacy of the Shadow Strategist', rarity: 'rare', category: 'genjutsu', title: 'Shadow Strategist', badge: 'shadow-strategist',
+    { id: 'shadow-strategist', name: 'Legacy of the Shadow Strategist', rarity: 'rare', category: 'genjutsu', title: 'Shadow Strategist',
         flavor: 'Wins the fight during the bow before it.', reqs: [r('genjutsuKills', 200, 2), r('genjutsuDamage', 120_000)] },
     { id: 'silent-fang', name: 'Legacy of the Silent Fang', rarity: 'rare', category: 'genjutsu', villageAffinity: 'Moonshadow', title: 'Silent Fang',
-        flavor: 'The bite arrives before the bark, instead of it.', reqs: [r('genjutsuKills', 200, 2), r('pvpWins', 40)] },
+        flavor: 'The bite arrives before the bark, instead of it.', reqs: [r('genjutsuKills', 200, 2), r('bestKillStreak', 5)] },
     { id: 'dream-weaver', name: 'Legacy of the Dream Weaver', rarity: 'rare', category: 'genjutsu', title: 'Dream Weaver',
-        flavor: 'Enemies wake up defeated and rested. Nobody knows how to feel about it.', reqs: [r('genjutsuKills', 150, 2), r('missionCompletions', 150)] },
+        flavor: 'Enemies wake up defeated and rested. Nobody knows how to feel about it.', reqs: [r('genjutsuKills', 150, 2), r('healingDone', 30_000)] },
     { id: 'mirage-dancer', name: 'Legacy of the Mirage Dancer', rarity: 'rare', category: 'genjutsu', title: 'Mirage Dancer',
         flavor: 'Every step is a lie, and every lie lands.', reqs: [r('genjutsuDamage', 150_000, 2), r('defensiveWins', 15)] },
     // — taijutsu (4) —
-    { id: 'iron-fist', name: 'Legacy of the Iron Fist', rarity: 'rare', category: 'taijutsu', title: 'Iron Fist', badge: 'iron-fist',
+    { id: 'iron-fist', name: 'Legacy of the Iron Fist', rarity: 'rare', category: 'taijutsu', title: 'Iron Fist',
         flavor: 'The training posts filed a complaint. It was denied.', reqs: [r('taijutsuKills', 250, 2), r('taijutsuDamage', 150_000)] },
     { id: 'bloodied-knuckle', name: 'Legacy of the Bloodied Knuckle', rarity: 'rare', category: 'taijutsu', title: 'Bloodied Knuckle',
         flavor: 'No weapon ever felt necessary.', reqs: [r('taijutsuKills', 200, 2), r('pvpWins', 40)] },
-    { id: 'mountain-stance', name: 'Legacy of the Mountain Stance', rarity: 'rare', category: 'taijutsu', title: 'Mountain Stance',
+    { id: 'mountain-stance', name: 'Legacy of the Mountain Stance', rarity: 'rare', category: 'taijutsu', villageAffinity: 'Frostfang', title: 'Mountain Stance',
         flavor: 'Has been moved exactly once, and still disputes it.', reqs: [r('taijutsuDamage', 200_000, 2), r('damageBlocked', 150_000)] },
     { id: 'crashing-wave', name: 'Legacy of the Crashing Wave', rarity: 'rare', category: 'taijutsu', villageAffinity: 'Stormveil', title: 'Crashing Wave',
-        flavor: 'Stormveil taijutsu: hit like the tide, leave like it too.', reqs: [r('taijutsuKills', 200, 2), r('huntCompletions', 50)] },
+        flavor: 'Stormveil taijutsu: hit like the tide, leave like it too.', reqs: [r('taijutsuKills', 200, 2), r('comebackWins', 8)] },
     // — bukijutsu (4) —
-    { id: 'warborn-blade', name: 'Legacy of the Warborn Blade', rarity: 'rare', category: 'bukijutsu', title: 'Warborn Blade', badge: 'warborn-blade',
+    { id: 'warborn-blade', name: 'Legacy of the Warborn Blade', rarity: 'rare', category: 'bukijutsu', title: 'Warborn Blade',
         flavor: 'Forged in a war, quenched in the next one.', reqs: [r('bukijutsuKills', 250, 2), r('bukijutsuDamage', 150_000)] },
-    { id: 'crimson-duelist', name: 'Legacy of the Crimson Duelist', rarity: 'rare', category: 'bukijutsu', title: 'Crimson Duelist', badge: 'crimson-duelist',
-        flavor: 'Accepts every duel, apologizes to none of them.', reqs: [r('bukijutsuKills', 200, 2), r('pvpWins', 40)] },
+    { id: 'crimson-duelist', name: 'Legacy of the Crimson Duelist', rarity: 'rare', category: 'bukijutsu', title: 'Crimson Duelist',
+        flavor: 'Accepts every duel, apologizes to none of them.', reqs: [r('bukijutsuKills', 200, 2), r('sameRankWins', 15)] },
     { id: 'quiet-scabbard', name: 'Legacy of the Quiet Scabbard', rarity: 'rare', category: 'bukijutsu', title: 'Quiet Scabbard',
         flavor: 'The blade speaks once per conversation.', reqs: [r('bukijutsuDamage', 200_000, 2), r('sameRankWins', 15)] },
     { id: 'hunters-edge', name: "Legacy of the Hunter's Edge", rarity: 'rare', category: 'bukijutsu', title: "Hunter's Edge",
@@ -328,13 +331,13 @@ const RARE = [
     { id: 'ashen-hearth', name: 'Legacy of the Ashen Hearth', rarity: 'rare', category: 'village', villageAffinity: 'Ashen Leaf', title: 'Hearthkeeper',
         flavor: 'Ashen Leaf’s fires stay lit because someone keeps feeding them quietly.', reqs: [r('villageTenureDays', 21, 2), r('villageDonations', 50_000)] },
     { id: 'embers-discipline', name: "Legacy of the Ember's Discipline", rarity: 'rare', category: 'village', villageAffinity: 'Ashen Leaf', title: 'Ember Disciple',
-        flavor: 'Trained where the drills end when the instructor gets bored. The instructor never gets bored.', reqs: [r('villageTenureDays', 21, 2), r('villageDonations', 30_000)] },
+        flavor: 'Trained where the drills end when the instructor gets bored. The instructor never gets bored.', reqs: [r('villageTenureDays', 21, 2), r('pveKills', 400)] },
     { id: 'tidebreaker', name: 'Legacy of the Tidebreaker', rarity: 'rare', category: 'village', villageAffinity: 'Stormveil', title: 'Tidebreaker',
         flavor: 'Stormveil counts its storms survived. This one counts storms caused.', reqs: [r('villageTenureDays', 21, 2), r('warPvpKills', 25)] },
     { id: 'thunder-raider', name: 'Legacy of the Thunder Raider', rarity: 'rare', category: 'village', villageAffinity: 'Stormveil', title: 'Thunder Raider',
         flavor: 'Arrives with the thunder. The lightning is just the announcement.', reqs: [r('villageTenureDays', 21, 2), r('raidsCompleted', 25)] },
     { id: 'northern-fang', name: 'Legacy of the Northern Fang', rarity: 'rare', category: 'village', villageAffinity: 'Frostfang', title: 'Northern Fang',
-        flavor: 'The cold does not test Frostfang shinobi. It apprentices under them.', reqs: [r('villageTenureDays', 21, 2), r('sectorDefenses', 8)] },
+        flavor: 'In the north the frost bites first — and it learned the hard way who bites back.', reqs: [r('villageTenureDays', 21, 2), r('sectorDefenses', 8)] },
     { id: 'winter-sentinel', name: 'Legacy of the Winter Sentinel', rarity: 'rare', category: 'village', villageAffinity: 'Frostfang', title: 'Winter Sentinel',
         flavor: 'Stood the long watch. The long watch blinked first.', reqs: [r('villageTenureDays', 21, 2), r('defensiveWins', 12)] },
     { id: 'veiled-lantern', name: 'Legacy of the Veiled Lantern', rarity: 'rare', category: 'village', villageAffinity: 'Moonshadow', title: 'Veiled Lantern',
@@ -342,7 +345,7 @@ const RARE = [
     { id: 'midnight-errand', name: 'Legacy of the Midnight Errand', rarity: 'rare', category: 'village', villageAffinity: 'Moonshadow', title: 'Midnight Runner',
         flavor: 'The missions nobody logs, delivered by the shinobi nobody saw.', reqs: [r('villageTenureDays', 21, 2), r('missionCompletions', 150)] },
     // — explorer (4) —
-    { id: 'hidden-path', name: 'Legacy of the Hidden Path', rarity: 'rare', category: 'explorer', title: 'Pathfinder', badge: 'hidden-path',
+    { id: 'hidden-path', name: 'Legacy of the Hidden Path', rarity: 'rare', category: 'explorer', title: 'Pathfinder',
         flavor: 'Shortcuts are just long-cuts nobody was brave enough to check.', reqs: [r('tilesExplored', 1200, 2), r('hiddenFinds', 8)] },
     { id: 'wayfarers-mark', name: "Legacy of the Wayfarer's Mark", rarity: 'rare', category: 'explorer', title: 'Wayfarer',
         flavor: 'Home is a direction, not an address.', reqs: [r('tilesExplored', 1000, 2), r('wandererQuests', 10)] },
@@ -384,14 +387,14 @@ const RARE = [
 // qualify for several; the Sage always has something honest to offer.
 // ————————————————————————————————————————————————————————————————————————
 const BASIC = [
-    { id: 'wandering-shinobi', name: 'Legacy of the Wandering Shinobi', rarity: 'basic', category: 'explorer', title: 'Wanderer', badge: 'wandering-shinobi',
+    { id: 'wandering-shinobi', name: 'Legacy of the Wandering Shinobi', rarity: 'basic', category: 'explorer', title: 'Wanderer',
         flavor: 'The road never asked for credentials. Neither did they.', reqs: [r('tilesExplored', 400)] },
-    { id: 'village-veteran', name: 'Legacy of the Village Veteran', rarity: 'basic', category: 'village', title: 'Veteran', badge: 'village-veteran',
+    { id: 'village-veteran', name: 'Legacy of the Village Veteran', rarity: 'basic', category: 'village', title: 'Veteran',
         flavor: 'Fifty levels of showing up. It counts for more than anyone admits.', reqs: [r('villageTenureDays', 10)] },
-    { id: 'proven-fighter', name: 'Legacy of the Proven Fighter', rarity: 'basic', category: 'pvp', title: 'Fighter', badge: 'proven-fighter',
+    { id: 'proven-fighter', name: 'Legacy of the Proven Fighter', rarity: 'basic', category: 'pvp', title: 'Fighter',
         flavor: 'Not the strongest in the ring. Reliably in the ring.', reqs: [r('pvpWins', 15)] },
-    { id: 'road-worn-shinobi', name: 'Legacy of the Road-Worn Shinobi', rarity: 'basic', category: 'explorer', title: 'Road-Worn', badge: 'road-worn-shinobi',
-        flavor: 'Boots resoled six times. Resolve, zero times.', reqs: [r('missionCompletions', 40)] },
+    { id: 'road-worn-shinobi', name: 'Legacy of the Road-Worn Shinobi', rarity: 'basic', category: 'explorer', title: 'Road-Worn',
+        flavor: 'Boots resoled six times. Resolve, zero times.', reqs: [r('huntCompletions', 25)] },
     { id: 'ember-student', name: 'Legacy of the Ember Student', rarity: 'basic', category: 'ninjutsu', title: 'Ember Student',
         flavor: 'The first spark was an accident. The next thousand were not.', reqs: [r('ninjutsuKills', 60)] },
     { id: 'quiet-mind', name: 'Legacy of the Quiet Mind', rarity: 'basic', category: 'genjutsu', title: 'Quiet Mind',
@@ -409,13 +412,17 @@ const BASIC = [
     { id: 'lantern-bearer', name: 'Legacy of the Lantern Bearer', rarity: 'basic', category: 'support', title: 'Lantern Bearer',
         flavor: 'Someone has to hold the light. Someone always did.', reqs: [r('healingDone', 20_000)] },
     { id: 'first-steps', name: 'Legacy of the First Steps', rarity: 'basic', category: 'explorer', title: 'Trailblazer',
-        flavor: 'Every map starts with somebody’s first wrong turn.', reqs: [r('tilesExplored', 250)] },
+        flavor: 'Every map starts with somebody’s first wrong turn.', reqs: [r('sectorDiscoveries', 10)] },
     { id: 'honest-ryo', name: 'Legacy of the Honest Ryo', rarity: 'basic', category: 'village', title: 'Honest Hand',
         flavor: 'Paid their dues. Then paid a little extra, quietly.', reqs: [r('villageDonations', 10_000)] },
     { id: 'steadfast-neighbor', name: 'Legacy of the Steadfast Neighbor', rarity: 'basic', category: 'village', title: 'Steadfast',
-        flavor: 'The village remembers who answered the bell without asking whose fire it was.', reqs: [r('villageDonations', 5_000)] },
+        flavor: 'The village remembers who answered the bell without asking whose fire it was.', reqs: [r('sectorDefenses', 4)] },
 ];
-exports.LEGACY_DEFS = [...MYTHIC, ...LEGENDARY, ...RARE, ...BASIC];
+// Every legacy has badge art at /badges/legacy-<id>.png (full 100-badge set,
+// docs/legacy-assets.md §2), so `badge` is simply the id. Kept as a field
+// (rather than derived at render sites) because the client LegacyDefView
+// consumes it and a future legacy could still override the art.
+exports.LEGACY_DEFS = [...MYTHIC, ...LEGENDARY, ...RARE, ...BASIC].map((d) => ({ ...d, badge: d.badge ?? d.id }));
 exports.LEGACY_BY_ID = new Map(exports.LEGACY_DEFS.map((d) => [d.id, d]));
 /** Global minimum level for any Legacy offer (Jonin threshold). */
 exports.LEGACY_MIN_LEVEL = 50;

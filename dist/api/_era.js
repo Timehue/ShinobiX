@@ -89,6 +89,7 @@ function buildEraViews(state, counters, triggers) {
         return {
             id: def.id, number: def.number, name: def.name,
             description: def.description, lore: def.lore, banner: def.banner,
+            chronicle: def.chronicle,
             status,
             milestones: def.milestones.map((m) => {
                 const required = effectiveRequired(def, m.metric, override);

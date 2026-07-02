@@ -70,12 +70,20 @@ async function handler(req, res) {
         const trial = trialRaw && _legacy_defs_js_1.LEGACY_BY_ID.has(trialRaw.legacyId)
             ? { ...trialRaw, objectives: (0, _legacy_core_js_1.trialProgress)(trialRaw, stats) }
             : null;
+        const trialIntro = trialRaw && _legacy_defs_js_1.LEGACY_BY_ID.has(trialRaw.legacyId)
+            ? (0, _legacy_core_js_1.trialIntroFor)(_legacy_defs_js_1.LEGACY_BY_ID.get(trialRaw.legacyId), trialRaw.kind)
+            : null;
         const offer = await _storage_js_1.kv.get(`legacy:sage-offer:${playerName}`);
         return res.status(200).json({
             level,
             minLevelReached: level >= 50,
             legacy,
+            // The accepted legacy's category, resolved server-side so the client
+            // can match the player to their trial-giver emissary without
+            // shipping the 100-def table (lib/legacy-emissaries.ts).
+            legacyCategory: legacy ? (_legacy_defs_js_1.LEGACY_BY_ID.get(legacy.legacyId)?.category ?? null) : null,
             trial,
+            trialIntro,
             offer: offer && offer.status === 'spawned' ? offer : null,
             strongest,
             eligibleCounts,

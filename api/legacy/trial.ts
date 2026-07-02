@@ -9,7 +9,7 @@ import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-tra
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import {
     legacyTrialKey, legacyAcceptedKey, trialObjectivesFor, trialProgress, nextTrialKind,
-    provenTitleFor, mythicTitleFor,
+    provenTitleFor, mythicTitleFor, trialIntroFor, trialCompletionFor, TRIAL_VARIANT_COUNT,
     type LegacyTrial, type CharacterLegacy,
 } from '../_legacy-core.js';
 import { announce, addHallEntry } from '../_announce.js';
@@ -17,7 +17,9 @@ import { recordAudit } from '../_audit.js';
 import { bumpEraContribution, recordEraTrigger } from '../_era.js';
 
 /*
- * /api/legacy/trial — Legacy Trials (stage 1→2 "Awaken", stage 2→3 "Bind").
+ * /api/legacy/trial — Legacy Trials, all four stages: 1→2 "Awaken", 2→3
+ * "Bind" (adds a cross-category secondary), 3→4 "Prove" (adds a discipline
+ * proof), 4→5 "Mythic" (the culmination — both).
  *
  * Trials are fresh-delta objectives over the SERVER-OWNED legacy counters
  * (api/_legacy-track.ts): the baseline is sealed at start, and completion is
@@ -25,12 +27,54 @@ import { bumpEraContribution, recordEraTrigger } from '../_era.js';
  * client body beyond the action word; failing a trial never unlocks a
  * different legacy (design rule — retry the same path forever).
  *
- *   GET  ?playerName=       → { trial (with live progress), legacy }
+ *   GET  ?playerName=        → { trial (with live progress), legacy, intro }
  *   POST { action:'start' }  → seal baselines for the next stage's trial
+ *   POST { action:'reroll' } → swap to the alternate proof, FRESH baselines, attempt++
  *   POST { action:'complete' } → verify objectives; advance stage; grant title
  */
 
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+// Announcement variety (depth-audit finding: one fixed template per event type
+// made the 3rd mythic awakening read identically to the 1st). Message pools are
+// picked at random and weave in the legacy's own flavor line, so every legacy
+// announces in its own voice.
+const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const LEGENDARY_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, title: string, flavor: string) => string> = [
+    (p, _n, t, f) => `${p} has completed the Trial of the ${t}. ${f}`,
+    (p, n, _t, f) => `The ${n} has awakened in ${p}'s hands. ${f}`,
+    (p, _n, t, f) => `Word spreads from the trial grounds: ${p} now carries the name "${t}". ${f}`,
+];
+const MYTHIC_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, flavor: string) => string> = [
+    (p, n, _f) => `${p} has awakened the ${n}. The world will remember.`,
+    (p, n, f) => `A mythic path has opened its eyes: ${p} carries the ${n}. ${f}`,
+    (p, n, _f) => `The taverns will argue about this for a generation — ${p} has awakened the ${n}.`,
+];
+const MYTHIC_BIND_MSGS: ReadonlyArray<(p: string, defName: string) => string> = [
+    (p, n) => `${p} has bound the ${n} to their soul. Stage III — few will ever stand here.`,
+    (p, n) => `The ${n} and ${p} can no longer be told apart. The Binding holds. Stage III.`,
+];
+const SUMMIT_MSGS: ReadonlyArray<(p: string, defName: string, mythicTitle: string) => string> = [
+    (p, n, t) => `${p} has carried the ${n} to Stage V — Mythic. "${t}" now walks the world.`,
+    (p, n, t) => `A path is complete: ${p} stands at the summit of the ${n}. History will use the name "${t}".`,
+    (p, n, _t) => `The Hall of Legends has begun carving: the ${n} has reached its summit in ${p}'s hands.`,
+];
+
+/** Server-first hall claim with a contention retry: addHallEntry returns null
+ *  BOTH when the NX is already claimed and on transient lock contention — only
+ *  the second case should retry, or a busy moment could permanently cost the
+ *  true first player their once-ever entry (verification finding). */
+async function claimServerFirst(
+    entry: Parameters<typeof addHallEntry>[0],
+    nxKey: string,
+): Promise<Awaited<ReturnType<typeof addHallEntry>>> {
+    let e = await addHallEntry(entry, { nxKey });
+    if (!e) {
+        const claimed = await kv.get(`hall:nx:${nxKey}`).catch(() => '1');
+        if (!claimed) e = await addHallEntry(entry, { nxKey });
+    }
+    return e;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -58,7 +102,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const legacy = ((rec?.character as Record<string, unknown> | undefined)?.legacy ?? null) as CharacterLegacy | null;
             if (!trial) return res.status(200).json({ trial: null, legacy });
             const stats = await getLegacyStats(playerName);
-            return res.status(200).json({ trial: { ...trial, objectives: trialProgress(trial, stats) }, legacy });
+            const defForIntro = LEGACY_BY_ID.get(trial.legacyId);
+            return res.status(200).json({
+                trial: { ...trial, objectives: trialProgress(trial, stats) },
+                legacy,
+                intro: defForIntro ? trialIntroFor(defForIntro, trial.kind) : null,
+            });
         }
 
         if (req.method !== 'POST') return res.status(405).end();
@@ -92,13 +141,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const stats = await getLegacyStats(playerName, char);
                 const objectives = trialObjectivesFor(def, kind);
                 const trial: LegacyTrial = {
-                    legacyId: legacy.legacyId, kind, startedAt: Date.now(), attempt: 1,
+                    legacyId: legacy.legacyId, kind, startedAt: Date.now(), attempt: 1, variant: 0,
                     baselines: Object.fromEntries(objectives.map((o) => [o.stat, num(stats[o.stat])])),
                     objectives,
                 };
                 await kv.set(legacyTrialKey(playerName), trial);
                 await appendLegacyEvent(playerName, { type: 'trial-started', key: `${legacy.legacyId}:${kind}` });
-                return { status: 200, body: { ok: true, trial } };
+                // Decorated objectives ({progress, done}) like every read path —
+                // clients render trial.objectives directly (verification finding:
+                // raw {stat, delta} pairs crashed the emissary panel).
+                return {
+                    status: 200,
+                    body: { ok: true, trial: { ...trial, objectives: trialProgress(trial, stats) }, intro: trialIntroFor(def, kind) },
+                };
+            }, { failClosed: true });
+            return res.status(out.status).json(out.body);
+        }
+
+        // ── REROLL: same stage, different proof ──────────────────────────────
+        // The Sage's "trials may be retried" made real: swap to the next primary
+        // variant with FRESH baselines (attempt++). Never a shortcut — progress
+        // resets, only the shape of the ask changes. Objectives are re-derived
+        // server-side; nothing in the body is trusted.
+        if (action === 'reroll') {
+            const out = await withKvLock<{ status: number; body: unknown }>(legacyTrialKey(playerName), async () => {
+                const existing = await kv.get<LegacyTrial>(legacyTrialKey(playerName));
+                if (!existing) return { status: 200, body: { ok: false, reason: 'none' } };
+                const def = LEGACY_BY_ID.get(existing.legacyId);
+                if (!def) return { status: 200, body: { ok: false, reason: 'none' } };
+
+                const stats = await getLegacyStats(playerName);
+                const variant = ((existing.variant ?? 0) + 1) % TRIAL_VARIANT_COUNT;
+                const objectives = trialObjectivesFor(def, existing.kind, variant);
+                const trial: LegacyTrial = {
+                    legacyId: existing.legacyId, kind: existing.kind, startedAt: Date.now(),
+                    attempt: (num(existing.attempt) || 1) + 1, variant,
+                    baselines: Object.fromEntries(objectives.map((o) => [o.stat, num(stats[o.stat])])),
+                    objectives,
+                };
+                await kv.set(legacyTrialKey(playerName), trial);
+                await appendLegacyEvent(playerName, { type: 'trial-reroll', key: `${existing.legacyId}:${existing.kind}:${variant}` });
+                return {
+                    status: 200,
+                    body: { ok: true, trial: { ...trial, objectives: trialProgress(trial, stats) }, intro: trialIntroFor(def, existing.kind) },
+                };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }
@@ -187,14 +273,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await announce({
                             type: 'legacy_awakening', importance: 'high',
                             title: 'LEGENDARY LEGACY AWAKENED',
-                            message: `${playerName} has completed the Trial of the ${def.title}. ${def.flavor}`,
+                            message: pick(LEGENDARY_AWAKEN_MSGS)(playerName, def.name, def.title, def.flavor),
                             player: playerName, village, legacyId: def.id,
                         });
                     } else if (def.rarity === 'mythic') {
                         await announce({
                             type: 'mythic_legacy', importance: 'mythic',
                             title: 'MYTHIC LEGACY AWAKENED',
-                            message: `${playerName} has awakened the ${def.name}. The world will remember.`,
+                            message: pick(MYTHIC_AWAKEN_MSGS)(playerName, def.name, def.flavor),
                             player: playerName, village, legacyId: def.id,
                         });
                         await addHallEntry({
@@ -203,6 +289,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             description: `Awakened by ${playerName}${village ? ` of ${village}` : ''}. ${def.flavor}`,
                             player: playerName, village, legacyId: def.id, rarity: def.rarity,
                         }, { nxKey: `mythic-legacy:${def.id}:${playerName}` });
+                        // Server-first: the very first mythic awakening on the
+                        // server is permanent history. addHallEntry's NX makes
+                        // this once-ever — it returns null for every later one.
+                        const first = await claimServerFirst({
+                            entryType: 'server_first',
+                            title: 'First Mythic Awakening',
+                            description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to awaken a mythic legacy — the ${def.name}.`,
+                            player: playerName, village, legacyId: def.id, rarity: def.rarity,
+                        }, 'server-first:mythic-awakening');
+                        if (first) {
+                            await announce({
+                                type: 'server_first', importance: 'mythic',
+                                title: 'SERVER FIRST — MYTHIC AWAKENING',
+                                message: `History: ${playerName} is the FIRST to awaken a mythic legacy. The ${def.name} chose well.`,
+                                player: playerName, village, legacyId: def.id,
+                            });
+                        }
                     }
                     // Basic/rare awakenings stay quiet by design (importance
                     // matrix: event log only — verification finding restored).
@@ -212,7 +315,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await announce({
                         type: 'mythic_legacy', importance: 'high',
                         title: 'A MYTHIC LEGACY IS BOUND',
-                        message: `${playerName} has bound the ${def.name} to their soul. Stage III — few will ever stand here.`,
+                        message: pick(MYTHIC_BIND_MSGS)(playerName, def.name),
                         player: playerName, village, legacyId: def.id,
                     });
                 } else if (trial.kind === 'mythic') {
@@ -224,7 +327,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await announce({
                         type: 'legacy_completion', importance: 'mythic',
                         title: 'A LEGACY REACHES ITS SUMMIT',
-                        message: `${playerName} has carried the ${def.name} to Stage V — Mythic. "${mythicTitleFor(def.title)}" now walks the world.`,
+                        message: pick(SUMMIT_MSGS)(playerName, def.name, mythicTitleFor(def.title)),
                         player: playerName, village, legacyId: def.id,
                     });
                     await addHallEntry({
@@ -233,12 +336,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         description: `${playerName}${village ? ` of ${village}` : ''} carried this legacy to its mythic summit. ${def.flavor}`,
                         player: playerName, village, legacyId: def.id, rarity: def.rarity,
                     }, { nxKey: `legacy-summit:${def.id}:${playerName}` });
+                    // Server-first summit — once-ever permanent history.
+                    const firstSummit = await claimServerFirst({
+                        entryType: 'server_first',
+                        title: 'First Legacy Summit',
+                        description: `${playerName}${village ? ` of ${village}` : ''} was the first shinobi on the server to carry a legacy to Stage V — the ${def.name}.`,
+                        player: playerName, village, legacyId: def.id, rarity: def.rarity,
+                    }, 'server-first:legacy-summit');
+                    if (firstSummit) {
+                        await announce({
+                            type: 'server_first', importance: 'mythic',
+                            title: 'SERVER FIRST — A LEGACY COMPLETED',
+                            message: `History: ${playerName} is the FIRST to carry a legacy to its summit. The ${def.name} stands complete.`,
+                            player: playerName, village, legacyId: def.id,
+                        });
+                    }
                 }
                 const grantedTitleOut = trial.kind === 'awaken' ? def.title
                     : trial.kind === 'prove' ? provenTitleFor(def.title)
                     : trial.kind === 'mythic' ? mythicTitleFor(def.title)
                     : null;
-                return { status: 200, body: { ok: true, legacy: saveOut, title: grantedTitleOut } };
+                return {
+                    status: 200,
+                    body: { ok: true, legacy: saveOut, title: grantedTitleOut, completion: trialCompletionFor(trial.kind) },
+                };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }

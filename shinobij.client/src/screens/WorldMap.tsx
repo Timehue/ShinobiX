@@ -94,8 +94,11 @@ import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { homeVillageForSector } from "../data/war-map-sectors";
-import { isLegacyEnabled, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
-import { shouldShowLevelRumor, markLevelRumorSeen, rumorForCategory } from "../lib/legacy-rumors";
+import { isLegacyEnabled, isLegacyServerLive, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { rollEmissarySpawn, EMISSARY_BY_SLUG, emissaryLoreLine, emissaryQuestById, EMISSARY_METRIC_LABELS, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
+import { EmissaryTrialPanel } from "../components/EmissaryTrialPanel";
+import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
+import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
 
@@ -576,20 +579,41 @@ export function WorldMap({
     const [sageVnPage, setSageVnPage] = useState(0);
     const [sageVnLine, setSageVnLine] = useState(0);
     const [sageChoiceOpen, setSageChoiceOpen] = useState(false);
+    // Themed delivery for the system's atmospheric beats (rumors, Sage arrival,
+    // Sage departure) — these used to be native alert() dialogs.
+    const [whisper, setWhisper] = useState<{ text: string; kicker?: string } | null>(null);
     useEffect(() => {
         if (!isLegacyEnabled() || character.level < 50 || character.legacy) return;
         let alive = true;
         void sageRoll(character.name).then(r => {
-            if (!alive || !r?.spawn || !r.offer) return;
-            setSageOffer(r.offer);
-            if (r.reason !== "already-waiting") alert(`A Wandering Sage has appeared near sector ${r.offer.sector}. He has been watching your path.`);
+            if (!alive) return;
+            if (r?.spawn && r.offer) {
+                setSageOffer(r.offer);
+                try { window.localStorage?.setItem("legacy.sage.lastOffer", String(r.offer.expiresAt ?? 0)); } catch { /* best-effort */ }
+                if (r.reason !== "already-waiting") {
+                    setWhisper({ kicker: "The Sage has appeared", text: `A Wandering Sage waits near sector ${r.offer.sector}. He has been watching your path.` });
+                }
+            } else {
+                // One-time "moved on" beat: we knew of an offer, and it is gone.
+                try {
+                    const last = Number(window.localStorage?.getItem("legacy.sage.lastOffer") ?? 0);
+                    if (last > 0 && Date.now() > last) {
+                        window.localStorage?.removeItem("legacy.sage.lastOffer");
+                        setWhisper({ kicker: "The road is empty", text: "The Sage has moved on. Do not mourn the moment — he has found you once, and he will find you again." });
+                    }
+                } catch { /* best-effort */ }
+            }
         });
         return () => { alive = false; };
     }, [character.name, character.level, character.legacy]);
     // Pre-50 Legacy rumors: at level milestones, one vague hint about the
     // strongest path the player is carving (never formulas — the mystery rule).
+    // Fires for the highest unseen milestone at level >= it, so leveling past
+    // one offline doesn't eat the beat; heard rumors accumulate in the panel log.
     useEffect(() => {
-        if (!isLegacyEnabled() || character.level >= 50 || !shouldShowLevelRumor(character.level)) return;
+        if (!isLegacyEnabled() || character.level >= 50) return;
+        const milestone = nextUnseenRumorMilestone(character.level);
+        if (milestone == null) return;
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => {
             if (!alive) return;
@@ -597,8 +621,10 @@ export function WorldMap({
             // don't whisper about a system that isn't live, and don't burn the
             // one-time seen marker so the rumor still fires once it's on.
             if (!s) return;
-            markLevelRumorSeen(character.level);
-            alert(rumorForCategory(s.strongest?.[0]?.category, character.level));
+            const text = rumorForCategory(s.strongest?.[0]?.category, milestone);
+            markLevelRumorSeen(milestone);
+            recordRumorHeard(milestone, text);
+            setWhisper({ text });
         });
         return () => { alive = false; };
     }, [character.name, character.level]);
@@ -607,6 +633,34 @@ export function WorldMap({
             ? [synthSageWanderer(sageOffer.sector)] : []),
         [sageOffer, selectedSector],
     );
+    // Legacy Emissaries — the eight roaming quest-givers (lib/legacy-emissaries).
+    // Spawn is deterministic per (player, 6h window), like the natural roster;
+    // post-acceptance the player's own category emissary walks (their
+    // trial-giver), pre-acceptance (level 40+) the eight take turns. The
+    // category is server-resolved once (the status endpoint) so the client
+    // never ships the 100-def table.
+    const [legacyCategory, setLegacyCategory] = useState<string | null>(null);
+    // Emissaries are a Legacy-wave feature: they spawn only once the SERVER's
+    // ENABLE_LEGACY is confirmed live (session-cached probe) — the client
+    // localStorage flag alone must not surface them, or their quests would be
+    // acceptable while the system is officially off (verification finding).
+    const [legacyServerLive, setLegacyServerLive] = useState(false);
+    useEffect(() => {
+        let alive = true;
+        if (isLegacyEnabled()) void isLegacyServerLive().then(live => { if (alive) setLegacyServerLive(live); });
+        return () => { alive = false; };
+    }, []);
+    useEffect(() => {
+        if (!isLegacyEnabled() || !character.legacy) { return; }
+        let alive = true;
+        void fetchLegacyStatus(character.name).then(s => { if (alive) setLegacyCategory(s?.legacyCategory ?? null); });
+        return () => { alive = false; };
+    }, [character.name, character.legacy]);
+    const emissaryWanderers = useMemo(() => {
+        if (!legacyServerLive || !isWanderersEnabled() || selectedSector == null) return [];
+        const spawn = rollEmissarySpawn(character.name, character.level, legacyCategory, wandererDayBucket(new Date()));
+        return spawn && spawn.sector === selectedSector ? [spawn.wanderer] : [];
+    }, [legacyServerLive, character.name, character.level, legacyCategory, selectedSector]);
     // Put a wanderer on its anti-spam cooldown (functional update — composes with any
     // reward update in the same handler without clobbering it). `ms` defaults to the
     // full anti-farm window; flee/decline passes the short WANDERER_FLEE_COOLDOWN_MS.
@@ -907,8 +961,8 @@ export function WorldMap({
         setWandererDialog(null);
         setScreen("shinobiTiles");
     }
-    async function acceptWandererQuest(w: Wanderer) {
-        const def = questForWanderer(w);
+    async function acceptWandererQuest(w: Wanderer, defOverride?: EmissaryQuestDef) {
+        const def = defOverride ?? questForWanderer(w);
         setWandererDialog({ w, busy: true });
         try {
             const res = await fetch("/api/sector/wanderer-quest", {
@@ -2063,7 +2117,7 @@ export function WorldMap({
 
                             {/* AI Wanderers — walk the sector and (if their job is to
                                 rob/attack) come at the player. Flag-gated, client-only. */}
-                            {[...sectorWanderers, ...mercWanderers, ...sageWanderers].map(w => (
+                            {[...sectorWanderers, ...mercWanderers, ...sageWanderers, ...emissaryWanderers].map(w => (
                                 <SectorWanderer
                                     key={w.id}
                                     wanderer={w}
@@ -2077,11 +2131,22 @@ export function WorldMap({
                                     offer={sageOffer}
                                     playerName={character.name}
                                     onClose={() => setSageChoiceOpen(false)}
-                                    onDeclined={() => setSageOffer(null)}
+                                    onDeclined={() => {
+                                        setSageOffer(null);
+                                        try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
+                                    }}
                                     onAccepted={(legacy) => {
                                         setSageOffer(null);
+                                        try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
                                         updateCharacter(prev => prev ? { ...prev, legacy } : prev);
                                     }}
+                                />
+                            )}
+                            {whisper && (
+                                <SageWhisper
+                                    text={whisper.text}
+                                    {...(whisper.kicker ? { kicker: whisper.kicker } : {})}
+                                    onClose={() => setWhisper(null)}
                                 />
                             )}
                             {wandererDialog && createPortal(
@@ -2183,7 +2248,8 @@ export function WorldMap({
                                             }
                                             const active = character.activeWandererQuest;
                                             if (active) {
-                                                const metric = questMetricForId(active.id);
+                                                // Emissary quests share this slot — resolve their metric first.
+                                                const metric = emissaryQuestById(active.id)?.metric ?? questMetricForId(active.id);
                                                 const got = Math.max(0, ((character[metric] as number | undefined) ?? 0) - active.baseline);
                                                 const done = got >= active.target;
                                                 return done ? (
@@ -2193,7 +2259,7 @@ export function WorldMap({
                                                     </div>
                                                 ) : (
                                                     <>
-                                                        <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Progress: {Math.min(got, active.target)} / {active.target} foes</p>
+                                                        <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Progress: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[metric]}</p>
                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
                                                     </>
                                                 );
@@ -2207,6 +2273,59 @@ export function WorldMap({
                                                     <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                                         <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
                                                         {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}
+                                                        <button onClick={() => setWandererDialog(null)}>Leave</button>
+                                                    </div>
+                                                </>
+                                            );
+                                        })() : !wandererDialog.msg && wandererDialog.w.verb === "legacyQuest" ? (() => {
+                                            // A Legacy Emissary (lib/legacy-emissaries.ts): lore, a
+                                            // category-flavored errand, and — for the player whose
+                                            // Legacy this emissary serves — the trial itself, in-world.
+                                            const em = EMISSARY_BY_SLUG.get(wandererDialog.w.archetype as EmissarySlug);
+                                            if (!em) return <button onClick={() => setWandererDialog(null)}>Leave</button>;
+                                            const bucket = wandererDayBucket(new Date());
+                                            const active = character.activeWandererQuest;
+                                            const activeDef = active ? emissaryQuestById(active.id) : null;
+                                            const got = active ? Math.max(0, ((character[(activeDef?.metric ?? questMetricForId(active.id))] as number | undefined) ?? 0) - active.baseline) : 0;
+                                            return (
+                                                <>
+                                                    <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "#cbd5e1", margin: "0 0 10px" }}>{emissaryLoreLine(em, bucket)}</p>
+                                                    {active ? (
+                                                        got >= active.target ? (
+                                                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                                                                <button disabled={wandererDialog.busy} onClick={() => claimWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Claim reward"}</button>
+                                                            </div>
+                                                        ) : (
+                                                            <p style={{ fontSize: ".78rem", margin: "0 0 8px" }}>Your errand: {Math.min(got, active.target)} / {active.target} {EMISSARY_METRIC_LABELS[activeDef?.metric ?? questMetricForId(active.id)]}</p>
+                                                        )
+                                                    ) : (
+                                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                            {em.quests.map(q => (
+                                                                <button key={q.id} disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w, q)} style={{ textAlign: "left", fontSize: ".78rem" }}>
+                                                                    {q.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {isLegacyEnabled() && character.legacy && (
+                                                        <EmissaryTrialPanel
+                                                            playerName={character.name}
+                                                            emissary={em}
+                                                            onStageUp={(stage, title) => {
+                                                                updateCharacter(prev => prev ? ({
+                                                                    ...prev,
+                                                                    legacy: prev.legacy ? { ...prev.legacy, stage: stage as 1 | 2 | 3 | 4 | 5 } : prev.legacy,
+                                                                    ...(title ? { earnedTitles: Array.from(new Set([...(prev.earnedTitles ?? []), title])) } : {}),
+                                                                }) : prev);
+                                                            }}
+                                                        />
+                                                    )}
+                                                    {!character.legacy && character.level >= 50 && (
+                                                        <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "8px 0 0", fontStyle: "italic" }}>
+                                                            “The Sage carries what I cannot give. When he finds you — and he will — listen carefully.”
+                                                        </p>
+                                                    )}
+                                                    <div style={{ marginTop: 10 }}>
                                                         <button onClick={() => setWandererDialog(null)}>Leave</button>
                                                     </div>
                                                 </>

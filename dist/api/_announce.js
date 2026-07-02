@@ -93,7 +93,12 @@ async function broadcastToVillageChats(a) {
         catch { /* best-effort per village */ }
     }
 }
-/** Optional Discord relay for mythic moments. Env-gated, fire-and-forget. */
+/** Optional Discord relay for mythic moments. Env-gated, fire-and-forget.
+ *  Rich embed (importance-colored strip, event-type footer) rather than plain
+ *  text, so mythic moments land properly in a community server. */
+const DISCORD_EMBED_COLORS = {
+    low: 0x9aa3b2, medium: 0x60a5fa, high: 0xf59e0b, mythic: 0xc084fc,
+};
 async function postDiscordWebhook(a) {
     const url = process.env.DISCORD_ANNOUNCE_WEBHOOK_URL;
     if (!url)
@@ -103,8 +108,14 @@ async function postDiscordWebhook(a) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                content: `**${a.title}**\n${a.message}`,
                 username: 'World Herald',
+                embeds: [{
+                        title: a.title,
+                        description: a.message,
+                        color: DISCORD_EMBED_COLORS[a.importance] ?? DISCORD_EMBED_COLORS.mythic,
+                        footer: { text: [a.player, a.village, a.type.replace(/_/g, ' ')].filter(Boolean).join(' · ') },
+                        timestamp: new Date(a.ts).toISOString(),
+                    }],
             }),
         });
     }

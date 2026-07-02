@@ -6,6 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
+import { LEGACY_BY_ID } from '../_legacy-defs.js';
 
 // A quoted reference to the message being replied to. Display-only — just the
 // original author + a short snippet so the client can render a quote block.
@@ -22,6 +23,10 @@ type ChatMessage = {
     customTitle?: string;
     customTitleStyle?: string;
     customTitleIcon?: string;
+    /** Legacy prestige chip: derived server-side from the author's save
+     *  (character.legacy is server-owned/sanitizer-reinjected — unspoofable). */
+    legacyStage?: number;
+    legacyRarity?: string;
     level?: number;
     replyTo?: ReplyRef;
     // Server-authored lines only (World Herald announcements from
@@ -110,6 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let derivedCustomTitle: string | undefined;
             let derivedTitleStyle: string | undefined;
             let derivedTitleIcon: string | undefined;
+            let derivedLegacyStage: number | undefined;
+            let derivedLegacyRarity: string | undefined;
             let derivedLevel: number | undefined;
             if (!identity.admin) {
                 try {
@@ -122,6 +129,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // allowlisted, same trust as customTitle itself).
                         if (typeof char.customTitleStyle === 'string' && char.customTitleStyle) derivedTitleStyle = char.customTitleStyle;
                         if (typeof char.customTitleIcon === 'string' && char.customTitleIcon) derivedTitleIcon = char.customTitleIcon;
+                        // Legacy prestige (character.legacy is server-owned).
+                        const lg = char.legacy as { legacyId?: unknown; stage?: unknown } | null;
+                        const lgDef = lg && typeof lg.legacyId === 'string' ? LEGACY_BY_ID.get(lg.legacyId) : undefined;
+                        const lgStage = Number(lg?.stage);
+                        if (lgDef && Number.isInteger(lgStage) && lgStage >= 1 && lgStage <= 5) {
+                            derivedLegacyStage = lgStage;
+                            derivedLegacyRarity = lgDef.rarity;
+                        }
                         if (typeof char.level === 'number') derivedLevel = char.level;
                     }
                 } catch {
@@ -153,6 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
                 ...(derivedTitleStyle  ? { customTitleStyle: derivedTitleStyle } : {}),
                 ...(derivedTitleIcon   ? { customTitleIcon: derivedTitleIcon } : {}),
+                ...(derivedLegacyStage != null ? { legacyStage: derivedLegacyStage, legacyRarity: derivedLegacyRarity } : {}),
                 ...(derivedLevel != null ? { level: derivedLevel }          : {}),
                 ...(replyRef ? { replyTo: replyRef } : {}),
             };
