@@ -2357,12 +2357,23 @@ export function Arena({
         // resurrect a dead branch and start writing PvP counters by accident).
         // "Normal battle arena" = a plain practice AI fight — NOT a mission, raid,
         // hunt (raidAi), or explore ambush (story / PvP / combat-mission already
-        // returned above). Per design these grant NO XP and NO stat growth
-        // (progression comes from missions/hunts/raids + real PvP + training). Ryo
-        // is kept. Missions/hunts/raids/explore keep their full XP.
+        // returned above). Per design these grant NOTHING: no XP, ryo, stats,
+        // currency, items, or kill credit — just end the battle. Progression comes
+        // from missions/hunts/raids + real PvP + training.
         const isPlainPractice = !missionBattleActive && raidBattleKind === "none" && !exploreAmbushActive;
+        if (isPlainPractice) {
+            updateCharacter({ ...base, hp: playerHp });
+            setBattleEnded(true);
+            setBattleResult("win");
+            setRaidBattleKind("none");
+            setClanWarPointsActive(0);
+            const note = `${opponentName} defeated. Practice bout — no rewards.`;
+            setLog(note);
+            addCombatLog(note);
+            return;
+        }
         const activeTrait = getActivePetTrait(character);
-        const xpGain = isPlainPractice ? 0 : (activeTrait === "Swift" ? 125 : 100);
+        const xpGain = activeTrait === "Swift" ? 125 : 100;
         const ryoGain = activeTrait === "Lucky" ? 90 : 75;
         const honorSealGain = raidBattleKind === "defense" ? 20 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : raidBattleKind === "raidAi" ? 4 : 0;
