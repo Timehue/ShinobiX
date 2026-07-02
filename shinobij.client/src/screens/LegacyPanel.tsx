@@ -34,7 +34,10 @@ const TRIAL_ACCENTS: Record<string, string> = {
 
 export function LegacyPanel({ character, onLegacyChanged }: {
     character: Character;
-    onLegacyChanged?: () => void;
+    /** Fired after a server-confirmed legacy change (accept elsewhere / stage-up
+     *  here) with the fresh server legacy + any granted title, so the host can
+     *  sync the client character (aura, title picker) without a relog. */
+    onLegacyChanged?: (legacy?: Character["legacy"], grantedTitle?: string | null) => void;
 }) {
     const enabled = isLegacyEnabled();
     const [status, setStatus] = useState<LegacyStatusView | null>(null);
@@ -97,7 +100,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     grantedTitle: result.title ?? null,
                     text: result.completion ?? "Your legacy deepens.",
                 });
-                onLegacyChanged?.();
+                onLegacyChanged?.(result.legacy as Character["legacy"], result.title ?? null);
             } else if (result?.reason === "incomplete") {
                 setTrialNote("The trial is not finished yet — the objectives below still wait.");
                 setTimeout(() => setTrialNote(null), 5000);
@@ -122,7 +125,24 @@ export function LegacyPanel({ character, onLegacyChanged }: {
             />
 
             {/* ── Accepted legacy ─────────────────────────────────────── */}
-            {status.legacy && def ? (
+            {status.legacy && !def ? (
+                // Sealed player whose definitions fetch is slow or failed: never
+                // show the pre-acceptance "Path Is Unwritten" card to someone
+                // with a sealed path (final-gate finding) — render the essentials
+                // from status alone until the codex loads.
+                <div className="card" style={{ padding: 14, border: "1px solid rgba(192,132,252,.35)" }}>
+                    <h3 style={{ margin: 0, color: "#c084fc", textTransform: "capitalize" }}>
+                        {status.legacy.legacyId.replace(/-/g, " ")}
+                    </h3>
+                    <p style={{ margin: "6px 0 0", fontSize: ".78rem", color: "#9aa3b2" }}>
+                        Stage {STAGE_ROMAN[status.legacy.stage] ?? status.legacy.stage} — <b style={{ color: "#e2e8f0" }}>{STAGE_NAMES[status.legacy.stage]}</b>
+                        {status.legacy.titles.length > 0 && <> · Titles: <b style={{ color: "#e2e8f0" }}>{status.legacy.titles.join(", ")}</b></>}
+                    </p>
+                    <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
+                        …the full codex entry is still loading.
+                    </p>
+                </div>
+            ) : status.legacy && def ? (
                 <div className="card" style={{ padding: 14, border: `1px solid ${rarityColor}55` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -150,7 +170,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                         Stage {STAGE_ROMAN[status.legacy.stage] ?? status.legacy.stage} — <b style={{ color: "#e2e8f0" }}>{STAGE_NAMES[status.legacy.stage]}</b>
                         {status.legacy.titles.length > 0 && <> · Titles: <b style={{ color: "#e2e8f0" }}>{status.legacy.titles.join(", ")}</b></>}
                     </p>
-                    <p style={{ margin: "6px 0 0", fontSize: ".7rem", color: "#6b7280" }}>
+                    <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
                         Your path is sealed forever. Trials may be retried, but a legacy is never exchanged.
                     </p>
                     {(() => {
@@ -177,9 +197,10 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                             {status.offer && (() => {
                                 const msLeft = (status.offer.expiresAt ?? 0) - nowTs;
                                 const hours = Math.max(0, Math.floor(msLeft / 3_600_000));
+                                const left = hours >= 48 ? `${Math.floor(hours / 24)} days` : hours >= 1 ? `${hours}h` : "less than an hour";
                                 return (
                                     <> He is <b>waiting in sector {status.offer.sector}</b> right now.
-                                    {msLeft > 0 && <> He will not wait forever — <b style={{ color: "#fbbf24" }}>about {hours >= 1 ? `${hours}h` : "less than an hour"}</b> remains.</>}</>
+                                    {msLeft > 0 && <> He will not wait forever — <b style={{ color: "#fbbf24" }}>about {left}</b> remains.</>}</>
                                 );
                             })()}
                         </p>
@@ -277,11 +298,14 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                             Your <b style={{ textTransform: "capitalize" }}>{s.category}</b> path is <b style={{ color: "#c084fc" }}>{s.tier}</b>.
                         </p>
                     ))}
-                    {status.minLevelReached && (
-                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#6b7280" }}>
-                            {Object.values(status.eligibleCounts).reduce((a, b) => a + b, 0)} legacies would answer you today.
-                        </p>
-                    )}
+                    {status.minLevelReached && (() => {
+                        const n = Object.values(status.eligibleCounts).reduce((a, b) => a + b, 0);
+                        return (
+                            <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
+                                {n === 1 ? "One legacy would answer you today." : `${n} legacies would answer you today.`}
+                            </p>
+                        );
+                    })()}
                 </div>
             )}
 
@@ -320,7 +344,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                                                 </span>
                                             </div>
                                             <p style={{ margin: "2px 0 0", fontSize: ".74rem", color: "#9aa3b2", fontStyle: "italic" }}>{d.flavor}</p>
-                                            <p style={{ margin: "2px 0 0", fontSize: ".68rem", color: "#6b7280" }}>Title: {d.title}</p>
+                                            <p style={{ margin: "2px 0 0", fontSize: ".7rem", color: "#9aa3b2" }}>Title: {d.title}</p>
                                         </div>
                                     ))}
                                 </div>

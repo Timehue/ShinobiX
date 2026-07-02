@@ -168,7 +168,7 @@ const KIND_OPENERS = {
     awaken: 'The path you chose has been carrying you. Now it asks you to carry it. This first trial is not a test of strength — it is the path learning the sound of your footsteps.',
     bind: 'A legacy held loosely is a borrowed coat. The Binding asks more: take your path out into the wider world and let the world see you wearing it, until the two of you cannot be told apart.',
     prove: 'Many awaken. Some bind. Few prove. This trial is the difference between a shinobi who walks a path and a path that is known by its shinobi. It will ask for your discipline, not your enthusiasm.',
-    mythic: 'This is the last thing I will ever ask of you. Beyond this trial there are no more trials — only the name the world will use when it tells your story. Every step you have taken was a rehearsal for these.',
+    mythic: 'This is the last thing I will ever ask of you. Beyond this trial there are no more trials — only the name the world will use when it tells your story. Every step you have taken was a rehearsal for this.',
 };
 const CATEGORY_CLAUSES = {
     ninjutsu: 'Let the elements answer you again — not as tools, but as witnesses.',

@@ -9,6 +9,7 @@ const moderation_js_1 = require("../admin/moderation.js");
 const _lock_js_1 = require("../_lock.js");
 const _text_moderation_js_1 = require("../_text-moderation.js");
 const _legacy_defs_js_1 = require("../_legacy-defs.js");
+const _legacy_track_js_1 = require("../_legacy-track.js");
 // Max length of the quoted snippet we persist for a reply. Short — it's a
 // preview, not the full message; the client ellipsizes anything longer.
 const REPLY_SNIPPET_LIMIT = 140;
@@ -100,12 +101,16 @@ async function handler(req, res) {
                         if (typeof char.customTitleIcon === 'string' && char.customTitleIcon)
                             derivedTitleIcon = char.customTitleIcon;
                         // Legacy prestige (character.legacy is server-owned).
-                        const lg = char.legacy;
-                        const lgDef = lg && typeof lg.legacyId === 'string' ? _legacy_defs_js_1.LEGACY_BY_ID.get(lg.legacyId) : undefined;
-                        const lgStage = Number(lg?.stage);
-                        if (lgDef && Number.isInteger(lgStage) && lgStage >= 1 && lgStage <= 5) {
-                            derivedLegacyStage = lgStage;
-                            derivedLegacyRarity = lgDef.rarity;
+                        // Flag-gated: a rollback freezes prestige chips on NEW
+                        // messages too (final-gate finding).
+                        if ((0, _legacy_track_js_1.legacyEnabled)()) {
+                            const lg = char.legacy;
+                            const lgDef = lg && typeof lg.legacyId === 'string' ? _legacy_defs_js_1.LEGACY_BY_ID.get(lg.legacyId) : undefined;
+                            const lgStage = Number(lg?.stage);
+                            if (lgDef && Number.isInteger(lgStage) && lgStage >= 1 && lgStage <= 5) {
+                                derivedLegacyStage = lgStage;
+                                derivedLegacyRarity = lgDef.rarity;
+                            }
                         }
                         if (typeof char.level === 'number')
                             derivedLevel = char.level;

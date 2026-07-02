@@ -42,7 +42,7 @@ export function SageWhisper({ text, kicker = "A whisper on the road", onClose }:
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
             <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "#c084fc", fontWeight: 700, marginBottom: 2 }}>
+                <div style={{ fontSize: ".72rem", letterSpacing: ".08em", textTransform: "uppercase", color: "#c084fc", fontWeight: 700, marginBottom: 2 }}>
                     {kicker}
                 </div>
                 <div style={{ fontSize: ".8rem", color: "#e2e8f0", fontStyle: "italic", lineHeight: 1.45 }}>

@@ -12,7 +12,7 @@ import { readAudit, type AuditDomain } from '../_audit.js';
 //
 //   GET /api/admin/audit-log?domain=content&limit=200   (x-admin-password header)
 //   → 200 { domain, count, entries }
-const DOMAINS: AuditDomain[] = ['content', 'reward', 'sector', 'combat'];
+const DOMAINS: AuditDomain[] = ['content', 'reward', 'sector', 'combat', 'legacy'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);

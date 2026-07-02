@@ -9,11 +9,12 @@ import { evaluateAllLegacies, getLegacyOverlay, LEGACY_OVERLAY_KEY, type LegacyO
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, type CharacterLegacy } from '../_legacy-core.js';
 import { recordAudit } from '../_audit.js';
-import { updateHallEntry, announce } from '../_announce.js';
+import { updateHallEntry, readHallEntries, announce } from '../_announce.js';
 import { isKnownEarnedTitle } from '../_titles-registry.js';
 import { getEraViews, getEraState, checkEraUnlocks, unlockEra, ERA_STATE_KEY, ERA_BY_ID } from '../_era.js';
 import type { EraMetric, EraStatus } from '../_era-defs.js';
 import { CUSTOM_TITLE_LOG_KEY, type CustomTitleLogEntry } from '../_titles-registry.js';
+import { sageMetricKey } from '../legacy/sage.js';
 
 /*
  * POST /api/admin/legacy — the Legacy admin MVP (docs/legacy-system-plan.md §16).
@@ -38,11 +39,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
     if (!isFullAdmin(req)) return res.status(401).json({ error: 'Admin authentication required.' });
-    if (!legacyEnabled()) return res.status(404).json({ error: 'ENABLE_LEGACY is not set.' });
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const action = typeof body.action === 'string' ? body.action : '';
+
+        // Moderation + read tooling must SURVIVE a rollback: if launch week
+        // goes wrong and ENABLE_LEGACY is unset, custom titles minted during
+        // the on-window keep rendering (customTitle predates Legacy), so the
+        // operator still needs to see and revoke them, inspect players, and
+        // correct Hall history. Only gameplay-mutating actions stay gated.
+        const FLAG_OFF_ALLOWED = new Set(['view', 'recalc', 'suspects', 'clear-suspicion', 'titles-log', 'title-revoke', 'hall-list', 'hall-correct', 'metrics']);
+        if (!legacyEnabled() && !FLAG_OFF_ALLOWED.has(action)) {
+            return res.status(404).json({ error: 'ENABLE_LEGACY is not set.' });
+        }
 
         if (action === 'view' || action === 'recalc') {
             const player = safeName(String(body.player ?? ''));
@@ -64,6 +74,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({
                 player, stats,
                 legacy: (char.legacy ?? null) as CharacterLegacy | null,
+                // Moderation surface: the worn title (revocable from the
+                // inspector even when it predates the titles log's 100-row cap).
+                customTitle: typeof char.customTitle === 'string' ? char.customTitle : '',
                 sealed: sealed ?? null,
                 offer: offer ?? null,
                 trial: trial ?? null,
@@ -171,6 +184,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action === 'titles-log') {
             const log = (await kv.get<CustomTitleLogEntry[]>(CUSTOM_TITLE_LOG_KEY)) ?? [];
             return res.status(200).json({ log: Array.isArray(log) ? log.slice(0, 100) : [] });
+        }
+
+        // ── Hall entries for the corrections list ────────────────────────────
+        // Reads directly (hidden included) rather than via the PUBLIC hall
+        // endpoint, which returns [] while ENABLE_LEGACY is off — corrections
+        // must survive a rollback (final-gate finding).
+        if (action === 'hall-list') {
+            const entries = await readHallEntries({ includeHidden: true, limit: 200 });
+            return res.status(200).json({ entries });
+        }
+
+        // ── Sage funnel counters (launch-week observability) ────────────────
+        if (action === 'metrics') {
+            const day = (offset: number) => new Date(Date.now() - offset * 24 * 60 * 60 * 1000);
+            const read = async (d: Date) => {
+                const [offers, accepts, declines] = await Promise.all([
+                    kv.get<number>(sageMetricKey('offers', d)),
+                    kv.get<number>(sageMetricKey('accepts', d)),
+                    kv.get<number>(sageMetricKey('declines', d)),
+                ]);
+                return { date: d.toISOString().slice(0, 10), offers: num(offers), accepts: num(accepts), declines: num(declines) };
+            };
+            return res.status(200).json({ days: [await read(day(0)), await read(day(1)), await read(day(2))] });
         }
 
         if (action === 'title-revoke') {

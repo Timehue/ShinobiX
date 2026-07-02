@@ -591,7 +591,7 @@ export function WorldMap({
                 setSageOffer(r.offer);
                 try { window.localStorage?.setItem("legacy.sage.lastOffer", String(r.offer.expiresAt ?? 0)); } catch { /* best-effort */ }
                 if (r.reason !== "already-waiting") {
-                    setWhisper({ kicker: "The Sage has appeared", text: `A Wandering Sage waits near sector ${r.offer.sector}. He has been watching your path.` });
+                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage waits in sector ${r.offer.sector}. He has been watching your path.` });
                 }
             } else {
                 // One-time "moved on" beat: we knew of an offer, and it is gone.
@@ -2134,6 +2134,18 @@ export function WorldMap({
                                     onDeclined={() => {
                                         setSageOffer(null);
                                         try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
+                                        // The decline cooldown must be COMMUNICATED, not
+                                        // silent — the player should know he returns.
+                                        setWhisper({
+                                            kicker: "The Sage departs",
+                                            text: "There is no shame in waiting. Give me a few days on the road — I will find you again.",
+                                        });
+                                    }}
+                                    onDismissed={() => {
+                                        // Dead offer (expired/sealed): despawn quietly —
+                                        // no "I will find you again" promise here.
+                                        setSageOffer(null);
+                                        try { window.localStorage?.removeItem("legacy.sage.lastOffer"); } catch { /* best-effort */ }
                                     }}
                                     onAccepted={(legacy) => {
                                         setSageOffer(null);
@@ -2154,7 +2166,7 @@ export function WorldMap({
                                     style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.55)" }}
                                     onClick={dismissWandererDialog}
                                 >
-                                    <div className="card" style={{ maxWidth: 360, width: "88%", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
+                                    <div className="card" style={{ maxWidth: 360, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 16 }} onClick={(e) => e.stopPropagation()}>
                                         <img
                                             src={wandererAvatar(wandererDialog.w.avatarKey)}
                                             alt={wandererDialog.w.name}
@@ -3104,6 +3116,17 @@ export function WorldMap({
                     </div>
                 );
             })()}
+            {/* Atmospheric whispers must also land on the OVERVIEW — the sage
+                roll + rumor effects fire on mount, before a sector is opened
+                (final-gate finding). SageWhisper portals to <body>, so this
+                mount and the sector-view mount can never double-render. */}
+            {whisper && (
+                <SageWhisper
+                    text={whisper.text}
+                    {...(whisper.kicker ? { kicker: whisper.kicker } : {})}
+                    onClose={() => setWhisper(null)}
+                />
+            )}
         </div>
     );
 }

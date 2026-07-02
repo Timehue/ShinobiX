@@ -127,7 +127,7 @@ export function sageDecline(playerName: string): Promise<{ ok: boolean } | null>
     return postJson(`/api/legacy/sage`, { action: "decline", playerName });
 }
 
-export function sageAccept(playerName: string, legacyId: string): Promise<{ ok: boolean; reason?: string; legacy?: CharacterLegacy; trial?: TrialView } | null> {
+export function sageAccept(playerName: string, legacyId: string): Promise<{ ok: boolean; reason?: string; legacy?: CharacterLegacy; trial?: TrialView; intro?: string } | null> {
     return postJson(`/api/legacy/sage`, { action: "accept", playerName, legacyId });
 }
 
@@ -203,7 +203,9 @@ export function synthSageWanderer(sector: number): Wanderer {
         level: 99,
         homeTile: home,
         waypoints: [home, home + 1, home - 1],
-        greeting: "I have watched your path, shinobi. Every battle, every choice, has carved something into your spirit.",
+        // Deliberately NOT the VN's opening line — the player reads the
+        // billboard first and the VN seconds later (polish-audit finding).
+        greeting: "An old man leans on his talisman staff, unhurried, as if he has been waiting for you specifically.",
         tellTint: "#c084fc",
         avatarKey: "wanderingSage",
     };

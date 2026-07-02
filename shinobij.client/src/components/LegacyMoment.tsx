@@ -20,6 +20,8 @@ export type LegacyMomentData =
         legacyName: string;
         rarity: LegacyRarity;
         text: string;
+        /** Optional wayfinding line (e.g. where to track the trial). */
+        hint?: string;
     }
     | {
         mode: "stage-up";
@@ -58,7 +60,10 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                         <p style={{ fontSize: ".8rem", color: "#e2e8f0", fontStyle: "italic", lineHeight: 1.5, margin: "10px 0 4px" }}>
                             “{moment.text}”
                         </p>
-                        <p style={{ fontSize: ".68rem", color: "#9aa3b2", margin: "2px 0 0" }}>— the Wandering Sage</p>
+                        <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "2px 0 0" }}>— the Wandering Sage</p>
+                        {moment.hint && (
+                            <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "10px 0 0" }}>{moment.hint}</p>
+                        )}
                         <button type="button" className="rankup-continue" onClick={onClose} autoFocus>Face It</button>
                     </>
                 ) : (
