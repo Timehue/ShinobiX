@@ -19,6 +19,18 @@ const NOW = 1_750_000_000_000;
     strict_1.default.equal((0, _legacy_track_js_1.repeatKillWeight)(99), 0);
     strict_1.default.ok(_legacy_track_js_1.LEVEL_GAP_ZERO >= 10);
 });
+(0, node_test_1.test)('win-trading ring detection: rotations trip it, honest diversity does not', () => {
+    // A→B→C→A rotation across 12 wins: only 3 distinct victims.
+    const ring = Array.from({ length: 12 }, (_, i) => ['bob', 'carl', 'dana'][i % 3]);
+    strict_1.default.equal((0, _legacy_track_js_1.isWinTradingRing)(ring), true);
+    // Honest ladder session: many different opponents.
+    const honest = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'i', 'j'];
+    strict_1.default.equal((0, _legacy_track_js_1.isWinTradingRing)(honest), false);
+    // Too few wins to judge — never flags early.
+    strict_1.default.equal((0, _legacy_track_js_1.isWinTradingRing)(ring.slice(0, _legacy_track_js_1.RING_MIN_WINS - 1)), false);
+    // Borderline: 4 distinct in the window stays clean.
+    strict_1.default.equal((0, _legacy_track_js_1.isWinTradingRing)(['a', 'b', 'c', 'd', 'a', 'b', 'c', 'd', 'a', 'b', 'c', 'd']), false);
+});
 (0, node_test_1.test)('bootstrap seeds from save counters with plausibility caps', () => {
     const seeded = (0, _legacy_track_js_1.seedLegacyStatsFromSave)({
         level: 62, village: 'Moonshadow Village',

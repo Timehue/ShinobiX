@@ -94,7 +94,8 @@ import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { mercEncounterAis, isMercAiId } from "../lib/merc-ai";
 import { fetchMercRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { homeVillageForSector } from "../data/war-map-sectors";
-import { isLegacyEnabled, sageRoll, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { isLegacyEnabled, sageRoll, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
+import { shouldShowLevelRumor, markLevelRumorSeen, rumorForCategory } from "../lib/legacy-rumors";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
 
@@ -585,6 +586,18 @@ export function WorldMap({
         });
         return () => { alive = false; };
     }, [character.name, character.level, character.legacy]);
+    // Pre-50 Legacy rumors: at level milestones, one vague hint about the
+    // strongest path the player is carving (never formulas — the mystery rule).
+    useEffect(() => {
+        if (!isLegacyEnabled() || character.level >= 50 || !shouldShowLevelRumor(character.level)) return;
+        let alive = true;
+        void fetchLegacyStatus(character.name).then(s => {
+            if (!alive) return;
+            markLevelRumorSeen(character.level);
+            alert(rumorForCategory(s?.strongest?.[0]?.category, character.level));
+        });
+        return () => { alive = false; };
+    }, [character.name, character.level]);
     const sageWanderers = useMemo(
         () => (sageOffer && sageOffer.status === "spawned" && selectedSector === sageOffer.sector
             ? [synthSageWanderer(sageOffer.sector)] : []),
@@ -2764,6 +2777,14 @@ export function WorldMap({
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}
                                 title={scoutDotTitle(scoutedSectors.get(sector.id)!, (scoutInfo.tier || 1) as 1 | 2 | 3)}
                             >🔴{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
+                        )}
+                        {sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
+                            <img
+                                src="/legacy/sage-marker.webp"
+                                alt=""
+                                style={{ position: "absolute", top: -12, left: -12, width: 22, height: 22, pointerEvents: "none", filter: "drop-shadow(0 0 5px #c084fc)" }}
+                                title="A Wandering Sage waits here"
+                            />
                         )}
                     </button>
                 ); })}

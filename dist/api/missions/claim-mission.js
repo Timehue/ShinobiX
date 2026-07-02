@@ -12,6 +12,7 @@ const _save_version_js_1 = require("../save/_save-version.js");
 const _progress_js_1 = require("./_progress.js");
 const _economy_js_1 = require("../_economy.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _era_js_1 = require("../_era.js");
 const _mission_catalog_js_1 = require("./_mission-catalog.js");
 // Server-authoritative mission claim. Replaces the old client-side reward math
 // for built-in COMBAT, FIELD and HUNT missions and the onboarding ACADEMY-TRIAL:
@@ -312,8 +313,10 @@ async function handler(req, res) {
                     legacyDeltas.missionCompletions = 1;
                 if (missionType === 'combat')
                     legacyDeltas.pveKills = 1;
-                if (Object.keys(legacyDeltas).length > 0)
+                if (Object.keys(legacyDeltas).length > 0) {
                     await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, legacyDeltas);
+                    await (0, _era_js_1.bumpEraContribution)('missions');
+                }
             }
             // Economy telemetry — log the server-computed faucet deltas (ryo +
             // any premium currency) so created-vs-destroyed is measurable.

@@ -22,6 +22,8 @@ export function legacyEnabled(): boolean {
 
 export const legacyStatsKey = (player: string) => `legacy:stats:${player}`;
 export const legacyEventsKey = (player: string) => `legacy:events:${player}`;
+/** Admin suspects queue: players whose suspicionFlags moved recently. */
+export const LEGACY_SUSPECTS_KEY = 'legacy:suspects';
 
 export type LegacyStats = Partial<Record<LegacyStatKey, number>> & {
     updatedAt?: number;
@@ -33,6 +35,11 @@ export type LegacyStats = Partial<Record<LegacyStatKey, number>> & {
     repeatKills?: Record<string, number>;
     /** Rolling PvP win streak; bestKillStreak records its high-water mark. */
     winStreak?: number;
+    /** Last N credited PvP win targets (newest first) — win-trading-RING
+     *  detection input (per-pair decay can't see A→B→C→A rotations). */
+    recentWinTargets?: string[];
+    /** Last time the ring detector flagged this player (24h re-flag gate). */
+    ringFlagAt?: number;
 };
 
 export type LegacyEvent = {
@@ -65,6 +72,21 @@ export function repeatKillWeight(priorKillsOnTarget: number): number {
 
 /** Kills >=15 levels down contribute nothing to Legacy PvP credit. */
 export const LEVEL_GAP_ZERO = 15;
+
+/**
+ * Win-trading RING detection (research finding: per-pair decay stops
+ * A-farms-B, but 3+ accounts rotating victims — A→B, B→C, C→A — keep every
+ * pair under the decay knee). A healthy player's recent win targets are
+ * diverse; a ring's are not. Pure and unit-tested.
+ */
+export const RING_WINDOW = 12;
+export const RING_MIN_WINS = 8;
+export const RING_MAX_DISTINCT = 3;
+export function isWinTradingRing(recentTargets: readonly string[]): boolean {
+    const window = recentTargets.slice(0, RING_WINDOW);
+    if (window.length < RING_MIN_WINS) return false;
+    return new Set(window).size <= RING_MAX_DISTINCT;
+}
 
 /**
  * Plausibility ceilings applied when seeding from pre-Legacy save counters
@@ -199,7 +221,19 @@ export async function bumpLegacyStats(
                 const prev = num(next[stat]);
                 next[stat] = MAX_STATS.has(stat) ? Math.max(prev, delta) : prev + delta;
             }
-            if (opts?.suspicion) next.suspicionFlags = num(next.suspicionFlags) + 1;
+            let suspicionRaised = Boolean(opts?.suspicion);
+            // Ring detection: track credited win targets and flag rotations
+            // (at most one flag per 24h so a ring doesn't nuke the counter
+            // in a single session — admins see it on the suspects queue).
+            if (opts?.pvpTarget && pvpWeight > 0) {
+                next.recentWinTargets = [opts.pvpTarget, ...(stats.recentWinTargets ?? [])].slice(0, RING_WINDOW);
+                const lastFlag = num(stats.ringFlagAt);
+                if (isWinTradingRing(next.recentWinTargets) && Date.now() - lastFlag > 24 * 60 * 60 * 1000) {
+                    next.ringFlagAt = Date.now();
+                    suspicionRaised = true;
+                }
+            }
+            if (suspicionRaised) next.suspicionFlags = num(next.suspicionFlags) + 1;
             if (opts?.streak === 'win') {
                 // A fully-decayed farm win doesn't extend the streak either.
                 if (!decayed || pvpWeight > 0) {
@@ -210,6 +244,18 @@ export async function bumpLegacyStats(
                 next.winStreak = 0;
             }
             await kv.set(legacyStatsKey(playerName), next);
+            // Surface flagged players on the admin suspects queue (dedup,
+            // newest-first, capped). Best-effort side write.
+            if (suspicionRaised) {
+                try {
+                    const suspects = (await kv.get<Array<{ player: string; ts: number; flags: number }>>(LEGACY_SUSPECTS_KEY)) ?? [];
+                    const rest = (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== playerName);
+                    await kv.set(LEGACY_SUSPECTS_KEY, [
+                        { player: playerName, ts: Date.now(), flags: num(next.suspicionFlags) },
+                        ...rest,
+                    ].slice(0, 50));
+                } catch { /* best-effort */ }
+            }
         }, { ttlSec: 5 });
     } catch (err) {
         console.error(`[legacy-track] bump failed for ${playerName}:`, err instanceof Error ? err.message : err);

@@ -12,6 +12,7 @@ const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
 const _announce_js_1 = require("../_announce.js");
 const _audit_js_1 = require("../_audit.js");
+const _era_js_1 = require("../_era.js");
 /*
  * /api/legacy/trial — Legacy Trials (stage 1→2 "Awaken", stage 2→3 "Bind").
  *
@@ -159,6 +160,13 @@ async function handler(req, res) {
                 if (trial.kind === 'awaken') {
                     const rec2 = await _storage_js_1.kv.get(`save:${playerName}`);
                     const village = String(rec2?.character?.village ?? '') || undefined;
+                    // Era system: every awakening feeds the server-wide
+                    // milestone; the FIRST MYTHIC awakening is Era V's
+                    // credited final trigger (api/_era.ts records it NX).
+                    await (0, _era_js_1.bumpEraContribution)('legaciesAwakened');
+                    if (def.rarity === 'mythic') {
+                        await (0, _era_js_1.recordEraTrigger)('first-mythic-awakening', { player: playerName, village });
+                    }
                     if (def.rarity === 'legendary') {
                         await (0, _announce_js_1.announce)({
                             type: 'legacy_awakening', importance: 'high',

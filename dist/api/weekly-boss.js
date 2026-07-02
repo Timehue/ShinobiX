@@ -8,6 +8,7 @@ const _lock_js_1 = require("./_lock.js");
 const _xp_engine_js_1 = require("./_xp-engine.js");
 const _save_version_js_1 = require("./save/_save-version.js");
 const _legacy_track_js_1 = require("./_legacy-track.js");
+const _era_js_1 = require("./_era.js");
 // One weekly boss state per ISO week. Players damage a shared "rampage
 // meter" (no HP cap — the boss cannot be killed by damage). 72h after
 // spawn the boss despawns and rewards are auto-distributed:
@@ -210,6 +211,13 @@ async function distributeRewardsIfExpired(boss) {
     const alreadyCredited = new Set(finalBoss.creditedPlayers ?? []);
     const newlyCredited = [];
     const weekKey = finalBoss.weekKey;
+    // Era contribution: one felled boss per spawn, exactly once (NX per week).
+    try {
+        const counted = await _storage_js_1.kv.set(`era:boss-counted:${weekKey}`, true, { nx: true, ex: 35 * 24 * 60 * 60 });
+        if (counted)
+            await (0, _era_js_1.bumpEraContribution)('bossKills');
+    }
+    catch { /* best-effort */ }
     for (const entry of summary) {
         if (alreadyCredited.has(entry.name))
             continue;

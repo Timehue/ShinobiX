@@ -9,6 +9,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _wanderer_quest_js_1 = require("./_wanderer-quest.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _era_js_1 = require("../_era.js");
 /*
  * /api/sector/wanderer-quest — POST { action: 'accept' | 'claim', playerName, questId? }
  *
@@ -99,6 +100,7 @@ async function handler(req, res) {
             // to the lock hold (verification finding).
             if (out.status === 200 && out.body?.ok === true) {
                 await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { wandererQuests: 1 });
+                await (0, _era_js_1.bumpEraContribution)('discoveries');
             }
             return res.status(out.status).json(out.body);
         }

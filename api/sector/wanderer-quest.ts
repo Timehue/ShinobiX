@@ -7,6 +7,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete } from './_wanderer-quest.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpEraContribution } from '../_era.js';
 
 /*
  * /api/sector/wanderer-quest — POST { action: 'accept' | 'claim', playerName, questId? }
@@ -104,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // to the lock hold (verification finding).
             if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
                 await bumpLegacyStats(playerName, { wandererQuests: 1 });
+                await bumpEraContribution('discoveries');
             }
             return res.status(out.status).json(out.body);
         }

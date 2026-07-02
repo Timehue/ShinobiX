@@ -13,6 +13,7 @@ import {
 } from '../_legacy-core.js';
 import { announce, addHallEntry } from '../_announce.js';
 import { recordAudit } from '../_audit.js';
+import { bumpEraContribution, recordEraTrigger } from '../_era.js';
 
 /*
  * /api/legacy/trial — Legacy Trials (stage 1→2 "Awaken", stage 2→3 "Bind").
@@ -162,6 +163,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (trial.kind === 'awaken') {
                     const rec2 = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const village = String((rec2?.character as Record<string, unknown> | undefined)?.village ?? '') || undefined;
+                    // Era system: every awakening feeds the server-wide
+                    // milestone; the FIRST MYTHIC awakening is Era V's
+                    // credited final trigger (api/_era.ts records it NX).
+                    await bumpEraContribution('legaciesAwakened');
+                    if (def.rarity === 'mythic') {
+                        await recordEraTrigger('first-mythic-awakening', { player: playerName, village });
+                    }
                     if (def.rarity === 'legendary') {
                         await announce({
                             type: 'legacy_awakening', importance: 'high',

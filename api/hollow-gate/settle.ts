@@ -16,6 +16,7 @@ import {
     type HollowGateRunToken,
 } from './_run-token.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
+import { bumpEraContribution } from '../_era.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
@@ -122,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runAgeMs = Date.now() - Number((run as { mintedAt?: number }).mintedAt ?? 0);
         if (outcome === 'extract' && runAgeMs >= 3 * 60 * 1000) {
             await bumpLegacyStats(playerName, { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 });
+            await bumpEraContribution('gateClears');
         }
         return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     } catch (err) {

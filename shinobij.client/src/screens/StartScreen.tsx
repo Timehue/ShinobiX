@@ -263,6 +263,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "gauntlet":
             case "legends":
             case "news":
+            case "eras":
                 return 0;
         }
     }
@@ -283,6 +284,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "gauntlet":
             case "legends":
             case "news":
+            case "eras":
                 return "";
         }
     }
@@ -303,6 +305,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "gauntlet": return "Weekly Pet Gauntlet";
             case "legends": return "Hall of Legends";
             case "news": return "World News";
+            case "eras": return "World Eras";
         }
     }
 

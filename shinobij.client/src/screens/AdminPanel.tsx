@@ -10,6 +10,7 @@ import type { MissionRank } from "../constants/hunter";
 import { DUNGEON_LEGENDARY_FRAGMENT_ID, HOLLOW_GATE_KEY_ID, MAX_LEVEL, PLAYER_ACCOUNTS_STORAGE, STORAGE, VEIL_OF_THE_HOLLOW_ID } from "../constants/game";
 import { AdminPasswordReset, AdminClearAuthLock } from "./AdminLogin";
 import { ModerationPanel } from "./ModerationPanel";
+import { AdminLegacyPanel } from "./AdminLegacyPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AiImagePrompt } from "../components/AiImagePrompt";
 import { gameConfirm } from "../components/GameAlert";
@@ -754,8 +755,8 @@ export function AdminPanel({
     // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride) gate
     // on isFullAdmin — so even if a content admin somehow landed on these
     // tabs, the underlying actions would 401.
-    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation']);
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation" | "diagnostics">("jutsuBloodlines");
+    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation', 'legacy']);
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation" | "legacy" | "diagnostics">("jutsuBloodlines");
     // Clamp the active tab whenever the role flips OR a refresh restored
     // a forbidden tab from React's initial state.
     useEffect(() => {
@@ -2121,6 +2122,11 @@ export function AdminPanel({
                 {adminRole === 'full' && (
                     <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
                         🛡 Moderation
+                    </button>
+                )}
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "legacy" ? "active" : ""} onClick={() => setActiveAdminPanel("legacy")}>
+                        🌠 Legacy
                     </button>
                 )}
                 <button className={activeAdminPanel === "diagnostics" ? "active" : ""} onClick={() => setActiveAdminPanel("diagnostics")}>
@@ -5768,6 +5774,10 @@ export function AdminPanel({
 
             {activeAdminPanel === "moderation" && adminRole === 'full' && (
                 <ModerationPanel adminPw={adminPw} />
+            )}
+
+            {activeAdminPanel === "legacy" && adminRole === 'full' && (
+                <AdminLegacyPanel adminPw={adminPw} />
             )}
 
             {activeAdminPanel === "diagnostics" && (

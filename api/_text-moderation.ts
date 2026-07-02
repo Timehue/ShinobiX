@@ -179,3 +179,52 @@ export function isCleanText(input: unknown): boolean {
     }
     return true;
 }
+
+// ─── Custom-title moderation (docs/legacy-system-plan.md §11.4) ─────────────
+//
+// Custom titles are cosmetic free text, but they render next to a player's
+// name everywhere — so authority/impersonation terms are rejected outright
+// (filter-first; a rejected title is never charged because the sanitizer
+// strips it before any purchase state can matter). Earned titles ("Gate
+// Opener", "Season Champion") are ALSO reserved as free text: they can only
+// be worn by a player who actually owns them (api/save/[name].ts checks
+// ownership against server-trusted grants via api/_titles-registry.ts).
+
+/** Authority / impersonation / system terms banned inside custom titles.
+ *  Matched leetspeak-collapsed with word boundaries, same as the blocklist. */
+export const RESERVED_TITLE_TERMS: readonly string[] = [
+    'admin', 'administrator', 'moderator', 'mod', 'owner', 'developer', 'dev',
+    'gm', 'staff', 'official', 'support', 'system', 'server',
+    'kage', 'hokage', 'kazekage', 'raikage', 'mizukage', 'tsuchikage',
+    'server first', 'world first', 'first to', 'hall of legends',
+    'event winner', 'gamemaster', 'game master', 'anthropic',
+];
+
+const COLLAPSED_RESERVED = RESERVED_TITLE_TERMS.map((t) => leetCollapseStripSpace(t));
+
+/** True when the text contains a reserved authority/impersonation term. */
+export function hasReservedTitleTerm(input: unknown): boolean {
+    if (typeof input !== 'string' || !input.trim()) return false;
+    const collapsedWithSpace = leetCollapsePreserveSpace(input);
+    const collapsedNoSpace = leetCollapseStripSpace(input);
+    for (const canonical of COLLAPSED_RESERVED) {
+        const re = new RegExp(`(^|[^a-z0-9])(${canonical})(?=[^a-z0-9]|$)`, 'i');
+        if (re.test(collapsedWithSpace) || re.test(collapsedNoSpace)) return true;
+    }
+    return false;
+}
+
+/**
+ * Full custom-title gate: clean (no profanity), no reserved terms, sane
+ * length. Ownership of earned-title strings is checked separately by the
+ * caller (it needs the player's server-trusted grants).
+ */
+export function isAllowedCustomTitle(input: unknown): boolean {
+    if (typeof input !== 'string') return false;
+    const text = input.trim();
+    if (!text) return true; // clearing the title is always allowed
+    if (text.length > TEXT_LIMITS.customTitle) return false;
+    if (!isCleanText(text)) return false;
+    if (hasReservedTitleTerm(text)) return false;
+    return true;
+}
