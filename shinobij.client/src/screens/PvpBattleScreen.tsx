@@ -786,10 +786,19 @@ export function PvpBattleScreen({
     const weatherNegEl = weatherSealed ? (session.weatherNegativeElement ?? "") : weatherEffects[currentWeather].negativeElement;
     const weatherName = (weatherSealed && !weatherPosEl && !weatherNegEl) ? "Clear Skies" : weatherEffects[currentWeather].name;
     const sessionEquippedJutsuRaw = Array.isArray(me.character?.jutsu)
-        ? (me.character.jutsu as Jutsu[]).map(normalizeJutsu).map(jutsu => ({
-            ...jutsu,
-            image: jutsu.image || sharedImages['jutsu:' + jutsu.id] || "",
-        }))
+        ? (me.character.jutsu as Jutsu[]).map((raw) => {
+            // normalizeJutsu rebuilds a fixed shape and DROPS bloodlineRank, so the
+            // sealed session's rank (S/A on bloodline + legacy jutsu) was lost here —
+            // effectiveTagPercent then displayed capped tags at the global 30 cap
+            // instead of 35/40. Re-attach the sealed rank so the inspect panel shows
+            // the same percents the server actually resolves.
+            const jutsu = normalizeJutsu(raw);
+            return {
+                ...jutsu,
+                ...(raw.bloodlineRank ? { bloodlineRank: raw.bloodlineRank } : {}),
+                image: jutsu.image || sharedImages['jutsu:' + jutsu.id] || "",
+            };
+        })
         : equippedJutsu;
     // Show my own action bar in my saved loadout order (the slot order set via
     // the Profile loadout arrows). Display-only: jutsu are still acted on by id,

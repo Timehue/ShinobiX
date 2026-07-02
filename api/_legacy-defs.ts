@@ -102,7 +102,7 @@ export type LegacyDef = {
     flavor: string;
     /** ALL requirements must pass for eligibility. */
     reqs: ReadonlyArray<LegacyReq>;
-    /** Badge art at /badges/legacy-<badge>.png (subset generated so far). */
+    /** Badge art at /badges/legacy-<badge>.png (all 100 generated). */
     badge?: string;
     /**
      * The Legacy's signature jutsu id — derived at construction from the
