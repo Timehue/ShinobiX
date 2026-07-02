@@ -18,6 +18,10 @@ const CODEX_RARITY_ORDER: LegacyRarity[] = ["mythic", "legendary", "rare", "basi
 const STAGE_NAMES: Record<number, string> = {
     1: "Path Accepted", 2: "Awakened", 3: "Bound", 4: "Proven", 5: "Mythic",
 };
+const TRIAL_NAMES: Record<string, string> = {
+    awaken: "Trial of Awakening", bind: "Trial of Binding",
+    prove: "Trial of Proving", mythic: "The Mythic Trial",
+};
 
 export function LegacyPanel({ character, onLegacyChanged }: {
     character: Character;
@@ -60,7 +64,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
             const result = await trialComplete(character.name);
             if (result?.ok) {
                 alert(result.title
-                    ? `Your trial is complete. You are Awakened — the title "${result.title}" is yours.`
+                    ? `Your trial is complete. The title "${result.title}" is yours.`
                     : "Your trial is complete. Your legacy deepens.");
                 onLegacyChanged?.();
             } else if (result?.reason === "incomplete") {
@@ -78,7 +82,9 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                 name={character.name}
                 level={character.level}
                 customTitle={character.customTitle}
-                legacyTitle={status.legacy?.titles?.[0] ?? null}
+                customTitleStyle={character.customTitleStyle}
+                customTitleIcon={character.customTitleIcon}
+                legacyTitle={status.legacy?.titles?.[status.legacy.titles.length - 1] ?? null}
                 legacyRarity={def?.rarity ?? null}
                 village={character.village}
             />
@@ -86,8 +92,25 @@ export function LegacyPanel({ character, onLegacyChanged }: {
             {/* ── Accepted legacy ─────────────────────────────────────── */}
             {status.legacy && def ? (
                 <div className="card" style={{ padding: 14, border: `1px solid ${rarityColor}55` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                        <h3 style={{ margin: 0, color: rarityColor }}>{def.name}</h3>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            {def.badge && (
+                                // Aura class lives on a wrapper span, not the <img>:
+                                // browsers don't render ::before/::after on replaced
+                                // elements, so the S4/S5 halo layer would be dropped.
+                                <span
+                                    className={status.legacy.stage >= 2 ? `legacy-aura-s${status.legacy.stage}` : undefined}
+                                    style={{ width: 44, height: 44, borderRadius: 8, display: "inline-block", flexShrink: 0 }}
+                                >
+                                    <img
+                                        src={`/badges/legacy-${def.badge}.png`} alt=""
+                                        style={{ width: "100%", height: "100%", borderRadius: 8, display: "block" }}
+                                        onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                                    />
+                                </span>
+                            )}
+                            <h3 style={{ margin: 0, color: rarityColor }}>{def.name}</h3>
+                        </div>
                         <span style={{ fontSize: ".72rem", color: rarityColor }}>{RARITY_LABELS[def.rarity]}</span>
                     </div>
                     <p style={{ margin: "6px 0", fontStyle: "italic", fontSize: ".8rem", color: "#cbd5e1" }}>{def.flavor}</p>
@@ -121,7 +144,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
             {status.trial && (
                 <div className="card" style={{ padding: 14 }}>
                     <h4 style={{ margin: "0 0 8px" }}>
-                        {status.trial.kind === "awaken" ? "Trial of Awakening" : "Trial of Binding"}
+                        {TRIAL_NAMES[status.trial.kind] ?? "Legacy Trial"}
                         <span style={{ fontSize: ".7rem", color: "#9aa3b2", marginLeft: 8 }}>attempt {status.trial.attempt}</span>
                     </h4>
                     {status.trial.objectives.map((o) => (
@@ -140,10 +163,21 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     </button>
                 </div>
             )}
-            {!status.trial && status.legacy && status.legacy.stage < 3 && (
+            {!status.trial && status.legacy && status.legacy.stage < 5 && (
                 <button disabled={busy} onClick={() => void handleTrial("start")} style={{ width: "100%" }}>
-                    Begin the {status.legacy.stage === 1 ? "Trial of Awakening" : "Trial of Binding"}
+                    {(() => {
+                        // "Trial of Awakening" → "Begin the Trial of Awakening",
+                        // but "The Mythic Trial" → "Begin the Mythic Trial" (no
+                        // doubled article).
+                        const name = TRIAL_NAMES[["", "awaken", "bind", "prove", "mythic"][status.legacy.stage] ?? "awaken"] ?? "Trial";
+                        return name.startsWith("The ") ? `Begin ${name.replace(/^The /, "the ")}` : `Begin the ${name}`;
+                    })()}
                 </button>
+            )}
+            {status.legacy && status.legacy.stage === 5 && (
+                <p style={{ margin: 0, fontSize: ".78rem", color: "#c084fc", textAlign: "center", fontStyle: "italic" }}>
+                    Stage V — Mythic. Your legacy stands complete in the Hall of Legends.
+                </p>
             )}
 
             {/* ── Strongest paths (vague, rumor-tier) ─────────────────── */}
@@ -182,8 +216,15 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                                 <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
                                     {group.map((d) => (
                                         <div key={d.id} style={{ borderLeft: `3px solid ${RARITY_COLORS[rarity]}55`, paddingLeft: 8 }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
-                                                <b style={{ fontSize: ".8rem", color: status.legacy?.legacyId === d.id ? RARITY_COLORS[rarity] : "#e2e8f0" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                                <b style={{ fontSize: ".8rem", color: status.legacy?.legacyId === d.id ? RARITY_COLORS[rarity] : "#e2e8f0", display: "flex", alignItems: "center", gap: 6 }}>
+                                                    {d.badge && (
+                                                        <img
+                                                            src={`/badges/legacy-${d.badge}.png`} alt=""
+                                                            style={{ width: 24, height: 24, borderRadius: 5 }}
+                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                                        />
+                                                    )}
                                                     {status.legacy?.legacyId === d.id ? "★ " : ""}{d.name}
                                                 </b>
                                                 <span style={{ fontSize: ".68rem", color: "#9aa3b2" }}>

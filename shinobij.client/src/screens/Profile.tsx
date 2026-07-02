@@ -14,6 +14,7 @@ import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { LegacyPanel } from "./LegacyPanel";
+import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive } from "../lib/legacy";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { allocatedStatPoints, baseStats, capStat, reconcileCharacterStatBudget, xpNeeded } from "../lib/stats";
@@ -107,6 +108,16 @@ export function Profile({
     const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
+    // Title style/icon pickers are a Legacy-wave feature: shown only once the
+    // SERVER's ENABLE_LEGACY is confirmed live (session-cached probe), so a
+    // player can never spend shards on a cosmetic the save sanitizer would
+    // strip while the flag is still off.
+    const [legacyLive, setLegacyLive] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        void isLegacyServerLive().then((live) => { if (!cancelled) setLegacyLive(live); });
+        return () => { cancelled = true; };
+    }, []);
     const TITLE_COST = 10;
     const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'legacy'>('overview');
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
@@ -182,6 +193,28 @@ export function Profile({
     function clearTitle() {
         updateCharacter({ ...character, customTitle: undefined });
         setTitleInput("");
+    }
+
+    // Title cosmetics (handoff pricing tiers): style color + icon are paid
+    // once per change; both are server-allowlisted at save time so nothing
+    // outside the pickers ever persists. Cosmetic only — never stats.
+    async function purchaseTitleStyle(styleId: string) {
+        if ((character.customTitleStyle ?? "") === styleId) return;
+        if (styleId !== "" && (character.fateShards ?? 0) < TITLE_STYLE_COST) {
+            return alert(`Title styles cost ${TITLE_STYLE_COST} 🔮 Fate Shards.`);
+        }
+        const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
+        if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return;
+        updateCharacter({ ...character, customTitleStyle: styleId, fateShards: (character.fateShards ?? 0) - cost });
+    }
+    async function purchaseTitleIcon(icon: string) {
+        if ((character.customTitleIcon ?? "") === icon) return;
+        if (icon !== "" && (character.fateShards ?? 0) < TITLE_ICON_COST) {
+            return alert(`Title icons cost ${TITLE_ICON_COST} 🔮 Fate Shards.`);
+        }
+        const cost = icon === "" ? 0 : TITLE_ICON_COST;
+        if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return;
+        updateCharacter({ ...character, customTitleIcon: icon, fateShards: (character.fateShards ?? 0) - cost });
     }
 
     // Wear an earned title (free) — earned titles come from title-granting
@@ -322,7 +355,7 @@ export function Profile({
 
             <section className="profile-overview-panel">
                 <div className="profile-avatar-upload-box">
-                    <div className={`profile-big-avatar ${auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}`}>
+                    <div className={`profile-big-avatar ${auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}${(character.legacy?.stage ?? 0) >= 2 ? ` legacy-aura-s${character.legacy!.stage}` : ""}`}>
                         {character.avatarImage ? (
                             <img src={character.avatarImage} alt="Avatar" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                         ) : (
@@ -436,7 +469,7 @@ export function Profile({
                     <p className="act-label">Custom Title</p>
                     <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
                         {character.customTitle
-                            ? <>Current: <span style={{ color: "#facc15", fontWeight: 700 }}>{character.customTitle}</span></>
+                            ? <>Current: <span style={{ color: titleStyleColor(character.customTitleStyle), fontWeight: 700 }}>{character.customTitleIcon ? `${character.customTitleIcon} ` : ""}{character.customTitle}</span></>
                             : "No title set."}
                     </p>
                     <div className="profile-title-row">
@@ -459,6 +492,35 @@ export function Profile({
                             <button className="danger-button" onClick={clearTitle}>Clear</button>
                         )}
                     </div>
+                    {/* Title cosmetics — style color + icon (handoff pricing tiers).
+                        Server-allowlisted; cosmetic only. Gated on the server's
+                        ENABLE_LEGACY being live (see legacyLive above). */}
+                    {character.customTitle && legacyLive && (
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+                            <label style={{ fontSize: ".78rem", color: "#94a3b8" }}>
+                                Style (<GameIcon name="shard" size={12} style={PF_COST} />{TITLE_STYLE_COST}):{" "}
+                                <select
+                                    value={character.customTitleStyle ?? ""}
+                                    onChange={(e) => void purchaseTitleStyle(e.target.value)}
+                                >
+                                    {TITLE_STYLES.map((s) => (
+                                        <option key={s.id} value={s.id}>{s.label}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: ".78rem", color: "#94a3b8" }}>
+                                Icon (<GameIcon name="shard" size={12} style={PF_COST} />{TITLE_ICON_COST}):{" "}
+                                <select
+                                    value={character.customTitleIcon ?? ""}
+                                    onChange={(e) => void purchaseTitleIcon(e.target.value)}
+                                >
+                                    {TITLE_ICONS.map((i) => (
+                                        <option key={i || "none"} value={i}>{i || "— none —"}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+                    )}
                 </div>
             </section>
 

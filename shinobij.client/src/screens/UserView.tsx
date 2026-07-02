@@ -20,6 +20,7 @@ import { sendStandardDuel } from "../lib/duel-challenge";
 import { RankBadge } from "../components/RankBadge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
+import { titleStyleColor } from "../lib/legacy";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "#f87171", water: "#60a5fa", earth: "#d4a574", lightning: "#fbbf24",
@@ -178,7 +179,11 @@ export function UserView({
                     <div style={{ flex: 1, minWidth: 240 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                             <span style={{ fontSize: "1.7rem", fontWeight: 700, color: "#f8fafc" }}>{viewedCharacter.name}</span>
-                            {viewedCharacter.customTitle && <span style={{ color: "#facc15", fontWeight: 700, fontSize: "0.95rem" }}>«{viewedCharacter.customTitle}»</span>}
+                            {viewedCharacter.customTitle && (
+                                <span style={{ color: viewedCharacter.customTitleStyle ? titleStyleColor(viewedCharacter.customTitleStyle) : "#facc15", fontWeight: 700, fontSize: "0.95rem" }}>
+                                    «{viewedCharacter.customTitleIcon ? `${viewedCharacter.customTitleIcon} ` : ""}{viewedCharacter.customTitle}»
+                                </span>
+                            )}
                             {((viewedCharacter.rankedWins ?? 0) + (viewedCharacter.rankedLosses ?? 0)) > 0 && (
                                 <RankBadge rating={viewedCharacter.rankedRating ?? 1000} showRating />
                             )}

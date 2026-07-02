@@ -41,6 +41,7 @@ export function presenceCharacter(c: Character): Partial<Character> {
     // omitted — resolved from the shared image cache by name.
     const KEEP = [
         'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
+        'customTitleStyle', 'customTitleIcon',
         'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
         'clan', 'clanFounder', 'hp', 'maxHp',
     ];

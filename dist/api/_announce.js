@@ -47,11 +47,69 @@ async function announce(a) {
             const list = (await _storage_js_1.kv.get(exports.ANNOUNCEMENTS_KEY)) ?? [];
             await _storage_js_1.kv.set(exports.ANNOUNCEMENTS_KEY, [full, ...(Array.isArray(list) ? list : [])].slice(0, ANNOUNCEMENTS_CAP));
         });
+        // Delivery breadth (handoff §Server Announcements): high/mythic events
+        // also land as a system line in every village chat, and mythic events
+        // fire the optional Discord webhook. Both best-effort.
+        if (a.importance === 'high' || a.importance === 'mythic') {
+            await broadcastToVillageChats(full);
+        }
+        if (a.importance === 'mythic') {
+            void postDiscordWebhook(full);
+        }
         return full;
     }
     catch (err) {
         console.error('[announce] failed:', err instanceof Error ? err.message : err);
         return null;
+    }
+}
+/** Canonical village names (data/sectors.ts) → chat keys, matching
+ *  api/village/chat.ts's chatKey() format exactly. */
+const VILLAGE_CHAT_KEYS = [
+    'Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village',
+].map((v) => `chat:village:${v.toLowerCase().replace(/\s+/g, '-')}`);
+const CHAT_MAX_MESSAGES = 30; // mirror api/village/chat.ts MAX_MESSAGES
+/** System line in every village chat for high/mythic world moments. */
+async function broadcastToVillageChats(a) {
+    const line = {
+        author: '📜 World Herald',
+        text: `${a.title} — ${a.message}`.slice(0, 480),
+        ts: a.ts,
+        rank: 'Herald',
+        // `system` marks server-authored lines; api/village/chat.ts constructs
+        // player messages from derived fields only, so it can't be forged, and
+        // the tavern styles system lines distinctly — a player named to mimic
+        // "World Herald" won't get the herald treatment.
+        system: true,
+    };
+    for (const key of VILLAGE_CHAT_KEYS) {
+        try {
+            await (0, _lock_js_1.withKvLock)(key, async () => {
+                const existing = (await _storage_js_1.kv.get(key)) ?? [];
+                const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
+                await _storage_js_1.kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
+            });
+        }
+        catch { /* best-effort per village */ }
+    }
+}
+/** Optional Discord relay for mythic moments. Env-gated, fire-and-forget. */
+async function postDiscordWebhook(a) {
+    const url = process.env.DISCORD_ANNOUNCE_WEBHOOK_URL;
+    if (!url)
+        return;
+    try {
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: `**${a.title}**\n${a.message}`,
+                username: 'World Herald',
+            }),
+        });
+    }
+    catch (err) {
+        console.error('[announce] discord webhook failed:', err instanceof Error ? err.message : err);
     }
 }
 async function recentAnnouncements(limit = 20, sinceId = 0) {

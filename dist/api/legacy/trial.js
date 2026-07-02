@@ -121,23 +121,37 @@ async function handler(req, res) {
                     if (!rec || !char || !legacy || legacy.legacyId !== trial.legacyId)
                         return null;
                     const next = { ...legacy };
+                    let grantedTitle = null;
                     if (trial.kind === 'awaken' && legacy.stage === 1) {
                         next.stage = 2;
                         next.awakenedAt = now;
-                        next.titles = [...new Set([...(legacy.titles ?? []), def.title])];
+                        grantedTitle = def.title;
                     }
                     else if (trial.kind === 'bind' && legacy.stage === 2) {
                         next.stage = 3;
                         next.boundAt = now;
                     }
+                    else if (trial.kind === 'prove' && legacy.stage === 3) {
+                        next.stage = 4;
+                        next.provenAt = now;
+                        grantedTitle = (0, _legacy_core_js_1.provenTitleFor)(def.title);
+                    }
+                    else if (trial.kind === 'mythic' && legacy.stage === 4) {
+                        next.stage = 5;
+                        next.mythicAt = now;
+                        grantedTitle = (0, _legacy_core_js_1.mythicTitleFor)(def.title);
+                    }
                     else {
                         return null; // stale trial for a stage that already moved
+                    }
+                    if (grantedTitle) {
+                        next.titles = [...new Set([...(legacy.titles ?? []), grantedTitle])];
                     }
                     const earned = Array.isArray(char.earnedTitles) ? char.earnedTitles : [];
                     const updated = {
                         ...char,
                         legacy: next,
-                        earnedTitles: trial.kind === 'awaken' ? [...new Set([...earned, def.title])] : earned,
+                        earnedTitles: grantedTitle ? [...new Set([...earned, grantedTitle])] : earned,
                     };
                     await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
                     return next;
@@ -202,7 +216,30 @@ async function handler(req, res) {
                         player: playerName, village, legacyId: def.id,
                     });
                 }
-                return { status: 200, body: { ok: true, legacy: saveOut, title: trial.kind === 'awaken' ? def.title : null } };
+                else if (trial.kind === 'mythic') {
+                    // Stage 5 — the summit. Handoff: server announcement + a
+                    // permanent Hall of Legends entry, whatever the rarity.
+                    // (Stage 4 "Proven" stays event-log quiet by design.)
+                    const rec2 = await _storage_js_1.kv.get(`save:${playerName}`);
+                    const village = String(rec2?.character?.village ?? '') || undefined;
+                    await (0, _announce_js_1.announce)({
+                        type: 'legacy_completion', importance: 'mythic',
+                        title: 'A LEGACY REACHES ITS SUMMIT',
+                        message: `${playerName} has carried the ${def.name} to Stage V — Mythic. "${(0, _legacy_core_js_1.mythicTitleFor)(def.title)}" now walks the world.`,
+                        player: playerName, village, legacyId: def.id,
+                    });
+                    await (0, _announce_js_1.addHallEntry)({
+                        entryType: 'legacy_summit',
+                        title: `${def.name} — Stage V`,
+                        description: `${playerName}${village ? ` of ${village}` : ''} carried this legacy to its mythic summit. ${def.flavor}`,
+                        player: playerName, village, legacyId: def.id, rarity: def.rarity,
+                    }, { nxKey: `legacy-summit:${def.id}:${playerName}` });
+                }
+                const grantedTitleOut = trial.kind === 'awaken' ? def.title
+                    : trial.kind === 'prove' ? (0, _legacy_core_js_1.provenTitleFor)(def.title)
+                        : trial.kind === 'mythic' ? (0, _legacy_core_js_1.mythicTitleFor)(def.title)
+                            : null;
+                return { status: 200, body: { ok: true, legacy: saveOut, title: grantedTitleOut } };
             }, { failClosed: true });
             return res.status(out.status).json(out.body);
         }

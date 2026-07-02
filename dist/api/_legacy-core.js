@@ -1,9 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.legacyAcceptedKey = exports.legacyTrialKey = void 0;
+exports.provenTitleFor = provenTitleFor;
+exports.mythicTitleFor = mythicTitleFor;
 exports.trialObjectivesFor = trialObjectivesFor;
 exports.nextTrialKind = nextTrialKind;
 exports.trialProgress = trialProgress;
+/** Prestige title variants granted at the later stages (handoff: Stage 4
+ *  "stronger/prestige title", Stage 5 "mythic title"). Registered as
+ *  server-credited in api/_titles-registry.ts so they can't be typed in. */
+function provenTitleFor(baseTitle) {
+    return `Proven ${baseTitle}`;
+}
+function mythicTitleFor(baseTitle) {
+    return `Eternal ${baseTitle}`;
+}
 const legacyTrialKey = (player) => `legacy:trial:${player}`;
 exports.legacyTrialKey = legacyTrialKey;
 const legacyAcceptedKey = (player) => `legacy:accepted:${player}`;
@@ -30,9 +41,9 @@ const TRIAL_TEMPLATES = {
     mythic: [{ stat: 'missionCompletions', delta: 12 }, { stat: 'pvpWins', delta: 6 }],
 };
 const RARITY_FACTOR = { basic: 1, rare: 1.75, legendary: 3, mythic: 4.5 };
-const BIND_FACTOR = 1.5;
+const KIND_FACTOR = { awaken: 1, bind: 1.5, prove: 2.5, mythic: 4 };
 function trialObjectivesFor(def, kind) {
-    const factor = RARITY_FACTOR[def.rarity] * (kind === 'bind' ? BIND_FACTOR : 1);
+    const factor = RARITY_FACTOR[def.rarity] * KIND_FACTOR[kind];
     return TRIAL_TEMPLATES[def.category].map((t) => ({
         stat: t.stat,
         delta: Math.max(1, Math.round(t.delta * factor)),
@@ -44,7 +55,11 @@ function nextTrialKind(stage) {
         return 'awaken';
     if (stage === 2)
         return 'bind';
-    return null; // stages 4-5 (Proven/Mythic) arrive in a later wave
+    if (stage === 3)
+        return 'prove';
+    if (stage === 4)
+        return 'mythic';
+    return null; // stage 5 is the summit
 }
 function trialProgress(trial, stats) {
     return trial.objectives.map((o) => {

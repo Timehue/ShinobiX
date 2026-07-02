@@ -15,6 +15,13 @@
  */
 import { LEGACY_DEFS } from './_legacy-defs.js';
 import { ERA_DEFS } from './_era-defs.js';
+import { provenTitleFor, mythicTitleFor } from './_legacy-core.js';
+
+/** Every legacy title plus its Stage-4/5 prestige variants ("Proven X",
+ *  "Eternal X") — all server-credited, granted only by the trial endpoint. */
+const ALL_LEGACY_TITLES: readonly string[] = LEGACY_DEFS.flatMap((d) => [
+    d.title, provenTitleFor(d.title), mythicTitleFor(d.title),
+]);
 
 /** Wearable achievement titles (client constants/achievements.ts mirror). */
 export const ACHIEVEMENT_TITLES: readonly string[] = [
@@ -45,7 +52,7 @@ export const ACHIEVEMENT_TITLES: readonly string[] = [
 /** Every title the game can grant, lowercased for comparisons. */
 export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ACHIEVEMENT_TITLES,
-    ...LEGACY_DEFS.map((d) => d.title),
+    ...ALL_LEGACY_TITLES,
     ...ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
 ].map((t) => t.toLowerCase()));
 
@@ -58,7 +65,7 @@ export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
  * exactly the impersonation the handoff forbids.
  */
 export const LEGACY_ONLY_TITLES: ReadonlySet<string> = new Set(
-    LEGACY_DEFS.map((d) => d.title.toLowerCase()),
+    ALL_LEGACY_TITLES.map((t) => t.toLowerCase()),
 );
 
 /** Era trigger titles ("Herald of the Mythic Age") are server-credited
@@ -74,6 +81,17 @@ export const ERA_TRIGGER_TITLES: ReadonlySet<string> = new Set(
 export function normalizeTitleKey(text: string): string {
     return text.trim().replace(/\s+/g, ' ').toLowerCase();
 }
+
+/** Title-cosmetic allowlists (canonical server copy — mirror of the client's
+ *  TITLE_STYLES/TITLE_ICONS in shinobij.client/src/lib/legacy.ts). Used by the
+ *  save sanitizer AND the presence slimmer so a hostile client can neither
+ *  persist nor broadcast an off-list value. '' = the free default. */
+export const TITLE_STYLE_IDS: ReadonlySet<string> = new Set([
+    '', 'ember', 'frost', 'verdant', 'shadow', 'royal', 'crimson',
+]);
+export const TITLE_ICON_SET: ReadonlySet<string> = new Set([
+    '', '⚔️', '🌙', '🔥', '❄️', '🍃', '👑', '🐺', '⭐',
+]);
 
 export function isKnownEarnedTitle(text: string): boolean {
     return KNOWN_EARNED_TITLES.has(normalizeTitleKey(text));
