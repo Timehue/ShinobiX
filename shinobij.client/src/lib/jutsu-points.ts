@@ -69,6 +69,9 @@ export function jutsuPointBreakdown(jutsu: Jutsu, rank?: Rank | null): JutsuPoin
         else if (jutsu.method === "INSTANT_EFFECT") items.push({ label: "Instant Effect", points: 1 });
         else if (jutsu.method === "AOE_SPIRAL") items.push({ label: "AOE Movement", points: 1 });
     }
+    // AOE Burst is OPPONENT-targeted (not a ground zone), so it is priced outside the
+    // EMPTY_GROUND block: a full-damage radius-2 target-centred splash costs +1 point.
+    if (jutsu.method === "AOE_BURST") items.push({ label: "AOE Burst", points: 1 });
     if (!hasFixedEffectPower(jutsu) && jutsu.ap === 60 && jutsu.effectPower >= 45) {
         items.push({ label: "Nuke damage", points: 1 });
     }
