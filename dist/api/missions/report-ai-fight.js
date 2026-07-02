@@ -5,7 +5,9 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 const _ai_fight_reward_js_1 = require("./_ai-fight-reward.js");
+const _stat_growth_js_1 = require("../_stat-growth.js");
 // P0.2b — server-authoritative daily SOFT-CAP for AI-fight XP/ryo.
 //
 // The client reports the base XP/ryo it computed for an AI win; the server applies
@@ -51,7 +53,32 @@ async function handler(req, res) {
         // Authoritative running daily count (atomic; TTL so date keys self-evict).
         const dailyCount = await _storage_js_1.kv.incr(`ai-fight-count:${playerName}:${utcDateKey()}`, { ex: _ai_fight_reward_js_1.AI_FIGHT_DAILY_COUNT_TTL_SECONDS });
         const reward = (0, _ai_fight_reward_js_1.aiFightReward)(body.xp, body.ryo, dailyCount);
-        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount });
+        // Combat-use stat growth (Stage 4): a small, hard-daily-capped stat reward
+        // for the win — auto-grown into the stats the player has invested in, plus a
+        // free-pool share. The client applies the returned allocation in its single
+        // save write (sanitizer-bounded). A bonus — never a reason to fail the report.
+        let statGrowth = { allocated: {}, unspentGain: 0 };
+        try {
+            const record = await _storage_js_1.kv.get(`save:${playerName}`);
+            const char = record?.character;
+            if (char) {
+                const stats = (char.stats ?? {});
+                const level = Number(char.level) || 1;
+                const budgetKey = `combat-stat-count:${playerName}:${utcDateKey()}`;
+                statGrowth = await (0, _lock_js_1.withKvLock)(budgetKey, async () => {
+                    const spentToday = Number((await _storage_js_1.kv.get(budgetKey)) ?? 0);
+                    const remaining = Math.max(0, _stat_growth_js_1.DAILY_COMBAT_STAT_CAP - spentToday);
+                    const g = (0, _stat_growth_js_1.computeCombatStatGrowth)(stats, level, _stat_growth_js_1.AI_FIGHT_STAT_POINTS_PER_WIN, remaining);
+                    if (g.spent > 0)
+                        await _storage_js_1.kv.set(budgetKey, spentToday + g.spent, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                    return { allocated: g.allocated, unspentGain: g.unspentGain };
+                });
+            }
+        }
+        catch (err) {
+            console.warn('[missions/report-ai-fight] stat-growth skipped:', err);
+        }
+        return res.status(200).json({ ok: true, xp: reward.xp, ryo: reward.ryo, capped: reward.capped, dailyCount, statGrowth });
     }
     catch (err) {
         console.error('[missions/report-ai-fight]', err);
