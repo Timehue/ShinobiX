@@ -593,8 +593,12 @@ export function WorldMap({
         let alive = true;
         void fetchLegacyStatus(character.name).then(s => {
             if (!alive) return;
+            // Null = the endpoint 404'd (server ENABLE_LEGACY off) or errored —
+            // don't whisper about a system that isn't live, and don't burn the
+            // one-time seen marker so the rumor still fires once it's on.
+            if (!s) return;
             markLevelRumorSeen(character.level);
-            alert(rumorForCategory(s?.strongest?.[0]?.category, character.level));
+            alert(rumorForCategory(s.strongest?.[0]?.category, character.level));
         });
         return () => { alive = false; };
     }, [character.name, character.level]);

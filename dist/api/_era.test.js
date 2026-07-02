@@ -33,6 +33,16 @@ const MYTHIC_ERA = _era_defs_js_1.ERA_BY_ID.get('mythic-legacies');
     strict_1.default.equal((0, _era_js_1.effectiveStatus)(MYTHIC_ERA, { status: 'locked' }), 'locked');
     strict_1.default.equal((0, _era_js_1.effectiveStatus)(MYTHIC_ERA, { status: 'unlocked' }), 'unlocked');
 });
+(0, node_test_1.test)('only gated eras emit history — launch eras I–IV have no milestones and no trigger', () => {
+    // The unlock transaction only announces / mints Hall history for eras with
+    // milestones or a trigger. Launch eras must have neither, so an admin
+    // force-unlock on them is a silent no-op (verification finding).
+    for (const e of _era_defs_js_1.ERA_DEFS.filter((x) => x.number <= 4)) {
+        strict_1.default.equal(e.milestones.length, 0, `${e.id} must have no milestones`);
+        strict_1.default.equal(e.trigger, undefined, `${e.id} must have no trigger`);
+    }
+    strict_1.default.ok(MYTHIC_ERA.milestones.length > 0 || MYTHIC_ERA.trigger, 'Era V is gated');
+});
 (0, node_test_1.test)('view builder: progress clamps to required, trigger + credit surface', () => {
     const views = (0, _era_js_1.buildEraViews)({ overrides: { 'mythic-legacies': { milestoneOverrides: { pvpWins: 100 } } } }, { missions: 999_999, pvpWins: 50 }, { 'mythic-legacies': { player: 'Rill', village: 'Moonshadow', ts: 1 } });
     const v = views.find((x) => x.id === 'mythic-legacies');

@@ -162,8 +162,10 @@ async function handler(req, res) {
                     return;
                 await _storage_js_1.kv.set((0, _legacy_track_js_1.legacyStatsKey)(player), { ...stats, suspicionFlags: 0, ringFlagAt: 0, recentWinTargets: [] });
             }, { failClosed: true });
-            const suspects = (await _storage_js_1.kv.get(_legacy_track_js_1.LEGACY_SUSPECTS_KEY)) ?? [];
-            await _storage_js_1.kv.set(_legacy_track_js_1.LEGACY_SUSPECTS_KEY, (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== player));
+            await (0, _lock_js_1.withKvLock)(_legacy_track_js_1.LEGACY_SUSPECTS_KEY, async () => {
+                const suspects = (await _storage_js_1.kv.get(_legacy_track_js_1.LEGACY_SUSPECTS_KEY)) ?? [];
+                await _storage_js_1.kv.set(_legacy_track_js_1.LEGACY_SUSPECTS_KEY, (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== player));
+            }, { ttlSec: 5 });
             await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'legacy.clear-suspicion', entityType: 'player', entityId: player, reason });
             return res.status(200).json({ ok: true });
         }
