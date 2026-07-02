@@ -77,7 +77,6 @@ export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 import {
     baseStats,
     normalizeStats,
-    allocatedStatPoints,
     addToAllStats,
     maxedStats,
     xpNeeded,
@@ -1314,7 +1313,7 @@ export function normalizeCharacter(parsed: Character): Character {
         inventory: parsed.inventory ?? [],
         equipment: parsed.equipment ?? {},
         stats,
-        unspentStats: Math.max(0, statPointBudgetForProgress(level, xp) - allocatedStatPoints(stats)),
+        unspentStats: Math.max(0, Math.floor(parsed.unspentStats ?? STARTING_STAT_POINTS)), // two-axis: stored pool, not budget-derived
         equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
         jutsuMastery: parsed.jutsuMastery ?? [],
         pets: (parsed.pets ?? []).slice(0, 5).map(normalizePet),
