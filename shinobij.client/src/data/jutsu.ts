@@ -98,6 +98,32 @@ const nonBloodlineTagTable: Record<string, string[]> = {
     "starter-buki-water-1": ["Shield", "Decrease Damage Taken"],
     "starter-buki-water-2": ["Siphon"],
     "starter-buki-water-3": ["Recoil", "Drain"],
+
+    // ── Increase Generals utility set ────────────────────────────────────────
+    // One 40-AP self-buff per offense discipline × element (20 total). Each pairs
+    // Increase Generals (raises str/spd/int/wil → lifts offense AND defense) with a
+    // second self-buff, matching the 2-tag → 40-AP utility convention. Buff-Prevent
+    // gated, Clear-able, Bloodline-Seal-suppressed (see api/pvp/move.ts generalsBonus).
+    "starter-nin-earth-4": ["Increase Generals", "Decrease Damage Taken"],
+    "starter-nin-wind-4": ["Increase Generals", "Overclock"],
+    "starter-nin-lightning-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-nin-fire-4": ["Increase Generals", "Lifesteal"],
+    "starter-nin-water-4": ["Increase Generals", "Increase Heal"],
+    "starter-tai-earth-4": ["Increase Generals", "Shield"],
+    "starter-tai-wind-4": ["Increase Generals", "Reflect"],
+    "starter-tai-lightning-4": ["Increase Generals", "Overclock"],
+    "starter-tai-fire-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-tai-water-4": ["Increase Generals", "Absorb"],
+    "starter-gen-earth-4": ["Increase Generals", "Absorb"],
+    "starter-gen-wind-4": ["Increase Generals", "Debuff Prevent"],
+    "starter-gen-lightning-4": ["Increase Generals", "Reflect"],
+    "starter-gen-fire-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-gen-water-4": ["Increase Generals", "Decrease Damage Taken"],
+    "starter-buki-earth-4": ["Increase Generals", "Decrease Damage Taken"],
+    "starter-buki-wind-4": ["Increase Generals", "Increase Damage Given"],
+    "starter-buki-lightning-4": ["Increase Generals", "Lifesteal"],
+    "starter-buki-fire-4": ["Increase Generals", "Overclock"],
+    "starter-buki-water-4": ["Increase Generals", "Increase Heal"],
 };
 
 // ── Non-bloodline (starter) flavor text ──────────────────────────────────
@@ -171,6 +197,28 @@ const nonBloodlineFlavor: Record<string, { battle: string; desc: string }> = {
     "starter-buki-water-1": { battle: "A spray of needles scatters through the mist into the enemy.", desc: "Concealing mist hides a spread of senbon that drains the target." },
     "starter-buki-water-2": { battle: "A water-wreathed chain slashes across the enemy in a torrent.", desc: "A surging chain-blade that cuts deep and siphons vitality back to the user." },
     "starter-buki-water-3": { battle: "The user weaves a hidden current that lashes back at attackers.", desc: "A deceptive guarding current that punishes and drains those who strike it." },
+
+    // ── Increase Generals utility set flavor ──
+    "starter-nin-earth-4": { battle: "The user roots their chakra deep into the earth, steeling every attribute.", desc: "A grounding rite that hardens the user's core stats and blunts the blows to come." },
+    "starter-nin-wind-4": { battle: "The user breathes with the wind, sharpening body and mind in one gust.", desc: "A soaring focus that lifts every attribute and quickens the user's actions." },
+    "starter-nin-lightning-4": { battle: "Lightning courses through the user's coils, electrifying every attribute.", desc: "A charged focus that surges the user's core stats and sharpens their strikes." },
+    "starter-nin-fire-4": { battle: "The user stokes an inner ember, warming strength, speed, wit and will.", desc: "A kindling rite that raises every attribute and draws life from the wounds it opens." },
+    "starter-nin-water-4": { battle: "The user draws a cleansing tide inward, renewing every attribute.", desc: "A flowing rite that lifts the user's core stats and deepens their recovery." },
+    "starter-tai-earth-4": { battle: "The user sets their stance like bedrock, tempering every attribute.", desc: "A hardening drill that raises the user's core stats and shields the body." },
+    "starter-tai-wind-4": { battle: "The user exhales and rises light as wind, keen in every attribute.", desc: "An awakening step that lifts every attribute and turns blows back on the attacker." },
+    "starter-tai-lightning-4": { battle: "A thunderous pulse floods the user's muscles, spiking every attribute.", desc: "An overdrive surge that raises the user's core stats and quickens their actions." },
+    "starter-tai-fire-4": { battle: "The user's spirit blazes up, firing strength, speed, wit and will.", desc: "A burning focus that lifts every attribute and sharpens the user's strikes." },
+    "starter-tai-water-4": { battle: "The user settles into a flowing calm, balancing every attribute.", desc: "A harmonizing form that raises the user's core stats and turns damage into healing." },
+    "starter-gen-earth-4": { battle: "The user sinks into a stone-still trance, fortifying every attribute.", desc: "A grounded meditation that raises the user's core stats and drinks in incoming harm." },
+    "starter-gen-wind-4": { battle: "A whispering calm clears the user's mind, honing every attribute.", desc: "A serene focus that lifts every attribute and wards the mind against debuffs." },
+    "starter-gen-lightning-4": { battle: "The user's thoughts crackle like a storm, charging every attribute.", desc: "A charged focus that raises the user's core stats and reflects harm back." },
+    "starter-gen-fire-4": { battle: "The user conjures an inner flame that burns strength, speed, wit and will higher.", desc: "A blazing vision that lifts every attribute and sharpens the user's strikes." },
+    "starter-gen-water-4": { battle: "The user's mind stills like deep water, steadying every attribute.", desc: "A tranquil focus that raises the user's core stats and softens the blows they take." },
+    "starter-buki-earth-4": { battle: "The user plants an adamant stance, tempering every attribute.", desc: "A weapon drill that raises the user's core stats and blunts incoming blows." },
+    "starter-buki-wind-4": { battle: "The user's blade sings on the wind, quickening every attribute.", desc: "A swift attunement that lifts every attribute and sharpens the user's strikes." },
+    "starter-buki-lightning-4": { battle: "The user's grip crackles with charge, keying up every attribute.", desc: "A charged focus that raises the user's core stats and draws life on every hit." },
+    "starter-buki-fire-4": { battle: "The user tempers themselves in an inner forge, hardening every attribute.", desc: "A forge-hot rite that lifts every attribute and quickens the user's actions." },
+    "starter-buki-water-4": { battle: "The user's edge ripples like water, refining every attribute.", desc: "A flowing ritual that raises the user's core stats and deepens their recovery." },
 };
 
 // Flat-value or binary tags carry no percent; every other starter tag uses the
@@ -269,6 +317,30 @@ export const starterJutsus: Jutsu[] = [
     makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 24, 1, 125, 125, [{ name: "Drain", percent: 0 }], "Water"),
     makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 250, 250, [{ name: "Siphon", percent: 16 }], "Water"),
     makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Shield", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
+
+    // Increase Generals utility set — 40-AP self-buff, one per discipline × element.
+    // The second tag is added by rebalanceNonBloodlineJutsu from nonBloodlineTagTable.
+    makeJutsu("starter-nin-earth-4", "Bedrock Chakra Focus", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-nin-wind-4", "Galewind Attunement", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-nin-lightning-4", "Voltaic Surge Focus", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-nin-fire-4", "Emberheart Kindling", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-nin-water-4", "Tidal Renewal Rite", "Ninjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+    makeJutsu("starter-tai-earth-4", "Ironbody Conditioning", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-tai-wind-4", "Windstep Awakening", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-tai-lightning-4", "Thunderpulse Overdrive", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-tai-fire-4", "Blazing Spirit Focus", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-tai-water-4", "Flowing Chi Harmony", "Taijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+    makeJutsu("starter-gen-earth-4", "Stoneheart Meditation", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-gen-wind-4", "Whispering Calm", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-gen-lightning-4", "Stormmind Focus", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-gen-fire-4", "Inner Flame Vision", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-gen-water-4", "Still Water Mind", "Genjutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+    makeJutsu("starter-buki-earth-4", "Adamant Stance Drill", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Earth"),
+    makeJutsu("starter-buki-wind-4", "Swiftblade Attunement", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Wind"),
+    makeJutsu("starter-buki-lightning-4", "Charged Grip Focus", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Lightning"),
+    makeJutsu("starter-buki-fire-4", "Forgeheart Temper", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Fire"),
+    makeJutsu("starter-buki-water-4", "Rippling Edge Ritual", "Bukijutsu", 40, 4, 0, 7, 125, 125, [{ name: "Increase Generals", percent: 30 }], "Water"),
+
     // Universal jutsus — no element, available to all
     normalizeJutsu({
         id: "starter-universal-flicker",
