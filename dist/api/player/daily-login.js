@@ -90,9 +90,12 @@ async function handler(req, res) {
         if ('error' in out)
             return res.status(404).json({ error: 'Your save was not found.' });
         // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
-        // (already once-per-UTC-day by the alreadyClaimed gate above).
+        // (already once-per-UTC-day by the alreadyClaimed gate above), plus the
+        // daily capped reconcile of client-tracked progression counters.
         if (!out.alreadyClaimed) {
             await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { villageTenureDays: 1 });
+            const rec = await _storage_js_1.kv.get(`save:${playerName}`);
+            await (0, _legacy_track_js_1.reconcileLegacyStatsFromSave)(playerName, (rec?.character ?? null));
         }
         return res.status(200).json({
             ok: true,

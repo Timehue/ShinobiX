@@ -118,11 +118,17 @@ function resolveCommittedTurn(session, now) {
 async function persistAndMaybeFinalize(session) {
     await saveSession(session);
     if ((0, _legacy_track_js_1.legacyEnabled)() && session.status === 'done' && session.winner && session.winner !== 'draw') {
-        const winnerName = (0, _utils_js_1.safeName)(String((session.winner === 'p1' ? session.p1?.name : session.p2?.name) ?? ''));
-        if (winnerName) {
-            const marked = await _storage_js_1.kv.set(`legacy:cc-tracked:${session.matchId}`, true, { nx: true, ex: 24 * 60 * 60 });
-            if (marked)
-                await (0, _legacy_track_js_1.bumpLegacyStats)(winnerName, { cardClashWins: 1 });
+        try {
+            const winnerName = (0, _utils_js_1.safeName)(String((session.winner === 'p1' ? session.p1?.name : session.p2?.name) ?? ''));
+            if (winnerName) {
+                const marked = await _storage_js_1.kv.set(`legacy:cc-tracked:${session.matchId}`, true, { nx: true, ex: 24 * 60 * 60 });
+                if (marked)
+                    await (0, _legacy_track_js_1.bumpLegacyStats)(winnerName, { cardClashWins: 1 });
+            }
+        }
+        catch (legacyErr) {
+            // Best-effort — a tracking hiccup must not fail the match poll.
+            console.error('[card-clash] legacy tracking failed:', legacyErr);
         }
     }
 }

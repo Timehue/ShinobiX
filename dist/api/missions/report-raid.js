@@ -207,7 +207,7 @@ async function handler(req, res) {
         });
         const missionsCompleted = result.missionsCompleted;
         // Legacy tracking (ENABLE_LEGACY): a validated raid completion.
-        await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { raidsCompleted: 1 });
+        await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { raidsCompleted: 1, warContribution: 500 });
         // Even-rank Vanguard perks paid out when a raid mission completes.
         // Rank 4: +25% Ryo bonus (flat 250 Ryo per raid mission complete at R4+).
         // Rank 10: +1 bonus Honor Seal per raid mission complete.

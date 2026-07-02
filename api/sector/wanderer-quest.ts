@@ -95,11 +95,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const totalRyo = num(char.ryo) + reward;
                 const updated = { ...char, ryo: totalRyo, activeWandererQuest: null };
                 await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                // Legacy tracking (ENABLE_LEGACY): a completed wanderer quest.
-                await bumpLegacyStats(playerName, { wandererQuests: 1 });
                 return { status: 200, body: { ok: true, ryo: reward, totalRyo } };
             }, { failClosed: true });
 
+            // Legacy tracking (ENABLE_LEGACY): AFTER the fail-closed save lock
+            // releases — bumpLegacyStats takes its own lock, and nesting it
+            // inside a currency critical section adds up to ~900ms of backoff
+            // to the lock hold (verification finding).
+            if (out.status === 200 && (out.body as { ok?: boolean })?.ok === true) {
+                await bumpLegacyStats(playerName, { wandererQuests: 1 });
+            }
             return res.status(out.status).json(out.body);
         }
 
