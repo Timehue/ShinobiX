@@ -9,6 +9,7 @@ const _progress_js_1 = require("./_progress.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _legacy_pvp_js_1 = require("../_legacy-pvp.js");
+const _era_js_1 = require("../_era.js");
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
 const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
@@ -104,7 +105,9 @@ async function handler(req, res) {
                 if (tracked && inSessionDuration >= MIN_FIGHT_DURATION_MS) {
                     const opponentCreatedForLegacy = Number(opponentChar?.createdAt ?? 0);
                     const youngOpponent = opponentCreatedForLegacy > 0 && (Date.now() - opponentCreatedForLegacy) < ACCOUNT_AGE_MIN_MS;
-                    const farmedIp = await (0, _player_ips_js_1.hasRecentIpOverlap)(playerName, opponentName);
+                    // IP OR device-fingerprint overlap — alts feeding a main
+                    // usually share one of the two (anti-farm wave 2).
+                    const farmedIp = await (0, _player_ips_js_1.hasRecentIpOrFpOverlap)(playerName, opponentName);
                     if (youngOpponent || farmedIp) {
                         await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, {}, { characterForBootstrap: char ?? null, suspicion: true });
                     }
@@ -122,6 +125,7 @@ async function handler(req, res) {
                             characterForBootstrap: opponentChar ?? null,
                             streak: 'reset',
                         });
+                        await (0, _era_js_1.bumpEraContribution)('pvpWins');
                     }
                 }
             }

@@ -10,6 +10,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _run_token_js_1 = require("./_run-token.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
+const _era_js_1 = require("../_era.js");
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
  *
@@ -116,6 +117,7 @@ async function handler(req, res) {
         const runAgeMs = Date.now() - Number(run.mintedAt ?? 0);
         if (outcome === 'extract' && runAgeMs >= 3 * 60 * 1000) {
             await (0, _legacy_track_js_1.bumpLegacyStats)(playerName, { hollowGateClears: 1, dungeonClears: 1, eliteKills: 2 });
+            await (0, _era_js_1.bumpEraContribution)('gateClears');
         }
         return res.status(200).json({ ok: true, outcome, credited, fragmentsClampedTo });
     }

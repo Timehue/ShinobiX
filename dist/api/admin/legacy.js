@@ -12,6 +12,8 @@ const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
 const _audit_js_1 = require("../_audit.js");
 const _announce_js_1 = require("../_announce.js");
+const _era_js_1 = require("../_era.js");
+const _titles_registry_js_1 = require("../_titles-registry.js");
 /*
  * POST /api/admin/legacy — the Legacy admin MVP (docs/legacy-system-plan.md §16).
  * Full-admin only. Every mutating action records an audit entry in the
@@ -139,6 +141,130 @@ async function handler(req, res) {
             await _storage_js_1.kv.del((0, _legacy_track_js_1.legacyStatsKey)(player));
             await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'legacy.reset-tracking', entityType: 'player', entityId: player });
             return res.status(200).json({ ok: true });
+        }
+        if (action === 'suspects') {
+            const suspects = (await _storage_js_1.kv.get(_legacy_track_js_1.LEGACY_SUSPECTS_KEY)) ?? [];
+            return res.status(200).json({ suspects: Array.isArray(suspects) ? suspects : [] });
+        }
+        if (action === 'clear-suspicion') {
+            // Small-server relief valve: a trio of honest regulars dueling each
+            // other can trip the ring detector; this clears the flags WITHOUT
+            // wiping their earned progression (unlike reset-tracking). Audited.
+            const player = (0, _utils_js_1.safeName)(String(body.player ?? ''));
+            const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+            if (!player)
+                return res.status(400).json({ error: 'Missing player.' });
+            if (!reason)
+                return res.status(400).json({ error: 'A reason is required.' });
+            await (0, _lock_js_1.withKvLock)((0, _legacy_track_js_1.legacyStatsKey)(player), async () => {
+                const stats = await _storage_js_1.kv.get((0, _legacy_track_js_1.legacyStatsKey)(player));
+                if (!stats)
+                    return;
+                await _storage_js_1.kv.set((0, _legacy_track_js_1.legacyStatsKey)(player), { ...stats, suspicionFlags: 0, ringFlagAt: 0, recentWinTargets: [] });
+            }, { failClosed: true });
+            const suspects = (await _storage_js_1.kv.get(_legacy_track_js_1.LEGACY_SUSPECTS_KEY)) ?? [];
+            await _storage_js_1.kv.set(_legacy_track_js_1.LEGACY_SUSPECTS_KEY, (Array.isArray(suspects) ? suspects : []).filter((s) => s.player !== player));
+            await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'legacy.clear-suspicion', entityType: 'player', entityId: player, reason });
+            return res.status(200).json({ ok: true });
+        }
+        // ── Custom-title moderation (§11.4: filter-first + post-hoc review) ──
+        if (action === 'titles-log') {
+            const log = (await _storage_js_1.kv.get(_titles_registry_js_1.CUSTOM_TITLE_LOG_KEY)) ?? [];
+            return res.status(200).json({ log: Array.isArray(log) ? log.slice(0, 100) : [] });
+        }
+        if (action === 'title-revoke') {
+            const player = (0, _utils_js_1.safeName)(String(body.player ?? ''));
+            const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+            const refund = body.refund !== false; // default: refund the 10 shards
+            if (!player)
+                return res.status(400).json({ error: 'Missing player.' });
+            if (!reason)
+                return res.status(400).json({ error: 'A reason is required to revoke a title.' });
+            const out = await (0, _lock_js_1.withKvLock)(`save:${player}`, async () => {
+                const rec = await _storage_js_1.kv.get(`save:${player}`);
+                const char = (rec?.character ?? null);
+                if (!rec || !char)
+                    return { status: 404, body: { error: 'Save not found.' } };
+                const previous = String(char.customTitle ?? '');
+                if (!previous)
+                    return { status: 200, body: { ok: false, reason: 'no-title' } };
+                const updated = {
+                    ...char,
+                    customTitle: '',
+                    ...(refund ? { fateShards: Math.max(0, Number(char.fateShards ?? 0)) + 10 } : {}),
+                };
+                await _storage_js_1.kv.set(`save:${player}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
+                return { status: 200, body: { ok: true, previous, refunded: refund ? 10 : 0 } };
+            }, { failClosed: true });
+            if (out.status === 200 && out.body.ok) {
+                await (0, _audit_js_1.recordAudit)({
+                    actor: 'admin', domain: 'legacy', action: 'title.revoke',
+                    entityType: 'player', entityId: player,
+                    before: out.body.previous, after: '', reason,
+                    meta: { refunded: out.body.refunded },
+                });
+            }
+            return res.status(out.status).json(out.body);
+        }
+        // ── Era controls (docs/legacy-system-plan.md §14, admin-tunable) ─────
+        if (action === 'era-view') {
+            const [views, state] = await Promise.all([(0, _era_js_1.getEraViews)(), (0, _era_js_1.getEraState)()]);
+            return res.status(200).json({ eras: views, overrides: state.overrides });
+        }
+        if (action === 'era-set-status') {
+            const eraId = String(body.eraId ?? '');
+            const status = String(body.status ?? '');
+            const def = _era_js_1.ERA_BY_ID.get(eraId);
+            if (!def)
+                return res.status(400).json({ error: 'Unknown era.' });
+            if (!['locked', 'admin_available', 'milestone_active', 'unlocked'].includes(status)) {
+                return res.status(400).json({ error: 'Bad status.' });
+            }
+            await (0, _lock_js_1.withKvLock)(_era_js_1.ERA_STATE_KEY, async () => {
+                const state = await (0, _era_js_1.getEraState)();
+                state.overrides[eraId] = { ...state.overrides[eraId], status: status };
+                await _storage_js_1.kv.set(_era_js_1.ERA_STATE_KEY, state);
+            }, { failClosed: true });
+            await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'era.set-status', entityType: 'era', entityId: eraId, after: status });
+            return res.status(200).json({ ok: true });
+        }
+        if (action === 'era-set-milestone') {
+            const eraId = String(body.eraId ?? '');
+            const metric = String(body.metric ?? '');
+            const required = Math.floor(num(body.required));
+            const def = _era_js_1.ERA_BY_ID.get(eraId);
+            if (!def)
+                return res.status(400).json({ error: 'Unknown era.' });
+            if (!def.milestones.some((m) => m.metric === metric))
+                return res.status(400).json({ error: 'Unknown metric for this era.' });
+            if (!Number.isFinite(required) || required < 0)
+                return res.status(400).json({ error: 'Bad required value (0 waives the milestone).' });
+            await (0, _lock_js_1.withKvLock)(_era_js_1.ERA_STATE_KEY, async () => {
+                const state = await (0, _era_js_1.getEraState)();
+                const prev = state.overrides[eraId] ?? {};
+                state.overrides[eraId] = {
+                    ...prev,
+                    milestoneOverrides: { ...prev.milestoneOverrides, [metric]: required },
+                };
+                await _storage_js_1.kv.set(_era_js_1.ERA_STATE_KEY, state);
+            }, { failClosed: true });
+            await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'era.set-milestone', entityType: 'era', entityId: eraId, after: { metric, required } });
+            // Lowering a floor may complete the era right away.
+            await (0, _era_js_1.checkEraUnlocks)();
+            return res.status(200).json({ ok: true });
+        }
+        if (action === 'era-force-unlock') {
+            const eraId = String(body.eraId ?? '');
+            const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+            const def = _era_js_1.ERA_BY_ID.get(eraId);
+            if (!def)
+                return res.status(400).json({ error: 'Unknown era.' });
+            if (!reason)
+                return res.status(400).json({ error: 'A reason is required to force an era unlock.' });
+            const player = body.player ? (0, _utils_js_1.safeName)(String(body.player)) : '';
+            const did = await (0, _era_js_1.unlockEra)(def, player ? { player, village: typeof body.village === 'string' ? body.village : undefined, ts: Date.now() } : null, 'admin');
+            await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'era.force-unlock', entityType: 'era', entityId: eraId, reason, meta: { credited: player || null, applied: did } });
+            return res.status(200).json({ ok: true, applied: did });
         }
         if (action === 'hall-correct') {
             const entryId = Math.floor(num(body.entryId));

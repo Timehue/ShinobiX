@@ -127,6 +127,19 @@ export function fetchHallOfLegends(): Promise<{ entries: HallEntryView[] } | nul
     return getJson(`/api/hall-of-legends`);
 }
 
+export type EraMilestoneView = { metric: string; label: string; required: number; current: number; done: boolean };
+export type EraView = {
+    id: string; number: number; name: string; description: string; lore: string; banner: string;
+    status: "locked" | "admin_available" | "milestone_active" | "unlocked";
+    milestones: EraMilestoneView[];
+    trigger: { label: string; fired: boolean; firedBy?: string } | null;
+    unlockedBy: string | null; unlockedVillage: string | null; unlockedAt: number | null;
+};
+
+export function fetchEras(): Promise<{ eras: EraView[] } | null> {
+    return getJson(`/api/eras`);
+}
+
 /** Stable id the WorldMap engage handler keys off. */
 export const LEGACY_SAGE_WANDERER_ID = "legacy-sage";
 
