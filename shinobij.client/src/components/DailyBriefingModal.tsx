@@ -381,7 +381,7 @@ export function DailyBriefingModal({
                                                         {n.importance === "mythic" ? "Mythic" : "News"}
                                                     </span>
                                                     <span className="db-war-vs">{n.title}</span>
-                                                    <span className="db-war-note">{n.message.slice(0, 90)}</span>
+                                                    <span className="db-war-note">{n.message.length > 90 ? `${n.message.slice(0, 90).replace(/\s+\S*$/, "")}…` : n.message}</span>
                                                 </button>
                                             </li>
                                         ))}

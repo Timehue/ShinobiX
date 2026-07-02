@@ -28,7 +28,8 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
     /** Fired with the granted title (if any) when a trial completes here. */
     onStageUp?: (newStage: number, grantedTitle: string | null) => void;
 }) {
-    const [status, setStatus] = useState<LegacyStatusView | null>(null);
+    // undefined = fetch in flight, null = failed/flag-off (render nothing).
+    const [status, setStatus] = useState<LegacyStatusView | null | undefined>(undefined);
     const [defView, setDefView] = useState<LegacyDefView | null>(null);
     const [busy, setBusy] = useState(false);
     const [note, setNote] = useState<string | null>(null);
@@ -48,6 +49,17 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
         return () => { alive = false; };
     }, [playerName]);
 
+    // Reserve the section while the status fetch is pending so the dialog's
+    // buttons don't shift under the player's thumb when it pops in. A FAILED
+    // fetch (null — network error or flag off) hides the section instead of
+    // showing a forever-loading line (final-gate finding).
+    if (status === undefined) {
+        return (
+            <div style={{ borderTop: "1px solid rgba(192,132,252,.3)", marginTop: 10, paddingTop: 10 }}>
+                <p style={{ fontSize: ".74rem", color: "#9aa3b2", fontStyle: "italic", margin: 0 }}>…the emissary consults the threads.</p>
+            </div>
+        );
+    }
     if (!status?.legacy) return null;
     const served = !!status.legacyCategory && emissary.categories.includes(status.legacyCategory);
     if (!served) return null;
@@ -62,8 +74,16 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
         if (r?.ok && r.trial) {
             setStatus(s => s ? { ...s, trial: r.trial! } : s);
             setNote("“Then it begins. I will be watching — I am always watching.”");
+        } else if (r?.reason === "busy") {
+            // A trial already runs (started moments ago in the Profile tab) —
+            // refresh so it renders here instead of a misleading refusal.
+            const fresh = await fetchLegacyStatus(playerName);
+            if (fresh) setStatus(fresh);
+            setNote("“You already carry a trial, shinobi. Show me how you fare.”");
+        } else if (r?.reason === "complete") {
+            setNote("“Your path is already complete. Walk it proudly.”");
         } else {
-            setNote(r?.reason === "stage-max" ? "“Your path is already complete. Walk it proudly.”" : "“Not yet. The moment is not ready for you.”");
+            setNote("“Not yet. The moment is not ready for you.”");
         }
     }
     async function complete() {
@@ -72,7 +92,9 @@ export function EmissaryTrialPanel({ playerName, emissary, onStageUp }: {
         setBusy(false);
         if (r?.ok && r.legacy) {
             setStatus(s => s ? { ...s, legacy: r.legacy!, trial: null } : s);
-            setNote(r.title ? `“It is done. Wear it: ${r.title}.”` : "“It is done. The path remembers.”");
+            // The emissary's own voice — the Sage's completion passage plays in
+            // the LegacyMoment, so this line must not echo it.
+            setNote(r.title ? `“Done, and witnessed. Wear it well: ${r.title}.”` : "“Done, and witnessed. The path remembers.”");
             if (defView) {
                 setMoment({
                     mode: "stage-up",

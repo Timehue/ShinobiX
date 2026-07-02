@@ -107,15 +107,17 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         return () => { alive = false; };
     }, [tab]);
     // Legacy system: permanent server history + the world news feed + eras.
-    const [hallEntries, setHallEntries] = useState<HallEntryView[]>([]);
-    const [worldNews, setWorldNews] = useState<AnnouncementView[]>([]);
-    const [eraViews, setEraViews] = useState<EraView[]>([]);
+    // null = still loading, so the tabs show a loading line instead of flashing
+    // the permanent empty-state copy mid-fetch (polish-audit finding).
+    const [hallEntries, setHallEntries] = useState<HallEntryView[] | null>(null);
+    const [worldNews, setWorldNews] = useState<AnnouncementView[] | null>(null);
+    const [eraViews, setEraViews] = useState<EraView[] | null>(null);
     useEffect(() => {
         if (tab !== "legends" && tab !== "news" && tab !== "eras") return;
         let alive = true;
-        if (tab === "legends") void fetchHallOfLegends().then(r => { if (alive && r) setHallEntries(r.entries); });
-        else if (tab === "news") void fetchAnnouncements(30).then(r => { if (alive && r) setWorldNews(r.announcements); });
-        else void fetchEras().then(r => { if (alive && r) setEraViews(r.eras); });
+        if (tab === "legends") void fetchHallOfLegends().then(r => { if (alive) setHallEntries(r?.entries ?? []); });
+        else if (tab === "news") void fetchAnnouncements(30).then(r => { if (alive) setWorldNews(r?.announcements ?? []); });
+        else void fetchEras().then(r => { if (alive) setEraViews(r?.eras ?? []); });
         return () => { alive = false; };
     }, [tab]);
     const [bounties, setBounties] = useState<BountyEntry[]>([]);
@@ -552,7 +554,9 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                     />
                 )}
                 {tab === "legends" && (
-                    hallEntries.length === 0
+                    hallEntries === null
+                        ? <p className="hol-empty">Opening the great book…</p>
+                        : hallEntries.length === 0
                         ? <p className="hol-empty">No legends have been written yet. The first mythic awakening, era unlock, or server-first lands here — forever.</p>
                         : hallEntries.map((e) => (
                             <div key={e.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, opacity: e.status === "revoked" ? 0.55 : 1 }}>
@@ -567,7 +571,9 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         ))
                 )}
                 {tab === "eras" && (
-                    eraViews.length === 0
+                    eraViews === null
+                        ? <p className="hol-empty">Turning back the chapters…</p>
+                        : eraViews.length === 0
                         ? <p className="hol-empty">The chapters of this world have not been written yet.</p>
                         : eraViews.map((e) => (
                             <div key={e.id} className="card" style={{ padding: 0, marginBottom: 12, overflow: "hidden", opacity: e.status === "locked" ? 0.55 : 1 }}>
@@ -616,7 +622,9 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         ))
                 )}
                 {tab === "news" && (
-                    worldNews.length === 0
+                    worldNews === null
+                        ? <p className="hol-empty">Listening for word from the roads…</p>
+                        : worldNews.length === 0
                         ? <p className="hol-empty">The world is quiet. For now.</p>
                         : worldNews.map((a) => (
                             <div key={a.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#475569"}` }}>
