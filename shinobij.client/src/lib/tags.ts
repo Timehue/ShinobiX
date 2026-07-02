@@ -16,6 +16,7 @@ export const percentageTags = [
     "Decrease Damage Given",
     "Increase Damage Taken",
     "Decrease Damage Taken",
+    "Increase Generals",
     "Absorb",
     "Lifesteal",
     "Siphon",
@@ -31,6 +32,7 @@ export const cappedDamageTags = [
     "Decrease Damage Given",
     "Increase Damage Taken",
     "Decrease Damage Taken",
+    "Increase Generals",
     "Absorb",
     "Siphon",
     "Ignition",
@@ -116,6 +118,7 @@ export const allTags = [
     "Ignition",
     "Increase Damage Given",
     "Increase Damage Taken",
+    "Increase Generals",
     "Increase Heal",
     "Lifesteal",
     "Mirror",
@@ -141,7 +144,7 @@ export const allTags = [
 // to whatever the picker currently allows, preserving group + member order.
 export const tagGroups: { label: string; tags: string[] }[] = [
     { label: "Damage & DoT", tags: ["Wound", "Poison", "Ignition", "Drain", "Recoil"] },
-    { label: "Offense (you)", tags: ["Increase Damage Given", "Lifesteal", "Siphon", "Increase Heal", "Overclock"] },
+    { label: "Offense (you)", tags: ["Increase Damage Given", "Increase Generals", "Lifesteal", "Siphon", "Increase Heal", "Overclock"] },
     { label: "Defense (you)", tags: ["Shield", "Heal", "Absorb", "Reflect", "Decrease Damage Taken", "Debuff Prevent", "Stun Prevent"] },
     { label: "Debuffs (enemy)", tags: ["Decrease Damage Given", "Increase Damage Taken", "Buff Prevent", "Cleanse Prevent", "Clear Prevent", "Lag"] },
     { label: "Control", tags: ["Stun", "Bloodline Seal", "Elemental Seal", "Copy", "Mirror"] },
