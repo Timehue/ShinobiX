@@ -91,6 +91,10 @@ export const MobileNav = memo(function MobileNav({
             )}
 
             <nav className="mobile-bottom-nav">
+                <button className="mobile-nav-btn" onClick={() => setYouOpen(true)}>
+                    <span className="mnb-icon"><GiHealthNormal size={24} /></span>
+                    You
+                </button>
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
@@ -106,10 +110,6 @@ export const MobileNav = memo(function MobileNav({
                 <button className="mobile-nav-btn" onClick={() => go("inventory")}>
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
-                </button>
-                <button className="mobile-nav-btn" onClick={() => setYouOpen(true)}>
-                    <span className="mnb-icon"><GiHealthNormal size={24} /></span>
-                    You
                 </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
                     <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
