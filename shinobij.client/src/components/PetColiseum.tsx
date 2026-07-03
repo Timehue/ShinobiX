@@ -2662,7 +2662,7 @@ export type PetColiseumDuelProps = {
      *  /petvfx.html preview harness, where the renderer self-runs from the seed. */
     result?: DuelResult;
     sharedImages?: Record<string, string>;
-    onFightAgain: () => void;
+    onFightAgain?: () => void;
     onExit: () => void;
 };
 
@@ -2889,7 +2889,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div style={{ color: "#94a3b8", font: "600 12px Inter, system-ui, sans-serif", marginTop: 4 }}>Pet Coliseum</div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
-                            <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>
+                            {onFightAgain && <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>}
                             <button onClick={onExit} style={{ ...resultBtn, background: "#334155" }}>Exit</button>
                         </div>
                     </div>

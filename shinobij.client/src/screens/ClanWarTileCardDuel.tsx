@@ -309,16 +309,17 @@ export function CardClashDuelScreen({ character, setScreen, config }: { characte
     const oppKey: SideKey = youKey === "p1" ? "p2" : "p1";
     const pickSecs = view?.pickingDeadline ? Math.max(0, Math.ceil((view.pickingDeadline - now) / 1000)) : 0;
     const turnSecs = view?.turnDeadline ? Math.max(0, Math.ceil((view.turnDeadline - now) / 1000)) : 0;
+    const duelLocked = !!view && view.status !== "done";
 
     return (
         <div className="card-clash-root" style={{ "--cc-board-bg": `url(${CARD_CLASH_BOARD_BG})` } as CSSProperties}>
             <div className="cc-header">
                 <div className="cc-title"><b>Shinobi Card Clash</b><span>{config.title}</span></div>
                 <span className="cc-header-spacer" />
-                {view && view.status !== "done" && (
+                {duelLocked && (
                     <button className="cc-btn danger" disabled={busy} onClick={async () => { if (await gameConfirm(config.forfeitConfirm, { danger: true, confirmLabel: "Forfeit" })) void post("forfeit", {}); }}>Forfeit</button>
                 )}
-                <button className="cc-btn ghost" onClick={() => setScreen(config.backScreen)}>{config.backLabel}</button>
+                {!duelLocked && <button className="cc-btn ghost" onClick={() => setScreen(config.backScreen)}>{config.backLabel}</button>}
             </div>
 
             <div className="cc-body">

@@ -93,6 +93,8 @@ export function PvpBattleScreen({
     battleMode = "standard",
     onWin,
     onLoss,
+    onResolved,
+    onExit,
 }: {
     character: Character;
     battleId: string;
@@ -114,6 +116,8 @@ export function PvpBattleScreen({
     battleMode?: string;
     onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary) => void;
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
+    onResolved?: () => void;
+    onExit?: (target: Screen) => void;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -533,6 +537,7 @@ export function PvpBattleScreen({
     // _vanguard-rewards.ts; this fix covers everything the client applies.
     useEffect(() => {
         if (session?.status !== "done") return;
+        onResolved?.();
         const iWonNow = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
         const iLostNow = session.winner && session.winner !== "draw" && !iWonNow;
         if ((!iWonNow && !iLostNow) || pvpRewardRef.current) return;
@@ -808,6 +813,10 @@ export function PvpBattleScreen({
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
+    const exitBattle = (target: Screen) => {
+        if (onExit) onExit(target);
+        else setScreen(target);
+    };
     // Environment comes from the SEALED session (what the server actually used
     // for terrain/weather math), not the live world props — so the displayed
     // terrain/weather always matches server-resolved damage. Ranked seals
@@ -1527,8 +1536,8 @@ export function PvpBattleScreen({
                                         );
                                     })()}
                                     <div className="menu">
-                                        <button onClick={() => setScreen("village")}>Return to Village</button>
-                                        <button onClick={() => setScreen("worldMap")}>World Map</button>
+                                        <button onClick={() => exitBattle("village")}>Return to Village</button>
+                                        <button onClick={() => exitBattle("worldMap")}>World Map</button>
                                     </div>
                                 </div>
                             </div>
