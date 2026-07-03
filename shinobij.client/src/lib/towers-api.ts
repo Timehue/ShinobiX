@@ -69,6 +69,9 @@ export type TowerGroundEffect = {
     tags: Array<{ name: string; percent?: number }>;
 };
 
+/** A sealed Endless Spire modifier (rendered as a pre-fight manifest chip). */
+export type TowerModifier = { kind: string; value: number; label: string; variant?: string };
+
 export type TowerSession = {
     towerId: string;
     runId: string;
@@ -91,10 +94,24 @@ export type TowerSession = {
     groundEffects?: TowerGroundEffect[];
     /** wall-clock when the current human's turn began (co-op AFK countdown) */
     turnStartedAt?: number;
+    // ── Endless Spire (sealed at entry; present only on ascension runs) ──────────
+    ascensionTier?: number;
+    spireBossId?: string;
+    /** the hard round cap this floor (drives the round-clock HUD) */
+    roundCap?: number;
+    enrageCap?: number;
+    dmgMult?: number;
+    /** the sealed modifiers, rendered as manifest chips */
+    modifierStack?: TowerModifier[];
 };
 
 /** Mirrors the server TURN_AFK_MS — how long a player has before their turn auto-passes. */
 export const TOWER_TURN_AFK_MS = 75_000;
+
+/** Endless Spire — number of ascension floors (mirrors the server SPIRE_MAX_TIER). */
+export const SPIRE_MAX_TIER = 20;
+/** Milestone floors (title/border unlocks). */
+export const SPIRE_MILESTONE_FLOORS = [5, 10, 15, 20];
 
 export type TowerActionInput =
     | { type: 'move'; tile: number }
@@ -162,6 +179,12 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
  *  Returns the runId + the initial session. */
 export function startTowerRun(hostName: string, floor: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
     return postJson('/api/towers/start', { hostName, floor, allies, hostLoadout });
+}
+
+/** Begin an ENDLESS SPIRE run at the given ascension tier (server clamps to unlocked+1).
+ *  Fee-exempt: the caller does NOT charge the ryo entry toll for spire runs. */
+export function startSpireRun(hostName: string, ascensionTier: number, allies: string[] = [], hostLoadout?: TowerHostLoadout): Promise<{ runId: string; session: TowerSession }> {
+    return postJson('/api/towers/start', { hostName, mode: 'spire', ascensionTier, allies, hostLoadout });
 }
 
 /** Equip the caller's own fighter with their client-computed loadout (pvpItems + passives the

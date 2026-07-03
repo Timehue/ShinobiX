@@ -130,7 +130,12 @@ function templateActor(
         // never touch combat math. The boss is also tracked authoritatively via phaseState.
         // `level` drives the per-rank STAT CAP (applyJutsu perRankStatCap); without it
         // every tower enemy would clamp to the Academy ceiling. `visual`/`boss` are cosmetic.
-        character: { level: tpl.level, specialty: tpl.specialty, stats: { ...tpl.stats }, visual: tpl.visual, ...(tpl.boss ? { boss: true } : {}) },
+        character: {
+            level: tpl.level, specialty: tpl.specialty, stats: { ...tpl.stats }, visual: tpl.visual,
+            ...(tpl.boss ? { boss: true } : {}),
+            // Endgame Spire bosses carry raw damage-reduction (read by computeDamage's armor pool).
+            ...(tpl.armorRawDR != null ? { armorRawDR: tpl.armorRawDR } : {}),
+        },
     };
 }
 
@@ -140,6 +145,11 @@ export type BuildEncounterParams = {
     runId: string;
     seed: number;
     partySize: number;
+    /** Endless Spire — sealed ascension modifiers; when present the run is FULL-STRENGTH
+     *  (no party downscaling) and the seal is written onto the session. Absent for story. */
+    ascension?: import('./_modifiers.js').AscensionSeal;
+    /** Endless Spire — which of the 4 bosses this run features */
+    spireBossId?: string;
     /** wall-clock from the handler (kept out of the deterministic engine) */
     now: number;
 };
@@ -215,6 +225,12 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
         const bossActor = templateActor('boss', 'enemy', getEnemyTemplate(floor.boss.aiId), bossTile);
+        // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
+        // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
+        if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
+            bossActor.maxHp = Math.floor(floor.boss.hp);
+            bossActor.hp = bossActor.maxHp;
+        }
         // Attach the boss's signature mechanic (the engine resolves it deterministically).
         if (floor.boss.mechanic) {
             bossActor.character.mechanic = floor.boss.mechanic;
@@ -235,7 +251,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     }
 
     const session = createTowerSession({
-        towerId: 'celestial',
+        towerId: p.ascension ? 'endless-spire' : 'celestial',
         runId: p.runId,
         floor: floor.id,
         seed: p.seed,
@@ -245,10 +261,15 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         objectiveKind: floor.objective,
         bossId,
         bossPhases,
+        ascension: p.ascension,
+        spireBossId: p.spireBossId,
+        regenFlatCap: floor.boss?.regenFlatCap,
         now: p.now,
     });
 
-    // Scale enemy HP/damage down for a party smaller than the floor's balance baseline.
-    applyPartyScaling(session, floor);
+    // Story floors scale enemy HP/damage DOWN for a party smaller than the balance baseline.
+    // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),
+    // so skip party scaling entirely when this is an ascension run.
+    if (!p.ascension) applyPartyScaling(session, floor);
     return session;
 }

@@ -33,6 +33,9 @@ export type EnemyTemplate = {
     visual: string;
     /** the client renders bosses larger + with a phase ring */
     boss?: boolean;
+    /** raw damage-reduction (0..1.5) read by computeDamage's armor pool (effDR = raw/(raw+K_DR)).
+     *  Absent = no armor (grunts). Endgame Spire bosses carry it so squad DPS is mitigated. */
+    armorRawDR?: number;
 };
 
 const TEMPLATES: Record<string, EnemyTemplate> = {
@@ -75,6 +78,66 @@ const TEMPLATES: Record<string, EnemyTemplate> = {
     'npc-genin': {
         name: 'Allied Genin', specialty: 'Taijutsu', level: 40, hp: 600, visual: 'genin',
         stats: { taijutsuOffense: 350, taijutsuDefense: 350 },
+    },
+
+    // ── Endless Spire — ENDGAME boss variants (Wave 1) ───────────────────────────
+    // Distinct from the L80 story bosses above (which stay tuned for the 10 story floors).
+    // The clamped-DPS sim proved the story blocks (def composite ~1700-2050, no armor) let a
+    // maxed L100 squad (offense composite ~7500) peg statFactor at the 1.85 ceiling → <2-round
+    // faceroll. These are re-statted to un-peg BOTH clamps: every DEFENSE composite ≈ 7500
+    // (all defense stats + the shared secondaries at 2500) so the squad's outgoing statFactor
+    // falls to ~1.0, and OFFENSE composite ≈ 7000-7300 (primary offense 2000-2300 + 2 secondaries)
+    // so incoming statFactor rises off the 0.35 floor to ~0.92-0.97. armorRawDR mitigates squad
+    // DPS. HP is authored PER-FLOOR in _spire-catalog (a boss appears at many floors, and an
+    // HP-scaled mechanic × a big HP would wall/immortal) — the `hp` here is a nominal fallback.
+    // Level 100 = the endgame stat-cap band (per-stat cap MAX_STAT 2500). Final numbers are
+    // TARGETS pending the against-the-built-engine re-sim; tune here + in the spire catalog.
+    'spire-warden': {
+        name: 'Spire Warden', specialty: 'Ninjutsu', level: 100, hp: 40000, visual: 'warden', boss: true,
+        armorRawDR: 0.15,
+        stats: {
+            ninjutsuOffense: 2000,
+            taijutsuDefense: 2500, bukijutsuDefense: 2500, genjutsuDefense: 2500, ninjutsuDefense: 2500,
+            strength: 2500, speed: 2500, intelligence: 2500, willpower: 2500,
+        },
+    },
+    'spire-revenant': {
+        name: 'Hollow Revenant', specialty: 'Genjutsu', level: 100, hp: 33000, visual: 'revenant', boss: true,
+        armorRawDR: 0.20,
+        stats: {
+            genjutsuOffense: 2100,
+            taijutsuDefense: 2500, bukijutsuDefense: 2500, genjutsuDefense: 2500, ninjutsuDefense: 2500,
+            strength: 2500, speed: 2500, intelligence: 2500, willpower: 2500,
+        },
+    },
+    'spire-ravager': {
+        name: 'Pit Ravager', specialty: 'Taijutsu', level: 100, hp: 25000, visual: 'ravager', boss: true,
+        armorRawDR: 0.20,
+        stats: {
+            taijutsuOffense: 2200,
+            taijutsuDefense: 2500, bukijutsuDefense: 2500, genjutsuDefense: 2500, ninjutsuDefense: 2500,
+            strength: 2500, speed: 2500, intelligence: 2500, willpower: 2500,
+        },
+    },
+    'spire-sovereign': {
+        name: 'Spire Sovereign', specialty: 'Ninjutsu', level: 100, hp: 24000, visual: 'sovereign', boss: true,
+        armorRawDR: 0.25,
+        stats: {
+            ninjutsuOffense: 2300,
+            taijutsuDefense: 2500, bukijutsuDefense: 2500, genjutsuDefense: 2500, ninjutsuDefense: 2500,
+            strength: 2500, speed: 2500, intelligence: 2500, willpower: 2500,
+        },
+    },
+    // Guard-pod / summon add for the Spire: an endgame speed-bump, NOT a threat. Defense
+    // composite ~2400 (squad kills it fast — bulwark drops after a short add-clear phase);
+    // offense kept well BELOW the boss so a swarm never out-bursts the boss (sim residual risk).
+    'spire-guard': {
+        name: 'Spire Sentinel', specialty: 'Taijutsu', level: 100, hp: 3500, visual: 'blocker',
+        stats: {
+            taijutsuOffense: 900,
+            taijutsuDefense: 1200, bukijutsuDefense: 1200, genjutsuDefense: 1200, ninjutsuDefense: 1200,
+            strength: 600, speed: 600, intelligence: 400, willpower: 400,
+        },
     },
 };
 
