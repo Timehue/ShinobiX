@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, BattleHistoryEntry } from "../types/character";
+import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import {
     submitTowerAction, settleTowerRun, fetchTowerState, joinTowerRun, TOWER_TURN_AFK_MS,
     type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerFeature, type TowerHostLoadout,
@@ -106,6 +107,7 @@ export function BattleTowerFight({
     runId,
     initialSession,
     onExit,
+    onRecordBattle,
 }: {
     character: Character;
     /** optimistically mirror a spire unlock onto the client save so the lobby shows
@@ -116,6 +118,7 @@ export function BattleTowerFight({
     runId: string;
     initialSession: TowerSession;
     onExit: () => void;
+    onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     const [session, setSession] = useState<TowerSession>(initialSession);
     const [mode, setMode] = useState<Mode>("idle");
@@ -211,6 +214,34 @@ export function BattleTowerFight({
             }
         }
     }, [session.status, session.winner, runId, me, session.ascensionTier, character, updateCharacter]);
+
+    // Reflection log (display-only): record the floor once it resolves (win OR
+    // loss) so it shows on Profile → Battles. The squad log names many fighters,
+    // so buildActionsFromTowerLog colors each line by side (ally = blue, enemy =
+    // red). De-duped by runId, so a refresh on the result screen re-records
+    // harmlessly.
+    const recordedRef = useRef(false);
+    useEffect(() => {
+        if (session.status !== "done" || recordedRef.current || !onRecordBattle) return;
+        recordedRef.current = true;
+        const allyNames = session.actors.filter(a => a.side === "squad" || a.side === "npc").map(a => a.name);
+        const enemyNames = session.actors.filter(a => a.side === "enemy").map(a => a.name);
+        const boss = session.actors.find(a => a.id === session.phaseState?.bossId);
+        const outcome: BattleHistoryEntry["outcome"] = session.winner === "squad" ? "win" : session.winner === "draw" ? "draw" : "loss";
+        onRecordBattle(makeBattleEntry({
+            id: `tower-${runId}`,
+            ts: Date.now(),
+            mode: "Tower",
+            opponent: boss?.name ?? enemyNames[0] ?? "Tower enemies",
+            outcome,
+            rounds: session.round ?? 1,
+            self: me,
+            actions: buildActionsFromTowerLog(session.log ?? [], allyNames, enemyNames),
+        }));
+        // Fire once when the floor resolves; the recordedRef guard makes extra
+        // session updates no-ops, so we intentionally don't list every field.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session.status, session.winner]);
 
     // Full equipped kit (weapons + consumables) from the sealed loadout → cards.
     const loadout = useMemo(() => {

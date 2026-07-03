@@ -72,6 +72,32 @@ test("accuracy flag: off (default) draws no rng; on adds misses and stays determ
     assert.deepEqual(a, b, "accuracy-on battles must stay deterministic (ranked replays)");
 });
 
+// ── plantedMotion (casual cinematic face-off) flag, default off ───────────────
+
+test("plantedMotion flag: default (off) is byte-identical to explicit off; on stays deterministic + still resolves a real fight", () => {
+    const p = (id: string) => makePet({ id, jutsus: [J({ name: "Strike", kind: "damage", power: 110 })] });
+    for (const seed of SEEDS) {
+        // SAFETY: authoritative paths (sector-war / ladder / ranked) run plantedMotion=false.
+        // The DEFAULT must equal explicit-off byte-for-byte so those outcomes never shift.
+        const off = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, false);
+        assert.deepEqual(runPetDuel(p("a"), p("b"), seed), off, `seed ${seed}: default must equal explicit plantedMotion=off`);
+        // The planted (casual cinematic) path is itself deterministic (same seed → identical).
+        const on1 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);
+        const on2 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);
+        assert.deepEqual(on1, on2, `seed ${seed}: planted battles must stay deterministic`);
+        assert.ok(["win", "loss", "draw"].includes(on1.result), `planted seed ${seed}: bad result`);
+        assert.ok(on1.ticks >= 1 && on1.ticks <= CAP, `planted seed ${seed}: ticks out of range ${on1.ticks}`);
+        assertAllNumbersFinite(on1, `planted.seed${seed}`);
+    }
+    // Planted still resolves a REAL fight: spawns apart, closes to melee, ends in a KO.
+    const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), 7, 1, 1, false, false, false, null, true);
+    assert.ok(Math.abs(actor(r.snapshots[0], "player").x) > 3 && Math.abs(actor(r.snapshots[0], "enemy").x) > 3, "planted: should spawn apart");
+    assert.ok(r.snapshots.some((s) => Math.abs(actor(s, "enemy").x - actor(s, "player").x) < 1.6), "planted: never closed to melee");
+    assert.ok(r.events.some((e) => e.type === "hit"), "planted: no hits landed");
+    // A clearly stronger pet still wins under planted motion (balance sanity).
+    assert.equal(runPetDuel(makePet({ id: "a", hp: 1400, attack: 220 }), makePet({ id: "b", hp: 500, attack: 60 }), 2024, 1, 1, false, false, false, null, true).result, "win");
+});
+
 // ── 1v1 ──────────────────────────────────────────────────────────────────────
 
 test("1v1 is deterministic — same seed yields byte-identical snapshots + events", () => {
