@@ -14,6 +14,7 @@
  */
 import type { PvpStatus, PvpGroundEffect } from '../pvp/session.js';
 import type { TowerFeature } from './_floor-catalog.js';
+import type { TowerModifier } from './_modifiers.js';
 
 export type TowerActorId = string;
 export type TowerSide = 'squad' | 'enemy' | 'npc';
@@ -109,6 +110,25 @@ export type TowerSession = {
     /** wall-clock when the CURRENT human's turn began (handler-set). Drives the co-op
      *  AFK auto-pass so a live run never deadlocks on an absent player. */
     turnStartedAt?: number;
+
+    // ── Endless Spire — sealed ascension state (Wave 1) ──────────────────────────
+    // All optional; every engine read defaults (?? ...) so story/legacy sessions are
+    // byte-identical. Sealed ONCE at spire entry (before the first writeSession), then
+    // read-only — the engine never recomputes them.
+    /** spire tier === floor (1..20); absent for story-floor runs */
+    ascensionTier?: number;
+    /** which of the 4 spire bosses this run features (display/settle) */
+    spireBossId?: string;
+    /** hard round cap; the engine reads this in place of MAX_ROUNDS */
+    roundCap?: number;
+    /** max enrage stacks (spire); absent → uncapped (story enrage unchanged) */
+    enrageCap?: number;
+    /** enemy OUTGOING damage multiplier, folded at the wMult junction for enemy attackers */
+    dmgMult?: number;
+    /** per-round regen flat cap (spire regen boss); absent → uncapped */
+    regenFlatCap?: number;
+    /** sealed modifier list — rendered as manifest chips; (Waves 2/3) consumed by the engine */
+    modifierStack?: TowerModifier[];
 };
 
 // ─── accessors / invariants ──────────────────────────────────────────────────
@@ -148,6 +168,12 @@ export type CreateTowerSessionParams = {
     objectiveKind: string;
     bossId?: TowerActorId;
     bossPhases?: number[];
+    /** Endless Spire — sealed ascension modifiers (absent for story runs) */
+    ascension?: import('./_modifiers.js').AscensionSeal;
+    /** Endless Spire — which of the 4 bosses this run features */
+    spireBossId?: string;
+    /** Endless Spire — per-round regen flat cap for the featured boss */
+    regenFlatCap?: number;
     /** wall-clock from the caller (handler) — kept OUT of the deterministic engine */
     now: number;
 };
@@ -187,5 +213,15 @@ export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
         log: [],
         createdAt: p.now,
         lastActionAt: p.now,
+        // Endless Spire: seal the ascension modifiers (absent → undefined, story unchanged).
+        ...(p.ascension ? {
+            ascensionTier: p.ascension.ascensionTier,
+            spireBossId: p.spireBossId,
+            roundCap: p.ascension.roundCap,
+            enrageCap: p.ascension.enrageCap,
+            dmgMult: p.ascension.dmgMult,
+            modifierStack: p.ascension.modifierStack,
+            ...(typeof p.regenFlatCap === 'number' ? { regenFlatCap: p.regenFlatCap } : {}),
+        } : {}),
     };
 }
