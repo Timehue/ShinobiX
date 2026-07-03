@@ -21,6 +21,54 @@ export type PatchNote = {
 
 export const PATCH_NOTES: PatchNote[] = [
     {
+        version: "2026.07.02-legacy",
+        date: "July 2, 2026",
+        title: "The Legacy System",
+        intro:
+            "A third path opens beside your bloodline. Somewhere out there a Wandering Sage " +
+            "has started watching shinobi who've proven themselves — and when he finds you, " +
+            "he'll offer you a Legacy: a permanent identity earned by how you've lived. Here's what's new.",
+        sections: [
+            {
+                heading: "A Wandering Sage walks the roads",
+                body:
+                    "At Level 50, a hooded stranger begins appearing on the world map. He has been " +
+                    "reading your battles, missions, and choices, and offers you the legacies your life " +
+                    "has opened. Accepting one is permanent — you may only ever hold a single Legacy, " +
+                    "forever — so choose the path that feels like yours. Turning him down is always free; " +
+                    "he'll find you again.",
+            },
+            {
+                heading: "A signature technique, all your own",
+                body:
+                    "Every Legacy carries its own signature jutsu. Prove your path through its trials and it " +
+                    "becomes yours: a dedicated 16th technique that sits outside your fifteen-jutsu loadout, " +
+                    "always at your side, that no other shinobi can wield.",
+            },
+            {
+                heading: "Trials, stages, and titles",
+                body:
+                    "Your Legacy deepens through five stages, each earned by an in-world trial its emissary " +
+                    "sets for you — and each stage grants a title the whole world can see on your nameplate. " +
+                    "Accept a Legacy and you're granted a handful of Aura Stones on the spot to mark the moment.",
+            },
+            {
+                heading: "The world remembers",
+                body:
+                    "A living Hall of Legends now records the shinobi who shaped the world, the Ages it passes " +
+                    "through, and the first to walk each path. Your Legacy, its stage, and its earned titles " +
+                    "show on your profile and in the tavern for everyone to see.",
+            },
+            {
+                heading: "How to find your path",
+                body:
+                    "Legacies are never bought or grinded — they open based on what you actually do. Keep playing " +
+                    "the way you play. Below Level 50, watch for whispers about the path you're carving; at 50, " +
+                    "the Sage will come looking for you.",
+            },
+        ],
+    },
+    {
         version: "2026.06.29-progression",
         date: "June 29, 2026",
         title: "The Shinobi Path Rebalance",
