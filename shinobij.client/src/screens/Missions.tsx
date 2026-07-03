@@ -158,10 +158,6 @@ export function Missions({
                 </div>
                 <div className="mh-stats">
                     <div className="mh-stat-chip">
-                        <span className="mh-stat-label">Stamina</span>
-                        <span className="mh-stat-value">{character.stamina}<span className="mh-stat-max">/{character.maxStamina}</span></span>
-                    </div>
-                    <div className="mh-stat-chip">
                         <span className="mh-stat-label">Daily</span>
                         <span className="mh-stat-value">{todayMissions}<span className="mh-stat-max">/20</span></span>
                     </div>
