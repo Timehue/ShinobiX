@@ -10,6 +10,7 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import {
     RUMOR_MILESTONE_LEVELS, RUMOR_CATEGORIES, rumorArc, rumorForCategory,
+    tavernGossipLine, TAVERN_GOSSIP_COUNT,
 } from "./legacy-rumors";
 
 // Must match the legacy categories in api/_legacy-defs.ts (LegacyCategory).
@@ -83,5 +84,17 @@ describe("rumorForCategory — determinism + variety", () => {
             const line2 = rumorForCategory("not-a-category", m, { playerName: "x" });
             assert.ok(typeof line2 === "string" && line2.length > 20, `unknown@${m}: empty`);
         }
+    });
+});
+
+describe("tavern gossip", () => {
+    it("has a real pool and returns a non-empty line", () => {
+        assert.ok(TAVERN_GOSSIP_COUNT >= 10, `gossip pool should be substantial (got ${TAVERN_GOSSIP_COUNT})`);
+        assert.ok(tavernGossipLine("Aoi", 20000).length > 20);
+    });
+    it("is stable per (player, day) but rotates across days", () => {
+        assert.equal(tavernGossipLine("Aoi", 20000), tavernGossipLine("Aoi", 20000), "same day/player is stable");
+        const days = new Set(Array.from({ length: 30 }, (_, i) => tavernGossipLine("Aoi", 20000 + i)));
+        assert.ok(days.size >= 4, `30 days should surface several distinct lines (got ${days.size})`);
     });
 });

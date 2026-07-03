@@ -267,6 +267,37 @@ const FALLBACK: string[][] = [
      "A staff-bearing old man keeps asking the roads about someone. The description keeps fitting you. Level 50 is close."],
 ];
 
+// ── Tavern gossip ────────────────────────────────────────────────────────────
+// A second discovery surface (plan §6, deferred): overheard talk in the village
+// tavern about the Legacy world at large — the Wandering Sage, legends being
+// made, the Hall, the turning Ages. World-flavored (never this player's stats),
+// so the tavern — a shared room — reads like a living place where legends are
+// the talk of the town. Shown as a rotating "gossip of the day" strip.
+const TAVERN_GOSSIP: readonly string[] = [
+    "The barkeep leans in: “The Wandering Sage was seen three villages over. Offering paths, they say. You’d know if he wanted you.”",
+    "Someone at the next table swears the Hall of Legends carved a new name last week. Nobody caught which one.",
+    "“Legends aren’t born,” the old regular mutters into her cup. “They’re caught. By an old man with a staff, usually.”",
+    "A courier drops a rumor off with the ale: a shinobi somewhere just bound their legacy. The world felt it, apparently.",
+    "“You want my advice?” the barkeep says, not waiting. “When the Sage offers, listen. He doesn’t ask twice, and he never asks wrong.”",
+    "Two mercenaries argue over which legacy is strongest. Neither has one. The whole tavern has opinions anyway.",
+    "“The Ages turn whether we notice or not,” the storyteller says. “We’re living in one right now. Someone’s name will headline it.”",
+    "A drunk insists he almost earned a mythic legacy once. The barkeep has heard this before. Twice tonight.",
+    "“The legacy trials,” someone whispers. “The Sage’s emissaries carry them, sector to sector. Find the right one and it finds you back.”",
+    "The barkeep polishes a glass: “Every legend that ever drank here left the same way — walked out one night and didn’t come back the same.”",
+    "Someone reads aloud from a Hall notice: another path, sealed forever to one shinobi. The tavern raises a quiet glass.",
+    "“The good ones don’t chase legacies,” the old regular says. “They earn them without meaning to, and the Sage does the rest.”",
+    "A traveler swears the roads have been busy lately — sages, emissaries, wanderers. “Something’s stirring,” he says, ordering another.",
+    "“Careful who you bleed beside,” the barkeep warns. “That’s how legacies start. And they don’t come off.”",
+];
+export const TAVERN_GOSSIP_COUNT = TAVERN_GOSSIP.length;
+
+/** A rotating tavern gossip line — stable for a (player, day) so it reads as
+ *  "today's talk", different across players and across days. */
+export function tavernGossipLine(playerName: string, dayBucket: number): string {
+    const u = seededUnit(`gossip:${playerName}:${dayBucket}`);
+    return TAVERN_GOSSIP[Math.min(TAVERN_GOSSIP.length - 1, Math.floor(u * TAVERN_GOSSIP.length))];
+}
+
 /** The categories with an authored arc (test/introspection). */
 export const RUMOR_CATEGORIES: readonly string[] = Object.keys(RUMORS);
 /** The authored variant arc for a category, or null (test/introspection). */
