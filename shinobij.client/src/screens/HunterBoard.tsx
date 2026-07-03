@@ -30,9 +30,9 @@ export function HunterBoard({
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     creatorAis: CreatorAi[];
     acceptedMissionIds: string[];
-    setAcceptedMissionIds: (ids: string[]) => void;
+    setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
-    setMissionProgress: (p: Record<string, number>) => void;
+    setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     setPendingAiProfileId: (id: string) => void;
     setScreen: (s: Screen) => void;
 }) {
@@ -66,8 +66,10 @@ export function HunterBoard({
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if ((HUNT_MIN_RANK[mission.rank] ?? 0) > hunterRank) return alert(`Requires Hunter Rank: ${HUNTER_RANK_LABELS[HUNT_MIN_RANK[mission.rank] ?? 0]}.`);
         if (acceptedMissionIds.includes(mission.id)) return;
-        setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
-        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 });
+        setAcceptedMissionIds((prev) => [...prev, mission.id]);
+        // Reset tracking to 0 on accept — never inherit a stale value left in the
+        // shared map, which would make the contract instantly (falsely) claimable.
+        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
         alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
     }
 
@@ -89,12 +91,20 @@ export function HunterBoard({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-            setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-            setMissionProgress({ ...missionProgress, [mission.id]: 0 });
+            setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+            setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
             alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, result.reward.xpBoosted)} XP, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina.${materialNamesLine(result.reward.items ?? [])}`);
             return;
         }
-        if (result.applied === false && !result.clientFallback) return alert(claimReasonMessage(result.reason));
+        if (result.applied === false && !result.clientFallback) {
+            if (result.reason === "already-claimed-today" || result.reason === "already-claimed") {
+                // Server already paid this hunt today — reconcile the local board so a
+                // desynced client stops showing a dead Claim button on a done contract.
+                setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+                setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
+            }
+            return alert(claimReasonMessage(result.reason));
+        }
 
         // Legacy client payout for creator-authored hunts only.
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
@@ -107,8 +117,8 @@ export function HunterBoard({
             const leveled = grantTerritoryScrolls(withItems, 3);
             return markHuntCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) });
         });
-        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-        setMissionProgress({ ...missionProgress, [mission.id]: 0 });
+        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
         alert(`${mission.name} complete! +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.${materialNamesLine(mission.itemRewards ?? [])}`);
     }
 

@@ -4810,7 +4810,7 @@ export default function App() {
         if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; }
         charDirtyRef.current = false;
         void persistSave(snap);
-    }, [activeTraining, activeJutsuTraining, character?.hospitalized, pendingTravel]);
+    }, [activeTraining, activeJutsuTraining, character?.hospitalized, pendingTravel, missionProgress]);
 
     // Save on page unload (F5 / tab close / navigation away) so that progress
     // made since the last auto-save is not lost.
@@ -5240,7 +5240,10 @@ export default function App() {
         // Only complete if the player finished tracking (huntSector holds the
         // counter at required-1 going into the fight). This marks the contract
         // claimable; claimHunt() pays out. Prevents claiming a hunt reward after
-        // dying or fleeing the beast.
+        // dying or fleeing the beast. Flush the completion to the server NOW: it
+        // lives only in the client missionProgress map, so a save-conflict refetch
+        // before the 3–15s autosave would revert it below required and hide Claim.
+        if ((missionProgress[mission.id] ?? 0) >= required - 1) flushSaveRef.current = true;
         setMissionProgress((current) =>
             (current[mission.id] ?? 0) >= required - 1
                 ? { ...current, [mission.id]: required }

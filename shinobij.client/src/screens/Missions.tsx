@@ -53,9 +53,9 @@ export function Missions({
     creatorAis: CreatorAi[];
     creatorMissions: CreatorMission[];
     acceptedMissionIds: string[];
-    setAcceptedMissionIds: (ids: string[]) => void;
+    setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
-    setMissionProgress: (progress: Record<string, number>) => void;
+    setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     setPendingAiProfileId: (id: string) => void;
     setScreen: (screen: Screen) => void;
     onBack: () => void;
@@ -92,7 +92,7 @@ export function Missions({
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); onMissionBattleStart?.(); setPendingAiProfileId(ai.id); setScreen("arena"); }
-    function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
+    function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds((prev) => [...prev, mission.id]); setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 })); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
     // Server-authoritative for built-in field missions; creator-authored missions
     // (not in the server catalog) fall back to the legacy client payout via the
     // clientFallback signal.
@@ -107,8 +107,8 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
             updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-            setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-            setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+            setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+            setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
             return;
         }
@@ -122,8 +122,8 @@ export function Missions({
             const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(prev, boostedXp), mission.currencyRewards), 3);
             return markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) });
         });
-        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-        setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
         alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);
     }
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];

@@ -117,6 +117,7 @@ export function claimReasonMessage(reason: string): string {
         case "not-queued": return "Win this mission's battle first.";
         case "level": return "You don't meet the level requirement.";
         case "already-claimed": return "You've already claimed this.";
+        case "already-claimed-today": return "You've already claimed this today. Resets at midnight UTC.";
         case "no-save": return "Could not load your save. Try again.";
         default: return "Could not claim this mission right now. Try again.";
     }
