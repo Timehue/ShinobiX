@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import type { Character } from "../types/character";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank } from "../types/core";
-import { JUTSU_MAX_LEVEL } from "../constants/game";
+import { JUTSU_MAX_LEVEL, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { allTags, binaryTags, bloodlineUniqueTags, cappedDamageTags, percentageTags, hasFixedEffectPower, normalizeJutsuTags, tagCapForRank } from "../lib/tags";
 import { bloodlinePoints, jutsuPoints, jutsuPointBreakdown, jutsuCountForRank, pointBudgetForRank, normalizeBloodlineTagPercent } from "../lib/jutsu-points";
 import { describeJutsuEffects } from "../lib/jutsu-effects";
@@ -390,7 +390,9 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     )}
                     <div className="summary-box bloodline-element-lock">Cooldown: 7</div>
                     <div className="summary-box bloodline-element-lock">
-                        Chakra/Stamina Cost: {formatJutsuResourcePercent(jutsu, "chakra")} each · Level 50: {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} each · Reduction: -1% at mastery 50.
+                        {COMBAT_RESOURCES_V2
+                            ? <>Chakra/Stamina Cost: a concrete amount that scales with the caster's level, drawn from one bar by discipline — shown in battle.</>
+                            : <>Chakra/Stamina Cost: {formatJutsuResourcePercent(jutsu, "chakra")} each · Level 50: {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} each · Reduction: -1% at mastery 50.</>}
                     </div>
                     <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => {
                         const currentTag = jutsu.tags[tagIndex]?.name ?? "";

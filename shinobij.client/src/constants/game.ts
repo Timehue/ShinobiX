@@ -34,6 +34,26 @@ export const STAMINA_CAP = 5000;
 // Used by the awakening / aura-sphere combat mechanic.
 export const STUN_AP_PENALTY = 40;
 
+// ── combatResourcesV2 — chakra/stamina combat-resource redesign ──────────────
+// Master switch for the redesigned system (docs/chakra-stamina-redesign-plan.md):
+// a bigger level-scaling pool, concrete per-jutsu costs (real numbers, not %-of-max)
+// routed to ONE bar by discipline (Ninjutsu/Genjutsu→chakra, Taijutsu/Bukijutsu→
+// stamina, Any→caster specialty), and a per-turn regen so fights last ~20 rounds
+// early → ~30 near cap without dead-ending. When false, the legacy %-of-max model
+// is used everywhere, unchanged.
+//
+// PARITY-CRITICAL: this MUST equal the server mirror api/_xp-engine.ts
+// COMBAT_RESOURCES_V2 (pinned by api/_xp-engine.test.ts) or PvE and PvP diverge.
+// It is a build-time constant (not a per-device localStorage flag) precisely so the
+// two engines can't desync. To enable: flip BOTH copies to true and rebuild
+// (client dist + server); Railway self-builds.
+export const COMBAT_RESOURCES_V2 = false;
+// v2 pool curve — linear base@L1 → cap@L100 (only used when COMBAT_RESOURCES_V2).
+export const CHAKRA_BASE_V2 = 1000;
+export const CHAKRA_CAP_V2 = 10000;
+export const STAMINA_BASE_V2 = 1000;
+export const STAMINA_CAP_V2 = 10000;
+
 // ── Jutsu training caps ──────────────────────────────────────────────────
 export const JUTSU_MAX_LEVEL = 50;
 export const JUTSU_TRAINING_CAP = 30;

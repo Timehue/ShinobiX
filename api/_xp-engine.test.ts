@@ -5,7 +5,11 @@ import {
     rankFromLevel, reconcileCharacterStatBudget, effectiveCharacterXpGain,
     rankTitleForLevel, computePvpWinGains, creditPvpWinBase,
     MAX_LEVEL, CHARACTER_XP_GAIN_MULTIPLIER,
+    COMBAT_RESOURCES_V2 as V2_COMBAT_RESOURCES,
+    CHAKRA_BASE_V2 as V2_CHAKRA_BASE, CHAKRA_CAP_V2 as V2_CHAKRA_CAP,
+    STAMINA_BASE_V2 as V2_STAMINA_BASE, STAMINA_CAP_V2 as V2_STAMINA_CAP,
 } from './_xp-engine.js';
+import { v2JutsuResourceCost, v2ResourceRegen, resolveJutsuDiscipline, v2PoisonOnSpend, POISON_SPEND_FACTOR } from './_combat-resources.js';
 
 // ─── Independent inline replica of the CLIENT level engine ──────────────────
 // Transcribed straight from shinobij.client/src/lib/{stats,progression,
@@ -92,6 +96,75 @@ function cGainXp(character: Record<string, unknown>, amount: number): Record<str
     }
     return cReconcile(updated);
 }
+
+// ─── combatResourcesV2 inline client spec ───────────────────────────────────
+// Replica of shinobij.client/src/{constants/game.ts, lib/jutsu-scaling.ts} v2 math.
+// The server (_xp-engine.ts pool constants + _combat-resources.ts cost/regen/
+// discipline) must match this; the client is a verbatim copy of the same spec.
+const C_V2_FLAG = false; // COMBAT_RESOURCES_V2
+const C_V2_CHAKRA_BASE = 1000, C_V2_CHAKRA_CAP = 10000, C_V2_STAMINA_BASE = 1000, C_V2_STAMINA_CAP = 10000;
+const cV2Lerp = (base: number, cap: number, lvl: number) => {
+    const L = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(Number(lvl) || 1)));
+    return Math.round(base + (cap - base) * (L - 1) / (C_MAX_LEVEL - 1));
+};
+const C_V2_TIERS = [{ minAp: 60, base: 50, cap: 350 }, { minAp: 40, base: 25, cap: 175 }, { minAp: 1, base: 12, cap: 90 }];
+const cV2Cost = (ap: number, lvl: number) => { const t = C_V2_TIERS.find(t => (Number(ap) || 0) >= t.minAp); return t ? cV2Lerp(t.base, t.cap, lvl) : 0; };
+const cV2Regen = (lvl: number) => cV2Lerp(25, 175, lvl);
+const C_V2_CHAKRA_DISC = new Set(['Ninjutsu', 'Genjutsu']);
+const C_V2_DISC = ['Taijutsu', 'Bukijutsu', 'Genjutsu', 'Ninjutsu'];
+const cResolveDisc = (type: string | null | undefined, sp: string | null | undefined) => {
+    let t = type ?? '';
+    if (t === 'Any' || !C_V2_DISC.includes(t)) t = C_V2_DISC.includes(String(sp)) ? String(sp) : 'Taijutsu';
+    return C_V2_CHAKRA_DISC.has(t) ? 'chakra' : 'stamina';
+};
+
+describe('combatResourcesV2 sub-formulas match the client', () => {
+    it('flag + pool constants are in sync (server == client spec)', () => {
+        assert.equal(V2_COMBAT_RESOURCES, C_V2_FLAG, 'COMBAT_RESOURCES_V2 flag');
+        assert.equal(V2_CHAKRA_BASE, C_V2_CHAKRA_BASE);
+        assert.equal(V2_CHAKRA_CAP, C_V2_CHAKRA_CAP);
+        assert.equal(V2_STAMINA_BASE, C_V2_STAMINA_BASE);
+        assert.equal(V2_STAMINA_CAP, C_V2_STAMINA_CAP);
+    });
+    it('v2 cost + regen match across levels and AP tiers', () => {
+        for (let lvl = 1; lvl <= 100; lvl++) {
+            assert.equal(v2ResourceRegen(lvl), cV2Regen(lvl), `regen(${lvl})`);
+            for (const ap of [0, 20, 40, 55, 60, 80]) {
+                assert.equal(v2JutsuResourceCost(ap, lvl), cV2Cost(ap, lvl), `cost(ap${ap},L${lvl})`);
+            }
+        }
+        // Anchor the tuning: 60-AP ~50→~350, 40-AP ~25→~175, regen 25→175.
+        assert.equal(v2JutsuResourceCost(60, 1), 50);
+        assert.equal(v2JutsuResourceCost(60, 100), 350);
+        assert.equal(v2JutsuResourceCost(40, 1), 25);
+        assert.equal(v2ResourceRegen(1), 25);
+        assert.equal(v2ResourceRegen(100), 175);
+    });
+    it('poison-on-spend scales off jutsu cost, not the pool', () => {
+        const cPoison = (spend: number, pct: number) => {
+            const p = pct > 0 ? pct : 6;
+            const s = Math.max(0, Number(spend) || 0);
+            return s <= 0 ? 0 : Math.max(1, Math.round(s * (p / 100) * POISON_SPEND_FACTOR));
+        };
+        for (const spend of [0, 50, 120, 200, 350]) {
+            for (const pct of [0, 6, 15, 30]) {
+                assert.equal(v2PoisonOnSpend(spend, pct), cPoison(spend, pct), `poison(spend${spend},pct${pct})`);
+            }
+        }
+        assert.equal(v2PoisonOnSpend(0, 6), 0, 'no spend → no poison');
+        assert.equal(v2PoisonOnSpend(200, 0), v2PoisonOnSpend(200, 6), 'pct 0 defaults to 6');
+    });
+    it('discipline routing: concrete type → its bar; Any → specialty (fallback stamina)', () => {
+        for (const type of ['Ninjutsu', 'Genjutsu', 'Taijutsu', 'Bukijutsu', 'Any', '', null]) {
+            for (const sp of ['Ninjutsu', 'Genjutsu', 'Taijutsu', 'Bukijutsu', '', null]) {
+                assert.equal(resolveJutsuDiscipline(type, sp), cResolveDisc(type, sp), `disc(${type},${sp})`);
+            }
+        }
+        assert.equal(resolveJutsuDiscipline('Ninjutsu', 'Taijutsu'), 'chakra');
+        assert.equal(resolveJutsuDiscipline('Any', 'Bukijutsu'), 'stamina');
+        assert.equal(resolveJutsuDiscipline('Any', ''), 'stamina');
+    });
+});
 
 // ─── Sub-formula equivalence ────────────────────────────────────────────────
 describe('xp-engine sub-formulas match the client', () => {

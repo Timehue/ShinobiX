@@ -7,7 +7,8 @@ import type { AiAction, AiCondition, AiLoadoutId, AiRule, CreatorAi } from "../t
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { Pet, PetJutsu, PetRarity } from "../types/pet";
 import type { MissionRank } from "../constants/hunter";
-import { DUNGEON_LEGENDARY_FRAGMENT_ID, HOLLOW_GATE_KEY_ID, MAX_LEVEL, PLAYER_ACCOUNTS_STORAGE, STORAGE, VEIL_OF_THE_HOLLOW_ID } from "../constants/game";
+import { DUNGEON_LEGENDARY_FRAGMENT_ID, HOLLOW_GATE_KEY_ID, MAX_LEVEL, PLAYER_ACCOUNTS_STORAGE, STORAGE, VEIL_OF_THE_HOLLOW_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
+import { v2JutsuResourceCost } from "../lib/jutsu-scaling";
 import { AdminPasswordReset, AdminClearAuthLock } from "./AdminLogin";
 import { ModerationPanel } from "./ModerationPanel";
 import { AdminLegacyPanel } from "./AdminLegacyPanel";
@@ -2310,6 +2311,11 @@ export function AdminPanel({
                             <div className="inline-grid"><input type="number" min={1} value={jutsuAp} onChange={(e) => { const ap = Math.max(1, Number(e.target.value)); setJutsuAp(ap); if (ap === 40) setJutsuType("Any"); }} /><input type="number" min={1} value={jutsuRange} onChange={(e) => setJutsuRange(Math.max(1, Number(e.target.value)))} /><input type="number" min={1} value={jutsuEp} onChange={(e) => setJutsuEp(Math.max(1, Number(e.target.value)))} /><input type="number" min={0} value={jutsuCooldown} onChange={(e) => setJutsuCooldown(Math.max(0, Number(e.target.value)))} /></div>
                             <label>Health / Chakra / Stamina Cost</label>
                             <div className="inline-grid"><input type="number" value={healthCost} onChange={(e) => setHealthCost(Number(e.target.value))} /><input type="number" value={chakraCost} onChange={(e) => setChakraCost(Number(e.target.value))} /><input type="number" value={staminaCost} onChange={(e) => setStaminaCost(Number(e.target.value))} /></div>
+                            {COMBAT_RESOURCES_V2 && (chakraCost > 0 || staminaCost > 0) && (
+                                <p className="hint" style={{ margin: "2px 0 0", fontSize: "0.75rem" }}>
+                                    v2 combat cost: ~{v2JutsuResourceCost(jutsuAp, 1)} (L1) → ~{v2JutsuResourceCost(jutsuAp, 100)} (L100), drawn from {jutsuType === "Ninjutsu" || jutsuType === "Genjutsu" ? "chakra" : jutsuType === "Any" ? "the caster's specialty bar" : "stamina"}. Under v2 the chakra/stamina numbers above act only as an on/off flag — the real cost is derived from AP + level.
+                                </p>
+                            )}
                             <label>Health / Chakra / Stamina Cost Reduction Per Level</label>
                             <div className="inline-grid"><input type="number" value={healthCostReducePerLvl} onChange={(e) => setHealthCostReducePerLvl(Number(e.target.value))} /><input type="number" value={chakraCostReducePerLvl} onChange={(e) => setChakraCostReducePerLvl(Number(e.target.value))} /><input type="number" value={staminaCostReducePerLvl} onChange={(e) => setStaminaCostReducePerLvl(Number(e.target.value))} /></div>
                             <label>Tags</label>
