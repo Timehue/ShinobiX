@@ -9,7 +9,6 @@ import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
-import { HexZoomBar } from "../components/HexZoomBar";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
@@ -164,7 +163,7 @@ export function PvpBattleScreen({
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
     // Auto-fit board scale + manual zoom — shared hook (see lib/use-board-scale).
-    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
+    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
     const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
     // When the round timer hits 0 we queue an auto-wait. If the player has
     // an action in flight at that moment (submitting === true), the wait
@@ -1263,7 +1262,7 @@ export function PvpBattleScreen({
                         <div>
                             <strong>{me.name} AP</strong>
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${myAp}%` }} /></div>
-                            <small>{myAp}/100 | {isMyTurn ? `Active: ${session.actionsThisTurn}/5` : "Waiting"}</small>
+                            <small>{myAp}/100 | {isMyTurn ? "Active" : "Waiting"}</small>
                         </div>
                         {isMyTurn && !done ? (
                             <CombatRoundTimer
@@ -1286,7 +1285,6 @@ export function PvpBattleScreen({
                         </div>
                     </div>
 
-                    <HexZoomBar value={userScaleOffset} onChange={setUserScaleOffset} min={-0.4} max={0.5} step={0.02} />
 
                     <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}>

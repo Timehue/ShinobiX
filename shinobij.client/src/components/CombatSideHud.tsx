@@ -144,12 +144,6 @@ export function CombatSideHud({
                 </div>
             </div>
 
-            {/* Compact glanceable strip — the ONLY effects readout on mobile,
-                where the verbose Buffs/Debuffs columns below are hidden (they
-                overflow the clamped HUD). Sits right under HP so active buffs/
-                debuffs are read where turns are decided. Hidden on desktop via CSS. */}
-            <MobileEffectsStrip statuses={statuses} />
-
             <div className="resource-line">
                 <span className="resource-label">Chakra <small>{chakra} / {maxChakra}</small></span>
                 <div className="hud-bar chakra-bar">
@@ -172,6 +166,13 @@ export function CombatSideHud({
                     </div>
                 </div>
             )}
+
+            {/* Compact glanceable buff/debuff strip — sits BELOW the resource bars
+                (HP/Chakra/Stamina/Shield) on mobile so the stat block reads as one
+                unit with its effects underneath. The ONLY effects readout on mobile
+                (the verbose Buffs/Debuffs columns below are hidden there); desktop
+                hides this strip and shows the columns instead. */}
+            <MobileEffectsStrip statuses={statuses} />
 
             <div className="combat-hud-meta">
                 <span>Round {turn}</span>
