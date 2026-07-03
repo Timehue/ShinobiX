@@ -4,8 +4,17 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
+import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget } from './session.js';
 import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
+
+// Internal floating-number event before it's mapped to a concrete fighter slot.
+// `self` = the caster / ticking fighter, `opp` = the opponent — resolved to
+// p1/p2 by the handler (which knows the acting role). Mirrors the log line that
+// is pushed alongside it, so the flying number equals the logged damage/heal.
+type HitFxEvent = { who: 'self' | 'opp'; amount: number; kind: 'damage' | 'heal' };
+function pushFx(fx: HitFxEvent[], who: 'self' | 'opp', amount: number, kind: 'damage' | 'heal') {
+    if (amount > 0) fx.push({ who, amount: Math.round(amount), kind });
+}
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 import { writeBattleReceipt, writeActionReceipt } from '../_receipts.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -847,9 +856,10 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
 //   8. siphon                attacker heal from finalDmg
 // All post-damage effects are capped at 60% of finalDmg via cappedPostDamage().
 // Pierce skips shield/reflect/absorb (true damage). Reordering changes outcomes.
-function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, damage: number, pierce: boolean, healBoost: number): { s: PvpFighter; o: PvpFighter; lines: string[] } {
+function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, damage: number, pierce: boolean, healBoost: number): { s: PvpFighter; o: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
+    const fx: HitFxEvent[] = [];
     let s = sIn;
     let o = oIn;
 
@@ -876,12 +886,12 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     if (absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
     if (itemAbsorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
     if (blocked > 0) lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
-    if (finalDmg > 0) lines.push(`${finalDmg} damage to ${o.name}.`);
-    if (absorbHeal > 0) lines.push(`${o.name} absorbs ${absorbHeal} HP.`);
-    if (itemAbsorbHeal > 0) lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`);
-    if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); }
-    if (itemReflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) }; lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); }
-    if (itemLifeStealHeal > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) }; lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`); }
+    if (finalDmg > 0) { lines.push(`${finalDmg} damage to ${o.name}.`); pushFx(fx, 'opp', finalDmg, 'damage'); }
+    if (absorbHeal > 0) { lines.push(`${o.name} absorbs ${absorbHeal} HP.`); pushFx(fx, 'opp', absorbHeal, 'heal'); }
+    if (itemAbsorbHeal > 0) { lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`); pushFx(fx, 'opp', itemAbsorbHeal, 'heal'); }
+    if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); pushFx(fx, 'self', reflectedDmg, 'damage'); }
+    if (itemReflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) }; lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); pushFx(fx, 'self', itemReflectedDmg, 'damage'); }
+    if (itemLifeStealHeal > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) }; lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`); pushFx(fx, 'self', itemLifeStealHeal, 'heal'); }
 
     for (const tag of tags) {
         const tagName = normalizeTagName(tag.name);
@@ -898,24 +908,24 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         // Recoil debuff application happens in the status phase so it applies even
         // on zero-damage utility jutsu. (Self-recoil damage is resolved below,
         // gated on finalDmg.)
-        if (tagName === 'Siphon') { const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); }
+        if (tagName === 'Siphon') { const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
     }
 
     const recoilStatus = activeStatuses(s, round).find(st => st.name === 'Recoil');
-    if (recoilStatus && finalDmg > 0) { const rc = cappedPostDamage(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); }
+    if (recoilStatus && finalDmg > 0) { const rc = cappedPostDamage(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
 
     // Sum all active Lifesteal stacks' percents (capped at 60% by
     // cappedPostDamage), matching PvE — was first-stack-only (.find).
     const lsPct = activeStatuses(s, round).filter(st => st.name === 'Lifesteal').reduce((sum, st) => sum + (st.percent ?? 0), 0);
-    if (lsPct > 0 && finalDmg > 0) { const h = Math.floor(cappedPostDamage(finalDmg, lsPct) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); }
+    if (lsPct > 0 && finalDmg > 0) { const h = Math.floor(cappedPostDamage(finalDmg, lsPct) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
 
-    return { s, o, lines };
+    return { s, o, lines, fx };
 }
 
 // Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts)
 // and the characterization snapshot (_applyjutsu-characterization.test.ts), which
 // pin the "lingering tags don't fire on the cast turn" behaviour + exact numbers.
-export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
+export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central', round = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
@@ -946,6 +956,7 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     const status = resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg, healBoost);
     let { s, o } = status;
     const lines = status.lines;
+    const fx: HitFxEvent[] = [];
 
     // Phase 3 — final damage number (pierce true-damage OR base × (1−DR) × amp).
     const damage = resolveDamageNumber(self, opponent, jutsu, round, masteryLevel, offStats, status.damage, status.pierce, effectiveDR);
@@ -956,12 +967,13 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         s = post.s;
         o = post.o;
         lines.push(...post.lines);
+        fx.push(...post.fx);
     }
 
     // Phase 5 — apply the pending self heal / shield queued in the status phase.
-    if (status.healing > 0) s = { ...s, hp: Math.min(s.maxHp, s.hp + status.healing) };
+    if (status.healing > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + status.healing) }; pushFx(fx, 'self', status.healing, 'heal'); }
     if (status.shieldGain > 0) s = { ...s, shield: s.shield + status.shieldGain };
-    return { self: s, opponent: o, lines };
+    return { self: s, opponent: o, lines, fx };
 }
 
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
@@ -969,8 +981,9 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
 // scaled by DR_DOT_SCALE so DoT can't be made fully invulnerable.
 // Exported so Battle Towers' engine can tick Wound/Poison/Drain with identical math.
 // Pure function; exporting it changes zero PvP behaviour.
-export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFighter; lines: string[] } {
+export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFighter; lines: string[]; fx: HitFxEvent[] } {
     const lines: string[] = [];
+    const fx: HitFxEvent[] = [];
     let f = { ...fighter };
     // Compute own DR pool against incoming DoT.
     const ownArmor = (f.character.armorRawDR !== undefined && f.character.armorRawDR !== null)
@@ -989,6 +1002,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             const dmg = mit(s.amount);
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
+            pushFx(fx, 'self', dmg, 'damage');
         }
         if (s.name === 'Poison') {
             // Poison is an HP-only DoT whose magnitude is a % of the victim's
@@ -998,14 +1012,16 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
+            pushFx(fx, 'self', dmg, 'damage');
         }
         if (s.name === 'Drain') {
             const amt = mit(s.amount ?? DRAIN_BASE_TICK);
             f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
             lines.push(`${f.name} drained ${amt} HP+chakra.`);
+            pushFx(fx, 'self', amt, 'damage');
         }
     }
-    return { fighter: f, lines };
+    return { fighter: f, lines, fx };
 }
 
 // ─── Win check ────────────────────────────────────────────────────────────────
@@ -1089,7 +1105,13 @@ function endTurn(session: PvpSession): PvpSession {
     lines.push(...dots.lines);
     s = next === 'p1' ? { ...s, p1: nextFighter } : { ...s, p2: nextFighter };
 
-    s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log });
+    // DoT ticks all land on the next player — surface each as its own floating
+    // number (true amount, matching the log) with a bumped fxSeq so the client
+    // renders it exactly once.
+    const dotFx: HitFxTarget[] = dots.fx.map((e) => ({ target: next, amount: e.amount, kind: e.kind }));
+    const fxPatch = dotFx.length ? { fx: dotFx, fxSeq: (session.fxSeq ?? 0) + 1 } : {};
+
+    s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log, ...fxPatch });
     if (s.status === 'done') return s;
 
     // Stun applies a flat AP penalty instead of skipping the turn entirely.
@@ -1277,13 +1299,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         function canAct(cost: number) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
 
-        function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>, extra?: Partial<PvpSession>): PvpSession {
+        function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>, extra?: Partial<PvpSession>, fx?: HitFxEvent[]): PvpSession {
             let s: PvpSession = { ...session, ...extra } as PvpSession;
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
+            // Map this action's floating-number events (self = the acting role,
+            // opp = the other) to concrete slots + bump fxSeq so the client
+            // renders the TRUE per-hit numbers once, matching the log.
+            if (fx && fx.length) {
+                const otherRole: 'p1' | 'p2' = role === 'p1' ? 'p2' : 'p1';
+                const mapped: HitFxTarget[] = fx.map((e) => ({ target: e.who === 'self' ? (role as 'p1' | 'p2') : otherRole, amount: e.amount, kind: e.kind }));
+                s = { ...s, fx: mapped, fxSeq: (session.fxSeq ?? 0) + 1 };
+            }
             // Stamp lastMoveAt + reset this player's AFK counter (any real
             // action ends the streak of skipped rounds). Both are read by
             // the claim-afk-win action.
@@ -1393,15 +1423,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lines.push(`${me.name} uses Basic Attack:`);
                 const atk = applyJutsu(me, opp, basicJutsu, 1, biome, session.round);
                 lines.push(...atk.lines);
-                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40);
+                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40, undefined, undefined, atk.fx);
                 break;
             }
 
             case 'basicHeal': {
                 if (!canAct(60) || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10) return finish(withRejected(session, 'Basic Heal isn\'t ready — out of AP/chakra, or on cooldown.'));
                 const healAmt = Math.max(1, Math.floor(me.maxHp * 0.1));
+                const healFx: HitFxEvent[] = [{ who: 'self', amount: healAmt, kind: 'heal' }];
                 lines.push(`${me.name} uses Basic Heal, restoring ${healAmt} HP.`);
-                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 });
+                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 }, undefined, healFx);
                 break;
             }
 
@@ -1539,7 +1570,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome, session.round);
                         lines.push(`Ring impact catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit(jr.self, jr.opponent, apCost, cd);
+                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx);
                     } else if (jutsuMethod === 'AOE_CIRCLE') {
                         lines.push(`${opp.name} is outside the impact area.`);
                         result = commit(movedSelf, null, apCost, cd);
@@ -1589,7 +1620,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome, session.round);
                         lines.push(`Area burst catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit(jr.self, jr.opponent, apCost, cd);
+                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx);
                     } else {
                         lines.push(`${opp.name} is outside the impact area.`);
                         result = commit(paidSelf, null, apCost, cd);
@@ -1604,7 +1635,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     stamina: Math.max(0, jr.self.stamina - jStaminaCost),
                 };
                 lines.push(...jr.lines);
-                result = commit(jUpdatedSelf, jr.opponent, apCost, cd);
+                result = commit(jUpdatedSelf, jr.opponent, apCost, cd, undefined, jr.fx);
                 break;
             }
 
@@ -1669,7 +1700,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome, session.round);
                 lines.push(...wr.lines);
                 const wCd = wCdTurns > 0 ? { [wCdKey]: wCdTurns } : undefined;
-                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch);
+                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch, wr.fx);
                 break;
             }
 
@@ -1736,7 +1767,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ir.lines.push(`Smoke: ${irSelf.name} also deals ${ddgPct}% less damage for 1 round.`);
                 }
                 lines.push(...ir.lines);
-                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch);
+                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch, ir.fx);
                 break;
             }
 

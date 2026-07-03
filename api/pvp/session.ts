@@ -134,7 +134,18 @@ export type PvpSession = {
     // submitted action was rejected. NEVER written to KV; stripped implicitly
     // because rejects don't persist the session.
     rejected?: PvpRejection;
+    // Cosmetic floating-number events for the LAST resolved action / DoT tick:
+    // the TRUE per-hit damage/heal per fighter (the same values written to the
+    // combat log), NOT a client-side HP delta. `fxSeq` is a monotonic counter
+    // bumped whenever a new fx batch is set, so a client renders each batch
+    // exactly once regardless of poll cadence (and overkill / multi-hit reads the
+    // real number instead of the post-clamp remainder). Display-only — combat
+    // never reads these back.
+    fx?: HitFxTarget[];
+    fxSeq?: number;
 };
+// A single floating-number event, already mapped to a concrete fighter slot.
+export type HitFxTarget = { target: 'p1' | 'p2'; amount: number; kind: 'damage' | 'heal' };
 export const PVP_MOVE_TOKEN_HISTORY = 20;
 
 // Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
