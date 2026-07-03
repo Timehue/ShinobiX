@@ -24,7 +24,13 @@ const DOUBLE_TAP_ZOOM = 2.6;   // where a double-tap lands (markers ≈ 55px)
 const CHIP_ZOOM = 2.4;         // village quick-jump target zoom
 const DOUBLE_TAP_MS = 320;     // max gap between taps to count as a double-tap
 const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
-const MAP_AR = 1536 / 1024;    // the painted world map is 3:2 (1536×1024)
+// The map's DISPLAYED aspect on the mobile zoom surface. Deliberately TALLER
+// (smaller w/h) than the source art's true 3:2 (1.5) so the painting stretches
+// vertically (its background-size is 100% 100%) to better fill a tall phone
+// screen with less side-crop — the %-positioned markers stretch with it and stay
+// registered, and the fixed-size pins stay round. MUST stay in sync with the
+// `--wm-map-ar` fallback in the wm-zoom .generated-world-map CSS rule.
+const MAP_AR = 1.25;
 
 /** Master flag. Default ON for narrow / touch viewports; a per-device
  *  `worldMapZoom.v1` localStorage override forces it on ("1") or off ("0").
@@ -155,19 +161,28 @@ export function useWorldMapZoom(): WorldMapZoomApi {
         };
     }, []);
 
-    // The mobile "home" / reset view: scale the fit-to-width base UP so the map
-    // fills the (taller) viewport height, centered horizontally. This is what
-    // makes the map big and immersive by default instead of a short letterboxed
-    // strip. Pinch-out still reaches the whole map (zoom 1) and the region chips
-    // fly to each homeland, so nothing is unreachable.
+    // The MINIMUM allowed zoom: the "cover" zoom at which the map exactly fills
+    // the viewport height. This is the pinch-out floor, so you can never zoom out
+    // into an ugly black-bar letterbox — the map stays full-bleed at every zoom.
+    // Viewport-dependent (recomputed from the live size each call).
+    const coverZoom = useCallback(() => {
+        const { w, h } = sizeRef.current;
+        if (!w || !h) return MIN_ZOOM;
+        return clamp(h / (w / MAP_AR), MIN_ZOOM, MAX_ZOOM);
+    }, []);
+
+    // The mobile "home" / reset view: the map scaled to COVER the viewport height,
+    // centered horizontally — big, immersive, and never letterboxed. This equals
+    // the minimum zoom, so pinch-out lands exactly here. Region chips + pan reach
+    // the cropped edges, so nothing is unreachable.
     const coverView = useCallback(() => {
         const { w, h } = sizeRef.current;
         if (!w || !h) return { zoom: MIN_ZOOM, tx: 0, ty: 0 };
+        const zoom = coverZoom();
         const bh = w / MAP_AR;
-        const zoom = clamp(h / bh, MIN_ZOOM, MAX_ZOOM);
         const p = clampPan(zoom, (w - w * zoom) / 2, (h - bh * zoom) / 2);
         return { zoom, tx: p.tx, ty: p.ty };
-    }, [clampPan]);
+    }, [clampPan, coverZoom]);
 
     // Apply the fill-height home view once the viewport has been measured, and
     // again on re-activation (e.g. rotating back into the mobile breakpoint). rAF
@@ -182,14 +197,15 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     // Zoom to `nextZoom` while holding the map point under (fx,fy) — viewport-
     // relative pixels — fixed on screen.
     const zoomAt = useCallback((nextZoom: number, fx: number, fy: number) => {
+        const minZ = coverZoom();
         setView((v) => {
-            const z1 = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
+            const z1 = clamp(nextZoom, minZ, MAX_ZOOM);
             const tx = fx - (fx - v.tx) / v.zoom * z1;
             const ty = fy - (fy - v.ty) / v.zoom * z1;
             const p = clampPan(z1, tx, ty);
             return { zoom: z1, tx: p.tx, ty: p.ty };
         });
-    }, [clampPan]);
+    }, [clampPan, coverZoom]);
 
     const centerZoom = useCallback((nextZoom: number) => {
         const { w, h } = sizeRef.current;
@@ -232,8 +248,9 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             const ratio = pinch.current.dist > 0 ? dist / pinch.current.dist : 1;
             const dMidX = mid.x - pinch.current.mid.x;
             const dMidY = mid.y - pinch.current.mid.y;
+            const minZ = coverZoom();
             setView((v) => {
-                const z1 = clamp(v.zoom * ratio, MIN_ZOOM, MAX_ZOOM);
+                const z1 = clamp(v.zoom * ratio, minZ, MAX_ZOOM);
                 const tx = mid.x - (mid.x - v.tx) / v.zoom * z1 + dMidX;
                 const ty = mid.y - (mid.y - v.ty) / v.zoom * z1 + dMidY;
                 const c = clampPan(z1, tx, ty);
@@ -252,7 +269,7 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             const c = clampPan(v.zoom, v.tx + dx, v.ty + dy);
             return { zoom: v.zoom, tx: c.tx, ty: c.ty };
         });
-    }, [clampPan]);
+    }, [clampPan, coverZoom]);
 
     const endPointer = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
@@ -267,15 +284,16 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             const prev = lastTap.current;
             if (prev && now - prev.t < DOUBLE_TAP_MS
                 && Math.hypot(p.x - prev.x, p.y - prev.y) < 40) {
-                if (viewRef.current.zoom <= MIN_ZOOM + 0.05) zoomAt(DOUBLE_TAP_ZOOM, p.x, p.y);
-                // Zoom out to the whole map (zoom 1), centered in the tall viewport.
-                else { const c = clampPan(MIN_ZOOM, 0, 0); setView({ zoom: MIN_ZOOM, tx: c.tx, ty: c.ty }); }
+                // Toggle: at the full-bleed floor → zoom in on the tap; otherwise
+                // zoom back out to the full-bleed cover view (never past it).
+                if (viewRef.current.zoom <= coverZoom() + 0.05) zoomAt(DOUBLE_TAP_ZOOM, p.x, p.y);
+                else setView(coverView());
                 lastTap.current = null;
                 return;
             }
             lastTap.current = { t: now, x: p.x, y: p.y };
         }
-    }, [zoomAt, clampPan]);
+    }, [zoomAt, coverZoom, coverView]);
 
     const onWheel = useCallback((e: React.WheelEvent) => {
         if (!activeRef.current) return;
@@ -289,13 +307,13 @@ export function useWorldMapZoom(): WorldMapZoomApi {
     const focusPoint = useCallback((xPct: number, yPct: number, targetZoom = CHIP_ZOOM) => {
         const { w, h } = sizeRef.current;
         const bh = w / MAP_AR;
-        const z = clamp(targetZoom, MIN_ZOOM, MAX_ZOOM);
+        const z = clamp(targetZoom, coverZoom(), MAX_ZOOM);
         // Marker sits at (xPct%, yPct%) of the base map, whose size is w × bh.
         const cx = (xPct / 100) * w;
         const cy = (yPct / 100) * bh;
         const p = clampPan(z, w / 2 - cx * z, h / 2 - cy * z);
         setView({ zoom: z, tx: p.tx, ty: p.ty });
-    }, [clampPan]);
+    }, [clampPan, coverZoom]);
 
     const contentStyle = useMemo<React.CSSProperties>(() => {
         if (!active) return {};
@@ -313,6 +331,9 @@ export function useWorldMapZoom(): WorldMapZoomApi {
             // overrides the legacy `transform: none !important` mobile rule.
             ["--wm-tf" as string]: `translate(${view.tx}px, ${view.ty}px) scale(${view.zoom})`,
             ["--wm-marker-scale" as string]: markerScale.toFixed(3),
+            // Drives the map box's displayed aspect (background-size:100% 100% then
+            // stretches the art to it). Single source of truth = MAP_AR.
+            ["--wm-map-ar" as string]: String(MAP_AR),
             transition: dragging ? "none" : "transform 140ms ease-out",
         } as React.CSSProperties;
     }, [active, view, dragging]);
