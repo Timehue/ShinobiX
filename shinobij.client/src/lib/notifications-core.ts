@@ -25,7 +25,7 @@ export interface GameNotification {
 // they get their own dedicated war/event chips below, so listing them here too
 // would double up.
 const BATTLE_ONLY_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "pvpBattle", "storyBoss", "tilecardsDuel", "dungeon",
+    "pvpBattle", "storyBoss", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "dungeon",
     "hollowGateShrine", "hollowGateTiles", "eventTiles", "eventPetBattle",
     "endlessTower",
 ]);
@@ -54,6 +54,19 @@ const BATTLE_VIEW_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 
 export function isBattleViewScreen(screen: Screen): boolean {
     return BATTLE_VIEW_SCREENS.has(screen);
+}
+
+export interface BattleChromeInputs {
+    screen: Screen;
+    /** Arena District and Pet Arena have lobby + fight states; hide only mid-fight. */
+    arenaBattleActive: boolean;
+    petBattleActive: boolean;
+}
+
+export function shouldHideBattleChrome(inputs: BattleChromeInputs): boolean {
+    return isBattleViewScreen(inputs.screen)
+        || (inputs.screen === "arenaDistrict" && inputs.arenaBattleActive)
+        || (inputs.screen === "petArena" && inputs.petBattleActive);
 }
 
 export interface NotifInputs {
