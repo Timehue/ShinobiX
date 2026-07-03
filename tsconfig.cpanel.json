@@ -11,7 +11,7 @@
         "declaration": false,
         "resolveJsonModule": true,
         "allowSyntheticDefaultImports": true,
-        "noEmitOnError": false
+        "noEmitOnError": true
     },
     "include": [
         "server.ts",
