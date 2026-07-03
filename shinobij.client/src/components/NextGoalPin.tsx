@@ -50,7 +50,22 @@ export function NextGoalPin({ character, navigate, compact = false }: { characte
             onClick={dismiss}
             aria-label="Hide this goal"
             title="Hide — returns on your next goal"
-            style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: size, lineHeight: 1, padding: "0 2px", alignSelf: "flex-start" }}
+            style={{
+                alignSelf: "flex-start",
+                background: "none",
+                border: "none",
+                color: "#94a3b8",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flex: "0 0 auto",
+                fontSize: size,
+                lineHeight: 1,
+                minWidth: 40,
+                minHeight: 40,
+                padding: 0,
+            }}
         >
             ✕
         </button>

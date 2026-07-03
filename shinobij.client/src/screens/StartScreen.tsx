@@ -146,7 +146,7 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
                                 className="start-input"
                                 value={loginName}
                                 onChange={(e) => setLoginName(e.target.value)}
-                                placeholder="Enter your shinobi name"
+                                placeholder="Enter existing shinobi name"
                             />
                         </label>
 

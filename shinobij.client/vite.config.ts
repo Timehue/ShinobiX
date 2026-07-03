@@ -6,6 +6,7 @@ import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 import fs from 'fs';
 import path from 'path';
 import child_process from 'child_process';
+import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 
@@ -98,6 +99,63 @@ function errorMessage(err: unknown, fallback = 'Request failed.') {
 
 function safeName(name: string) {
     return name.replace(/[^a-z0-9\-_]/g, '').toLowerCase();
+}
+
+const RESERVED_DEV_AUTH_NAMES = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'player', 'kage', 'narrator']);
+const RESERVED_DEV_AUTH_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
+
+type DevAuthRecord = {
+    salt: string;
+    hash: string;
+};
+
+type DevAuthStore = Record<string, DevAuthRecord>;
+
+function isReservedDevAuthName(playerId: string) {
+    return RESERVED_DEV_AUTH_NAMES.has(playerId)
+        || RESERVED_DEV_AUTH_PREFIXES.some(prefix => playerId.startsWith(prefix));
+}
+
+function hashDevPassword(password: string, salt: string) {
+    return scryptSync(password, salt, 32).toString('hex');
+}
+
+function createDevAuthRecord(password: string): DevAuthRecord {
+    const salt = randomBytes(16).toString('hex');
+    return { salt, hash: hashDevPassword(password, salt) };
+}
+
+function devPasswordMatches(record: DevAuthRecord, password: string) {
+    const expected = Buffer.from(record.hash, 'hex');
+    const actual = Buffer.from(hashDevPassword(password, record.salt), 'hex');
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function loadDevAuthStore(authPath: string): DevAuthStore {
+    if (!fs.existsSync(authPath)) return {};
+
+    try {
+        const parsed = JSON.parse(fs.readFileSync(authPath, 'utf8')) as unknown;
+        if (!parsed || typeof parsed !== 'object') return {};
+
+        const store: DevAuthStore = {};
+        for (const [playerId, value] of Object.entries(parsed as Record<string, unknown>)) {
+            if (!value || typeof value !== 'object') continue;
+            const record = value as Partial<DevAuthRecord>;
+            if (typeof record.salt === 'string' && typeof record.hash === 'string') {
+                store[playerId] = { salt: record.salt, hash: record.hash };
+            }
+        }
+        return store;
+    } catch {
+        return {};
+    }
+}
+
+function saveDevAuthStore(authPath: string, store: DevAuthStore) {
+    const tmpPath = `${authPath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(store, null, 2), 'utf8');
+    fs.renameSync(tmpPath, authPath);
 }
 
 function sectorFrom(value: unknown, fallback: number): number {
@@ -333,6 +391,7 @@ export default defineConfig({
             configureServer(server) {
                 const savesDir = path.resolve(process.cwd(), 'saves');
                 if (!fs.existsSync(savesDir)) fs.mkdirSync(savesDir, { recursive: true });
+                const authPath = path.join(savesDir, '_auth.json');
 
                 server.middlewares.use('/api/clans/list', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'GET') { next(); return; }
@@ -350,6 +409,95 @@ export default defineConfig({
                         sendJson(res, 200, clans);
                     } catch (err: unknown) {
                         sendJson(res, 500, { error: errorMessage(err, 'Clan list failed') });
+                    }
+                });
+
+                server.middlewares.use('/api/player-auth', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'POST') { next(); return; }
+
+                    try {
+                        const parsed = parseJsonBody(await readBody(req));
+                        if ('error' in parsed) { sendJson(res, 400, { ok: false, error: parsed.error }); return; }
+
+                        const { action, name, password, oldPassword, newPassword } = parsed.body as {
+                            action?: string;
+                            name?: string;
+                            password?: string;
+                            oldPassword?: string;
+                            newPassword?: string;
+                        };
+                        if (!name) { sendJson(res, 400, { ok: false, error: 'Missing name.' }); return; }
+
+                        const playerId = safeName(name);
+                        if (!playerId) {
+                            sendJson(res, 400, { ok: false, error: 'Pick a name with at least one letter or number.' });
+                            return;
+                        }
+
+                        const store = loadDevAuthStore(authPath);
+
+                        if (action === 'register') {
+                            if (!password) { sendJson(res, 400, { ok: false, error: 'Missing password.' }); return; }
+                            if (isReservedDevAuthName(playerId)) {
+                                sendJson(res, 403, { ok: false, error: 'That username is reserved. Pick a different name.' });
+                                return;
+                            }
+                            if (store[playerId]) {
+                                sendJson(res, 409, { ok: false, error: 'Account already has a password.' });
+                                return;
+                            }
+
+                            store[playerId] = createDevAuthRecord(password);
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true });
+                            return;
+                        }
+
+                        if (action === 'verify') {
+                            if (!password) { sendJson(res, 400, { ok: false, error: 'Missing password.' }); return; }
+                            const record = store[playerId];
+                            if (!record) { sendJson(res, 200, { ok: true, legacy: true }); return; }
+                            sendJson(res, 200, { ok: devPasswordMatches(record, password) });
+                            return;
+                        }
+
+                        if (action === 'change') {
+                            if (!oldPassword || !newPassword) {
+                                sendJson(res, 400, { ok: false, error: 'Missing oldPassword or newPassword.' });
+                                return;
+                            }
+                            const record = store[playerId];
+                            if (record && !devPasswordMatches(record, oldPassword)) {
+                                sendJson(res, 401, { ok: false, error: 'Incorrect current password.' });
+                                return;
+                            }
+
+                            store[playerId] = createDevAuthRecord(newPassword);
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true });
+                            return;
+                        }
+
+                        if (action === 'delete') {
+                            if (!password) {
+                                sendJson(res, 401, { ok: false, error: 'Authentication required.' });
+                                return;
+                            }
+                            const record = store[playerId];
+                            if (record && !devPasswordMatches(record, password)) {
+                                sendJson(res, 401, { ok: false, error: 'Incorrect password.' });
+                                return;
+                            }
+
+                            delete store[playerId];
+                            saveDevAuthStore(authPath, store);
+                            sendJson(res, 200, { ok: true });
+                            return;
+                        }
+
+                        sendJson(res, 400, { ok: false, error: 'Unknown action.' });
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { ok: false, error: errorMessage(err, 'Auth failed') });
                     }
                 });
 
