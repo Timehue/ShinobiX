@@ -100,6 +100,7 @@ const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> 
 
 export function BattleTowerFight({
     character,
+    updateCharacter,
     sharedImages,
     hostLoadout,
     runId,
@@ -107,6 +108,9 @@ export function BattleTowerFight({
     onExit,
 }: {
     character: Character;
+    /** optimistically mirror a spire unlock onto the client save so the lobby shows
+     *  the next floor immediately (the server is already authoritative via settle) */
+    updateCharacter?: (c: Character) => void;
     sharedImages?: Record<string, string>;
     hostLoadout?: TowerHostLoadout;
     runId: string;
@@ -197,8 +201,16 @@ export function BattleTowerFight({
         if (session.status === "done" && session.winner === "squad" && !settledRef.current) {
             settledRef.current = true;
             settleTowerRun(runId, me).then(setSettle).catch(() => {});
+            // Endless Spire: optimistically mirror the tier unlock onto the client save so the
+            // lobby shows the next floor unlocked the instant you return — no reload/refetch wait.
+            // Server-authoritative via settle; battleTowerAscension is a monotone max, so a local
+            // bump can never be wrong (weekly-best is left to the server refetch, it's display-only).
+            const tier = Number(session.ascensionTier ?? 0);
+            if (tier > 0 && updateCharacter && tier > (character.battleTowerAscension ?? 0)) {
+                updateCharacter({ ...character, battleTowerAscension: tier });
+            }
         }
-    }, [session.status, session.winner, runId, me]);
+    }, [session.status, session.winner, runId, me, session.ascensionTier, character, updateCharacter]);
 
     // Full equipped kit (weapons + consumables) from the sealed loadout → cards.
     const loadout = useMemo(() => {
@@ -701,10 +713,19 @@ export function BattleTowerFight({
                 <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(2,6,14,0.82)" }}>
                     <div className="card" style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
                         <h1 style={{ marginTop: 0, color: session.winner === "squad" ? "#4ade80" : "#f87171" }}>
-                            {session.winner === "squad" ? "🏆 Floor Cleared!" : "💀 Floor Failed"}
+                            {session.winner === "squad"
+                                ? (session.ascensionTier ? `🗼 Floor ${session.ascensionTier} Ascended!` : "🏆 Floor Cleared!")
+                                : "💀 Floor Failed"}
                         </h1>
                         {session.winner === "squad" && (
-                            settle ? <p>Rewards settled. {settle.results[me]?.score ? `Score +${settle.results[me]!.score}` : ""}</p> : <p className="hint">Settling rewards…</p>
+                            session.ascensionTier ? (
+                                // Endless Spire: show the meaningful outcome — the next floor is now unlocked.
+                                settle
+                                    ? <p>{settle.results[me]?.paid ? "Fate Shards claimed. " : ""}{session.ascensionTier < 20 ? `Floor ${session.ascensionTier + 1} unlocked.` : "The Spire is conquered — apex cleared."}</p>
+                                    : <p className="hint">Settling…</p>
+                            ) : (
+                                settle ? <p>Rewards settled. {settle.results[me]?.score ? `Score +${settle.results[me]!.score}` : ""}</p> : <p className="hint">Settling rewards…</p>
+                            )
                         )}
                         <button style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={onExit}>Return to the Tower</button>
                     </div>
