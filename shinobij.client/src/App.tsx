@@ -6,11 +6,13 @@ import { installAuthFetch, setActivePlayer, setActiveToken, SESSION_EXPIRED_EVEN
 import { GameAlertHost, GameConfirmHost, gameConfirm } from "./components/GameAlert";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
+import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { NextGoalPin } from "./components/NextGoalPin";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import { claimBountyOnWin } from "./lib/pvp-bounty";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 import { payEndlessEntry, endlessEntryCost } from "./lib/entry-fee";
+import { warnLocalSaveUnavailable } from "./lib/recovery";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
 import { pushLiveSectorPlayers, removeLiveSectorPlayers, resetLiveSectorPlayers, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile } from "./lib/presence-store";
@@ -1441,7 +1443,8 @@ function writeSavePreview(name: string, payload: unknown) {
     if (!name) return;
     try {
         localStorage.setItem(savePreviewKey(name), JSON.stringify(payload, stripImagesForPreview));
-    } catch {
+    } catch (error) {
+        warnLocalSaveUnavailable(error);
         // Quota exceeded or SSR — server save is still authoritative.
     }
 }
@@ -7542,7 +7545,7 @@ export default function App() {
                 }}
             >
                 {/* Suspense for lazy screens; the per-screen ErrorBoundary (keyed by screen) isolates a render crash to one view so the nav stays usable and navigating away clears it. */}
-                <Suspense fallback={<div className="lazy-screen-fallback" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>}>
+                <Suspense fallback={<ScreenLoadingFallback screen={screen} />}>
                 <ScreenErrorBoundary key={screen}>
                 {/* Hidden on the full-screen battle boards — the in-combat side HUDs
                     already show the player's HP/chakra/stamina, so the top status bar
