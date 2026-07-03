@@ -38,14 +38,19 @@ async function handler(req, res) {
         const isMember = identity.admin || session.actors.some(a => a.side === 'squad' && a.ownerSlug === callerSlug);
         if (!isMember)
             return res.status(403).json({ error: 'Not a member of this run.' });
+        // Endless Spire runs settle through the weekly spire channel (best-tier-per-week); the
+        // 10 story floors keep the one-time first-clear channel. All spire members are live humans.
+        const spire = (0, _tower_store_js_1.isSpireRun)(session);
         const results = {};
         for (const a of session.actors.filter(x => x.side === 'squad')) {
             const slug = a.ownerSlug;
             if (!slug)
                 continue;
-            results[slug] = a.ai
-                ? await (0, _tower_store_js_1.settleAssistForAlly)({ session, slug })
-                : await (0, _tower_store_js_1.settleFloorForMember)({ session, slug });
+            results[slug] = spire
+                ? await (0, _tower_store_js_1.settleSpireForMember)({ session, slug })
+                : a.ai
+                    ? await (0, _tower_store_js_1.settleAssistForAlly)({ session, slug })
+                    : await (0, _tower_store_js_1.settleFloorForMember)({ session, slug });
         }
         return res.status(200).json({ runId, winner: session.winner, results });
     }

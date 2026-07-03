@@ -87,6 +87,12 @@ export type TowerBoss = {
     /** for 'summon': which add to spawn + how many per phase gate (default 2 grunt-bandit) */
     summonAiId?: string;
     summonCount?: number;
+    /** per-floor authored boss max HP (Endless Spire): overrides the template hp so the same
+     *  boss can be tuned floor-by-floor without an HP-scaled mechanic × big-HP blow-up. */
+    hp?: number;
+    /** per-round regen flat cap (Endless Spire regen boss) so 7%-of-maxHp can't outrun squad DPS
+     *  at high floors; read by the engine's applyBossRegen. Absent = uncapped (story bosses). */
+    regenFlatCap?: number;
 };
 
 export type TowerNpc = {
