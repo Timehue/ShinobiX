@@ -1607,11 +1607,11 @@ html.wm-zoom .world-map-scroll {
     max-width: 100% !important;
     /* Fill the vertical space between the top bar and the region chips instead of
        being a short letterboxed strip. The map inside is scaled to COVER this
-       height by useWorldMapZoom (fill-height home view). Subtract the mobile
-       chrome (top HUD + banner + "← Village" bar + region chips + bottom-nav
-       padding); clamped so tiny phones keep a usable map and tablets don't get an
-       enormous one. */
-    height: clamp(300px, calc(100dvh - 400px), 620px) !important;
+       height by useWorldMapZoom (never letterboxes — min-zoom = cover). Subtract
+       the mobile chrome (top HUD + banner + "← Village" bar + region chips +
+       bottom-nav padding); clamped so tiny phones keep a usable map and tablets
+       don't get an enormous one. Taller than the first pass per user feedback. */
+    height: clamp(340px, calc(100dvh - 336px), 700px) !important;
     overflow: hidden !important;
     touch-action: none;
     -webkit-user-select: none;
@@ -1630,7 +1630,10 @@ html.wm-zoom .world-map-scroll .generated-world-map {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    aspect-ratio: 1536 / 1024 !important;
+    /* Displayed TALLER than the source 3:2 so the art (background-size:100% 100%)
+       stretches vertically to better fill a phone screen; driven by useWorldMapZoom
+       (must match its MAP_AR). Markers are %-positioned so they stretch with it. */
+    aspect-ratio: var(--wm-map-ar, 1.25) !important;
     margin: 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
