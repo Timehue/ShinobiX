@@ -13,11 +13,12 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
 import type { Profession, Screen } from "../types/core";
 import { PROFESSION_LABEL } from "../data/professions";
 import { isProtectedAdminName } from "../constants/game";
+import { preloadScreen } from "../lib/screen-preload";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
@@ -53,12 +54,19 @@ export const RightMenu = memo(function RightMenu({
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
+    const navLockUntilRef = useRef(0);
     // Global audio master-mute — silences music AND all battle SFX. Mirrored
     // into local state so the icon re-renders, and subscribed so it stays in
     // sync if the switch is flipped elsewhere.
     const [audioMuted, setAudioMutedState] = useState(isAudioMuted());
     useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     const isAdminAccount = isProtectedAdminName(characterName);
+    const guardedNavigate = (next: Screen) => {
+        const now = Date.now();
+        if (now < navLockUntilRef.current) return;
+        navLockUntilRef.current = now + 300;
+        navigate(next);
+    };
 
     return (
         <aside
@@ -71,7 +79,7 @@ export const RightMenu = memo(function RightMenu({
             }}
         >
             <NotificationBar
-                navigate={navigate}
+                navigate={guardedNavigate}
                 screen={screen}
                 clan={characterClan}
                 village={characterVillage}
@@ -94,30 +102,35 @@ export const RightMenu = memo(function RightMenu({
                 <>
                     <h3>Main Menu</h3>
 
+                    {/* onPointerDown warms the destination screen's lazy chunk on
+                        press (before onClick's guardedNavigate fires) — see
+                        lib/screen-preload. onClick behaviour is unchanged; the preload
+                        is best-effort and side-effect-free. */}
                     <div className="right-menu-buttons">
-                        <button onClick={() => navigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
-                        <button onClick={() => navigate("worldMap")}><GiTreasureMap size={16} />Travel</button>
-                        <button onClick={() => navigate("userHub")}><GiThreeFriends size={16} />Users</button>
-                        <button onClick={() => navigate("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
-                        <button onClick={() => navigate("missions")}><GiScrollUnfurled size={16} />Missions</button>
-                        <button onClick={() => navigate("training")}><GiBiceps size={16} />Training</button>
-                        <button onClick={() => navigate("profile")}><GiNinjaHeroicStance size={16} />Character</button>
-                        <button onClick={() => navigate("inventory")}><GiKnapsack size={16} />Inventory</button>
-                        <button onClick={() => navigate("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
-                        <button onClick={() => navigate("pets")}><GiPawPrint size={16} />Pets</button>
-                        <button onClick={() => navigate("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
+                        <button onClick={() => guardedNavigate("tavern")} onPointerDown={() => preloadScreen("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
+                        <button onClick={() => guardedNavigate("worldMap")} onPointerDown={() => preloadScreen("worldMap")}><GiTreasureMap size={16} />Travel</button>
+                        <button onClick={() => guardedNavigate("userHub")} onPointerDown={() => preloadScreen("userHub")}><GiThreeFriends size={16} />Users</button>
+                        <button onClick={() => guardedNavigate("messages")} onPointerDown={() => preloadScreen("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
+                        <button onClick={() => guardedNavigate("missions")} onPointerDown={() => preloadScreen("missions")}><GiScrollUnfurled size={16} />Missions</button>
+                        <button onClick={() => guardedNavigate("training")} onPointerDown={() => preloadScreen("training")}><GiBiceps size={16} />Training</button>
+                        <button onClick={() => guardedNavigate("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={16} />Character</button>
+                        <button onClick={() => guardedNavigate("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={16} />Inventory</button>
+                        <button onClick={() => guardedNavigate("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
+                        <button onClick={() => guardedNavigate("pets")} onPointerDown={() => preloadScreen("pets")}><GiPawPrint size={16} />Pets</button>
+                        <button onClick={() => guardedNavigate("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
                         <button
-                            onClick={() => navigate("professions")}
+                            onClick={() => guardedNavigate("professions")}
+                            onPointerDown={() => preloadScreen("professions")}
                             title={profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions"}
                         >
                             <GiAnvil size={16} />{profession ? PROFESSION_LABEL[profession] : "Professions"}
                         </button>
-                        <button onClick={() => navigate("logbook")}><GiBookCover size={16} />Logbook</button>
-                        <button onClick={() => navigate("guides")}><GiOpenBook size={16} />Guides</button>
+                        <button onClick={() => guardedNavigate("logbook")} onPointerDown={() => preloadScreen("logbook")}><GiBookCover size={16} />Logbook</button>
+                        <button onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={16} />Guides</button>
                         <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
                         <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}><GiHearts size={16} />Patreon</button>
                         {(isAdminAccount || adminLoggedIn) && (
-                            <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
+                            <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
                         )}
                         <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
                     </div>

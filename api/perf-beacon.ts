@@ -69,6 +69,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             tFirstScreen: intOrNull(b.tFirstScreen),
             tRestore: intOrNull(b.tRestore),
             tPlayable: intOrNull(b.tPlayable),
+            // aggregate CPU/transition signals observed before the boot beacon
+            slowTransitionCount: intOrNull(b.slowTransitionCount),
+            maxScreenTransition: intOrNull(b.maxScreenTransition),
+            longTaskCount: intOrNull(b.longTaskCount),
+            longTaskTotal: intOrNull(b.longTaskTotal),
+            longTaskMax: intOrNull(b.longTaskMax),
             // transfer bytes by resource type (0 for cross-origin without TAO)
             htmlBytes: intOrNull(b.htmlBytes),
             jsBytes: intOrNull(b.jsBytes),

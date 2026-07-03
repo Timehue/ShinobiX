@@ -1336,12 +1336,44 @@ export function WorldMap({
             setSelectedLandmark(location);
         }
     }
+    // Warm the destination's assets DURING the 3s travel window so arrival paints
+    // instantly instead of flashing an unloaded scene. Purely best-effort browser
+    // cache / lazy-chunk warming — no server writes, no state changes, no side
+    // effects — so it can never alter the arrival: if any of it fails or is slow,
+    // the normal on-arrival load path runs exactly as before. Reuses the same image
+    // resolvers the arrival render uses, so the warmed URL can never drift from the
+    // one actually painted. The destination is locked for the whole window (the
+    // isTraveling guard blocks re-entry), so this warms exactly one target.
+    function preloadImg(src: string | undefined) {
+        if (!src) return;
+        try {
+            const img = new Image();
+            img.src = src;
+        } catch {
+            /* best-effort: a failed preload just means arrival loads it normally */
+        }
+    }
+    function prefetchTravelDestination(sector: number) {
+        // Sector 35 leaves the world map for the Sunscar Festival screen — warm its
+        // lazy chunk (not the sector scene, which isn't shown on that arrival).
+        if (sector === 35) {
+            void import("./SunscarFestival").catch(() => {});
+            return;
+        }
+        // Every other sector opens its scene panel on arrival: warm the exact
+        // background + depth image (and, when the flag is on, the top-down map) it
+        // will paint, mirroring sectorBackgroundImage/sectorDepthImage/sectorMapUrl.
+        preloadImg(sectorBackgroundImage(sector));
+        preloadImg(sectorDepthImage(sector));
+        if (isSectorMapEnabled()) preloadImg(sectorMapUrl(biomeForSector(sector), sector));
+    }
     function beginSectorTravel(sector: number, arrive: () => void) {
         if (isTraveling) return;
         if (currentSector === sector) {
             arrive();
             return;
         }
+        prefetchTravelDestination(sector); // warm the destination during the 3s window
         const arrivalAt = Date.now() + 3000;
         setPendingTravel({ destinationSector: sector, arrivalAt });
         setTravelingUntil(arrivalAt);
