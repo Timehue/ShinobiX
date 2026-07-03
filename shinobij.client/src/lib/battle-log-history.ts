@@ -108,6 +108,52 @@ export function buildActionsFromPvpLog(
     return { actions: capBattleActions(out), rounds: maxRound };
 }
 
+// True when `text` begins with `name` followed by a word boundary — so "Rai"
+// doesn't match "Raijin" but "Bandit" matches "Bandit's" / "Bandit strikes".
+function startsWithFighterName(text: string, name: string): boolean {
+    if (!name || !text.startsWith(name)) return false;
+    const next = text.charAt(name.length);
+    return next === "" || !/[A-Za-z0-9]/.test(next);
+}
+
+/**
+ * Convert a Battle Towers squad log (a flat `string[]` naming MANY fighters —
+ * squad members, allied npcs, and enemies) into owner-attributed actions.
+ * Unlike the 1v1 grouper, side is decided by matching each line's leading
+ * fighter name against the ally / enemy name lists; lines that name no known
+ * fighter (objective/floor narration) become ownerless system lines. The tower
+ * log has no round markers, so everything is tagged round 1.
+ */
+export function buildActionsFromTowerLog(
+    log: ReadonlyArray<string>,
+    allyNames: ReadonlyArray<string>,
+    enemyNames: ReadonlyArray<string>,
+): BattleHistoryAction[] {
+    // Longest names first so a short name that prefixes a longer one can't win.
+    const allies = [...new Set(allyNames.filter(Boolean))].sort((a, b) => b.length - a.length);
+    const enemies = [...new Set(enemyNames.filter(Boolean))].sort((a, b) => b.length - a.length);
+    const actions: BattleHistoryAction[] = [];
+    for (const raw of log) {
+        const text = (raw ?? "").trim();
+        if (!text) continue;
+        const ally = allies.find((n) => startsWithFighterName(text, n));
+        const enemy = ally ? undefined : enemies.find((n) => startsWithFighterName(text, n));
+        const name = ally ?? enemy ?? "";
+        if (name) {
+            actions.push({
+                round: 1,
+                role: ally ? "player" : "enemy",
+                actor: name,
+                headline: text.slice(name.length).replace(/^[\s:—-]+/, ""),
+                effectLines: [],
+            });
+        } else {
+            actions.push({ round: 1, role: "system", actor: "", headline: text, effectLines: [] });
+        }
+    }
+    return capBattleActions(actions);
+}
+
 /** Assemble a capped battle entry ready to append. */
 export function makeBattleEntry(input: {
     id: string;
