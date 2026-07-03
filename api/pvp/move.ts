@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus, HitFxTarget } from './session.js';
 import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
+import { COMBAT_RESOURCES_V2, v2ResourceRegen, v2PoisonOnSpend } from '../_combat-resources.js';
 
 // Internal floating-number event before it's mapped to a concrete fighter slot.
 // `self` = the caster / ticking fighter, `opp` = the opponent — resolved to
@@ -522,9 +523,15 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
             lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks this turn.`);
         } else if (tagName === 'Poison') {
             const poisonPct = pct > 0 ? pct : 6;
-            const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
-            next = addStatus(next, { name: 'Poison', rounds: 1, percent: poisonPct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg} this turn.`);
+            // v2: zone poison lasts 2 rounds (on-spend model — matches PvE + jutsu poison).
+            // v1: 1-round refresh tracks zone presence for the legacy per-round pool tick.
+            next = addStatus(next, { name: 'Poison', rounds: COMBAT_RESOURCES_V2 ? 2 : 1, percent: poisonPct, kind: 'negative' });
+            if (COMBAT_RESOURCES_V2) {
+                lines.push(`${effect.name}: ${next.name} is poisoned for 2 rounds — casting jutsu will hurt.`);
+            } else {
+                const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
+                lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg} this turn.`);
+            }
         }
     }
     return { fighter: next, lines };
@@ -739,7 +746,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         if (tagName === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tagName === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tagName === 'Stun') { if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
-        if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = pct > 0 ? pct : 6; const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } continue; }
+        if (tagName === 'Poison') { if (!hasStatus(o, 'Debuff Prevent', round)) { const poisonPct = pct > 0 ? pct : 6; o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round); if (COMBAT_RESOURCES_V2) { lines.push(`Poison: ${o.name} is poisoned for 2 turns — casting jutsu will hurt.`); } else { const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } } continue; }
         if (tagName === 'Drain') {
             // v4.3: Drain is single-stack (addStatus replaces on re-apply) and scales with attacker mastery.
             // Tick = clamp(50 + masteryLevel × 5, 50, 300). At mastery 50: 300/tick.
@@ -1004,10 +1011,11 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
             pushFx(fx, 'self', dmg, 'damage');
         }
-        if (s.name === 'Poison') {
-            // Poison is an HP-only DoT whose magnitude is a % of the victim's
-            // chakra pool — it does NOT drain chakra (that's Drain's job, below).
-            // Mirrors the PvE engine (Arena.tsx applyDoTs Poison branch).
+        if (s.name === 'Poison' && !COMBAT_RESOURCES_V2) {
+            // Legacy poison: an HP-only DoT = a % of the victim's max chakra (does
+            // NOT drain chakra — that's Drain's job, below). Under combatResourcesV2
+            // poison has NO per-round tick; it triggers on-spend in the jutsu handler
+            // instead. Mirrors the PvE engine (Arena.tsx applyDoTs Poison branch).
             const poisonPct = s.percent && s.percent > 0 ? s.percent : 6;
             const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
@@ -1088,7 +1096,9 @@ function endTurn(session: PvpSession): PvpSession {
         s = { ...s, p2: tickStatuses(s.p2, session.round), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
     }
 
-    // No chakra or stamina regen during PvP — resources are finite per fight.
+    // combatResourcesV2: the next fighter regenerates chakra/stamina at the start of
+    // their turn (applied below, once nextFighter is resolved). Legacy PvP had none —
+    // resources were finite per fight.
 
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
@@ -1103,6 +1113,11 @@ function endTurn(session: PvpSession): PvpSession {
     const dots = applyDoTs(nextFighter, newRound);
     nextFighter = dots.fighter;
     lines.push(...dots.lines);
+    if (COMBAT_RESOURCES_V2) {
+        const rgLvl = Number((nextFighter.character as { level?: number } | undefined)?.level) || 1;
+        const rg = v2ResourceRegen(rgLvl);
+        nextFighter = { ...nextFighter, chakra: Math.min(nextFighter.maxChakra, nextFighter.chakra + rg), stamina: Math.min(nextFighter.maxStamina, nextFighter.stamina + rg) };
+    }
     s = next === 'p1' ? { ...s, p1: nextFighter } : { ...s, p2: nextFighter };
 
     // DoT ticks all land on the next player — surface each as its own floating
@@ -1494,6 +1509,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return finish(await rejectWithLog(`${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`));
                 }
 
+                // combatResourcesV2: Poison feeds on exertion — spending chakra/stamina
+                // to cast deals HP damage scaled by the spend + the caster's active
+                // Poison. Computed once, folded into every cost-deduction branch below
+                // via paySpendPoison. 0 when the flag is off / not poisoned / free jutsu.
+                const jPoisonPct = COMBAT_RESOURCES_V2 ? sumActivePct(me, 'Poison', session.round, 6) : 0;
+                const poisonSpendDmg = jPoisonPct > 0 ? v2PoisonOnSpend(jChakraCost + jStaminaCost, jPoisonPct) : 0;
+                const paySpendPoison = <T extends { name: string; hp: number }>(self: T): T => {
+                    if (poisonSpendDmg <= 0) return self;
+                    lines.push(`${self.name} takes ${poisonSpendDmg} Poison damage from exertion.`);
+                    return { ...self, hp: Math.max(0, self.hp - poisonSpendDmg) };
+                };
+
                 const tags = jutsu.tags ?? [];
                 const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
                 const groundTarget = jutsu.target === 'EMPTY_GROUND';
@@ -1536,7 +1563,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
                         return finish(await rejectWithLog(`${me.name}: ${jutsu.name} — destination out of range or occupied.`));
                     }
-                    const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
+                    const movedSelf = paySpendPoison({ ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
                     if (jutsuMethod === 'AOE_SPIRAL') {
                         // Dash in, then erupt a spiral ground nova centred on the
@@ -1606,7 +1633,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             rounds: 2,
                             tags: zoneTags,
                         };
-                        const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
+                        const paidSelf = paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
                         const instantGround = applyGroundEffectToFighter(opp, groundEffect, session.round);
                         lines.push(...instantGround.lines);
@@ -1615,7 +1642,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     const ring = hexNeighbors(targetTile);
                     const catchesOpponent = jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos);
-                    const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
+                    const paidSelf = paySpendPoison({ ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) });
                     if (catchesOpponent) {
                         const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome, session.round);
                         lines.push(`Area burst catches ${opp.name}!`);
@@ -1629,11 +1656,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const jr = applyJutsu(me, opp, jutsu, jWMult, biome, session.round);
-                const jUpdatedSelf = {
+                const jUpdatedSelf = paySpendPoison({
                     ...jr.self,
                     chakra: Math.max(0, jr.self.chakra - jChakraCost),
                     stamina: Math.max(0, jr.self.stamina - jStaminaCost),
-                };
+                });
                 lines.push(...jr.lines);
                 result = commit(jUpdatedSelf, jr.opponent, apCost, cd, undefined, jr.fx);
                 break;

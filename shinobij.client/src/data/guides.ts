@@ -413,7 +413,7 @@ const COMBAT: Guide = {
             blocks: [
                 { type: "p", text: "Tags are the verbs of combat — what a technique does beyond raw damage. You'll see them on enemy jutsu and on your own. The common families:" },
                 { type: "list", items: [
-                    "Damage-over-time — Poison, Wound (bleed): keep ticking after the hit.",
+                    "Lingering effects — Wound (bleed) keeps ticking after the hit; Poison saps the target for 2 rounds.",
                     "Damage shaping — Increase/Decrease Damage Given & Taken, Ignition: bend how hard hits land.",
                     "Sustain — Heal, Shield, Absorb, Lifesteal, Reflect: keep you standing.",
                     "Resource — Drain, Siphon: starve the enemy's chakra/stamina.",

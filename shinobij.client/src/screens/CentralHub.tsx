@@ -24,7 +24,7 @@ import type { Character } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { ArmorQuality, EquipmentSlot, GameItem, ReviewBloodline, SavedBloodline } from "../types/combat";
 import type { Rank, Screen } from "../types/core";
-import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID } from "../constants/game";
+import { AWAKENING_FREE_LV20_ID, AWAKENING_FREE_LV2_ID, DUNGEON_KEY_ID, DUNGEON_LEGENDARY_FRAGMENT_ID, DUNGEON_LEGENDARY_RELIC_ID, HOLLOW_GATE_KEY_ID, VEIL_OF_THE_HOLLOW_ID, WARFORGED_RELIC_ID, WEEKLY_BOSS_CORE_ID, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { PET_PVE_DURABILITY, petConsumables, petPveGear } from "../data/pet-config";
 import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normalizeEquipmentSlot } from "../lib/equipment";
 import { craftDungeonEvents } from "../data/vn-events";
@@ -1700,7 +1700,7 @@ export function CentralHub({
                                                         <div className="nwo-row"><span>💚 Heal</span><span className="nwo-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
                                                         <div className="nwo-row"><span>🩸 Siphon</span><span className="nwo-pct">Restores HP = rolled% × weapon hit damage</span></div>
                                                         <div className="nwo-row"><span>🔥 Afterburn</span><span className="nwo-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
-                                                        <div className="nwo-row"><span>☠️ Poison / Drain</span><span className="nwo-pct">Deals rolled% of enemy chakra as damage per round</span></div>
+                                                        <div className="nwo-row"><span>☠️ Poison / Drain</span><span className="nwo-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
                                                         <div className="nwo-row"><span>💥 Damage / IDG / DDT / Reflect / Absorb</span><span className="nwo-pct">Flat % modifier for 2 rounds</span></div>
                                                     </div>
                                                 </div>
