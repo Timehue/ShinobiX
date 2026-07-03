@@ -1647,10 +1647,11 @@ const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of 
 // ── Opening choreography (render-only) — the pets appear FAR apart and "size each
 // other up", then CHARGE in to the combat face-off before the sim plays. Purely
 // cosmetic (the sim's positions are untouched); driven by clock.intro (seconds).
-const INTRO_PAUSE_END = 1.0;     // s — a STILL face-off pause first (pets just stand, sizing up) BEFORE the buff
-const INTRO_SIZEUP_END = 1.9;    // s — buff / power-up gather runs from PAUSE_END → here
-const INTRO_CHARGE_END = 2.6;    // s — charge in to the combat gap by here
-const INTRO_TOTAL = 2.9;         // s — brief lock-in beat, then FIGHT (the sim plays)
+const INTRO_SPLASH_END = 1.5;    // s — the VS start-up splash clears here, so the buff + charge play IN THE CLEAR (not under the overlay)
+const INTRO_PAUSE_END = 1.7;     // s — a STILL face-off pause first (pets just stand, sizing up) BEFORE the buff
+const INTRO_SIZEUP_END = 2.7;    // s — buff / power-up gather runs from PAUSE_END → here
+const INTRO_CHARGE_END = 3.4;    // s — charge in to the combat gap by here
+const INTRO_TOTAL = 3.6;         // s — brief lock-in beat, then FIGHT (the sim plays)
 const SIZEUP_EXTRA_WX = 4.2;     // world-x each fighter is pushed OUTWARD while sizing up
 const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
 /** 1 = held far apart (sizing up) → 0 = arrived at the face-off. Eased charge-in. */
@@ -2347,7 +2348,7 @@ function DuelProjectile({ index, duel, clock }: { index: number; duel: DuelResul
 /** Playback driver: advances the shared clock (with HIT-STOP on impact), spawns
  *  damage numbers + impact bursts + elemental VFX as the clock crosses events,
  *  nudges the fixed stage camera for screen-shake, and fires onEnd once. */
-function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
+function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpact, spawnFx, spawnShock, spawnTrail, elementById, nameById, ultById, heroMoveById, onCutIn, onFlash, onCallout, onCombo, onAnnounce, onMoveCallout }: {
     duel: DuelResult; clock: { current: DuelClock }; advanceClock: (maxT: number, delta: number) => void;
     onEnd: () => void;
     spawnNumber: (n: { x: number; z: number; text: string; crit: boolean; heal: boolean }) => void;
@@ -2358,7 +2359,8 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     elementById: Record<string, string | null | undefined>;
     nameById: Record<string, string>;
     ultById: Record<string, string>;
-    onCutIn: (actorId: string) => void;
+    heroMoveById: Record<string, string>;
+    onCutIn: (actorId: string, move: string) => void;
     onFlash: (color: string, intensity: number) => void;     // full-screen element flash
     onCallout: (text: string) => void;                       // big "CRITICAL!/FINISH!" banner
     onCombo: (n: number) => void;                            // combo counter pop
@@ -2380,6 +2382,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const lastReversal = useRef(0);                  // wall-time of the last reversal call (debounce)
     const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
+    const lastHeroCut = useRef(-999);                // wall-time of the last hero-move anime cut-in (throttle)
     // ── Cinematic camera (render-only): a live look target eased toward the fighters'
     // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /
     // victim on KO), plus an adaptive dolly that tightens when they plant close.
@@ -2461,9 +2464,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : (isAbility || heavy) ? 1.8 : 0.9);
                         // Camera CUT to whoever got hit — the impact reads on the defender.
                         { const cp = duelFieldToFloor(a.x, a.y); camAim.current = [cp.wx * 0.55, 1.4, CAM_LOOK[2] + cp.wz * 0.4]; camAimHold.current = Math.max(camAimHold.current, 0.13); }
-                        // Move-name CALLOUT for a named ABILITY hit only (signatures get the cut-in
-                        // instead; a per-BASIC banner spam-yelled every swing in the fast duel).
-                        if (e.move && !isSig && now - lastMoveCall.current > 0.4) { lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player"); }
+                        // A pet's HERO move (its signature, else its strongest jutsu) triggers the
+                        // anime freeze-frame CUT-IN (throttled so it stays special); other named
+                        // abilities show the smaller banner. (Signatures also cut in via 'ultimate'.)
+                        const hero = heroMoveById[e.actorId];
+                        if (e.move && !isSig && hero && e.move === hero && now - lastHeroCut.current > 6) {
+                            lastHeroCut.current = now; lastMoveCall.current = now;
+                            hitStop.current = Math.max(hitStop.current, 0.5);   // FREEZE-FRAME the impact
+                            savor(0.2, 0.7); shake.current = Math.max(shake.current, 1.6);
+                            zoomKick.current = Math.max(zoomKick.current, 3.0); onFlash(col, 0.4);
+                            onCutIn(e.actorId, e.move);
+                        } else if (e.move && !isSig && now - lastMoveCall.current > 0.4) {
+                            lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                        }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         comboN.current = now < comboT.current ? comboN.current + 1 : 1;
                         comboT.current = now + 1.1;
@@ -2540,16 +2553,27 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                     }
                     if (e.type === "ultimate") {
                         shake.current = Math.max(shake.current, 1.8);
-                        savor(0.22, 0.7);                                      // deep, HELD slow-mo for the unleash
+                        hitStop.current = Math.max(hitStop.current, 0.55);     // FREEZE-FRAME on the unleash
+                        savor(0.22, 0.7);                                      // then deep, HELD slow-mo
                         zoomKick.current = Math.max(zoomKick.current, 3.0);
                         onFlash(elementColor(el).glow, 0.42);
-                        onCutIn(e.actorId);                                    // anime portrait cut-in (names the signature)
+                        lastHeroCut.current = now;
+                        onCutIn(e.actorId, e.move ?? ultById[e.actorId] ?? "");  // anime portrait cut-in
                         onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
                     } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
-                        // A named ranged / support ability — flash its name + a short savor beat.
-                        lastMoveCall.current = now;
-                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
-                        savor(0.5, 0.18);
+                        const heroC = heroMoveById[e.actorId];
+                        if (heroC && e.move === heroC && now - lastHeroCut.current > 6) {
+                            // A ranged / support HERO move → the anime cut-in freeze-frame.
+                            lastHeroCut.current = now; lastMoveCall.current = now;
+                            hitStop.current = Math.max(hitStop.current, 0.45); savor(0.2, 0.7);
+                            shake.current = Math.max(shake.current, 1.4); zoomKick.current = Math.max(zoomKick.current, 2.8);
+                            onFlash(elementColor(elementById[e.actorId]).glow, 0.38); onCutIn(e.actorId, e.move);
+                        } else {
+                            // A lesser named ability — the smaller banner + a short savor beat.
+                            lastMoveCall.current = now;
+                            onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                            savor(0.5, 0.18);
+                        }
                     }
                 } else if (e.type === "ko") {
                     // KO finisher: a big element blast on the victim + a hard freeze → deep
@@ -2816,6 +2840,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     const nameById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.name])) as Record<string, string>, [roster]);
     const ultById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate"])) as Record<string, string>, [roster]);
+    // Each pet's HERO move — its signature jutsu if flagged, else its strongest by power —
+    // the move that earns the anime freeze-frame CUT-IN, so every fight gets epic moments
+    // even when no jutsu is formally flagged "signature" (most aren't).
+    const heroMoveById = useMemo(() => Object.fromEntries(roster.map((r) => {
+        const js = r.pet.jutsus ?? [];
+        const sig = js.find((j) => j.signature);
+        const strongest = js.reduce<(typeof js)[number] | undefined>((best, j) => ((j.power ?? 0) > (best?.power ?? -1) ? j : best), undefined);
+        return [r.id, (sig ?? strongest)?.name ?? ""];
+    })) as Record<string, string>, [roster]);
     // VS intro: hold on the face-off (clock paused) for a beat, then start. Re-runs
     // on replay / fight-again (runId bump).
     useEffect(() => {
@@ -2823,8 +2856,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setIntro(true);
         clock.current.playing = false;
         clock.current.intro = 0;   // restart the size-up → charge-in choreography
-        const t = window.setTimeout(() => { setIntro(false); clock.current.playing = true; setPaused(false); }, INTRO_TOTAL * 1000);
-        return () => window.clearTimeout(t);
+        // Clear the VS splash FIRST (after its own beat), so the buff + charge play in the
+        // clear rather than under the overlay; hold the sim paused for the full opening.
+        const splashT = window.setTimeout(() => setIntro(false), INTRO_SPLASH_END * 1000);
+        const fightT = window.setTimeout(() => { clock.current.playing = true; setPaused(false); }, INTRO_TOTAL * 1000);
+        return () => { window.clearTimeout(splashT); window.clearTimeout(fightT); };
     }, [runId]);
 
     // FX map through the SAME field→floor placement as the fighters, at mid-body
@@ -2872,12 +2908,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const triggerMoveCallout = (text: string, side: "player" | "enemy") => { const id = seqRef.current++; setMoveCallout({ id, text, side }); window.setTimeout(() => setMoveCallout((c) => (c && c.id === id ? null : c)), 1000); };
     // Signature ULTIMATE → an anime portrait cut-in (reuses the round renderer's
     // .pet-cutin CSS slam). The move name is the pet's flagged signature jutsu.
-    const triggerCutIn = (actorId: string) => {
+    const triggerCutIn = (actorId: string, move: string) => {
         const r = roster.find((x) => x.id === actorId); if (!r) return;
-        const move = r.pet.jutsus?.find((j) => j.signature)?.name ?? "Ultimate";
         const id = seqRef.current++;
-        setCutIn({ id, pet: r.pet, side: r.mirror ? "enemy" : "player", move });
-        window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 1500);
+        setCutIn({ id, pet: r.pet, side: r.mirror ? "enemy" : "player", move: move || (r.pet.jutsus?.find((j) => j.signature)?.name ?? "Special Move") });
+        window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 1650);
     };
     const advanceClock = (maxT: number, delta: number) => {
         // Before the fight plays, advance the opening-choreography clock (size-up → charge-in).
@@ -2899,6 +2934,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
                 @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
                 @keyframes petDuelMove { 0% { opacity: 0; transform: translateX(-50%) scale(0.6) skewX(-10deg); } 22% { opacity: 1; transform: translateX(-50%) scale(1.06) skewX(-10deg); } 72% { opacity: 1; transform: translateX(-50%) scale(1) skewX(-10deg); } 100% { opacity: 0; transform: translateX(-50%) scale(1) skewX(-10deg); } }
+                @keyframes petCutinBg { 0% { opacity: 0; } 9% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
+                @keyframes petCutinStreak { 0% { opacity: 0; transform: translateX(-28%); } 14% { opacity: 0.95; } 100% { opacity: 0; transform: translateX(18%); } }
+                @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -2934,7 +2972,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <span className={l.crit ? "damage-number crit-text" : l.heal ? "heal-number" : "damage-number"} style={{ font: l.crit ? "900 26px Inter, system-ui, sans-serif" : "800 18px Inter, system-ui, sans-serif", display: "inline-block", animation: l.crit ? "petDuelCritPop 360ms ease-out" : undefined }}>{l.text}</span>
                     </Html>
                 ))}
-                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
+                <DuelDirector key={runId} duel={duel} clock={clock} advanceClock={advanceClock} onEnd={() => setEnded(true)} spawnNumber={spawnNumber} spawnImpact={spawnImpact} spawnFx={spawnFx} spawnShock={spawnShock} spawnTrail={spawnTrail} elementById={elementById} nameById={nameById} ultById={ultById} heroMoveById={heroMoveById} onCutIn={triggerCutIn} onFlash={triggerFlash} onCallout={triggerCallout} onCombo={triggerCombo} onAnnounce={triggerAnnounce} onMoveCallout={triggerMoveCallout} />
                 <BloomFx />
             </Canvas>
 
@@ -2953,6 +2991,15 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* Signature ultimate cut-in — anime portrait + move-name slam (reuses
                 the round renderer's .pet-cutin CSS). pointer-events:none so controls
                 stay clickable; auto-clears after the slam. */}
+            {/* Anime signature CUT-IN backdrop — a dark slam + diagonal speed lines + the move
+                name HUGE; the action freeze-frames behind it (hitStop set where the cut-in fires). */}
+            {cutIn && (
+                <div key={`cutin-bg-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.5)", animation: "petCutinBg 1650ms ease-out forwards" }} />
+                    <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${cutIn.side === "player" ? "rgba(96,165,250,0.14)" : "rgba(248,113,113,0.14)"} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
+                    <div style={{ position: "absolute", left: 0, right: 0, top: "55%", textAlign: "center", font: "900 clamp(38px,8vw,92px)/0.9 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${cutIn.side === "player" ? "rgba(96,165,250,0.95)" : "rgba(248,113,113,0.95)"}, 0 6px 16px #000`, animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>{cutIn.move}!</div>
+                </div>
+            )}
             {cutIn && (
                 <div className={`pet-cutin ${cutIn.side}`} key={`duel-cutin-${cutIn.id}`}>
                     <div className="pet-cutin-portrait">
