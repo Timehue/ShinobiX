@@ -24,7 +24,11 @@ Dockerfile
 # Logs and local artifacts
 *.log
 npm-debug.log*
+*.pdf
+*.zip
 tmp
 publish
 deploy.zip
 upstash-backup-*.json
+Shinobi Journey/
+shinobij.client/public/pet-models/
