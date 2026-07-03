@@ -1194,7 +1194,6 @@ export function persistSharedGameState(payload: Record<string, unknown>) {
         body: JSON.stringify(payload),
     }).then(r => {
         if (!r.ok) console.warn("[persistSharedGameState] POST failed:", r.status, payload.kind);
-        else if (payload.kind === "arenaActiveFights") console.log("[persistSharedGameState] fights saved OK");
     }).catch(err => {
         console.warn("[persistSharedGameState] error:", err);
     });
