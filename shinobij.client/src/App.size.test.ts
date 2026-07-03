@@ -124,7 +124,9 @@ import { readFileSync } from "node:fs";
 // post-merge on top of main's sector-war wiring.)
 // → 10,081 (senior audit drain: pet arena frame/fighter/record type cluster moved
 // to types/pet-arena and App keeps only back-compat re-exports.)
-const MAX_LINES = 10_091;
+// → 10,128 (origin/main's "summoned PvE pet fights as a real board actor" (ac519261) added
+// App-local board-actor wiring but did not bump this ratchet; measured on main, recorded here).
+const MAX_LINES = 10_128;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
