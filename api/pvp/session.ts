@@ -14,6 +14,21 @@ import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
 import { KNOWN_TAG_NAMES, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
 import { enforceBloodlineBudget, type RawJutsu } from '../_jutsu-points.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
+import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
+import { CHAKRA_CAP_V2, STAMINA_CAP_V2 } from '../_xp-engine.js';
+
+// combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
+// from the fighter's level + specialty, so move.ts's existing per-bar deduction
+// splits the two bars for free. No-op (list returned unchanged) when the flag is
+// off. Applied AFTER legacy stamping so 60-AP "Any" signatures already carry a
+// concrete type. See docs/chakra-stamina-redesign-plan.md.
+function sealV2JutsuCosts(list: unknown, level: number, specialty: string): unknown {
+    if (!COMBAT_RESOURCES_V2 || !Array.isArray(list)) return list;
+    return list.map((j) => {
+        const jj = (j ?? {}) as { ap?: number; type?: string; chakraCost?: number; staminaCost?: number };
+        return { ...jj, ...v2JutsuCosts(jj, level, specialty) };
+    });
+}
 
 export type PvpStatus = {
     name: string;
@@ -654,8 +669,9 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     // NPC opponents use hydrateNpcCharacter (vitals left intact) so boss-tier HP
     // is preserved for PvP-vs-AI flows.
     merged.maxHp      = pickClamped(saveCharacter.maxHp,      clientCharacter.maxHp,      1, 10000, 100);
-    merged.maxChakra  = pickClamped(saveCharacter.maxChakra,  clientCharacter.maxChakra,  0, 5000,  50);
-    merged.maxStamina = pickClamped(saveCharacter.maxStamina, clientCharacter.maxStamina, 0, 5000,  50);
+    // v2 raises the pool cap to CHAKRA/STAMINA_CAP_V2 (10000); legacy path stays 5000.
+    merged.maxChakra  = pickClamped(saveCharacter.maxChakra,  clientCharacter.maxChakra,  0, COMBAT_RESOURCES_V2 ? CHAKRA_CAP_V2  : 5000, 50);
+    merged.maxStamina = pickClamped(saveCharacter.maxStamina, clientCharacter.maxStamina, 0, COMBAT_RESOURCES_V2 ? STAMINA_CAP_V2 : 5000, 50);
     // Shape-validate the mastery list (see sanitizeMastery) — guards the move
     // handler against a non-array crash and clamps each level to [0,50].
     merged.jutsuMastery = sanitizeMastery(saveCharacter.jutsuMastery ?? clientCharacter.jutsuMastery);
@@ -719,6 +735,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
     // fall back to the persisted/client pvpItems for save-less (NPC) callers.
     const resolvedItems = resolveEquippedPvpItems(saveCharacter, save);
     merged.pvpItems = sanitizePvpItems(resolvedItems ?? saveCharacter.pvpItems ?? clientCharacter.pvpItems);
+    merged.jutsu = sealV2JutsuCosts(merged.jutsu, Number(merged.level) || 1, String(merged.specialty ?? ''));
     // Strip everything that isn't combat-relevant. The session is read by
     // spectators (and by the unauth /api/pvp/stream endpoint) so anything
     // sensitive (ryo, currencies, inventory, journals) would leak otherwise.
@@ -775,6 +792,7 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     // (boss-tier HP is legitimate for PvP-vs-AI).
     out.jutsuMastery = sanitizeMastery(out.jutsuMastery);
     out.jutsu = sanitizeJutsuList(out.jutsu);
+    out.jutsu = sealV2JutsuCosts(out.jutsu, Number(out.level) || 1, String(out.specialty ?? ''));
     out.pvpItems = sanitizePvpItems(out.pvpItems);
     // Same strip as real characters — NPCs can have arbitrary client-
     // supplied fields and we don't want any of the sensitive ones to land

@@ -13,7 +13,7 @@
 import { tagPower } from "./combat-math";
 import { tagMatchesName } from "./tags";
 import { scaleJutsuByLevel, scaleJutsuTagsForDisplay } from "./jutsu-scaling";
-import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY } from "../constants/game";
+import { JUTSU_MAX_LEVEL, STUN_AP_PENALTY, COMBAT_RESOURCES_V2 } from "../constants/game";
 import type { Jutsu, JutsuTag } from "../types/combat";
 import type { JutsuType } from "../types/core";
 
@@ -54,10 +54,16 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: Ju
     if (tag.name === "Cleanse Prevent") return { summary: "Prevents the target from cleansing debuffs.", rule: "Applies a negative status to the target unless Debuff Prevent blocks it. Cleanse attempts are blocked while active.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Clear Prevent") return { summary: "Prevents clear effects.", rule: "Always stops positive effects from being cleared while active.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Stun Prevent") return { summary: "Prevents stun.", rule: "Always protects against incoming Stun.", duration: "2 rounds", value: "Always" };
-    // Poison's combat fallback is 6% of max chakra (see api/pvp/move.ts + Arena
-    // PvE), NOT tagPower's generic 30 — use the same default so an unset-percent
-    // Poison tooltip matches what combat actually applies.
-    if (tag.name === "Poison") { const poisonPct = tag.percent > 0 ? tag.percent : 6; return { summary: `Poisons the target — deals ${poisonPct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${poisonPct}% chakra` }; }
+    // Poison's combat fallback is 6% (see api/pvp/move.ts + Arena PvE), NOT tagPower's
+    // generic 30 — use the same default so an unset-percent Poison tooltip matches what
+    // combat actually applies. Under combatResourcesV2 poison feeds on EXERTION (on-spend),
+    // not a per-round chakra-pool tick, so the copy branches on the flag.
+    if (tag.name === "Poison") {
+        const poisonPct = tag.percent > 0 ? tag.percent : 6;
+        return COMBAT_RESOURCES_V2
+            ? { summary: `Poisons the target for 2 rounds — while poisoned, every jutsu they cast saps HP scaled by the chakra/stamina spent (at ${poisonPct}% potency). Standing still avoids it.`, rule: "Applies a 2-round negative status. While it lasts, the target loses HP whenever they spend chakra/stamina to cast a jutsu — the bigger the spend, the bigger the hit; not casting avoids the damage.", duration: "2 rounds", value: `${poisonPct}% of spend` }
+            : { summary: `Poisons the target — deals ${poisonPct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${poisonPct}% chakra` };
+    }
     if (tag.name === "Drain") return { summary: "Drains the target's HP and chakra each round — 50–300, scaling with mastery.", rule: "Applies a 2-round negative status that reduces the target's HP and chakra each round (not stamina); the amount scales with the caster's mastery, from 50 up to 300.", duration: "2 rounds", value: "50–300/round" };
     if (tag.name === "Pierce") return { summary: "True damage — up to 900, scaled by offense + mastery.", rule: "Ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Pierce jutsus must be 60 AP, and you can equip at most one Pierce jutsu in a loadout. At max stats the cap of 900 is always reached.", duration: "Instant", value: "≤900" };
     if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
