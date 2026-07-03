@@ -5,7 +5,6 @@
  * the server — never raw counters or thresholds; the mystery rule).
  */
 import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { Character } from "../types/character";
 import {
     fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
@@ -99,9 +98,11 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     // pure snapshot is plenty; Date.now() in render trips react-hooks/purity).
     const [nowTs] = useState(() => Date.now());
     const [codexQuery, setCodexQuery] = useState("");
-    // Codex browse state: an optional category facet + the tapped-open entry.
+    // Codex browse state: an optional category facet. Entries are deliberately
+    // NOT openable — the codex names each path and its flavor, never the
+    // technique it grants. What a legacy gives is earned, not shopped for (the
+    // mystery rule); a browsable reward list would sway the choice it hides.
     const [codexCategory, setCodexCategory] = useState<string | null>(null);
-    const [codexOpenId, setCodexOpenId] = useState<string | null>(null);
     // Flag-off mounts have nothing to load; they render the null branch below.
     const [loaded, setLoaded] = useState(!enabled);
 
@@ -561,7 +562,9 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                                 {all.map((d) => {
                                     const mine = status.legacy?.legacyId === d.id;
                                     return (
-                                        <button key={d.id} type="button" onClick={() => setCodexOpenId(d.id)} style={{ textAlign: "left", cursor: "pointer", width: "100%", border: `1px solid ${mine ? `${LEGACY_ACCENT}66` : "rgba(148,163,184,.18)"}`, background: mine ? `${LEGACY_ACCENT}12` : "rgba(15,23,42,.4)", borderRadius: 10, padding: "9px 10px" }}>
+                                        // Display-only: a codex entry names the path and its flavor, and
+                                        // never opens to reveal the technique it grants (the mystery rule).
+                                        <div key={d.id} style={{ textAlign: "left", width: "100%", border: `1px solid ${mine ? `${LEGACY_ACCENT}66` : "rgba(148,163,184,.18)"}`, background: mine ? `${LEGACY_ACCENT}12` : "rgba(15,23,42,.4)", borderRadius: 10, padding: "9px 10px" }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                                                 {d.badge && (
                                                     <img
@@ -576,55 +579,10 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                                                 {d.category}{d.villageAffinity ? ` · ${d.villageAffinity}` : ""}
                                             </p>
                                             <p style={{ margin: "3px 0 0", fontSize: ".72rem", color: "#8b93a1", fontStyle: "italic", lineHeight: 1.3 }}>{d.flavor}</p>
-                                        </button>
+                                        </div>
                                     );
                                 })}
                             </div>
-                        );
-                    })()}
-                    {/* Tap-to-open detail sheet — a readable full entry for any path. */}
-                    {codexOpenId && (() => {
-                        const d = defs.get(codexOpenId);
-                        if (!d) return null;
-                        const mine = status.legacy?.legacyId === d.id;
-                        const sigId = LEGACY_JUTSU_ID_BY_LEGACY.get(d.id);
-                        const sig = sigId ? LEGACY_JUTSU_BY_ID.get(sigId) : undefined;
-                        const shape = sig ? (sig.method === "AOE_BURST" ? "Area nova" : sig.method === "AOE_CIRCLE" ? "Dashing strike" : sig.ap === 40 ? "Self technique" : "Focused strike") : "";
-                        const sigTags = sig ? sig.tags.filter((t) => t.name !== "Move") : [];
-                        return createPortal(
-                            <div onClick={() => setCodexOpenId(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.65)", padding: 12 }}>
-                                <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, width: "94%", maxHeight: "88dvh", overflowY: "auto", padding: 16, border: `1px solid ${LEGACY_ACCENT}66` }}>
-                                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
-                                        {d.badge && (
-                                            <span className={mine && (status.legacy?.stage ?? 0) >= 2 ? `legacy-aura-s${Math.min(5, status.legacy!.stage)}` : undefined} style={{ width: 56, height: 56, borderRadius: 12, display: "inline-block", flexShrink: 0 }}>
-                                                <img src={`/badges/legacy-${d.badge}.png`} alt="" style={{ width: "100%", height: "100%", borderRadius: 12, display: "block" }} onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }} />
-                                            </span>
-                                        )}
-                                        <div style={{ minWidth: 0 }}>
-                                            <h3 style={{ margin: 0, color: LEGACY_ACCENT, fontSize: "1.1rem", lineHeight: 1.12 }}>{mine ? "★ " : ""}{d.name}</h3>
-                                            <p style={{ margin: "3px 0 0", fontSize: ".72rem", color: "#94a3b8", textTransform: "capitalize" }}>{d.category}{d.villageAffinity ? ` · favored by ${d.villageAffinity}` : ""}</p>
-                                        </div>
-                                    </div>
-                                    <p style={{ margin: "0 0 8px", fontSize: ".82rem", color: "#cbd5e1", fontStyle: "italic", lineHeight: 1.5 }}>{d.flavor}</p>
-                                    <p style={{ margin: "0 0 8px", fontSize: ".76rem", color: "#9aa3b2" }}>Title on awakening: <b style={{ color: "#e2e8f0" }}>{d.title}</b></p>
-                                    {sig && (
-                                        <div style={{ marginTop: 4, border: `1px solid ${LEGACY_ACCENT}44`, background: `${LEGACY_ACCENT}0f`, borderRadius: 10, padding: 10 }}>
-                                            <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: LEGACY_ACCENT }}>◆ Signature Technique</div>
-                                            <b style={{ fontSize: ".84rem", color: "#e2e8f0" }}>{sig.name}</b>
-                                            <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · a 16th slot, sealed until Stage III — Bound.</p>
-                                            {sigTags.length > 0 && (
-                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
-                                                    {sigTags.map((t) => (
-                                                        <span key={t.name} style={{ fontSize: ".62rem", padding: "1px 6px", borderRadius: 4, border: `1px solid ${LEGACY_ACCENT}44`, color: "#c4b5fd" }}>{t.name}</span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    <button type="button" onClick={() => setCodexOpenId(null)} style={{ marginTop: 12, width: "100%" }}>Close</button>
-                                </div>
-                            </div>,
-                            document.body,
                         );
                     })()}
                 </div>
