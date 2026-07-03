@@ -83,3 +83,46 @@ export function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVE
 
     return descriptions.length ? descriptions.join(" ") : "No special effects.";
 }
+
+/**
+ * Short + long targeting copy for a jutsu's delivery method / target. Every jutsu
+ * returns a label (never null) so the targeting line always shows and players can
+ * tell single-target, self, all-enemy and the various AOE jutsu apart at a glance —
+ * AOE_BURST in particular looks identical to a normal single-target nuke on a card
+ * (same OPPONENT target, no ground tile). Descriptions mirror api/towers/_engine.ts
+ * (jutsuAreaRadius) and the ground-zone resolution in api/pvp/move.ts.
+ */
+export function jutsuTargetingLabel(jutsu: Jutsu): { short: string; detail: string } {
+    switch (jutsu.method) {
+        case "AOE_BURST":
+            return {
+                short: "AOE Burst",
+                detail: "Hits the target and every enemy in the ring of tiles touching it for full damage. The splash only matters against multiple foes (e.g. Battle Towers); one-on-one it lands as a normal single-target hit.",
+            };
+        case "AOE_SPIRAL":
+            return {
+                short: "AOE Spiral",
+                detail: "The user dashes onto a chosen tile and erupts a wide radius-2 ground nova on landing.",
+            };
+        case "AOE_CIRCLE":
+            return {
+                short: "AOE Circle",
+                detail: "Lays a ground effect on a chosen tile plus the ring of tiles around it.",
+            };
+        case "INSTANT_EFFECT":
+            return {
+                short: "AOE Ground",
+                detail: "Resolves instantly on a chosen tile and the ring of tiles around it.",
+            };
+        case "ALL":
+            return {
+                short: "All Enemies",
+                detail: "Reaches every enemy at once.",
+            };
+        case "SINGLE":
+        default:
+            return jutsu.target === "SELF"
+                ? { short: "Self", detail: "Affects only the user." }
+                : { short: "Single Target", detail: "Affects a single target — no area splash." };
+    }
+}

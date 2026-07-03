@@ -16,6 +16,7 @@ import { normalizeEquipmentSlot } from "../lib/equipment";
 import { minActionCost } from "../lib/combat-affordability";
 import { interpolateFlavor } from "../lib/battle-log-format";
 import { normalizeJutsu } from "../lib/jutsu";
+import { jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
 import { useBoardScale } from "../lib/use-board-scale";
@@ -1681,6 +1682,7 @@ export function PvpBattleScreen({
                                                 <span><strong>Chakra Cost:</strong> {formatJutsuResourcePercent(inspectedJutsu, "chakra", mastery.level)}</span>
                                                 <span><strong>Stamina Cost:</strong> {formatJutsuResourcePercent(inspectedJutsu, "stamina", mastery.level)}</span>
                                             </div>
+                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
                                             <div className="combat-jutsu-effects-list">
                                                 <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
