@@ -47,9 +47,9 @@ export function Logbook({
     creatorEvents: CreatorEvent[];
     creatorRaids: CreatorRaid[];
     acceptedMissionIds: string[];
-    setAcceptedMissionIds: (ids: string[]) => void;
+    setAcceptedMissionIds: React.Dispatch<React.SetStateAction<string[]>>;
     missionProgress: Record<string, number>;
-    setMissionProgress: (progress: Record<string, number>) => void;
+    setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     savedBloodlines: SavedBloodline[];
     setPendingAiProfileId: (id: string) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
@@ -110,8 +110,8 @@ export function Logbook({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.applied === true) {
             updateCharacter(prev => prev ? applyServerMissionReward(prev, result, gainXp) : prev);
-            setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-            setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+            setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+            setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
             alert(`${mission.name} complete. ${rewardSummary(result.reward.xpBoosted, result.reward.ryo, result.reward.stamina, mission.currencyRewards, character)}. +${result.reward.territoryScrolls} Territory Control Scrolls.`);
             return;
         }
@@ -129,8 +129,8 @@ export function Logbook({
                 stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina),
             });
         });
-        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-        setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
+        setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
+        setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
         alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`);
     }
 
@@ -138,8 +138,8 @@ export function Logbook({
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if (acceptedMissionIds.includes(mission.id)) return;
         const raidKey = missionRaidProgressKey(mission.id);
-        setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
-        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 });
+        setAcceptedMissionIds((prev) => [...prev, mission.id]);
+        setMissionProgress((prev) => ({ ...prev, [mission.id]: prev[mission.id] ?? 0, [raidKey]: prev[raidKey] ?? 0 }));
         const raidReq = missionRaidRequirement(mission);
         alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`);
     }
@@ -184,11 +184,13 @@ export function Logbook({
     }
 
     function abandonMission(missionId: string) {
-        const nextProgress = { ...missionProgress };
-        delete nextProgress[missionId];
-        delete nextProgress[missionRaidProgressKey(missionId)];
-        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== missionId));
-        setMissionProgress(nextProgress);
+        setAcceptedMissionIds((prev) => prev.filter((id) => id !== missionId));
+        setMissionProgress((prev) => {
+            const next = { ...prev };
+            delete next[missionId];
+            delete next[missionRaidProgressKey(missionId)];
+            return next;
+        });
     }
 
     function startExamFight(aiId: string) {
