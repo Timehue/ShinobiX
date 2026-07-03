@@ -47,8 +47,6 @@ import {
 } from "./lib/items";
 import { removeItem, countItem, ownsItem, normalizeInventory } from "./lib/inventory";
 import { getAllTileCards, type TileCard } from "./data/tile-cards";
-import type {
-} from "./types/clan";
 import {
     scaleJutsuTagsForDisplay,
 } from "./lib/jutsu-scaling";
@@ -57,8 +55,6 @@ import {
     jutsuEffectInfo,
     jutsuDisplayAtLevel,
 } from "./lib/jutsu-effects";
-import {
-} from "./lib/jutsu-points";
 import { normalizeJutsu } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
 import {
@@ -231,7 +227,9 @@ import {
     type Character,
     type PlayerRecord,
     type ServerPlayerSummary,
+    type BattleHistoryEntry,
 } from "./types/character";
+import { appendBattleHistory } from "./lib/battle-log-history";
 import {
     type AiLoadoutId,
     type CreatorAi,
@@ -4857,6 +4855,14 @@ export default function App() {
         void persistSave(snap);
     }, [activeTraining, activeJutsuTraining, character?.hospitalized, pendingTravel, missionProgress]);
 
+    // Reflection log: append a finished battle to the rolling last-N history
+    // (Profile → Battles). Functional update so it merges onto the latest
+    // post-reward character state; the standard autosave persists it (a
+    // character change marks the save dirty). Display-only — no reward gating.
+    const recordBattle = useCallback((entry: BattleHistoryEntry) => {
+        setCharacter(prev => prev ? { ...prev, battleHistory: appendBattleHistory(prev.battleHistory, entry) } : prev);
+    }, []);
+
     // Save on page unload (F5 / tab close / navigation away) so that progress
     // made since the last auto-save is not lost.
     // keepalive: true tells the browser to complete the fetch even after the
@@ -8887,7 +8893,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} updateCharacter={setCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} />
+                    <BattleTowers character={character} updateCharacter={setCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WeeklyBossArena
@@ -8994,6 +9000,7 @@ export default function App() {
                         setPvpBattleContext={setPvpBattleContext}
                         setPvpSeedSession={setPvpSeedSession}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
+                        onRecordBattle={recordBattle}
                     />
                 )}
 
@@ -9161,6 +9168,7 @@ export default function App() {
                             onWin={handlePvpWin}
                             onResolved={() => setPvpBattleResolved(true)}
                             onExit={exitResolvedPvpBattle}
+                            onRecordBattle={recordBattle}
                             onLoss={(opponent, serverRating) => {
                                 // Clan-war auto-report on loss — mirror of
                                 // handlePvpWin's call so both clients

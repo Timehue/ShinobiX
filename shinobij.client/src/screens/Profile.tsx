@@ -14,6 +14,7 @@ import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { LegacyPanel } from "./LegacyPanel";
+import { BattleLogHistoryPanel } from "../components/BattleLogHistoryPanel";
 import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, isLegacyEnabled } from "../lib/legacy";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
@@ -120,7 +121,7 @@ export function Profile({
         return () => { cancelled = true; };
     }, []);
     const TITLE_COST = 10;
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'legacy'>('overview');
+    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements' | 'battlelogs' | 'legacy'>('overview');
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     // Display-only lens for jutsu effect descriptions — names a discipline so
     // damage tags read e.g. "Taijutsu damage given". Defaults to the player's
@@ -335,6 +336,7 @@ export function Profile({
                     { id: 'stats',    label: '💪 Stats'   },
                     { id: 'jutsu',    label: '⚡ Jutsu'   },
                     { id: 'achievements', label: '🏆 Achievements' },
+                    { id: 'battlelogs', label: '⚔️ Battles' },
                     { id: 'legacy',   label: '🌠 Legacy'  },
                 ] as const).filter((t) => t.id !== 'legacy' || isLegacyEnabled()).map(({ id, label }) => (
                     <button
@@ -727,6 +729,11 @@ export function Profile({
                 })()}
             </section>
             </div>{/* end achievements tab */}
+
+            {/* ── Battle Logs tab ──────────────────────── */}
+            <div className={mobileTab !== 'battlelogs' ? 'profile-tab-hidden' : ''}>
+                <BattleLogHistoryPanel character={character} />
+            </div>{/* end battle logs tab */}
 
             {/* ── Legacy tab (fully gated: no empty tab/heading when the
                  server flag is off, keeping "off = byte-identical") ──────── */}

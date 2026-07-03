@@ -10,7 +10,7 @@ import {
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 import { createPortal } from "react-dom";
 import type { Biome, JutsuElement, JutsuType, Screen, WeatherType } from "../types/core";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character, PlayerRecord, BattleHistoryEntry } from "../types/character";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
@@ -19,12 +19,13 @@ import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, ju
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
-import { BattleLogLine } from "../components/BattleLogLine";
+import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { interpolateFlavor } from "../lib/battle-log-format";
+import { buildActionsFromPveHistory, makeBattleEntry } from "../lib/battle-log-history";
 import { playPetSfx } from "../lib/pet-sfx";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import { isMercAiId } from "../lib/merc-ai";
@@ -141,6 +142,7 @@ export function Arena({
     directCombat = false,
     onReturnFromCombat,
     onQueueCombatClaim,
+    onRecordBattle,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -202,6 +204,9 @@ export function Arena({
     // single-use claim token + writes the durable flag under the save lock; we
     // still set the local flag optimistically for instant UI + an autosave fallback.
     onQueueCombatClaim?: (missionKey: string) => void;
+    // Records this fight into the player's rolling battle-log history (Profile →
+    // Battles) for later reflection. Display-only — carries no rewards.
+    onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -701,6 +706,34 @@ export function Arena({
     const [activeActor, setActiveActor] = useState<BattleActor>(rollInitiative);
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
+    // Reflection log (display-only): once a fight resolves, snapshot its log into
+    // the player's rolling battle history for later review (Profile → Battles).
+    // One effect on the finalization signals avoids threading a call through the
+    // ~7 scattered win/loss/flee sites; the ref resets when a new battle starts
+    // so back-to-back fights (endless waves) each record exactly once.
+    const battleRecordedRef = useRef(false);
+    useEffect(() => { if (!battleEnded) battleRecordedRef.current = false; }, [battleEnded]);
+    useEffect(() => {
+        if (!battleEnded || !battleResult || battleRecordedRef.current || !onRecordBattle) return;
+        battleRecordedRef.current = true;
+        const mode = pendingStoryBattle ? "Story"
+            : missionBattleActive ? "Mission"
+            : exploreAmbushActive ? "Ambush"
+            : endlessBattleActive ? "Endless"
+            : (raidBattleKind && raidBattleKind !== "none") ? "Raid"
+            : "Arena";
+        const outcome: BattleHistoryEntry["outcome"] = battleResult === "win" ? "win" : battleResult === "fled" ? "flee" : "loss";
+        onRecordBattle(makeBattleEntry({
+            id: `pve-${Date.now()}-${opponentName}`,
+            ts: Date.now(),
+            mode,
+            opponent: opponentName,
+            outcome,
+            rounds: turn,
+            self: character.name,
+            actions: buildActionsFromPveHistory(battleHistory),
+        }));
+    }, [battleEnded, battleResult]);
     // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
     const battleTabs = useBattleTabs(battleHistory.length);
     // Keep the PvE battle log pinned to the newest entry (parity with
@@ -5851,15 +5884,15 @@ export function Arena({
                                         <span className="timeline-round-count">{roundGroup.entries.length}</span>
                                     </button>
                                     {roundOpen && roundGroup.entries.map((entry) => {
-                                        const lines = entry.description.split("\n");
-                                        const [headLine, ...effectLines] = lines;
+                                        const [headLine, ...effectLines] = entry.description.split("\n");
+                                        const role = entry.actorRole === "player" ? "player" : entry.actorRole === "enemy" ? "enemy" : "system";
                                         return (
-                                            <div className={`timeline-entry timeline-${entry.actorRole}`} key={`${entry.round}-${entry.actionId}-${entry.actionNumber}`}>
-                                                <p className="timeline-entry-head">
-                                                    <strong>#{entry.actionNumber}</strong> {entry.actor}: {headLine}
-                                                </p>
-                                                {effectLines.map((line, i) => <BattleLogLine line={line} key={i} />)}
-                                            </div>
+                                            <BattleActionBlock
+                                                key={`${entry.round}-${entry.actionId}-${entry.actionNumber}`}
+                                                action={{ role, actor: entry.actor, actionNumber: entry.actionNumber, headline: headLine ?? "", effectLines }}
+                                                selfName={character.name}
+                                                oppName={opponentName}
+                                            />
                                         );
                                     })}
                                 </section>

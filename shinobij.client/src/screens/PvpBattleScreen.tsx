@@ -2,10 +2,11 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Biome, Screen, WeatherType } from "../types/core";
-import type { Character } from "../types/character";
+import type { Character, BattleHistoryEntry } from "../types/character";
 import type { GameItem, Jutsu } from "../types/combat";
 import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { BattleLogLine } from "../components/BattleLogLine";
+import { BattleActionBlock } from "../components/BattleActionBlock";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
@@ -15,11 +16,12 @@ import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
 import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { minActionCost } from "../lib/combat-affordability";
-import { interpolateFlavor } from "../lib/battle-log-format";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, statusMatchesName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
 import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
+import { groupBattleLogActions } from "../lib/battle-log-format";
+import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { hexLineTiles } from "../lib/hex-path";
@@ -96,6 +98,7 @@ export function PvpBattleScreen({
     onLoss,
     onResolved,
     onExit,
+    onRecordBattle,
 }: {
     character: Character;
     battleId: string;
@@ -119,6 +122,7 @@ export function PvpBattleScreen({
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
     onResolved?: () => void;
     onExit?: (target: Screen) => void;
+    onRecordBattle?: (entry: BattleHistoryEntry) => void;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -592,6 +596,35 @@ export function PvpBattleScreen({
             if (iWonNow) onWin?.(oppFighter.name, opponent, serverRating, serverBase);
             else onLoss?.(opponent, serverRating);
         })();
+    }, [session?.status, session?.winner]);
+
+    // Reflection log (display-only): record this fight once it's done so the
+    // player can re-read it on Profile → Battles. Separate from the reward
+    // effect above so it also captures draws. De-duped by battleId (via the
+    // entry id) so a refresh on the result screen re-records harmlessly.
+    const battleRecordedRef = useRef(false);
+    useEffect(() => {
+        if (session?.status !== "done" || battleRecordedRef.current || !onRecordBattle) return;
+        battleRecordedRef.current = true;
+        const meFighter = role === "p1" ? session.p1 : session.p2;
+        const oppFighter = role === "p1" ? session.p2 : session.p1;
+        const outcome: BattleHistoryEntry["outcome"] =
+            !session.winner || session.winner === "draw"
+                ? "draw"
+                : (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2")
+                    ? "win"
+                    : "loss";
+        const { actions, rounds } = buildActionsFromPvpLog(session.log ?? [], meFighter.name, oppFighter.name);
+        onRecordBattle(makeBattleEntry({
+            id: `pvp-${battleId}`,
+            ts: Date.now(),
+            mode: battleMode === "ranked" ? "Ranked" : isSpar ? "Spar" : "PvP",
+            opponent: oppFighter.name,
+            outcome,
+            rounds,
+            self: meFighter.name,
+            actions,
+        }));
     }, [session?.status, session?.winner]);
 
     // Auto-pass when my turn starts but I can't afford the cheapest action
@@ -1759,44 +1792,32 @@ export function PvpBattleScreen({
                         </div>
                         {session.log.length === 0 ? (
                             <p>No entries yet.</p>
-                        ) : pvpLogRounds.length > 0 ? pvpLogRounds.map(group => {
+                        ) : pvpLogRounds.length > 0 ? (() => {
+                            // Group each round's raw server lines into owner-attributed
+                            // action blocks (chip = who acted, colored by side) so the
+                            // log reads "who did what" at a glance. Cast numbering runs
+                            // continuously across rounds via the carried offset.
+                            let actOffset = 0;
                             const maxLogRound = pvpLogRounds[pvpLogRounds.length - 1]?.round ?? 0;
-                            const roundOpen = logRoundOverrides[group.round] ?? (group.round >= maxLogRound - 1);
-                            return (
-                            <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={group.round}>
-                                <button type="button" className="timeline-round-header timeline-round-toggle" aria-expanded={roundOpen}
-                                    onClick={() => setLogRoundOverrides((prev) => ({ ...prev, [group.round]: !roundOpen }))}>
-                                    <span className="timeline-round-chevron" aria-hidden="true">▾</span>
-                                    <span>Round {group.round}</span>
-                                    <span className="timeline-round-count">{group.entries.length}</span>
-                                </button>
-                                {roundOpen && (() => {
-                                    let act = 0;
-                                    return group.entries.map((line, i) => {
-                                        // Defensive %user/%target substitution (D2): the server
-                                        // already interpolates cast flavor, but any un-substituted
-                                        // token (e.g. a future custom-jutsu line) would otherwise
-                                        // leak a literal %target into the log. No-op when absent.
-                                        const display = interpolateFlavor(line, me.name, opp.name);
-                                        const trimmed = display.trim();
-                                        const actorRole = display.startsWith(me.name) ? "timeline-player" : display.startsWith(opp.name) ? "timeline-enemy" : "timeline-system";
-                                        const isAction = / uses /.test(trimmed);
-                                        const isHeader = isAction || trimmed.endsWith(":") || display.startsWith(me.name) || display.startsWith(opp.name);
-                                        if (isHeader) {
-                                            if (isAction) act++;
-                                            return (
-                                                <p key={i} className={`timeline-entry-head ${actorRole}`}
-                                                    style={{ color: display.includes("wins!") ? "#fbbf24" : undefined }}>
-                                                    {isAction ? <span className="timeline-act-num" aria-hidden="true">#{act}</span> : null}{trimmed}
-                                                </p>
-                                            );
-                                        }
-                                        return <BattleLogLine line={trimmed} key={i} />;
-                                    });
-                                })()}
-                            </section>
-                            );
-                        }) : session.log.map((line, i) => <BattleLogLine line={line} key={i} />)}
+                            return pvpLogRounds.map(group => {
+                                const grouped = groupBattleLogActions(group.entries, me.name, opp.name, actOffset);
+                                actOffset = grouped.nextActionNumber;
+                                const roundOpen = logRoundOverrides[group.round] ?? (group.round >= maxLogRound - 1);
+                                return (
+                                    <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={group.round}>
+                                        <button type="button" className="timeline-round-header timeline-round-toggle" aria-expanded={roundOpen}
+                                            onClick={() => setLogRoundOverrides((prev) => ({ ...prev, [group.round]: !roundOpen }))}>
+                                            <span className="timeline-round-chevron" aria-hidden="true">▾</span>
+                                            <span>Round {group.round}</span>
+                                            <span className="timeline-round-count">{group.entries.length}</span>
+                                        </button>
+                                        {roundOpen && grouped.actions.map((a, i) => (
+                                            <BattleActionBlock key={i} action={a} selfName={me.name} oppName={opp.name} />
+                                        ))}
+                                    </section>
+                                );
+                            });
+                        })() : session.log.map((line, i) => <BattleLogLine line={line} key={i} />)}
                     </div>
                 </main>
 
