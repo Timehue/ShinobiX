@@ -540,6 +540,67 @@
 .arena-fullscreen .battle-log-effect  { color: #d8b4fe !important; font-weight: 600 !important; } /* lilac  — fallback */
 .arena-fullscreen .battle-log-line .bl-num { font-weight: 800 !important; filter: brightness(1.12); }
 
+/* ── Owner-attributed action block — the "who did what" clarity layer ────────
+   A colored actor chip (blue = you, red = opponent) leads each action, a small
+   category glyph leads each effect line, and the effects group beneath their
+   caster. Shared by the live arena/PvP logs and the Profile → Battles view
+   (components/BattleActionBlock + BattleLogLine). Chip/glyph classes are
+   unscoped so they render identically in both contexts. */
+.bl-glyph {
+    display: inline-block;
+    min-width: 1.1em;
+    margin-right: 5px;
+    text-align: center;
+    font-weight: 700;
+    opacity: 0.92;
+}
+.bl-act-num {
+    color: #7c8496;
+    font-weight: 700;
+    margin-right: 6px;
+    font-variant-numeric: tabular-nums;
+}
+.bl-actor-chip {
+    display: inline-block;
+    font-weight: 800;
+    font-size: 0.82em;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    padding: 0 8px;
+    border-radius: 999px;
+    margin-right: 7px;
+    vertical-align: 1px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+.bl-actor-player { color: #bfdcff; background: rgba(78,168,255,0.16); border-color: rgba(78,168,255,0.45); }
+.bl-actor-enemy  { color: #ffc9c9; background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.45); }
+.bl-actor-system { color: #eadfb4; background: rgba(196,162,90,0.14); border-color: rgba(196,162,90,0.40); }
+.bl-head-text { font-weight: 600; }
+
+/* The battle-log palette + head colors ALSO apply in the Profile → Battles
+   reflection view, which is NOT inside .arena-fullscreen. Mirror them scoped to
+   .bh-log so a replay reads exactly like the live log. */
+.bh-log .battle-log-heal    { color: #86efac; font-weight: 600; }
+.bh-log .battle-log-damage  { color: #fca5a5; font-weight: 600; }
+.bh-log .battle-log-dmgmod  { color: #93c5fd; font-weight: 600; }
+.bh-log .battle-log-shield  { color: #7dd3fc; font-weight: 600; }
+.bh-log .battle-log-control { color: #fbbf24; font-weight: 600; }
+.bh-log .battle-log-prevent { color: #5eead4; font-weight: 600; }
+.bh-log .battle-log-tempo   { color: #c084fc; font-weight: 600; }
+.bh-log .battle-log-system  { color: #e8d496; font-weight: 600; }
+.bh-log .battle-log-effect  { color: #d8b4fe; font-weight: 600; }
+.bh-log .battle-log-line { font: 500 12px/1.45 'Inter', system-ui, sans-serif; margin: 0; padding: 1px 0 1px 2px; color: #f1f5f9; }
+.bh-log .battle-log-line .bl-num { font-weight: 800; filter: brightness(1.12); }
+.bh-log .timeline-entry { display: block; padding: 6px 4px; border-bottom: 1px solid rgba(196,162,90,0.08); }
+.bh-log .timeline-entry:last-child { border-bottom: none; }
+.bh-log .timeline-entry-head { font: 600 13px/1.5 'Inter', system-ui, sans-serif; color: #e8edf5; margin: 0 0 3px 0; }
+.bh-log .timeline-entry.timeline-player .timeline-entry-head,
+.bh-log .timeline-entry-head.timeline-player { color: #cfe3ff; }
+.bh-log .timeline-entry.timeline-enemy .timeline-entry-head,
+.bh-log .timeline-entry-head.timeline-enemy { color: #ffd9d9; }
+.bh-log .timeline-entry-head.timeline-system { color: #e8d496; }
+
 /* =========================================================================
    Battle Skin v2 - Final cleanup pass
    ========================================================================= */
