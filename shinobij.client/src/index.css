@@ -1685,6 +1685,34 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
     inset: -6px;
     border-radius: 999px;
 }
+
+/* ── Marker counter-scale (worldMapZoom.v1) ──────────────────────────────────
+   The pinned markers ride the map's scale(zoom) transform, so on their own they
+   grow at the SAME rate as the spacing and tightly-clustered sectors stay
+   overlapping at every zoom (the "it's just a magnified picture" problem).
+   Counter-scale them by --wm-marker-scale (≈ zoom^-0.7, driven by useWorldMapZoom)
+   so each pin holds a near-constant, tappable on-screen size while the gaps
+   between them open up — zooming SPREADS the sectors apart. transform-origin:center
+   keeps every marker centred on its % anchor while it scales. */
+html.wm-zoom .world-map-scroll .atlas-sector {
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+    transform-origin: center !important;
+}
+html.wm-zoom .world-map-scroll .atlas-sector:hover {
+    transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.18)) !important;
+    z-index: 20 !important;
+}
+html.wm-zoom .world-map-scroll .atlas-landmark {
+    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+    transform-origin: center !important;
+}
+/* Village-war ownership banners/rings ride the same %-anchors — scale them in
+   step so they stay pinned to their (now constant-size) sector markers. */
+html.wm-zoom .world-map-scroll .vw-sector-claim {
+    transform: scale(var(--wm-marker-scale, 1));
+    transform-origin: center;
+}
+
 /* Zoom controls live in the top bar (beside "← Village"); the region chips sit
    in a row BELOW the map — neither overlays the painted map anymore. */
 .wm-topbar {
