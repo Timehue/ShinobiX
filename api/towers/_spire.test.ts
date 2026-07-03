@@ -13,6 +13,8 @@ import {
 } from './_tower-store.js';
 import { weekKey } from '../missions/_weekly-board.js';
 import { buildTowerEncounter, type SquadMemberInput } from './_encounter.js';
+import { runTowerFloor } from './_engine.js';
+import { makeRng } from './_sim.js';
 import { getFloor } from './_floor-catalog.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
 
@@ -111,6 +113,46 @@ describe('Endless Spire — encounter sealing', () => {
         assert.equal(s.enrageCap, undefined);
         assert.equal(s.dmgMult, undefined);
         assert.equal(isSpireRun(s), false);
+    });
+});
+
+// ─── real-engine smoke: a spire floor runs end-to-end through the new code paths ──
+function endgameSquad(n: number): SquadMemberInput[] {
+    const stats: Record<string, number> = {
+        taijutsuOffense: 2500, taijutsuDefense: 2500, bukijutsuOffense: 2500, bukijutsuDefense: 2500,
+        genjutsuOffense: 2500, genjutsuDefense: 2500, ninjutsuOffense: 2500, ninjutsuDefense: 2500,
+        strength: 2500, speed: 2500, intelligence: 2500, willpower: 2500,
+    };
+    // one real 60-AP damage jutsu (range 4 so the AI can hit from a distance)
+    const jutsu = [{ id: 'j-nuke', name: 'Spirit Bomb', effectPower: 46, ap: 60, range: 4, type: 'Ninjutsu' }];
+    return Array.from({ length: n }, (_, i) => ({
+        id: `sq-${i}`, name: `hero${i}`, ownerSlug: `hero${i}`, ai: true,
+        character: { maxHp: 10000, maxChakra: 2000, maxStamina: 2000, level: 100, stats, jutsu },
+    }));
+}
+describe('Endless Spire — real engine smoke run', () => {
+    it('runs a spire floor to a terminal state, within the round cap, via the real engine', () => {
+        const floor = getSpireFloor(1)!;                       // Warden (bulwark) + guard pod
+        const seal = resolveAscensionModifiers(1, 'warden', floor.roundBudget);
+        const s = buildTowerEncounter({ floor, squad: endgameSquad(4), runId: 'rt', seed: 7, partySize: 4, now: 0, ascension: seal, spireBossId: 'warden' });
+        const boss = s.actors.find(a => a.id === 'boss')!;
+        assert.equal(boss.maxHp, floor.boss!.hp);              // endgame per-floor HP applied
+        assert.ok(boss.character.armorRawDR != null);          // endgame boss carries armor DR
+        // Drive the deterministic engine to completion (auto-run, both sides AI).
+        runTowerFloor(s, floor, makeRng(s.seed));
+        assert.equal(s.status, 'done');                        // never wedges 'active'
+        assert.ok(s.winner === 'squad' || s.winner === 'enemy');
+        // roundCap is the real deadline — the run must resolve at or before it (never MAX_ROUNDS).
+        assert.ok(s.round <= (s.roundCap ?? 25), `round ${s.round} <= cap ${s.roundCap}`);
+    });
+    it('a maxed 4-squad clears the intro floor (not a wall) and does real damage to the boss', () => {
+        const floor = getSpireFloor(1)!;
+        const seal = resolveAscensionModifiers(1, 'warden', floor.roundBudget);
+        const s = buildTowerEncounter({ floor, squad: endgameSquad(4), runId: 'rt2', seed: 3, partySize: 4, now: 0, ascension: seal, spireBossId: 'warden' });
+        runTowerFloor(s, floor, makeRng(s.seed));
+        // intro floor should be winnable by a maxed squad (sanity: not an accidental wall)
+        assert.equal(s.winner, 'squad');
+        assert.ok(s.round >= 2, 'not a 1-round faceroll of the intro boss');
     });
 });
 
