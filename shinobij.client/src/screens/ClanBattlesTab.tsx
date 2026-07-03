@@ -7,6 +7,7 @@ import { ClanWarManual } from "../components/ClanWarManual";
 import { CW_DAMAGE, CW_HP_MAX, CW_MODE_ICON, CW_MODE_LABEL } from "../constants/clan";
 import { cwChallengeAction, cwDeclareWar, cwListWars, type CwChallenge, type CwChallengeMode, type CwChallengeResult, type CwWar } from "../lib/clan-war-api";
 import { gameConfirm } from "../components/GameAlert";
+import { fetchClanData } from "../lib/clan-api";
 
 export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattle }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
     void setScreen; // navigation now lives inside launchClanWarBattle
@@ -22,6 +23,10 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     // Tutorial popover — toggled by the ? button next to the section
     // title. Same UX pattern as the Village War manual.
     const [showClanWarManual, setShowClanWarManual] = useState(false);
+    // This player's appointed clan role ("Leader"/"Officer" from the clan
+    // record's roleOverrides, or "" ). Read so appointed leadership — not just
+    // the founder — can declare war, matching the server's loadClanContext.
+    const [myAppointedRole, setMyAppointedRole] = useState("");
 
     const refresh = useCallback(async () => {
         const list = await cwListWars();
@@ -34,6 +39,20 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     }, [refresh]);
 
     const myClan = (character.clan ?? "").trim();
+    // Pull my appointed role from the clan record so Leaders/Officers (set by the
+    // founder in the Clan Hall roster) can declare war too — the server already
+    // allows them (api/clan/war/_storage.ts loadClanContext).
+    useEffect(() => {
+        if (!myClan) { setMyAppointedRole(""); return; }
+        let alive = true;
+        void fetchClanData(myClan).then(data => {
+            if (!alive || !data) return;
+            const overrides = (data as { roleOverrides?: Record<string, string> }).roleOverrides ?? {};
+            const mine = Object.entries(overrides).find(([k]) => k.toLowerCase() === character.name.toLowerCase());
+            setMyAppointedRole(mine?.[1] ?? "");
+        });
+        return () => { alive = false; };
+    }, [myClan, character.name]);
     const myClanmates: string[] = useMemo(() => {
         if (!myClan) return [];
         return playerRoster
@@ -70,12 +89,11 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         return [...set].sort((a: string, b: string) => a.localeCompare(b));
     }, [playerRoster, myClan, clansInWar]);
 
-    // Leadership gate — mirror the server's loadClanContext. Founder
-    // flag is on the character; Leader/Officer come from clan record's
-    // roleOverrides. We optimistically allow Founder via clanFounder
-    // flag; if the role check fails server-side the API surfaces the
-    // error.
-    const canLead = character.clanFounder === true;
+    // Leadership gate — mirror the server's loadClanContext. Founder flag is on
+    // the character; Leader/Officer come from the clan record's roleOverrides
+    // (fetched above). If the role check somehow fails server-side the API
+    // surfaces the error, so this is a display gate, not the security boundary.
+    const canLead = character.clanFounder === true || myAppointedRole === "Leader" || myAppointedRole === "Officer";
 
     async function handleDeclare() {
         if (!declareTarget) return;

@@ -36,6 +36,17 @@ export const CLAN_ROLE_ICON: Record<string, string> = {
     Recruit: "📜",
 };
 
+// Colour for the appointed-role badge shown on the roster (Founder appoints
+// Leaders/Officers; everyone else is a Member). Keyed by ClanRole.
+export const CLAN_ROLE_COLOR: Record<string, string> = {
+    Founder: "#fde047",
+    Leader: "#f59e0b",
+    Officer: "#60a5fa",
+    "Elite Member": "#c084fc",
+    Member: "#94a3b8",
+    Recruit: "#64748b",
+};
+
 export const CLAN_UPGRADE_MAX_LEVEL = 50;
 
 // Clan mission objectives shown on the Clan Hall → Missions tab. Pure content;
