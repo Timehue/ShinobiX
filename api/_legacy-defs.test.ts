@@ -226,3 +226,16 @@ test('village affinities only reference real villages', () => {
         if (d.villageAffinity) assert.ok(VILLAGES.has(d.villageAffinity), `${d.id}: ${d.villageAffinity}`);
     }
 });
+
+test('no legacy uses the internal "mythic" identity category (it would leak the hidden rarity)', () => {
+    // `category` is a player-facing identity facet: the codex tabs and the
+    // "your <category> path is…" whispers render it verbatim. 'mythic' is an
+    // internal stat-bucket label (firstClears/eventCompletions) and NOT an
+    // identity — a legacy carrying it surfaces a "Mythic" tab that reveals the
+    // owner-only rarity the whole system conceals (the mystery rule). Mythic-
+    // RARITY legacies must live in a real category (first-flame → explorer,
+    // world-awakener → pve). Rarity stays 'mythic'; only the facet moves.
+    for (const d of LEGACY_DEFS) {
+        assert.notEqual(d.category, 'mythic', `${d.id} must use a real identity category, not 'mythic'`);
+    }
+});
