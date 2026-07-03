@@ -1085,8 +1085,13 @@ export function Arena({
         const battleWeather = currentWeather;
         setOpponentCharacter(null);
         setAiLevel(pendingAiProfile.level);
-        setEnemyHp(pendingAiProfile.hp);
-        startPrefight(pendingAiProfile.hp, `Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
+        // Start at the difficulty-SCALED full HP (enemyMaxHp), not the raw
+        // pendingAiProfile.hp: in standard PvE the bar's max applies the band HP
+        // multiplier, so seeding current HP from the unscaled value made an
+        // easy-band foe render as e.g. 3241/2430 (current > max). See
+        // lib/pve-difficulty.ts pveDifficultyHpMultiplier.
+        setEnemyHp(enemyMaxHp);
+        startPrefight(enemyMaxHp, `Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
     }, [lobbyMode, pendingAiProfile?.id, battleStarted]);
 
     useEffect(() => {
@@ -1119,7 +1124,11 @@ export function Arena({
     }
 
     function beginAiBattle() {
-        const hp = maxHpForLevel(aiLevel);
+        // Mirror enemyMaxHp's scaling for this path: a standard-PvE generic AI
+        // gets the band HP multiplier, so the starting current HP must be scaled
+        // too or the bar reads current > max (see the pendingAiProfile path).
+        const hpFactor = endlessBattleActive ? 1 : pveDifficultyHpMultiplier(aiLevel);
+        const hp = Math.max(1, Math.floor(maxHpForLevel(aiLevel) * hpFactor));
         setPendingAiProfileId("");
         setPendingPvpOpponent(null);
         setRaidBattleKind("none");
