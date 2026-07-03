@@ -55,7 +55,10 @@ const r = (stat, atLeast, weight) => weight === undefined ? { stat, atLeast } : 
 // ————————————————————————————————————————————————————————————————————————
 const MYTHIC = [
     {
-        id: 'first-flame', name: 'Legacy of the First Flame', rarity: 'mythic', category: 'mythic',
+        // Identity category is 'explorer' (the pioneer who "lit the way first"),
+        // never 'mythic' — that would surface the owner-only rarity as a codex
+        // tab. Still a mythic-RARITY path; its reqs/trials are unchanged in bite.
+        id: 'first-flame', name: 'Legacy of the First Flame', rarity: 'mythic', category: 'explorer',
         title: 'First Flame Bearer',
         flavor: 'Before the roads had names, someone had to walk them burning. The world remembers who lit the way first.',
         reqs: [r('firstClears', 1, 3), r('missionCompletions', 600), r('pveKills', 3000), r('warContribution', 200_000), r('eventCompletions', 10), r('tilesExplored', 2000)],
@@ -99,7 +102,9 @@ const MYTHIC = [
         reqs: [r('villageTenureDays', 75, 3), r('villageDonations', 1_000_000), r('warsWon', 12), r('warPvpKills', 150), r('sectorCaptures', 25), r('missionCompletions', 500), r('defensiveWins', 50)],
     },
     {
-        id: 'world-awakener', name: 'Legacy of the World Awakener', rarity: 'mythic', category: 'mythic',
+        // Identity category is 'pve' (the world-boss/great-beast slayer), never
+        // 'mythic' — the rarity stays hidden. Still a mythic-RARITY path.
+        id: 'world-awakener', name: 'Legacy of the World Awakener', rarity: 'mythic', category: 'pve',
         title: 'World Awakener',
         flavor: 'The great beasts do not stir for armies. They stir for the one name the world keeps repeating.',
         reqs: [r('weeklyBossTop10', 8, 3), r('bossContribution', 1_200_000), r('eventCompletions', 15), r('pvpWins', 150), r('firstClears', 1), r('warContribution', 100_000)],
