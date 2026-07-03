@@ -1,6 +1,7 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Character, Profession } from "../App";
 
 type Stage = "intro" | "choose" | "confirm";
@@ -132,12 +133,19 @@ export function ProfessionPicker({
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
-        zIndex: 1100,
+        // Sit above ALL chrome: the fixed side rails (999999) and the mobile
+        // bottom nav (1000). Kept 1 below GameAlert (1000001) so a queued
+        // notice can still cover this. Mounted inline in <main.center-game>,
+        // this fixed overlay was trapped in that subtree's stacking context
+        // and the bottom nav painted over it — clipping the last card in
+        // portrait. The createPortal(..., document.body) below escapes that
+        // context; this z-index makes it win at the root (mirrors GameAlert).
+        zIndex: 1000000,
         padding: "16px 16px max(16px, env(safe-area-inset-bottom, 16px))",
     };
 
     if (stage === "intro") {
-        return (
+        return createPortal(
             <div style={backdrop}>
                 <div style={{
                     background: "linear-gradient(180deg, rgba(15,18,34,0.97), rgba(8,10,22,0.99))",
@@ -181,12 +189,13 @@ export function ProfessionPicker({
                         </button>
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body,
         );
     }
 
     if (stage === "choose") {
-        return (
+        return createPortal(
             <div style={backdrop}>
                 <div style={{
                     width: "100%",
@@ -271,7 +280,8 @@ export function ProfessionPicker({
                         })}
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body,
         );
     }
 
@@ -282,7 +292,7 @@ export function ProfessionPicker({
     // it doesn't violate the Rules of Hooks across the earlier
     // returns for "intro" and "choose".
     if (!info) return null;
-    return (
+    return createPortal(
         <div style={backdrop}>
             <div style={{
                 background: "linear-gradient(180deg, rgba(15,18,34,0.98), rgba(8,10,22,0.99))",
@@ -334,6 +344,7 @@ export function ProfessionPicker({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
