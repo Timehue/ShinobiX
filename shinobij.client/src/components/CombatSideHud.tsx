@@ -134,7 +134,10 @@ export function CombatSideHud({
                 )}
             </div>
 
-            <div className="resource-line">
+            {/* `resource-line--hp` lets the mobile combat CSS hide JUST the HP row
+                (chakra/stamina share `.resource-line`) once HP is shown on the
+                board via FighterHpBadge — chakra/stamina/shield stay visible. */}
+            <div className="resource-line resource-line--hp">
                 <span className="resource-label">HP <small>{hp} / {maxHp}</small></span>
                 <div className="hud-bar hp-bar">
                     <span style={{ width: `${hpPct}%`, background: hpColor }} />
