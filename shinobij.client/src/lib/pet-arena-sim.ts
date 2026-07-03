@@ -331,7 +331,7 @@ const BOSS_LUNGE_CD = Math.round(ARENA_TPS * 3.5);// ~3.5 s between lunges (a co
 //   • power (Chakra Font)   → the claimer's whole team gets a timed ATTACK buff
 //   • mend  (Mending Spring) → the claimer + nearby allies heal + a small shield
 // All integer / quantised, lowest-id tiebreaks, no rng → deterministic replays.
-export type ShrineKind = "power" | "mend";
+export type ShrineKind = "power" | "mend" | "berserk" | "bulwark" | "edge" | "favor";   // v1 uses power/mend; v2 draws from the relic pool
 const SHRINE_FIRST_SPAWN = ARENA_TPS * 14;   // first shrine at 14 s — an early beat BEFORE the 20 s scroll
 const SHRINE_RESPAWN = ARENA_TPS * 20;       // a new shrine ~20 s after the last is claimed → fills the lulls between scroll cycles
 const SHRINE_CHANNEL = ARENA_TPS * 1.5;      // 1.5 s channel to claim (short — contesting is a skirmish, not a meter-grind)
@@ -357,6 +357,141 @@ const SHRINE_SPOTS: [number, number][] = [
 const COMEBACK_GAP = 3;                           // behind by this many points → the catch-up buff turns on
 const COMEBACK_DMG = 1.12;                        // +12% damage while trailing (does NOT erase a lead, just slows the snowball)
 
+// ── Arena V2 (petArenaV2.v1) — per-match config + match state ───────────────────
+// The V2 excitement pass ships behind a per-match CFG (its fields DEFAULT to the v1
+// constants above, so v2=false is byte-identical) plus a module-level MS (per-match
+// mutable state: the Overdrive momentum meter, the closing ring, boss kill-credit
+// tallies). BOTH are freshly rebuilt at the top of every runPetArenaMatch. A match
+// runs synchronously start→finish, so this "current match" module state is fully
+// deterministic (same inputs → same evolution) — the same idiom as the BFS scratch
+// (_came/_vis/_gen) above. New mechanics are gated on CFG.v2; a few retuned VALUES
+// live on CFG so a seeded per-match MODIFIER can patch them without threading params.
+
+// V2 tuning (only consulted when CFG.v2) --------------------------------------------
+const V2_ENRAGE_T1 = ARENA_TPS * 12, V2_ENRAGE_T2 = ARENA_TPS * 24;          // Warden enrage stage thresholds (ticks alive)
+const V2_BOSS_MOVE_STAGE = [2.0 / ARENA_TPS, 2.6 / ARENA_TPS, 3.0 / ARENA_TPS];  // stride by stage; 3.0/30≈0.100/tick stays < a floor assassin's ~0.109/tick so a SPEED pet still kites
+const V2_BOSS_DMG_STAGE = [1.0, 1.0, 1.25];                                  // outgoing-damage multiplier by stage
+const V2_BOSS_SLAM_CD_STAGE = [Math.round(ARENA_TPS * 2.6), Math.round(ARENA_TPS * 2.2), Math.round(ARENA_TPS * 1.9)];
+const V2_BOSS_SWIPE_CD_STAGE = [Math.round(ARENA_TPS * 0.8), Math.round(ARENA_TPS * 0.65), Math.round(ARENA_TPS * 0.55)];
+const V2_BOSS_WINDUP_STAGE = [Math.round(ARENA_TPS * 0.45), Math.round(ARENA_TPS * 0.45), Math.round(ARENA_TPS * 0.35)];
+const V2_BOSS_AGGRO_STAGE = [8.5, 8.5, 11.0];
+const V2_BOSS_SLAM_CORE = 240, V2_BOSS_SLAM_EDGE = 150, V2_BOSS_SLAM_CORE_R = BOSS_RADIUS + 1.6;  // slam falloff: full in the core, reduced on the edge
+const V2_BOSS_SLAM_ECHO_TICKS = 15, V2_BOSS_SLAM_ECHO_EVERY = 5, V2_BOSS_SLAM_ECHO_DMG = 40;      // 0.5 s aftershock on the slam tile (punishes "step to edge & back")
+const V2_BOSS_SHIELD_PIERCE = 0.5;   // the slam ignores 50% of the target's shield — the REAL "make it land" lever (shields are the true absorber, not def*0.38)
+const V2_BOSS_LUNGE_DMG = 133;       // pounce bite when a lunge lands next to a pet (round(95*1.4))
+const V2_FURY_TICKS = ARENA_TPS * 15, V2_FURY_ATK = 1.25, V2_FURY_DR = 0.15;   // Warden's Fury: +25% atk AND +15% damage-reduction for 15 s (applied in BOTH damage sinks)
+const V2_BOSS_CREDIT_FRAC = 0.6;     // the team that dealt ≥60% of the Warden's HP gets the kill credit (not the last hit)
+
+const V2_CARRIER_SLOW = 0.9;         // softer than v1's 0.85 — a carrier is catchable, not helpless
+const V2_CARRIER_DMG_TAKEN = 1.15;   // +15% damage taken while carrying — holding the scroll is dangerous, draws focus
+const V2_RESPAWN_TICKS = ARENA_TPS * 5;      // 5 s (v1 7 s) — keep the field populated
+const V2_SCROLL_FIRST = ARENA_TPS * 12;      // 12 s (v1 20 s) — kill the opening lull
+const V2_SCROLL_RESPAWN = ARENA_TPS * 24;    // 24 s base (v1 28 s)
+const V2_SCROLL_RESPAWN_LATE = ARENA_TPS * 14;   // floors to 14 s once the ring starts closing (cut dead air when tension peaks)
+const V2_SHRINE_CHANNEL = Math.round(ARENA_TPS * 2.5);   // 2.5 s (v1 1.5 s) — long enough for a 2nd squad to contest
+const V2_BOSS_HP = 3600;             // v2: a touch tankier than v1's 3000 so the enraging Warden isn't resolved in ~every match (target band 65–80%)
+
+// V2 relic pool (replaces the flat power/mend alternation — a claimed relic TRANSFORMS the claimer, so the watch reads "blue's assassin went Berserk") --
+const V2_BERSERK_TICKS = ARENA_TPS * 10, V2_BERSERK_ATK = 1.45, V2_BERSERK_MOVE = 1.15, V2_BERSERK_TAKEN = 1.2;   // Berserk Brand: +45% atk, +15% move, BUT +20% damage taken
+const V2_BULWARK_SHIELD = 0.35, V2_BULWARK_TAUNT_TICKS = Math.round(ARENA_TPS * 3);   // Bulwark Ward: 35% shield + taunt the nearest 2 enemies 3 s
+const V2_EDGE_TICKS = ARENA_TPS * 9, V2_EDGE_MULT = 1.5, V2_EDGE_HP = 0.4;            // Executioner's Edge: +50% damage vs targets under 40% HP
+const V2_MEND_HEAL = 0.22, V2_MEND_SHIELD = 0.12, V2_MEND_RADIUS = 4.0;               // Mending Tide: team heal + small shield (the kept sustain draw)
+const V2_RELIC_POOL: ShrineKind[] = ["berserk", "bulwark", "edge", "mend"];           // cycled by claim count (deterministic, no rng → crit stream unshifted)
+
+// Overdrive: combat CHARGES a spike; captures stay the ONLY score --------------------
+const V2_OD_MAX = 100;                        // full meter
+const V2_OD_PER_DMG = 0.04;                   // momentum per point of post-mitigation damage dealt to an enemy pet
+const V2_OD_PER_KILL = 12, V2_OD_PER_BOSS = 30, V2_OD_PER_CARRY_SEC = 6;
+const V2_OD_TICKS = ARENA_TPS * 12;           // an Overdrive spike lasts 12 s
+const V2_OD_ATK = 1.2, V2_OD_MOVE = 1.12;     // during Overdrive: +20% team attack, +12% team move (wins the next scroll contest)
+const V2_OD_LEADER_MUL = 0.85;                // a team leading by ≥COMEBACK_GAP charges 0.85× slower (snowball guard)
+const V2_RAMPAGE_STREAK = 3, V2_RAMPAGE_BURST = 25;   // 3 kills without dying → a momentum burst (a "hero moment", not a 2nd currency)
+
+// Collapse Call: readable focus-fire ------------------------------------------------
+const V2_COLLAPSE_MIN = 2, V2_COLLAPSE_STEP = 0.06, V2_COLLAPSE_CAP = 0.18;   // ≥2 committed allies → focused; +6%/extra dmg, capped +18%
+const V2_DMG_STACK_CAP = 2.0;   // ceiling on the COMBINED v2 attacker buff stack (fury×overdrive×berserk×edge×collapse) so co-occurring buffs can't compound into a one-shot on top of the v1 crit/mark/comeback chain
+const V2_EXECUTE_HP = 0.2;                    // focused target under 20% HP → execute telegraph
+
+// Closing ring: anti-stalemate -------------------------------------------------------
+const V2_RING_START = ARENA_TPS * 150;        // starts closing at 2:30
+const V2_RING_MAX_R = 9.0, V2_RING_MIN_R = 3.5;   // MIN stays ≥ scroll-base reach so captures remain possible
+const V2_RING_SHRINK = (V2_RING_MAX_R - V2_RING_MIN_R) / (ARENA_TPS * 120);   // reaches MIN by ~270 s
+const V2_RING_BASE_DMG = 40, V2_RING_DMG_RAMP = 5, V2_RING_RAMP_EVERY = ARENA_TPS * 30;   // env damage/sec outside the ring, +5 per 30 s
+
+interface MatchCfg {
+    v2: boolean;
+    ttkHpMul: number; winScore: number; maxTicks: number;
+    respawnTicks: number; scrollFirst: number; scrollRespawn: number;
+    carrierSlow: number; carrierDmgTaken: number; shrineChannel: number;
+    bossHp: number; bossSpawnAt: number;
+}
+interface ArenaModifier { id: string; label: string; patch: (c: MatchCfg) => void; }
+// Seeded per-match modifiers (V2 only): a "standard" no-op keeps a meaningful share for
+// the A/B baseline; the rest remix pacing/objective. Drawn with the FIRST rng() call in
+// runPetArenaMatch (before any crit is consumed) so the crit stream is unshifted.
+const ARENA_MODIFIERS: ArenaModifier[] = [
+    { id: "standard", label: "Standard Bout", patch: () => { } },
+    { id: "warden-fury", label: "Warden's Fury", patch: (c) => { c.bossSpawnAt = ARENA_TPS * 20; } },
+    { id: "scroll-frenzy", label: "Scroll Frenzy", patch: (c) => { c.scrollRespawn = ARENA_TPS * 16; c.winScore = 6; } },
+    { id: "blood-ritual", label: "Blood Ritual", patch: (c) => { c.ttkHpMul = 1.9; } },
+];
+function makeCfg(v2: boolean, mod: ArenaModifier | null): MatchCfg {
+    const c: MatchCfg = {
+        v2,
+        ttkHpMul: TTK_HP_MUL, winScore: WIN_SCORE, maxTicks: MAX_TICKS,
+        respawnTicks: v2 ? V2_RESPAWN_TICKS : RESPAWN_TICKS,
+        scrollFirst: v2 ? V2_SCROLL_FIRST : SCROLL_FIRST_SPAWN,
+        scrollRespawn: v2 ? V2_SCROLL_RESPAWN : SCROLL_RESPAWN,
+        carrierSlow: v2 ? V2_CARRIER_SLOW : CARRIER_SLOW,
+        carrierDmgTaken: v2 ? V2_CARRIER_DMG_TAKEN : 1,
+        shrineChannel: v2 ? V2_SHRINE_CHANNEL : SHRINE_CHANNEL,
+        bossHp: v2 ? V2_BOSS_HP : BOSS_HP, bossSpawnAt: BOSS_SPAWN_AT,
+    };
+    if (v2 && mod) mod.patch(c);
+    return c;
+}
+interface MatchState {
+    score: { blue: number; red: number } | null;   // the live score (set at match start) — read by addMom's snowball guard
+    squad: Squad | null;                            // this tick's blackboard — read by collapseMult in dealDamage
+    mom: { blue: number; red: number };             // Overdrive charge 0..V2_OD_MAX
+    od: { blue: number; red: number };              // Overdrive ticks remaining
+    streak: { blue: number; red: number };          // kills since last death (rampage)
+    bossDmg: { blue: number; red: number };         // cumulative Warden damage per team (kill credit)
+    ringR: number;                                  // current safe radius (V2_RING_MAX_R until the ring starts)
+    carryId: string | null; carryDist: number;      // carrier-toward-home momentum tracker
+    bossComebackUsed: boolean;                       // the Warden's trailing +2 fires once per match
+    collapseSeen: Set<string>; execSeen: Set<string>;   // Collapse/execute cue de-dupe
+    shrineClaims: number;                            // v2 relic-pool cursor (cycles the pool deterministically)
+}
+function makeMatchState(): MatchState {
+    return {
+        score: null, squad: null,
+        mom: { blue: 0, red: 0 }, od: { blue: 0, red: 0 }, streak: { blue: 0, red: 0 }, bossDmg: { blue: 0, red: 0 },
+        ringR: V2_RING_MAX_R, carryId: null, carryDist: 0, bossComebackUsed: false,
+        collapseSeen: new Set(), execSeen: new Set(), shrineClaims: 0,
+    };
+}
+// Module-level "current match" config + state (rebuilt per runPetArenaMatch). Default OFF.
+let CFG: MatchCfg = makeCfg(false, null);
+let MS: MatchState = makeMatchState();
+
+/** Warden enrage stage from ticks-alive (0/1/2). Always 0 in v1. */
+function wardenStage(aliveTicks: number): number { return !CFG.v2 ? 0 : aliveTicks >= V2_ENRAGE_T2 ? 2 : aliveTicks >= V2_ENRAGE_T1 ? 1 : 0; }
+/** Add Overdrive momentum for a team (V2). Snowball-guarded; a full meter triggers a spike. */
+function addMom(team: "blue" | "red", amt: number, t: number, events: ArenaEvent[]) {
+    if (!CFG.v2 || amt <= 0) return;
+    const sc = MS.score;
+    if (sc && sc[team] - sc[oppOf(team)] >= COMEBACK_GAP) amt *= V2_OD_LEADER_MUL;   // leader charges slower
+    MS.mom[team] += amt;
+    while (MS.mom[team] >= V2_OD_MAX) { MS.mom[team] -= V2_OD_MAX; MS.od[team] = V2_OD_TICKS; events.push({ t, type: "overdrive", team }); }
+}
+/** Collapse-Call damage multiplier: ≥2 allies committed to this target → capped focus bonus. */
+function collapseMult(src: AF, tgt: AF): number {
+    if (!CFG.v2 || !MS.squad) return 1;
+    const n = MS.squad.focus[src.team][tgt.id] ?? 0;
+    return n < V2_COLLAPSE_MIN ? 1 : 1 + Math.min(V2_COLLAPSE_CAP, V2_COLLAPSE_STEP * (n - 1));
+}
+
 // ── Fighter ──────────────────────────────────────────────────────────────────
 export type ArenaState = "idle" | "move" | "attack" | "dash" | "channel" | "respawning" | "dead";
 interface AF {
@@ -368,6 +503,8 @@ interface AF {
     // statuses
     shieldHp: number; slowLeft: number; dotLeft: number; dotDmg: number; markLeft: number; tauntBy: string | null; tauntLeft: number;
     buffLeft: number;                                   // boss-kill team attack buff — ticks down; multiplies outgoing damage while >0
+    furyLeft: number;                                   // V2 Warden's Fury: +atk AND +DR while >0 (ticks down); v1 leaves it 0
+    berserkLeft: number; execLeft: number;              // V2 relics: Berserk Brand (+atk/+move/+taken) and Executioner's Edge (+dmg vs low HP)
     behind: boolean;                                    // team is trailing by ≥COMEBACK_GAP → catch-up damage buff (set each tick)
     carrying: boolean; seals: [number, number][];
     path: number[] | null; pathIdx: number; navGoal: number; navAge: number; stuckTicks: number;   // BFS path cache + stuck watchdog
@@ -400,7 +537,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
     const sealIdx = count <= 2 ? Math.min(slot, 1) : (slot < 2 ? 0 : 1);
     const [sx, sy] = seals[sealIdx];
     const [x, y] = snapMain(sx, sy + (count <= 2 ? 0 : slot % 2 ? 0.9 : -0.9));
-    const maxHp = Math.max(1, Math.round((gp.hp || 600) * cfg.hpMul * TTK_HP_MUL));
+    const maxHp = Math.max(1, Math.round((gp.hp || 600) * cfg.hpMul * CFG.ttkHpMul));   // CFG.ttkHpMul == TTK_HP_MUL unless a v2 modifier lowered it
     const ch = applyItems ? petConsumableCharges(gp) : null;
     return {
         id: `${team}-${slot}`, team, slot, role, pet: gp, element: gp.element,
@@ -413,7 +550,7 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
         // speed (gp) so +SPD PvP gear also lifts crit; casual (gp===pet) is unchanged.
         atkRange: cfg.atkRange, crit: Math.min(0.5, cfg.crit + (gp.speed || 50) / SPEED_CRIT_DIVISOR), energy: 100, lives: 3,
         state: "idle", respawnLeft: 0, attackCd: 0, abilityCd: Math.round(ARENA_TPS * 1.5), dashLeft: 0, moveDx: 0, moveDy: 0,
-        shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, buffLeft: 0, behind: false, carrying: false,
+        shieldHp: applyItems ? petGearStartShield(gp) : 0, slowLeft: 0, dotLeft: 0, dotDmg: 0, markLeft: 0, tauntBy: null, tauntLeft: 0, buffLeft: 0, furyLeft: 0, berserkLeft: 0, execLeft: 0, behind: false, carrying: false,
         path: null, pathIdx: 0, navGoal: -1, navAge: 0, stuckTicks: 0, aiTargetId: null, plan: null, decisionCd: 0,
         itemsOn: applyItems,
         cDodge: ch ? ch.dodge : 0, cMitigatePct: ch ? ch.mitigate : 0, cEndure: ch ? ch.endure : 0,
@@ -421,7 +558,17 @@ function buildFighter(pet: Pet, team: "blue" | "red", role: ArenaRole, slot: num
     };
 }
 const alive = (f: AF) => f.lives > 0 && f.state !== "dead" && f.state !== "respawning";
-const effSpeed = (f: AF) => f.moveSpeed * (f.slowLeft > 0 ? 0.6 : 1) * (f.carrying ? CARRIER_SLOW : 1);
+// Effective move speed. v1: slow × carry-slow. v2 adds: Overdrive move buff, and an
+// Overdrive carrier is NOT slowed (the spike is what wins the capture). Byte-identical
+// when v2 off (the v2 branches are gated and carrierSlow defaults to the v1 constant).
+function effSpeed(f: AF): number {
+    let s = f.moveSpeed * (f.slowLeft > 0 ? 0.6 : 1);
+    const od = CFG.v2 && MS.od[f.team] > 0;
+    if (f.carrying) s *= od ? 1 : CFG.carrierSlow;
+    if (od) s *= V2_OD_MOVE;
+    if (CFG.v2 && f.berserkLeft > 0) s *= V2_BERSERK_MOVE;   // Berserk Brand relic — faster
+    return s;
+}
 
 // ── Objective (the scroll) ───────────────────────────────────────────────────
 interface Scroll {
@@ -430,7 +577,10 @@ interface Scroll {
     channelById: string | null; channelLeft: number; spawnTimer: number; dropTimer: number;
 }
 // ── Objective (the neutral boss — B4) ─────────────────────────────────────────
-interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; faceX: number; hp: number; maxHp: number; spawnTimer: number; atkCd: number; swipeCd: number; windUp: number; lungeLeft: number; lungeCd: number; lungeDx: number; lungeDy: number; lastHitTeam: "blue" | "red" | null; }
+interface Boss { state: "inactive" | "active" | "dead"; x: number; y: number; faceX: number; hp: number; maxHp: number; spawnTimer: number; atkCd: number; swipeCd: number; windUp: number; lungeLeft: number; lungeCd: number; lungeDx: number; lungeDy: number; lastHitTeam: "blue" | "red" | null;
+    aliveTicks: number; stage: number;                 // V2 enrage: ticks since spawn + last-emitted stage
+    echoLeft: number; echoX: number; echoY: number; echoStage: number;   // V2 slam aftershock lingering on the stomp tile
+}
 // ── Shrine (the rotating buff pickup) ─────────────────────────────────────────
 interface Shrine { state: "inactive" | "active"; kind: ShrineKind; x: number; y: number; idx: number; channelById: string | null; channelLeft: number; spawnTimer: number; }
 
@@ -446,8 +596,12 @@ export interface ArenaSnapshot {
     t: number; actors: ArenaActorSnap[];
     scroll: { state: Scroll["state"]; x: number; y: number; carrierId: string | null; channelFrac: number; spawnSecs: number };   // spawnSecs: whole seconds until (re)spawn while inactive (0 otherwise) — readout only
     shrine: { state: Shrine["state"]; kind: ShrineKind; x: number; y: number; channelFrac: number; spawnSecs: number };   // rotating buff pickup (power/mend); channelFrac drives the claim ring
-    boss: { state: Boss["state"]; x: number; y: number; faceX: number; hpFrac: number; spawnSecs: number; winding: boolean };   // neutral boss readout (state inactive until it spawns; faceX/winding drive the renderer's facing + slam telegraph)
+    boss: { state: Boss["state"]; x: number; y: number; faceX: number; hpFrac: number; spawnSecs: number; winding: boolean; stage: number };   // neutral boss readout (state inactive until it spawns; faceX/winding drive the renderer's facing + slam telegraph; stage = V2 enrage tier)
     scoreBlue: number; scoreRed: number;
+    // V2 readouts (0 / inactive when v2 is off) — drive the Overdrive bars, enrage aura, closing ring.
+    momBlue: number; momRed: number;      // Overdrive charge 0..100
+    odBlue: number; odRed: number;        // Overdrive spike whole-seconds remaining
+    ringR: number;                        // closing-ring safe radius from centre (0 = ring not active)
 }
 export type ArenaEvent =
     | { t: number; type: "hit"; targetId: string; actorId: string; dmg: number; crit: boolean; element?: string | null; ability?: boolean }
@@ -456,11 +610,17 @@ export type ArenaEvent =
     | { t: number; type: "ability"; actorId: string; kind: AbilityKind }
     | { t: number; type: "pickup" | "drop" | "capture" | "scrollspawn" | "respawn"; actorId?: string; team?: "blue" | "red" }
     | { t: number; type: "shrinespawn" | "shrineclaim"; kind?: ShrineKind; team?: "blue" | "red"; actorId?: string }
-    | { t: number; type: "bossspawn" | "bosskill" | "bosshit" | "bossslam" | "bosswindup" | "bossswipe" | "bosslunge"; team?: "blue" | "red"; actorId?: string };
+    | { t: number; type: "bossspawn" | "bosskill" | "bosshit" | "bossslam" | "bosswindup" | "bossswipe" | "bosslunge"; team?: "blue" | "red"; actorId?: string }
+    // V2 (petArenaV2.v1) cues — only emitted when v2 is on; renderer treats them as readouts.
+    | { t: number; type: "overdrive" | "rampage"; team: "blue" | "red" }
+    | { t: number; type: "bossenrage"; stage: number }
+    | { t: number; type: "ringclose" }
+    | { t: number; type: "collapse" | "executewindow"; team: "blue" | "red"; targetId: string };
 export interface ArenaResult {
     winner: "blue" | "red" | "draw"; scoreBlue: number; scoreRed: number; ticks: number;
     snapshots: ArenaSnapshot[]; events: ArenaEvent[];
     bases: { blue: [number, number][]; red: [number, number][] }; center: [number, number];
+    winScore: number; v2: boolean; modifier: string;   // V2 readouts for the renderer (winScore may be raised by a modifier; modifier id for the pre-match banner)
 }
 export interface ArenaSlot { pet: Pet; role: ArenaRole; }
 
@@ -470,8 +630,27 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
     // DODGE consumable fully negates the incoming hit (no damage, no procs).
     if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; return; }
     let mult = (crit ? 1.8 : 1) * (tgt.markLeft > 0 ? 1.25 : 1) * (src.buffLeft > 0 ? BOSS_BUFF_ATK : 1) * (src.behind ? COMEBACK_DMG : 1);
+    if (CFG.v2) {
+        // Fold the v2 attacker buffs into ONE lane and CAP it, so co-occurring buffs (a
+        // Warden kill hands the whole team fury+overdrive at once; a relic-holder can carry
+        // berserk+edge) can't compound into a one-shot on top of the v1 crit/mark/comeback chain.
+        let v2m = 1;
+        if (src.furyLeft > 0) v2m *= V2_FURY_ATK;                              // Warden's Fury: +25% attack
+        if (MS.od[src.team] > 0) v2m *= V2_OD_ATK;                             // Overdrive: +20% team attack
+        if (src.berserkLeft > 0) v2m *= V2_BERSERK_ATK;                        // Berserk Brand relic: +45% attack
+        if (src.execLeft > 0 && tgt.hp < tgt.maxHp * V2_EDGE_HP) v2m *= V2_EDGE_MULT;   // Executioner's Edge relic: +50% vs low HP
+        v2m *= collapseMult(src, tgt);                                         // Collapse-Call: capped focus-fire bonus
+        mult *= Math.min(V2_DMG_STACK_CAP, v2m);                              // ceiling on the combined v2 buff stack
+    }
     if (src.itemsOn) mult *= petGearExecuteMult(src.pet, tgt.hp, tgt.maxHp);   // gear execute vs low-HP foe
     let dmg = Math.max(1, Math.round((raw - tgt.def * 0.38) * mult));
+    if (CFG.v2) {                                                              // target-side V2 modifiers
+        let tm = 1;
+        if (tgt.furyLeft > 0) tm *= 1 - V2_FURY_DR;                            // Warden's Fury: −15% damage taken
+        if (tgt.carrying) tm *= CFG.carrierDmgTaken;                           // carrying the scroll is dangerous
+        if (tgt.berserkLeft > 0) tm *= V2_BERSERK_TAKEN;                       // Berserk Brand relic: +20% damage taken (the risk half)
+        if (tm !== 1) dmg = Math.max(1, Math.round(dmg * tm));
+    }
     if (tgt.itemsOn) {
         dmg = Math.max(1, Math.round(dmg * petGearLastStandMult(tgt.pet, tgt.hp, tgt.maxHp)));   // gear last-stand while low
         if (tgt.cMitigatePct > 0) { dmg = Math.max(1, Math.round(dmg * (1 - tgt.cMitigatePct / 100))); tgt.cMitigatePct = 0; }   // smoke-pellet
@@ -480,6 +659,7 @@ function dealDamage(src: AF, tgt: AF, raw: number, rng: () => number, t: number,
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }   // survive one lethal blow
     tgt.hp -= dmg;
     events.push({ t, type: "hit", targetId: tgt.id, actorId: src.id, dmg, crit, element: src.element, ability });
+    if (CFG.v2 && dmg > 0) addMom(src.team, dmg * V2_OD_PER_DMG, t, events);   // combat charges Overdrive (captures stay the only score)
     if (dmg > 0) {
         // THORNS consumable: reflect a % of the damage back at the attacker (once).
         if (tgt.itemsOn && tgt.cThornsPct > 0 && src.hp > 0) {
@@ -551,7 +731,7 @@ interface Ctx { myCarrier: AF | null; enemyCarrier: AF | null; scrollOpen: boole
 function makeCtx(f: AF, fs: AF[], scroll: Scroll, score: { blue: number; red: number }): Ctx {
     const carrier = scroll.carrierId ? fs.find((g) => g.id === scroll.carrierId) ?? null : null;
     const mine = score[f.team], opp = score[oppOf(f.team)], lead = mine - opp;
-    const phase: MatchPhase = (mine >= WIN_SCORE - 1 || opp >= WIN_SCORE - 1) ? "emergency" : lead >= 3 ? "closeit" : lead <= -3 ? "comeback" : "normal";
+    const phase: MatchPhase = (mine >= CFG.winScore - 1 || opp >= CFG.winScore - 1) ? "emergency" : lead >= 3 ? "closeit" : lead <= -3 ? "comeback" : "normal";
     return {
         myCarrier: carrier && carrier.team === f.team ? carrier : null,
         enemyCarrier: carrier && carrier.team !== f.team ? carrier : null,
@@ -845,6 +1025,11 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
     const cfg = ROLE_CFG[f.role];
     const enemies = enemiesAlive(f, fs);
     const cands: Cand[] = [];
+    // V2 closing ring: if I'm outside (or at the edge of) the safe radius, fleeing inward
+    // beats almost everything — standing in the ring is death. Phase-agnostic (kind "dodge").
+    if (CFG.v2 && MS.ringR < V2_RING_MAX_R && distPt(f, ARENA_CENTER[0], ARENA_CENTER[1]) > MS.ringR - 1.0) {
+        cands.push({ score: 140, kind: "dodge", plan: { gx: ARENA_CENTER[0], gy: ARENA_CENTER[1], stopAt: Math.max(0.5, MS.ringR * 0.5), target: nearestEnemy(f, fs), channel: false } });
+    }
     const stick = (e: AF) => (e.id === f.aiTargetId ? 6 : 0);                          // hysteresis — resist flip-flopping
     const distPen = (e: AF) => clamp(dist(f, e), 0, 16) * 1.1;                         // prefer reachable high-value targets
     // Focus-fire: bonus for piling onto an enemy MY OTHER allies already target.
@@ -916,9 +1101,10 @@ function candidates(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
         const channeler = shrine.channelById ? fs.find((g) => g.id === shrine.channelById) ?? null : null;
         const enemyClaiming = channeler !== null && channeler.team !== f.team;
         const allyClaiming = channeler !== null && channeler.team === f.team;
-        let base = shrine.kind === "power"
-            ? (f.role === "tracker" ? 50 : f.role === "defender" ? 46 : 42)
-            : 28 + (1 - hpFrac(f)) * 72;                         // mend: the more hurt I am, the harder I rush it
+        const isHeal = shrine.kind === "mend" || shrine.kind === "favor";
+        let base = isHeal
+            ? 28 + (1 - hpFrac(f)) * 72                           // heal relic/mend: the more hurt I am, the harder I rush it
+            : (f.role === "tracker" ? 50 : f.role === "defender" ? 46 : 42);   // power/offensive-relic buff: a flat squad pull
         if (enemyClaiming) base += 26;                          // DENY — don't let the enemy walk off with a buff
         else if (allyClaiming && !inRange) base -= 14;          // an ally's already on it → screen, don't all pile on
         const score = base + (inRange ? 30 : -dS * 0.6);
@@ -1100,16 +1286,21 @@ function spreadGoal(f: AF, target: AF, neutral: number): { gx: number; gy: numbe
 
 /** Act on the plan: channel, attack, or fire the role ability. */
 function act(f: AF, plan: Plan, fs: AF[], scroll: Scroll, rng: () => number, t: number, events: ArenaEvent[]) {
-    // B1 — carry teeth: a pet hauling the scroll can't basic-attack or fire its role
+    // B1 — carry teeth (v1): a pet hauling the scroll can't basic-attack or fire its role
     // ability. Carrying is a real commitment (slowed by CARRIER_SLOW, drops on death),
     // so a capture is a TEAM play — the carrier runs while escorts screen for it — not a
     // one-pet rush that also wins the fight. Channelling (pickup) still works.
-    if (f.carrying && !plan.channel) return;
+    // V2 flips this: the carrier CAN fight (carry-as-fight-through), balanced instead by a
+    // softer slow + CARRIER_DMG_TAKEN, so a capture is the climax of a brawl, not a jog.
+    if (f.carrying && !plan.channel && !CFG.v2) return;
     const cfg = ROLE_CFG[f.role];
     const tgt = plan.target;
     const d = tgt ? dist(f, tgt) : Infinity;
-    // Role ability when ready + appropriate.
-    if (f.abilityCd <= 0 && f.energy >= cfg.abilityCost) {
+    // Role ability when ready + appropriate. A CARRIER never fires its ability (even in v2):
+    // carry-as-fight-through means it can BASIC-attack while running, but the assassin's
+    // `assassinate` is a DASH that would hijack the run home (and a carrying sage/defender
+    // casting reads wrong) — so carriers swing, they don't cast.
+    if (f.abilityCd <= 0 && f.energy >= cfg.abilityCost && !f.carrying) {
         if (cfg.ability === "mend") {                                   // Sage: heal the most-hurt ally
             const ally = lowestHpAlly(f, fs); if (ally && ally.hp < ally.maxHp * 0.85) { const amt = Math.round(ally.maxHp * 0.22); ally.hp = Math.min(ally.maxHp, ally.hp + amt); ally.shieldHp = Math.max(ally.shieldHp, Math.round(ally.maxHp * 0.12)); f.abilityCd = cfg.abilityCd * ARENA_TPS; f.energy -= cfg.abilityCost; events.push({ t, type: "ability", actorId: f.id, kind: "mend" }, { t, type: "heal", targetId: ally.id, actorId: f.id, amount: amt }); return; }
         } else if (cfg.ability === "guard" && tgt && d < cfg.neutral + 2 && (tgt.carrying || tgt.role === "assassin" || tgt.role === "tracker" || hpFrac(f) < 0.55)) {  // Defender: SAVE the taunt for the carrier / a striker / when pressured
@@ -1137,6 +1328,8 @@ function tickDecide(f: AF, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss,
     }
     if (f.attackCd > 0) f.attackCd--; if (f.abilityCd > 0) f.abilityCd--;
     if (f.buffLeft > 0) f.buffLeft--;                                                   // boss-kill attack buff ticks down
+    if (f.furyLeft > 0) f.furyLeft--;                                                   // Warden's Fury (v2) ticks down
+    if (f.berserkLeft > 0) f.berserkLeft--; if (f.execLeft > 0) f.execLeft--;           // V2 relic timers tick down
     f.behind = score[oppOf(f.team)] - score[f.team] >= COMEBACK_GAP;                    // anti-snowball catch-up buff (live score)
     if (f.slowLeft > 0) f.slowLeft--; if (f.markLeft > 0) f.markLeft--; if (f.tauntLeft > 0) f.tauntLeft--; else f.tauntBy = null;
     if (f.energy < 100) f.energy = Math.min(100, f.energy + 18 / ARENA_TPS);
@@ -1178,8 +1371,12 @@ function attackBoss(f: AF, boss: Boss, rng: () => number, t: number, events: Are
     if (d > f.atkRange + BOSS_RADIUS + 0.15) return;                  // not in striking reach yet (keep moving)
     if (d > 1e-6) { f.faceX = dx / d; f.faceY = dy / d; }
     const crit = rng() < f.crit;
-    const dmg = Math.max(1, Math.round(f.atk * (crit ? 1.8 : 1) * (f.buffLeft > 0 ? BOSS_BUFF_ATK : 1)));
-    boss.hp -= dmg; boss.lastHitTeam = f.team; f.attackCd = ATTACK_CD; f.state = "attack";
+    let bmult = (crit ? 1.8 : 1) * (f.buffLeft > 0 ? BOSS_BUFF_ATK : 1);
+    if (CFG.v2) { if (f.furyLeft > 0) bmult *= V2_FURY_ATK; if (MS.od[f.team] > 0) bmult *= V2_OD_ATK; }   // Fury / Overdrive lift damage vs the Warden too
+    const dmg = Math.max(1, Math.round(f.atk * bmult));
+    boss.hp -= dmg; boss.lastHitTeam = f.team;
+    if (CFG.v2) MS.bossDmg[f.team] += dmg;   // kill-credit tally (≥60% of the Warden's HP wins the credit)
+    f.attackCd = ATTACK_CD; f.state = "attack";
     events.push({ t, type: "bosshit", actorId: f.id, team: f.team });
 }
 
@@ -1198,16 +1395,21 @@ function stepScroll(scroll: Scroll, fs: AF[], center: [number, number], t: numbe
         }
         scroll.x = carrier.x; scroll.y = carrier.y;
         const [bx, by] = nearestSeal(carrier);
-        if (distPt(carrier, bx, by) <= BASE_SCORE_RANGE) {   // SCORE the capture
-            score[carrier.team] += 1; carrier.carrying = false;   // each capture = 1 point (race to 5)
-            scroll.state = "inactive"; scroll.spawnTimer = SCROLL_RESPAWN; scroll.carrierId = null;
+        if (CFG.v2) {   // carry-home charges Overdrive, but ONLY while genuinely closing on home (no mid-field farming)
+            const dSeal = distPt(carrier, bx, by);
+            if (MS.carryId === carrier.id && dSeal < MS.carryDist - 1e-4) addMom(carrier.team, V2_OD_PER_CARRY_SEC / ARENA_TPS, t, events);
+            MS.carryId = carrier.id; MS.carryDist = dSeal;
+        }
+        if (distPt(carrier, bx, by) <= BASE_SCORE_RANGE) {   // SCORE the capture — captures are the ONLY score (v1 + v2)
+            score[carrier.team] += 1; carrier.carrying = false;   // each capture = 1 point (race to winScore)
+            scroll.state = "inactive"; scroll.spawnTimer = CFG.v2 && t >= V2_RING_START ? Math.min(CFG.scrollRespawn, V2_SCROLL_RESPAWN_LATE) : CFG.scrollRespawn; scroll.carrierId = null;
             scroll.x = center[0]; scroll.y = center[1];   // park at the spawn point so the next anticipation aims true
             events.push({ t, type: "capture", team: carrier.team, actorId: carrier.id });
         }
         return;
     }
     // center or dropped → channelling to pick up
-    if (scroll.state === "dropped") { if (scroll.dropTimer > 0) scroll.dropTimer--; if (scroll.dropTimer <= 0) { scroll.state = "inactive"; scroll.spawnTimer = SCROLL_RESPAWN; scroll.channelById = null; scroll.x = center[0]; scroll.y = center[1]; return; } }
+    if (scroll.state === "dropped") { if (scroll.dropTimer > 0) scroll.dropTimer--; if (scroll.dropTimer <= 0) { scroll.state = "inactive"; scroll.spawnTimer = CFG.v2 && t >= V2_RING_START ? Math.min(CFG.scrollRespawn, V2_SCROLL_RESPAWN_LATE) : CFG.scrollRespawn; scroll.channelById = null; scroll.x = center[0]; scroll.y = center[1]; return; } }
     const chan = scroll.channelById ? fs.find((g) => g.id === scroll.channelById) : null;
     if (chan && (!alive(chan) || distPt(chan, scroll.x, scroll.y) > PICKUP_RANGE + 0.2)) { scroll.channelById = null; scroll.channelLeft = 0; }
     if (!scroll.channelById) {                                        // claim by the closest channeller (deterministic: lowest id)
@@ -1233,6 +1435,7 @@ function stepShrine(shrine: Shrine, fs: AF[], t: number, events: ArenaEvent[]) {
         if (shrine.spawnTimer > 0) shrine.spawnTimer--;
         if (shrine.spawnTimer <= 0) {
             shrine.state = "active";
+            if (CFG.v2) shrine.kind = V2_RELIC_POOL[MS.shrineClaims % V2_RELIC_POOL.length];   // v2: draw the next relic from the pool (deterministic cursor, no rng)
             shrine.x = SHRINE_SPOTS[shrine.idx][0]; shrine.y = SHRINE_SPOTS[shrine.idx][1];
             shrine.channelById = null; shrine.channelLeft = 0;
             events.push({ t, type: "shrinespawn", kind: shrine.kind });
@@ -1245,7 +1448,7 @@ function stepShrine(shrine: Shrine, fs: AF[], t: number, events: ArenaEvent[]) {
     if (chan && (!alive(chan) || chan.carrying || distPt(chan, shrine.x, shrine.y) > SHRINE_CLAIM_RANGE + 0.2)) { shrine.channelById = null; shrine.channelLeft = 0; }
     if (!shrine.channelById) {
         const cands = fs.filter((g) => alive(g) && !g.carrying && distPt(g, shrine.x, shrine.y) <= SHRINE_CLAIM_RANGE).sort((a, b) => (a.id < b.id ? -1 : 1));
-        if (cands.length) { shrine.channelById = cands[0].id; shrine.channelLeft = SHRINE_CHANNEL; }
+        if (cands.length) { shrine.channelById = cands[0].id; shrine.channelLeft = CFG.shrineChannel; }
     }
     if (shrine.channelById) {
         shrine.channelLeft--;
@@ -1255,7 +1458,8 @@ function stepShrine(shrine: Shrine, fs: AF[], t: number, events: ArenaEvent[]) {
             events.push({ t, type: "shrineclaim", kind: shrine.kind, team: c.team, actorId: c.id });
             shrine.state = "inactive"; shrine.spawnTimer = SHRINE_RESPAWN;              // respawn cycle
             shrine.idx = (shrine.idx + 1) % SHRINE_SPOTS.length;                        // …at the next spot
-            shrine.kind = shrine.kind === "power" ? "mend" : "power";                   // …with the alternate flavour
+            if (CFG.v2) MS.shrineClaims++;                                              // v2: advance the relic cursor (next spawn draws the next relic)
+            else shrine.kind = shrine.kind === "power" ? "mend" : "power";              // v1: …with the alternate flavour
             shrine.channelById = null; shrine.channelLeft = 0;
         }
     }
@@ -1264,17 +1468,37 @@ function stepShrine(shrine: Shrine, fs: AF[], t: number, events: ArenaEvent[]) {
  *  buff (reuses AF.buffLeft, the Warden-kill buff lane → consistent renderer "buff"); mend
  *  → the claimer + nearby allies heal a fraction of max HP + a small shield. Deterministic. */
 function applyShrine(shrine: Shrine, claimer: AF, fs: AF[], t: number, events: ArenaEvent[]) {
-    if (shrine.kind === "power") {
-        for (const g of fs) if (g.team === claimer.team && alive(g)) g.buffLeft = Math.max(g.buffLeft, SHRINE_BUFF_TICKS);
-        return;
-    }
-    for (const g of fs) {
-        if (g.team !== claimer.team || !alive(g)) continue;
-        if (g.id !== claimer.id && distPt(g, claimer.x, claimer.y) > SHRINE_HEAL_RADIUS) continue;
-        const heal = Math.round(g.maxHp * SHRINE_HEAL_PCT);
-        g.hp = Math.min(g.maxHp, g.hp + heal);
-        g.shieldHp = Math.max(g.shieldHp, Math.round(g.maxHp * SHRINE_SHIELD_PCT));
-        events.push({ t, type: "heal", targetId: g.id, actorId: claimer.id, amount: heal });
+    switch (shrine.kind) {
+        case "power":   // v1: whole-team attack buff
+            for (const g of fs) if (g.team === claimer.team && alive(g)) g.buffLeft = Math.max(g.buffLeft, SHRINE_BUFF_TICKS);
+            return;
+        case "berserk":   // v2 relic: transform the claimer — high attack + move, but fragile
+            claimer.berserkLeft = Math.max(claimer.berserkLeft, V2_BERSERK_TICKS);
+            return;
+        case "edge":      // v2 relic: the claimer executes low-HP targets
+            claimer.execLeft = Math.max(claimer.execLeft, V2_EDGE_TICKS);
+            return;
+        case "bulwark": { // v2 relic: the claimer shields up and taunts the nearest 2 enemies (a frontline anchor)
+            claimer.shieldHp = Math.max(claimer.shieldHp, Math.round(claimer.maxHp * V2_BULWARK_SHIELD));
+            events.push({ t, type: "shield", targetId: claimer.id, actorId: claimer.id, amount: claimer.shieldHp });
+            const foes = fs.filter((g) => g.team !== claimer.team && alive(g)).sort((a, b) => distPt(a, claimer.x, claimer.y) - distPt(b, claimer.x, claimer.y) || (a.id < b.id ? -1 : 1));
+            for (const e of foes.slice(0, 2)) { e.tauntBy = claimer.id; e.tauntLeft = V2_BULWARK_TAUNT_TICKS; }
+            return;
+        }
+        case "favor":   // v2 (reserved for Warden's Favor) — heals for now
+        case "mend":
+        default: {      // team heal + a small shield (v1 mend + v2 Mending Tide)
+            const healPct = CFG.v2 ? V2_MEND_HEAL : SHRINE_HEAL_PCT, shPct = CFG.v2 ? V2_MEND_SHIELD : SHRINE_SHIELD_PCT, radius = CFG.v2 ? V2_MEND_RADIUS : SHRINE_HEAL_RADIUS;
+            for (const g of fs) {
+                if (g.team !== claimer.team || !alive(g)) continue;
+                if (g.id !== claimer.id && distPt(g, claimer.x, claimer.y) > radius) continue;
+                const heal = Math.round(g.maxHp * healPct);
+                g.hp = Math.min(g.maxHp, g.hp + heal);
+                g.shieldHp = Math.max(g.shieldHp, Math.round(g.maxHp * shPct));
+                events.push({ t, type: "heal", targetId: g.id, actorId: claimer.id, amount: heal });
+            }
+            return;
+        }
     }
 }
 
@@ -1282,10 +1506,10 @@ function applyShrine(shrine: Shrine, claimer: AF, fs: AF[], t: number, events: A
 /** Stride the boss toward a goal at its (slow) move speed, wall-sliding so it never
  *  wedges. Deterministic: straight step + quantise/clamp, the same shape as the body-
  *  separation slide. The pit is open so no BFS is needed. */
-function bossStep(boss: Boss, gx: number, gy: number) {
+function bossStep(boss: Boss, gx: number, gy: number, spd = BOSS_MOVE_SPEED) {
     const dx = gx - boss.x, dy = gy - boss.y, d = Math.sqrt(dx * dx + dy * dy);
     if (d < 0.05) return;
-    const step = Math.min(BOSS_MOVE_SPEED, d), ux = dx / d, uy = dy / d;
+    const step = Math.min(spd, d), ux = dx / d, uy = dy / d;
     const nx = boss.x + ux * step, ny = boss.y + uy * step;
     if (walkableAt(nx, ny)) { boss.x = nx; boss.y = ny; }      // slide along a wall if blocked (never wedge)
     else if (walkableAt(nx, boss.y)) boss.x = nx;
@@ -1297,14 +1521,21 @@ function bossStep(boss: Boss, gx: number, gy: number) {
  *  (all inert in casual, itemsOn=false). No crit (no rng) → predictable. The "hit" event
  *  drives the renderer's impact + damage floater; actorId "boss" is treated as the
  *  environment by lastAttacker (no team kill-credit). */
-function bossHitPet(tgt: AF, raw: number, t: number, events: ArenaEvent[]) {
+function bossHitPet(tgt: AF, raw: number, t: number, events: ArenaEvent[], actorId = "boss", shieldPierce = 0) {
     if (tgt.itemsOn && tgt.cDodge > 0) { tgt.cDodge -= 1; return; }                         // DODGE fully negates
     let dmg = Math.max(1, Math.round(raw - tgt.def * 0.38));
+    if (CFG.v2 && tgt.carrying) dmg = Math.max(1, Math.round(dmg * CFG.carrierDmgTaken));   // carrying is dangerous (also vs the Warden / ring)
+    if (CFG.v2 && tgt.furyLeft > 0) dmg = Math.max(1, Math.round(dmg * (1 - V2_FURY_DR)));  // Warden's Fury DR — applied in BOTH damage sinks
+    if (CFG.v2 && tgt.berserkLeft > 0) dmg = Math.max(1, Math.round(dmg * V2_BERSERK_TAKEN)); // Berserk Brand +20% taken (also vs the Warden / ring)
     if (tgt.itemsOn && tgt.cMitigatePct > 0) { dmg = Math.max(1, Math.round(dmg * (1 - tgt.cMitigatePct / 100))); tgt.cMitigatePct = 0; }   // smoke-pellet
-    if (tgt.shieldHp > 0) { const absorbed = Math.min(tgt.shieldHp, dmg); tgt.shieldHp -= absorbed; dmg -= absorbed; }
+    if (tgt.shieldHp > 0) {
+        // V2 slam pierces part of the shield (shields are the real absorber, not def*0.38): only (1−pierce) of it can soak this hit.
+        const soak = shieldPierce > 0 ? Math.round(tgt.shieldHp * (1 - shieldPierce)) : tgt.shieldHp;
+        const absorbed = Math.min(soak, dmg); tgt.shieldHp -= absorbed; dmg -= absorbed;
+    }
     if (tgt.itemsOn && tgt.cEndure > 0 && dmg >= tgt.hp && tgt.hp > 1) { dmg = tgt.hp - 1; tgt.cEndure -= 1; }   // survive one lethal blow
     tgt.hp -= dmg;
-    events.push({ t, type: "hit", targetId: tgt.id, actorId: "boss", dmg, crit: false, element: null, ability: false });
+    events.push({ t, type: "hit", targetId: tgt.id, actorId, dmg, crit: false, element: null, ability: false });
 }
 /** Spawn the boss mid-match, then run it as an ACTIVE bruiser: it hunts the nearest living
  *  pet, strides toward it (slower than a pet → kiteable), and SLAMS on a cadence — an AoE
@@ -1320,13 +1551,40 @@ function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, eve
     // Pets attacked it in tickExecute already → a lethal blow this tick resolves first.
     if (boss.hp <= 0) {
         boss.state = "dead";
-        const team = boss.lastHitTeam;
+        let team = boss.lastHitTeam;
+        if (CFG.v2) {   // credit the team that COMMITTED (dealt ≥60% of the Warden's HP), not the last poke
+            if (MS.bossDmg.blue >= boss.maxHp * V2_BOSS_CREDIT_FRAC) team = "blue";
+            else if (MS.bossDmg.red >= boss.maxHp * V2_BOSS_CREDIT_FRAC) team = "red";
+        }
         if (team) {
-            score[team] += BOSS_REWARD_POINTS;
-            for (const g of fs) if (g.team === team) g.buffLeft = BOSS_BUFF_TICKS;
+            if (CFG.v2) {
+                const trailing = !MS.bossComebackUsed && score[oppOf(team)] - score[team] >= COMEBACK_GAP;   // comeback tilt: +2 if trailing, once/match
+                score[team] += BOSS_REWARD_POINTS + (trailing ? 1 : 0);
+                if (trailing) MS.bossComebackUsed = true;
+                for (const g of fs) if (g.team === team) g.furyLeft = V2_FURY_TICKS;   // Warden's Fury: +25% atk AND +15% DR
+                addMom(team, V2_OD_PER_BOSS, t, events);                                // and a chunk of Overdrive
+            } else {
+                score[team] += BOSS_REWARD_POINTS;
+                for (const g of fs) if (g.team === team) g.buffLeft = BOSS_BUFF_TICKS;
+            }
             events.push({ t, type: "bosskill", team });
         }
         return;
+    }
+    // V2: age the Warden (drives the enrage stage), fire a cue on each new tier, and tick
+    // the lingering slam AFTERSHOCK on the last stomp tile (so the correct dodge is to fully
+    // vacate, not step to the edge and back).
+    const stage = CFG.v2 ? wardenStage(boss.aliveTicks) : 0;
+    if (CFG.v2) {
+        boss.aliveTicks++;
+        if (stage > boss.stage) { boss.stage = stage; events.push({ t, type: "bossenrage", stage }); }
+        if (boss.echoLeft > 0) {
+            boss.echoLeft--;
+            if (boss.echoLeft % V2_BOSS_SLAM_ECHO_EVERY === 0) {
+                const raw = V2_BOSS_SLAM_ECHO_DMG * V2_BOSS_DMG_STAGE[boss.echoStage];
+                for (const g of fs) if (alive(g) && distPt(g, boss.echoX, boss.echoY) <= V2_BOSS_SLAM_CORE_R) bossHitPet(g, raw, t, events, "boss", V2_BOSS_SHIELD_PIERCE);
+            }
+        }
     }
     // Hunt the nearest living pet (deterministic: nearest, ties broken by lowest id).
     let tgt: AF | null = null, bd = Infinity;
@@ -1349,6 +1607,11 @@ function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, eve
         else if (walkableAt(boss.x, ny)) boss.y = ny;
         else boss.lungeLeft = 0;                                  // hit a wall → stop the leap
         boss.x = quant(clamp(boss.x, -ARENA_X, ARENA_X)); boss.y = quant(clamp(boss.y, -ARENA_Y, ARENA_Y));
+        if (CFG.v2 && boss.lungeLeft <= 0) {                      // POUNCE: the leap lands — if a pet is under us, bite it (closes the risk-free-kite hole)
+            let vic: AF | null = null, vb = Infinity;
+            for (const g of fs) { if (!alive(g)) continue; const dd = distPt(g, boss.x, boss.y); if (dd < vb) { vb = dd; vic = g; } }
+            if (vic && vb <= BOSS_SWIPE_RANGE + BOSS_RADIUS) { events.push({ t, type: "bossswipe" }); bossHitPet(vic, V2_BOSS_LUNGE_DMG * V2_BOSS_DMG_STAGE[stage], t, events); boss.swipeCd = 0; }
+        }
         return;
     }
     if (boss.lungeCd > 0) boss.lungeCd--;
@@ -1359,30 +1622,45 @@ function stepBoss(boss: Boss, fs: AF[], center: [number, number], t: number, eve
     if (boss.windUp > 0) {
         boss.windUp--;
         if (boss.windUp <= 0) {                                   // the stomp lands NOW
-            boss.atkCd = BOSS_ATK_CD;
+            boss.atkCd = CFG.v2 ? V2_BOSS_SLAM_CD_STAGE[stage] : BOSS_ATK_CD;
             events.push({ t, type: "bossslam" });
-            for (const g of fs) if (alive(g) && distPt(g, boss.x, boss.y) <= BOSS_ATK_RADIUS + BOSS_RADIUS) bossHitPet(g, BOSS_ATK_DMG, t, events);
+            if (CFG.v2) {
+                const dmgMul = V2_BOSS_DMG_STAGE[stage];
+                for (const g of fs) {
+                    if (!alive(g)) continue;
+                    const dG = distPt(g, boss.x, boss.y);
+                    if (dG > BOSS_ATK_RADIUS + BOSS_RADIUS) continue;
+                    const raw = (dG <= V2_BOSS_SLAM_CORE_R ? V2_BOSS_SLAM_CORE : V2_BOSS_SLAM_EDGE) * dmgMul;   // core punish, edge falloff
+                    bossHitPet(g, raw, t, events, "boss", V2_BOSS_SHIELD_PIERCE);                              // + shield-pierce (the real "make it land" lever)
+                }
+                boss.echoLeft = V2_BOSS_SLAM_ECHO_TICKS; boss.echoX = boss.x; boss.echoY = boss.y; boss.echoStage = stage;   // arm the aftershock on this tile
+            } else {
+                for (const g of fs) if (alive(g) && distPt(g, boss.x, boss.y) <= BOSS_ATK_RADIUS + BOSS_RADIUS) bossHitPet(g, BOSS_ATK_DMG, t, events);
+            }
         }
         return;
     }
     // Stride toward an in-aggro pet; otherwise amble back to the centre pit so it never wanders off.
-    if (tgt && dTgt <= BOSS_AGGRO_RANGE) bossStep(boss, tgt.x, tgt.y);
-    else bossStep(boss, center[0], center[1]);
+    // V2: an enraged Warden strides faster (still < the fastest pet) and aggros farther.
+    const aggro = CFG.v2 ? V2_BOSS_AGGRO_STAGE[stage] : BOSS_AGGRO_RANGE;
+    const moveSpd = CFG.v2 ? V2_BOSS_MOVE_STAGE[stage] : BOSS_MOVE_SPEED;
+    if (tgt && dTgt <= aggro) bossStep(boss, tgt.x, tgt.y, moveSpd);
+    else bossStep(boss, center[0], center[1], moveSpd);
     if (boss.atkCd > 0) boss.atkCd--;
     if (boss.swipeCd > 0) boss.swipeCd--;
     // HEAVY move — commit to a SLAM when a pet is in reach + the slam cooldown is up: begin
     // the wind-up telegraph (the AoE resolves when it ends, so it's dodge-able).
     if (tgt && boss.atkCd <= 0 && dTgt <= BOSS_ATK_RANGE + BOSS_RADIUS) {
-        boss.windUp = BOSS_WINDUP;
+        boss.windUp = CFG.v2 ? V2_BOSS_WINDUP_STAGE[stage] : BOSS_WINDUP;   // enraged slams telegraph a hair shorter
         events.push({ t, type: "bosswindup" });
         return;
     }
     // BASIC move — a fast SHORT-range SWIPE on a melee'd pet: no wind-up, single target, the
     // reliable chip that keeps the Warden a real threat to anything standing in its face.
     if (tgt && boss.swipeCd <= 0 && dTgt <= BOSS_SWIPE_RANGE + BOSS_RADIUS) {
-        boss.swipeCd = BOSS_SWIPE_CD;
+        boss.swipeCd = CFG.v2 ? V2_BOSS_SWIPE_CD_STAGE[stage] : BOSS_SWIPE_CD;
         events.push({ t, type: "bossswipe" });
-        bossHitPet(tgt, BOSS_SWIPE_DMG, t, events);
+        bossHitPet(tgt, CFG.v2 ? BOSS_SWIPE_DMG * V2_BOSS_DMG_STAGE[stage] : BOSS_SWIPE_DMG, t, events);
         return;
     }
     // GAP-CLOSER — a target hovering beyond slam reach (the classic ranged kite) + the lunge
@@ -1404,18 +1682,30 @@ function snap(t: number, fs: AF[], scroll: Scroll, shrine: Shrine, boss: Boss, s
             const statuses: string[] = [];
             if (f.shieldHp > 0) statuses.push("shield"); if (f.slowLeft > 0) statuses.push("slow"); if (f.markLeft > 0) statuses.push("mark");
             if (f.tauntLeft > 0) statuses.push("taunt"); if (f.carrying) statuses.push("carry"); if (f.buffLeft > 0) statuses.push("buff");
+            if (f.furyLeft > 0) statuses.push("fury"); if (f.berserkLeft > 0) statuses.push("berserk"); if (f.execLeft > 0) statuses.push("edge");
             return { id: f.id, team: f.team, slot: f.slot, role: f.role, element: f.element, x: quant(f.x), y: quant(f.y), faceX: quant(f.faceX), faceY: quant(f.faceY), hp: Math.max(0, Math.round(f.hp)), maxHp: f.maxHp, energy: Math.round(f.energy), lives: f.lives, state: f.state, carrying: f.carrying, statuses, respawnSecs: f.state === "respawning" ? Math.ceil(f.respawnLeft / ARENA_TPS) : 0, abilityReady: f.abilityCd <= 0 && f.energy >= ROLE_CFG[f.role].abilityCost };
         }),
         scroll: { state: scroll.state, x: quant(scroll.x), y: quant(scroll.y), carrierId: scroll.carrierId, channelFrac: scroll.channelById ? 1 - scroll.channelLeft / SCROLL_CHANNEL : 0, spawnSecs: scroll.state === "inactive" ? Math.ceil(scroll.spawnTimer / ARENA_TPS) : 0 },
-        shrine: { state: shrine.state, kind: shrine.kind, x: quant(shrine.x), y: quant(shrine.y), channelFrac: shrine.channelById ? 1 - shrine.channelLeft / SHRINE_CHANNEL : 0, spawnSecs: shrine.state === "inactive" ? Math.ceil(shrine.spawnTimer / ARENA_TPS) : 0 },
-        boss: { state: boss.state, x: quant(boss.x), y: quant(boss.y), faceX: boss.faceX, hpFrac: boss.maxHp > 0 ? Math.max(0, quant(boss.hp / boss.maxHp)) : 0, spawnSecs: boss.state === "inactive" ? Math.ceil(boss.spawnTimer / ARENA_TPS) : 0, winding: boss.windUp > 0 },
+        shrine: { state: shrine.state, kind: shrine.kind, x: quant(shrine.x), y: quant(shrine.y), channelFrac: shrine.channelById ? 1 - shrine.channelLeft / CFG.shrineChannel : 0, spawnSecs: shrine.state === "inactive" ? Math.ceil(shrine.spawnTimer / ARENA_TPS) : 0 },
+        boss: { state: boss.state, x: quant(boss.x), y: quant(boss.y), faceX: boss.faceX, hpFrac: boss.maxHp > 0 ? Math.max(0, quant(boss.hp / boss.maxHp)) : 0, spawnSecs: boss.state === "inactive" ? Math.ceil(boss.spawnTimer / ARENA_TPS) : 0, winding: boss.windUp > 0, stage: CFG.v2 ? wardenStage(boss.aliveTicks) : 0 },
         scoreBlue: score.blue, scoreRed: score.red,
+        momBlue: CFG.v2 ? Math.round(MS.mom.blue) : 0, momRed: CFG.v2 ? Math.round(MS.mom.red) : 0,
+        odBlue: CFG.v2 && MS.od.blue > 0 ? Math.ceil(MS.od.blue / ARENA_TPS) : 0, odRed: CFG.v2 && MS.od.red > 0 ? Math.ceil(MS.od.red / ARENA_TPS) : 0,
+        ringR: CFG.v2 && t >= V2_RING_START ? quant(MS.ringR) : 0,
     };
 }
 
-/** Run a full deterministic match. `blue`/`red` are role-assigned rosters (2 or 4 each). */
-export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: number, applyItems = false): ArenaResult {
+/** Run a full deterministic match. `blue`/`red` are role-assigned rosters (2 or 4 each).
+ *  v2 (petArenaV2.v1) opts into the excitement ruleset; v2=false is byte-identical to before. */
+export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: number, applyItems = false, v2 = false): ArenaResult {
     const rng = makeRng(seed);
+    // V2: draw a seeded per-match MODIFIER with the FIRST rng() call (before any crit is
+    // consumed, so the crit stream is unshifted; v1 draws nothing, so its stream is untouched),
+    // then rebuild the module CFG + match state for THIS run. Both are fully re-initialised, so
+    // nothing leaks between matches and replays stay byte-identical.
+    const mod: ArenaModifier | null = v2 ? ARENA_MODIFIERS[Math.floor(rng() * ARENA_MODIFIERS.length)] : null;
+    CFG = makeCfg(v2, mod);
+    MS = makeMatchState();
     const nB = blue.length, nR = red.length;
     // applyItems (PvP ladder) equips every pet's PVP gear + consumables symmetrically.
     const fs: AF[] = [
@@ -1424,17 +1714,34 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
     ];
     const center = ARENA_CENTER;   // on the painted center paw (measured off the art)
     const sepX = new Array(fs.length).fill(0), sepY = new Array(fs.length).fill(0);   // per-tick body-separation accumulators (reused; see the declump pass)
-    const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: SCROLL_FIRST_SPAWN, dropTimer: 0 };
+    const scroll: Scroll = { state: "inactive", x: center[0], y: center[1], carrierId: null, channelById: null, channelLeft: 0, spawnTimer: CFG.scrollFirst, dropTimer: 0 };
     const shrine: Shrine = { state: "inactive", kind: "power", x: SHRINE_SPOTS[0][0], y: SHRINE_SPOTS[0][1], idx: 0, channelById: null, channelLeft: 0, spawnTimer: SHRINE_FIRST_SPAWN };
-    const boss: Boss = { state: "inactive", x: center[0], y: center[1], faceX: -1, hp: BOSS_HP, maxHp: BOSS_HP, spawnTimer: BOSS_SPAWN_AT, atkCd: 0, swipeCd: 0, windUp: 0, lungeLeft: 0, lungeCd: 0, lungeDx: 0, lungeDy: 0, lastHitTeam: null };
+    const boss: Boss = { state: "inactive", x: center[0], y: center[1], faceX: -1, hp: CFG.bossHp, maxHp: CFG.bossHp, spawnTimer: CFG.bossSpawnAt, atkCd: 0, swipeCd: 0, windUp: 0, lungeLeft: 0, lungeCd: 0, lungeDx: 0, lungeDy: 0, lastHitTeam: null, aliveTicks: 0, stage: 0, echoLeft: 0, echoX: 0, echoY: 0, echoStage: 0 };
     const score = { blue: 0, red: 0 };
+    MS.score = score;   // addMom's snowball guard reads the live score
     const snapshots: ArenaSnapshot[] = []; const events: ArenaEvent[] = [];
     let winner: "blue" | "red" | "draw" = "draw"; let ticks = 0;
 
-    for (let t = 0; t < MAX_TICKS; t++) {
+    for (let t = 0; t < CFG.maxTicks; t++) {
         ticks = t + 1;
         // respawn timers
         for (const f of fs) if (f.state === "respawning") { if (--f.respawnLeft <= 0) { const [x, y] = snapMain(f.baseX, f.baseY + (f.slot - 1.5) * 1.0); f.x = x; f.y = y; f.hp = f.maxHp; f.energy = 100; f.shieldHp = 0; f.slowLeft = f.dotLeft = f.markLeft = f.tauntLeft = 0; f.tauntBy = null; f.state = "idle"; f.path = null; f.navAge = 0; f.stuckTicks = 0; events.push({ t, type: "respawn", actorId: f.id, team: f.team }); } }
+        // V2 per-tick systems: Overdrive spikes tick down, and from V2_RING_START a CLOSING
+        // RING shrinks toward centre — pets outside take ramping neutral damage each second
+        // (actorId "env", so it never mis-credits a kill), herding both teams into a decisive
+        // endgame scrum instead of stalling to the cap.
+        if (CFG.v2) {
+            if (MS.od.blue > 0) MS.od.blue--;
+            if (MS.od.red > 0) MS.od.red--;
+            if (t === V2_RING_START) events.push({ t, type: "ringclose" });
+            if (t >= V2_RING_START) {
+                MS.ringR = Math.max(V2_RING_MIN_R, V2_RING_MAX_R - (t - V2_RING_START) * V2_RING_SHRINK);
+                if ((t - V2_RING_START) % ARENA_TPS === 0) {
+                    const rdmg = V2_RING_BASE_DMG + Math.floor((t - V2_RING_START) / V2_RING_RAMP_EVERY) * V2_RING_DMG_RAMP;
+                    for (const f of fs) if (alive(f) && distPt(f, center[0], center[1]) > MS.ringR) bossHitPet(f, rdmg, t, events, "env");
+                }
+            }
+        }
         // Decide on a frozen start-of-tick board (no second-mover advantage), then
         // execute in an order that ALTERNATES each tick (forward = blue-first,
         // reverse = red-first) so neither team gets a persistent same-tick first-
@@ -1444,6 +1751,19 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         // real matches — player pets vs AI pets, never identical — are decided by
         // pet quality, not side.
         const squad = buildSquad(fs, scroll);   // shared squad awareness (focus + call + peels) + commander (posture + rally) — built once per tick
+        MS.squad = squad;                        // collapseMult (in dealDamage) reads this tick's focus tally
+        // V2 Collapse-Call cues: when ≥2 allies commit to the same called target, flag it
+        // focused (once), and fire an execute telegraph the first time it drops below 20% HP.
+        if (CFG.v2) {
+            for (const tm of ["blue", "red"] as const) {
+                const call = squad.callTarget[tm];
+                if (!call || (squad.focus[tm][call] ?? 0) < V2_COLLAPSE_MIN) continue;
+                const ck = tm + ":" + call;
+                if (!MS.collapseSeen.has(ck)) { MS.collapseSeen.add(ck); events.push({ t, type: "collapse", team: tm, targetId: call }); }
+                const tf = fs.find((g) => g.id === call);
+                if (tf && tf.hp > 0 && tf.hp < tf.maxHp * V2_EXECUTE_HP && !MS.execSeen.has(call)) { MS.execSeen.add(call); events.push({ t, type: "executewindow", team: tm, targetId: call }); }
+            }
+        }
         for (const f of fs) if (alive(f)) tickDecide(f, fs, scroll, shrine, boss, score, squad);
         for (let k = 0; k < fs.length; k++) { const f = (t & 1) === 0 ? fs[k] : fs[fs.length - 1 - k]; if (alive(f)) tickExecute(f, fs, scroll, boss, rng, t, events); }
         // Separate overlapping bodies. Accumulate every pair's push from the FROZEN
@@ -1471,15 +1791,21 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
             else if (walkableAt(nx, f.y)) f.x = nx;
             else if (walkableAt(f.x, ny)) f.y = ny;
         }
-        // deaths → score, life, respawn, drop scroll
+        // deaths → kill event, life, respawn, drop scroll. Kills DON'T score (captures are
+        // the only points); in V2 a real pet kill CHARGES Overdrive and a 3-streak pops a burst.
         for (const f of fs) {
             if (f.hp > 0 || f.state === "respawning" || f.state === "dead") continue;
-            const killer = lastAttacker(events, f.id) ?? f.team;
-            const killTeam: "blue" | "red" = killer === "blue" || killer === "red" ? killer : (f.team === "blue" ? "red" : "blue");
-            events.push({ t, type: "kill", targetId: f.id, actorId: "", team: killTeam });   // kills DON'T score — purely tactical (clear the path / defend the carry)
+            const realKiller = lastAttacker(events, f.id);
+            const killTeam: "blue" | "red" = realKiller ?? f.team;   // env/Warden kills credit the victim's own team for the EVENT (unchanged v1 semantics)
+            events.push({ t, type: "kill", targetId: f.id, actorId: "", team: killTeam });
+            if (CFG.v2 && realKiller) {   // only a real pet kill feeds momentum (env/boss kills don't)
+                addMom(realKiller, V2_OD_PER_KILL, t, events);
+                MS.streak[realKiller]++; MS.streak[f.team] = 0;
+                if (MS.streak[realKiller] >= V2_RAMPAGE_STREAK) { MS.streak[realKiller] = 0; addMom(realKiller, V2_RAMPAGE_BURST, t, events); events.push({ t, type: "rampage", team: realKiller }); }
+            }
             if (f.carrying) { f.carrying = false; scroll.state = "dropped"; scroll.dropTimer = SCROLL_DROP_LIFE; scroll.carrierId = null; scroll.x = f.x; scroll.y = f.y; events.push({ t, type: "drop", actorId: f.id }); }
             f.lives -= 1;
-            if (f.lives <= 0) { f.state = "dead"; } else { f.state = "respawning"; f.respawnLeft = RESPAWN_TICKS; }
+            if (f.lives <= 0) { f.state = "dead"; } else { f.state = "respawning"; f.respawnLeft = CFG.respawnTicks; }
         }
         for (const f of fs) { f.x = quant(clamp(f.x, -ARENA_X, ARENA_X)); f.y = quant(clamp(f.y, -ARENA_Y, ARENA_Y)); }
         stepScroll(scroll, fs, center, t, events, score);
@@ -1488,7 +1814,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
         snapshots.push(snap(t, fs, scroll, shrine, boss, score));
 
         // win checks
-        if (score.blue >= WIN_SCORE || score.red >= WIN_SCORE) { winner = score.blue >= WIN_SCORE ? "blue" : "red"; break; }
+        if (score.blue >= CFG.winScore || score.red >= CFG.winScore) { winner = score.blue >= CFG.winScore ? "blue" : "red"; break; }
         const blueUp = fs.some((f) => f.team === "blue" && f.lives > 0), redUp = fs.some((f) => f.team === "red" && f.lives > 0);
         if (!blueUp || !redUp) { winner = blueUp ? "blue" : redUp ? "red" : "draw"; break; }
     }
@@ -1502,7 +1828,7 @@ export function runPetArenaMatch(blue: ArenaSlot[], red: ArenaSlot[], seed: numb
             winner = tb > tr ? "blue" : tr > tb ? "red" : "draw";
         }
     }
-    return { winner, scoreBlue: score.blue, scoreRed: score.red, ticks, snapshots, events, bases: { blue: SEALS.blue, red: SEALS.red }, center };
+    return { winner, scoreBlue: score.blue, scoreRed: score.red, ticks, snapshots, events, bases: { blue: SEALS.blue, red: SEALS.red }, center, winScore: CFG.winScore, v2: CFG.v2, modifier: mod ? mod.id : "standard" };
 }
 
 /** The team of the most recent PET hit on `id` (kill credit). Scans events backward.
