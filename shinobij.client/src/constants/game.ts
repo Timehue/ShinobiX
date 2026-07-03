@@ -47,7 +47,7 @@ export const STUN_AP_PENALTY = 40;
 // It is a build-time constant (not a per-device localStorage flag) precisely so the
 // two engines can't desync. To enable: flip BOTH copies to true and rebuild
 // (client dist + server); Railway self-builds.
-export const COMBAT_RESOURCES_V2 = false;
+export const COMBAT_RESOURCES_V2 = true;
 // v2 pool curve — linear base@L1 → cap@L100 (only used when COMBAT_RESOURCES_V2).
 export const CHAKRA_BASE_V2 = 1000;
 export const CHAKRA_CAP_V2 = 10000;

@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { sealTowerFighter, sealTowerItemCharges, clampTowerLoadout } from './_seal.js';
+import { COMBAT_RESOURCES_V2 } from '../_xp-engine.js';
 
 describe('Battle Towers fighter sealing (P1.B)', () => {
     it('clamps tampered stats + vitals to the hard caps', () => {
@@ -13,7 +14,7 @@ describe('Battle Towers fighter sealing (P1.B)', () => {
         assert.equal(stats.taijutsuOffense, 2500);
         assert.equal(stats.willpower, 0);
         assert.equal(sealed.maxHp, 10000);
-        assert.equal(sealed.maxChakra, 5000);
+        assert.equal(sealed.maxChakra, COMBAT_RESOURCES_V2 ? 10000 : 5000); // v2 raises the pool cap
         assert.equal(sealed.bloodlineMult, 3);
         assert.equal(sealed.specialty, 'Ninjutsu');
     });
