@@ -17,6 +17,7 @@ import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
+import { preloadScreen } from "../lib/screen-preload";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
 import { MobileProfileSheet } from "./MobileProfileSheet";
@@ -99,19 +100,19 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon"><GiHealthNormal size={24} /></span>
                     You
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
+                <button className="mobile-nav-btn" onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}>
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("tavern")}>
+                <button className="mobile-nav-btn" onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}>
                     <span className="mnb-icon"><GiBeerStein size={24} /></span>
                     Tavern
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("profile")}>
+                <button className="mobile-nav-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}>
                     <span className="mnb-icon"><GiNinjaHeroicStance size={24} /></span>
                     Char
                 </button>
-                <button className="mobile-nav-btn" onClick={() => go("inventory")}>
+                <button className="mobile-nav-btn" onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
@@ -156,27 +157,30 @@ export const MobileNav = memo(function MobileNav({
                         </div>
                     </div>
 
+                    {/* onPointerDown warms each destination's lazy chunk on press,
+                        before onClick's go()/navigate fires — see lib/screen-preload.
+                        onClick is unchanged; the preload is best-effort + side-effect-free. */}
                     <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("tavern")}><GiBeerStein size={20} />Tavern</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}><GiTreasureMap size={20} />Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("userHub")}><GiThreeFriends size={20} />Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("messages")}><GiEnvelope size={20} />Mail<MailUnreadBadge /></button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")}><GiScrollUnfurled size={20} />Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}><GiBiceps size={20} />Training</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}><GiNinjaHeroicStance size={20} />Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}><GiKnapsack size={20} />Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}><GiFireSpellCast size={20} />Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")}><GiPawPrint size={20} />Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}><GiDna1 size={20} />Bloodline</button>
-                        <button className="mobile-menu-btn" onClick={() => go("professions")}>
+                        <button className="mobile-menu-btn" onClick={() => go("tavern")} onPointerDown={() => preloadScreen("tavern")}><GiBeerStein size={20} />Tavern</button>
+                        <button className="mobile-menu-btn" onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}><GiTreasureMap size={20} />Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("userHub")} onPointerDown={() => preloadScreen("userHub")}><GiThreeFriends size={20} />Users</button>
+                        <button className="mobile-menu-btn" onClick={() => go("messages")} onPointerDown={() => preloadScreen("messages")}><GiEnvelope size={20} />Mail<MailUnreadBadge /></button>
+                        <button className="mobile-menu-btn" onClick={() => go("missions")} onPointerDown={() => preloadScreen("missions")}><GiScrollUnfurled size={20} />Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")} onPointerDown={() => preloadScreen("training")}><GiBiceps size={20} />Training</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")} onPointerDown={() => preloadScreen("profile")}><GiNinjaHeroicStance size={20} />Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}><GiKnapsack size={20} />Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")} onPointerDown={() => preloadScreen("jutsuTraining")}><GiFireSpellCast size={20} />Jutsu</button>
+                        <button className="mobile-menu-btn" onClick={() => go("pets")} onPointerDown={() => preloadScreen("pets")}><GiPawPrint size={20} />Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")} onPointerDown={() => preloadScreen("bloodlineMaker")}><GiDna1 size={20} />Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("professions")} onPointerDown={() => preloadScreen("professions")}>
                             <GiAnvil size={20} />{character.profession ? PROFESSION_LABEL[character.profession] : "Professions"}
                         </button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}><GiBookCover size={20} />Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("guides")}><GiOpenBook size={20} />Guides</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")} onPointerDown={() => preloadScreen("logbook")}><GiBookCover size={20} />Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                         <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
                         <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiHearts size={20} />Patreon</button>
                         {isAdminAccount && (
-                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>
+                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>
                         )}
                         <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout + Save</button>
                     </div>
