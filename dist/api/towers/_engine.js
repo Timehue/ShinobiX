@@ -38,6 +38,7 @@ const move_js_1 = require("../pvp/move.js");
 const _tags_js_1 = require("../pvp/_tags.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
 const _tower_session_js_1 = require("./_tower-session.js");
+const _combat_resources_js_1 = require("../_combat-resources.js");
 // ─── Constants (ported from api/pvp/move.ts, verified @ 586f0560) ────────────
 exports.BASE_AP = 100;
 exports.MAX_ACTIONS = 5;
@@ -522,6 +523,24 @@ function isStunned(actor, round) {
 function hasActiveStatus(actor, name, round) {
     return actor.statuses.some(s => s.name === name && (s.activeRound === undefined || s.activeRound <= round));
 }
+// combatResourcesV2: Poison feeds on exertion — spending chakra/stamina to cast a jutsu
+// deals HP damage scaled by the spend + the actor's active Poison (turtling avoids it).
+// No-op when the flag is off, the actor isn't poisoned, or the jutsu was free. Mirrors the
+// PvP move.ts handler + the PvE Arena on-spend hooks.
+function spendPoison(session, actor, ck, st, round) {
+    if (!_combat_resources_js_1.COMBAT_RESOURCES_V2)
+        return;
+    const pct = actor.statuses
+        .filter(s => s.name === 'Poison' && (s.activeRound === undefined || s.activeRound <= round))
+        .reduce((sum, s) => sum + (s.percent ?? 6), 0);
+    if (pct <= 0)
+        return;
+    const dmg = (0, _combat_resources_js_1.v2PoisonOnSpend)((ck || 0) + (st || 0), pct);
+    if (dmg <= 0)
+        return;
+    actor.hp = Math.max(0, actor.hp - dmg);
+    session.log.push(`${actor.name} takes ${dmg} Poison damage from exertion.`);
+}
 /** Tick down an actor's jutsu cooldowns at the START of their turn (mirrors PvP's
  *  per-caster tickCooldowns). Removes lapsed entries so the map stays small. */
 function tickCooldowns(actor) {
@@ -537,6 +556,15 @@ function refreshAp(session) {
     const actor = (0, _tower_session_js_1.activeActor)(session);
     if (actor)
         tickCooldowns(actor);
+    if (actor && _combat_resources_js_1.COMBAT_RESOURCES_V2) {
+        // combatResourcesV2: the active actor regenerates chakra/stamina at turn start
+        // (mirrors PvP move.ts endTurn regen). Costs + the bigger pool are already sealed
+        // via _seal.ts → the PvP hydrator.
+        const rgLvl = Number(actor.character?.level) || 1;
+        const rg = (0, _combat_resources_js_1.v2ResourceRegen)(rgLvl);
+        actor.chakra = Math.min(actor.maxChakra, actor.chakra + rg);
+        actor.stamina = Math.min(actor.maxStamina, actor.stamina + rg);
+    }
     if (actor && isStunned(actor, session.round)) {
         // Stun costs AP once and is CONSUMED at the start of the penalized turn (mirrors
         // api/pvp/move.ts:893-902) — never re-penalizing a lingering Stun every round.
@@ -788,6 +816,7 @@ function applyAction(session, floor, action, rng) {
             resolveHit(session, floor, actor, actor, jSelf, cost);
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
+            spendPoison(session, actor, ck, st, session.round);
             if (Number(jSelf.cooldown ?? 0) > 0)
                 actor.cooldowns[action.jutsuId] = Number(jSelf.cooldown);
             return { applied: true };
@@ -828,6 +857,7 @@ function applyAction(session, floor, action, rng) {
             actor.pos = tile;
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
+            spendPoison(session, actor, ck, st, session.round);
             if (Number(jm.cooldown ?? 0) > 0)
                 actor.cooldowns[action.jutsuId] = Number(jm.cooldown);
             session.activeAp -= cost;
@@ -901,6 +931,7 @@ function applyAction(session, floor, action, rng) {
             }
             actor.chakra = Math.max(0, actor.chakra - ck);
             actor.stamina = Math.max(0, actor.stamina - st);
+            spendPoison(session, actor, ck, st, session.round);
             if (Number(jg.cooldown ?? 0) > 0)
                 actor.cooldowns[action.jutsuId] = Number(jg.cooldown);
             return { applied: true };
@@ -991,6 +1022,7 @@ function applyAction(session, floor, action, rng) {
     if (action.type === 'jutsu') {
         actor.chakra = Math.max(0, actor.chakra - chakraCost);
         actor.stamina = Math.max(0, actor.stamina - staminaCost);
+        spendPoison(session, actor, chakraCost, staminaCost, session.round);
         if (Number(jutsu.cooldown ?? 0) > 0)
             actor.cooldowns[action.jutsuId] = Number(jutsu.cooldown);
     }
