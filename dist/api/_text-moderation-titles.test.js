@@ -55,7 +55,7 @@ const _legacy_defs_js_1 = require("./_legacy-defs.js");
     strict_1.default.ok(_titles_registry_js_1.KNOWN_EARNED_TITLES.size >= 320, `registry too small: ${_titles_registry_js_1.KNOWN_EARNED_TITLES.size}`);
 });
 (0, node_test_1.test)('titles registry covers every legacy + achievement title and flags them', () => {
-    strict_1.default.equal(_titles_registry_js_1.ACHIEVEMENT_TITLES.length, 22, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
+    strict_1.default.equal(_titles_registry_js_1.ACHIEVEMENT_TITLES.length, 26, 'mirrors TITLE_ACHIEVEMENT_IDS — update both together');
     for (const d of _legacy_defs_js_1.LEGACY_DEFS) {
         strict_1.default.ok((0, _titles_registry_js_1.isKnownEarnedTitle)(d.title), `legacy title missing from registry: ${d.title}`);
     }

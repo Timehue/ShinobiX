@@ -1042,7 +1042,12 @@ function simulate(fighters, seed, accuracyEnabled) {
 // ── Public entry points ──────────────────────────────────────────────────────
 /** 1v1 — result from the player pet's perspective. Deterministic in (pets, seed).
  *  Spawned at opposite ends of the big map (near their team shrines) so the fight
- *  opens with a real traversal toward each other. */
+ *  opens with a real traversal toward each other.
+ *  ⚠ SYNC: the client engine (shinobij.client/src/lib/pet-duel-sim.ts) has a trailing
+ *  `plantedMotion` param (casual cinematic motion). This hand-maintained port OMITS it
+ *  on purpose — the ladder is authoritative and stays on the shipped motion. Never pass
+ *  planted motion to a ladder duel without porting the param + its motion branches here
+ *  verbatim first (there is NO byte-parity test for this copy, unlike api/_pet-sim). */
 function runPetDuel(playerPet, enemyPet, seed, playerDamageMult = 1, playerHpMult = 1, playerReviveOnce = false, applyItems = false, accuracyEnabled = false) {
     // Calibrated 1v1 spawns (map-space Blue[1] / Red[1]): blue on the left front
     // path, red on the right front path; they traverse inward — weaving the clump
