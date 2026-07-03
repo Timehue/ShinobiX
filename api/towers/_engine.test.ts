@@ -14,6 +14,7 @@ import {
     applyPartyScaling,
     BASIC_ATTACK_AP,
 } from './_engine.js';
+import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 
 const MAP8: TowerMap = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 
@@ -476,8 +477,8 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
     });
 
     it('blocks a jutsu the actor cannot afford (chakra)', () => {
-        const sq = caster([{ id: 'fb', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 2, chakraCost: 30 }], {});
-        sq.chakra = 5;
+        const sq = caster([{ id: 'fb', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 2, chakraCost: 300 }], {});
+        sq.chakra = 0; // 0 + v2 turn-start regen still < 300 → unaffordable under both flags
         const s = makeSession([sq, bigEnemy()]);
         startRound(s);
         const r = applyAction(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'fb', targetId: 'en-1' }, makeRng(1));
@@ -539,8 +540,9 @@ describe('Battle Towers loadout combat (jutsu resources / cooldowns / weapons / 
         startRound(s);
         const r = applyAction(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pot' }, makeRng(1));
         assert.ok(r.applied);
-        assert.equal(getActor(s, 'sq-1')!.chakra, 60);
-        assert.equal(getActor(s, 'sq-1')!.stamina, 70);
+        // v2 regenerates chakra/stamina at turn start (before the potion), so totals are higher.
+        assert.equal(getActor(s, 'sq-1')!.chakra, COMBAT_RESOURCES_V2 ? Math.min(100, 10 + v2ResourceRegen(1) + 50) : 60);
+        assert.equal(getActor(s, 'sq-1')!.stamina, COMBAT_RESOURCES_V2 ? Math.min(100, 50 + v2ResourceRegen(1) + 20) : 70);
         assert.equal(getActor(s, 'sq-1')!.itemCharges!['pot'], 1, 'one charge spent');
     });
 
@@ -613,7 +615,12 @@ describe('Battle Towers tag/status combat (heal / DoT / buff / stun / self-cast)
         // Drive rounds: Poison defers one round (activeRound = round+1), then ticks at round end.
         let guard = 0;
         while (s.round < 3 && s.status === 'active' && guard++ < 60) endTurn(s, floor);
-        assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'poison bled the enemy');
+        if (COMBAT_RESOURCES_V2) {
+            // v2: poison feeds on EXERTION — a turtling enemy (no costed casts) takes none.
+            assert.equal(getActor(s, 'en-1')!.hp, 1_000_000, 'v2 poison does not bleed a turtling target');
+        } else {
+            assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'poison bled the enemy');
+        }
     });
 });
 
@@ -668,7 +675,11 @@ describe('Battle Towers AOE + consumables', () => {
         // Drive rounds: the zone re-applies + the poison bleeds, then the zone expires.
         let guard = 0;
         while (s.round < 3 && s.status === 'active' && guard++ < 60) endTurn(s, floor);
-        assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'the zone bled the enemy');
+        if (COMBAT_RESOURCES_V2) {
+            assert.equal(getActor(s, 'en-1')!.hp, 1_000_000, 'v2 zone poison does not bleed a turtling target');
+        } else {
+            assert.ok(getActor(s, 'en-1')!.hp < 1_000_000, 'the zone bled the enemy');
+        }
         assert.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
     });
 

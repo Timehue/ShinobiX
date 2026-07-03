@@ -20,6 +20,11 @@ import { v2JutsuResourceCost, v2ResourceRegen, resolveJutsuDiscipline, v2PoisonO
 
 const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 1;
 const C_HP_CAP = 10000, C_CHAKRA_CAP = 5000, C_STAMINA_CAP = 5000;
+// combatResourcesV2 flag + pool (MUST match COMBAT_RESOURCES_V2 + the v2 pool constants in
+// constants/game.ts + api/_xp-engine.ts). When on, maxChakra/Stamina use the v2 curve.
+const C_V2_FLAG = true;
+const C_V2_CHAKRA_BASE = 1000, C_V2_CHAKRA_CAP = 10000, C_V2_STAMINA_BASE = 1000, C_V2_STAMINA_CAP = 10000;
+const cV2Pool = (base: number, cap: number, lvl: number) => Math.min(cap, Math.floor(base + (Math.max(1, lvl) - 1) * ((cap - base) / (C_MAX_LEVEL - 1))));
 const C_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
     'bukijutsuOffense', 'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense',
@@ -34,8 +39,8 @@ function cNorm(stats?: Record<string, unknown>) {
 const cAllocated = (s: Record<string, number>) => C_KEYS.reduce((t, k) => t + Math.max(0, cCap(s[k]) - 10), 0);
 const cXpNeeded = (lvl: number) => lvl >= C_MAX_LEVEL ? 0 : Math.round(6 * lvl * lvl);
 const cMaxHp = (lvl: number) => Math.min(C_HP_CAP, 500 + (Math.max(1, lvl) - 1) * 100);
-const cMaxChakra = (lvl: number) => Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
-const cMaxStamina = (lvl: number) => Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
+const cMaxChakra = (lvl: number) => C_V2_FLAG ? cV2Pool(C_V2_CHAKRA_BASE, C_V2_CHAKRA_CAP, lvl) : Math.min(C_CHAKRA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_CHAKRA_CAP - 100) / (C_MAX_LEVEL - 1))));
+const cMaxStamina = (lvl: number) => C_V2_FLAG ? cV2Pool(C_V2_STAMINA_BASE, C_V2_STAMINA_CAP, lvl) : Math.min(C_STAMINA_CAP, Math.floor(100 + (Math.max(1, lvl) - 1) * ((C_STAMINA_CAP - 100) / (C_MAX_LEVEL - 1))));
 const cRankFrom = (lvl: number) => lvl >= 80 ? 'Special Jonin' : lvl >= 50 ? 'Jonin' : lvl >= 30 ? 'Chunin' : lvl >= 15 ? 'Genin' : 'Academy Student';
 const C_TOTAL_PTS = C_KEYS.reduce((t, k) => t + (C_MAX_STAT - cBase()[k]), 0);
 const C_PTS_FROM_XP = C_TOTAL_PTS - C_STARTING;
@@ -101,8 +106,6 @@ function cGainXp(character: Record<string, unknown>, amount: number): Record<str
 // Replica of shinobij.client/src/{constants/game.ts, lib/jutsu-scaling.ts} v2 math.
 // The server (_xp-engine.ts pool constants + _combat-resources.ts cost/regen/
 // discipline) must match this; the client is a verbatim copy of the same spec.
-const C_V2_FLAG = false; // COMBAT_RESOURCES_V2
-const C_V2_CHAKRA_BASE = 1000, C_V2_CHAKRA_CAP = 10000, C_V2_STAMINA_BASE = 1000, C_V2_STAMINA_CAP = 10000;
 const cV2Lerp = (base: number, cap: number, lvl: number) => {
     const L = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(Number(lvl) || 1)));
     return Math.round(base + (cap - base) * (L - 1) / (C_MAX_LEVEL - 1));
@@ -242,8 +245,8 @@ describe('gainXp golden anchors', () => {
         assert.equal(out.xp, 16);
         assert.equal(out.maxHp, 800); // maxHpForLevel(4): 500 base + 3×100
         assert.equal(out.hp, 800);
-        assert.equal(out.maxChakra, 248);
-        assert.equal(out.maxStamina, 248);
+        assert.equal(out.maxChakra, cMaxChakra(4)); // flag-aware (v1 248 / v2 curve)
+        assert.equal(out.maxStamina, cMaxStamina(4));
         assert.equal(out.rankTitle, 'Academy Student');
         assert.equal(out.unspentStats, 0); // two-axis: leveling grants no stat budget (pool preserved)
     });
