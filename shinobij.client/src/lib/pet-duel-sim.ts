@@ -643,12 +643,10 @@ function effMoveSpeed(f: Fighter): number {
  *  a stamina-burning sprint the whole way. */
 function commitApproach(f: Fighter, target: Fighter, dist: number, inv: number, stopAt: number, canDash: boolean, t: number, events: DuelEvent[]) {
     const gap = dist - stopAt;
-    // Planted: reserve the dash for one DECISIVE close into melee (a tight window),
-    // so it reads as a committed lunge instead of a constant re-approach; far gaps
-    // become a plain run (moveToward below). Non-planted keeps the shipped window.
-    const dashLo = f.plantedMotion ? 1.2 : 0.7;
-    const dashHi = f.plantedMotion ? 2.8 : 4.5;
-    if (canDash && gap > dashLo && gap < dashHi && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
+    // Planted pets NEVER dash — they WALK in and trade in place, so the fight reads as a
+    // planted face-off instead of flinging across the floor toward a target that already
+    // moved ("dashing at nothing"). Only the non-planted (authoritative) engine dashes.
+    if (canDash && !f.plantedMotion && gap > 0.7 && gap < 4.5 && f.stamina >= COST_DASH && f.basicCdLeft <= 0) {
         f.moveDx = (target.x - f.x) * inv; f.moveDy = (target.y - f.y) * inv;
         f.stamina -= COST_DASH;
         f.state = "dash"; f.stateLeft = f.dashT;
@@ -1057,7 +1055,7 @@ export function runPetDuel(playerPet: Pet, enemyPet: Pet, seed: number, playerDa
     // so every non-sector-war caller is byte-identical to before).
     // Planted (casual cinematic) starts the two closer so they clash fast instead of
     // parading across the field; authoritative paths keep the shipped ±10.2 spawns.
-    const sx = plantedMotion ? 7.0 : 10.2;
+    const sx = plantedMotion ? 3.6 : 10.2;
     const fighters = [
         buildFighter(playerPet, "player", 0, -sx, 2.8, playerDamageMult * terrainPetMult(terrain, playerPet.element), playerHpMult, playerReviveOnce, applyItems, plantedMotion),
         buildFighter(enemyPet, "enemy", 0, sx, 2.8, terrainPetMult(terrain, enemyPet.element), 1, false, applyItems, plantedMotion),
@@ -1079,8 +1077,8 @@ export function runPetPartyDuel(
     // reads as two duels, not a clump. Slot targeting pairs lead-v-lead, reserve-v-reserve.
     // Toughened Hide (hpMult) buffs both player pets; Alpha Bond (revive) only the lead.
     // applyItems (PvP ladder) equips every pet's PVP gear + consumables symmetrically.
-    const lx = plantedMotion ? 7.0 : 10.2;   // planted → clash fast; authoritative → shipped ±10.2 / ±9.6
-    const rx = plantedMotion ? 6.6 : 9.6;
+    const lx = plantedMotion ? 3.6 : 10.2;   // planted → start near the face-off; authoritative → shipped ±10.2 / ±9.6
+    const rx = plantedMotion ? 3.2 : 9.6;
     const fighters: Fighter[] = [buildFighter(playerLead, "player", 0, -lx, 2.8, playerDamageMult, playerHpMult, playerReviveOnce, applyItems, plantedMotion)];
     if (playerReserve) fighters.push(buildFighter(playerReserve, "player", 1, -rx, -3.0, playerDamageMult, playerHpMult, false, applyItems, plantedMotion));
     fighters.push(buildFighter(enemyLead, "enemy", 0, lx, 2.8, 1, 1, false, applyItems, plantedMotion));
