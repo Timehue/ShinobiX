@@ -845,47 +845,6 @@
     border-radius: 3px !important;
 }
 
-/* ── Collapsible board-zoom (HexZoomBar) ───────────────────────────────────
-   You only size the board once, so the control defaults to a small 🔍 toggle
-   tucked to the right instead of a full-width slider row. Tap to reveal the
-   slider, tap again to hide. Cosmetic only. */
-.arena-fullscreen .hex-zoom-bar.hex-zoom-collapsed {
-    justify-content: flex-end;
-    padding: 2px 0 !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-.arena-fullscreen .hex-zoom-toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 26px;
-    padding: 0;
-    border-radius: 6px;
-    background: rgba(8, 12, 24, 0.7);
-    border: 1px solid var(--bsv2-gold-soft, rgba(196, 162, 90, 0.45));
-    color: var(--bsv2-gold-bright, #e8d496);
-    font-size: 13px;
-    line-height: 1;
-    cursor: pointer;
-    transition: border-color 120ms;
-}
-.arena-fullscreen .hex-zoom-toggle:hover { border-color: var(--bsv2-gold-bright, #e8d496); }
-.arena-fullscreen .hex-zoom-open .hex-zoom-toggle { background: rgba(0, 0, 0, 0.4); }
-.arena-fullscreen .hex-zoom-dot {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #f59e0b;
-    box-shadow: 0 0 4px rgba(245, 158, 11, 0.85);
-}
-
 .arena-fullscreen .combat-jutsu-detail-popover,
 .arena-fullscreen .combat-item-detail-popover {
     background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
