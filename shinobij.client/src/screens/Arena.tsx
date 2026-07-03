@@ -32,7 +32,6 @@ import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
 import { FighterHpBadge } from "../components/FighterHpBadge";
-import { HexZoomBar } from "../components/HexZoomBar";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
@@ -243,7 +242,7 @@ export function Arena({
     // Auto-fit board scale + manual zoom — shared with the live-PvP battle via
     // the useBoardScale hook (this logic was previously duplicated inline in
     // both battle components, which is how the grid-scaling bug existed twice).
-    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
+    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
 
     // Keep stable refs in sync with the latest arena function versions every render.
     // Timer callbacks read these so they always call fresh closures.
@@ -5382,7 +5381,7 @@ export function Arena({
                             <div className="hud-bar ap-display-bar">
                                 <span style={{ width: `${ap}%` }} />
                             </div>
-                            <small>{ap}/100 | {activeActor === "player" ? `Active: ${actionsThisTurn}/5 actions` : "Waiting"}</small>
+                            <small>{ap}/100 | {activeActor === "player" ? "Active" : "Waiting"}</small>
                         </div>
 
                         {/* Round timer — shown in the middle column when it's the player's
@@ -5412,7 +5411,6 @@ export function Arena({
                         </div>
                     </div>
 
-                    <HexZoomBar value={userScaleOffset} onChange={setUserScaleOffset} min={-0.4} max={0.5} step={0.02} />
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldCallbackRef}>
                         {/*
                           Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
