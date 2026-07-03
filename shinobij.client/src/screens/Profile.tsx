@@ -19,7 +19,7 @@ import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { allocatedStatPoints, baseStats, capStat, xpNeeded } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
-import { describeJutsuEffects, jutsuDisplayAtLevel } from "../lib/jutsu-effects";
+import { describeJutsuEffects, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { getAllItems, getItemById } from "../lib/items";
 import { getCharacterElements } from "../lib/elements";
 import { getJutsuMastery } from "../lib/jutsu-scaling";
@@ -636,6 +636,7 @@ export function Profile({
                         return (
                             <>
                                 <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
+                                {(() => { const t = jutsuTargetingLabel(jutsu); return <p><strong style={{ color: "#c084fc" }}>🎯 Targeting: {t.short}</strong> — {t.detail}</p>; })()}
                                 <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
                                 <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
                                 <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
