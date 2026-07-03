@@ -55,7 +55,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
         const picked = offer.offers.find((o) => o.legacyId === legacyId);
         if (!picked) return;
         const sure = await gameConfirm(
-            `There is no undoing this — no respec, no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
+            `You may only ever have ONE Legacy. This cannot be changed later — no respec, no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
             { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
         );
         if (!sure) return;
@@ -97,6 +97,11 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                     </div>
                 </div>
 
+                <p style={{ margin: "0 0 10px", fontSize: ".76rem", color: "#cbd5e1" }}>
+                    A <b>Legacy</b> is a permanent identity path — it grants you a <b>signature technique</b> and
+                    deepens through five stages as you prove it. It is separate from your bloodline, and forever.
+                </p>
+
                 <div style={{ background: "rgba(192,132,252,.08)", border: "1px solid rgba(192,132,252,.35)", borderRadius: 8, padding: "8px 10px", marginBottom: 12 }}>
                     <p style={{ margin: 0, fontSize: ".78rem", color: "#e9d5ff" }}>
                         ⚠ A Legacy is <b>permanent</b>. You may only ever accept <b>one</b> — forever. Turning the Sage down is always free.
@@ -130,6 +135,14 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                             Title on awakening: <b style={{ color: "#e2e8f0" }}>{o.title}</b>
                             {o.villageAffinity ? ` · Favored by ${o.villageAffinity}` : ""}
                         </p>
+                        {o.signature && (
+                            // Rank-free power preview — what the signature DOES, no numbers
+                            // that would reveal the hidden rank.
+                            <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
+                                ◆ Signature: <b>{o.signature.name}</b> — {o.signature.shape}
+                                {o.signature.effects.length ? ` · ${o.signature.effects.join(", ")}` : ""}. Unlocks at Stage III.
+                            </p>
+                        )}
                         {selected === o.legacyId && (
                             <button
                                 disabled={busy}

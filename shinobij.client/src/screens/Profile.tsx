@@ -14,7 +14,7 @@ import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { NindoEditor } from "../components/NindoEditor";
 import { ProgressionPanel } from "../components/ProgressionPanel";
 import { LegacyPanel } from "./LegacyPanel";
-import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive } from "../lib/legacy";
+import { TITLE_STYLES, TITLE_ICONS, TITLE_STYLE_COST, TITLE_ICON_COST, titleStyleColor, isLegacyServerLive, isLegacyEnabled } from "../lib/legacy";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { allocatedStatPoints, baseStats, capStat, xpNeeded } from "../lib/stats";
@@ -336,7 +336,7 @@ export function Profile({
                     { id: 'jutsu',    label: '⚡ Jutsu'   },
                     { id: 'achievements', label: '🏆 Achievements' },
                     { id: 'legacy',   label: '🌠 Legacy'  },
-                ] as const).map(({ id, label }) => (
+                ] as const).filter((t) => t.id !== 'legacy' || isLegacyEnabled()).map(({ id, label }) => (
                     <button
                         key={id}
                         className={`pmtab${mobileTab === id ? ' pmtab-active' : ''}`}
@@ -727,7 +727,9 @@ export function Profile({
             </section>
             </div>{/* end achievements tab */}
 
-            {/* ── Legacy tab ───────────────────────────── */}
+            {/* ── Legacy tab (fully gated: no empty tab/heading when the
+                 server flag is off, keeping "off = byte-identical") ──────── */}
+            {isLegacyEnabled() && (
             <div className={mobileTab !== 'legacy' ? 'profile-tab-hidden' : ''}>
             <section className="profile-overview-panel" style={{ display: 'block' }}>
                 <h3 style={{ marginTop: 0 }}>Legacy</h3>
@@ -745,7 +747,8 @@ export function Profile({
                     }}
                 />
             </section>
-            </div>{/* end legacy tab */}
+            </div>
+            )}{/* end legacy tab */}
 
             {selectedAchievement && (
                 <div className="achievement-detail-overlay" onClick={() => setSelectedAchievement(null)}>

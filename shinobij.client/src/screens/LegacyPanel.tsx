@@ -13,9 +13,10 @@ import {
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
 import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
-import { rollEmissarySpawn } from "../lib/legacy-emissaries";
+import { rollEmissarySpawn, emissaryForCategory } from "../lib/legacy-emissaries";
 import { rumorLog } from "../lib/legacy-rumors";
 import { wandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
+import { sectorRegionName } from "../data/sectors";
 import { LEGACY_JUTSU_BY_ID, LEGACY_JUTSU_ID_BY_LEGACY } from "../data/legacy-jutsu";
 import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureMasteryLevel } from "../lib/legacy-jutsu-slot";
 
@@ -76,7 +77,6 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     }
 
     const def = status.legacy ? defs?.get(status.legacy.legacyId) ?? null : null;
-    const rarityColor = LEGACY_ACCENT;
 
     async function handleTrial(action: "start" | "complete" | "reroll") {
         if (busy) return;
@@ -84,12 +84,18 @@ export function LegacyPanel({ character, onLegacyChanged }: {
         if (action === "start" || action === "reroll") {
             const result = action === "start" ? await trialStart(character.name) : await trialReroll(character.name);
             if (result?.ok && result.trial && def) {
+                // The trial-giver is the emissary serving this Legacy's category
+                // (the in-world overseer), not the Sage — attribute the charge to
+                // them and give the ceremony their face. Falls back to the Sage's
+                // voice if no emissary matches (older saves / unmapped category).
+                const em = emissaryForCategory(status?.legacyCategory ?? def.category);
                 setMoment({
                     mode: "trial-start",
                     kindName: TRIAL_NAMES[result.trial.kind] ?? "Legacy Trial",
                     legacyName: def.name,
                     rarity: def.rarity,
                     text: result.intro ?? "Walk your path where the world can see it.",
+                    ...(em ? { speaker: { name: em.name, portrait: `/portraits/${em.slug}.webp` } } : {}),
                 });
             }
         } else {
@@ -148,32 +154,49 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                     </p>
                 </div>
             ) : status.legacy && def ? (
-                <div className="card" style={{ padding: 14, border: `1px solid ${rarityColor}55` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div className="card" style={{ padding: 0, border: `1px solid ${LEGACY_ACCENT}55`, overflow: "hidden" }}>
+                    {/* Hero band — the standing home for the player's permanent identity. */}
+                    <div style={{ padding: 14, background: `linear-gradient(135deg, ${LEGACY_ACCENT}1f, transparent 72%)`, borderBottom: `1px solid ${LEGACY_ACCENT}2b` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             {def.badge && (
                                 // Aura class lives on a wrapper span, not the <img>:
-                                // browsers don't render ::before/::after on replaced
-                                // elements, so the S4/S5 halo layer would be dropped.
+                                // browsers don't render ::before/::after on replaced elements.
                                 <span
-                                    className={status.legacy.stage >= 2 ? `legacy-aura-s${status.legacy.stage}` : undefined}
-                                    style={{ width: 44, height: 44, borderRadius: 8, display: "inline-block", flexShrink: 0 }}
+                                    className={`legacy-aura-s${Math.max(2, status.legacy.stage)}`}
+                                    style={{ width: 62, height: 62, borderRadius: 12, display: "inline-block", flexShrink: 0 }}
                                 >
                                     <img
                                         src={`/badges/legacy-${def.badge}.png`} alt=""
-                                        style={{ width: "100%", height: "100%", borderRadius: 8, display: "block" }}
+                                        style={{ width: "100%", height: "100%", borderRadius: 12, display: "block" }}
                                         onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
                                     />
                                 </span>
                             )}
-                            <h3 style={{ margin: 0, color: rarityColor }}>{def.name}</h3>
+                            <div style={{ minWidth: 0 }}>
+                                <h3 style={{ margin: 0, color: LEGACY_ACCENT, fontSize: "1.18rem", lineHeight: 1.12 }}>{def.name}</h3>
+                                <p style={{ margin: "3px 0 0", fontSize: ".74rem", color: "#cbd5e1" }}>
+                                    Stage {STAGE_ROMAN[status.legacy.stage] ?? status.legacy.stage} — <b style={{ color: "#e2e8f0" }}>{STAGE_NAMES[status.legacy.stage]}</b>
+                                </p>
+                            </div>
+                        </div>
+                        {/* Stage track I–V — current lit, future dimmed. */}
+                        <div style={{ display: "flex", gap: 5, marginTop: 12 }}>
+                            {[1, 2, 3, 4, 5].map((s) => {
+                                const reached = s <= (status.legacy?.stage ?? 0);
+                                return (
+                                    <div key={s} style={{ flex: 1, textAlign: "center" }}>
+                                        <div style={{ height: 4, borderRadius: 2, background: reached ? LEGACY_ACCENT : "rgba(148,163,184,.18)", boxShadow: reached ? `0 0 6px -1px ${LEGACY_ACCENT}` : "none" }} />
+                                        <span style={{ fontSize: ".58rem", letterSpacing: ".08em", color: reached ? "#c4b5fd" : "#5b6472" }}>{STAGE_ROMAN[s]}</span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
-                    <p style={{ margin: "6px 0", fontStyle: "italic", fontSize: ".8rem", color: "#cbd5e1" }}>{def.flavor}</p>
-                    <p style={{ margin: 0, fontSize: ".78rem", color: "#9aa3b2" }}>
-                        Stage {STAGE_ROMAN[status.legacy.stage] ?? status.legacy.stage} — <b style={{ color: "#e2e8f0" }}>{STAGE_NAMES[status.legacy.stage]}</b>
-                        {status.legacy.titles.length > 0 && <> · Titles: <b style={{ color: "#e2e8f0" }}>{status.legacy.titles.join(", ")}</b></>}
-                    </p>
+                    <div style={{ padding: 14 }}>
+                    <p style={{ margin: "0 0 6px", fontStyle: "italic", fontSize: ".8rem", color: "#cbd5e1" }}>{def.flavor}</p>
+                    {status.legacy.titles.length > 0 && (
+                        <p style={{ margin: "0 0 6px", fontSize: ".76rem", color: "#9aa3b2" }}>Titles: <b style={{ color: "#e2e8f0" }}>{status.legacy.titles.join(", ")}</b></p>
+                    )}
                     <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
                         Your path is sealed forever. Trials may be retried, but a legacy is never exchanged.
                     </p>
@@ -190,17 +213,37 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                         const sigId = LEGACY_JUTSU_ID_BY_LEGACY.get(status.legacy.legacyId);
                         const sig = sigId ? LEGACY_JUTSU_BY_ID.get(sigId) : undefined;
                         if (!sig) return null;
+                        const shape = sig.method === "AOE_BURST" ? "Area nova" : sig.method === "AOE_CIRCLE" ? "Dashing strike" : sig.ap === 40 ? "Self technique" : "Focused strike";
+                        // NB: tag NAMES only, never percents/rank — rank is owner-only.
+                        const effectTags = sig.tags.filter((t) => t.name !== "Move");
+                        const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = "none"; };
                         return status.legacy.stage >= LEGACY_SIGNATURE_MIN_STAGE ? (
-                            <p style={{ margin: "6px 0 0", fontSize: ".74rem", color: "#c4b5fd" }}>
-                                ◆ Signature jutsu: <b style={{ color: "#e2e8f0" }}>{sig.name}</b> — always
-                                equipped beside your loadout (mastery {legacySignatureMasteryLevel(status.legacy.stage)}/50,
-                                deepens with your stage).
-                            </p>
+                            <div style={{ marginTop: 8, border: `1px solid ${LEGACY_ACCENT}44`, background: `${LEGACY_ACCENT}0f`, borderRadius: 10, padding: 10, display: "flex", gap: 10 }}>
+                                {sig.image && <img src={sig.image} alt="" style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0 }} onError={hideImg} />}
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: LEGACY_ACCENT }}>◆ Signature Technique</div>
+                                    <b style={{ fontSize: ".86rem", color: "#e2e8f0" }}>{sig.name}</b>
+                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>
+                                        {shape} · {sig.ap} AP · always equipped beside your loadout · mastery {legacySignatureMasteryLevel(status.legacy.stage)}/50
+                                    </p>
+                                    {effectTags.length > 0 && (
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 5 }}>
+                                            {effectTags.map((t) => (
+                                                <span key={t.name} style={{ fontSize: ".62rem", padding: "1px 6px", borderRadius: 4, border: `1px solid ${LEGACY_ACCENT}44`, color: "#c4b5fd" }}>{t.name}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         ) : (
-                            <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
-                                ◆ At Stage III — Bound, this path grants its signature jutsu:{" "}
-                                <b style={{ color: "#cbd5e1" }}>{sig.name}</b>.
-                            </p>
+                            <div style={{ marginTop: 8, border: "1px dashed rgba(148,163,184,.32)", borderRadius: 10, padding: 10, display: "flex", gap: 10, opacity: 0.75 }}>
+                                {sig.image && <img src={sig.image} alt="" style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0, filter: "grayscale(1) brightness(.7)" }} onError={hideImg} />}
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}>🔒 Unlocks at Stage III — Bound</div>
+                                    <b style={{ fontSize: ".86rem", color: "#cbd5e1" }}>{sig.name}</b>
+                                    <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · a signature only your Legacy can wield.</p>
+                                </div>
+                            </div>
                         );
                     })()}
                     {(() => {
@@ -212,10 +255,11 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                         const spawn = rollEmissarySpawn(character.name, status.level, status.legacyCategory ?? def.category, wandererDayBucket(new Date()));
                         return spawn ? (
                             <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
-                                🏮 {spawn.def.name}, keeper of your path, was last seen in <b>sector {spawn.sector}</b>.
+                                🏮 {spawn.def.name}, keeper of your path, was last seen in <b>{sectorRegionName(spawn.sector)}</b> (sector {spawn.sector}).
                             </p>
                         ) : null;
                     })()}
+                    </div>
                 </div>
             ) : (
                 <div className="card" style={{ padding: 14 }}>

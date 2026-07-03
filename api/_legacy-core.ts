@@ -6,8 +6,13 @@
  * "prove it again, under our eyes". Because the counters only move through
  * server settle endpoints, a trial needs no mint-token of its own — the sealed
  * baseline in `legacy:trial:<player>` plus the single-active-trial rule is the
- * whole anti-cheat story. Authored per-legacy trials can override these
- * defaults later via the shared:legacy-defs overlay without touching code.
+ * whole anti-cheat story.
+ *
+ * NOTE: unlike the ELIGIBILITY floors (runtime-tunable via the shared:legacy-defs
+ * overlay — see _legacy-score.ts getLegacyOverlay), these trial deltas are code
+ * constants (RARITY_FACTOR / KIND_FACTOR / TRIAL_TEMPLATES below). Retuning trial
+ * difficulty currently requires a deploy. A future `overlay.trials.deltaScale`
+ * could make it runtime-tunable; it is deliberately not wired yet.
  */
 import type { LegacyCategory, LegacyDef, LegacyRarity, LegacyStatKey } from './_legacy-defs.js';
 

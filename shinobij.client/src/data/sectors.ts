@@ -60,3 +60,22 @@ export function villageOutskirtsSectorNumber(villageName: string): number {
 export function villageForOutskirtsSector(sector: number): string | undefined {
     return villages.find((village) => villageOutskirtsSectorNumber(village) === sector);
 }
+
+/**
+ * A poetic region name for a world sector — for atmospheric copy (Legacy
+ * whispers, emissary sightings) that would otherwise read a raw "sector 47".
+ * The on-map marker still shows the exact spot; this is flavor for the prose.
+ */
+export function sectorRegionName(sector: number): string {
+    if (sector === 99) return "the Lavafront";
+    const village = villageForOutskirtsSector(sector);
+    if (village) return `the outskirts of ${village.replace(/ Village$/, "")}`;
+    switch (biomeForWorldSector(sector)) {
+        case "shadow": return "the Shadowed Wilds";
+        case "forest": return "the Deepwood";
+        case "volcano": return "the Ashen Wastes";
+        case "snow": return "the Frostreach";
+        case "central": return "the Central Provinces";
+        default: return "the far reaches";
+    }
+}

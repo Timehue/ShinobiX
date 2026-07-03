@@ -117,7 +117,12 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
         let alive = true;
         if (tab === "legends") void fetchHallOfLegends().then(r => { if (alive) setHallEntries(r?.entries ?? []); });
         else if (tab === "news") void fetchAnnouncements(30).then(r => { if (alive) setWorldNews(r?.announcements ?? []); });
-        else void fetchEras().then(r => { if (alive) setEraViews(r?.eras ?? []); });
+        else {
+            // Eras also pull the Hall entries so each unlocked age can show the
+            // "Legends of this Age" that were forged inside its time window.
+            void fetchEras().then(r => { if (alive) setEraViews(r?.eras ?? []); });
+            void fetchHallOfLegends().then(r => { if (alive) setHallEntries(r?.entries ?? []); });
+        }
         return () => { alive = false; };
     }, [tab]);
     const [bounties, setBounties] = useState<BountyEntry[]>([]);
@@ -181,6 +186,23 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
 
     // Tournament
     const tournament = loadArenaTournament();
+
+    // "Legends of this Age": Hall entries forged inside an unlocked era's reign.
+    // An era's window runs from when IT began (unlockedAt; the genesis era has
+    // none → 0) up to when the NEXT unlocked era took over (or now, for the
+    // current age). Only unlocked eras have a reign; the milestone_active era is
+    // the age not yet begun.
+    function legendsOfEra(era: EraView, allEras: EraView[], entries: HallEntryView[]): HallEntryView[] {
+        if (era.status !== "unlocked") return [];
+        const start = era.unlockedAt ?? 0;
+        const next = [...allEras]
+            .filter((e) => e.number > era.number && e.status === "unlocked" && (e.unlockedAt ?? 0) > start)
+            .sort((a, b) => (a.unlockedAt ?? 0) - (b.unlockedAt ?? 0))[0];
+        const end = next?.unlockedAt ?? Infinity;
+        return entries
+            .filter((en) => en.status !== "revoked" && en.status !== "hidden" && en.ts >= start && en.ts < end)
+            .sort((a, b) => b.ts - a.ts);
+    }
 
     const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
         { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
@@ -601,6 +623,34 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                             Opened by <b>{e.unlockedBy}</b>{e.unlockedVillage ? ` of ${e.unlockedVillage}` : ""}{e.unlockedAt ? ` · ${new Date(e.unlockedAt).toLocaleDateString()}` : ""}
                                         </p>
                                     )}
+                                    {e.status === "unlocked" && hallEntries !== null && (() => {
+                                        // The legends forged during this age — pulled from the
+                                        // Hall by time window (legendsOfEra). Silent when the age
+                                        // has none yet, so it never renders an empty header.
+                                        const legends = legendsOfEra(e, eraViews ?? [], hallEntries);
+                                        if (legends.length === 0) return null;
+                                        const shown = legends.slice(0, 6);
+                                        return (
+                                            <div style={{ marginTop: 8, borderTop: "1px solid rgba(148,163,184,.15)", paddingTop: 8 }}>
+                                                <p style={{ margin: "0 0 4px", fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "#c084fc" }}>⚜ Legends of this Age</p>
+                                                <ul style={{ margin: 0, paddingLeft: 16, display: "grid", gap: 2 }}>
+                                                    {shown.map((l) => (
+                                                        <li key={l.id} style={{ fontSize: ".72rem", color: "#cbd5e1", lineHeight: 1.35 }}>
+                                                            <b style={{ color: "#e2e8f0" }}>{l.title}</b>{l.player ? ` — ${l.player}${l.village ? ` of ${l.village}` : ""}` : ""}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                {legends.length > shown.length && (
+                                                    <button
+                                                        onClick={() => setTab("legends")}
+                                                        style={{ marginTop: 6, background: "transparent", border: "none", color: "#c084fc", fontSize: ".7rem", cursor: "pointer", padding: 0 }}
+                                                    >
+                                                        +{legends.length - shown.length} more in the Hall of Legends →
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                     {e.status === "milestone_active" && e.milestones.map((m) => (
                                         <div key={m.metric} style={{ marginTop: 6 }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: ".72rem", color: m.done ? "#86efac" : "#cbd5e1" }}>
