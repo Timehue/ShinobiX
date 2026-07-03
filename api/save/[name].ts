@@ -73,6 +73,7 @@ const COMBAT_STRIP_CHAR_FIELDS = [
     'storyTraits', 'storyTitle',
     'weeklyBossKills', 'claimedWarCrateIds',
     'unlockedAchievements', 'achievementUnlockedAt',
+    'battleHistory',
     'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement',
     'endlessTowerRun', 'endlessTowerBestWave',
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
@@ -1038,6 +1039,28 @@ export function sanitizeCharacterSave(
     const TILE_CARD_CAP = 500;
     if (Array.isArray(char.tileCards) && (char.tileCards as unknown[]).length > TILE_CARD_CAP) {
         char.tileCards = (char.tileCards as unknown[]).slice(0, TILE_CARD_CAP);
+    }
+
+    // ─── battleHistory caps ───────────────────────────────────────────────────
+    // Display-only "recent fights" reflection log (Profile → Battles). Carries no
+    // rewards, so it needs no reward gating — just bound the size so a forged
+    // save can't bloat KV: cap the number of battles kept and the actions per
+    // battle. Keep the newest entries (client stores newest-first).
+    const BATTLE_HISTORY_CAP = 10;
+    const BATTLE_ACTIONS_CAP = 120;
+    if ('battleHistory' in char) {
+        if (!Array.isArray(char.battleHistory)) {
+            delete (char as Record<string, unknown>).battleHistory;
+        } else {
+            char.battleHistory = (char.battleHistory as Array<Record<string, unknown>>)
+                .slice(0, BATTLE_HISTORY_CAP)
+                .map((b) => {
+                    if (b && Array.isArray((b as { actions?: unknown }).actions) && (b.actions as unknown[]).length > BATTLE_ACTIONS_CAP) {
+                        return { ...b, actions: (b.actions as unknown[]).slice(-BATTLE_ACTIONS_CAP) };
+                    }
+                    return b;
+                });
+        }
     }
 
     // Admin-only "creator" content (jutsus / items / AIs / missions / events /

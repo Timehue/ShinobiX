@@ -77,6 +77,32 @@ export function classifyBattleLogLine(line: string): BattleLogCategory {
     return "effect";
 }
 
+// A small monochrome glyph per category so an effect line leads with its TYPE —
+// players can scan "what happened" (heal vs damage vs shield …) at a glance
+// instead of parsing every word. The glyph inherits the category color via CSS
+// (it lives inside the .battle-log-<category> line), so it stays subtle.
+const CATEGORY_GLYPH: Readonly<Record<BattleLogCategory, string>> = {
+    heal: "✚",
+    damage: "✸",
+    dmgmod: "⇅",
+    shield: "❖",
+    control: "✦",
+    prevent: "⊘",
+    tempo: "⟳",
+    system: "›",
+    effect: "◈",
+};
+
+/** Leading glyph for a known category (caller already classified the line). */
+export function glyphForCategory(category: BattleLogCategory): string {
+    return CATEGORY_GLYPH[category];
+}
+
+/** Leading glyph for a line's semantic category (for the effect-line marker). */
+export function glyphForBattleLogLine(line: string): string {
+    return CATEGORY_GLYPH[classifyBattleLogLine(line)];
+}
+
 /**
  * Substitute the %user / %target name tokens that jutsu battle flavor may carry
  * (normalizeJutsu's default is `<name> strikes %target`, and the admin editor
@@ -112,4 +138,93 @@ export function tokenizeBattleLogLine(line: string): BattleLogSegment[] {
     }
     if (lastIndex < text.length) segments.push({ text: text.slice(lastIndex), isNumber: false });
     return segments;
+}
+
+// ─── Action grouping ────────────────────────────────────────────────────────
+// The clarity problem "who did what?" is worst when effect lines float free of
+// the action that caused them. Both the PvE arena and the reflection view group
+// each action's effect lines under one owner header; PvP historically rendered a
+// flat wall of <p>. This groups a round's raw server log lines into discrete
+// actions so every screen can render the same owner-attributed block.
+
+export type BattleLogActorRole = "player" | "enemy" | "system";
+
+export type BattleLogAction = {
+    role: BattleLogActorRole;
+    /** Acting fighter's name; "" for ownerless system lines (round end, etc.). */
+    actor: string;
+    /** Sequential cast number within the battle (only on real jutsu/attack casts). */
+    actionNumber?: number;
+    /** Action text with the leading actor name stripped (e.g. "Chidori: …"). */
+    headline: string;
+    /** The colored effect lines that resulted from this action. */
+    effectLines: string[];
+};
+
+function escapeRegExp(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Pure system narration (no owner block, no effect children): battle-end,
+// forfeits, turn passes, movement, skips, time-limit / HP / draw resolutions.
+const SYSTEM_LINE = /⚔|wins!|\bforfeits?\b|ends their turn|moves\.$|dashes\.$|has skipped|Both fighters fall|Time limit|\bby HP\b|\bDraw!/i;
+
+/**
+ * Group a round's flat log lines (already `%user`/`%target`-interpolated or not)
+ * into owner-attributed actions. A line starts a NEW action when it is a cast
+ * ("X uses Y: …"), a basic attack ("X attacks Y …"), or standalone system
+ * narration; every other line is an effect of the current action. This is far
+ * more robust than the old "startsWith(name) || endsWith(':')" header guess,
+ * which mis-split lines like "Naruto's shield blocks 100 damage." into new
+ * actions.
+ */
+export function groupBattleLogActions(
+    lines: readonly string[],
+    selfName: string,
+    oppName: string,
+    startActionNumber = 0,
+): { actions: BattleLogAction[]; nextActionNumber: number } {
+    const actions: BattleLogAction[] = [];
+    let act = startActionNumber;
+    let current: BattleLogAction | null = null;
+
+    const selfRe = new RegExp(`^${escapeRegExp(selfName)}\\b`);
+    const oppRe = new RegExp(`^${escapeRegExp(oppName)}\\b`);
+    const attackRe = new RegExp(`^(${escapeRegExp(selfName)}|${escapeRegExp(oppName)})\\b.* attacks `, "i");
+
+    for (const raw of lines) {
+        const text = interpolateFlavor(raw, selfName, oppName).trim();
+        if (!text || /^--- Round \d+ ---$/i.test(text)) continue;
+
+        const roleOf = (): BattleLogActorRole =>
+            selfRe.test(text) ? "player" : oppRe.test(text) ? "enemy" : "system";
+
+        const usesMatch = text.match(/^(.+?) uses (.+)$/i);
+        if (usesMatch) {
+            act += 1;
+            current = { role: roleOf(), actor: usesMatch[1]!.trim(), actionNumber: act, headline: usesMatch[2]!.trim(), effectLines: [] };
+            actions.push(current);
+            continue;
+        }
+        if (attackRe.test(text)) {
+            act += 1;
+            const actor = selfRe.test(text) ? selfName : oppName;
+            current = { role: roleOf(), actor, actionNumber: act, headline: text.slice(actor.length).replace(/^[\s:]+/, ""), effectLines: [] };
+            actions.push(current);
+            continue;
+        }
+        if (SYSTEM_LINE.test(text)) {
+            current = { role: roleOf(), actor: "", headline: text, effectLines: [] };
+            actions.push(current);
+            continue;
+        }
+        // Effect line — belongs to the current action (or a fresh system group).
+        if (!current) {
+            current = { role: "system", actor: "", headline: "", effectLines: [] };
+            actions.push(current);
+        }
+        current.effectLines.push(text);
+    }
+
+    return { actions, nextActionNumber: act };
 }

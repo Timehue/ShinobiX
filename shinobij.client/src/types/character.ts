@@ -163,6 +163,43 @@ export type RewardCurrencyKey =
 
 export type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
 
+// ── Battle history (reflection log) ────────────────────────────────────────
+// A capped, display-only record of your recent fights so you can re-read the
+// combat log on the Profile "Battles" tab. Carries NO rewards/currency — purely
+// the narrated log — so it needs no server-authoritative gating (the save
+// handler just caps the array length). See lib/battle-log-history.
+
+export type BattleHistoryActorRole = "player" | "enemy" | "system";
+
+/** One owner-attributed action within a stored battle log. */
+export type BattleHistoryAction = {
+    round: number;
+    role: BattleHistoryActorRole;
+    /** Acting fighter's name; "" for ownerless narration (round end, "X wins!"). */
+    actor: string;
+    /** Sequential cast number within the battle (only on real jutsu/attack casts). */
+    actionNumber?: number;
+    /** Action text with the leading actor name stripped (e.g. "Chidori: …"). */
+    headline: string;
+    /** The colored effect lines that resulted from this action. */
+    effectLines: string[];
+};
+
+/** One recent battle you fought, with its full color-coded log for reflection. */
+export type BattleHistoryEntry = {
+    id: string;
+    /** Battle-ended timestamp (ms epoch). */
+    ts: number;
+    /** Human label for the mode: "Arena" | "Mission" | "Endless" | "Raid" | "Story" | "PvP" | "Ranked" | "Spar". */
+    mode: string;
+    opponent: string;
+    outcome: "win" | "loss" | "draw" | "flee";
+    rounds: number;
+    /** Your fighter name at the time (for %user/%target interpolation on replay). */
+    self: string;
+    actions: BattleHistoryAction[];
+};
+
 // ── Character ─────────────────────────────────────────────────────────────
 
 export type Character = {
@@ -195,6 +232,10 @@ export type Character = {
     rankTitle: string;
     customTitle?: string;
     storyTitle?: string;
+    // Last ~10 fights you've had, newest first — the Profile "Battles" tab reads
+    // this to let you re-read recent combat logs. Display-only (no rewards);
+    // the save handler caps its length. See lib/battle-log-history.
+    battleHistory?: BattleHistoryEntry[];
     // Player-authored "Nindo" — a customizable profile creed written in a safe
     // BBCode subset ([b]/[i]/[color]/[img]/[url]/…), rendered to React nodes by
     // lib/nindo-bbcode (never raw HTML). Shown on the player's own Profile and on
