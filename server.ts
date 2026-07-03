@@ -124,6 +124,10 @@ import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.j
 import clanUpgradePurchaseHandler    from './api/clan/upgrade/purchase.js';
 // Clan — mission reward claim (server-recomputed progress → treasury + clan XP)
 import clanMissionClaimHandler       from './api/clan/mission/claim.js';
+// Clan — weekly async raid boss (server-authoritative strikes + rewards, flag-gated)
+import clanRaidGetHandler            from './api/clan/raid/get.js';
+import clanRaidAttackHandler         from './api/clan/raid/attack.js';
+import clanRaidClaimHandler          from './api/clan/raid/claim.js';
 // Hollow Gate — server-authoritative run token + augments (sealed-bounds payout)
 import hollowGateStartHandler        from './api/hollow-gate/start.js';
 import hollowGateChooseAugmentHandler from './api/hollow-gate/choose-augment.js';
@@ -729,6 +733,14 @@ route('/clan/upgrade/purchase', clanUpgradePurchaseHandler);
 // ─── Clan: claim a completed clan-mission reward (server-authoritative) ─────────
 // GET lists claimed missions; POST recomputes progress + credits treasury/clan XP.
 route('/clan/mission/claim', clanMissionClaimHandler);
+
+// ─── Clan: weekly async raid boss (server-auth; 404 unless ENABLE_CLAN_RAID=1) ──
+// get lazily seeds the week's shared-HP boss; attack computes strike damage from
+// the caller's SAVED stats server-side (no client-reported damage); claim pays
+// each participant once, on kill, from their share of damage.
+route('/clan/raid/get',    clanRaidGetHandler);
+route('/clan/raid/attack', clanRaidAttackHandler);
+route('/clan/raid/claim',  clanRaidClaimHandler);
 
 // ─── Hollow Gate: server-authoritative run token + augments ─────────────────────
 // start mints a sealed token (entry snapshot + depth + augment offers) under a
