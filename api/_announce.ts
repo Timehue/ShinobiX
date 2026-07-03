@@ -119,6 +119,32 @@ async function broadcastToVillageChats(a: Announcement): Promise<void> {
     }
 }
 
+/**
+ * A proud herald line posted into ONE village's chat — for local, village-
+ * scoped celebration (a favored Legacy awakening in its affinity village) that
+ * shouldn't spam the global feed. `villageName` is the canonical full form
+ * ("Moonshadow Village"); an unknown name is a no-op. Best-effort — never
+ * throws into the game action that triggered it.
+ */
+export async function postVillageHerald(villageName: string, title: string, message: string): Promise<void> {
+    const key = `chat:village:${villageName.toLowerCase().replace(/\s+/g, '-')}`;
+    if (!VILLAGE_CHAT_KEYS.includes(key)) return;
+    const line = {
+        author: '📜 World Herald',
+        text: `${title} — ${message}`.slice(0, 480),
+        ts: Date.now(),
+        rank: 'Herald',
+        system: true, // server-authored; the tavern can't be tricked into forging it
+    };
+    try {
+        await withKvLock(key, async () => {
+            const existing = (await kv.get<unknown[]>(key)) ?? [];
+            const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
+            await kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
+        });
+    } catch { /* best-effort */ }
+}
+
 /** Optional Discord relay for mythic moments. Env-gated, fire-and-forget.
  *  Rich embed (importance-colored strip, event-type footer) rather than plain
  *  text, so mythic moments land properly in a community server. */

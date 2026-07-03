@@ -7,6 +7,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
 import { currentEraNumber } from '../_era.js';
+import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from '../pvp/_legacy-jutsu-catalog.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from '../_legacy-score.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, trialObjectivesFor, trialProgress, nextTrialKind, trialIntroFor, type LegacyTrial, type CharacterLegacy } from '../_legacy-core.js';
@@ -49,7 +50,7 @@ const VILLAGE_OUTSKIRTS: Record<string, number> = {
 
 type SageOffer = {
     status: 'spawned' | 'declined' | 'accepted' | 'expired';
-    offers: Array<{ legacyId: string; name: string; rarity: string; category: string; flavor: string; title: string; villageAffinity: string | null }>;
+    offers: Array<{ legacyId: string; name: string; rarity: string; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null; signature?: SignaturePreview | null }>;
     sector: number;
     spawnedAt: number;
     expiresAt: number;
@@ -66,6 +67,20 @@ type PityState = {
 
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// A rank-FREE preview of a legacy's signature jutsu for the offer sheet, so the
+// permanent choice previews the POWER you're committing to — WHAT the technique
+// does (name, shape, effect names) — with NO numbers that would leak the hidden
+// rank (no percents, no EP, no rarity). Unlocks at Stage 3 (Bound).
+type SignaturePreview = { name: string; shape: string; effects: string[]; unlockStage: number };
+function signaturePreview(legacyId: string): SignaturePreview | null {
+    const jid = LEGACY_JUTSU_ID_BY_LEGACY[legacyId];
+    const j = jid ? LEGACY_JUTSU_CATALOG[jid] : undefined;
+    if (!j) return null;
+    const shape = j.method === 'AOE_BURST' ? 'Area nova' : j.method === 'AOE_CIRCLE' ? 'Dashing strike' : j.ap === 40 ? 'Self technique' : 'Focused strike';
+    const effects = j.tags.filter((t) => t.name !== 'Move').map((t) => t.name);
+    return { name: j.name, shape, effects, unlockStage: 3 };
+}
 // Aura Stones granted once when a legacy is first accepted, by (server-only)
 // rarity. The amount is a soft prestige boon — the player receives the stones
 // but is NEVER told the rank (rank is owner-only). Granted exactly-once via the
@@ -183,7 +198,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return {
                         legacyId: def.id, name: def.name, rarity: def.rarity, category: def.category,
                         flavor: def.flavor, title: def.title, villageAffinity: def.villageAffinity ?? null,
-                        badge: def.badge ?? null,
+                        badge: def.badge ?? null, signature: signaturePreview(def.id),
                     };
                 }),
                 sector: homeSector(char.village, body.sector),

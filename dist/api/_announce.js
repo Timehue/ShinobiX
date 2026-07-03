@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HALL_KEY = exports.ANNOUNCEMENTS_KEY = void 0;
 exports.announce = announce;
+exports.postVillageHerald = postVillageHerald;
 exports.recentAnnouncements = recentAnnouncements;
 exports.addHallEntry = addHallEntry;
 exports.readHallEntries = readHallEntries;
@@ -92,6 +93,33 @@ async function broadcastToVillageChats(a) {
         }
         catch { /* best-effort per village */ }
     }
+}
+/**
+ * A proud herald line posted into ONE village's chat — for local, village-
+ * scoped celebration (a favored Legacy awakening in its affinity village) that
+ * shouldn't spam the global feed. `villageName` is the canonical full form
+ * ("Moonshadow Village"); an unknown name is a no-op. Best-effort — never
+ * throws into the game action that triggered it.
+ */
+async function postVillageHerald(villageName, title, message) {
+    const key = `chat:village:${villageName.toLowerCase().replace(/\s+/g, '-')}`;
+    if (!VILLAGE_CHAT_KEYS.includes(key))
+        return;
+    const line = {
+        author: '📜 World Herald',
+        text: `${title} — ${message}`.slice(0, 480),
+        ts: Date.now(),
+        rank: 'Herald',
+        system: true, // server-authored; the tavern can't be tricked into forging it
+    };
+    try {
+        await (0, _lock_js_1.withKvLock)(key, async () => {
+            const existing = (await _storage_js_1.kv.get(key)) ?? [];
+            const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
+            await _storage_js_1.kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
+        });
+    }
+    catch { /* best-effort */ }
 }
 /** Optional Discord relay for mythic moments. Env-gated, fire-and-forget.
  *  Rich embed (importance-colored strip, event-type footer) rather than plain

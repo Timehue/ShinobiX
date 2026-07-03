@@ -8,6 +8,7 @@ import { getLegacyStats, legacyStatsKey, legacyEventsKey, appendLegacyEvent, leg
 import { evaluateAllLegacies, getLegacyOverlay, LEGACY_OVERLAY_KEY, type LegacyOverlay } from '../_legacy-score.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyAcceptedKey, legacyTrialKey, type CharacterLegacy } from '../_legacy-core.js';
+import { currentEraNumber } from '../_era.js';
 import { recordAudit } from '../_audit.js';
 import { updateHallEntry, readHallEntries, announce } from '../_announce.js';
 import { isKnownEarnedTitle } from '../_titles-registry.js';
@@ -96,26 +97,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const out = await withKvLock<{ status: number; body: unknown }>(`legacy:accept:${player}`, async () => {
                 const prev = await kv.get<{ legacyId: string }>(legacyAcceptedKey(player));
+                // Stamp the world era, matching the player-accept path (sage.ts) so an
+                // admin-corrected legacy isn't left with a blank era-of-origin.
+                const eraBorn = legacyId === null ? undefined : await currentEraNumber();
                 const saveOk = await withKvLock<boolean>(`save:${player}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return false;
                     const now = Date.now();
                     const legacy: CharacterLegacy | null = legacyId === null ? null : {
-                        legacyId, stage: 1, acceptedAt: now, titles: [],
+                        legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [],
                     };
                     const updated: Record<string, unknown> = { ...char, legacy };
                     await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
+                    // Marker + trial reset written in the SAME save lock as the save
+                    // write, so a mid-op crash can't leave the accepted-marker and the
+                    // save pointing at different legacies (self-consistent either way).
+                    if (legacyId === null) await kv.del(legacyAcceptedKey(player));
+                    else await kv.set(legacyAcceptedKey(player), { legacyId, ts: now, adminSet: true });
+                    await kv.del(legacyTrialKey(player));
                     return true;
                 }, { failClosed: true });
                 if (!saveOk) return { status: 404, body: { error: 'Save not found.' } };
-
-                if (legacyId === null) {
-                    await kv.del(legacyAcceptedKey(player));
-                } else {
-                    await kv.set(legacyAcceptedKey(player), { legacyId, ts: Date.now(), adminSet: true });
-                }
-                await kv.del(legacyTrialKey(player));
                 await appendLegacyEvent(player, { type: 'admin-correction', key: legacyId ?? 'cleared', meta: { reason } });
                 await recordAudit({
                     actor: 'admin', domain: 'legacy', action: 'legacy.emergency-change',
