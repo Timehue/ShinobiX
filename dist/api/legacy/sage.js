@@ -10,6 +10,7 @@ const _lock_js_1 = require("../_lock.js");
 const _save_version_js_1 = require("../save/_save-version.js");
 const _legacy_track_js_1 = require("../_legacy-track.js");
 const _era_js_1 = require("../_era.js");
+const _legacy_jutsu_catalog_js_1 = require("../pvp/_legacy-jutsu-catalog.js");
 const _legacy_score_js_1 = require("../_legacy-score.js");
 const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
@@ -47,6 +48,15 @@ const VILLAGE_OUTSKIRTS = {
 };
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const DAY_MS = 24 * 60 * 60 * 1000;
+function signaturePreview(legacyId) {
+    const jid = _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_ID_BY_LEGACY[legacyId];
+    const j = jid ? _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_CATALOG[jid] : undefined;
+    if (!j)
+        return null;
+    const shape = j.method === 'AOE_BURST' ? 'Area nova' : j.method === 'AOE_CIRCLE' ? 'Dashing strike' : j.ap === 40 ? 'Self technique' : 'Focused strike';
+    const effects = j.tags.filter((t) => t.name !== 'Move').map((t) => t.name);
+    return { name: j.name, shape, effects, unlockStage: 3 };
+}
 // Aura Stones granted once when a legacy is first accepted, by (server-only)
 // rarity. The amount is a soft prestige boon — the player receives the stones
 // but is NEVER told the rank (rank is owner-only). Granted exactly-once via the
@@ -164,7 +174,7 @@ async function handler(req, res) {
                     return {
                         legacyId: def.id, name: def.name, rarity: def.rarity, category: def.category,
                         flavor: def.flavor, title: def.title, villageAffinity: def.villageAffinity ?? null,
-                        badge: def.badge ?? null,
+                        badge: def.badge ?? null, signature: signaturePreview(def.id),
                     };
                 }),
                 sector: homeSector(char.village, body.sector),

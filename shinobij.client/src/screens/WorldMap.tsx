@@ -41,7 +41,7 @@ import { SECTOR_MAP } from "../data/sector-map-manifest";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { applyPetTraitBonuses, rollPetTrait, rollPetEncounter, scaleWandererPetOpponent } from "../lib/pet-balance";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { biomeForWorldSector, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
+import { biomeForWorldSector, sectorRegionName, villageForOutskirtsSector, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinHuntMissions } from "../data/missions";
 import { currentDateKey, makeId, sameSector } from "../lib/utils";
@@ -591,7 +591,7 @@ export function WorldMap({
                 setSageOffer(r.offer);
                 try { window.localStorage?.setItem("legacy.sage.lastOffer", String(r.offer.expiresAt ?? 0)); } catch { /* best-effort */ }
                 if (r.reason !== "already-waiting") {
-                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage waits in sector ${r.offer.sector}. He has been watching your path.` });
+                    setWhisper({ kicker: "The Sage has appeared", text: `The Wandering Sage waits in ${sectorRegionName(r.offer.sector)} — sector ${r.offer.sector} on your map. He has been watching your path.` });
                 }
             } else {
                 // One-time "moved on" beat: we knew of an offer, and it is gone.
