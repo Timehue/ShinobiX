@@ -14,37 +14,49 @@ import { xpNeeded } from "../App";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
+import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { MailUnreadBadge, MailUnreadDot } from "./MailUnreadBadge";
 import { MobileNotificationBar } from "./MobileNotificationBar";
+import { MobileProfileSheet } from "./MobileProfileSheet";
 // Fantasy / RPG glyphs from game-icons.net (CC BY 3.0) via react-icons — they match
 // the shinobi theme far better than thin outline icons. Attribution rendered in the
 // menu footer below. Game-specific emblems (ryō, chakra, …) still use GameIcon.
 import {
     GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiChatBubble, GiDna1, GiEnvelope,
-    GiExitDoor, GiFireSpellCast, GiGears, GiHamburgerMenu, GiHearts, GiKnapsack,
-    GiNinjaHeroicStance, GiOpenBook, GiPawPrint, GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
+    GiExitDoor, GiFireSpellCast, GiGears, GiHamburgerMenu, GiHearts, GiHealthNormal,
+    GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPawPrint, GiScrollUnfurled,
+    GiThreeFriends, GiTreasureMap,
 } from "react-icons/gi";
 
-// Memo'd — the bottom nav only depends on character.xp/level (immutable
-// snapshots from App), the navigate callback (stable), and a boolean.
-// Skips re-renders triggered by unrelated App state churn.
+// Memo'd — the bottom nav depends on immutable character snapshots, the
+// (stable) navigate/logout callbacks, and the active-training timers that feed
+// the "You" sheet. Skips re-renders triggered by unrelated App state churn.
 export const MobileNav = memo(function MobileNav({
     navigate,
     adminLoggedIn,
     logoutPlayer,
     character,
+    updateCharacter,
+    currentSector,
+    activeTraining,
+    activeJutsuTraining,
     screen,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
     logoutPlayer: () => void;
     character: Character;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     currentSector: number;
+    activeTraining: ActiveTraining | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
     screen: Screen;
 }) {
     const [open, setOpen] = useState(false);
+    // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
+    const [youOpen, setYouOpen] = useState(false);
     const isAdminAccount = isProtectedAdminName(character.name);
 
     // Treat the slide-up menu as a modal dialog: lock the body scroll behind it
@@ -95,12 +107,27 @@ export const MobileNav = memo(function MobileNav({
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
+                <button className="mobile-nav-btn" onClick={() => setYouOpen(true)}>
+                    <span className="mnb-icon"><GiHealthNormal size={24} /></span>
+                    You
+                </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
                     <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
                     Menu
                     <MailUnreadDot />
                 </button>
             </nav>
+
+            <MobileProfileSheet
+                open={youOpen}
+                onClose={() => setYouOpen(false)}
+                character={character}
+                updateCharacter={updateCharacter}
+                currentSector={currentSector}
+                setScreen={navigate}
+                activeTraining={activeTraining}
+                activeJutsuTraining={activeJutsuTraining}
+            />
 
             {open && (
                 <div className="mobile-menu-overlay" role="dialog" aria-modal="true" aria-label="Shinobi menu">

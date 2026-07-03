@@ -2,12 +2,19 @@
  * Desktop left-rail profile card — avatar + name/rank + HP/Chakra/Stamina
  * + currency bar + daily caps + XP bar + in-flight timers.
  *
- * Subscribes to the shared "now" ticker (useSharedNow) so the timer rows
- * update every second without local intervals. Most game-state helpers
- * arrive via "../App" re-exports.
+ * The visual body lives in ProfileCardBody (exported below) so it can be
+ * reused verbatim by the mobile "You" sheet (MobileProfileSheet) — desktop
+ * CSS-hides the .left-profile-card rail, so mobile players get the same card
+ * via that sheet. LeftProfileCard is just the desktop host: the <aside> shell
+ * plus the three self-gating login modals, which must NOT be double-mounted in
+ * the mobile sheet.
  *
- * Pure leaf — props give it character + sector + active training; it
- * only reads them, never mutates closure state.
+ * ProfileCardBody subscribes to the shared "now" ticker (useSharedNow) so the
+ * timer rows update every second without local intervals. Most game-state
+ * helpers arrive via "../App" re-exports.
+ *
+ * Pure leaves — props give them character + sector + active training; they
+ * only read them, never mutate closure state.
  *
  * Extracted from App.tsx.
  */
@@ -36,6 +43,17 @@ import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
 
+// The shared prop shape for the card body + its desktop host. Both read the
+// same slice of App state; keeping one type keeps the two call-sites in sync.
+type ProfileCardProps = {
+    character: Character;
+    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
+    currentSector: number;
+    setScreen: (s: Screen) => void;
+    activeTraining: ActiveTraining | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
+};
+
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
 // ONLY scheduled refresh — parent (App) state churn no longer triggers a
 // repaint of the left rail when the props are referentially unchanged.
@@ -49,16 +67,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
     setScreen,
     activeTraining,
     activeJutsuTraining,
-}: {
-    character: Character;
-    updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
-    currentSector: number;
-    setScreen: (s: Screen) => void;
-    activeTraining: ActiveTraining | null;
-    activeJutsuTraining: ActiveJutsuTraining | null;
-}) {
-    useSharedNow(); // sync to global timer so mobile timers match desktop
-
+}: ProfileCardProps) {
     return (
         <aside className="left-profile-card">
             {/* Daily Briefing — once-per-day login notice board. Self-gating
@@ -80,6 +89,36 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 App.tsx line budget, same pattern as DailyBriefingModal above. */}
             <RankUpCelebration character={character} />
             <PatchNotesModal character={character} />
+            <ProfileCardBody
+                character={character}
+                updateCharacter={updateCharacter}
+                currentSector={currentSector}
+                setScreen={setScreen}
+                activeTraining={activeTraining}
+                activeJutsuTraining={activeJutsuTraining}
+            />
+        </aside>
+    );
+});
+
+// The card's visual body — avatar/name/rank/vitals/currencies/daily-caps/XP/
+// timers. Shared verbatim between the desktop left rail (LeftProfileCard) and
+// the mobile "You" sheet (MobileProfileSheet). Deliberately holds NO self-
+// gating modals (those live on the desktop host) so mounting it inside the
+// mobile sheet never double-fires the daily briefing / rank-up / patch notes.
+// Memo'd + owns the useSharedNow tick so the timer rows refresh once a second.
+export const ProfileCardBody = memo(function ProfileCardBody({
+    character,
+    updateCharacter,
+    currentSector,
+    setScreen,
+    activeTraining,
+    activeJutsuTraining,
+}: ProfileCardProps) {
+    useSharedNow(); // sync to global timer so mobile timers match desktop
+
+    return (
+        <>
             <div className="left-profile-avatar-wrap">
                 <button
                     className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}
@@ -251,6 +290,6 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                     })}
                 </div>
             )}
-        </aside>
+        </>
     );
 });
