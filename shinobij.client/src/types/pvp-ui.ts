@@ -75,4 +75,10 @@ export type PvpSessionState = {
     // rejected (never persisted / never on GET/SSE). The battle screen surfaces
     // `reason` and keeps the player's pending selection so they can adjust.
     rejected?: { applied: false; reason: string; serverRound: number; activePlayer: "p1" | "p2" };
+    // Server-authoritative floating-number events for the last resolved action /
+    // DoT tick — TRUE per-hit damage/heal per fighter (matches the combat log),
+    // not a client HP delta. `fxSeq` is monotonic so the battle screen renders
+    // each batch exactly once. Mirror of PvpSession.fx in api/pvp/session.ts.
+    fx?: { target: "p1" | "p2"; amount: number; kind: "damage" | "heal" }[];
+    fxSeq?: number;
 };

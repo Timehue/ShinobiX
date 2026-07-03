@@ -344,6 +344,23 @@ export function Arena({
     const [pveHitFx, setPveHitFx] = useState<{ id: string; x: number; y: number; amount: number; kind: "damage" | "heal" }[]>([]);
     const prevPlayerHpRef = useRef<number | null>(null);
     const prevEnemyHpRef = useRef<number | null>(null);
+    // Explicit floating-number events, queued by the action handlers with the TRUE
+    // per-event amount (the same value written to the battle log) instead of being
+    // reverse-derived from the post-clamp HP delta. This makes the flying "-N"
+    // match the log: a killing blow reads the real damage (not the clamped-to-0
+    // remainder), and simultaneous hits on one fighter (reflect + recoil, or a
+    // heal + self-damage netted into one setState) each float separately. When a
+    // fighter has no queued events for a commit we fall back to the HP-delta below,
+    // so uninstrumented HP changes (init/sync/restore) still surface a popup as
+    // before. `hitFxTick` is bumped on every queue so the effect also fires when
+    // the queued events net to zero HP change.
+    const pendingHitFxRef = useRef<{ p: { amount: number; kind: "damage" | "heal" }[]; e: { amount: number; kind: "damage" | "heal" }[] }>({ p: [], e: [] });
+    const [hitFxTick, setHitFxTick] = useState(0);
+    const queueHitFx = (who: "p" | "e", amount: number, kind: "damage" | "heal") => {
+        if (!(amount > 0)) return;
+        pendingHitFxRef.current[who].push({ amount: Math.round(amount), kind });
+        setHitFxTick((t) => t + 1);
+    };
     // Persisted "fast battles" preference (B2): halves the enemy-turn pacing
     // beats. Read via a ref in the delay code so a mid-fight toggle applies on
     // the next beat without stale-closure issues.
@@ -978,16 +995,29 @@ export function Arena({
             return { id: `${who}-${Date.now()}-${amount}-${kind}`, x, y, amount, kind };
         };
         const next: { id: string; x: number; y: number; amount: number; kind: "damage" | "heal" }[] = [];
-        const pPrev = prevPlayerHpRef.current;
-        if (pPrev != null && playerHp !== pPrev) {
-            const d = playerHp - pPrev;
-            next.push(floatAt(playerPos, Math.abs(d), d < 0 ? "damage" : "heal", "p"));
+        const pending = pendingHitFxRef.current;
+        // Explicit per-event amounts (true damage/heal, matching the log) take
+        // precedence; only when a fighter had no queued event do we fall back to
+        // the post-clamp HP delta so uninstrumented HP changes still show a popup.
+        if (pending.p.length) {
+            for (const ev of pending.p) next.push(floatAt(playerPos, ev.amount, ev.kind, "p"));
+        } else {
+            const pPrev = prevPlayerHpRef.current;
+            if (pPrev != null && playerHp !== pPrev) {
+                const d = playerHp - pPrev;
+                next.push(floatAt(playerPos, Math.abs(d), d < 0 ? "damage" : "heal", "p"));
+            }
         }
-        const ePrev = prevEnemyHpRef.current;
-        if (ePrev != null && enemyHp !== ePrev) {
-            const d = enemyHp - ePrev;
-            next.push(floatAt(enemyPos, Math.abs(d), d < 0 ? "damage" : "heal", "e"));
+        if (pending.e.length) {
+            for (const ev of pending.e) next.push(floatAt(enemyPos, ev.amount, ev.kind, "e"));
+        } else {
+            const ePrev = prevEnemyHpRef.current;
+            if (ePrev != null && enemyHp !== ePrev) {
+                const d = enemyHp - ePrev;
+                next.push(floatAt(enemyPos, Math.abs(d), d < 0 ? "damage" : "heal", "e"));
+            }
         }
+        pendingHitFxRef.current = { p: [], e: [] };
         prevPlayerHpRef.current = playerHp;
         prevEnemyHpRef.current = enemyHp;
         if (!next.length) return;
@@ -996,7 +1026,7 @@ export function Arena({
             setPveHitFx((cur) => cur.filter((f) => !next.some((n) => n.id === f.id)));
         }, 1100);
         return () => window.clearTimeout(t);
-    }, [playerHp, enemyHp]);
+    }, [playerHp, enemyHp, hitFxTick]);
 
     // On unmount, cancel any in-flight enemy-turn continuation so the recursive
     // 850ms setTimeout chain can't keep running (firing setState into a dead
@@ -1832,7 +1862,10 @@ export function Arena({
         const basicSelfDamage = recoilDmg + enemyReflected;
         setEnemyShield((s) => Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - enemyNet)));
+        queueHitFx("e", enemyNet, "damage");
         if (basicHeal > 0 || basicSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + basicHeal - basicSelfDamage)));
+        queueHitFx("p", basicSelfDamage, "damage");
+        queueHitFx("p", basicHeal, "heal");
 
         addCombatLog(
             `Basic Attack: ${character.name} hits ${opponentName} for ${enemyNet} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${enemyAbsorbed > 0 ? ` Absorb: ${opponentName} absorbs ${enemyAbsorbed} damage.` : ""}${enemyReflected > 0 ? ` Reflect: ${opponentName} returns ${enemyReflected} damage.` : ""}${statusLsHeal > 0 ? ` Lifesteal restores ${statusLsHeal} HP.` : ""}${basicLsHeal > 0 ? ` Gear lifesteal restores ${basicLsHeal} HP.` : ""}${recoilDmg > 0 ? ` Recoil: ${character.name} takes ${recoilDmg} damage.` : ""}`,
@@ -2083,7 +2116,10 @@ export function Arena({
         const wSelfDamage = wRecoilDmg + wEnemyReflected;
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - wEnemyNet)));
+        queueHitFx("e", wEnemyNet, "damage");
         if (wHeal > 0 || wSelfDamage > 0) setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + wHeal - wSelfDamage)));
+        queueHitFx("p", wSelfDamage, "damage");
+        queueHitFx("p", wHeal, "heal");
         // Spend one thrown weapon from inventory on the throw (melee weapons aren't consumed).
         const afterThrow = isThrown ? removeItem(character, item.id, 1) : character;
         const postThrowCharacter: Character = { ...afterThrow, stamina: Math.max(0, afterThrow.stamina - staminaCost) };
@@ -3014,8 +3050,11 @@ export function Arena({
 
         const { net: castEnemyNet, reflected: castEnemyReflected, absorbed: castEnemyAbsorbed } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
-        setEnemyHp((hp) => Math.max(0, hp - castEnemyNet));
+        setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - castEnemyNet)));
+        queueHitFx("e", castEnemyNet, "damage");
         setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected)));
+        queueHitFx("p", recoilDamage + castEnemyReflected, "damage");
+        queueHitFx("p", healing, "heal");
         setPlayerShield((s) => s + shield);
 
         setJutsuCooldowns((c) => ({ ...c, [jutsu.id]: jutsu.cooldown }));
@@ -3721,9 +3760,13 @@ export function Arena({
         const enemyRecoilDmg = (enemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, enemyRecoil.percent ?? 30)) : 0;
         setPlayerShield((s) => Math.max(0, s - blocked));
         setPlayerHp((hp) => Math.max(0, hp - playerNetTaken));
+        queueHitFx("p", playerNetTaken, "damage");
         setEnemyHp((hp) => Math.min(enemyMaxHp, hp + healing));
+        queueHitFx("e", healing, "heal");
         if (pReflected > 0) setEnemyHp((hp) => Math.max(0, hp - pReflected));
+        queueHitFx("e", pReflected, "damage");
         if (enemyRecoilDmg > 0) setEnemyHp((hp) => Math.max(0, hp - enemyRecoilDmg));
+        queueHitFx("e", enemyRecoilDmg, "damage");
         setEnemyShield((s) => s + shield);
         setEnemyJutsuCooldowns((current) => ({ ...current, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
         updateCharacter({ ...character, hp: Math.max(0, playerHp - playerNetTaken) });
@@ -3871,24 +3914,28 @@ export function Arena({
 
         setPlayerShield((s) => Math.max(0, s - blocked));
         setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDamage + absorbed)));
+        queueHitFx("p", Math.max(0, finalDamage - absorbed), "damage");
         if (statusReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - statusReflected));
+            queueHitFx("e", statusReflected, "damage");
             addCombatLog(`Reflect: ${opponentName} takes ${statusReflected} reflected damage.`, "reflect", character.name);
         }
         if (itemReflected > 0) {
             setEnemyHp((hp) => Math.max(0, hp - itemReflected));
+            queueHitFx("e", itemReflected, "damage");
             addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
         }
         const enemyDealtToPlayer = Math.max(0, finalDamage - absorbed);
         const basicEnemyLsPct = sumActiveStatusPct(enemyStatuses, "Lifesteal");
         if (basicEnemyLsPct > 0 && enemyDealtToPlayer > 0) {
             const lsHeal = Math.floor(cappedPostDamage(enemyDealtToPlayer, basicEnemyLsPct));
-            if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
+            if (lsHeal > 0) { setEnemyHp((hp) => Math.min(enemyMaxHp, hp + lsHeal)); queueHitFx("e", lsHeal, "heal"); addCombatLog(`Lifesteal: ${opponentName} restores ${lsHeal} HP.`, "effects", opponentName); }
         }
         const basicEnemyRecoil = activeStatuses(enemyStatuses).find((s) => s.name === "Recoil");
         const basicEnemyRecoilDmg = (basicEnemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, basicEnemyRecoil.percent ?? 30)) : 0;
         if (basicEnemyRecoilDmg > 0) {
             setEnemyHp((hp) => Math.max(0, hp - basicEnemyRecoilDmg));
+            queueHitFx("e", basicEnemyRecoilDmg, "damage");
             addCombatLog(`Recoil: ${opponentName} takes ${basicEnemyRecoilDmg} recoil damage.`, "reflect", character.name);
         }
         if (enemyHp - statusReflected - itemReflected - basicEnemyRecoilDmg <= 0 && playerHp - finalDamage + absorbed > 0) {
@@ -4072,6 +4119,7 @@ export function Arena({
         if (pDotDamage > 0) {
             const nextHp = Math.max(0, playerHp - pDotDamage);
             setPlayerHp(nextHp);
+            queueHitFx("p", pDotDamage, "damage");
             const nextChakra = pDrainChakra > 0 ? Math.max(0, character.chakra - pDrainChakra) : character.chakra;
             if (pDrainChakra > 0) updateCharacter({ ...character, hp: nextHp, chakra: nextChakra });
             else updateCharacter({ ...character, hp: nextHp });
@@ -4182,7 +4230,8 @@ export function Arena({
         });
 
         if (dotDamage > 0) {
-            setEnemyHp((hp) => Math.max(0, hp - dotDamage));
+            setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - dotDamage)));
+            queueHitFx("e", dotDamage, "damage");
             if (drainChakra > 0) setEnemyChakra((c) => Math.max(0, c - drainChakra));
             const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra.` : "";
             addCombatLog(`Damage over time: ${opponentName} takes ${dotDamage} damage from active effects.${drainNote}`, "effects", opponentName);

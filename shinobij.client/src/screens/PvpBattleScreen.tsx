@@ -193,6 +193,10 @@ export function PvpBattleScreen({
     // in real time instead of only as a silently-dropping HP bar.
     const [pvpHitFx, setPvpHitFx] = useState<PvpHitFx[]>([]);
     const previousPvpHpRef = useRef<{ p1: number; p2: number } | null>(null);
+    // Last server fx batch already rendered (see the hit-fx effect). `undefined`
+    // until the first session is observed, so a reload / spectator join never
+    // replays the latest batch.
+    const lastFxSeqRef = useRef<number | undefined>(undefined);
 
     // Grid helpers — exact match to arena
     function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
@@ -440,12 +444,44 @@ export function PvpBattleScreen({
         return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
 
-    // Float a damage (red) / heal (green) number over a fighter whenever their HP
-    // changes between session updates. Mirrors the motion-FX diff above: a per-HP
-    // ref dedups so each transition fires exactly once, the list is capped and
-    // auto-expired. Purely additive overlay — touches no combat logic.
+    // Float a damage (red) / heal (green) number over a fighter for each resolved
+    // hit. The server now supplies the TRUE per-hit amounts (session.fx, the same
+    // numbers written to the combat log) with a monotonic session.fxSeq, so a
+    // killing blow reads the real damage — not the post-clamp HP remainder — and
+    // simultaneous hits (reflect + recoil, absorb-heal + damage, a multi-tick DoT)
+    // each float separately instead of collapsing into one net delta. Purely
+    // additive overlay — touches no combat logic.
+    const spawnHitFx = (nextFx: PvpHitFx[]) => {
+        if (!nextFx.length) return undefined;
+        setPvpHitFx((existing) => [...existing, ...nextFx].slice(-8));
+        const timeout = window.setTimeout(() => {
+            setPvpHitFx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
+        }, 1100);
+        return () => window.clearTimeout(timeout);
+    };
     useEffect(() => {
         if (!session) return;
+        const seq = session.fxSeq;
+        if (seq != null) {
+            const last = lastFxSeqRef.current;
+            // A baseline set by an earlier frame (fallback pre-damage, or a prior
+            // server batch) means we've been watching this fight from the start —
+            // so the first server batch is a REAL hit to render. No baseline yet +
+            // no prior seq = a cold mount / spectator join straight into an
+            // already-progressed session; skip that batch so it isn't replayed.
+            const watchedFromStart = previousPvpHpRef.current != null;
+            lastFxSeqRef.current = seq;
+            previousPvpHpRef.current = { p1: session.p1.hp, p2: session.p2.hp };
+            if (seq === last) return;
+            if (last === undefined && !watchedFromStart) return;
+            const events = session.fx ?? [];
+            return spawnHitFx(events.map((ev, i) => ({
+                id: `${ev.target}-fx-${seq}-${i}`, fighter: ev.target, amount: ev.amount, kind: ev.kind,
+            })));
+        }
+        // Legacy fallback for a pre-deploy in-flight session with no fxSeq: derive
+        // the popup from the HP delta (the old behaviour — collapses/understates on
+        // overkill, but only for sessions started before this shipped).
         const previous = previousPvpHpRef.current;
         const current = { p1: session.p1.hp, p2: session.p2.hp };
         if (!previous) { previousPvpHpRef.current = current; return; }
@@ -456,13 +492,8 @@ export function PvpBattleScreen({
             nextFx.push({ id: `${f}-hp-${Date.now()}-${current[f]}`, fighter: f, amount: Math.abs(delta), kind: delta < 0 ? "damage" : "heal" });
         });
         previousPvpHpRef.current = current;
-        if (!nextFx.length) return;
-        setPvpHitFx((existing) => [...existing, ...nextFx].slice(-8));
-        const timeout = window.setTimeout(() => {
-            setPvpHitFx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
-        }, 1100);
-        return () => window.clearTimeout(timeout);
-    }, [session?.p1.hp, session?.p2.hp]);
+        return spawnHitFx(nextFx);
+    }, [session?.fxSeq, session?.p1.hp, session?.p2.hp]);
 
     // Prefight countdown — fires once when the session first loads
     // (skipped for spectators, who join mid-fight). Shows the "VS"

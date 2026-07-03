@@ -12,6 +12,10 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const session_js_1 = require("./session.js");
+function pushFx(fx, who, amount, kind) {
+    if (amount > 0)
+        fx.push({ who, amount: Math.round(amount), kind });
+}
 const _vanguard_rewards_js_1 = require("./_vanguard-rewards.js");
 const _receipts_js_1 = require("../_receipts.js");
 const online_store_js_1 = require("../_realtime/online-store.js");
@@ -999,6 +1003,7 @@ function resolveDamageNumber(self, opponent, jutsu, round, masteryLevel, offStat
 function resolvePostDamage(sIn, oIn, jutsu, round, damage, pierce, healBoost) {
     const tags = jutsu.tags ?? [];
     const lines = [];
+    const fx = [];
     let s = sIn;
     let o = oIn;
     const blocked = pierce ? 0 : Math.min(o.shield, damage);
@@ -1025,23 +1030,32 @@ function resolvePostDamage(sIn, oIn, jutsu, round, damage, pierce, healBoost) {
         o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
     if (blocked > 0)
         lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
-    if (finalDmg > 0)
+    if (finalDmg > 0) {
         lines.push(`${finalDmg} damage to ${o.name}.`);
-    if (absorbHeal > 0)
+        pushFx(fx, 'opp', finalDmg, 'damage');
+    }
+    if (absorbHeal > 0) {
         lines.push(`${o.name} absorbs ${absorbHeal} HP.`);
-    if (itemAbsorbHeal > 0)
+        pushFx(fx, 'opp', absorbHeal, 'heal');
+    }
+    if (itemAbsorbHeal > 0) {
         lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`);
+        pushFx(fx, 'opp', itemAbsorbHeal, 'heal');
+    }
     if (reflectedDmg > 0) {
         s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) };
         lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`);
+        pushFx(fx, 'self', reflectedDmg, 'damage');
     }
     if (itemReflectedDmg > 0) {
         s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) };
         lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`);
+        pushFx(fx, 'self', itemReflectedDmg, 'damage');
     }
     if (itemLifeStealHeal > 0) {
         s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) };
         lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`);
+        pushFx(fx, 'self', itemLifeStealHeal, 'heal');
     }
     for (const tag of tags) {
         const tagName = normalizeTagName(tag.name);
@@ -1062,6 +1076,7 @@ function resolvePostDamage(sIn, oIn, jutsu, round, damage, pierce, healBoost) {
             const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost);
             s = { ...s, hp: Math.min(s.maxHp, s.hp + h) };
             lines.push(`Siphon: ${s.name} heals ${h} HP.`);
+            pushFx(fx, 'self', h, 'heal');
         }
     }
     const recoilStatus = activeStatuses(s, round).find(st => st.name === 'Recoil');
@@ -1069,6 +1084,7 @@ function resolvePostDamage(sIn, oIn, jutsu, round, damage, pierce, healBoost) {
         const rc = cappedPostDamage(finalDmg, recoilStatus.percent ?? 30);
         s = { ...s, hp: Math.max(0, s.hp - rc) };
         lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`);
+        pushFx(fx, 'self', rc, 'damage');
     }
     // Sum all active Lifesteal stacks' percents (capped at 60% by
     // cappedPostDamage), matching PvE — was first-stack-only (.find).
@@ -1077,8 +1093,9 @@ function resolvePostDamage(sIn, oIn, jutsu, round, damage, pierce, healBoost) {
         const h = Math.floor(cappedPostDamage(finalDmg, lsPct) * healBoost);
         s = { ...s, hp: Math.min(s.maxHp, s.hp + h) };
         lines.push(`Lifesteal: ${s.name} heals ${h} HP.`);
+        pushFx(fx, 'self', h, 'heal');
     }
-    return { s, o, lines };
+    return { s, o, lines, fx };
 }
 // Exported for the Lifesteal/tag-lifecycle regression test (_lifesteal.test.ts)
 // and the characterization snapshot (_applyjutsu-characterization.test.ts), which
@@ -1111,6 +1128,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
     const status = resolveTagStatuses(self, opponent, jutsu, round, masteryLevel, baseDmg, healBoost);
     let { s, o } = status;
     const lines = status.lines;
+    const fx = [];
     // Phase 3 — final damage number (pierce true-damage OR base × (1−DR) × amp).
     const damage = resolveDamageNumber(self, opponent, jutsu, round, masteryLevel, offStats, status.damage, status.pierce, effectiveDR);
     // Phase 4 — post-damage consequences (only when something actually landed).
@@ -1119,13 +1137,16 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         s = post.s;
         o = post.o;
         lines.push(...post.lines);
+        fx.push(...post.fx);
     }
     // Phase 5 — apply the pending self heal / shield queued in the status phase.
-    if (status.healing > 0)
+    if (status.healing > 0) {
         s = { ...s, hp: Math.min(s.maxHp, s.hp + status.healing) };
+        pushFx(fx, 'self', status.healing, 'heal');
+    }
     if (status.shieldGain > 0)
         s = { ...s, shield: s.shield + status.shieldGain };
-    return { self: s, opponent: o, lines };
+    return { self: s, opponent: o, lines, fx };
 }
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
 // v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
@@ -1134,6 +1155,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
 // Pure function; exporting it changes zero PvP behaviour.
 function applyDoTs(fighter, round) {
     const lines = [];
+    const fx = [];
     let f = { ...fighter };
     // Compute own DR pool against incoming DoT.
     const ownArmor = (f.character.armorRawDR !== undefined && f.character.armorRawDR !== null)
@@ -1152,6 +1174,7 @@ function applyDoTs(fighter, round) {
             const dmg = mit(s.amount);
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
+            pushFx(fx, 'self', dmg, 'damage');
         }
         if (s.name === 'Poison') {
             // Poison is an HP-only DoT whose magnitude is a % of the victim's
@@ -1161,14 +1184,16 @@ function applyDoTs(fighter, round) {
             const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
+            pushFx(fx, 'self', dmg, 'damage');
         }
         if (s.name === 'Drain') {
             const amt = mit(s.amount ?? DRAIN_BASE_TICK);
             f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
             lines.push(`${f.name} drained ${amt} HP+chakra.`);
+            pushFx(fx, 'self', amt, 'damage');
         }
     }
-    return { fighter: f, lines };
+    return { fighter: f, lines, fx };
 }
 // ─── Win check ────────────────────────────────────────────────────────────────
 function applyQueuedMovement(target, source, round) {
@@ -1271,7 +1296,12 @@ function endTurn(session) {
     nextFighter = dots.fighter;
     lines.push(...dots.lines);
     s = next === 'p1' ? { ...s, p1: nextFighter } : { ...s, p2: nextFighter };
-    s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log });
+    // DoT ticks all land on the next player — surface each as its own floating
+    // number (true amount, matching the log) with a bumped fxSeq so the client
+    // renders it exactly once.
+    const dotFx = dots.fx.map((e) => ({ target: next, amount: e.amount, kind: e.kind }));
+    const fxPatch = dotFx.length ? { fx: dotFx, fxSeq: (session.fxSeq ?? 0) + 1 } : {};
+    s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log, ...fxPatch });
     if (s.status === 'done')
         return s;
     // Stun applies a flat AP penalty instead of skipping the turn entirely.
@@ -1452,7 +1482,7 @@ async function handler(req, res) {
             return Math.max(1, cost);
         }
         function canAct(cost) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
-        function commit(updMe, updOpp, apCost, cd, extra) {
+        function commit(updMe, updOpp, apCost, cd, extra, fx) {
             let s = { ...session, ...extra };
             if (updMe)
                 s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
@@ -1463,6 +1493,14 @@ async function handler(req, res) {
                 s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
             if (lines.length)
                 s = { ...s, log: [...s.log, ...lines] };
+            // Map this action's floating-number events (self = the acting role,
+            // opp = the other) to concrete slots + bump fxSeq so the client
+            // renders the TRUE per-hit numbers once, matching the log.
+            if (fx && fx.length) {
+                const otherRole = role === 'p1' ? 'p2' : 'p1';
+                const mapped = fx.map((e) => ({ target: e.who === 'self' ? role : otherRole, amount: e.amount, kind: e.kind }));
+                s = { ...s, fx: mapped, fxSeq: (session.fxSeq ?? 0) + 1 };
+            }
             // Stamp lastMoveAt + reset this player's AFK counter (any real
             // action ends the streak of skipped rounds). Both are read by
             // the claim-afk-win action.
@@ -1571,15 +1609,16 @@ async function handler(req, res) {
                 lines.push(`${me.name} uses Basic Attack:`);
                 const atk = applyJutsu(me, opp, basicJutsu, 1, biome, session.round);
                 lines.push(...atk.lines);
-                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40);
+                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40, undefined, undefined, atk.fx);
                 break;
             }
             case 'basicHeal': {
                 if (!canAct(60) || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10)
                     return finish(withRejected(session, 'Basic Heal isn\'t ready — out of AP/chakra, or on cooldown.'));
                 const healAmt = Math.max(1, Math.floor(me.maxHp * 0.1));
+                const healFx = [{ who: 'self', amount: healAmt, kind: 'heal' }];
                 lines.push(`${me.name} uses Basic Heal, restoring ${healAmt} HP.`);
-                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 });
+                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 }, undefined, healFx);
                 break;
             }
             case 'clear': {
@@ -1718,7 +1757,7 @@ async function handler(req, res) {
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome, session.round);
                         lines.push(`Ring impact catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit(jr.self, jr.opponent, apCost, cd);
+                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx);
                     }
                     else if (jutsuMethod === 'AOE_CIRCLE') {
                         lines.push(`${opp.name} is outside the impact area.`);
@@ -1769,7 +1808,7 @@ async function handler(req, res) {
                         const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome, session.round);
                         lines.push(`Area burst catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit(jr.self, jr.opponent, apCost, cd);
+                        result = commit(jr.self, jr.opponent, apCost, cd, undefined, jr.fx);
                     }
                     else {
                         lines.push(`${opp.name} is outside the impact area.`);
@@ -1784,7 +1823,7 @@ async function handler(req, res) {
                     stamina: Math.max(0, jr.self.stamina - jStaminaCost),
                 };
                 lines.push(...jr.lines);
-                result = commit(jUpdatedSelf, jr.opponent, apCost, cd);
+                result = commit(jUpdatedSelf, jr.opponent, apCost, cd, undefined, jr.fx);
                 break;
             }
             case 'weapon': {
@@ -1850,7 +1889,7 @@ async function handler(req, res) {
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome, session.round);
                 lines.push(...wr.lines);
                 const wCd = wCdTurns > 0 ? { [wCdKey]: wCdTurns } : undefined;
-                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch);
+                result = commit(wr.self, wr.opponent, wApCost, wCd, wChargePatch, wr.fx);
                 break;
             }
             case 'item': {
@@ -1918,7 +1957,7 @@ async function handler(req, res) {
                     ir.lines.push(`Smoke: ${irSelf.name} also deals ${ddgPct}% less damage for 1 round.`);
                 }
                 lines.push(...ir.lines);
-                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch);
+                result = commit(irSelf, ir.opponent, iApCost, iCd, iSpend.patch, ir.fx);
                 break;
             }
             case 'flee': {
