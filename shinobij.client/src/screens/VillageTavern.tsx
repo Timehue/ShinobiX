@@ -4,7 +4,8 @@ import {
     type TavernMessage,
 } from "../App";
 import { type PlayerRecord } from "../types/character";
-import { titleStyleColor, RARITY_COLORS, type LegacyRarity } from "../lib/legacy";
+import { titleStyleColor, RARITY_COLORS, isLegacyServerLive, type LegacyRarity } from "../lib/legacy";
+import { tavernGossipLine } from "../lib/legacy-rumors";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
 // cosmetics + legacy prestige derived from the author's save, and the
@@ -32,6 +33,10 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     // badge that author's messages live, regardless of the stale snapshot the
     // message was posted with.
     const [seatedKage, setSeatedKage] = useState<string | null>(null);
+    // Rotating "gossip of the day" strip — a second Legacy discovery surface.
+    // Only shown once the server confirms Legacy is live (isLegacyServerLive
+    // caches a single probe); world-flavored, never this player's stats.
+    const [gossip, setGossip] = useState<string | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     // Track last known message count so we skip re-renders when nothing changed
@@ -134,6 +139,19 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     // this never yanks a player who's merely re-polling with no new messages).
     useEffect(() => { logRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [messages]);
 
+    // Legacy tavern gossip — probe once whether the server has Legacy live, then
+    // pick today's line. Skipped entirely (strip hidden) when Legacy is off, so
+    // a rollback never leaves misleading legend-talk in the tavern.
+    useEffect(() => {
+        let alive = true;
+        void isLegacyServerLive().then((live) => {
+            if (!alive || !live) return;
+            const dayBucket = Math.floor(Date.now() / 86_400_000);
+            setGossip(tavernGossipLine(character.name, dayBucket));
+        });
+        return () => { alive = false; };
+    }, [character.name]);
+
     async function send() {
         const text = input.trim();
         if (!text || sending) return;
@@ -185,6 +203,19 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
                 </div>
             </div>
+            {gossip && (
+                <div
+                    className="tavern-gossip"
+                    style={{
+                        margin: "0 0 10px", padding: "8px 12px", borderRadius: 8,
+                        border: "1px solid rgba(192,132,252,.28)", background: "rgba(192,132,252,.07)",
+                        fontSize: ".82rem", fontStyle: "italic", color: "#c9b8e8", lineHeight: 1.4,
+                    }}
+                >
+                    <span style={{ fontStyle: "normal", opacity: .7, marginRight: 6 }}>🗣️ Overheard</span>
+                    {gossip}
+                </div>
+            )}
             <div className="tavern-log" ref={logRef}>
                 {loading && <p className="tavern-empty">Loading messages…</p>}
                 {!loading && messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
