@@ -45,6 +45,11 @@ const state = {
     settleTimer: null as ReturnType<typeof setTimeout> | null,
     lastScreen: '',
     lastScreenAt: 0,
+    slowTransitionCount: 0,
+    maxScreenTransition: 0,
+    longTaskCount: 0,
+    longTaskTotal: 0,
+    longTaskMax: 0,
 };
 
 // Login / character-creation shells. The first NON-shell screen = "playable".
@@ -102,7 +107,11 @@ function reportScreenTransition(from: string, to: string, ms: number): void {
         const record = { from, to, ms };
         const w = window as unknown as { __screenTransitions?: (typeof record)[] };
         w.__screenTransitions = [...(w.__screenTransitions ?? []), record].slice(-50);
-        if (import.meta.env?.DEV && ms > 250) console.info('[perf:screen-transition]', record);
+        if (ms > 250) {
+            state.slowTransitionCount += 1;
+            state.maxScreenTransition = Math.max(state.maxScreenTransition, ms);
+            if (import.meta.env?.DEV) console.info('[perf:screen-transition]', record);
+        }
     } catch {
         /* telemetry is best-effort */
     }
@@ -112,6 +121,9 @@ function reportLongTask(entry: PerformanceEntry): void {
     try {
         if (entry.duration < 100) return;
         const record = { name: entry.name, duration: Math.round(entry.duration), start: Math.round(entry.startTime) };
+        state.longTaskCount += 1;
+        state.longTaskTotal += record.duration;
+        state.longTaskMax = Math.max(state.longTaskMax, record.duration);
         const w = window as unknown as { __longTasks?: (typeof record)[] };
         w.__longTasks = [...(w.__longTasks ?? []), record].slice(-50);
         if (import.meta.env?.DEV) console.warn('[perf:long-task]', record);
@@ -239,6 +251,11 @@ function buildPayload(): Record<string, unknown> {
         tFirstScreen: state.tFirstScreen,
         tRestore: state.tRestore,
         tPlayable: state.tPlayable,
+        slowTransitionCount: state.slowTransitionCount,
+        maxScreenTransition: state.maxScreenTransition,
+        longTaskCount: state.longTaskCount,
+        longTaskTotal: state.longTaskTotal,
+        longTaskMax: state.longTaskMax,
         ...sizes,
         net,
         vw,

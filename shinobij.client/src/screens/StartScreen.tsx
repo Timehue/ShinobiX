@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { type Character, type LbTab } from "../App";
 // Fantasy chrome glyphs (game-icons.net, CC BY 3.0 — attributed in the About guide).
 import { GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiVortex, GiCrossedSwords, GiTrophy } from "react-icons/gi";
@@ -10,7 +10,9 @@ import {
     IconEyeOpen,
     IconEyeOff,
 } from "./CharacterCreator";
-import { GuidesLibrary } from "../components/GuidesLibrary";
+import { lazyWithRetry } from "../lib/lazyWithRetry";
+
+const GuidesLibrary = lazyWithRetry(() => import("../components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
 
 // The real community invite, matching RightMenu / MobileNav. The old
 // "discord.gg/shinobi-journey" vanity link did not resolve.
@@ -195,7 +197,9 @@ export function StartScreen({ onCreate, onLogin, onAdmin, initialName = "", noti
             )}
 
             {view === "guides" && (
-                <GuidesLibrary onExit={() => setView("main")} />
+                <Suspense fallback={<div className="guides-root"><p className="guides-intro">Loading guides...</p></div>}>
+                    <GuidesLibrary onExit={() => setView("main")} />
+                </Suspense>
             )}
         </div>
     );
