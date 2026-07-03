@@ -8,7 +8,7 @@
  * enforced server-side (api/save/[name].ts + api/_titles-registry.ts).
  */
 import type { CSSProperties } from "react";
-import { RARITY_COLORS, titleStyleColor, type LegacyRarity } from "../lib/legacy";
+import { titleStyleColor, type LegacyRarity } from "../lib/legacy";
 
 const CHIP: CSSProperties = {
     display: "inline-block", padding: "1px 8px", borderRadius: 999,
@@ -17,17 +17,20 @@ const CHIP: CSSProperties = {
     background: "rgba(148,163,184,.08)",
 };
 
-export function PlayerNameplate({ name, level, customTitle, customTitleStyle, customTitleIcon, legacyTitle, legacyRarity, village }: {
+export function PlayerNameplate({ name, level, customTitle, customTitleStyle, customTitleIcon, legacyTitle, village }: {
     name: string;
     level?: number;
     customTitle?: string | null;
     customTitleStyle?: string | null;
     customTitleIcon?: string | null;
     legacyTitle?: string | null;
+    // legacyRarity intentionally omitted — legacy rank is owner-only and never
+    // colored on the nameplate. Callers may still pass it; it is ignored.
     legacyRarity?: LegacyRarity | null;
     village?: string | null;
 }) {
-    const rarityColor = legacyRarity ? RARITY_COLORS[legacyRarity] : "#c084fc";
+    // Every legacy chip uses the same accent — rank is never revealed.
+    const rarityColor = "#c084fc";
     const titleColor = titleStyleColor(customTitleStyle);
     return (
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>

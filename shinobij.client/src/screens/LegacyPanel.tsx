@@ -8,8 +8,8 @@ import { useCallback, useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import {
     fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
-    isLegacyEnabled, RARITY_COLORS, RARITY_LABELS, TRIAL_STAT_LABELS, eraAgeName,
-    type LegacyStatusView, type LegacyDefView, type LegacyRarity,
+    isLegacyEnabled, TRIAL_STAT_LABELS, eraAgeName,
+    type LegacyStatusView, type LegacyDefView,
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
 import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
@@ -19,7 +19,9 @@ import { wandererDayBucket, isWanderersEnabled } from "../lib/wanderers";
 import { LEGACY_JUTSU_BY_ID, LEGACY_JUTSU_ID_BY_LEGACY } from "../data/legacy-jutsu";
 import { LEGACY_SIGNATURE_MIN_STAGE, legacySignatureMasteryLevel } from "../lib/legacy-jutsu-slot";
 
-const CODEX_RARITY_ORDER: LegacyRarity[] = ["mythic", "legendary", "rare", "basic"];
+// The single legacy accent — a Legacy's rank is owner-only and never shown or
+// separated in any player-facing surface, so every legacy uses the same colour.
+const LEGACY_ACCENT = "#c084fc";
 
 const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
 const STAGE_NAMES: Record<number, string> = {
@@ -51,6 +53,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     // Mount-time clock for the offer countdown (hour granularity — a render-
     // pure snapshot is plenty; Date.now() in render trips react-hooks/purity).
     const [nowTs] = useState(() => Date.now());
+    const [codexQuery, setCodexQuery] = useState("");
     // Flag-off mounts have nothing to load; they render the null branch below.
     const [loaded, setLoaded] = useState(!enabled);
 
@@ -73,7 +76,7 @@ export function LegacyPanel({ character, onLegacyChanged }: {
     }
 
     const def = status.legacy ? defs?.get(status.legacy.legacyId) ?? null : null;
-    const rarityColor = def ? RARITY_COLORS[def.rarity] : "#9aa3b2";
+    const rarityColor = LEGACY_ACCENT;
 
     async function handleTrial(action: "start" | "complete" | "reroll") {
         if (busy) return;
@@ -165,7 +168,6 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                             )}
                             <h3 style={{ margin: 0, color: rarityColor }}>{def.name}</h3>
                         </div>
-                        <span style={{ fontSize: ".72rem", color: rarityColor }}>{RARITY_LABELS[def.rarity]}</span>
                     </div>
                     <p style={{ margin: "6px 0", fontStyle: "italic", fontSize: ".8rem", color: "#cbd5e1" }}>{def.flavor}</p>
                     <p style={{ margin: 0, fontSize: ".78rem", color: "#9aa3b2" }}>
@@ -342,43 +344,52 @@ export function LegacyPanel({ character, onLegacyChanged }: {
                 <div className="card" style={{ padding: 14 }}>
                     <h4 style={{ margin: "0 0 4px" }}>The Legacy Codex</h4>
                     <p style={{ margin: "0 0 8px", fontSize: ".72rem", color: "#6b7280" }}>
-                        Every path the world remembers. What opens them stays a mystery — the life
-                        you live is the key. {defs.size} legacies recorded.
+                        Every path the world remembers, as equals — no path is ranked above another
+                        here. What opens them stays a mystery; the life you live is the key. {defs.size} recorded.
                     </p>
-                    {CODEX_RARITY_ORDER.map((rarity) => {
-                        const group = [...defs.values()].filter((d) => d.rarity === rarity);
-                        if (group.length === 0) return null;
+                    <input
+                        type="search"
+                        value={codexQuery}
+                        onChange={(e) => setCodexQuery(e.target.value)}
+                        placeholder="Search legacies…"
+                        aria-label="Search the Legacy Codex"
+                        style={{ width: "100%", marginBottom: 10, padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(148,163,184,.28)", background: "rgba(15,23,42,.6)", color: "#e2e8f0", fontSize: ".8rem" }}
+                    />
+                    {(() => {
+                        // Flat, rank-agnostic list — legacies are NEVER grouped or coloured
+                        // by rarity for players (rank is owner-only). Sorted by name, filtered
+                        // by the search box across name / category / village / flavor.
+                        const q = codexQuery.trim().toLowerCase();
+                        const all = [...defs.values()]
+                            .filter((d) => !q || `${d.name} ${d.category} ${d.villageAffinity ?? ""} ${d.flavor}`.toLowerCase().includes(q))
+                            .sort((a, b) => a.name.localeCompare(b.name));
+                        if (all.length === 0) return <p style={{ fontSize: ".76rem", color: "#6b7280" }}>No legacies match "{codexQuery}".</p>;
                         return (
-                            <details key={rarity} style={{ marginBottom: 6 }}>
-                                <summary style={{ cursor: "pointer", color: RARITY_COLORS[rarity], fontWeight: 700, fontSize: ".82rem" }}>
-                                    {RARITY_LABELS[rarity]} — {group.length}
-                                </summary>
-                                <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
-                                    {group.map((d) => (
-                                        <div key={d.id} style={{ borderLeft: `3px solid ${RARITY_COLORS[rarity]}55`, paddingLeft: 8 }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                                                <b style={{ fontSize: ".8rem", color: status.legacy?.legacyId === d.id ? RARITY_COLORS[rarity] : "#e2e8f0", display: "flex", alignItems: "center", gap: 6 }}>
-                                                    {d.badge && (
-                                                        <img
-                                                            src={`/badges/legacy-${d.badge}.png`} alt=""
-                                                            style={{ width: 24, height: 24, borderRadius: 5 }}
-                                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                                        />
-                                                    )}
-                                                    {status.legacy?.legacyId === d.id ? "★ " : ""}{d.name}
-                                                </b>
-                                                <span style={{ fontSize: ".68rem", color: "#9aa3b2" }}>
-                                                    {d.category}{d.villageAffinity ? ` · favored by ${d.villageAffinity}` : ""}
-                                                </span>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                                {all.map((d) => {
+                                    const mine = status.legacy?.legacyId === d.id;
+                                    return (
+                                        <div key={d.id} style={{ border: `1px solid ${mine ? `${LEGACY_ACCENT}66` : "rgba(148,163,184,.18)"}`, background: mine ? `${LEGACY_ACCENT}12` : "rgba(15,23,42,.4)", borderRadius: 10, padding: "9px 10px" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                                {d.badge && (
+                                                    <img
+                                                        src={`/badges/legacy-${d.badge}.png`} alt=""
+                                                        style={{ width: 30, height: 30, borderRadius: 6, flexShrink: 0 }}
+                                                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                                    />
+                                                )}
+                                                <b style={{ fontSize: ".8rem", color: mine ? LEGACY_ACCENT : "#e2e8f0", lineHeight: 1.15 }}>{mine ? "★ " : ""}{d.name}</b>
                                             </div>
-                                            <p style={{ margin: "2px 0 0", fontSize: ".74rem", color: "#9aa3b2", fontStyle: "italic" }}>{d.flavor}</p>
-                                            <p style={{ margin: "2px 0 0", fontSize: ".7rem", color: "#9aa3b2" }}>Title: {d.title}</p>
+                                            <p style={{ margin: "5px 0 0", fontSize: ".7rem", color: "#94a3b8" }}>
+                                                {d.category}{d.villageAffinity ? ` · ${d.villageAffinity}` : ""}
+                                            </p>
+                                            <p style={{ margin: "3px 0 0", fontSize: ".72rem", color: "#8b93a1", fontStyle: "italic", lineHeight: 1.3 }}>{d.flavor}</p>
                                         </div>
-                                    ))}
-                                </div>
-                            </details>
+                                    );
+                                })}
+                            </div>
                         );
-                    })}
+                    })()}
                 </div>
             )}
 

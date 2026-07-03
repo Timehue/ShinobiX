@@ -566,16 +566,31 @@ function hydrateCharacterFromSave(saveCharacter, clientCharacter, save = null) {
     const resolvedLoadout = resolveEquippedLoadout(saveCharacter, save, clientCharacter);
     merged.jutsu = sanitizeJutsuList(resolvedLoadout ?? saveCharacter.jutsu ?? clientCharacter.jutsu);
     // ── Legacy signature slot (the dedicated 16th slot) ──────────────────────
-    // Derived ENTIRELY from the server-owned character.legacy (written only by
-    // api/legacy/sage.ts / trial.ts / admin — the save sanitizer discards client
-    // writes), so there is no equip field to spoof: reach Stage 3 (Bound) and
-    // the signature joins the sealed loadout; lose the Legacy and it's gone.
+    // A LEGACY-ONLY prestige slot. Only a Legacy's own signature jutsu can ever
+    // occupy it — it is DERIVED here from the server-owned character.legacy, not
+    // equipped by the player, so no regular jutsu (and no other Legacy's
+    // signature) can be placed in it by any means. Written only by
+    // api/legacy/sage.ts / trial.ts / admin; the save sanitizer discards client
+    // legacy writes, so there is no equip field to spoof: reach Stage 3 (Bound)
+    // and the signature joins the sealed loadout; lose the Legacy and it's gone.
     // Resolved from the SEPARATE legacy catalog — these ids never resolve out of
     // equippedJutsuIds, so a tampered save can't put one inside the 15 or claim
     // another Legacy's signature. Mastery is the legacy stage ×10 (3→30, 4→40,
     // 5→50): signatures deepen with the Legacy, never via the training grind.
-    // Flag-gated like every legacy surface: a rollback keeps NEW sessions
-    // byte-identical to pre-legacy combat. Towers inherit via sealTowerFighter.
+    //
+    // BALANCE (owner-documented, intentional): this is a strictly-additive 16th
+    // slot on top of the 15-jutsu loadout — a Legacy player fields one more jutsu
+    // than a no-Legacy player, with no offsetting loadout cost. That is accepted
+    // prestige power: it is EARNED (achievement floors + a 5-stage trial arc),
+    // never bought or RNG'd, so it stays inside the skill-gated-power pillar. Its
+    // only in-combat cost is AP contention (it shares the 100 AP/turn) and its
+    // cd 10 (vs 7 for starters) throttles cycling. See docs/legacy-launch-checklist.md.
+    //
+    // ORDERING: this block MUST run AFTER sanitizeMastery/sanitizeJutsuList above —
+    // it appends the stage-derived mastery and the stamped signature last so they
+    // are not re-clamped or dropped by the generic sanitizer. Do not move a
+    // mastery cap or re-run sanitizeMastery after this point. (Guarded by
+    // api/pvp/_legacy-slot.test.ts.)
     if ((0, _legacy_track_js_1.legacyEnabled)()) {
         const lg = saveCharacter.legacy;
         const stage = Number(lg?.stage);

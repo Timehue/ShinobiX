@@ -15,7 +15,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { gameConfirm } from "./GameAlert";
 import {
-    sageAccept, sageDecline, RARITY_COLORS, RARITY_LABELS,
+    sageAccept, sageDecline,
     type SageOfferView, type CharacterLegacy,
 } from "../lib/legacy";
 import { LegacyMoment, type LegacyMomentData } from "./LegacyMoment";
@@ -108,7 +108,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                         key={o.legacyId}
                         onClick={() => setSelected(selected === o.legacyId ? null : o.legacyId)}
                         style={{
-                            border: `1px solid ${selected === o.legacyId ? RARITY_COLORS[o.rarity] : "rgba(148,163,184,.25)"}`,
+                            border: `1px solid ${selected === o.legacyId ? "#c084fc" : "rgba(148,163,184,.25)"}`,
                             borderRadius: 10, padding: "10px 12px", marginBottom: 8, cursor: "pointer",
                             background: selected === o.legacyId ? "rgba(148,163,184,.08)" : "transparent",
                         }}
@@ -122,9 +122,8 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                                     />
                                 )}
-                                <b style={{ color: RARITY_COLORS[o.rarity] }}>{o.name}</b>
+                                <b style={{ color: "#c084fc" }}>{o.name}</b>
                             </span>
-                            <span style={{ fontSize: ".7rem", color: RARITY_COLORS[o.rarity], whiteSpace: "nowrap" }}>{RARITY_LABELS[o.rarity]}</span>
                         </div>
                         <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1", fontStyle: "italic" }}>{o.flavor}</p>
                         <p style={{ margin: "4px 0 0", fontSize: ".72rem", color: "#9aa3b2" }}>
@@ -135,7 +134,7 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                             <button
                                 disabled={busy}
                                 onClick={(e) => { e.stopPropagation(); void handleAccept(o.legacyId); }}
-                                style={{ marginTop: 8, width: "100%", background: RARITY_COLORS[o.rarity], color: "#0b1020", fontWeight: 700 }}
+                                style={{ marginTop: 8, width: "100%", background: "#c084fc", color: "#0b1020", fontWeight: 700 }}
                             >
                                 Accept This Path
                             </button>
