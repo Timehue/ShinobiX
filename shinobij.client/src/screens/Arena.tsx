@@ -31,6 +31,8 @@ import { isMercAiId } from "../lib/merc-ai";
 import coliseumLadderImg from "../assets/coliseum/coliseum-bg.webp";
 import tacticalLadderImg from "../assets/ladder/tactical-hero.webp";
 import { CombatSideHud } from "../components/CombatSideHud";
+import { FighterHpBadge } from "../components/FighterHpBadge";
+import { HexZoomBar } from "../components/HexZoomBar";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { JutsuSpriteFx } from "../components/JutsuSpriteFx";
 import { PET_CONSUMABLE_PVE_HEAL_PCT, petCollarVisual, petConsumableById, petPveGearById, petPveHealOnSummonPct, petPveLifestealPct, petPveLoyalty, petPveSummonDamageMult } from "../data/pet-config";
@@ -5410,23 +5412,7 @@ export function Arena({
                         </div>
                     </div>
 
-                    <div className="hex-zoom-bar">
-                        <span className="hex-zoom-label">🔍</span>
-                        <input
-                            type="range"
-                            className="hex-zoom-slider"
-                            min={-0.4}
-                            max={0.5}
-                            step={0.02}
-                            value={userScaleOffset}
-                            onChange={(e) => setUserScaleOffset(Number(e.target.value))}
-                        />
-                        <button
-                            className="hex-zoom-reset"
-                            onClick={() => setUserScaleOffset(0)}
-                            title="Reset zoom"
-                        >↺</button>
-                    </div>
+                    <HexZoomBar value={userScaleOffset} onChange={setUserScaleOffset} min={-0.4} max={0.5} step={0.02} />
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldCallbackRef}>
                         {/*
                           Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
@@ -5505,32 +5491,49 @@ export function Arena({
                                         </div>
                                     );
                                 };
-                                // Slim pet HP bar + name + remaining-phases pill, floating just
-                                // above the pet orb (mobile-safe — no extra side HUD column).
-                                const petHpBadge = (pos: number, pet: Pet) => {
+                                // Slim always-visible HP bar floating just above a fighter's orb
+                                // (mobile-safe — no extra side HUD column). One helper for the
+                                // player, the enemy, and the summoned pet via the shared
+                                // FighterHpBadge; the pet passes a name+turns caption, the two
+                                // fighters show cur/max numbers. Same x/y math as orbForPos so the
+                                // bar sits over the token and glides with it.
+                                const hpBadgeFor = (
+                                    pos: number,
+                                    key: string,
+                                    hp: number,
+                                    maxHp: number,
+                                    side: "player" | "enemy" | "pet",
+                                    caption?: string,
+                                ) => {
                                     const row = Math.floor(pos / gridWidth);
                                     const col = pos % gridWidth;
                                     const x = col * X_STEP + HEX_W / 2 - ORB / 2;
                                     const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB - 16;
-                                    const pct = Math.max(0, Math.min(100, (petHp / Math.max(1, petMaxHp)) * 100));
-                                    const color = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
                                     return (
-                                        <div key="pet-hp-badge" style={{ position: "absolute", left: x, top: y, width: ORB, zIndex: 11, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                            <div style={{ height: 5, borderRadius: 3, background: "rgba(0,0,0,0.55)", overflow: "hidden", border: "1px solid rgba(0,0,0,0.6)" }}>
-                                                <span style={{ display: "block", height: "100%", width: `${pct}%`, background: color }} />
-                                            </div>
-                                            <div style={{ fontSize: 8, lineHeight: 1.2, textAlign: "center", color: "#e5e7eb", textShadow: "0 1px 2px #000", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                {petDisplayName(pet)} · {petTurnsRemaining}⟳
-                                            </div>
-                                        </div>
+                                        <FighterHpBadge
+                                            key={key}
+                                            left={x}
+                                            top={y}
+                                            width={ORB}
+                                            hp={hp}
+                                            maxHp={maxHp}
+                                            side={side}
+                                            caption={caption}
+                                            showNumbers={caption == null}
+                                        />
                                     );
                                 };
                                 return (
                                     <>
                                         {character.avatarImage && orbForPos(playerPos, false, character.avatarImage, character.name)}
+                                        {/* Player + enemy HP bars render UNGATED by the orb's avatar
+                                            guard: an image-less fighter falls back to an emoji inside
+                                            the hex tile, but its HP must still show on the board. */}
+                                        {hpBadgeFor(playerPos, "player-hp-badge", playerHp, character.maxHp, "player")}
                                         {isPetAlive && summonedPet && petActorOrb(petPos, summonedPet)}
-                                        {isPetAlive && summonedPet && petHpBadge(petPos, summonedPet)}
+                                        {isPetAlive && summonedPet && hpBadgeFor(petPos, "pet-hp-badge", petHp, petMaxHp, "pet", `${petDisplayName(summonedPet)} · ${petTurnsRemaining}⟳`)}
                                         {isImageAvatar(opponentAvatar) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
+                                        {hpBadgeFor(enemyPos, "enemy-hp-badge", enemyHp, enemyMaxHp, "enemy")}
                                     </>
                                 );
                             })()}

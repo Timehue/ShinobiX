@@ -8,6 +8,8 @@ import { JUTSU_MAX_LEVEL } from "../constants/game";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { CombatSideHud } from "../components/CombatSideHud";
+import { FighterHpBadge } from "../components/FighterHpBadge";
+import { HexZoomBar } from "../components/HexZoomBar";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
@@ -1284,12 +1286,7 @@ export function PvpBattleScreen({
                         </div>
                     </div>
 
-                    <div className="hex-zoom-bar">
-                        <span className="hex-zoom-label">🔍</span>
-                        <input type="range" className="hex-zoom-slider" min={-0.4} max={0.5} step={0.02}
-                            value={userScaleOffset} onChange={e => setUserScaleOffset(Number(e.target.value))} />
-                        <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">↺</button>
-                    </div>
+                    <HexZoomBar value={userScaleOffset} onChange={setUserScaleOffset} min={-0.4} max={0.5} step={0.02} />
 
                     <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
                         ref={battlefieldCallbackRef}>
@@ -1338,10 +1335,33 @@ export function PvpBattleScreen({
                                             </div>
                                         );
                                     };
+                                    // Always-visible per-fighter HP bar floating above each orb
+                                    // (shared FighterHpBadge). Same resolved pos + x/y math as the
+                                    // orb so the bar sits over the token and glides with it.
+                                    const hpBadgeFor = (animPos: number, isOpp: boolean, hp: number, maxHp: number) => {
+                                        const pos = animPos >= 0 ? animPos : (isOpp ? oppPos : myPos);
+                                        const row = Math.floor(pos / gridWidth);
+                                        const col = pos % gridWidth;
+                                        const bx = col * X_STEP + HEX_W / 2 - ORB / 2;
+                                        const by = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB - 16;
+                                        return (
+                                            <FighterHpBadge
+                                                key={isOpp ? "opp-hp-badge" : "me-hp-badge"}
+                                                left={bx}
+                                                top={by}
+                                                width={ORB}
+                                                hp={hp}
+                                                maxHp={maxHp}
+                                                side={isOpp ? "enemy" : "player"}
+                                            />
+                                        );
+                                    };
                                     return (
                                         <>
                                             {orbForPos(myPathPos, false, myAvatar, me.name)}
                                             {orbForPos(oppPathPos, true, oppAvatar, opp.name)}
+                                            {hpBadgeFor(myPathPos, false, me.hp, me.maxHp)}
+                                            {hpBadgeFor(oppPathPos, true, opp.hp, opp.maxHp)}
                                         </>
                                     );
                                 })()}
