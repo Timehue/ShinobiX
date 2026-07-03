@@ -13,7 +13,7 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
 import type { Profession, Screen } from "../types/core";
 import { PROFESSION_LABEL } from "../data/professions";
@@ -53,12 +53,19 @@ export const RightMenu = memo(function RightMenu({
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
+    const navLockUntilRef = useRef(0);
     // Global audio master-mute — silences music AND all battle SFX. Mirrored
     // into local state so the icon re-renders, and subscribed so it stays in
     // sync if the switch is flipped elsewhere.
     const [audioMuted, setAudioMutedState] = useState(isAudioMuted());
     useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     const isAdminAccount = isProtectedAdminName(characterName);
+    const guardedNavigate = (next: Screen) => {
+        const now = Date.now();
+        if (now < navLockUntilRef.current) return;
+        navLockUntilRef.current = now + 300;
+        navigate(next);
+    };
 
     return (
         <aside
@@ -71,7 +78,7 @@ export const RightMenu = memo(function RightMenu({
             }}
         >
             <NotificationBar
-                navigate={navigate}
+                navigate={guardedNavigate}
                 screen={screen}
                 clan={characterClan}
                 village={characterVillage}
@@ -95,29 +102,29 @@ export const RightMenu = memo(function RightMenu({
                     <h3>Main Menu</h3>
 
                     <div className="right-menu-buttons">
-                        <button onClick={() => navigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
-                        <button onClick={() => navigate("worldMap")}><GiTreasureMap size={16} />Travel</button>
-                        <button onClick={() => navigate("userHub")}><GiThreeFriends size={16} />Users</button>
-                        <button onClick={() => navigate("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
-                        <button onClick={() => navigate("missions")}><GiScrollUnfurled size={16} />Missions</button>
-                        <button onClick={() => navigate("training")}><GiBiceps size={16} />Training</button>
-                        <button onClick={() => navigate("profile")}><GiNinjaHeroicStance size={16} />Character</button>
-                        <button onClick={() => navigate("inventory")}><GiKnapsack size={16} />Inventory</button>
-                        <button onClick={() => navigate("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
-                        <button onClick={() => navigate("pets")}><GiPawPrint size={16} />Pets</button>
-                        <button onClick={() => navigate("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
+                        <button onClick={() => guardedNavigate("tavern")} title={`Enter the ${characterVillage} tavern from anywhere`}><GiBeerStein size={16} />Tavern</button>
+                        <button onClick={() => guardedNavigate("worldMap")}><GiTreasureMap size={16} />Travel</button>
+                        <button onClick={() => guardedNavigate("userHub")}><GiThreeFriends size={16} />Users</button>
+                        <button onClick={() => guardedNavigate("messages")}><GiEnvelope size={16} />Mail<MailUnreadBadge /></button>
+                        <button onClick={() => guardedNavigate("missions")}><GiScrollUnfurled size={16} />Missions</button>
+                        <button onClick={() => guardedNavigate("training")}><GiBiceps size={16} />Training</button>
+                        <button onClick={() => guardedNavigate("profile")}><GiNinjaHeroicStance size={16} />Character</button>
+                        <button onClick={() => guardedNavigate("inventory")}><GiKnapsack size={16} />Inventory</button>
+                        <button onClick={() => guardedNavigate("jutsuTraining")}><GiFireSpellCast size={16} />Jutsu</button>
+                        <button onClick={() => guardedNavigate("pets")}><GiPawPrint size={16} />Pets</button>
+                        <button onClick={() => guardedNavigate("bloodlineMaker")}><GiDna1 size={16} />Bloodline</button>
                         <button
-                            onClick={() => navigate("professions")}
+                            onClick={() => guardedNavigate("professions")}
                             title={profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions"}
                         >
                             <GiAnvil size={16} />{profession ? PROFESSION_LABEL[profession] : "Professions"}
                         </button>
-                        <button onClick={() => navigate("logbook")}><GiBookCover size={16} />Logbook</button>
-                        <button onClick={() => navigate("guides")}><GiOpenBook size={16} />Guides</button>
+                        <button onClick={() => guardedNavigate("logbook")}><GiBookCover size={16} />Logbook</button>
+                        <button onClick={() => guardedNavigate("guides")}><GiOpenBook size={16} />Guides</button>
                         <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}><GiChatBubble size={16} />Discord</button>
                         <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}><GiHearts size={16} />Patreon</button>
                         {(isAdminAccount || adminLoggedIn) && (
-                            <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
+                            <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={16} />Admin</button>
                         )}
                         <button onClick={logoutPlayer}><GiExitDoor size={16} />Logout + Save</button>
                     </div>

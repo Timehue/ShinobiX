@@ -16,6 +16,7 @@
  * is the thing that failed to load.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { RecoveryActions } from "./RecoveryActions";
 import { reportError } from "../lib/sentry";
 
 type Props = { children: ReactNode };
@@ -122,21 +123,23 @@ export class ErrorBoundary extends Component<Props, State> {
                             ? "The game was updated while you were playing. Reload to get the latest version — your progress is saved."
                             : "An unexpected error interrupted the game. Reloading usually fixes it; your progress is saved."}
                     </p>
+                    <RecoveryActions compact />
                     <button
                         type="button"
                         onClick={this.reload}
                         style={{
                             cursor: "pointer",
-                            background: "linear-gradient(180deg, #facc15, #eab308)",
-                            color: "#1a1306",
+                            marginTop: 12,
+                            background: "transparent",
+                            color: "#cbd5e1",
                             fontWeight: 700,
-                            fontSize: 15,
-                            border: "none",
+                            fontSize: 13,
+                            border: "1px solid rgba(148,163,184,0.35)",
                             borderRadius: 10,
-                            padding: "11px 28px",
+                            padding: "9px 18px",
                         }}
                     >
-                        Reload
+                        Reload Current Screen
                     </button>
                 </div>
             </div>

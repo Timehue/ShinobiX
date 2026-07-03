@@ -12,6 +12,7 @@
  * by the top-level boundary's one-shot reload, so here it just shows the card.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { RecoveryActions } from "./RecoveryActions";
 import { reportError } from "../lib/sentry";
 
 type Props = { children: ReactNode };
@@ -38,12 +39,13 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: "#94a3b8", margin: "0 0 18px" }}>
                     Something went wrong drawing this view. Use the menu to go somewhere else, or reload — your progress is saved.
                 </p>
+                <RecoveryActions />
                 <button
                     type="button"
                     onClick={() => window.location.reload()}
-                    style={{ cursor: "pointer", background: "linear-gradient(180deg, #facc15, #eab308)", color: "#1a1306", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 10, padding: "10px 24px" }}
+                    style={{ cursor: "pointer", marginTop: 10, background: "transparent", color: "#cbd5e1", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
                 >
-                    Reload
+                    Reload Current Screen
                 </button>
             </div>
         );
