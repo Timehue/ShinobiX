@@ -1605,6 +1605,13 @@ html.wm-zoom .world-map-scroll {
     position: relative;
     width: 100% !important;
     max-width: 100% !important;
+    /* Fill the vertical space between the top bar and the region chips instead of
+       being a short letterboxed strip. The map inside is scaled to COVER this
+       height by useWorldMapZoom (fill-height home view). Subtract the mobile
+       chrome (top HUD + banner + "← Village" bar + region chips + bottom-nav
+       padding); clamped so tiny phones keep a usable map and tablets don't get an
+       enormous one. */
+    height: clamp(300px, calc(100dvh - 400px), 620px) !important;
     overflow: hidden !important;
     touch-action: none;
     -webkit-user-select: none;
