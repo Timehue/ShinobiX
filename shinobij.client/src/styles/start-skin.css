@@ -274,17 +274,23 @@
 
 .start-eye-btn {
     position: absolute;
-    right: 8px;
+    right: 2px;
     top: 50%;
     transform: translateY(-50%);
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
     background: transparent !important;
     border: none !important;
     color: #ca8a04 !important;
-    padding: 4px !important;
+    padding: 0 !important;
     cursor: pointer;
-    line-height: 0;
-    min-height: 0 !important;
+    line-height: 1;
     box-shadow: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .start-eye-btn:hover {

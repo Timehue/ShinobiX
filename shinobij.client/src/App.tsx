@@ -4895,17 +4895,17 @@ export default function App() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'register', name: newCharacter.name.toLowerCase(), password }),
             });
+            const regData = await authRes.json().catch(() => null) as { error?: string; token?: string } | null;
             if (authRes.status === 409) {
-                alert("A player with that name already exists. Log in instead or choose another name.");
+                alert(regData?.error ?? "A player with that name already exists. Log in instead or choose another name.");
                 return;
             }
             if (!authRes.ok) {
-                alert("Could not create the server account. Try again.");
+                alert(regData?.error ?? "Could not create the server account. Try again.");
                 return;
             }
             // Capture the session token from registration so the first
             // requests use the cheap HMAC path right away.
-            const regData = await authRes.json().catch(() => null) as { token?: string } | null;
             regToken = regData?.token ?? undefined;
             if (regToken) setActiveToken(regToken);
         } catch {
