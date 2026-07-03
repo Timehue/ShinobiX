@@ -7483,12 +7483,9 @@ export default function App() {
 
             {screen !== "start" && character && (
                 <MobileNav
-                    navigate={stableNavigate}
-                    adminLoggedIn={adminLoggedIn}
-                    logoutPlayer={stableLogout}
-                    character={character}
-                    currentSector={currentSector}
-                    screen={screen}
+                    navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
+                    character={character} updateCharacter={setCharacter} currentSector={currentSector}
+                    activeTraining={activeTraining} activeJutsuTraining={activeJutsuTraining} screen={screen}
                 />
             )}
 
