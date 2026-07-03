@@ -2355,14 +2355,6 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const camAimHold = useRef(0);      // seconds a cut aim is held before easing back to the midpoint
     const camDolly = useRef(CAM_POS[2]); // eased dolly distance (adaptive on the leads' spread)
     const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
-    // Human label for an unnamed BASIC action so every swing reads Pokémon-style.
-    const basicMoveLabel = (actorId: string, kind?: string): string => {
-        if (kind === "heal") return "Mend";
-        if (kind === "shield" || kind === "barrier" || kind === "absorb") return "Guard";
-        if (kind === "buff" || kind === "haste") return "Focus";
-        const el = String(elementById[actorId] ?? "").trim();
-        return el && el !== "None" ? `${el} Strike` : "Strike";
-    };
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
@@ -2436,11 +2428,9 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : (isAbility || heavy) ? 1.8 : 0.9);
                         // Camera CUT to whoever got hit — the impact reads on the defender.
                         { const cp = duelFieldToFloor(a.x, a.y); camAim.current = [cp.wx * 0.55, 1.4, CAM_LOOK[2] + cp.wz * 0.4]; camAimHold.current = Math.max(camAimHold.current, 0.13); }
-                        // Move-name CALLOUT — named abilities show their name; a MELEE basic shows a
-                        // synthesized "<Element> Strike" so EVERY on-screen swing reads (signatures get
-                        // the anime cut-in instead; ranged basics are labelled on their cast below).
-                        const hitLabel = e.move || (!e.ranged ? basicMoveLabel(e.actorId, e.kind) : null);
-                        if (hitLabel && !isSig && now - lastMoveCall.current > 0.4) { lastMoveCall.current = now; onMoveCallout(hitLabel, e.actorId.startsWith("enemy") ? "enemy" : "player"); }
+                        // Move-name CALLOUT for a named ABILITY hit only (signatures get the cut-in
+                        // instead; a per-BASIC banner spam-yelled every swing in the fast duel).
+                        if (e.move && !isSig && now - lastMoveCall.current > 0.4) { lastMoveCall.current = now; onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player"); }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         comboN.current = now < comboT.current ? comboN.current + 1 : 1;
                         comboT.current = now + 1.1;
@@ -2522,11 +2512,10 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         onFlash(elementColor(el).glow, 0.42);
                         onCutIn(e.actorId);                                    // anime portrait cut-in (names the signature)
                         onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
-                    } else if (e.type === "cast" && now - lastMoveCall.current > 0.4) {
-                        // A named ranged / support ability — flash its name (a ranged BASIC
-                        // carries no name, so synthesize "<Element> Strike") + a short savor beat.
+                    } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
+                        // A named ranged / support ability — flash its name + a short savor beat.
                         lastMoveCall.current = now;
-                        onMoveCallout(e.move || basicMoveLabel(e.actorId, e.kind), e.actorId.startsWith("enemy") ? "enemy" : "player");
+                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
                         savor(0.5, 0.18);
                     }
                 } else if (e.type === "ko") {
