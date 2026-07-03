@@ -41,17 +41,16 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 
 // ─── Battle screens (navigation lock) ───────────────────────────────────────
 //
-// Screens that represent an in-progress fight. `arena` and `petArena` ALSO have
-// non-fight lobby states, so the runtime guard (isUnresolvedBattle) gates those
-// on an active-fight signal rather than on the screen alone.
-// NOTE: this set is currently unreferenced — the live no-retreat gate is
-// isUnresolvedBattle() below. Kept as documentation; now also lists the active
-// HollowGate shrine screen (hollowGateShrine) alongside the legacy tile seal so
-// it stays accurate if anything wires it up later.
+// Screens that are battle-only or battle-capable. `arena` and `petArena` ALSO
+// have non-fight lobby states, so the runtime guard (isUnresolvedBattle) gates
+// those on an active-fight signal rather than on the screen alone.
+// Used by App-level battle-flow effects as the broad catalog, while
+// isUnresolvedBattle() below decides whether a mixed lobby/fight screen is
+// actively locked.
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "petArena", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
-    "eventPetBattle", "tilecardsDuel", "sectorCard", "battleTowers",
+    "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
 ]);
 
 // Battle Towers has no server BattleLockKeeper — the run lives in tower:<runId>
@@ -89,6 +88,7 @@ export interface BattleGuardSignals {
     screen: Screen;
     raidBattleKind: string;            // "none" | "raidAi" | "raidPlayer" | "defense"
     pvpBattleId: string | null;        // tactical PvP server session
+    pvpBattleResolved?: boolean;       // result screen is showing; safe to leave
     endlessBattleActive: boolean;      // endless tower fight (in arena)
     pendingArenaStoryBattle: boolean;  // story / weekly / boss / event fight (in arena)
     pendingEventEncounter: boolean;    // event card / pet battle
@@ -115,12 +115,13 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
             return s.arenaBattleActive || hasActiveBattleLock()
                 || s.endlessBattleActive || s.pendingArenaStoryBattle;
         case "pvpBattle":
-            return !!s.pvpBattleId;
+            return !!s.pvpBattleId && !s.pvpBattleResolved;
         case "petArena":
             return s.petBattleActive || s.pendingPetBattle;
         case "storyBoss":          // battle-only screen, no lobby
         case "tilecardsDuel":      // clan-war card duel, battle-only
         case "sectorCard":         // sector-war card battle, battle-only
+        case "cardClashFreePlay":  // free-play PvP card duel, battle-only
         case "hollowGateShrine":   // dungeon MAP: no retreat — exit only via the
                                    // in-map Leave tile or death (both setScreen
                                    // directly, bypassing the nav lock). Without
