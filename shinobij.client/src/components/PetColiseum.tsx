@@ -1686,6 +1686,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
     const shadow = useRef<THREE.Mesh>(null);
     const shadowMat = useRef<THREE.MeshBasicMaterial>(null);
     const hpFill = useRef<HTMLDivElement>(null);
+    const hpChip = useRef<HTMLDivElement>(null);   // lagging "damage-taken" chip behind the fill
     const nameWrap = useRef<HTMLDivElement>(null);
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
     const prevHp = useRef(Infinity);
@@ -1959,7 +1960,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         }
 
         // HP bar + dead dim via DOM refs (no React re-render).
-        if (hpFill.current) hpFill.current.style.width = `${Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100))}%`;
+        if (hpFill.current) {
+            const pct = Math.max(0, Math.min(100, (a0.hp / Math.max(1, a0.maxHp)) * 100));
+            hpFill.current.style.width = `${pct}%`;
+            // Trailing "chip" drains DOWN slowly behind the fill (the classic damage read);
+            // snaps up instantly on a heal so it never sits above true HP.
+            if (hpChip.current) { const chip = parseFloat(hpChip.current.style.width) || pct; hpChip.current.style.width = `${chip <= pct ? pct : lerp(chip, pct, 0.12)}%`; }
+        }
         if (nameWrap.current) nameWrap.current.style.opacity = a0.state === "dead" ? "0.5" : "1";
 
         // Contact shadow — flat on the floor, tracks x/z, fades + shrinks as the pet lifts.
@@ -1989,8 +1996,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 <Html position={[0, L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
                         <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {pet.name}</div>
-                        <div style={{ width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
-                            <div ref={hpFill} style={{ width: "100%", height: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
+                        <div style={{ position: "relative", width: 64, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
+                            <div ref={hpChip} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#fbbf24", opacity: 0.75 }} />
+                            <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: side === "player" ? "#4ade80" : "#f87171" }} />
                         </div>
                     </div>
                 </Html>
@@ -2340,6 +2348,21 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const lastReversal = useRef(0);                  // wall-time of the last reversal call (debounce)
     const holdUntil = useRef(0);                     // wall-time to HOLD the current slow-mo until (savor beat)
     const lastMoveCall = useRef(0);                  // wall-time of the last move-name callout (debounce)
+    // ── Cinematic camera (render-only): a live look target eased toward the fighters'
+    // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /
+    // victim on KO), plus an adaptive dolly that tightens when they plant close.
+    const camAim = useRef<[number, number, number]>([CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2]]);
+    const camAimHold = useRef(0);      // seconds a cut aim is held before easing back to the midpoint
+    const camDolly = useRef(CAM_POS[2]); // eased dolly distance (adaptive on the leads' spread)
+    const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
+    // Human label for an unnamed BASIC action so every swing reads Pokémon-style.
+    const basicMoveLabel = (actorId: string, kind?: string): string => {
+        if (kind === "heal") return "Mend";
+        if (kind === "shield" || kind === "barrier" || kind === "absorb") return "Guard";
+        if (kind === "buff" || kind === "haste") return "Focus";
+        const el = String(elementById[actorId] ?? "").trim();
+        return el && el !== "None" ? `${el} Strike` : "Strike";
+    };
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
@@ -2411,8 +2434,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         else savor(0.6, 0.12);
                         // Camera ZOOM-PUNCH — every meaningful blow pushes in; abilities/crits/signatures harder.
                         zoomKick.current = Math.max(zoomKick.current, isSig ? 3.2 : e.crit ? 2.8 : (isAbility || heavy) ? 1.8 : 0.9);
-                        // Move-name CALLOUT for a named ability hit (signatures get the cut-in instead).
-                        if (isAbility && !isSig && now - lastMoveCall.current > 0.4) { lastMoveCall.current = now; onMoveCallout(e.move!, e.actorId.startsWith("enemy") ? "enemy" : "player"); }
+                        // Camera CUT to whoever got hit — the impact reads on the defender.
+                        { const cp = duelFieldToFloor(a.x, a.y); camAim.current = [cp.wx * 0.55, 1.4, CAM_LOOK[2] + cp.wz * 0.4]; camAimHold.current = Math.max(camAimHold.current, 0.13); }
+                        // Move-name CALLOUT — named abilities show their name; a MELEE basic shows a
+                        // synthesized "<Element> Strike" so EVERY on-screen swing reads (signatures get
+                        // the anime cut-in instead; ranged basics are labelled on their cast below).
+                        const hitLabel = e.move || (!e.ranged ? basicMoveLabel(e.actorId, e.kind) : null);
+                        if (hitLabel && !isSig && now - lastMoveCall.current > 0.4) { lastMoveCall.current = now; onMoveCallout(hitLabel, e.actorId.startsWith("enemy") ? "enemy" : "player"); }
                         // Combo counter — consecutive hits inside a 1.1s window.
                         comboN.current = now < comboT.current ? comboN.current + 1 : 1;
                         comboT.current = now + 1.1;
@@ -2448,10 +2476,19 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         onFlash(elementColor(elementById[e.actorId]).glow, 0.12);
                     }
                 } else if (e.type === "windup" && e.actorId) {
-                    // Element TELL — a small element-colored charge ring at the attacker
-                    // a beat before the blow, so the strike reads as anticipated.
+                    // Element TELL — a charge ring at the attacker a beat before the blow,
+                    // scaled UP for a real (damaging) move so a heavy hit reads as dangerous,
+                    // plus a camera CUT + gentle push-in to the attacker ("here it comes").
                     const c = findActor(snapAt, e.actorId);
-                    if (c) spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: false });
+                    if (c) {
+                        const heavyTell = e.kind !== "buff" && e.kind !== "heal" && e.kind !== "shield" && e.kind !== "barrier" && e.kind !== "absorb" && e.kind !== "haste";
+                        spawnImpact({ x: c.x, z: c.y, color: elementColor(elementById[e.actorId]).glow, big: heavyTell });
+                        if (heavyTell) { spawnFx({ x: c.x, z: c.y, key: "charge", scale: 1.3, dur: 220 }); savor(0.75, 0.06); }
+                        const p = duelFieldToFloor(c.x, c.y);
+                        camAim.current = [p.wx * 0.55, 1.4, CAM_LOOK[2] + p.wz * 0.4];
+                        camAimHold.current = Math.max(camAimHold.current, 0.15);
+                        camDollyBias.current = Math.max(camDollyBias.current, 0.7);
+                    }
                 } else if (e.type === "dodge" && e.actorId) {
                     // Parry/slip shimmer where the dodge happened (a clean defensive read).
                     const d = findActor(snapAt, e.actorId);
@@ -2485,25 +2522,42 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
                         onFlash(elementColor(el).glow, 0.42);
                         onCutIn(e.actorId);                                    // anime portrait cut-in (names the signature)
                         onAnnounce(`${nameById[e.actorId] ?? "A challenger"} unleashes ${ultById[e.actorId] ?? "their ultimate"}!`, "ultimate");
-                    } else if (e.type === "cast" && e.move && now - lastMoveCall.current > 0.4) {
-                        // A named ranged / support ability — flash its name + a short savor beat.
+                    } else if (e.type === "cast" && now - lastMoveCall.current > 0.4) {
+                        // A named ranged / support ability — flash its name (a ranged BASIC
+                        // carries no name, so synthesize "<Element> Strike") + a short savor beat.
                         lastMoveCall.current = now;
-                        onMoveCallout(e.move, e.actorId.startsWith("enemy") ? "enemy" : "player");
+                        onMoveCallout(e.move || basicMoveLabel(e.actorId, e.kind), e.actorId.startsWith("enemy") ? "enemy" : "player");
                         savor(0.5, 0.18);
                     }
                 } else if (e.type === "ko") {
-                    // KO finisher: a big element blast on the victim + a hard freeze →
-                    // deep slow-mo → camera PULL-BACK reveal.
-                    const dead = e.actorId ? findActor(snapAt, e.actorId) : null;
-                    const del = e.actorId ? elementById[e.actorId] : null;
-                    if (dead) spawnFx({ x: dead.x, z: dead.y, element: del, scale: 3.0, dur: 620 });
+                    // KO finisher: a big element blast on the victim + a hard freeze → deep
+                    // slow-mo → camera PULL-BACK reveal. The TERMINAL ko event carries no
+                    // actorId, so find the downed fighter from the snapshot (this also fixes
+                    // the final KO previously showing no blast / no "is down!" line).
+                    const dead = e.actorId ? findActor(snapAt, e.actorId) : (snapAt.actors.find((ac) => ac.hp <= 0) ?? null);
+                    const del = dead ? elementById[dead.id] : null;
+                    if (dead) {
+                        spawnFx({ x: dead.x, z: dead.y, element: del, scale: 3.0, dur: 620 });
+                        // Camera holds on the fallen pet as it topples (koPull does the reveal).
+                        const p = duelFieldToFloor(dead.x, dead.y);
+                        camAim.current = [p.wx * 0.5, 1.2, CAM_LOOK[2] + p.wz * 0.4];
+                        camAimHold.current = Math.max(camAimHold.current, 0.7);
+                    }
                     shake.current = Math.max(shake.current, 3.0);
                     hitStop.current = Math.max(hitStop.current, 0.34);
                     savor(0.3, 0.9);   // deep, HELD slow-mo for the finishing blow
                     koPull.current = 3.4;
                     onFlash("#fff7e6", 0.5);
                     onCallout("FINISH!");
-                    if (e.actorId) onAnnounce(`${nameById[e.actorId] ?? "A fighter"} is down!`, "ko");
+                    if (dead) onAnnounce(`${nameById[dead.id] ?? "A fighter"} is down!`, "ko");
+                } else if (e.type === "whiff" && e.actorId) {
+                    // A MISS — the attacker's blow finds nothing. Say so (was silent before).
+                    const c = findActor(snapAt, e.actorId);
+                    if (c) { onCallout("MISS"); spawnImpact({ x: c.x, z: c.y, color: "#cbd5e1", big: false }); }
+                } else if (e.type === "stagger" && e.actorId) {
+                    // A recoil puff where a fighter got knocked out of its wind-up.
+                    const c = findActor(snapAt, e.actorId);
+                    if (c) spawnImpact({ x: c.x, z: c.y, color: "#fca5a5", big: false });
                 }
             }
             // ── Play-by-play momentum (render-only; reads the deterministic
@@ -2533,14 +2587,41 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
             }
             lastTick.current = cur;
         }
-        // Perspective hero camera: base pose + decaying impact shake + a transient
-        // ZOOM-PUNCH (dolly in on big hits) and a KO PULL-BACK reveal.
+        // Perspective hero camera: adaptive framing of the LIVING leads (tighter when
+        // they plant close, wider when spread) + per-frame RE-AIM (cuts ease back to the
+        // live midpoint) + decaying shake, zoom-punch, and KO pull-back. All render-only.
         const a = shake.current; shake.current *= 0.85;
         const sx = a > 0.01 ? Math.sin(now * 53) * a * 0.1 : 0;
         const sy = a > 0.01 ? Math.sin(now * 61) * a * 0.06 : 0;
         const zk = zoomKick.current; zoomKick.current *= 0.86;
         koPull.current = lerp(koPull.current, 0, 0.025);
-        camera.position.set(CAM_POS[0] + sx, CAM_POS[1] + sy, CAM_POS[2] - zk + koPull.current);
+        // Live framing target from the fighters still standing (midpoint + x spread).
+        const camSnap = snaps[Math.min(maxT, Math.floor(clock.current.t))];
+        let cmx = 0, cmz = 0, cn = 0, xmin = Infinity, xmax = -Infinity;
+        if (camSnap) for (const ac of camSnap.actors) {
+            if (ac.hp <= 0) continue;
+            const p = duelFieldToFloor(ac.x, ac.y);
+            cmx += p.wx; cmz += p.wz; cn++;
+            if (p.wx < xmin) xmin = p.wx;
+            if (p.wx > xmax) xmax = p.wx;
+        }
+        const midX = cn > 0 ? cmx / cn : 0;
+        const midZ = cn > 0 ? cmz / cn : DUEL_FLOOR_Z0;
+        const spread = cn > 1 ? xmax - xmin : 4;
+        // Neutral look eases to the live midpoint; a cut HOLDS its own aim until camAimHold decays.
+        if (camAimHold.current > 0) camAimHold.current = Math.max(0, camAimHold.current - delta);
+        else {
+            camAim.current[0] = lerp(camAim.current[0], midX * 0.7, 0.05);
+            camAim.current[1] = lerp(camAim.current[1], CAM_LOOK[1], 0.05);
+            camAim.current[2] = lerp(camAim.current[2], CAM_LOOK[2] + midZ * 0.5, 0.05);
+        }
+        // Adaptive dolly: pull back to fit the current spread, eased slowly (a gentle
+        // breathing zoom, never jitter). Clamped so it never crops or over-tightens.
+        const dollyTarget = Math.max(10.8, Math.min(CAM_POS[2], 9.4 + spread * 1.05));
+        camDolly.current = lerp(camDolly.current, dollyTarget, 0.03);
+        const db = camDollyBias.current; camDollyBias.current *= 0.9;
+        camera.position.set(CAM_POS[0] + midX * 0.1 + sx, CAM_POS[1] + sy, camDolly.current - zk - db + koPull.current);
+        camera.lookAt(camAim.current[0], camAim.current[1], camAim.current[2]);
         if (!ended.current && clock.current.t >= maxT) { ended.current = true; onEnd(); }
     });
     return null;
