@@ -20105,6 +20105,14 @@ button.combat-jutsu-button,
     margin: 0 !important;
   }
 
+  /* HP + avatar now live ON the board (a FighterHpBadge floats over each
+     fighter's orb), so the mobile side HUD drops both to reclaim the vertical
+     space that forced scrolling. Chakra, Stamina, Shield and the effects strip
+     STAY — they have no other home on mobile. The fighter's name (header) and
+     the board orb keep it identifiable. */
+  .arena-fullscreen .combat-side-hud .combat-avatar { display: none !important; }
+  .arena-fullscreen .combat-side-hud .resource-line--hp { display: none !important; }
+
   /* Round counter / "Round N" line at the bottom — keep small. */
   .arena-fullscreen .combat-side-hud .combat-hud-meta {
     font-size: 9px !important;
