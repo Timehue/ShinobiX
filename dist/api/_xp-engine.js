@@ -19,7 +19,7 @@
 // stripped from the PvP *session* char but not from the save), so the payout is
 // computed identically to the client.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.STAT_KEYS = exports.STAMINA_CAP = exports.CHAKRA_CAP = exports.HP_CAP = exports.CHARACTER_XP_GAIN_MULTIPLIER = exports.STARTING_STAT_POINTS = exports.MAX_STAT = exports.MAX_LEVEL = void 0;
+exports.STAT_KEYS = exports.STAMINA_CAP_V2 = exports.STAMINA_BASE_V2 = exports.CHAKRA_CAP_V2 = exports.CHAKRA_BASE_V2 = exports.COMBAT_RESOURCES_V2 = exports.STAMINA_CAP = exports.CHAKRA_CAP = exports.HP_CAP = exports.CHARACTER_XP_GAIN_MULTIPLIER = exports.STARTING_STAT_POINTS = exports.MAX_STAT = exports.MAX_LEVEL = void 0;
 exports.xpNeeded = xpNeeded;
 exports.maxHpForLevel = maxHpForLevel;
 exports.maxChakraForLevel = maxChakraForLevel;
@@ -40,6 +40,15 @@ exports.CHARACTER_XP_GAIN_MULTIPLIER = 1;
 exports.HP_CAP = 10000;
 exports.CHAKRA_CAP = 5000;
 exports.STAMINA_CAP = 5000;
+// combatResourcesV2 — the chakra/stamina combat-resource redesign switch. MUST match
+// shinobij.client/src/constants/game.ts COMBAT_RESOURCES_V2 + the v2 pool constants
+// (parity-pinned by _xp-engine.test.ts) or PvE and PvP diverge. Flip BOTH + rebuild.
+// See docs/chakra-stamina-redesign-plan.md.
+exports.COMBAT_RESOURCES_V2 = false;
+exports.CHAKRA_BASE_V2 = 1000;
+exports.CHAKRA_CAP_V2 = 10000;
+exports.STAMINA_BASE_V2 = 1000;
+exports.STAMINA_CAP_V2 = 10000;
 // ── lib/stats.ts — stat helpers ─────────────────────────────────────────────
 exports.STAT_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -90,10 +99,19 @@ function maxHpForLevel(level) {
     // Keep this in lock-step with shinobij.client/src/lib/stats.ts (parity test).
     return Math.min(exports.HP_CAP, 500 + (Math.max(1, level) - 1) * 100);
 }
+// v2 (combatResourcesV2) pool: bigger, level-scaling — base@L1 → cap@L100. Legacy
+// curve is 100→5,000; v2 is ~1,000→~10,000. Mirrors shinobij.client/src/lib/stats.ts.
+function v2PoolForLevel(level, base, cap) {
+    return Math.min(cap, Math.floor(base + (Math.max(1, level) - 1) * ((cap - base) / (exports.MAX_LEVEL - 1))));
+}
 function maxChakraForLevel(level) {
+    if (exports.COMBAT_RESOURCES_V2)
+        return v2PoolForLevel(level, exports.CHAKRA_BASE_V2, exports.CHAKRA_CAP_V2);
     return Math.min(exports.CHAKRA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((exports.CHAKRA_CAP - 100) / (exports.MAX_LEVEL - 1))));
 }
 function maxStaminaForLevel(level) {
+    if (exports.COMBAT_RESOURCES_V2)
+        return v2PoolForLevel(level, exports.STAMINA_BASE_V2, exports.STAMINA_CAP_V2);
     return Math.min(exports.STAMINA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((exports.STAMINA_CAP - 100) / (exports.MAX_LEVEL - 1))));
 }
 function rankFromLevel(level) {
