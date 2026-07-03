@@ -109,6 +109,9 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         const r = replay.replay;
         if (r.kind === "coliseum") {
             const player = toClientPet(r.player), enemy = toClientPet(r.enemy);
+            // Ladder replay stays on the shipped motion (no trailing plantedMotion arg): the
+            // server resolves via the hand-maintained api/pet-ladder/_duel-sim.ts port, which
+            // lacks that param — passing planted motion here would desync the recorded winner.
             const result = runPetDuel(player, enemy, r.seed, 1, 1, false, true);
             return <PetColiseumDuel playerPet={player} enemyPet={enemy} seed={r.seed} result={result} sharedImages={sharedImages} onExit={exitCinematic} />;
         }

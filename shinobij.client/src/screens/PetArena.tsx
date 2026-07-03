@@ -520,7 +520,11 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // 2v2 teamfight on the continuous engine (the old round engine is
             // retired). matchesWon (0/1) drives the per-win ryo report; PvE mastery
             // modifiers only vs AI; PvP/clan party fights get none.
-            const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
+            // plantedMotion (last arg) = the casual cinematic "planted face-off" motion:
+            // ON only for PvE (vs AI), OFF for PvP/clan party so both clients + any
+            // server reconciliation stay on the shipped engine. applyItems=false,
+            // accuracyEnabled=undefined (keeps its petAccuracyEnabled() default).
+            const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character), false, undefined, !pvpParty);
             const partyOutcome: "win" | "loss" | "draw" = duel.result;
             const matchesWon = duel.result === "win" ? 1 : 0;
             setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
@@ -686,7 +690,10 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // 1v1 (non-ranked challenge / clan) gets none.
         const pveOpp = isGenericPetOpponent(opponent.pet);
         // Continuous duel engine (the old round engine is retired).
-        const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
+        // plantedMotion (last arg) ON only vs a built-in AI opponent (pveOpp); a real
+        // player 1v1 (challenge/clan) stays on the shipped engine so both clients agree.
+        // applyItems=false, accuracy/terrain=undefined (keep their defaults).
+        const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false, false, undefined, undefined, pveOpp);
         const outcome: "win" | "loss" | "draw" = duel.result;
         const logs: string[] = [];
         setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
