@@ -520,7 +520,12 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
             // 2v2 teamfight on the continuous engine (the old round engine is
             // retired). matchesWon (0/1) drives the per-win ryo report; PvE mastery
             // modifiers only vs AI; PvP/clan party fights get none.
-            const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character));
+            // plantedMotion (LAST arg) = the casual cinematic "planted face-off" motion, ON
+            // for EVERY 2v2 here (PvE + clan-war party): all are client-resolved and the
+            // server trusts the reported outcome (no pet-duel re-sim; clan-war just records
+            // it), and plantedMotion is deterministic so both clients of a clan-war party
+            // fight still agree. The PvE mastery mults stay pvpParty-gated (PvE only).
+            const duel = runPetPartyDuel(myLead, myReserve, enemyLead, enemyReserve, seed, pvpParty ? 1 : petTamerPveMultiplier(character), pvpParty ? 1 : petPveHpMult(character), pvpParty ? false : petAlphaBond(character), false, undefined, true);
             const partyOutcome: "win" | "loss" | "draw" = duel.result;
             const matchesWon = duel.result === "win" ? 1 : 0;
             setDuelBattle({ result: duel, playerPet: myLead, enemyPet: enemyLead, playerReservePet: myReserve, enemyReservePet: enemyReserve, seed, id: nextDuelId });
@@ -686,7 +691,14 @@ export function PetArena({ character, updateCharacter, playerRoster, allServerPl
         // 1v1 (non-ranked challenge / clan) gets none.
         const pveOpp = isGenericPetOpponent(opponent.pet);
         // Continuous duel engine (the old round engine is retired).
-        const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false);
+        // plantedMotion (LAST arg) = the casual cinematic planted face-off, ON for EVERY
+        // non-ranked 1v1 here (AI, casual-vs-player, clan-war): each is resolved on THIS
+        // client and the server trusts the reported outcome (no pet-duel re-sim anywhere —
+        // api/pet/battle-result + clan-war report), and plantedMotion is deterministic so a
+        // two-client clan/casual fight still agrees. Ranked (returns above) + the
+        // server-authoritative ladder/sector replays stay false. The PvE mastery mults stay
+        // pveOpp-gated (only a built-in AI fight earns the bonus).
+        const duel = runPetDuel(selectedPet, opponent.pet, seed1v1, pveOpp ? petTamerPveMultiplier(character) : 1, pveOpp ? petPveHpMult(character) : 1, pveOpp ? petAlphaBond(character) : false, false, undefined, undefined, true);
         const outcome: "win" | "loss" | "draw" = duel.result;
         const logs: string[] = [];
         setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet: opponent.pet, seed: seed1v1, id: nextDuelId });
