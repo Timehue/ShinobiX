@@ -5,6 +5,7 @@ const node_assert_1 = require("node:assert");
 const _sim_js_1 = require("./_sim.js");
 const _tower_session_js_1 = require("./_tower-session.js");
 const _engine_js_1 = require("./_engine.js");
+const _combat_resources_js_1 = require("../_combat-resources.js");
 const MAP8 = { width: 8, height: 8, blockedTiles: [], hazardTiles: [], objectiveTiles: [] };
 function makeActor(id, side, pos, over = {}) {
     return {
@@ -421,8 +422,8 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'dealt real damage');
     });
     (0, node_test_1.it)('blocks a jutsu the actor cannot afford (chakra)', () => {
-        const sq = caster([{ id: 'fb', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 2, chakraCost: 30 }], {});
-        sq.chakra = 5;
+        const sq = caster([{ id: 'fb', type: 'Ninjutsu', effectPower: 40, ap: 60, range: 2, chakraCost: 300 }], {});
+        sq.chakra = 0; // 0 + v2 turn-start regen still < 300 → unaffordable under both flags
         const s = makeSession([sq, bigEnemy()]);
         (0, _engine_js_1.startRound)(s);
         const r = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'fb', targetId: 'en-1' }, (0, _sim_js_1.makeRng)(1));
@@ -480,8 +481,9 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         (0, _engine_js_1.startRound)(s);
         const r = (0, _engine_js_1.applyAction)(s, floor, { actorId: 'sq-1', type: 'item', itemId: 'pot' }, (0, _sim_js_1.makeRng)(1));
         node_assert_1.strict.ok(r.applied);
-        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').chakra, 60);
-        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').stamina, 70);
+        // v2 regenerates chakra/stamina at turn start (before the potion), so totals are higher.
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').chakra, _combat_resources_js_1.COMBAT_RESOURCES_V2 ? Math.min(100, 10 + (0, _combat_resources_js_1.v2ResourceRegen)(1) + 50) : 60);
+        node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').stamina, _combat_resources_js_1.COMBAT_RESOURCES_V2 ? Math.min(100, 50 + (0, _combat_resources_js_1.v2ResourceRegen)(1) + 20) : 70);
         node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'sq-1').itemCharges['pot'], 1, 'one charge spent');
     });
     (0, node_test_1.it)('biome terrain gives the matching discipline +10%', () => {
@@ -548,7 +550,13 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         let guard = 0;
         while (s.round < 3 && s.status === 'active' && guard++ < 60)
             (0, _engine_js_1.endTurn)(s, floor);
-        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'poison bled the enemy');
+        if (_combat_resources_js_1.COMBAT_RESOURCES_V2) {
+            // v2: poison feeds on EXERTION — a turtling enemy (no costed casts) takes none.
+            node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'en-1').hp, 1_000_000, 'v2 poison does not bleed a turtling target');
+        }
+        else {
+            node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'poison bled the enemy');
+        }
     });
 });
 // ─── AOE jutsu + full consumables (heal/buff potions) ────────────────────────
@@ -599,7 +607,12 @@ function frontline(squadChar = STRONG, enemyChar = WEAK) {
         let guard = 0;
         while (s.round < 3 && s.status === 'active' && guard++ < 60)
             (0, _engine_js_1.endTurn)(s, floor);
-        node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'the zone bled the enemy');
+        if (_combat_resources_js_1.COMBAT_RESOURCES_V2) {
+            node_assert_1.strict.equal((0, _tower_session_js_1.getActor)(s, 'en-1').hp, 1_000_000, 'v2 zone poison does not bleed a turtling target');
+        }
+        else {
+            node_assert_1.strict.ok((0, _tower_session_js_1.getActor)(s, 'en-1').hp < 1_000_000, 'the zone bled the enemy');
+        }
         node_assert_1.strict.equal((s.groundEffects ?? []).length, 0, 'the 2-round zone expired');
     });
     (0, node_test_1.it)('rejects an out-of-range ground jutsu; a no-ground-tag ground jutsu STRIKES the tile (PvE parity) instead of bouncing', () => {
