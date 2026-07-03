@@ -99,6 +99,7 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
         return (
             <BattleTowerFight
                 character={character}
+                updateCharacter={updateCharacter}
                 sharedImages={sharedImages}
                 hostLoadout={hostLoadout}
                 runId={view.runId}
