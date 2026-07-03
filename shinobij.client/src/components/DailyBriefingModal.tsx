@@ -31,7 +31,8 @@ import { useSharedNow } from "../lib/use-shared-now";
 import { petDisplayName } from "../lib/pet";
 import { claimDailyLogin, type DailyLoginResult } from "../lib/daily-login-api";
 import { currentLogbookObjective } from "../lib/logbook-objectives";
-import { fetchAnnouncements, fetchEras, isLegacyEnabled, type AnnouncementView, type EraView } from "../lib/legacy";
+import { fetchAnnouncements, fetchEras, fetchLegacyStatus, isLegacyEnabled, type AnnouncementView, type EraView } from "../lib/legacy";
+import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rumorForCategory } from "../lib/legacy-rumors";
 import { loadVillageState } from "../lib/world-state";
 import {
     buildRecommendations,
@@ -99,6 +100,28 @@ export function DailyBriefingModal({
         });
         return () => { alive = false; };
     }, [shouldShow]);
+
+    // Pre-50 rumor: a map-avoider might never open the world map, so the Legacy
+    // discovery arc would never reach them. Surface the next unheard milestone
+    // here too — the SEEN_KEY dedupes with the world-map whisper, so a player
+    // never hears the same beat twice across surfaces.
+    const [rumor, setRumor] = useState<{ milestone: number; text: string } | null>(null);
+    useEffect(() => {
+        if (!shouldShow || !isLegacyEnabled()) return;
+        if (character.level >= 50 || character.legacy) return;
+        const milestone = nextUnseenRumorMilestone(character.level);
+        if (milestone == null) return;
+        let alive = true;
+        void fetchLegacyStatus(character.name).then((s) => {
+            if (!alive) return;
+            const top = s?.strongest?.[0];
+            const text = rumorForCategory(top?.category, milestone, { playerName: character.name, tier: top?.tier });
+            setRumor({ milestone, text });
+            markLevelRumorSeen(milestone);
+            recordRumorHeard(milestone, text);
+        });
+        return () => { alive = false; };
+    }, [shouldShow, character.level, character.name, character.legacy]);
 
     if (!shouldShow) return null;
 
@@ -386,6 +409,19 @@ export function DailyBriefingModal({
                                             </li>
                                         ))}
                                     </ul>
+                                </section>
+                            )}
+
+                            {/* ── Legacy rumor (pre-50 discovery arc, map-avoider safety) ── */}
+                            {rumor && (
+                                <section className="db-section">
+                                    <h3>A whisper on the wind</h3>
+                                    <p style={{ margin: 0, fontSize: ".84rem", color: "#c4b5fd", fontStyle: "italic", lineHeight: 1.5 }}>
+                                        “{rumor.text}”
+                                    </p>
+                                    <p style={{ margin: "5px 0 0", fontSize: ".72rem", color: "#6b7280" }}>
+                                        The paths are watching. Reach level 50, and one may open to you.
+                                    </p>
                                 </section>
                             )}
 

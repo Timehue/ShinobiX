@@ -29,7 +29,7 @@ exports.ERA_DEFS = [
             'The Academy Trials produced this era\'s first Genin — some of whose names the Hall still carries.',
         ],
         banner: '/legacy/eras/era-1-shinobi-awakening.webp',
-        initialStatus: 'unlocked', milestones: [],
+        initialStatus: 'unlocked', unlockedAt: 1767225600000, milestones: [], // 2026-01-01
         unlockTitle: 'ERA I — SHINOBI AWAKENING',
         unlockMessage: 'The villages opened their gates and a new generation of shinobi took their first steps.',
     },
@@ -43,7 +43,7 @@ exports.ERA_DEFS = [
             'Divers learned the Gate\'s one rule: the deeper floors do not forgive greed. Extraction became a discipline of its own.',
         ],
         banner: '/legacy/eras/era-2-hollow-gate-opens.webp',
-        initialStatus: 'unlocked', milestones: [],
+        initialStatus: 'unlocked', unlockedAt: 1771113600000, milestones: [], // 2026-02-15
         unlockTitle: 'ERA II — THE HOLLOW GATE OPENS',
         unlockMessage: 'The seal beneath Central cracked. The Hollow Gate stands open to those willing to dive.',
     },
@@ -57,7 +57,7 @@ exports.ERA_DEFS = [
             'Mercenary bands learned there was steady coin in other people\'s wars, and the roads got more interesting.',
         ],
         banner: '/legacy/eras/era-3-village-dominion.webp',
-        initialStatus: 'unlocked', milestones: [],
+        initialStatus: 'unlocked', unlockedAt: 1775001600000, milestones: [], // 2026-04-01
         unlockTitle: 'ERA III — VILLAGE DOMINION',
         unlockMessage: 'The war maps unfurled. Every sector now remembers who held it, and who took it.',
     },
@@ -71,7 +71,7 @@ exports.ERA_DEFS = [
             'The weekly hunts began: every seven days something vast stirs, and the world queues up to disagree with it.',
         ],
         banner: '/legacy/eras/era-4-world-boss-awakening.webp',
-        initialStatus: 'unlocked', milestones: [],
+        initialStatus: 'unlocked', unlockedAt: 1778803200000, milestones: [], // 2026-05-15
         unlockTitle: 'ERA IV — WORLD BOSS AWAKENING',
         unlockMessage: 'The first great beast fell to a hundred blades at once. More are stirring.',
     },

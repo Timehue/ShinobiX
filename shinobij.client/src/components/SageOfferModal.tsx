@@ -108,9 +108,31 @@ export function SageOfferModal({ offer, playerName, onClose, onAccepted, onDecli
                     </p>
                 </div>
 
+                {/* Your Three Paths — an at-a-glance compare strip; tapping one
+                    selects it and scrolls to its full card below. Identity only
+                    (name/category/village/signature), never rank/rarity. */}
+                {offer.offers.length > 1 && (
+                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        {offer.offers.map((o) => (
+                            <button
+                                key={o.legacyId}
+                                type="button"
+                                onClick={() => { setSelected(o.legacyId); document.getElementById(`offer-card-${o.legacyId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}
+                                style={{ flex: 1, minWidth: 0, textAlign: "center", cursor: "pointer", border: `1px solid ${selected === o.legacyId ? "#c084fc" : "rgba(148,163,184,.25)"}`, background: selected === o.legacyId ? "rgba(192,132,252,.12)" : "transparent", borderRadius: 10, padding: "8px 6px" }}
+                            >
+                                {o.badge && <img src={`/badges/legacy-${o.badge}.png`} alt="" style={{ width: 30, height: 30, borderRadius: 6, display: "block", margin: "0 auto 4px" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
+                                <div style={{ fontSize: ".68rem", fontWeight: 700, color: "#e9d5ff", lineHeight: 1.15 }}>{o.name.replace(/^Legacy of the /, "")}</div>
+                                <div style={{ fontSize: ".6rem", color: "#94a3b8", textTransform: "capitalize", marginTop: 2 }}>{o.category}{o.villageAffinity ? ` · ${o.villageAffinity}` : ""}</div>
+                                {o.signature?.name && <div style={{ fontSize: ".6rem", color: "#c4b5fd", marginTop: 2 }}>◆ {o.signature.name}</div>}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {offer.offers.map((o) => (
                     <div
                         key={o.legacyId}
+                        id={`offer-card-${o.legacyId}`}
                         onClick={() => setSelected(selected === o.legacyId ? null : o.legacyId)}
                         style={{
                             border: `1px solid ${selected === o.legacyId ? "#c084fc" : "rgba(148,163,184,.25)"}`,
