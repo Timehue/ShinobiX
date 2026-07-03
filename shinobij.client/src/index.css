@@ -19579,9 +19579,12 @@ button.combat-jutsu-button,
     align-items: center;
     justify-content: center;
     gap: 2px;
-    min-width: 52px;
+    /* Even 1/n share of the bar so all buttons fit without overflow as the
+       button count grows (Travel / Tavern / Char / Items / You / Menu). */
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 52px;
-    padding: 6px 8px;
+    padding: 6px 4px;
     background: transparent;
     border: none;
     border-radius: 10px;
@@ -19795,6 +19798,86 @@ button.combat-jutsu-button,
     font-size: 12px;
     padding: 12px 6px;
   }
+}
+
+/* =============================================
+   MOBILE "YOU" SHEET
+   The desktop left-rail profile card, surfaced on mobile from the bottom-nav
+   "You" button. Portal-rendered to <body> above the nav (z-index 1000) and
+   side rails, following the full-screen-overlay portal pattern. Only ever
+   shown on mobile (the "You" button lives in the mobile nav), so it's defined
+   globally rather than behind a media query.
+   ============================================= */
+.mobile-profile-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  background: rgba(2, 6, 15, 0.82);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-profile-sheet {
+  width: 100%;
+  max-width: 360px;
+  margin: auto;
+  background: linear-gradient(180deg, rgba(5, 7, 13, 0.98), rgba(10, 14, 28, 0.98));
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.mobile-profile-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(250, 204, 21, 0.2);
+}
+
+.mobile-profile-sheet-title {
+  color: #facc15;
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.mobile-profile-sheet-close {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  border: 1px solid #334155;
+  background: rgba(51, 65, 85, 0.5);
+  color: #e8eef8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Recreate the desktop rail's flex-column-centred container so the reused
+   .left-* body elements (which assume that context) lay out correctly. */
+.mobile-profile-sheet-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  color: #fff;
+}
+
+/* The desktop avatar is a large 140px block; trim it a touch so the card
+   header reads well inside the narrower mobile sheet. */
+.mobile-profile-sheet-body .left-profile-avatar {
+  width: 112px !important;
+  height: 112px !important;
 }
 
 /* =============================================
