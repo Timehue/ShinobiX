@@ -1647,9 +1647,10 @@ const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of 
 // ── Opening choreography (render-only) — the pets appear FAR apart and "size each
 // other up", then CHARGE in to the combat face-off before the sim plays. Purely
 // cosmetic (the sim's positions are untouched); driven by clock.intro (seconds).
-const INTRO_SIZEUP_END = 1.3;    // s — hold the wide face-off (sizing up)
-const INTRO_CHARGE_END = 2.15;   // s — charge in to the combat gap by here
-const INTRO_TOTAL = 2.5;         // s — brief lock-in beat, then FIGHT (the sim plays)
+const INTRO_PAUSE_END = 1.0;     // s — a STILL face-off pause first (pets just stand, sizing up) BEFORE the buff
+const INTRO_SIZEUP_END = 1.9;    // s — buff / power-up gather runs from PAUSE_END → here
+const INTRO_CHARGE_END = 2.6;    // s — charge in to the combat gap by here
+const INTRO_TOTAL = 2.9;         // s — brief lock-in beat, then FIGHT (the sim plays)
 const SIZEUP_EXTRA_WX = 4.2;     // world-x each fighter is pushed OUTWARD while sizing up
 const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
 /** 1 = held far apart (sizing up) → 0 = arrived at the face-off. Eased charge-in. */
@@ -1830,9 +1831,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // windup→exit edge. On the real 3D floor the melee lunge ARCS (a small hop).
         let basePose: PetVisualState =
             a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
-        // Opening: both pets play their BUFF / power-up GATHER while sizing each other up
-        // (held far apart), then drop it and CHARGE in. Render-only, intro-phase only.
-        const sizingUp = introSec < INTRO_SIZEUP_END;
+        // Opening: after a still face-off PAUSE, both pets play their BUFF / power-up
+        // GATHER while sizing each other up (held far apart), then drop it and CHARGE in.
+        // Render-only, intro-phase only.
+        const sizingUp = introSec >= INTRO_PAUSE_END && introSec < INTRO_SIZEUP_END;
         if (sizingUp) basePose = "charge";
         const curTick = Math.floor(clock.current.t);
         // A SUPPORT cast (heal/shield/buff) winds up as a GATHER/RISE, not the melee
