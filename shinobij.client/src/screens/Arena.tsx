@@ -15,7 +15,7 @@ import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } 
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
 import type { Pet, PetJutsu } from "../types/pet";
-import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap } from "../constants/game";
+import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap, COMBAT_RESOURCES_V2 } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
 import { SparCoach } from "../components/SparCoach";
@@ -44,7 +44,7 @@ import { isImageAvatar } from "../lib/avatar";
 import { aiArmorFactorForProfile, aiPrimaryJutsuType, aiStatsForLevel } from "../lib/ai-stats";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { jutsuFxSpriteKey, jutsuVfxBurst } from "../lib/jutsu-vfx";
-import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter } from "../lib/jutsu-scaling";
+import { cappedPostDamage, gainJutsuXpForRank, getJutsuMastery, scaleJutsuByLevel, scaleJutsuCostsForCharacter, v2ResourceRegen, v2PoisonOnSpend, v2JutsuResourceCost, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
@@ -624,6 +624,14 @@ export function Arena({
     const [enemyHp, setEnemyHp] = useState(enemyMaxHp);
     const [enemyChakra, setEnemyChakra] = useState(enemyMaxChakra);
     const [enemyStamina, setEnemyStamina] = useState(enemyMaxStamina);
+    // combatResourcesV2: chakra/stamina are combat-only and start each fight full. The
+    // bigger v2 pool can't rely on the slow +1/sec out-of-combat regen, so refill on entry.
+    useEffect(() => {
+        if (!COMBAT_RESOURCES_V2) return;
+        if (character.chakra < character.maxChakra || character.stamina < character.maxStamina) {
+            updateCharacter({ ...character, chakra: character.maxChakra, stamina: character.maxStamina });
+        }
+    }, []);
     const [enemyJutsuCooldowns, setEnemyJutsuCooldowns] = useState<Record<string, number>>({});
 
     const [playerShield, setPlayerShield] = useState(equippedShieldBonus);
@@ -2032,9 +2040,14 @@ export function Arena({
             setSelectedActionId(undefined);
             setJutsuCooldowns((c) => ({ ...c, [pendingTargetJutsu.id]: pendingTargetJutsu.cooldown }));
 
+            // combatResourcesV2: Poison feeds on exertion — this move/ground cast spends.
+            const movePoisonPct = COMBAT_RESOURCES_V2 ? sumActiveStatusPct(playerStatuses, "Poison", 6) : 0;
+            const movePoisonDmg = movePoisonPct > 0 ? v2PoisonOnSpend((scaled.chakraCost || 0) + (scaled.staminaCost || 0), movePoisonPct) : 0;
+            if (movePoisonDmg > 0) { setPlayerHp((hp) => Math.max(0, hp - movePoisonDmg)); queueHitFx("p", movePoisonDmg, "damage"); addCombatLog(`Poison: ${character.name} takes ${movePoisonDmg} damage from exertion.`, "effects", character.name); }
+
             updateCharacter({
                 ...gainJutsuXpForRank(character, pendingTargetJutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent)),
-                hp: Math.max(0, character.hp - scaled.healthCost),
+                hp: Math.max(0, character.hp - scaled.healthCost - movePoisonDmg),
                 chakra: Math.max(0, character.chakra - scaled.chakraCost),
                 stamina: Math.max(0, character.stamina - scaled.staminaCost),
             });
@@ -2340,7 +2353,9 @@ export function Arena({
         }
         if (item.weaponEffect === "Poison") {
             setEnemyStatuses((s) => mergeCombatStatus(s, { name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }));
-            effectLines.push(`Poison: ${opponentName} is poisoned — takes ${effectVal}% chakra as damage per round for 2 rounds.`);
+            effectLines.push(COMBAT_RESOURCES_V2
+                ? `Poison: ${opponentName} is poisoned for 2 rounds — casting jutsu will hurt.`
+                : `Poison: ${opponentName} is poisoned — takes ${effectVal}% chakra as damage per round for 2 rounds.`);
         }
 
         // Named Weapon: apply weaponTags array (same logic as weaponEffect but iterated)
@@ -3184,11 +3199,14 @@ export function Arena({
             if (tag.name === "Poison") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists poison`);
                 else {
-                    // Match PvP (api/pvp/move.ts): poison ticks floor(maxChakra × pct/100),
-                    // UNCAPPED. PvE previously clamped this to ½·(chakra+stamina cost).
+                    // Legacy (v1) poison ticks floor(maxChakra × pct/100) per round. Under
+                    // combatResourcesV2 poison instead bites on-spend (no per-round tick), so
+                    // the stored amount is inert and the log reflects the exertion model.
                     const poisonDmg = Math.floor(enemyMaxChakra * (pct / 100));
                     queueEnemyStatus({ name: "Poison", rounds: 2, percent: pct, kind: "negative", amount: poisonDmg });
-                    effectLines.push(`${opponentName} is poisoned — takes ${poisonDmg} damage/round for 2 rounds${tagTimingText}`);
+                    effectLines.push(COMBAT_RESOURCES_V2
+                        ? `${opponentName} is poisoned for 2 rounds — casting jutsu will cost them HP${tagTimingText}`
+                        : `${opponentName} is poisoned — takes ${poisonDmg} damage/round for 2 rounds${tagTimingText}`);
                 }
             }
 
@@ -3362,12 +3380,18 @@ export function Arena({
             effectLines.push(`Recoil: ${character.name} takes ${recoilDamage} recoil damage.`);
         }
 
+        // combatResourcesV2: Poison feeds on exertion — casting spends chakra/stamina,
+        // which deals HP damage scaled by the spend + the caster's active Poison.
+        const playerPoisonPct = COMBAT_RESOURCES_V2 ? sumActiveStatusPct(currentPlayerStatuses, "Poison", 6) : 0;
+        const poisonSpendDmg = playerPoisonPct > 0 ? v2PoisonOnSpend((scaled.chakraCost || 0) + (scaled.staminaCost || 0), playerPoisonPct) : 0;
+        if (poisonSpendDmg > 0) effectLines.push(`Poison: ${character.name} takes ${poisonSpendDmg} damage from exertion.`);
+
         const { net: castEnemyNet, reflected: castEnemyReflected, absorbed: castEnemyAbsorbed } = enemyDefenseFor(finalDamage + extraEnemyDamage, pierce);
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, Math.min(enemyMaxHp, hp - castEnemyNet)));
         queueHitFx("e", castEnemyNet, "damage");
-        setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected)));
-        queueHitFx("p", recoilDamage + castEnemyReflected, "damage");
+        setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage - castEnemyReflected - poisonSpendDmg)));
+        queueHitFx("p", recoilDamage + castEnemyReflected + poisonSpendDmg, "damage");
         queueHitFx("p", healing, "heal");
         setPlayerShield((s) => s + shield);
 
@@ -3375,7 +3399,7 @@ export function Arena({
 
         const postJutsuCharacter: Character = {
             ...gainJutsuXpForRank(character, jutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent)),
-            hp: Math.max(0, character.hp - scaled.healthCost),
+            hp: Math.max(0, character.hp - scaled.healthCost - poisonSpendDmg),
             chakra: Math.max(0, character.chakra - scaled.chakraCost),
             stamina: Math.max(0, character.stamina - scaled.staminaCost),
         };
@@ -3427,7 +3451,7 @@ export function Arena({
         if (enemyHp - castEnemyNet <= 0) return winBattle(postJutsuCharacter);
 
         // Player self-KO via Recoil + enemy Reflect on their own jutsu.
-        if (playerHp + healing - recoilDamage - castEnemyReflected <= 0) {
+        if (playerHp + healing - recoilDamage - castEnemyReflected - poisonSpendDmg <= 0) {
             setBattleEnded(true);
             setBattleResult("loss");
             setRaidBattleKind("none");
@@ -3495,7 +3519,10 @@ export function Arena({
         for (const s of playerStatuses) {
             if (s.name === "Wound")  dot += s.amount || 0;
             if (s.name === "Drain")  dot += s.amount ?? 50;
-            if (s.name === "Poison") dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
+            // Under combatResourcesV2 Poison deals NO passive per-round damage (it only
+            // bites when the poisoned fighter spends to cast), so it must not count toward
+            // guaranteed incoming-DoT lethality here.
+            if (s.name === "Poison" && !COMBAT_RESOURCES_V2) dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
         }
         return dot;
     }
@@ -3821,7 +3848,9 @@ export function Arena({
                 else {
                     const poisonDmg = Math.floor(character.maxChakra * (pct / 100));
                     queueToPlayer({ name: "Poison", rounds: 2, percent: pct, amount: poisonDmg, kind: "negative" });
-                    effectLines.push(`${character.name} is poisoned — takes ${poisonDmg} damage/round for 2 rounds`);
+                    effectLines.push(COMBAT_RESOURCES_V2
+                        ? `${character.name} is poisoned for 2 rounds — casting jutsu will cost them HP`
+                        : `${character.name} is poisoned — takes ${poisonDmg} damage/round for 2 rounds`);
                 }
             }
             if (tag.name === "Drain") {
@@ -4072,6 +4101,11 @@ export function Arena({
         // was a complete no-op. Mirrors the player's own Recoil self-damage.
         const enemyRecoil = activeStatuses(enemyStatuses).find((s) => s.name === "Recoil");
         const enemyRecoilDmg = (enemyRecoil && finalDamage > 0) ? Math.floor(cappedPostDamage(finalDamage, enemyRecoil.percent ?? 30)) : 0;
+        // combatResourcesV2: enemy Poison feeds on exertion. The enemy pays no resource
+        // cost in PvE, so scale off the jutsu's v2 cost for its level.
+        const enemyPoisonPct = COMBAT_RESOURCES_V2 ? sumActiveStatusPct(enemyStatuses, "Poison", 6) : 0;
+        const enemyPoisonSpend = (enemyPoisonPct > 0 && (((jutsu.chakraCost ?? 0) > 0) || ((jutsu.staminaCost ?? 0) > 0))) ? v2JutsuResourceCost(jutsu.ap ?? 0, opponentLevel) : 0;
+        const enemyPoisonSpendDmg = enemyPoisonSpend > 0 ? v2PoisonOnSpend(enemyPoisonSpend, enemyPoisonPct) : 0;
         setPlayerShield((s) => Math.max(0, s - blocked));
         setPlayerHp((hp) => Math.max(0, hp - playerNetTaken));
         queueHitFx("p", playerNetTaken, "damage");
@@ -4081,6 +4115,7 @@ export function Arena({
         queueHitFx("e", pReflected, "damage");
         if (enemyRecoilDmg > 0) setEnemyHp((hp) => Math.max(0, hp - enemyRecoilDmg));
         queueHitFx("e", enemyRecoilDmg, "damage");
+        if (enemyPoisonSpendDmg > 0) { setEnemyHp((hp) => Math.max(0, hp - enemyPoisonSpendDmg)); queueHitFx("e", enemyPoisonSpendDmg, "damage"); }
         setEnemyShield((s) => s + shield);
         setEnemyJutsuCooldowns((current) => ({ ...current, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
         updateCharacter({ ...character, hp: Math.max(0, playerHp - playerNetTaken) });
@@ -4096,6 +4131,7 @@ export function Arena({
             pAbsorbed > 0 ? `Absorb: ${character.name} absorbs ${pAbsorbed} damage.` : "",
             pReflected > 0 ? `Reflect: ${opponentName} takes ${pReflected} reflected damage.` : "",
             enemyRecoilDmg > 0 ? `Recoil: ${opponentName} takes ${enemyRecoilDmg} recoil damage.` : "",
+            enemyPoisonSpendDmg > 0 ? `Poison: ${opponentName} takes ${enemyPoisonSpendDmg} damage from exertion.` : "",
             blocked > 0 ? `Shield: ${character.name}'s shield blocks ${blocked} damage.` : "",
             healing > 0 ? `Heal: ${opponentName} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${opponentName} gains ${shield} shield.` : "",
@@ -4490,7 +4526,9 @@ export function Arena({
                 pDotDamage += amt;
                 pDrainChakra += amt;
             }
-            if (s.name === "Poison") {
+            if (s.name === "Poison" && !COMBAT_RESOURCES_V2) {
+                // Legacy per-round pool poison. Under combatResourcesV2 poison has no
+                // per-round tick — it triggers on-spend when the player casts (below).
                 const raw = s.amount ?? Math.floor(character.maxChakra * (s.percent ?? 6) / 100);
                 pDotDamage += Math.floor(raw * playerDotMit);
             }
@@ -4502,9 +4540,11 @@ export function Arena({
             const nextHp = Math.max(0, playerHp - pDotDamage);
             setPlayerHp(nextHp);
             queueHitFx("p", pDotDamage, "damage");
-            const nextChakra = pDrainChakra > 0 ? Math.max(0, character.chakra - pDrainChakra) : character.chakra;
-            if (pDrainChakra > 0) updateCharacter({ ...character, hp: nextHp, chakra: nextChakra });
-            else updateCharacter({ ...character, hp: nextHp });
+            // combatResourcesV2: player regenerates chakra/stamina at the start of their turn.
+            const pRegen = COMBAT_RESOURCES_V2 ? v2ResourceRegen(character.level) : 0;
+            const nextChakra = Math.min(character.maxChakra, Math.max(0, character.chakra - (pDrainChakra > 0 ? pDrainChakra : 0)) + pRegen);
+            const nextStamina = Math.min(character.maxStamina, character.stamina + pRegen);
+            updateCharacter({ ...character, hp: nextHp, chakra: nextChakra, stamina: nextStamina });
             const drainNote = pDrainChakra > 0 ? ` Drain also removes ${pDrainChakra} chakra.` : "";
             addCombatLog(`Damage over time: ${character.name} takes ${pDotDamage} damage from active effects.${drainNote}`, "effects", character.name);
             if (nextHp <= 0) {
@@ -4516,6 +4556,9 @@ export function Arena({
                 if (rankedBattleActive) applyRankedLoss();
                 return;  // don't set up the next turn for a downed player
             }
+        } else if (COMBAT_RESOURCES_V2) {
+            const pRegen = v2ResourceRegen(character.level);
+            updateCharacter({ ...character, chakra: Math.min(character.maxChakra, character.chakra + pRegen), stamina: Math.min(character.maxStamina, character.stamina + pRegen) });
         }
         setBarrierTiles((prev) => prev.map((b) => ({ ...b, rounds: b.rounds - 1 })).filter((b) => b.rounds > 0));
         reduceCooldowns();
@@ -4605,7 +4648,9 @@ export function Arena({
                 dotDamage += amt;
                 drainChakra += amt;
             }
-            if (s.name === "Poison") {
+            if (s.name === "Poison" && !COMBAT_RESOURCES_V2) {
+                // Legacy per-round pool poison. Under combatResourcesV2 the enemy takes
+                // poison on-spend when it casts (in the enemy jutsu path) instead.
                 const raw = s.amount ?? Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
                 dotDamage += Math.floor(raw * enemyDotMit);
             }
@@ -5716,8 +5761,8 @@ export function Arena({
                                                 <span><strong>Target:</strong> {cleanTarget}</span>
                                                 <span><strong>Method:</strong> {cleanMethod}</span>
                                                 <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
-                                                <span><strong>Chakra Usage:</strong> {formatJutsuResourcePercent(inspectedJutsu, "chakra", mastery.level)}</span>
-                                                <span><strong>Stamina Usage:</strong> {formatJutsuResourcePercent(inspectedJutsu, "stamina", mastery.level)}</span>
+                                                <span><strong>Chakra Usage:</strong> {jutsuResourceDisplay(inspectedJutsu, "chakra", character.level, character.specialty, mastery.level)}</span>
+                                                <span><strong>Stamina Usage:</strong> {jutsuResourceDisplay(inspectedJutsu, "stamina", character.level, character.specialty, mastery.level)}</span>
                                             </div>
 
                                             {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return (

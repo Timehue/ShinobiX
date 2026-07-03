@@ -217,7 +217,7 @@ export const starterItems: GameItem[] = [
         slot: "thrown",
         rarity: "rare",
         cost: 400,
-        description: "Toxic powder distilled from serpent venom. Poisons the target — deals 55% of their max chakra as damage per round for 2 rounds.",
+        description: "Toxic powder distilled from serpent venom. Poisons the target for 2 rounds with a potent toxin.",
         weaponEp: 0,
         weaponEffect: "Poison",
         weaponEffectValue: 55,

@@ -11,7 +11,7 @@ import { CombatSideHud } from "../components/CombatSideHud";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { biomeLabel, terrainEffects, weatherEffects } from "../data/world";
-import { formatJutsuResourcePercent, getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
+import { getJutsuMastery, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
 import { minActionCost } from "../lib/combat-affordability";
 import { interpolateFlavor } from "../lib/battle-log-format";
@@ -1719,8 +1719,8 @@ export function PvpBattleScreen({
                                                 <span><strong>Range:</strong> {inspectedJutsu.range}</span>
                                                 <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
                                                 <span><strong>Cooldown:</strong> {inspectedJutsu.cooldown}</span>
-                                                <span><strong>Chakra Cost:</strong> {formatJutsuResourcePercent(inspectedJutsu, "chakra", mastery.level)}</span>
-                                                <span><strong>Stamina Cost:</strong> {formatJutsuResourcePercent(inspectedJutsu, "stamina", mastery.level)}</span>
+                                                <span><strong>Chakra Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "chakra", character.level, character.specialty, mastery.level)}</span>
+                                                <span><strong>Stamina Cost:</strong> {jutsuResourceDisplay(inspectedJutsu, "stamina", character.level, character.specialty, mastery.level)}</span>
                                             </div>
                                             {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}

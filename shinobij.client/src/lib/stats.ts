@@ -13,7 +13,7 @@
  * stays in App.tsx because it pulls effectiveCharacterXpGain from lib/progression.
  */
 
-import { MAX_STAT, MAX_LEVEL, HP_CAP, CHAKRA_CAP, STAMINA_CAP, STARTING_STAT_POINTS } from "../constants/game";
+import { MAX_STAT, MAX_LEVEL, HP_CAP, CHAKRA_CAP, STAMINA_CAP, STARTING_STAT_POINTS, COMBAT_RESOURCES_V2, CHAKRA_BASE_V2, CHAKRA_CAP_V2, STAMINA_BASE_V2, STAMINA_CAP_V2 } from "../constants/game";
 import type { Stats } from "../types/combat";
 import type { Character } from "../types/character";
 
@@ -120,11 +120,19 @@ export function maxHpForLevel(level: number) {
     return Math.min(HP_CAP, 500 + (Math.max(1, level) - 1) * 100);
 }
 
+// v2 (combatResourcesV2) pool: bigger, level-scaling — base@L1 → cap@L100. The
+// legacy curve is 100→5,000; v2 is ~1,000→~10,000. Mirrored in api/_xp-engine.ts.
+function v2PoolForLevel(level: number, base: number, cap: number) {
+    return Math.min(cap, Math.floor(base + (Math.max(1, level) - 1) * ((cap - base) / (MAX_LEVEL - 1))));
+}
+
 export function maxChakraForLevel(level: number) {
+    if (COMBAT_RESOURCES_V2) return v2PoolForLevel(level, CHAKRA_BASE_V2, CHAKRA_CAP_V2);
     return Math.min(CHAKRA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((CHAKRA_CAP - 100) / (MAX_LEVEL - 1))));
 }
 
 export function maxStaminaForLevel(level: number) {
+    if (COMBAT_RESOURCES_V2) return v2PoolForLevel(level, STAMINA_BASE_V2, STAMINA_CAP_V2);
     return Math.min(STAMINA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((STAMINA_CAP - 100) / (MAX_LEVEL - 1))));
 }
 
