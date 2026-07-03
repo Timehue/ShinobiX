@@ -5,6 +5,7 @@ import {
     isBattleOnlyScreen,
     isBattleViewScreen,
     isLobbyFightScreen,
+    shouldHideBattleChrome,
     type NotifInputs,
 } from "./notifications-core";
 
@@ -62,6 +63,8 @@ test("notifications are ordered: battle → clan war → village war → tournam
 test("battle-only vs lobby-fight screen classification", () => {
     assert.equal(isBattleOnlyScreen("pvpBattle"), true);
     assert.equal(isBattleOnlyScreen("storyBoss"), true);
+    assert.equal(isBattleOnlyScreen("sectorCard"), true);
+    assert.equal(isBattleOnlyScreen("cardClashFreePlay"), true);
     assert.equal(isBattleOnlyScreen("arena"), false); // arena has a lobby
     assert.equal(isLobbyFightScreen("arena"), true);
     assert.equal(isLobbyFightScreen("petArena"), true);
@@ -72,10 +75,21 @@ test("battle-view screens suppress the redundant in-battle chip", () => {
     // On the actual fight board the chip is redundant (you're looking at it).
     assert.equal(isBattleViewScreen("arena"), true);
     assert.equal(isBattleViewScreen("pvpBattle"), true);
+    assert.equal(isBattleViewScreen("cardClashFreePlay"), true);
     assert.equal(isBattleViewScreen("battleTowers"), true);
     assert.equal(isBattleViewScreen("dungeon"), true);
     // Lobbies / non-battle screens keep the "return to your fight" reminder.
     assert.equal(isBattleViewScreen("arenaDistrict"), false);
     assert.equal(isBattleViewScreen("petArena"), false);
     assert.equal(isBattleViewScreen("village"), false);
+});
+
+test("battle chrome hides on fight boards but stays on mixed-screen lobbies", () => {
+    assert.equal(shouldHideBattleChrome({ screen: "pvpBattle", arenaBattleActive: false, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "cardClashFreePlay", arenaBattleActive: false, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "arenaDistrict", arenaBattleActive: false, petBattleActive: false }), false);
+    assert.equal(shouldHideBattleChrome({ screen: "arenaDistrict", arenaBattleActive: true, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "petArena", arenaBattleActive: false, petBattleActive: false }), false);
+    assert.equal(shouldHideBattleChrome({ screen: "petArena", arenaBattleActive: false, petBattleActive: true }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "village", arenaBattleActive: true, petBattleActive: true }), false);
 });

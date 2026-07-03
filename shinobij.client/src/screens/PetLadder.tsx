@@ -110,7 +110,7 @@ export function PetLadder({ character, setScreen, sharedImages }: { character: C
         if (r.kind === "coliseum") {
             const player = toClientPet(r.player), enemy = toClientPet(r.enemy);
             const result = runPetDuel(player, enemy, r.seed, 1, 1, false, true);
-            return <PetColiseumDuel playerPet={player} enemyPet={enemy} seed={r.seed} result={result} sharedImages={sharedImages} onFightAgain={exitCinematic} onExit={exitCinematic} />;
+            return <PetColiseumDuel playerPet={player} enemyPet={enemy} seed={r.seed} result={result} sharedImages={sharedImages} onExit={exitCinematic} />;
         }
         const blue: ArenaSlot[] = r.blue.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));
         const red: ArenaSlot[] = r.red.map((s) => ({ pet: toClientPet(s.pet), role: s.role }));

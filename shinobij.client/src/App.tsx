@@ -174,6 +174,7 @@ const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default
 import { JutsuSpriteFx } from "./components/JutsuSpriteFx";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { DEEP_LINKABLE_SCREENS, RESTORABLE_SCREENS, BATTLE_SCREENS, isUnresolvedBattle, hasActiveTowerFight } from "./lib/screen-guards";
+import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { mergePlayerRoster } from "./lib/roster-merge";
 const AdminPanel = lazyWithRetry(() => import("./screens/AdminPanel").then(m => ({ default: m.AdminPanel })));
 import { builtinAis, balanceExistingAiProfiles, aiJutsuLoadout, buildBasicCombatAiRules } from "./lib/combat-ai";
@@ -1966,8 +1967,7 @@ export default function App() {
 
     // Toggle body class during battle so CSS can hide the left sidebar
     useEffect(() => {
-        const isBattle = screen === "arena" || screen === "storyBoss" || screen === "pvpBattle" || screen === "battleTowers";
-        document.body.classList.toggle("in-battle", isBattle);
+        document.body.classList.toggle("in-battle", isBattleViewScreen(screen));
         return () => { document.body.classList.remove("in-battle"); };
     }, [screen]);
 
@@ -2158,6 +2158,7 @@ export default function App() {
     const [pendingAiProfileId, setPendingAiProfileId] = useState("");
     const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
+    const [pvpBattleResolved, setPvpBattleResolved] = useState(false);
     // Tracks when the current PvP battle began, used for the <15s "quick
     // surrender" anti-abuse check on Vanguard Seal rewards.
     const pvpBattleStartedAtRef = useRef<number>(0);
@@ -2175,6 +2176,22 @@ export default function App() {
     // here. PvpBattleScreen only consumes the seed when its battleId
     // matches, so a stale seed left over from a previous fight is ignored.
     const [pvpSeedSession, setPvpSeedSession] = useState<PvpSessionState | null>(null);
+    useEffect(() => { setPvpBattleResolved(false); }, [pvpBattleId]);
+    function clearPvpBattleState() {
+        setPvpBattleId(null);
+        setPvpRole(null);
+        setPvpBattleContext(null);
+        setPvpSeedSession(null);
+        setPendingPvpOpponent(null);
+        setPvpBattleResolved(false);
+    }
+    function exitResolvedPvpBattle(target: Screen) {
+        clearPvpBattleState();
+        setScreen(target);
+    }
+    useEffect(() => {
+        if (screen !== "pvpBattle" && pvpBattleResolved && pvpBattleId) clearPvpBattleState();
+    }, [screen, pvpBattleResolved, pvpBattleId]);
     // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
     // breadcrumb whenever the local client enters/exits a PvP battle, so a
     // browser refresh can re-fetch the server-side session and resume.
@@ -2573,9 +2590,14 @@ export default function App() {
     const autoLaunchedClanWarChallenges = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!character) return;
-        // Don't yank players out of an active battle / story / boss
-        // screen — they're already committed to something.
-        const inBattleScreen = BATTLE_SCREENS.has(screen);
+        // Don't yank players out of an active battle / story / boss screen.
+        // Mixed lobby/fight screens stay launchable until their active flag says
+        // the player is actually committed to another fight.
+        const blocksBattleScreen = BATTLE_SCREENS.has(screen)
+            && (screen !== "petArena" || petBattleActive)
+            && (screen !== "battleTowers" || hasActiveTowerFight());
+        const blocksActiveLobbyFight = (screen === "arenaDistrict" || screen === "battleArena") && arenaBattleActive;
+        const inBattleScreen = blocksBattleScreen || blocksActiveLobbyFight;
         if (inBattleScreen) return;
 
         const me = character.name.toLowerCase();
@@ -2594,7 +2616,7 @@ export default function App() {
                 return; // launch one at a time
             }
         }
-    }, [character, screen, clanWarStateVersion, launchClanWarBattle]);
+    }, [character, screen, clanWarStateVersion, launchClanWarBattle, arenaBattleActive, petBattleActive]);
 
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
@@ -2700,22 +2722,40 @@ export default function App() {
         return () => window.clearInterval(id);
     }, [isTraveling]);
 
+    function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current): boolean {
+        return isUnresolvedBattle({
+            screen: screenSnapshot,
+            raidBattleKind,
+            pvpBattleId,
+            pvpBattleResolved,
+            endlessBattleActive,
+            pendingArenaStoryBattle: !!pendingArenaStoryBattle,
+            pendingEventEncounter: !!pendingEventEncounter,
+            activeDungeonEvent: !!activeDungeonEvent,
+            hollowGateTileGameActive,
+            pendingPetBattle: !!pendingPetBattleOpponent,
+            arenaBattleActive,
+            petBattleActive,
+        });
+    }
+
+    function isBattleFlowScreen(screenSnapshot: Screen = screenRef.current): boolean {
+        return BATTLE_SCREENS.has(screenSnapshot)
+            || screenSnapshot === "sectorPet"
+            || isPresenceBattleActive(screenSnapshot);
+    }
+
     useEffect(() => {
         if (!character) return;
 
         async function heartbeat() {
             const char = characterRef.current;
             if (!char) return;
-            // inBattle covers screens where the player is ACTUALLY mid-fight (PvP +
-            // PvE) so attack.ts/challenge.ts can reject double-battle requests and
-            // Healers can't heal an active fighter. The opponent-search HUBS
-            // ('arena' = spar/PvP search, 'petArena' = pet search) are deliberately
-            // EXCLUDED: a player browsing them to send/receive a challenge is not in
-            // a battle, and flagging them made every incoming challenge fail with
-            // "Target is already in a battle." The live PvP fight runs on 'pvpBattle';
-            // pet battles are local sims that a queued challenge doesn't interrupt.
-            const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '')
-                || (screenRef.current === 'battleTowers' && hasActiveTowerFight()); // tower lobby stays challengeable; only an on-board fight flags in-battle
+            // inBattle covers only unresolved fights so attack.ts/challenge.ts can
+            // reject double-battle requests and healers can't heal active fighters.
+            // The shared guard keeps opponent-search hubs free while still lifting
+            // active arena/pet flags whose state lives inside those screens.
+            const inBattleNow = isPresenceBattleActive();
             // Upload only the display fields the roster surfaces, not the full
             // character blob — see presenceCharacter(). Gameplay/PvP paths read the
             // presence row's sector/inBattle/travel flags, not this character; combat
@@ -2850,7 +2890,7 @@ export default function App() {
         const SOCKET_RECONCILE_MS = 20000;
         const interval = socketConnected
             ? SOCKET_RECONCILE_MS
-            : currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
+            : isBattleFlowScreen(currentScreen)
             ? 1000   // in combat — fast challenge/attack delivery
             : character?.guardQueued
             ? 1000   // queued for village defense — must respond to raids fast
@@ -2859,7 +2899,12 @@ export default function App() {
             : 1000;  // exploring sectors — live presence
         const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
-    }, [character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected]);
+    }, [
+        character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected,
+        raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle,
+        pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
+        arenaBattleActive, petBattleActive,
+    ]);
 
     // Step 3 realtime: open the Socket.IO presence channel for the logged-in
     // player and wire its pushes into the same state the HTTP heartbeat feeds.
@@ -2871,8 +2916,7 @@ export default function App() {
         if (!character?.name) return;
         const char = characterRef.current;
         if (!char) return;
-        const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '')
-            || (screenRef.current === 'battleTowers' && hasActiveTowerFight()); // see heartbeat note: lobby challengeable, on-board fight not
+        const inBattleNow = isPresenceBattleActive();
         // Place us immediately; the heartbeat (which fires now and on every sector
         // change) supersedes this frame with the authoritative travel/battle state.
         connectRealtime({
@@ -3426,9 +3470,7 @@ export default function App() {
                             .then((data: { status?: string } | null) => {
                                 if (!data || data.status === "done") {
                                     try { localStorage.removeItem(PVP_SESSION_KEY); } catch { /* ignore */ }
-                                    setPvpBattleId(null);
-                                    setPvpRole(null);
-                                    setPvpBattleContext(null);
+                                    clearPvpBattleState();
                                 }
                             })
                             .catch(() => { /* network blip; leave breadcrumb in place */ });
@@ -4058,6 +4100,7 @@ export default function App() {
 
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
+        if (isBattleFlowScreen(screen)) return;
         if (character.level < 9 || triggeredEvents.includes(AURA_SPHERE_VN_ID)) return;
         const alreadyHasAuraSphere = character.inventory.includes(AURA_SPHERE_ITEM_ID) || Object.values(character.equipment).includes(AURA_SPHERE_ITEM_ID);
         if (alreadyHasAuraSphere) {
@@ -4074,6 +4117,7 @@ export default function App() {
     // Auto-trigger level-gated creator VN events (eventKind === "visualNovel", no special trigger)
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
+        if (isBattleFlowScreen(screen)) return;
         const candidate = creatorEvents.find(
             (ev) =>
                 ev.eventKind === "visualNovel" &&
@@ -4094,8 +4138,8 @@ export default function App() {
     // Rewards are 0 here — XP/ryo come from beating the boss after the VN.
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
-        // Don't interrupt battle screens — let the VN fire after the player returns
-        if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return;
+        // Don't interrupt battle flows — let the VN fire after the player returns.
+        if (isBattleFlowScreen(screen)) return;
         // Gate the village story behind tutorial completion (skip sets "done").
         if (normalizeOnboardingStep(character.onboardingStep) !== "done") return;
         const step = getCurrentStory(character);
@@ -4166,9 +4210,7 @@ export default function App() {
         const interval = setInterval(() => {
             setCharacter((prev) => {
                 if (!prev) return prev;
-                if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return prev;
-                // No passive recovery inside the Hollow Gate — the shrine forbids healing.
-                if (screen === "hollowGateShrine") return prev;
+                if (isPresenceBattleActive(screen)) return prev;
                 if (prev.hp >= prev.maxHp && prev.chakra >= prev.maxChakra && prev.stamina >= prev.maxStamina) return prev; // idle at full vitals (common): same-ref no-op skips the per-second full-App reconcile; values are Math.min-clamped so identical — no gameplay change
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
                 return {
@@ -4181,7 +4223,7 @@ export default function App() {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [screen]);
+    }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
 
     // Image category loader — fetches from shared KV store and hydrates
     // embedded image fields so all existing display code works without changes.
@@ -5520,11 +5562,11 @@ export default function App() {
     const inBattleRef = useRef(false);
     useEffect(() => {
         inBattleRef.current = isUnresolvedBattle({
-            screen, raidBattleKind, pvpBattleId, endlessBattleActive, arenaBattleActive, petBattleActive,
+            screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, arenaBattleActive, petBattleActive,
             pendingArenaStoryBattle: !!pendingArenaStoryBattle, pendingEventEncounter: !!pendingEventEncounter,
             activeDungeonEvent: !!activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle: !!pendingPetBattleOpponent,
         });
-    }, [screen, raidBattleKind, pvpBattleId, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
+    }, [screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, arenaBattleActive, petBattleActive]);
 
     // Pop history and navigate to the previous screen. The same locks as
     // navigate() apply — can't back-out of an active battle or hospital
@@ -7329,6 +7371,7 @@ export default function App() {
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
         ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
+    const hideBattleChrome = shouldHideBattleChrome({ screen, arenaBattleActive, petBattleActive });
 
     return (
         <div
@@ -7410,10 +7453,7 @@ export default function App() {
 
             {character &&
                 screen !== "start" &&
-                screen !== "arena" &&
-                screen !== "storyBoss" &&
-                screen !== "battleTowers" &&
-                screen !== "pvpBattle" && (
+                !hideBattleChrome && (
                     <LeftProfileCard
                         character={character}
                         updateCharacter={setCharacter}
@@ -7509,9 +7549,8 @@ export default function App() {
                 <ScreenErrorBoundary key={screen}>
                 {/* Hidden on the full-screen battle boards — the in-combat side HUDs
                     already show the player's HP/chakra/stamina, so the top status bar
-                    is redundant there and just costs vertical space (matches the
-                    LeftProfileCard hide-set above). */}
-                {character && screen !== "start" && screen !== "arena" && screen !== "storyBoss" && screen !== "battleTowers" && screen !== "pvpBattle" && (
+                    is redundant there and just costs vertical space. */}
+                {character && screen !== "start" && !hideBattleChrome && (
                     <MobileStatusHUD
                         character={character}
                         onBack={canGoBack ? goBack : undefined}
@@ -9120,6 +9159,8 @@ export default function App() {
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
                             battleMode={pvpBattleContext?.mode ?? "standard"}
                             onWin={handlePvpWin}
+                            onResolved={() => setPvpBattleResolved(true)}
+                            onExit={exitResolvedPvpBattle}
                             onLoss={(opponent, serverRating) => {
                                 // Clan-war auto-report on loss — mirror of
                                 // handlePvpWin's call so both clients
