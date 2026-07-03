@@ -31,7 +31,7 @@ export const STAMINA_CAP = 5000;
 // shinobij.client/src/constants/game.ts COMBAT_RESOURCES_V2 + the v2 pool constants
 // (parity-pinned by _xp-engine.test.ts) or PvE and PvP diverge. Flip BOTH + rebuild.
 // See docs/chakra-stamina-redesign-plan.md.
-export const COMBAT_RESOURCES_V2 = false;
+export const COMBAT_RESOURCES_V2 = true;
 export const CHAKRA_BASE_V2 = 1000;
 export const CHAKRA_CAP_V2 = 10000;
 export const STAMINA_BASE_V2 = 1000;
