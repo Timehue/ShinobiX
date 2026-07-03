@@ -43,6 +43,13 @@ const state = {
     flushed: false,
     sawFirstScreen: false,
     settleTimer: null as ReturnType<typeof setTimeout> | null,
+    lastScreen: '',
+    lastScreenAt: 0,
+    slowTransitionCount: 0,
+    maxScreenTransition: 0,
+    longTaskCount: 0,
+    longTaskTotal: 0,
+    longTaskMax: 0,
 };
 
 // Login / character-creation shells. The first NON-shell screen = "playable".
@@ -68,22 +75,60 @@ export function setBootKind(kind: BootKind): void {
 /** Call on every screen change. Marks first-screen + first-playable and, for a
  *  cold-start landing, schedules the flush as soon as the shell is up. */
 export function notifyScreen(screen: string): void {
-    if (!supported || state.flushed) return;
+    if (!supported) return;
     try {
+        const stamp = nowMs();
+        if (state.lastScreen && state.lastScreen !== screen) {
+            const elapsed = Math.max(0, stamp - state.lastScreenAt);
+            if (elapsed > 100) reportScreenTransition(state.lastScreen, screen, elapsed);
+        }
+        state.lastScreen = screen;
+        state.lastScreenAt = stamp;
+        if (state.flushed) return;
         if (!state.sawFirstScreen) {
             state.sawFirstScreen = true;
-            state.tFirstScreen = nowMs();
+            state.tFirstScreen = stamp;
             // Cold-start has no async restore — the shell IS the load, so flush
             // once it settles. (Refresh waits for restore-complete / playable so
             // a slow save pull doesn't truncate the measurement.)
             if (state.bootKind === 'cold-start') scheduleFlush();
         }
         if (!SHELL_SCREENS.has(screen) && state.tPlayable === 0) {
-            state.tPlayable = nowMs();
+            state.tPlayable = stamp;
             scheduleFlush();
         }
     } catch {
         /* never throw from telemetry */
+    }
+}
+
+function reportScreenTransition(from: string, to: string, ms: number): void {
+    try {
+        const record = { from, to, ms };
+        const w = window as unknown as { __screenTransitions?: (typeof record)[] };
+        w.__screenTransitions = [...(w.__screenTransitions ?? []), record].slice(-50);
+        if (ms > 250) {
+            state.slowTransitionCount += 1;
+            state.maxScreenTransition = Math.max(state.maxScreenTransition, ms);
+            if (import.meta.env?.DEV) console.info('[perf:screen-transition]', record);
+        }
+    } catch {
+        /* telemetry is best-effort */
+    }
+}
+
+function reportLongTask(entry: PerformanceEntry): void {
+    try {
+        if (entry.duration < 100) return;
+        const record = { name: entry.name, duration: Math.round(entry.duration), start: Math.round(entry.startTime) };
+        state.longTaskCount += 1;
+        state.longTaskTotal += record.duration;
+        state.longTaskMax = Math.max(state.longTaskMax, record.duration);
+        const w = window as unknown as { __longTasks?: (typeof record)[] };
+        w.__longTasks = [...(w.__longTasks ?? []), record].slice(-50);
+        if (import.meta.env?.DEV) console.warn('[perf:long-task]', record);
+    } catch {
+        /* telemetry is best-effort */
     }
 }
 
@@ -206,6 +251,11 @@ function buildPayload(): Record<string, unknown> {
         tFirstScreen: state.tFirstScreen,
         tRestore: state.tRestore,
         tPlayable: state.tPlayable,
+        slowTransitionCount: state.slowTransitionCount,
+        maxScreenTransition: state.maxScreenTransition,
+        longTaskCount: state.longTaskCount,
+        longTaskTotal: state.longTaskTotal,
+        longTaskMax: state.longTaskMax,
         ...sizes,
         net,
         vw,
@@ -296,6 +346,15 @@ if (supported) {
         lcpObs.observe({ type: 'largest-contentful-paint', buffered: true });
     } catch {
         /* LCP unsupported (e.g. Safari < 16) */
+    }
+
+    try {
+        const longTaskObs = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) reportLongTask(entry);
+        });
+        longTaskObs.observe({ type: 'longtask', buffered: true });
+    } catch {
+        /* Long Tasks API unsupported */
     }
 
     // Flush when the page is being hidden / unloaded — captures a refresh or

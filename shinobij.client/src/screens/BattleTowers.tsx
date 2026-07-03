@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, BattleHistoryEntry } from "../types/character";
 import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";
 import { fetchTowerState, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
@@ -39,7 +39,7 @@ function clearRunKey() {
 // "couldn't resume" and fall to the (penalty-free) lobby.
 const RESUME_TIMEOUT_MS = 12_000;
 
-export function BattleTowers({ character, updateCharacter, sharedImages, hostLoadout, onExit }: { character: Character; updateCharacter: (c: Character) => void; sharedImages?: Record<string, string>; hostLoadout?: TowerHostLoadout; onExit: () => void }) {
+export function BattleTowers({ character, updateCharacter, sharedImages, hostLoadout, onExit, onRecordBattle }: { character: Character; updateCharacter: (c: Character) => void; sharedImages?: Record<string, string>; hostLoadout?: TowerHostLoadout; onExit: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
     const [view, setView] = useState<View>(() => {
@@ -104,6 +104,7 @@ export function BattleTowers({ character, updateCharacter, sharedImages, hostLoa
                 hostLoadout={hostLoadout}
                 runId={view.runId}
                 initialSession={view.session}
+                onRecordBattle={onRecordBattle}
                 // Clear the runId synchronously here: the parent's onExit unmounts this
                 // component before the persistence effect could clear it, so without this
                 // the key would linger and trigger a stray "Resuming…" flash next visit.

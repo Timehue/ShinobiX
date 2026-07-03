@@ -167,8 +167,10 @@ export function DungeonPetBattle({ character, updateCharacter, editablePets, onW
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
         const seed = Date.now();
         const nextDuelId = duelNonce + 1;
-        // Continuous duel engine (the old round engine is retired).
-        const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character));
+        // Continuous duel engine (the old round engine is retired). Hollow Gate is
+        // pure client-side PvE (no server re-sim), so the casual planted-face-off
+        // motion is ON (last arg true); intervening optional args keep their defaults.
+        const duel = runPetDuel(selectedPet, enemyPet, seed, petTamerPveMultiplier(character), petPveHpMult(character), petAlphaBond(character), false, undefined, undefined, true);
         const outcome = duel.result;
         setDuelNonce(nextDuelId);
         setDuelBattle({ result: duel, playerPet: selectedPet, enemyPet, seed, id: nextDuelId });
