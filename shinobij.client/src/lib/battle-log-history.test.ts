@@ -8,6 +8,7 @@ import { strict as assert } from "node:assert";
 import {
     buildActionsFromPveHistory,
     buildActionsFromPvpLog,
+    buildActionsFromTowerLog,
     appendBattleHistory,
     capBattleActions,
     makeBattleEntry,
@@ -59,6 +60,31 @@ describe("buildActionsFromPvpLog", () => {
         assert.equal(actions[1]!.round, 2);
         assert.equal(actions[1]!.actionNumber, 2); // numbering carries across rounds
         assert.equal(actions[1]!.actor, "Sasuke");
+    });
+});
+
+describe("buildActionsFromTowerLog — squad log, color by side", () => {
+    it("attributes each line to ally/enemy by leading name; narration is system", () => {
+        const actions = buildActionsFromTowerLog([
+            "Rill strikes → Bandit for 45 damage.",
+            "Bandit takes 45 (12/60).",
+            "Warden summons 2 reinforcements!",
+            "Floor 3 cleared!",
+        ], ["Rill", "Medic"], ["Bandit", "Warden"]);
+        assert.equal(actions[0]!.role, "player");
+        assert.equal(actions[0]!.actor, "Rill");
+        assert.equal(actions[0]!.headline, "strikes → Bandit for 45 damage.");
+        assert.equal(actions[1]!.role, "enemy");
+        assert.equal(actions[1]!.actor, "Bandit");
+        assert.equal(actions[2]!.actor, "Warden");
+        assert.equal(actions[3]!.role, "system");
+        assert.equal(actions[3]!.actor, "");
+    });
+
+    it("respects word boundaries (a short name can't match a longer one)", () => {
+        const [a] = buildActionsFromTowerLog(["Raijin blasts the squad."], ["Rai"], ["Raijin"]);
+        assert.equal(a!.actor, "Raijin");
+        assert.equal(a!.role, "enemy");
     });
 });
 
