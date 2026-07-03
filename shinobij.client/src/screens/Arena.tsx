@@ -14,7 +14,7 @@ import type { Character, PlayerRecord } from "../types/character";
 import type { EquipmentSlot, GameItem, Jutsu, JutsuTag, SavedBloodline, Stats } from "../types/combat";
 import type { AiRule, CreatorAi } from "../types/creator-ai";
 import type { EnhancedClanData } from "../types/clan";
-import type { Pet } from "../types/pet";
+import type { Pet, PetJutsu } from "../types/pet";
 import { JUTSU_MAX_LEVEL, LEGENDARY_WAR_CRATE_ID, MAX_LEVEL, STUN_AP_PENALTY, jutsuLevelCapForLevel, perRankStatCap } from "../constants/game";
 import { ArenaBattlePersister } from "../components/ArenaBattlePersister";
 import { BattleLockKeeper } from "../components/BattleLockKeeper";
@@ -64,6 +64,7 @@ import { countItem, removeItem } from "../lib/inventory";
 import { makeId } from "../lib/utils";
 import { useBoardScale } from "../lib/use-board-scale";
 import { isPetOnExpedition, petCombatDamage, petDisplayName, petHappiness } from "../lib/pet";
+import { ROLE_RANGE, petRoleOf } from "../lib/pet-roles";
 import { PetParticleField } from "../lib/pet-vfx-particles";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { PET_CRIT_MULT } from "../lib/pet-battle-sim";
@@ -706,6 +707,22 @@ export function Arena({
     const [logRoundOverridesA, setLogRoundOverridesA] = useState<Record<number, boolean>>({});
     const [selectedActionId, setSelectedActionId] = useState<SelectedCombatAction>(undefined);
     const [summonedPetId, setSummonedPetId] = useState("");
+    // ── Summoned pet as an on-field actor (PvE only) ──────────────────────────
+    // The pet takes its own tile + HP and acts on a dedicated phase (You → Pet →
+    // Enemy). PET_FIELD_TURNS = how many of its own phases it fights before it
+    // leaves; the damage knobs keep its ~1-action-per-round output in line with
+    // the old bonus-attack model (see the pet board-actor plan).
+    const PET_FIELD_TURNS = 4;
+    const PET_PHASE_DAMAGE_MULT = 1;        // global tuning knob for pet strike damage
+    const PET_PHASE_DAMAGE_MAX_FRAC = 0.16; // soft cap: one pet hit ≤ 16% of enemy max HP
+    const [petPos, setPetPos] = useState(63);
+    const [petHp, setPetHp] = useState(0);
+    const [petMaxHp, setPetMaxHp] = useState(0);
+    const [petStatuses, setPetStatuses] = useState<CombatStatus[]>([]);
+    const [petShield, setPetShield] = useState(0);
+    const [petJutsuCooldowns, setPetJutsuCooldowns] = useState<Record<string, number>>({});
+    const [petTurnsRemaining, setPetTurnsRemaining] = useState(0);
+    const [petSummonedThisFight, setPetSummonedThisFight] = useState(false);
 
     const [pendingTargetJutsuId, setPendingTargetJutsuIdRaw] = useState("");
     const [pendingTargetJutsuDirect, setPendingTargetJutsuDirect] = useState<Jutsu | null>(null);
@@ -748,7 +765,14 @@ export function Arena({
     const playerActionLogRef   = useRef<PlayerActionRecord[]>([]);
 
     const pendingPlayerStunApPenaltyRef = useRef(false);
-    const lastPetActionKeyRef = useRef("");
+    // Pet-phase bookkeeping (mirrors the enemy multi-action refs): a double-begin
+    // guard, the pacing timer, the fresh-state continuation, and the per-phase
+    // move-step / attack counters.
+    const petActingRef = useRef(false);
+    const petPhaseTimerRef = useRef<number | null>(null);
+    const petContinueRef = useRef<() => void>(() => {});
+    const petPhaseStepsRef = useRef(0);
+    const petHasAttackedRef = useRef(false);
 
     function setPendingTargetJutsuId(value: string) {
         setPendingTargetJutsuIdRaw(value);
@@ -772,6 +796,8 @@ export function Arena({
     const inspectedCombatItem = combatEquippedItems.find((item) => item.id === inspectedCombatItemId);
     const activeBattlePet = character.pets.find((pet) => pet.id === character.activePetId);
     const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
+    // A summoned pet is a live on-field actor while it has HP and phases left.
+    const isPetAlive = Boolean(summonedPet) && petHp > 0 && petTurnsRemaining > 0;
     const canSummonPet = Boolean(!opponentCharacter && !opponentIsMerc && battleStarted && !battleEnded);
 
     function weatherDamageMultiplier(jutsu: Jutsu) {
@@ -932,7 +958,7 @@ export function Arena({
         // 30-AP move (which used to end the turn with 20 AP and a usable item).
         const minCost = pveMinActionCost();
         if (minCost > 0 && ap < minCost) {
-            enemyTurn();
+            advanceAfterPlayer();
         }
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
 
@@ -1038,6 +1064,11 @@ export function Arena({
             enemyTurnTimerRef.current = null;
         }
         enemyTurnActiveRef.current = false;
+        if (petPhaseTimerRef.current !== null) {
+            window.clearTimeout(petPhaseTimerRef.current);
+            petPhaseTimerRef.current = null;
+        }
+        petActingRef.current = false;
     }, []);
 
     useEffect(() => {
@@ -1349,6 +1380,36 @@ export function Arena({
         return candidates.sort((a, b) => distance(a, target) - distance(b, target))[0] ?? origin;
     }
 
+    // Like nextStepToward, but with an explicit avoid-list (and barrier tiles) so a
+    // THIRD unit (the summoned pet, or the enemy pathing toward the pet) doesn't
+    // stack onto an occupied tile. nextStepToward hardcodes only the player's tile.
+    function nextStepTowardFor(origin: number, target: number, avoid: number[]) {
+        const occupied = new Set(avoid);
+        const candidates = hexNeighbors(origin).filter((next) => !occupied.has(next) && !barrierTiles.some((b) => b.tile === next));
+        return candidates.sort((a, b) => distance(a, target) - distance(b, target))[0] ?? origin;
+    }
+
+    // Pet displacement — the enemy's Push/Pull neighbor logic with the PET as the
+    // source and the enemy as the target (shove away / drag closer, barrier-aware).
+    function pushEnemyFromPet(dist: number) {
+        let newPos = enemyPos;
+        for (let step = 0; step < dist; step++) {
+            const away = hexNeighbors(newPos).filter((t) => distance(t, petPos) > distance(newPos, petPos) && t !== petPos && t !== playerPos && !barrierTiles.some((b) => b.tile === t));
+            if (away.length === 0) break;
+            newPos = away[0];
+        }
+        if (newPos !== enemyPos) setEnemyPos(newPos);
+    }
+    function pullEnemyTowardPet(dist: number) {
+        let newPos = enemyPos;
+        for (let step = 0; step < dist; step++) {
+            const closer = hexNeighbors(newPos).filter((t) => distance(t, petPos) < distance(newPos, petPos) && t !== petPos && t !== playerPos && !barrierTiles.some((b) => b.tile === t));
+            if (closer.length === 0) break;
+            newPos = closer[0];
+        }
+        if (newPos !== enemyPos) setEnemyPos(newPos);
+    }
+
     function spendAp(cost: number, actionId = "action") {
         const adjustedCost = adjustedApCost(cost);
         if (activeActor !== "player") {
@@ -1410,6 +1471,20 @@ export function Arena({
             return;
         }
         setSummonedPetId(activeBattlePet.id);
+        setPetSummonedThisFight(true);
+        // Place the pet on a free tile beside the player and give it its own HP +
+        // lifespan so it fights as a real board actor on its own phase.
+        const petSpawn = hexNeighbors(playerPos).find((t) => t !== enemyPos && !barrierTiles.some((b) => b.tile === t)) ?? playerPos;
+        setPetPos(petSpawn);
+        setPetHp(activeBattlePet.hp);
+        setPetMaxHp(activeBattlePet.hp);
+        setPetStatuses([]);
+        setPetShield(0);
+        setPetJutsuCooldowns({});
+        setPetTurnsRemaining(PET_FIELD_TURNS);
+        petActingRef.current = false;
+        petPhaseStepsRef.current = 0;
+        petHasAttackedRef.current = false;
         // PVE gear durability: a spent piece (durability 0) breaks before this
         // fight and gives no effect; otherwise the gear is active and ticks down
         // one summon (it still applies this fight).
@@ -1437,65 +1512,309 @@ export function Arena({
         const brokeNote = gearBroke ? ` ${petPveGearById(pveId)?.name ?? "Its PVE gear"} has worn out and breaks.` : "";
         const healNote = heal > 0 ? ` It steadies you — +${heal} HP.` : "";
         const consNote = consHeal > 0 ? ` ${petConsumableById(consId)?.name ?? "A consumable"} shields you for +${consHeal} HP.` : "";
-        setLog(`${petDisplayName(activeBattlePet)} joins the fight and will act after your moves.${healNote}${consNote}${brokeNote}`);
+        setLog(`${petDisplayName(activeBattlePet)} takes the field and fights on its own each round.${healNote}${consNote}${brokeNote}`);
         addCombatLog(`${character.name} summons ${petDisplayName(activeBattlePet)}. Happiness: ${petHappiness(activeBattlePet)}%.`, "summonPet", petDisplayName(activeBattlePet));
     }
 
-    function runSummonedPetAction() {
-        if (!summonedPet || opponentCharacter || opponentIsMerc || battleEnded || activeActor !== "player") return;
-        if (enemyHp <= 0 || playerHp <= 0) return;
+    // ── Summoned-pet phase (PvE) ──────────────────────────────────────────────
+    // The pet acts on its own dedicated phase between the player's turn and the
+    // enemy's (You → Pet → Enemy). It closes toward the foe by its role's
+    // engagement range, then strikes — mirroring the enemy's paced multi-action
+    // loop (afterEnemyAction/enemyContinue) so each sub-action reads fresh
+    // committed state. Pet damage never routes through guardEnemyHit (that budget
+    // is the ENEMY's per-turn cap against the player).
 
-        const petName = petDisplayName(summonedPet);
-        const happiness = petHappiness(summonedPet);
-        const loyalTarget = happiness >= 71;
-        // PVE gear: a loyalty charm stops backfires; summon-damage gear scales
-        // the hit (with execute vs a low-HP foe / avenger while you're low).
-        const gearLoyal = petPveLoyalty(summonedPet);
-        const attacksEnemy = loyalTarget || gearLoyal || Math.random() >= 0.5;
+    // Apply a pet strike/jutsu hit to the enemy. Returns the dealt amount + whether
+    // it was lethal; the caller does any follow-up (lifesteal) and calls winBattle.
+    function applyPetDamageToEnemy(raw: number, opts: { crit?: boolean; sourceName: string; verb?: string }): { dealt: number; lethal: boolean } {
+        if (battleEnded || enemyHp <= 0) return { dealt: 0, lethal: false };
+        const capped = Math.min(raw, enemyMaxHp * PET_PHASE_DAMAGE_MAX_FRAC);
+        let dmg = Math.max(1, Math.floor(capped * PET_PHASE_DAMAGE_MULT));
+        let shieldNote = "";
+        // Mark: the next pet hit on a marked foe deals bonus damage, then clears it.
+        if (enemyStatuses.some((s) => s.name === "Mark")) {
+            dmg = Math.floor(dmg * 1.3);
+            setEnemyStatuses((s) => s.filter((st) => st.name !== "Mark"));
+            shieldNote += " (marked!)";
+        }
+        if (enemyShield > 0) {
+            const absorbed = Math.min(enemyShield, dmg);
+            if (absorbed > 0) { setEnemyShield((s) => Math.max(0, s - absorbed)); dmg -= absorbed; shieldNote = ` (${absorbed} absorbed)`; }
+        }
+        const newEnemyHp = Math.max(0, enemyHp - dmg);
+        setEnemyHp(newEnemyHp);
+        if (dmg > 0) queueHitFx("e", dmg, "damage");
+        const critNote = opts.crit ? " — CRITICAL HIT!" : "";
+        const line = `${opts.sourceName} ${opts.verb ?? "attacks"} ${opponentName} for ${dmg} damage${critNote}${shieldNote}.`;
+        setLog(line);
+        addCombatLog(line, "petAttack", opts.sourceName);
+        return { dealt: dmg, lethal: newEnemyHp <= 0 };
+    }
+
+    // The pet's basic strike (same damage core as the old summon: attack + summon
+    // gear mult + speed-scaled crit + variance) plus PvE-gear lifesteal-to-player.
+    function petBasicStrike(pet: Pet) {
+        const petName = petDisplayName(pet);
         const enemyHpPct = (enemyHp / Math.max(1, enemyMaxHp)) * 100;
         const playerHpPct = (playerHp / Math.max(1, character.maxHp)) * 100;
-        // Speed-scaled crit + a damage roll so summon hits have visible punch.
-        const summonCrit = Math.random() < Math.min(0.45, 0.16 + summonedPet.speed / 1100);
-        const summonVar = 0.9 + Math.random() * 0.2;
-        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct) * (summonCrit ? PET_CRIT_MULT : 1) * summonVar));
-        const critNote = summonCrit ? " — CRITICAL HIT!" : "";
-
-        if (attacksEnemy) {
-            const newEnemyHp = Math.max(0, enemyHp - damage);
-            setEnemyHp(newEnemyHp);
-            const loyaltyNote = (loyalTarget || gearLoyal) ? "" : " despite its low happiness";
-            // PVE gear lifesteal — heal the player for a cut of the damage dealt.
-            const lsPct = petPveLifestealPct(summonedPet);
-            let healNote = "";
-            if (lsPct > 0) {
-                const heal = Math.max(1, Math.floor(damage * lsPct / 100));
-                const healedHp = Math.min(character.maxHp, playerHp + heal);
-                if (healedHp > playerHp) {
-                    setPlayerHp(healedHp);
-                    updateCharacter({ ...character, hp: healedHp });
-                    healNote = ` It channels ${heal} HP back to you.`;
-                }
+        const crit = Math.random() < Math.min(0.45, 0.16 + pet.speed / 1100);
+        const variance = 0.9 + Math.random() * 0.2;
+        const raw = petCombatDamage(pet) * petOutgoingMult() * petPveSummonDamageMult(pet, enemyHpPct, playerHpPct) * (crit ? PET_CRIT_MULT : 1) * variance;
+        const res = applyPetDamageToEnemy(raw, { crit, sourceName: petName, verb: "strikes" });
+        const lsPct = petPveLifestealPct(pet);
+        if (lsPct > 0 && res.dealt > 0) {
+            const heal = Math.max(1, Math.floor(res.dealt * lsPct / 100));
+            const healedHp = Math.min(character.maxHp, playerHp + heal);
+            if (healedHp > playerHp) {
+                setPlayerHp(healedHp);
+                updateCharacter({ ...character, hp: healedHp });
+                queueHitFx("p", heal, "heal");
             }
-            setLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage${critNote}.${healNote}`);
-            addCombatLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage${critNote}.${healNote}`, "petAttack", petName);
-            if (newEnemyHp <= 0) winBattle();
+        }
+        if (res.lethal) winBattle();
+    }
+
+    // Sum of the pet's own "Increase Damage Given" self-buffs → outgoing multiplier.
+    function petOutgoingMult(): number {
+        const inc = petStatuses.filter((s) => s.name === "Increase Damage Given").reduce((a, s) => a + (s.percent || 0), 0);
+        return 1 + Math.min(60, inc) / 100;
+    }
+
+    // Pick a heal/shield jutsu when the pet is hurt (castable from any range).
+    function pickPetSupportJutsu(pet: Pet): PetJutsu | null {
+        if (petMaxHp <= 0 || petHp / petMaxHp >= 0.5) return null;
+        const supportKinds = new Set(["heal", "shield", "barrier"]);
+        return pet.jutsus.find((j) => supportKinds.has(j.kind) && (petJutsuCooldowns[j.name] ?? 0) <= 0) ?? null;
+    }
+
+    // Pick the pet's best offensive jutsu that's off cooldown (signature first, else
+    // highest power). Self-support kinds are excluded. Null → fall back to a strike.
+    function pickPetOffensiveJutsu(pet: Pet): PetJutsu | null {
+        const selfKinds = new Set(["heal", "shield", "barrier", "buff", "haste", "absorb", "taunt", "move"]);
+        const usable = pet.jutsus.filter((j) => !selfKinds.has(j.kind) && (petJutsuCooldowns[j.name] ?? 0) <= 0);
+        if (usable.length === 0) return null;
+        return usable.find((j) => j.signature) ?? usable.slice().sort((a, b) => (b.power || 0) - (a.power || 0))[0] ?? null;
+    }
+
+    // Resolve a pet jutsu against the enemy (offensive) or the pet (support) using
+    // the Arena's own CombatStatus / DoT / stun / push-pull machinery, so ticking,
+    // cleanse and HUD display all work for free. Exotic pet-only kinds
+    // (mark/slow/haste/taunt/confuse/freeze/movelock/crush) map onto existing
+    // primitives; only "Mark" is a new status (consumed in applyPetDamageToEnemy).
+    function castPetJutsu(pet: Pet, j: PetJutsu) {
+        const petName = petDisplayName(pet);
+        setPetJutsuCooldowns((cds) => ({ ...cds, [j.name]: Math.max(1, j.cooldown || 1) }));
+        const rounds = j.rounds ?? 2;
+        const addEnemyStatus = (st: CombatStatus) => setEnemyStatuses((s) => capWoundStacks(mergeCombatStatus(s, st)));
+        const addSelfStatus = (st: CombatStatus) => setPetStatuses((s) => mergeCombatStatus(s, st));
+        const note = (extra: string) => { const line = `${petName} uses ${j.name}${extra}.`; setLog(line); addCombatLog(line, "petAttack", petName); };
+        const doDamage = (scale = 1) => {
+            const enemyHpPct = (enemyHp / Math.max(1, enemyMaxHp)) * 100;
+            const playerHpPct = (playerHp / Math.max(1, character.maxHp)) * 100;
+            const crit = Math.random() < Math.min(0.45, 0.16 + pet.speed / 1100);
+            const variance = 0.9 + Math.random() * 0.2;
+            const powerScale = Math.max(0.6, Math.min(1.4, (j.power || 40) / 45)) * scale;
+            const raw = petCombatDamage(pet) * petOutgoingMult() * powerScale * petPveSummonDamageMult(pet, enemyHpPct, playerHpPct) * (crit ? PET_CRIT_MULT : 1) * variance;
+            const res = applyPetDamageToEnemy(raw, { crit, sourceName: petName, verb: `uses ${j.name} on` });
+            if (res.lethal) winBattle();
+            return res;
+        };
+        switch (j.kind) {
+            case "heal": {
+                const heal = Math.max(1, Math.floor(petMaxHp * 0.25 + (j.power || 0) * 0.5));
+                setPetHp((hp) => Math.min(petMaxHp, hp + heal));
+                note(` and recovers ${heal} HP`);
+                return;
+            }
+            case "shield":
+            case "barrier": {
+                const amt = Math.max(1, Math.floor(petMaxHp * 0.2));
+                setPetShield((s) => s + amt);
+                note(` and raises a ${amt} HP shield`);
+                return;
+            }
+            case "buff":
+            case "haste": {
+                addSelfStatus({ name: "Increase Damage Given", rounds, percent: 25, kind: "positive" });
+                note(" and steels itself (+25% damage)");
+                return;
+            }
+            case "absorb": {
+                addSelfStatus({ name: "Absorb", rounds, percent: 30, kind: "positive" });
+                note(" and hardens (absorb)");
+                return;
+            }
+            case "taunt": {
+                addSelfStatus({ name: "Decrease Damage Taken", rounds, percent: 25, kind: "positive" });
+                note(" and braces (−25% damage taken)");
+                return;
+            }
+            case "move": {
+                const next = nextStepTowardFor(petPos, enemyPos, [playerPos, enemyPos]);
+                if (next !== petPos) setPetPos(next);
+                note(" and repositions");
+                return;
+            }
+            case "stun":
+            case "freeze":
+            case "movelock": {
+                doDamage(0.6);
+                addEnemyStatus({ name: "Stun", rounds: 1, kind: "negative" });
+                return;
+            }
+            case "wound": {
+                const res = doDamage(0.5);
+                addEnemyStatus({ name: "Wound", rounds, amount: Math.max(1, Math.floor((res.dealt || petCombatDamage(pet)) * 0.4)), kind: "negative" });
+                return;
+            }
+            case "dot":
+            case "burn": {
+                doDamage(0.5);
+                addEnemyStatus({ name: "Poison", rounds, percent: 8, kind: "negative" });
+                if (j.kind === "burn") addEnemyStatus({ name: "Decrease Damage Given", rounds, percent: 15, kind: "negative" });
+                return;
+            }
+            case "crush": {
+                doDamage(1);
+                addEnemyStatus({ name: "Decrease Damage Given", rounds, percent: 25, kind: "negative" });
+                return;
+            }
+            case "confuse":
+            case "debuff":
+            case "slow": {
+                doDamage(0.6);
+                addEnemyStatus({ name: "Decrease Damage Given", rounds, percent: j.kind === "confuse" ? 40 : 25, kind: "negative" });
+                return;
+            }
+            case "mark": {
+                doDamage(0.7);
+                addEnemyStatus({ name: "Mark", rounds, kind: "negative" });
+                return;
+            }
+            case "lifesteal": {
+                const res = doDamage(1);
+                if (res.dealt > 0) { const heal = Math.max(1, Math.floor(res.dealt * 0.5)); setPetHp((hp) => Math.min(petMaxHp, hp + heal)); }
+                return;
+            }
+            case "push": {
+                doDamage(0.6);
+                pushEnemyFromPet(1);
+                return;
+            }
+            case "pull": {
+                doDamage(0.6);
+                pullEnemyTowardPet(1);
+                return;
+            }
+            case "damage":
+            default: {
+                doDamage(1);
+                return;
+            }
+        }
+    }
+
+    // One pet sub-action: self-support if hurt, else an offensive jutsu/strike once
+    // in the pet's role range, else close the distance. Returns the enemy-loop-style
+    // {acted, apSpent} so afterPetAction can pace + chain via a fresh continuation.
+    function petTakeAction(): { acted: boolean; apSpent: number } {
+        if (battleEnded || !summonedPet || petHp <= 0 || enemyHp <= 0 || playerHp <= 0) return { acted: false, apSpent: 0 };
+        const pet = summonedPet;
+        if (petHasAttackedRef.current) return { acted: false, apSpent: 0 };
+        const support = pickPetSupportJutsu(pet);
+        if (support) {
+            petHasAttackedRef.current = true;
+            castPetJutsu(pet, support);
+            return { acted: true, apSpent: 40 };
+        }
+        const atkTiles = Math.max(1, Math.round(ROLE_RANGE[petRoleOf(pet)].atkRange));
+        if (distance(petPos, enemyPos) <= atkTiles) {
+            petHasAttackedRef.current = true;
+            const off = pickPetOffensiveJutsu(pet);
+            if (off) castPetJutsu(pet, off);
+            else petBasicStrike(pet);
+            return { acted: true, apSpent: 40 };
+        }
+        if (petPhaseStepsRef.current < (pet.moveRange ?? 2)) {
+            const next = nextStepTowardFor(petPos, enemyPos, [playerPos, enemyPos]);
+            if (next !== petPos) {
+                setPetPos(next);
+                petPhaseStepsRef.current += 1;
+                return { acted: true, apSpent: 30 };
+            }
+        }
+        return { acted: false, apSpent: 0 };
+    }
+
+    function afterPetAction(res: { acted: boolean; apSpent: number }) {
+        if (battleEnded) { petActingRef.current = false; return; }
+        if (!res.acted || res.apSpent <= 0) { finishPetPhase(); return; }
+        // Same beats as the enemy loop: a near-instant step, a readable pause on a hit.
+        const beat = res.apSpent === 30 ? (combatFastRef.current ? 0 : 150) : (combatFastRef.current ? 250 : 500);
+        petPhaseTimerRef.current = window.setTimeout(() => {
+            petPhaseTimerRef.current = null;
+            petContinueRef.current();
+        }, beat);
+    }
+
+    // Scheduled continuation — runs in a fresh render so it reads committed state.
+    function petContinue() {
+        if (battleEnded) { petActingRef.current = false; return; }
+        if (!petActingRef.current) return;
+        afterPetAction(petTakeAction());
+    }
+
+    // End the pet's phase: tick its lifespan (despawn at 0), then hand off to the
+    // enemy exactly once. Decrementing here means a KO'd pet naturally skips a round.
+    function finishPetPhase() {
+        petActingRef.current = false;
+        if (petPhaseTimerRef.current !== null) { window.clearTimeout(petPhaseTimerRef.current); petPhaseTimerRef.current = null; }
+        if (summonedPetId && petHp > 0) {
+            // Tick the pet's own buffs + jutsu cooldowns once per round (its phase).
+            setPetStatuses((s) => tickStatuses(s));
+            setPetJutsuCooldowns((cds) => { const n: Record<string, number> = {}; for (const k in cds) { const v = Math.max(0, cds[k] - 1); if (v > 0) n[k] = v; } return n; });
+            const remaining = petTurnsRemaining - 1;
+            if (remaining <= 0) {
+                const petName = summonedPet ? petDisplayName(summonedPet) : "The pet";
+                setSummonedPetId("");
+                setPetTurnsRemaining(0);
+                setLog(`${petName} leaves the battlefield.`);
+                addCombatLog(`${petName} leaves the battlefield.`, "petLeave", petName);
+            } else {
+                setPetTurnsRemaining(remaining);
+            }
+        }
+        enemyTurn();
+    }
+
+    // Run the pet's whole phase. A low-happiness, non-loyal pet may disobey and
+    // hold position (skipping its phase) instead of the old friendly-fire backfire.
+    function runPetPhase() {
+        if (petActingRef.current) return; // already resolving
+        if (!isPetAlive || opponentCharacter || opponentIsMerc || battleEnded || enemyHp <= 0 || playerHp <= 0) { finishPetPhase(); return; }
+        const pet = summonedPet as Pet;
+        const obeys = petHappiness(pet) >= 71 || petPveLoyalty(pet) || Math.random() >= 0.35;
+        if (!obeys) {
+            const petName = petDisplayName(pet);
+            setLog(`${petName} ignores your command and holds its position.`);
+            addCombatLog(`${petName} ignores your command and holds its position.`, "petIdle", petName);
+            finishPetPhase();
             return;
         }
+        petActingRef.current = true;
+        petPhaseStepsRef.current = 0;
+        petHasAttackedRef.current = false;
+        setActiveActor("enemy"); // lock player input during the animated pet phase
+        afterPetAction(petTakeAction());
+    }
 
-        const friendlyDamage = Math.max(1, Math.floor(damage * 0.65));
-        const newPlayerHp = Math.max(0, playerHp - friendlyDamage);
-        setPlayerHp(newPlayerHp);
-        updateCharacter({ ...character, hp: newPlayerHp });
-        setLog(`${petName}'s low happiness backfires. It attacks you for ${friendlyDamage} damage.`);
-        addCombatLog(`${petName}'s low happiness backfires and it attacks ${character.name} for ${friendlyDamage} damage.`, "petBackfire", petName);
-
-        if (newPlayerHp <= 0) {
-            setBattleEnded(true);
-            setBattleResult("loss");
-            setRaidBattleKind("none");
-            setLog(`${character.name} was defeated after ${petName}'s backfire.`);
-            addCombatLog(`${petName}'s backfire defeats ${character.name}.`, "defeat", petName);
-        }
+    // Player's turn is over: run the pet phase (which chains into the enemy turn),
+    // or go straight to the enemy if there's no live pet. Both waitTurn and the
+    // auto-pass effect funnel through here so the order is always You → Pet → Enemy.
+    function advanceAfterPlayer() {
+        if (battleEnded) return;
+        if (isPetAlive && !opponentCharacter && !opponentIsMerc) { runPetPhase(); return; }
+        enemyTurn();
     }
 
     function waitTurn() {
@@ -1505,16 +1824,11 @@ export function Arena({
             return;
         }
         addCombatLog(`${character.name} waits and ends their turn with ${ap} AP remaining.`, "wait", character.name);
-        enemyTurn();
+        advanceAfterPlayer();
     }
 
-    useEffect(() => {
-        if (!summonedPet || opponentCharacter || !battleStarted || battleEnded || activeActor !== "player" || actionsThisTurn <= 0) return;
-        const key = `${turn}:${actionsThisTurn}`;
-        if (lastPetActionKeyRef.current === key) return;
-        lastPetActionKeyRef.current = key;
-        runSummonedPetAction();
-    }, [actionsThisTurn, activeActor, battleEnded, battleStarted, opponentCharacter, summonedPet?.id, turn]);  
+    // (The pet now acts on its own dedicated phase via runPetPhase/advanceAfterPlayer,
+    // not as a bonus attack keyed to each of the player's actions.)  
 
     function reduceCooldowns() {
         setCooldowns((current) => {
@@ -3957,6 +4271,66 @@ export function Arena({
         return 40;
     }
 
+    // ── Enemy targeting the summoned pet (Stage 3) ────────────────────────────
+    // The pet is a real, attackable unit: the enemy sometimes strikes it instead
+    // of the player. This is an ADDITIVE parallel path — the player-targeted
+    // enemyUseAiJutsu / enemyBasicAttackOrMove internals are untouched. Pet damage
+    // never routes through guardEnemyHit (that's the enemy's budget vs the player).
+
+    // Remove a KO'd pet from the field WITHOUT ending the fight (only the player
+    // going down loses the battle).
+    function petKnockedOut() {
+        const petName = summonedPet ? petDisplayName(summonedPet) : "The pet";
+        setPetHp(0);
+        setSummonedPetId("");
+        setPetTurnsRemaining(0);
+        petActingRef.current = false;
+        if (petPhaseTimerRef.current !== null) { window.clearTimeout(petPhaseTimerRef.current); petPhaseTimerRef.current = null; }
+        setLog(`${petName} is knocked out!`);
+        addCombatLog(`${opponentName} knocks out ${petName}. The fight continues.`, "petKO", opponentName);
+    }
+
+    // Does the enemy go after the pet this action? Mostly the player; more likely
+    // the pet when it's low (easy KO) or nearer; the easy band leans back to you.
+    function enemyPickTarget(): "player" | "pet" {
+        if (!isPetAlive) return "player";
+        let petWeight = 0.32;
+        if (distance(enemyPos, petPos) < distance(enemyPos, playerPos)) petWeight += 0.15;
+        if (petMaxHp > 0 && petHp / petMaxHp < 0.4) petWeight += 0.2;
+        if (isStandardPve && opponentLevel <= 20) petWeight -= 0.1;
+        return Math.random() < Math.max(0, Math.min(0.7, petWeight)) ? "pet" : "player";
+    }
+
+    // Pet-directed clone of enemyBasicAttackOrMove: step toward the pet, or strike
+    // it. Damage is a share of the pet's max HP (folds under focus in ~3-4 hits),
+    // reduced by the pet's own Decrease-Damage-Taken / Absorb buffs + shield.
+    function enemyBasicAttackOrMovePet(): number {
+        if (!isPetAlive) return enemyBasicAttackOrMove();
+        const petName = summonedPet ? petDisplayName(summonedPet) : "your pet";
+        if (distance(petPos, enemyPos) > 1) {
+            const next = nextStepTowardFor(enemyPos, petPos, [playerPos]);
+            if (next >= 0 && next < gridWidth * gridHeight && next !== petPos && next !== playerPos) setEnemyPos(next);
+            setLog(`${opponentName} moves toward ${petName}.`);
+            addCombatLog(`${opponentName} moves toward ${petName}.`, "move", opponentName);
+            return 30;
+        }
+        const band = opponentLevel >= 80 ? 0.3 : opponentLevel >= 40 ? 0.26 : 0.22;
+        let dmg = Math.max(1, Math.floor(petMaxHp * band * (0.85 + Math.random() * 0.3)));
+        const ddtPct = petStatuses.filter((s) => s.name === "Decrease Damage Taken").reduce((a, s) => a + (s.percent || 0), 0);
+        if (ddtPct > 0) dmg = Math.floor(dmg * (1 - Math.min(60, ddtPct) / 100));
+        const absorbPct = petStatuses.filter((s) => s.name === "Absorb").reduce((a, s) => a + (s.percent || 0), 0);
+        if (absorbPct > 0) dmg = Math.max(0, dmg - Math.floor(dmg * Math.min(60, absorbPct) / 100));
+        const blocked = Math.min(petShield, dmg);
+        if (blocked > 0) { setPetShield((s) => Math.max(0, s - blocked)); dmg -= blocked; }
+        dmg = Math.max(0, dmg);
+        const newPetHp = Math.max(0, petHp - dmg);
+        setPetHp(newPetHp);
+        setLog(`${opponentName} strikes ${petName} for ${dmg}.`);
+        addCombatLog(`${opponentName} attacks ${petName} for ${dmg} damage${blocked ? ` (${blocked} blocked)` : ""}.`, "enemyAttackPet", opponentName);
+        if (newPetHp <= 0) petKnockedOut();
+        return 40;
+    }
+
     // Pick + execute ONE enemy action. Reactive counter-play (Clear/Cleanse) is
     // tried first, gated by band competence (pveAiCompetence) and the player read
     // (buildPlayerRead) — standard PvE only, so PvP/ranked/endless are untouched.
@@ -3964,6 +4338,14 @@ export function Arena({
     // a basic attack / step. Returns whether it acted and the AP it spent.
     function enemyTakeAction(availableAp: number): { acted: boolean; apSpent: number } {
         if (battleEnded) return { acted: false, apSpent: 0 };
+
+        // Target selection: the enemy sometimes goes after the summoned pet instead
+        // of the player (a step toward it / a basic strike). The player-directed
+        // logic below is unchanged.
+        if (enemyPickTarget() === "pet") {
+            const apSpent = enemyBasicAttackOrMovePet();
+            return { acted: apSpent > 0, apSpent };
+        }
 
         if (isStandardPve) {
             const comp = pveAiCompetence(opponentLevel, pendingAiProfile?.masterAi);
@@ -4273,7 +4655,18 @@ export function Arena({
         setSelectedActionId(undefined);
         setPotionUsesThisBattle(0);
         setSummonedPetId("");
-        lastPetActionKeyRef.current = "";
+        setPetPos(63);
+        setPetHp(0);
+        setPetMaxHp(0);
+        setPetStatuses([]);
+        setPetShield(0);
+        setPetJutsuCooldowns({});
+        setPetTurnsRemaining(0);
+        setPetSummonedThisFight(false);
+        petActingRef.current = false;
+        petPhaseStepsRef.current = 0;
+        petHasAttackedRef.current = false;
+        if (petPhaseTimerRef.current !== null) { window.clearTimeout(petPhaseTimerRef.current); petPhaseTimerRef.current = null; }
         // Reset the multi-action enemy-turn bookkeeping so a fresh fight never
         // inherits a stale "turn in progress" flag or leftover budget/memory.
         enemyTurnActiveRef.current = false;
@@ -4298,6 +4691,7 @@ export function Arena({
     };
     enemyTurnRef.current    = enemyTurn;
     enemyContinueRef.current = enemyContinue;
+    petContinueRef.current  = petContinue;
 
     // ── Combat-board memoization (mobile perf; see docs/combat-board-memoization-handoff.md) ──
     // The 120-tile hex grid + its range/AOE highlight Sets used to rebuild on
@@ -4796,6 +5190,9 @@ export function Arena({
                 playerShield={playerShield} enemyShield={enemyShield}
                 playerPos={playerPos} enemyPos={enemyPos}
                 battleHistory={battleHistory} summonedPetId={summonedPetId}
+                petPos={petPos} petHp={petHp} petMaxHp={petMaxHp}
+                petStatuses={petStatuses} petShield={petShield}
+                petJutsuCooldowns={petJutsuCooldowns} petTurnsRemaining={petTurnsRemaining}
                 rankedBattleActive={rankedBattleActive} clanWarPointsActive={clanWarPointsActive}
                 onRestore={(saved) => {
                     setBattleStarted(saved.battleStarted);
@@ -4822,6 +5219,14 @@ export function Arena({
                     setEnemyPos(saved.enemyPos);
                     setBattleHistory(saved.battleHistory as BattleActionEntry[]);
                     setSummonedPetId(saved.summonedPetId);
+                    setPetPos(saved.petPos ?? 63);
+                    setPetHp(saved.petHp ?? 0);
+                    setPetMaxHp(saved.petMaxHp ?? 0);
+                    setPetStatuses((saved.petStatuses ?? []) as CombatStatus[]);
+                    setPetShield(saved.petShield ?? 0);
+                    setPetJutsuCooldowns(saved.petJutsuCooldowns ?? {});
+                    setPetTurnsRemaining(saved.petTurnsRemaining ?? 0);
+                    setPetSummonedThisFight(Boolean(saved.summonedPetId));
                     setRankedBattleActive(saved.rankedBattleActive);
                     setClanWarPointsActive(saved.clanWarPointsActive);
                     setLog("Mid-battle state restored from previous session.");
@@ -5023,35 +5428,54 @@ export function Arena({
                                         </div>
                                     );
                                 };
-                                // Summoned pet — a smaller companion orb tucked beside the
-                                // player. A Glow Collar (pet.loadout.collar) lights it up.
-                                const petOrbForPos = (pos: number, pet: Pet) => {
+                                // Summoned pet — now a FULL-SIZE actor on its own tile (was a
+                                // tiny companion orb glued to the player). A Glow Collar
+                                // (pet.loadout.collar) still lights it up.
+                                const petActorOrb = (pos: number, pet: Pet) => {
                                     const row = Math.floor(pos / gridWidth);
                                     const col = pos % gridWidth;
-                                    const PET_ORB = Math.round(ORB * 0.62);
-                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2 + ORB * 0.62;
-                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - PET_ORB + ORB * 0.12;
+                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2;
+                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
                                     const collarVisual = petCollarVisual(pet.loadout?.collar);
-                                    // Glide alongside the player (see orbForPos) rather than snapping.
-                                    const style: Record<string, string | number> = { position: "absolute", left: x, top: y, width: PET_ORB, height: PET_ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" };
+                                    // Glide between cells (see orbForPos) rather than snapping.
+                                    const style: Record<string, string | number> = { position: "absolute", left: x, top: y, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" };
                                     if (collarVisual) style["--collar-glow"] = collarVisual.glow;
                                     const orbGlowClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
+                                    const petImg = petCardImage(pet, sharedImages);
                                     return (
-                                        <div key="pet-summon-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
-                                            {(() => {
-                                                const petImg = petCardImage(pet, sharedImages);
-                                                return petImg
-                                                    ? <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                                    : <span style={{ fontSize: PET_ORB * 0.5 }}>🐾</span>;
-                                            })()}
+                                        <div key="pet-actor-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
+                                            {petImg
+                                                ? <img className="tiny-map-avatar" src={petImg} alt={petDisplayName(pet)} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                                : <span style={{ fontSize: ORB * 0.5 }}>🐾</span>}
                                             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
+                                        </div>
+                                    );
+                                };
+                                // Slim pet HP bar + name + remaining-phases pill, floating just
+                                // above the pet orb (mobile-safe — no extra side HUD column).
+                                const petHpBadge = (pos: number, pet: Pet) => {
+                                    const row = Math.floor(pos / gridWidth);
+                                    const col = pos % gridWidth;
+                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2;
+                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB - 16;
+                                    const pct = Math.max(0, Math.min(100, (petHp / Math.max(1, petMaxHp)) * 100));
+                                    const color = pct > 50 ? "#22c55e" : pct > 25 ? "#f59e0b" : "#ef4444";
+                                    return (
+                                        <div key="pet-hp-badge" style={{ position: "absolute", left: x, top: y, width: ORB, zIndex: 11, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
+                                            <div style={{ height: 5, borderRadius: 3, background: "rgba(0,0,0,0.55)", overflow: "hidden", border: "1px solid rgba(0,0,0,0.6)" }}>
+                                                <span style={{ display: "block", height: "100%", width: `${pct}%`, background: color }} />
+                                            </div>
+                                            <div style={{ fontSize: 8, lineHeight: 1.2, textAlign: "center", color: "#e5e7eb", textShadow: "0 1px 2px #000", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {petDisplayName(pet)} · {petTurnsRemaining}⟳
+                                            </div>
                                         </div>
                                     );
                                 };
                                 return (
                                     <>
                                         {character.avatarImage && orbForPos(playerPos, false, character.avatarImage, character.name)}
-                                        {summonedPet && petOrbForPos(playerPos, summonedPet)}
+                                        {isPetAlive && summonedPet && petActorOrb(petPos, summonedPet)}
+                                        {isPetAlive && summonedPet && petHpBadge(petPos, summonedPet)}
                                         {isImageAvatar(opponentAvatar) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
                                     </>
                                 );
@@ -5104,9 +5528,9 @@ export function Arena({
                         <button onClick={clearEnemyPositiveEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.clear ?? 0) > 0 || ap < adjustedApCost(60)}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || (cooldowns.cleanse ?? 0) > 0 || ap < adjustedApCost(60)}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
                         {canSummonPet && (
-                            <button onClick={summonActivePet} disabled={!activeBattlePet || Boolean(summonedPet) || activeActor !== "player"}>
+                            <button onClick={summonActivePet} disabled={!activeBattlePet || Boolean(summonedPet) || petSummonedThisFight || activeActor !== "player"}>
                                 <span>Pet</span>
-                                <small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
+                                <small>{summonedPet ? `${petDisplayName(summonedPet)} fighting` : petSummonedThisFight ? "Pet already used" : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
                             </button>
                         )}
                         <button onClick={flee} disabled={battleEnded || activeActor !== "player" || actionsThisTurn >= 5 || ap < adjustedApCost(100)}><span>Flee</span><small>100 AP | 50%</small></button>

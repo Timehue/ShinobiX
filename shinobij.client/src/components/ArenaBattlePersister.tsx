@@ -25,6 +25,10 @@ type ArenaBattlePersisterProps = {
     playerPos: number; enemyPos: number;
     battleHistory: unknown[];
     summonedPetId: string;
+    petPos: number; petHp: number; petMaxHp: number;
+    petStatuses: unknown[]; petShield: number;
+    petJutsuCooldowns: Record<string, number>;
+    petTurnsRemaining: number;
     rankedBattleActive: boolean;
     clanWarPointsActive: number;
     onRestore: (saved: SavedArenaBattle) => void;
@@ -50,6 +54,10 @@ type SavedArenaBattle = {
     playerPos: number; enemyPos: number;
     battleHistory: unknown[];
     summonedPetId: string;
+    petPos: number; petHp: number; petMaxHp: number;
+    petStatuses: unknown[]; petShield: number;
+    petJutsuCooldowns: Record<string, number>;
+    petTurnsRemaining: number;
     rankedBattleActive: boolean;
     clanWarPointsActive: number;
 };
@@ -85,6 +93,10 @@ export function ArenaBattlePersister(props: ArenaBattlePersisterProps) {
                 playerPos: props.playerPos, enemyPos: props.enemyPos,
                 battleHistory: props.battleHistory,
                 summonedPetId: props.summonedPetId,
+                petPos: props.petPos, petHp: props.petHp, petMaxHp: props.petMaxHp,
+                petStatuses: props.petStatuses, petShield: props.petShield,
+                petJutsuCooldowns: props.petJutsuCooldowns,
+                petTurnsRemaining: props.petTurnsRemaining,
                 rankedBattleActive: props.rankedBattleActive,
                 clanWarPointsActive: props.clanWarPointsActive,
             };
