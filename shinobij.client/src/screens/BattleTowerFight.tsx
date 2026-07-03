@@ -52,6 +52,12 @@ type JutsuLike = { id?: string; name?: string; type?: string; element?: string; 
 function isMoveJutsu(j: JutsuLike | null | undefined): boolean {
     return Boolean(j) && Array.isArray(j!.tags) && j!.tags.some(t => tagMatchesName(t?.name ?? "", "Move"));
 }
+// AOE Burst — a target-centred radius-1 blast: striking one foe also hits every
+// enemy in the 6 hexes touching it (api/towers/_engine.ts jutsuAreaRadius → applyAoeSplash).
+// The board paints its splash footprint so it doesn't read as a single-target nuke.
+function isBurstJutsu(j: JutsuLike | null | undefined): boolean {
+    return Boolean(j) && String(j!.method ?? "") === "AOE_BURST";
+}
 type ItemLike = { id?: string; name?: string; slot?: string; weaponEp?: number; weaponRange?: number; apCost?: number; restoreChakra?: number; restoreStamina?: number };
 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
@@ -111,6 +117,8 @@ export function BattleTowerFight({
     const [mode, setMode] = useState<Mode>("idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [selWeaponId, setSelWeaponId] = useState<string>("");
+    // Enemy the cursor is over — centres the AOE Burst splash preview on desktop.
+    const [hoverEnemyPos, setHoverEnemyPos] = useState<number | null>(null);
     const [busy, setBusy] = useState(false);
     const [reject, setReject] = useState<string | null>(null);
     const [settle, setSettle] = useState<TowerSettleResponse | null>(null);
@@ -268,6 +276,21 @@ export function BattleTowerFight({
         return new Set<number>();
     }, [mode, myActor, selJutsu, weaponRange, myPos, w, h, session.actors, session.map.blockedTiles]);
 
+    // AOE Burst splash footprint — the target-centred radius-1 blast (target tile + its
+    // 6 touching hexes) that resolveHit → applyAoeSplash applies server-side. Centres on
+    // the hovered enemy (desktop); with no hover (mobile / no cursor) it shows the footprint
+    // around EVERY in-range enemy so the jutsu always reads as an area hit, never single-target.
+    const aoeBurstTiles = useMemo(() => {
+        const out = new Set<number>();
+        if (mode !== "jutsu" || !isBurstJutsu(selJutsu)) return out;
+        const hovered = hoverEnemyPos != null && session.actors.some(a => a.hp > 0 && a.side === "enemy" && a.pos === hoverEnemyPos && enemiesInRange.has(a.id));
+        const centres = hovered
+            ? [hoverEnemyPos!]
+            : session.actors.filter(a => a.hp > 0 && a.side === "enemy" && enemiesInRange.has(a.id)).map(a => a.pos);
+        for (const c of centres) { out.add(c); for (const n of towerNeighbors(c, w, h)) out.add(n); }
+        return out;
+    }, [mode, selJutsu, hoverEnemyPos, session.actors, enemiesInRange, w, h]);
+
     // First feature occupying each tile (for tinting + markers).
     const featureByTile = useMemo(() => {
         const m = new Map<number, TowerFeature>();
@@ -370,6 +393,7 @@ export function BattleTowerFight({
         mode === "jutsu" && isSelfCastJutsu(selJutsu) ? `Click yourself to cast ${selJutsu?.name ?? "it"}.` :
         mode === "jutsu" && isMoveJutsu(selJutsu) ? `Click a highlighted tile to flicker there with ${selJutsu?.name ?? "it"}.` :
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
+        mode === "jutsu" && isBurstJutsu(selJutsu) ? `Click an enemy — ${selJutsu?.name ?? "the blast"} also hits foes in the amber tiles around them.` :
         mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
 
     return (
@@ -449,6 +473,13 @@ export function BattleTowerFight({
                                         style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: fill, filter: `drop-shadow(0 0 2px ${edge})`, zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
                                 }))}
 
+                                {/* AOE Burst splash preview — amber footprint of the target-centred blast (target + touching hexes) */}
+                                {[...aoeBurstTiles].map(t => {
+                                    const { left, top } = towerHexPixel(t, w);
+                                    return <div key={`burst-${t}`} className="tower-hex-tile" aria-hidden
+                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(251,146,60,0.34)", filter: "drop-shadow(0 0 2px rgba(249,115,22,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
+                                })}
+
                                 {/* feature markers — one icon at a pylon flower's centre, one per
                                     tile for scattered hazards / single wards */}
                                 {(session.map.features ?? []).map((feat, fi) => {
@@ -487,6 +518,8 @@ export function BattleTowerFight({
                                     const pct = Math.max(0, Math.min(100, (a.hp / Math.max(1, a.maxHp)) * 100));
                                     return (
                                         <div key={a.id} onClick={() => onTileClick(a.pos)} title={`${a.name} ${a.hp}/${a.maxHp}`}
+                                            onMouseEnter={a.side === "enemy" ? () => setHoverEnemyPos(a.pos) : undefined}
+                                            onMouseLeave={a.side === "enemy" ? () => setHoverEnemyPos(null) : undefined}
                                             style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: targetable || selfTargetable ? "pointer" : "default" }}>
                                             <div className={`avatar-orb${a.side === "enemy" ? " enemy-orb" : ""}`}
                                                 style={{
