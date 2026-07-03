@@ -2940,6 +2940,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 @keyframes petCutinBg { 0% { opacity: 0; } 9% { opacity: 1; } 76% { opacity: 1; } 100% { opacity: 0; } }
                 @keyframes petCutinStreak { 0% { opacity: 0; transform: translateX(-28%); } 14% { opacity: 0.95; } 100% { opacity: 0; transform: translateX(18%); } }
                 @keyframes petCutinName { 0% { opacity: 0; transform: translateX(-16%) skewX(-7deg) scale(0.68); } 16% { opacity: 1; transform: translateX(0) skewX(-7deg) scale(1.09); } 30% { transform: translateX(0) skewX(-7deg) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateX(7%) skewX(-7deg) scale(1); } }
+                @keyframes petCutinInL { 0% { opacity: 0; transform: translateY(-50%) translateX(-45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(-8%) scale(1); } }
+                @keyframes petCutinInR { 0% { opacity: 0; transform: translateY(-50%) translateX(45%) scale(0.9); } 15% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1.05); } 30% { transform: translateY(-50%) translateX(0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-50%) translateX(8%) scale(1); } }
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />
@@ -2991,29 +2993,34 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                 </div>
             )}
 
-            {/* Signature ultimate cut-in — anime portrait + move-name slam (reuses
-                the round renderer's .pet-cutin CSS). pointer-events:none so controls
-                stay clickable; auto-clears after the slam. */}
-            {/* Anime signature CUT-IN backdrop — a dark slam + diagonal speed lines + the move
-                name HUGE; the action freeze-frames behind it (hitStop set where the cut-in fires). */}
-            {cutIn && (
-                <div key={`cutin-bg-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.5)", animation: "petCutinBg 1650ms ease-out forwards" }} />
-                    <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${cutIn.side === "player" ? "rgba(96,165,250,0.14)" : "rgba(248,113,113,0.14)"} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
-                    <div style={{ position: "absolute", left: 0, right: 0, top: "55%", textAlign: "center", font: "900 clamp(38px,8vw,92px)/0.9 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 32px ${cutIn.side === "player" ? "rgba(96,165,250,0.95)" : "rgba(248,113,113,0.95)"}, 0 6px 16px #000`, animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>{cutIn.move}!</div>
-                </div>
-            )}
-            {cutIn && (
-                <div className={`pet-cutin ${cutIn.side}`} key={`duel-cutin-${cutIn.id}`}>
-                    <div className="pet-cutin-portrait">
-                        <PetBattleAvatar pet={cutIn.pet} side={cutIn.side} active sharedImages={sharedImages} />
+            {/* Anime signature CUT-IN — the action freeze-frames (hitStop) while a dark slam +
+                diagonal speed lines sweep in, the pet's PORTRAIT slams from its side, and the
+                move name lands huge. Self-contained (no external CSS) so it always shows. */}
+            {cutIn && (() => {
+                const isEnemy = cutIn.side === "enemy";
+                const glow = isEnemy ? "rgba(248,113,113,0.95)" : "rgba(96,165,250,0.95)";
+                const streak = isEnemy ? "rgba(248,113,113,0.16)" : "rgba(96,165,250,0.16)";
+                const band = isEnemy ? "rgba(127,29,29,0.6)" : "rgba(30,58,138,0.6)";
+                const portrait = petBattleSprite(cutIn.pet, sharedImages).src;
+                return (
+                    <div key={`cutin-${cutIn.id}`} style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden", zIndex: 30 }}>
+                        <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,12,0.55)", animation: "petCutinBg 1650ms ease-out forwards" }} />
+                        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(${isEnemy ? 255 : 105}deg, transparent 40%, ${band} 50%, transparent 60%)`, animation: "petCutinBg 1650ms ease-out forwards" }} />
+                        <div style={{ position: "absolute", inset: "-25%", background: `repeating-linear-gradient(112deg, transparent 0 16px, ${streak} 16px 21px)`, animation: "petCutinStreak 900ms ease-out forwards" }} />
+                        {/* BIG portrait slamming in from the pet's side */}
+                        <div style={{ position: "absolute", top: "50%", [isEnemy ? "right" : "left"]: "3%", animation: `${isEnemy ? "petCutinInR" : "petCutinInL"} 1650ms cubic-bezier(.2,.9,.2,1) forwards` }}>
+                            {portrait
+                                ? <img src={portrait} alt={cutIn.pet.name} style={{ height: "min(48vh,360px)", width: "auto", objectFit: "contain", filter: `drop-shadow(0 0 26px ${glow}) drop-shadow(0 10px 22px #000)`, transform: isEnemy ? "scaleX(-1)" : "none" }} />
+                                : <div style={{ width: "min(30vh,220px)", height: "min(30vh,220px)", borderRadius: "50%", background: `radial-gradient(circle at 40% 35%, ${glow}, #0b1020)`, display: "grid", placeItems: "center", font: "900 64px Cinzel, serif", color: "#fff", boxShadow: `0 0 30px ${glow}` }}>{cutIn.pet.name.slice(0, 2).toUpperCase()}</div>}
+                        </div>
+                        {/* pet name + HUGE move name on the opposite side */}
+                        <div style={{ position: "absolute", [isEnemy ? "left" : "right"]: "6%", top: "33%", maxWidth: "58%", textAlign: isEnemy ? "left" : "right", animation: "petCutinName 1650ms cubic-bezier(.2,.9,.2,1) forwards" }}>
+                            <div style={{ font: "800 clamp(13px,1.8vw,22px) Cinzel, serif", letterSpacing: "0.2em", textTransform: "uppercase", color: isEnemy ? "#fca5a5" : "#93c5fd", textShadow: "0 2px 8px #000" }}>{cutIn.pet.name}</div>
+                            <div style={{ font: "900 clamp(34px,6.5vw,80px)/0.92 Cinzel, serif", color: "#fff", letterSpacing: "0.01em", textShadow: `0 0 34px ${glow}, 0 6px 16px #000`, marginTop: 4 }}>{cutIn.move}!</div>
+                        </div>
                     </div>
-                    <div className="pet-cutin-text">
-                        <span className="pet-cutin-pet">{cutIn.pet.name}</span>
-                        <span className="pet-cutin-move">{cutIn.move}!</span>
-                    </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Combat-juice overlays: full-screen element flash, big callout, combo. */}
             {flash && (
