@@ -5,7 +5,7 @@
  */
 import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import { classifyBattleLogLine, tokenizeBattleLogLine, interpolateFlavor } from "./battle-log-format";
+import { classifyBattleLogLine, tokenizeBattleLogLine, interpolateFlavor, glyphForBattleLogLine, groupBattleLogActions } from "./battle-log-format";
 
 describe("classifyBattleLogLine — core categories (user-mandated)", () => {
     it("heal numbers → green/heal", () => {
@@ -107,6 +107,70 @@ describe("tokenizeBattleLogLine — numeric emphasis", () => {
         const segs = tokenizeBattleLogLine("Pierce: bypasses defenses.");
         assert.equal(segs.length, 1);
         assert.equal(segs[0]!.isNumber, false);
+    });
+});
+
+describe("glyphForBattleLogLine — category marker", () => {
+    it("each category maps to a distinct, non-empty glyph", () => {
+        const g = {
+            heal: glyphForBattleLogLine("Heal: Naruto restores 750 HP."),
+            damage: glyphForBattleLogLine("1355 damage to Sasuke."),
+            shield: glyphForBattleLogLine("Shield: Naruto gains 750 shield."),
+            control: glyphForBattleLogLine("Stun: Sasuke loses 40 AP next turn."),
+            system: glyphForBattleLogLine("--- Round 3 ---"),
+        };
+        for (const v of Object.values(g)) assert.ok(v && v.length > 0);
+        // distinct across these five
+        assert.equal(new Set(Object.values(g)).size, 5);
+    });
+});
+
+describe("groupBattleLogActions — owner-attributed grouping", () => {
+    it("groups a cast's effect lines under the caster, numbering real casts", () => {
+        const { actions } = groupBattleLogActions([
+            "Naruto uses Chidori: Lightning pierces the air.",
+            "Damage Dealt: Sasuke takes 450 damage.",
+            "Naruto's shield blocks 100 damage.", // MUST stay an effect, not a new action
+            "Sasuke uses Fireball: Flames roar.",
+            "Damage Dealt: Naruto takes 300 damage.",
+        ], "Naruto", "Sasuke");
+
+        assert.equal(actions.length, 2);
+        assert.equal(actions[0]!.role, "player");
+        assert.equal(actions[0]!.actor, "Naruto");
+        assert.equal(actions[0]!.actionNumber, 1);
+        assert.equal(actions[0]!.headline, "Chidori: Lightning pierces the air.");
+        assert.equal(actions[0]!.effectLines.length, 2); // damage + shield-block
+        assert.equal(actions[1]!.role, "enemy");
+        assert.equal(actions[1]!.actor, "Sasuke");
+        assert.equal(actions[1]!.actionNumber, 2);
+    });
+
+    it("treats basic attacks as casts and turn/win narration as ownerless-by-side", () => {
+        const { actions } = groupBattleLogActions([
+            "Naruto attacks Sasuke for 245 damage.",
+            "Sasuke ends their turn.",
+            "⚔️ Naruto wins!",
+        ], "Naruto", "Sasuke");
+
+        assert.equal(actions[0]!.actionNumber, 1);
+        assert.equal(actions[0]!.actor, "Naruto");
+        assert.equal(actions[1]!.actor, ""); // turn-pass: slim narration
+        assert.equal(actions[1]!.role, "enemy"); // colored by side
+        assert.equal(actions[2]!.actor, ""); // win banner
+        assert.equal(actions[2]!.role, "system"); // "⚔️"-led → no side
+    });
+
+    it("continues cast numbering across rounds via startActionNumber", () => {
+        const r1 = groupBattleLogActions(["Naruto uses A: x."], "Naruto", "Sasuke", 0);
+        const r2 = groupBattleLogActions(["Sasuke uses B: y."], "Naruto", "Sasuke", r1.nextActionNumber);
+        assert.equal(r1.actions[0]!.actionNumber, 1);
+        assert.equal(r2.actions[0]!.actionNumber, 2);
+    });
+
+    it("skips round separators", () => {
+        const { actions } = groupBattleLogActions(["--- Round 2 ---", "Naruto uses A: x."], "Naruto", "Sasuke");
+        assert.equal(actions.length, 1);
     });
 });
 
