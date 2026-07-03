@@ -2167,8 +2167,9 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
     position: relative;
     width: 100%;
     max-width: 720px;
-    max-height: 90vh;
+    max-height: calc(100dvh - 32px);
     overflow-y: auto;
+    scrollbar-gutter: stable;
     border-radius: 16px;
     border: 1px solid rgba(250, 204, 21, 0.35);
     color: #e5e7eb;
@@ -2208,8 +2209,8 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
 }
 .daily-briefing-close {
     flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     border-radius: 8px;
     border: 1px solid rgba(148, 163, 184, 0.4);
     background: rgba(2, 6, 15, 0.5);
@@ -2301,7 +2302,16 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
 .db-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; }
 .db-list-key { color: #e2e8f0; }
 .db-list-val { color: #67e8f9; font-weight: 700; font-variant-numeric: tabular-nums; }
-.db-list-go { background: none; border: none; padding: 0; color: #fcd34d; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+.db-list-go {
+    min-height: 32px;
+    background: none;
+    border: none;
+    padding: 6px 0;
+    color: #fcd34d;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
 .db-list-go:hover { text-decoration: underline; }
 
 /* Current logbook objective */
@@ -2341,7 +2351,12 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
 .db-empty { margin: 0; font-size: 0.84rem; color: #94a3b8; font-style: italic; }
 
 /* Footer */
-.daily-briefing-footer { padding: 14px 16px 18px; }
+.daily-briefing-footer {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 16px 16px;
+    background: linear-gradient(180deg, rgba(11, 17, 32, 0), rgba(11, 17, 32, 0.94) 28%, rgba(11, 17, 32, 0.98));
+}
 .db-dismiss {
     width: 100%;
     padding: 11px;
@@ -19625,7 +19640,9 @@ button.combat-jutsu-button,
   }
 
   .mobile-menu-close {
-    width: 40px;
+    flex: 0 0 40px;
+    width: 40px !important;
+    min-width: 40px;
     height: 40px;
     border-radius: 50%;
     border: 1px solid #334155;
