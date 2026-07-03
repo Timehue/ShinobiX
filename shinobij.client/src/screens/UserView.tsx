@@ -20,7 +20,8 @@ import { sendStandardDuel } from "../lib/duel-challenge";
 import { RankBadge } from "../components/RankBadge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
-import { titleStyleColor, fetchLegacyDefinitions, type LegacyDefView } from "../lib/legacy";
+import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, type LegacyDefView } from "../lib/legacy";
+import { LegacyBadge } from "../components/LegacyBadge";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "#f87171", water: "#60a5fa", earth: "#d4a574", lightning: "#fbbf24",
@@ -215,24 +216,37 @@ export function UserView({
                             {ownedElements.map((el) => <span key={el} style={chipStyle(elementColor(el))}>{el}</span>)}
                             {viewedCharacter.clan && <span style={chipStyle("#facc15")}>🏳 {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
                             {professionLabel && <span style={chipStyle("#38bdf8")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
-                            {viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (
-                                <span
-                                    style={{ ...chipStyle("#c084fc"), display: "inline-flex", alignItems: "center", gap: 5 }}
-                                    title={`${viewedLegacyDef.name} — Legacy, Stage ${["", "I", "II", "III", "IV", "V"][viewedCharacter.legacy.stage] ?? viewedCharacter.legacy.stage}`}
-                                >
-                                    {viewedLegacyDef.badge && (
-                                        <img
-                                            src={`/badges/legacy-${viewedLegacyDef.badge}.png`} alt=""
-                                            style={{ width: 16, height: 16, borderRadius: 3 }}
-                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                        />
-                                    )}
-                                    {viewedLegacyDef.name.replace(/^Legacy of the /, "")} · {["", "I", "II", "III", "IV", "V"][viewedCharacter.legacy.stage] ?? viewedCharacter.legacy.stage}
-                                </span>
-                            )}
                         </div>
                     </div>
                 </section>
+
+                {/* Legacy hero band — the viewed player's earned identity path, a
+                    dedicated showcase (not a lost inline pill). Sits inside the
+                    strict id-match guard, so flag-off (definitions 404 → null def)
+                    renders nothing and stays byte-identical. Rank is owner-only:
+                    name/title/flavor/era/stage only, single violet accent. */}
+                {viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (() => {
+                    const L = viewedCharacter.legacy;
+                    const roman = ["", "I", "II", "III", "IV", "V"][L.stage] ?? L.stage;
+                    const earnedTitle = L.titles?.[L.titles.length - 1] ?? viewedLegacyDef.title;
+                    const era = eraAgeName(L.eraBorn);
+                    return (
+                        <section style={{ marginTop: 12, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(192,132,252,.35)" }}>
+                            <div style={{ padding: "12px 14px", background: "linear-gradient(135deg, rgba(192,132,252,.16), transparent 72%)", display: "flex", gap: 12, alignItems: "center" }}>
+                                <LegacyBadge badge={viewedLegacyDef.badge} name={viewedLegacyDef.name} size={54} stage={L.stage} />
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: ".6rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#c084fc" }}>🌠 Legacy</div>
+                                    <b style={{ fontSize: "1.05rem", color: "#e9d5ff" }}>{viewedLegacyDef.name}</b>
+                                    <div style={{ fontSize: ".76rem", color: "#cbd5e1" }}>Stage {roman} · «{earnedTitle}»</div>
+                                </div>
+                            </div>
+                            <div style={{ padding: "10px 14px" }}>
+                                <p style={{ margin: 0, fontSize: ".78rem", color: "#cbd5e1", fontStyle: "italic" }}>{viewedLegacyDef.flavor}</p>
+                                {era && <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>📜 Taken up in {era}.</p>}
+                            </div>
+                        </section>
+                    );
+                })()}
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginTop: 12 }}>
                     {metrics.map((m) => (

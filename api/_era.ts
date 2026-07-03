@@ -112,7 +112,7 @@ export type EraView = {
     chronicle: string[];
     status: EraStatus;
     milestones: Array<{ metric: EraMetric; label: string; required: number; current: number; done: boolean }>;
-    trigger: { label: string; fired: boolean; firedBy?: string } | null;
+    trigger: { label: string; fired: boolean; firedBy?: string; firedByVillage?: string } | null;
     unlockedBy: string | null;
     unlockedVillage: string | null;
     unlockedAt: number | null;
@@ -138,11 +138,14 @@ export function buildEraViews(
                 return { metric: m.metric, label: m.label, required, current, done: current >= required };
             }),
             trigger: def.trigger
-                ? { label: def.trigger.label, fired: !!trigRec, ...(trigRec ? { firedBy: trigRec.player } : {}) }
+                ? { label: def.trigger.label, fired: !!trigRec, ...(trigRec ? { firedBy: trigRec.player, ...(trigRec.village ? { firedByVillage: trigRec.village } : {}) } : {}) }
                 : null,
             unlockedBy: override?.unlockedBy ?? null,
             unlockedVillage: override?.unlockedVillage ?? null,
-            unlockedAt: override?.unlockedAt ?? null,
+            // Launch eras (I–IV) carry no runtime unlock record; fall back to
+            // their authored historical timestamp so each has a distinct
+            // "Legends of this Age" window (a live override still wins).
+            unlockedAt: override?.unlockedAt ?? def.unlockedAt ?? null,
         };
     });
 }

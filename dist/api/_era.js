@@ -117,11 +117,14 @@ function buildEraViews(state, counters, triggers) {
                 return { metric: m.metric, label: m.label, required, current, done: current >= required };
             }),
             trigger: def.trigger
-                ? { label: def.trigger.label, fired: !!trigRec, ...(trigRec ? { firedBy: trigRec.player } : {}) }
+                ? { label: def.trigger.label, fired: !!trigRec, ...(trigRec ? { firedBy: trigRec.player, ...(trigRec.village ? { firedByVillage: trigRec.village } : {}) } : {}) }
                 : null,
             unlockedBy: override?.unlockedBy ?? null,
             unlockedVillage: override?.unlockedVillage ?? null,
-            unlockedAt: override?.unlockedAt ?? null,
+            // Launch eras (I–IV) carry no runtime unlock record; fall back to
+            // their authored historical timestamp so each has a distinct
+            // "Legends of this Age" window (a live override still wins).
+            unlockedAt: override?.unlockedAt ?? def.unlockedAt ?? null,
         };
     });
 }

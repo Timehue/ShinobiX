@@ -64,6 +64,16 @@ const AFFINITY_AWAKEN_MSGS = [
     (p, n, v) => `A favored path returns to ${v} — ${p} has awakened the ${n}. Let the gate-fires burn a little higher tonight.`,
     (p, n, v) => `Word runs the ${v} streets: ${p} carries the ${n} now. This legacy has always belonged to us.`,
 ];
+// Server-local mirror of lib/legacy-emissaries.ts category→emissary mapping (the
+// client lib can't be imported from api/). Every LegacyCategory maps to exactly
+// one of the eight trial-giver emissaries; used to voice the home-village herald
+// in the keeper's own name. Data-dup, not an asset.
+const EMISSARY_NAME_BY_CATEGORY = {
+    ninjutsu: 'Storm-Caller Ryn', genjutsu: 'Veil-Mother Suzu', taijutsu: 'Iron Pilgrim Daigo',
+    bukijutsu: 'Blade-Keeper Hana', pvp: 'Duel-Broker Kesshi', cards: 'Duel-Broker Kesshi', war: 'Duel-Broker Kesshi',
+    pve: 'The Hollow Warden', mythic: 'The Hollow Warden', support: 'Lantern-Warden Mei', village: 'Lantern-Warden Mei',
+    explorer: 'Mapless Ojii', pets: 'Mapless Ojii',
+};
 /** Server-first hall claim with a contention retry: addHallEntry returns null
  *  BOTH when the NX is already claimed and on transient lock contention — only
  *  the second case should retry, or a busy moment could permanently cost the
@@ -320,6 +330,17 @@ async function handler(req, res) {
                     // every village has a local stake in the legacies it favors.
                     if (def.villageAffinity) {
                         await (0, _announce_js_1.postVillageHerald)(`${def.villageAffinity} Village`, 'A Favored Path Awakens', pick(AFFINITY_AWAKEN_MSGS)(playerName, def.name, def.villageAffinity));
+                    }
+                    // The player's OWN village hears of it too — voiced by the
+                    // emissary who keeps this legacy's paths. `village` is the full
+                    // stored form ("Frostfang Village"); pass it VERBATIM. Skip when
+                    // home IS the affinity village (that herald already fired there).
+                    if (village && (!def.villageAffinity || village !== `${def.villageAffinity} Village`)) {
+                        const keeper = EMISSARY_NAME_BY_CATEGORY[def.category];
+                        const homeMsg = keeper
+                            ? `${keeper} was seen at the ${village} gate: "One of yours, ${playerName}, has taken up the ${def.name}. Mark the day."`
+                            : `${village} marks the day: one of its own, ${playerName}, has taken up the ${def.name}.`;
+                        await (0, _announce_js_1.postVillageHerald)(village, 'One of Ours Awakens', homeMsg);
                     }
                 }
                 else if (trial.kind === 'bind' && def.rarity === 'mythic') {
