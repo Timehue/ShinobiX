@@ -48,6 +48,7 @@ import { cappedPostDamage, formatJutsuResourcePercent, gainJutsuXpForRank, getJu
 import { pveDifficultyStatMultiplier, pveDifficultyHpMultiplier, scaleStatsForPveDifficulty, pveAiMasteryForLevel, pveGuardedEnemyHit, pveEasyBandHoldsBurst, pveIsBurstJutsuAp, pveEasyBandAllowsLethal, pveAiCompetence } from "../lib/pve-difficulty";
 import { buildPlayerRead, classifyPlayerAction, type PlayerActionRecord } from "../lib/combat-ai-tactics";
 import { isControlJutsu, isPressureJutsu, isSelfSupportJutsu, makeJutsu, normalizeJutsu } from "../lib/jutsu";
+import { jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { effectiveTagPercent, normalizeTagName, opponentAffectingTags, pvpAffectsOpponent, statusMatchesName, tagMatchesName } from "../lib/tags";
 import { canEquipElementJutsu } from "../lib/bloodline";
 import { hasCharacterElement, weatherElementOf } from "../lib/elements";
@@ -5207,6 +5208,12 @@ export function Arena({
                                                 <span><strong>Chakra Usage:</strong> {formatJutsuResourcePercent(inspectedJutsu, "chakra", mastery.level)}</span>
                                                 <span><strong>Stamina Usage:</strong> {formatJutsuResourcePercent(inspectedJutsu, "stamina", mastery.level)}</span>
                                             </div>
+
+                                            {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return (
+                                                <p className="combat-jutsu-detail-desc">
+                                                    <strong style={{ color: "#c084fc" }}>🎯 {t.short}:</strong> {t.detail}
+                                                </p>
+                                            ); })()}
 
                                             {inspectedJutsu.description && (
                                                 <p className="combat-jutsu-detail-desc">
