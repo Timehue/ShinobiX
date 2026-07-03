@@ -9,7 +9,7 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { xpNeeded } from "../App";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
@@ -57,6 +57,7 @@ export const MobileNav = memo(function MobileNav({
     const [open, setOpen] = useState(false);
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
     const [youOpen, setYouOpen] = useState(false);
+    const navLockUntilRef = useRef(0);
     const isAdminAccount = isProtectedAdminName(character.name);
 
     // Treat the slide-up menu as a modal dialog: lock the body scroll behind it
@@ -75,6 +76,9 @@ export const MobileNav = memo(function MobileNav({
         : Math.min(100, Math.round((character.xp / xpNeeded(character.level)) * 100));
 
     function go(screen: Screen) {
+        const now = Date.now();
+        if (now < navLockUntilRef.current) return;
+        navLockUntilRef.current = now + 300;
         navigate(screen);
         setOpen(false);
     }
@@ -83,7 +87,7 @@ export const MobileNav = memo(function MobileNav({
         <>
             {!open && (
                 <MobileNotificationBar
-                    navigate={navigate}
+                    navigate={go}
                     screen={screen}
                     clan={character.clan ?? ""}
                     village={character.village}
@@ -124,7 +128,7 @@ export const MobileNav = memo(function MobileNav({
                 character={character}
                 updateCharacter={updateCharacter}
                 currentSector={currentSector}
-                setScreen={navigate}
+                setScreen={go}
                 activeTraining={activeTraining}
                 activeJutsuTraining={activeJutsuTraining}
             />
