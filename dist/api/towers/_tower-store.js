@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.inviteKey = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
+exports.inviteKey = exports.SPIRE_SHARDS_PER_TIER = exports.MAX_ASSISTS_PER_DAY = exports.MAX_TOWER_STARTS_PER_DAY = exports.SPIRE_REWARD_TTL = exports.PAID_RECEIPT_TTL = exports.RUN_TOKEN_TTL = exports.TOWER_SESSION_TTL = exports.spireRewardKey = exports.startCountKey = exports.assistCountKey = exports.assistPaidKey = exports.firstClearKey = exports.floorPaidKey = exports.runTokenKey = exports.sessionKey = void 0;
+exports.isSpireRun = isSpireRun;
 exports.utcDateKey = utcDateKey;
 exports.bumpDailyStartCount = bumpDailyStartCount;
 exports.storeRunToken = storeRunToken;
@@ -12,6 +13,7 @@ exports.getTowerInvite = getTowerInvite;
 exports.clearTowerInvite = clearTowerInvite;
 exports.settleFloorForMember = settleFloorForMember;
 exports.settleAssistForAlly = settleAssistForAlly;
+exports.settleSpireForMember = settleSpireForMember;
 /*
  * Battle Towers — KV storage + server-authoritative reward settlement (Phase 1, P1.B).
  *
@@ -40,6 +42,8 @@ const _save_version_js_1 = require("../save/_save-version.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
 const _tower_rewards_js_1 = require("./_tower-rewards.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
+const _spire_catalog_js_1 = require("./_spire-catalog.js");
+const _weekly_board_js_1 = require("../missions/_weekly-board.js");
 // ─── key scheme (all server-only; on the base Postgres store, NOT the disk overlay) ─
 const sessionKey = (runId) => `tower:${runId}`;
 exports.sessionKey = sessionKey;
@@ -55,11 +59,22 @@ const assistCountKey = (slug, dateKey) => `tower-assist-count:${slug}:${dateKey}
 exports.assistCountKey = assistCountKey;
 const startCountKey = (host, dateKey) => `tower-start-count:${host}:${dateKey}`;
 exports.startCountKey = startCountKey;
+// Endless Spire: best-tier-per-week reward receipt (once per tier per reset-week per player).
+const spireRewardKey = (slug, wk, tier) => `tower-spire-reward:${slug}:${wk}:${tier}`;
+exports.spireRewardKey = spireRewardKey;
 exports.TOWER_SESSION_TTL = 30 * 60; // 30 min (refreshed on every action)
 exports.RUN_TOKEN_TTL = 60 * 60; // 1 h
 exports.PAID_RECEIPT_TTL = 24 * 60 * 60; // 24 h (per-run replay guard)
+exports.SPIRE_REWARD_TTL = 8 * 24 * 60 * 60; // 8 days (spans a full reset-week + slack)
 exports.MAX_TOWER_STARTS_PER_DAY = 60;
 exports.MAX_ASSISTS_PER_DAY = 20;
+// Endless Spire — modest, best-per-week Fate Shard trickle (ceiling 2×20 = 40/week @ tier 20),
+// deliberately below a one-time full story clear (~80) to protect the de-inflating economy.
+exports.SPIRE_SHARDS_PER_TIER = 2;
+/** A settled session belongs to the Endless Spire (has a sealed ascension tier). */
+function isSpireRun(session) {
+    return typeof session.ascensionTier === 'number' && session.ascensionTier > 0;
+}
 function utcDateKey(ms) {
     return new Date(ms).toISOString().slice(0, 10);
 }
@@ -261,6 +276,85 @@ async function settleAssistForAlly(params, deps = {}) {
                 throw e;
             }
             result = { paid: true };
+        }, { failClosed: true });
+    }
+    catch {
+        result = { paid: false, reason: 'contended' };
+    }
+    return result;
+}
+// ─── Endless Spire settlement (best-tier-per-week; separate from the story channel) ──
+// Apply a spire clear to a character: unlock the next tier (permanent battleTowerAscension),
+// bump the weekly-best (reset by week), and credit the flat Fate Shard reward (caller decides
+// whether it's the first clear of this tier this week). NO xp/ryo — a focused premium trickle.
+function creditSpireClear(char, tier, wk, shards) {
+    const sameWeek = String(char.battleTowerSpireWeekKey ?? '') === wk;
+    const weeklyBest = Math.max(sameWeek ? num(char.battleTowerSpireWeeklyBest) : 0, tier);
+    return {
+        ...char,
+        fateShards: num(char.fateShards) + Math.max(0, Math.floor(shards)),
+        // Permanent unlock: highest spire tier cleared (drives the entry gate + milestone titles).
+        battleTowerAscension: Math.max(num(char.battleTowerAscension), tier),
+        // Weekly leaderboard bucket (auto-resets when the week rolls over).
+        battleTowerSpireWeeklyBest: weeklyBest,
+        battleTowerSpireWeekKey: wk,
+    };
+}
+/**
+ * Settle an Endless Spire clear for ONE live squad member. Server-authoritative + idempotent:
+ * re-verifies the session (done + squad win), reads the SEALED session.ascensionTier (never a
+ * client tier), and — inside the member's failClosed save lock — unlocks the next tier and pays
+ * the best-tier-per-week Fate Shard reward exactly once per (tier, reset-week). Distinct from the
+ * story firstClearKey path: spire floors are re-farmable weekly, so the reward gate is weekly.
+ */
+async function settleSpireForMember(params, deps = {}) {
+    const kv = deps.kv ?? _storage_js_1.kv;
+    const lock = deps.lock ?? _lock_js_1.withKvLock;
+    const now = deps.now ?? Date.now;
+    const { session, slug } = params;
+    if (!isClearedSquadWin(session))
+        return { paid: false, reason: 'not-cleared' };
+    if (!isSquadMember(session, slug))
+        return { paid: false, reason: 'not-a-member' };
+    const tier = Math.floor(Number(session.ascensionTier ?? 0));
+    if (!(0, _spire_catalog_js_1.isValidSpireTier)(tier))
+        return { paid: false, reason: 'not-spire' };
+    let result = { paid: false, reason: 'unknown' };
+    try {
+        await lock(`save:${slug}`, async () => {
+            // Per-run replay guard (24h): a given run settles this member at most once.
+            const runReceipt = (0, exports.floorPaidKey)(session.runId, tier, slug);
+            if (!(await kv.set(runReceipt, { ts: now() }, { nx: true, ex: exports.PAID_RECEIPT_TTL }))) {
+                result = { paid: false, reason: 'already-paid', score: tier };
+                return;
+            }
+            // Best-tier-per-week reward: the flat Fate Shard trickle is paid the FIRST time this
+            // tier is cleared this reset-week (so a full 1→20 climb pays 2×20 = 40, no farming).
+            const wk = (0, _weekly_board_js_1.weekKey)(now());
+            const rewardReceipt = (0, exports.spireRewardKey)(slug, wk, tier);
+            const rewardPlaced = await kv.set(rewardReceipt, { ts: now() }, { nx: true, ex: exports.SPIRE_REWARD_TTL });
+            const shards = rewardPlaced ? exports.SPIRE_SHARDS_PER_TIER : 0;
+            const saveKey = `save:${slug}`;
+            const record = await kv.get(saveKey);
+            const char = record?.character;
+            if (!record || !char) {
+                await kv.del(runReceipt).catch(() => undefined);
+                if (rewardPlaced)
+                    await kv.del(rewardReceipt).catch(() => undefined);
+                result = { paid: false, reason: 'no-save' };
+                return;
+            }
+            const updated = creditSpireClear(char, tier, wk, shards);
+            try {
+                await kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...record, character: updated }), record));
+            }
+            catch (e) {
+                await kv.del(runReceipt).catch(() => undefined);
+                if (rewardPlaced)
+                    await kv.del(rewardReceipt).catch(() => undefined);
+                throw e;
+            }
+            result = { paid: true, score: tier };
         }, { failClosed: true });
     }
     catch {

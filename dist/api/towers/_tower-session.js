@@ -59,5 +59,15 @@ function createTowerSession(p) {
         log: [],
         createdAt: p.now,
         lastActionAt: p.now,
+        // Endless Spire: seal the ascension modifiers (absent → undefined, story unchanged).
+        ...(p.ascension ? {
+            ascensionTier: p.ascension.ascensionTier,
+            spireBossId: p.spireBossId,
+            roundCap: p.ascension.roundCap,
+            enrageCap: p.ascension.enrageCap,
+            dmgMult: p.ascension.dmgMult,
+            modifierStack: p.ascension.modifierStack,
+            ...(typeof p.regenFlatCap === 'number' ? { regenFlatCap: p.regenFlatCap } : {}),
+        } : {}),
     };
 }

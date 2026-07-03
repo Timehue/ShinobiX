@@ -411,7 +411,12 @@ export function BattleTowerFight({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
                         <strong>Floor {session.floor} · {objective.replace(/-/g, " ")}</strong>
                         <span title="Objective progress" style={{ color: "#fcd34d", fontSize: "0.8rem", fontWeight: 700, whiteSpace: "nowrap" }}>🎯 {objectiveProgress}</span>
-                        <span style={{ color: "#94a3b8", flex: 1, textAlign: "right" }}>Round {session.round}</span>
+                        <span style={{
+                            flex: 1, textAlign: "right", fontWeight: session.roundCap ? 700 : 400,
+                            // Endless Spire: the round cap is a real clear deadline — warn as it nears.
+                            color: session.roundCap && session.round >= session.roundCap - 2 ? "#f87171"
+                                : session.roundCap && session.round >= Math.floor(session.roundCap * 0.66) ? "#facc15" : "#94a3b8",
+                        }}>Round {session.round}{session.roundCap ? `/${session.roundCap}` : ""}</span>
                         {turnLabel && (
                             <span style={{
                                 display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 16, fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
@@ -432,6 +437,18 @@ export function BattleTowerFight({
                             >Leave</button>
                         )}
                     </div>
+
+                    {/* Endless Spire — sealed modifier manifest (why the numbers are bigger this floor) */}
+                    {Array.isArray(session.modifierStack) && session.modifierStack.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                            {session.modifierStack.map((m, i) => (
+                                <span key={i} title={m.label} style={{
+                                    fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                                    color: "#f0b27e", background: "rgba(240,161,90,0.12)", border: "1px solid rgba(240,161,90,0.28)", whiteSpace: "nowrap",
+                                }}>{m.label}</span>
+                            ))}
+                        </div>
+                    )}
 
                     <div ref={battlefieldCallbackRef} className="tower-board-area"
                         style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>

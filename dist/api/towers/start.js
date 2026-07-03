@@ -7,6 +7,8 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _storage_js_1 = require("../_storage.js");
 const _floor_catalog_js_1 = require("./_floor-catalog.js");
+const _spire_catalog_js_1 = require("./_spire-catalog.js");
+const _modifiers_js_1 = require("./_modifiers.js");
 const _seal_js_1 = require("./_seal.js");
 const _encounter_js_1 = require("./_encounter.js");
 const _engine_js_1 = require("./_engine.js");
@@ -39,9 +41,15 @@ async function handler(req, res) {
             return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== hostName)
             return res.status(403).json({ error: 'Can only start your own runs.' });
-        const floor = (0, _floor_catalog_js_1.getFloor)(Math.floor(Number(body.floor)));
+        // Endless Spire (dedicated ascension boss gauntlet) vs the 10 story floors. Spire
+        // resolves the floor from getSpireFloor(tier) — NEVER the story FLOOR_CATALOG.
+        const mode = String(body.mode ?? 'story') === 'spire' ? 'spire' : 'story';
+        const spireTier = Math.floor(Number(body.ascensionTier));
+        if (mode === 'spire' && !(0, _spire_catalog_js_1.isValidSpireTier)(spireTier))
+            return res.status(400).json({ error: 'Invalid spire tier.' });
+        const floor = mode === 'spire' ? (0, _spire_catalog_js_1.getSpireFloor)(spireTier) : (0, _floor_catalog_js_1.getFloor)(Math.floor(Number(body.floor)));
         if (!floor)
-            return res.status(400).json({ error: 'Unknown floor.' });
+            return res.status(400).json({ error: mode === 'spire' ? 'Unknown spire tier.' : 'Unknown floor.' });
         // The host's client-computed combat extras the SAVE doesn't persist (pvpItems +
         // equipment-derived passives). Sealed (clamped) into the host fighter only — borrowed
         // allies seal from their own save (jutsu + stats; their derived passives default).
@@ -58,6 +66,7 @@ async function handler(req, res) {
             return res.status(429).json({ error: 'Daily Battle Towers start limit reached.' });
         }
         const squad = [];
+        let hostAscensionUnlocked = 0; // host's highest spire tier cleared (unlock gate)
         for (let i = 0; i < memberSlugs.length; i++) {
             const slug = memberSlugs[i];
             const rec = await _storage_js_1.kv.get(`save:${slug}`);
@@ -67,6 +76,8 @@ async function handler(req, res) {
                     return res.status(400).json({ error: 'Your save was not found.' });
                 continue; // skip a missing/invalid ally
             }
+            if (slug === hostName)
+                hostAscensionUnlocked = Math.max(0, Math.floor(Number(char.battleTowerAscension) || 0));
             squad.push({
                 id: `sq-${i}`,
                 name: String(char.name ?? slug),
@@ -82,10 +93,24 @@ async function handler(req, res) {
         }
         if (squad.length === 0)
             return res.status(400).json({ error: 'No valid squad members.' });
+        // Endless Spire gates (server-authoritative): you may enter at most one tier above your
+        // highest cleared, and — when the humans-only flag is on — only with a full squad.
+        let ascension;
+        let spireBossId;
+        if (mode === 'spire') {
+            if (!identity.admin && spireTier > hostAscensionUnlocked + 1) {
+                return res.status(403).json({ error: `Spire floor ${spireTier} is locked — clear floor ${hostAscensionUnlocked + 1} first.` });
+            }
+            if ((0, _spire_catalog_js_1.spireRequiresFullSquad)() && !identity.admin && squad.length < _floor_catalog_js_1.MAX_PARTY_SIZE) {
+                return res.status(403).json({ error: 'The Endless Spire requires a full squad.' });
+            }
+            spireBossId = (0, _spire_catalog_js_1.spireBossForFloor)(spireTier);
+            ascension = (0, _modifiers_js_1.resolveAscensionModifiers)(spireTier, spireBossId ?? 'sovereign', floor.roundBudget);
+        }
         const runId = `tower-${(0, node_crypto_1.randomUUID)().replace(/-/g, '')}`;
         const seed = identity.admin ? 12345 : (0, node_crypto_1.randomInt)(1, 0x7fffffff);
         const now = Date.now();
-        const session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId, seed, partySize: squad.length, now });
+        const session = (0, _encounter_js_1.buildTowerEncounter)({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
         (0, _engine_js_1.startRound)(session);
         (0, _engine_js_1.runAiUntilHuman)(session, floor, (0, _sim_js_1.makeRng)(seed)); // advance to the first human's turn (or auto-resolve)
         (0, _tower_mp_js_1.stampTurnClock)(session, now); // start the AFK clock for whoever is up

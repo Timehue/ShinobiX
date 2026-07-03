@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Character } from "../types/character";
-import { fetchTowerFloors, startTowerRun, fetchMyRun, type TowerFloorMeta, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
+import { fetchTowerFloors, startTowerRun, startSpireRun, fetchMyRun, SPIRE_MAX_TIER, SPIRE_MILESTONE_FLOORS, type TowerFloorMeta, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
 import { battleEntryCost, payBattleEntry, BATTLE_FREE_FLOORS } from "../lib/entry-fee";
 import { subscribeFollowing } from "../lib/friends";
 import { LoadingState } from "../components/ui/LoadingState";
@@ -54,6 +54,11 @@ export function BattleTowersLobby({
     const [following, setFollowing] = useState<string[]>([]);
     const [inviteName, setInviteName] = useState("");
     const [pendingRun, setPendingRun] = useState<{ runId: string; session: TowerSession } | null>(null);
+    // Endless Spire (dedicated ascension boss gauntlet). You may enter up to one tier above
+    // your highest cleared; the default selection is the next unlocked floor.
+    const spireUnlocked = character.battleTowerAscension ?? 0;
+    const spireMaxSelectable = Math.min(SPIRE_MAX_TIER, spireUnlocked + 1);
+    const [spireTier, setSpireTier] = useState(spireMaxSelectable);
 
     // Invite any player by name (the server validates the save exists; unknown names are
     // skipped). Deduped case-insensitively against yourself + the existing squad.
@@ -116,6 +121,21 @@ export function BattleTowersLobby({
         }
     }
 
+    // Endless Spire — fee-exempt (no payBattleEntry); the tier is the escalation, retries are free.
+    async function enterSpire() {
+        if (starting) return;
+        const tier = Math.max(1, Math.min(spireMaxSelectable, spireTier));
+        setStarting(true);
+        setError(null);
+        try {
+            const { runId, session } = await startSpireRun(me, tier, allies, hostLoadout);
+            onEnter(runId, session);
+        } catch (e) {
+            setError(String((e as Error)?.message ?? e));
+            setStarting(false);
+        }
+    }
+
     const selFloor = floors.find(f => f.id === selected);
 
     return (
@@ -152,6 +172,47 @@ export function BattleTowersLobby({
                 <Stat label="Deepest floor" value={String(bestFloor)} color="#facc15" />
                 <Stat label="Tower rating" value={rating.toLocaleString()} color="#a78bfa" />
                 <Stat label="Floors cleared" value={`${cleared.size}/${floors.length || "—"}`} color="#4ade80" />
+            </div>
+
+            {/* ── Endless Spire — dedicated ascension boss gauntlet ── */}
+            <div style={{ padding: "0.9rem 1rem", borderRadius: 12, border: "1px solid #7c2d12", background: "linear-gradient(180deg,#1a0f0a,#120a07)", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                    <strong style={{ fontSize: "1rem", color: "#f0a15a" }}>🗼 The Endless Spire</strong>
+                    <span style={{ color: "#a99e8d", fontSize: "0.78rem" }}>
+                        Best this week: <b style={{ color: "#f0a15a" }}>{character.battleTowerSpireWeeklyBest ?? 0}</b> · Highest cleared: <b style={{ color: "#f0a15a" }}>{spireUnlocked}</b>
+                    </span>
+                </div>
+                <p style={{ margin: "0 0 10px", color: "#a99e8d", fontSize: "0.82rem", lineHeight: 1.5 }}>
+                    A {SPIRE_MAX_TIER}-floor climb against the four bosses at full strength — the floor <em>is</em> the difficulty.
+                    Free to enter, unlimited retries. Milestones at {SPIRE_MILESTONE_FLOORS.join(" / ")}.
+                    <span style={{ color: "#7c7264" }}> Tuned for a coordinated squad; solo walls early.</span>
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <button onClick={() => setSpireTier(t => Math.max(1, t - 1))} disabled={spireTier <= 1}
+                            style={spireStepStyle(spireTier <= 1)} aria-label="Lower floor">−</button>
+                        <div style={{ minWidth: 92, textAlign: "center" }}>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#f0a15a", lineHeight: 1 }}>Floor {spireTier}</div>
+                            {SPIRE_MILESTONE_FLOORS.includes(spireTier) && <div style={{ fontSize: "0.72rem", color: "#facc15" }}>★ milestone</div>}
+                        </div>
+                        <button onClick={() => setSpireTier(t => Math.min(spireMaxSelectable, t + 1))} disabled={spireTier >= spireMaxSelectable}
+                            style={spireStepStyle(spireTier >= spireMaxSelectable)} aria-label="Higher floor">+</button>
+                    </div>
+                    <button onClick={enterSpire} disabled={starting}
+                        style={{
+                            flex: 1, minWidth: 180, padding: "0.7rem 1rem", borderRadius: 10, fontWeight: 800, fontSize: "0.95rem",
+                            cursor: starting ? "default" : "pointer", color: "#12100f",
+                            background: starting ? "#5c4a3a" : "linear-gradient(180deg,#f0a15a,#c2410c)",
+                            border: "1px solid #f0a15a", opacity: starting ? 0.7 : 1,
+                        }}>
+                        {starting ? "Entering…" : `▲ Ascend — Floor ${spireTier}`}
+                    </button>
+                </div>
+                {spireTier >= spireMaxSelectable && spireMaxSelectable <= SPIRE_MAX_TIER && (
+                    <p style={{ margin: "8px 0 0", color: "#7c7264", fontSize: "0.75rem" }}>
+                        Clear floor {spireMaxSelectable} to unlock the next.
+                    </p>
+                )}
             </div>
 
             {/* Squad assembly */}
@@ -247,6 +308,14 @@ export function BattleTowersLobby({
             </div>
         </div>
     );
+}
+
+function spireStepStyle(disabled: boolean): CSSProperties {
+    return {
+        width: 34, height: 34, borderRadius: 8, fontSize: "1.2rem", fontWeight: 800, lineHeight: 1,
+        cursor: disabled ? "default" : "pointer", color: disabled ? "#5c4a3a" : "#f0a15a",
+        background: "#1a0f0a", border: "1px solid #7c2d12", opacity: disabled ? 0.5 : 1,
+    };
 }
 
 function Stat({ label, value, color }: { label: string; value: string; color: string }) {

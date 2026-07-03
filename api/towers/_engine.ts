@@ -220,9 +220,12 @@ function applyRoundHazards(session: TowerSession): void {
 // ─── Boss mechanics (deterministic; tower-only) ──────────────────────────────
 // Each boss has a signature mechanic that makes the fight distinct + tough. These are
 // pure functions of the session state (no RNG / wall-clock), so settle reproduces them.
-/** Enrage stacks ramp the boss's OUTGOING damage (+35% per stack). */
-function attackerEnrageMult(attacker: TowerActor): number {
-    const e = Number(attacker.character.enrage ?? 0);
+/** Enrage stacks ramp the boss's OUTGOING damage (+35% per stack). The Endless Spire seals a
+ *  stack cap on the session (SPIRE_ENRAGE_CAP) so uncapped enrage × dmgMult can't cold-one-shot
+ *  a maxed squad; story runs leave session.enrageCap unset → uncapped, byte-identical to before. */
+function attackerEnrageMult(session: TowerSession, attacker: TowerActor): number {
+    const cap = Number(session.enrageCap ?? Infinity);
+    const e = Math.min(Number(attacker.character.enrage ?? 0), cap);
     return e > 0 ? 1 + 0.35 * e : 1;
 }
 /** A 'bulwark' boss takes HALF the damage while any of its guards (other enemies) live. */
@@ -271,12 +274,15 @@ function applyBossPhaseMechanic(session: TowerSession, boss: TowerActor): void {
     }
     // 'bulwark' is passive (damage reduction while guards live); 'regen' fires per round.
 }
-/** Per-round heal for a 'regen' boss (7% of max HP). */
+/** Per-round heal for a 'regen' boss (7% of max HP). The Endless Spire seals a FLAT cap
+ *  (session.regenFlatCap) so 7%-of-maxHp can't outrun squad DPS once boss HP is inflated at
+ *  high floors; story runs leave it unset → uncapped, byte-identical to before. */
 function applyBossRegen(session: TowerSession): void {
     const id = session.phaseState.bossId;
     const boss = id ? getActor(session, id) : undefined;
     if (!boss || boss.hp <= 0 || String(boss.character.mechanic ?? '') !== 'regen') return;
-    const heal = Math.max(1, Math.floor(boss.maxHp * 0.07));
+    const cap = Number(session.regenFlatCap ?? Infinity);
+    const heal = Math.min(Math.max(1, Math.floor(boss.maxHp * 0.07)), cap);
     const before = boss.hp;
     boss.hp = Math.min(boss.maxHp, boss.hp + heal);
     if (boss.hp > before) session.log.push(`${boss.name} regenerates ${boss.hp - before} HP.`);
@@ -456,10 +462,14 @@ function resolveHit(
     jutsu: JutsuLike, cost: number,
 ): void {
     const selfCast = actor.id === target.id;
+    // Endless Spire: enemy attackers hit harder by the sealed ascension dmgMult (the tier's
+    // outgoing-damage spine). Story runs leave session.dmgMult unset → ×1, unchanged.
+    const ascensionDmgMult = actor.side === 'enemy' ? Math.max(1, Number(session.dmgMult ?? 1)) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
-        * attackerEnrageMult(actor) * bulwarkMult(session, target)
+        * attackerEnrageMult(session, actor) * bulwarkMult(session, target)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
+        * ascensionDmgMult
     );
     const verb = jutsu.id === 'basic-attack' ? 'attacks'
         : jutsu.id === 'weapon' ? `strikes with ${jutsu.name ?? 'a weapon'}`
@@ -977,7 +987,9 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
     applyBossRegen(session);    // a 'regen' boss heals each round
     checkTowerWinner(session, floor);
     if (session.status !== 'active') return;
-    if (session.round >= MAX_ROUNDS) {
+    // Endless Spire seals a per-floor roundCap (<= MAX_ROUNDS) as the real clear deadline;
+    // story runs leave it unset → the MAX_ROUNDS engine cap, unchanged.
+    if (session.round >= Math.min(MAX_ROUNDS, Number(session.roundCap ?? MAX_ROUNDS))) {
         // hard timeout: failed to clear in time (survive floors win above before reaching here)
         session.status = 'done';
         session.winner = 'enemy';
