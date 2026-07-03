@@ -720,9 +720,14 @@ export function BattleTowerFight({
                         {session.winner === "squad" && (
                             session.ascensionTier ? (
                                 // Endless Spire: show the meaningful outcome — the next floor is now unlocked.
-                                settle
-                                    ? <p>{settle.results[me]?.paid ? "Fate Shards claimed. " : ""}{session.ascensionTier < 20 ? `Floor ${session.ascensionTier + 1} unlocked.` : "The Spire is conquered — apex cleared."}</p>
-                                    : <p className="hint">Settling…</p>
+                                <>
+                                    {settle
+                                        ? <p>{settle.results[me]?.paid ? "Fate Shards claimed. " : ""}{session.ascensionTier < 20 ? `Floor ${session.ascensionTier + 1} unlocked.` : "The Spire is conquered — apex cleared."}</p>
+                                        : <p className="hint">Settling…</p>}
+                                    {[5, 10, 15, 20].includes(session.ascensionTier) && (
+                                        <p style={{ color: "#facc15", fontWeight: 700, margin: "6px 0 0" }}>🏅 Milestone reached — a new title is yours.</p>
+                                    )}
+                                </>
                             ) : (
                                 settle ? <p>Rewards settled. {settle.results[me]?.score ? `Score +${settle.results[me]!.score}` : ""}</p> : <p className="hint">Settling rewards…</p>
                             )
