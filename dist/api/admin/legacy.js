@@ -10,10 +10,11 @@ const _legacy_track_js_1 = require("../_legacy-track.js");
 const _legacy_score_js_1 = require("../_legacy-score.js");
 const _legacy_defs_js_1 = require("../_legacy-defs.js");
 const _legacy_core_js_1 = require("../_legacy-core.js");
+const _era_js_1 = require("../_era.js");
 const _audit_js_1 = require("../_audit.js");
 const _announce_js_1 = require("../_announce.js");
 const _titles_registry_js_1 = require("../_titles-registry.js");
-const _era_js_1 = require("../_era.js");
+const _era_js_2 = require("../_era.js");
 const _titles_registry_js_2 = require("../_titles-registry.js");
 const sage_js_1 = require("../legacy/sage.js");
 /*
@@ -97,6 +98,9 @@ async function handler(req, res) {
                 return res.status(400).json({ error: 'Unknown legacy.' });
             const out = await (0, _lock_js_1.withKvLock)(`legacy:accept:${player}`, async () => {
                 const prev = await _storage_js_1.kv.get((0, _legacy_core_js_1.legacyAcceptedKey)(player));
+                // Stamp the world era, matching the player-accept path (sage.ts) so an
+                // admin-corrected legacy isn't left with a blank era-of-origin.
+                const eraBorn = legacyId === null ? undefined : await (0, _era_js_1.currentEraNumber)();
                 const saveOk = await (0, _lock_js_1.withKvLock)(`save:${player}`, async () => {
                     const rec = await _storage_js_1.kv.get(`save:${player}`);
                     const char = (rec?.character ?? null);
@@ -104,21 +108,22 @@ async function handler(req, res) {
                         return false;
                     const now = Date.now();
                     const legacy = legacyId === null ? null : {
-                        legacyId, stage: 1, acceptedAt: now, titles: [],
+                        legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [],
                     };
                     const updated = { ...char, legacy };
                     await _storage_js_1.kv.set(`save:${player}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
+                    // Marker + trial reset written in the SAME save lock as the save
+                    // write, so a mid-op crash can't leave the accepted-marker and the
+                    // save pointing at different legacies (self-consistent either way).
+                    if (legacyId === null)
+                        await _storage_js_1.kv.del((0, _legacy_core_js_1.legacyAcceptedKey)(player));
+                    else
+                        await _storage_js_1.kv.set((0, _legacy_core_js_1.legacyAcceptedKey)(player), { legacyId, ts: now, adminSet: true });
+                    await _storage_js_1.kv.del((0, _legacy_core_js_1.legacyTrialKey)(player));
                     return true;
                 }, { failClosed: true });
                 if (!saveOk)
                     return { status: 404, body: { error: 'Save not found.' } };
-                if (legacyId === null) {
-                    await _storage_js_1.kv.del((0, _legacy_core_js_1.legacyAcceptedKey)(player));
-                }
-                else {
-                    await _storage_js_1.kv.set((0, _legacy_core_js_1.legacyAcceptedKey)(player), { legacyId, ts: Date.now(), adminSet: true });
-                }
-                await _storage_js_1.kv.del((0, _legacy_core_js_1.legacyTrialKey)(player));
                 await (0, _legacy_track_js_1.appendLegacyEvent)(player, { type: 'admin-correction', key: legacyId ?? 'cleared', meta: { reason } });
                 await (0, _audit_js_1.recordAudit)({
                     actor: 'admin', domain: 'legacy', action: 'legacy.emergency-change',
@@ -300,22 +305,22 @@ async function handler(req, res) {
         }
         // ── Era controls (docs/legacy-system-plan.md §14, admin-tunable) ─────
         if (action === 'era-view') {
-            const [views, state] = await Promise.all([(0, _era_js_1.getEraViews)(), (0, _era_js_1.getEraState)()]);
+            const [views, state] = await Promise.all([(0, _era_js_2.getEraViews)(), (0, _era_js_2.getEraState)()]);
             return res.status(200).json({ eras: views, overrides: state.overrides });
         }
         if (action === 'era-set-status') {
             const eraId = String(body.eraId ?? '');
             const status = String(body.status ?? '');
-            const def = _era_js_1.ERA_BY_ID.get(eraId);
+            const def = _era_js_2.ERA_BY_ID.get(eraId);
             if (!def)
                 return res.status(400).json({ error: 'Unknown era.' });
             if (!['locked', 'admin_available', 'milestone_active', 'unlocked'].includes(status)) {
                 return res.status(400).json({ error: 'Bad status.' });
             }
-            await (0, _lock_js_1.withKvLock)(_era_js_1.ERA_STATE_KEY, async () => {
-                const state = await (0, _era_js_1.getEraState)();
+            await (0, _lock_js_1.withKvLock)(_era_js_2.ERA_STATE_KEY, async () => {
+                const state = await (0, _era_js_2.getEraState)();
                 state.overrides[eraId] = { ...state.overrides[eraId], status: status };
-                await _storage_js_1.kv.set(_era_js_1.ERA_STATE_KEY, state);
+                await _storage_js_1.kv.set(_era_js_2.ERA_STATE_KEY, state);
             }, { failClosed: true });
             await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'era.set-status', entityType: 'era', entityId: eraId, after: status });
             return res.status(200).json({ ok: true });
@@ -324,37 +329,37 @@ async function handler(req, res) {
             const eraId = String(body.eraId ?? '');
             const metric = String(body.metric ?? '');
             const required = Math.floor(num(body.required));
-            const def = _era_js_1.ERA_BY_ID.get(eraId);
+            const def = _era_js_2.ERA_BY_ID.get(eraId);
             if (!def)
                 return res.status(400).json({ error: 'Unknown era.' });
             if (!def.milestones.some((m) => m.metric === metric))
                 return res.status(400).json({ error: 'Unknown metric for this era.' });
             if (!Number.isFinite(required) || required < 0)
                 return res.status(400).json({ error: 'Bad required value (0 waives the milestone).' });
-            await (0, _lock_js_1.withKvLock)(_era_js_1.ERA_STATE_KEY, async () => {
-                const state = await (0, _era_js_1.getEraState)();
+            await (0, _lock_js_1.withKvLock)(_era_js_2.ERA_STATE_KEY, async () => {
+                const state = await (0, _era_js_2.getEraState)();
                 const prev = state.overrides[eraId] ?? {};
                 state.overrides[eraId] = {
                     ...prev,
                     milestoneOverrides: { ...prev.milestoneOverrides, [metric]: required },
                 };
-                await _storage_js_1.kv.set(_era_js_1.ERA_STATE_KEY, state);
+                await _storage_js_1.kv.set(_era_js_2.ERA_STATE_KEY, state);
             }, { failClosed: true });
             await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'era.set-milestone', entityType: 'era', entityId: eraId, after: { metric, required } });
             // Lowering a floor may complete the era right away.
-            await (0, _era_js_1.checkEraUnlocks)();
+            await (0, _era_js_2.checkEraUnlocks)();
             return res.status(200).json({ ok: true });
         }
         if (action === 'era-force-unlock') {
             const eraId = String(body.eraId ?? '');
             const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
-            const def = _era_js_1.ERA_BY_ID.get(eraId);
+            const def = _era_js_2.ERA_BY_ID.get(eraId);
             if (!def)
                 return res.status(400).json({ error: 'Unknown era.' });
             if (!reason)
                 return res.status(400).json({ error: 'A reason is required to force an era unlock.' });
             const player = body.player ? (0, _utils_js_1.safeName)(String(body.player)) : '';
-            const did = await (0, _era_js_1.unlockEra)(def, player ? { player, village: typeof body.village === 'string' ? body.village : undefined, ts: Date.now() } : null, 'admin');
+            const did = await (0, _era_js_2.unlockEra)(def, player ? { player, village: typeof body.village === 'string' ? body.village : undefined, ts: Date.now() } : null, 'admin');
             await (0, _audit_js_1.recordAudit)({ actor: 'admin', domain: 'legacy', action: 'era.force-unlock', entityType: 'era', entityId: eraId, reason, meta: { credited: player || null, applied: did } });
             return res.status(200).json({ ok: true, applied: did });
         }

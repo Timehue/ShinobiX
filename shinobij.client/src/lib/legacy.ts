@@ -50,7 +50,10 @@ export type LegacyDefView = {
 
 export type SageOfferView = {
     status: "spawned" | "declined" | "accepted" | "expired";
-    offers: Array<{ legacyId: string; name: string; rarity: LegacyRarity; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null }>;
+    offers: Array<{ legacyId: string; name: string; rarity: LegacyRarity; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null;
+        /** Rank-free preview of the signature technique this legacy grants (name,
+         *  shape, effect names; NO percents/EP/rank). Unlocks at Stage 3. */
+        signature?: { name: string; shape: string; effects: string[]; unlockStage: number } | null }>;
     sector: number;
     spawnedAt: number;
     expiresAt: number;

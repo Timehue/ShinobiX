@@ -22,6 +22,10 @@ export type LegacyMomentData =
         text: string;
         /** Optional wayfinding line (e.g. where to track the trial). */
         hint?: string;
+        /** The in-world trial-giver speaking the charge. Post-acceptance this
+         *  is the player's category emissary (the actual trial overseer);
+         *  omitted at acceptance, when the Wandering Sage himself speaks. */
+        speaker?: { name: string; portrait: string };
     }
     | {
         mode: "stage-up";
@@ -56,12 +60,23 @@ export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; on
                 {moment.mode === "trial-start" ? (
                     <>
                         <div className="rankup-kicker" style={{ color }}>A Trial Begins</div>
+                        {moment.speaker && (
+                            <span
+                                style={{ width: 72, height: 72, borderRadius: "50%", display: "inline-block", margin: "4px auto", border: `2px solid ${color}88`, overflow: "hidden" }}
+                            >
+                                <img
+                                    src={moment.speaker.portrait} alt=""
+                                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                    onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                                />
+                            </span>
+                        )}
                         <h2 className="rankup-rank" style={{ fontSize: "1.35rem" }}>{moment.kindName}</h2>
                         <p style={{ fontSize: ".82rem", color: "#cbd5e1", margin: "4px 0 2px", fontWeight: 700 }}>{moment.legacyName}</p>
                         <p style={{ fontSize: ".8rem", color: "#e2e8f0", fontStyle: "italic", lineHeight: 1.5, margin: "10px 0 4px" }}>
                             “{moment.text}”
                         </p>
-                        <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "2px 0 0" }}>— the Wandering Sage</p>
+                        <p style={{ fontSize: ".72rem", color: "#9aa3b2", margin: "2px 0 0" }}>— {moment.speaker?.name ?? "the Wandering Sage"}</p>
                         {moment.hint && (
                             <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "10px 0 0" }}>{moment.hint}</p>
                         )}

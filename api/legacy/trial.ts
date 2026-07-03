@@ -13,7 +13,7 @@ import {
     provenTitleFor, mythicTitleFor, trialIntroFor, trialCompletionFor, TRIAL_VARIANT_COUNT,
     type LegacyTrial, type CharacterLegacy,
 } from '../_legacy-core.js';
-import { announce, addHallEntry } from '../_announce.js';
+import { announce, addHallEntry, postVillageHerald } from '../_announce.js';
 import { recordAudit } from '../_audit.js';
 import { bumpEraContribution, recordEraTrigger } from '../_era.js';
 
@@ -59,6 +59,15 @@ const SUMMIT_MSGS: ReadonlyArray<(p: string, defName: string, mythicTitle: strin
     (p, n, t) => `${p} has carried the ${n} to Stage V — Mythic. "${t}" now walks the world.`,
     (p, n, t) => `A path is complete: ${p} stands at the summit of the ${n}. History will use the name "${t}".`,
     (p, n, _t) => `The Hall of Legends has begun carving: the ${n} has reached its summit in ${p}'s hands.`,
+];
+// Local pride: posted only into the affinity village's chat when a favored
+// Legacy awakens — a proud beat even for quiet basic/rare paths, so each
+// village has a stake in the legacies it favors. `v` is the short affinity
+// name ("Moonshadow"); the herald speaks to that village directly.
+const AFFINITY_AWAKEN_MSGS: ReadonlyArray<(p: string, defName: string, v: string) => string> = [
+    (p, n, v) => `${v} raises a cup: one of our own, ${p}, has awakened the ${n}. The village claims this path as ours.`,
+    (p, n, v) => `A favored path returns to ${v} — ${p} has awakened the ${n}. Let the gate-fires burn a little higher tonight.`,
+    (p, n, v) => `Word runs the ${v} streets: ${p} carries the ${n} now. This legacy has always belonged to us.`,
 ];
 
 /** Server-first hall claim with a contention retry: addHallEntry returns null
@@ -310,6 +319,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     // Basic/rare awakenings stay quiet by design (importance
                     // matrix: event log only — verification finding restored).
+                    // Village pride is village-SCOPED, not global: if this Legacy
+                    // has an affinity village, a proud herald line lands in THAT
+                    // village's chat — even for the quiet basic/rare paths, so
+                    // every village has a local stake in the legacies it favors.
+                    if (def.villageAffinity) {
+                        await postVillageHerald(
+                            `${def.villageAffinity} Village`,
+                            'A Favored Path Awakens',
+                            pick(AFFINITY_AWAKEN_MSGS)(playerName, def.name, def.villageAffinity),
+                        );
+                    }
                 } else if (trial.kind === 'bind' && def.rarity === 'mythic') {
                     const rec2 = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const village = String((rec2?.character as Record<string, unknown> | undefined)?.village ?? '') || undefined;
@@ -363,7 +383,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? LEGACY_JUTSU_CATALOG[def.specialtyJutsuId]?.name ?? null
                     : null;
                 const completionOut = signatureName
-                    ? `${trialCompletionFor(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, and it will deepen as you do.`
+                    ? `${trialCompletionFor(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, a signature only your Legacy can wield.`
                     : trialCompletionFor(trial.kind);
                 return {
                     status: 200,

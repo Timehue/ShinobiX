@@ -55,6 +55,15 @@ const SUMMIT_MSGS = [
     (p, n, t) => `A path is complete: ${p} stands at the summit of the ${n}. History will use the name "${t}".`,
     (p, n, _t) => `The Hall of Legends has begun carving: the ${n} has reached its summit in ${p}'s hands.`,
 ];
+// Local pride: posted only into the affinity village's chat when a favored
+// Legacy awakens — a proud beat even for quiet basic/rare paths, so each
+// village has a stake in the legacies it favors. `v` is the short affinity
+// name ("Moonshadow"); the herald speaks to that village directly.
+const AFFINITY_AWAKEN_MSGS = [
+    (p, n, v) => `${v} raises a cup: one of our own, ${p}, has awakened the ${n}. The village claims this path as ours.`,
+    (p, n, v) => `A favored path returns to ${v} — ${p} has awakened the ${n}. Let the gate-fires burn a little higher tonight.`,
+    (p, n, v) => `Word runs the ${v} streets: ${p} carries the ${n} now. This legacy has always belonged to us.`,
+];
 /** Server-first hall claim with a contention retry: addHallEntry returns null
  *  BOTH when the NX is already claimed and on transient lock contention — only
  *  the second case should retry, or a busy moment could permanently cost the
@@ -305,6 +314,13 @@ async function handler(req, res) {
                     }
                     // Basic/rare awakenings stay quiet by design (importance
                     // matrix: event log only — verification finding restored).
+                    // Village pride is village-SCOPED, not global: if this Legacy
+                    // has an affinity village, a proud herald line lands in THAT
+                    // village's chat — even for the quiet basic/rare paths, so
+                    // every village has a local stake in the legacies it favors.
+                    if (def.villageAffinity) {
+                        await (0, _announce_js_1.postVillageHerald)(`${def.villageAffinity} Village`, 'A Favored Path Awakens', pick(AFFINITY_AWAKEN_MSGS)(playerName, def.name, def.villageAffinity));
+                    }
                 }
                 else if (trial.kind === 'bind' && def.rarity === 'mythic') {
                     const rec2 = await _storage_js_1.kv.get(`save:${playerName}`);
@@ -360,7 +376,7 @@ async function handler(req, res) {
                     ? _legacy_jutsu_catalog_js_1.LEGACY_JUTSU_CATALOG[def.specialtyJutsuId]?.name ?? null
                     : null;
                 const completionOut = signatureName
-                    ? `${(0, _legacy_core_js_1.trialCompletionFor)(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, and it will deepen as you do.`
+                    ? `${(0, _legacy_core_js_1.trialCompletionFor)(trial.kind)} The path presses its technique into your hands — ${signatureName} is yours now, a signature only your Legacy can wield.`
                     : (0, _legacy_core_js_1.trialCompletionFor)(trial.kind);
                 return {
                     status: 200,
