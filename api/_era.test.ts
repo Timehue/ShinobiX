@@ -58,7 +58,18 @@ test('view builder: progress clamps to required, trigger + credit surface', () =
     assert.equal(pvp.done, false);
     assert.equal(v.trigger?.fired, true);
     assert.equal(v.trigger?.firedBy, 'Rill');
+    assert.equal(v.trigger?.firedByVillage, 'Moonshadow', 'the credited finisher\'s village surfaces on the trigger view');
     const era1 = views.find((x) => x.number === 1)!;
     assert.equal(era1.status, 'unlocked');
     assert.equal(era1.milestones.length, 0);
+});
+
+test('genesis-window fix: launch eras carry distinct, ascending authored timestamps', () => {
+    // Without authored unlockedAt every launch era windows to [0, ∞) and the
+    // Eras tab shows the identical "Legends of this Age" list on all four.
+    const views = buildEraViews({ overrides: {} }, {}, {});
+    const launchTs = views.filter((x) => x.number <= 4).map((x) => x.unlockedAt);
+    assert.ok(launchTs.every((t) => typeof t === 'number' && t! > 0), 'each launch era has an authored unlockedAt');
+    assert.deepEqual(launchTs, [...launchTs].sort((a, b) => a! - b!), 'timestamps ascend by era number');
+    assert.equal(new Set(launchTs).size, 4, 'the four launch windows are distinct');
 });

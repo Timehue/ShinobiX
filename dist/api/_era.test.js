@@ -54,7 +54,17 @@ const MYTHIC_ERA = _era_defs_js_1.ERA_BY_ID.get('mythic-legacies');
     strict_1.default.equal(pvp.done, false);
     strict_1.default.equal(v.trigger?.fired, true);
     strict_1.default.equal(v.trigger?.firedBy, 'Rill');
+    strict_1.default.equal(v.trigger?.firedByVillage, 'Moonshadow', 'the credited finisher\'s village surfaces on the trigger view');
     const era1 = views.find((x) => x.number === 1);
     strict_1.default.equal(era1.status, 'unlocked');
     strict_1.default.equal(era1.milestones.length, 0);
+});
+(0, node_test_1.test)('genesis-window fix: launch eras carry distinct, ascending authored timestamps', () => {
+    // Without authored unlockedAt every launch era windows to [0, ∞) and the
+    // Eras tab shows the identical "Legends of this Age" list on all four.
+    const views = (0, _era_js_1.buildEraViews)({ overrides: {} }, {}, {});
+    const launchTs = views.filter((x) => x.number <= 4).map((x) => x.unlockedAt);
+    strict_1.default.ok(launchTs.every((t) => typeof t === 'number' && t > 0), 'each launch era has an authored unlockedAt');
+    strict_1.default.deepEqual(launchTs, [...launchTs].sort((a, b) => a - b), 'timestamps ascend by era number');
+    strict_1.default.equal(new Set(launchTs).size, 4, 'the four launch windows are distinct');
 });

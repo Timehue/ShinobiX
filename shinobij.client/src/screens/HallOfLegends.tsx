@@ -623,6 +623,14 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                             Opened by <b>{e.unlockedBy}</b>{e.unlockedVillage ? ` of ${e.unlockedVillage}` : ""}{e.unlockedAt ? ` · ${new Date(e.unlockedAt).toLocaleDateString()}` : ""}
                                         </p>
                                     )}
+                                    {/* Finisher memorial — the once-ever credited trigger stays on
+                                        the card AFTER the age unlocks (the milestone view is gone by
+                                        then). The most dramatic moment of the chapter, permanent. */}
+                                    {e.status === "unlocked" && e.trigger?.fired && e.trigger.firedBy && (
+                                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#fbbf24" }}>
+                                            ✦ The age turned when <b>{e.trigger.firedBy}</b>{e.trigger.firedByVillage ? ` of ${e.trigger.firedByVillage}` : ""} struck the final blow: {e.trigger.label}.
+                                        </p>
+                                    )}
                                     {e.status === "unlocked" && hallEntries !== null && (() => {
                                         // The legends forged during this age — pulled from the
                                         // Hall by time window (legendsOfEra). Silent when the age
@@ -630,9 +638,17 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                         const legends = legendsOfEra(e, eraViews ?? [], hallEntries);
                                         if (legends.length === 0) return null;
                                         const shown = legends.slice(0, 6);
+                                        const oldest = legends[legends.length - 1]; // legendsOfEra is newest-first
                                         return (
                                             <div style={{ marginTop: 8, borderTop: "1px solid rgba(148,163,184,.15)", paddingTop: 8 }}>
-                                                <p style={{ margin: "0 0 4px", fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "#c084fc" }}>⚜ Legends of this Age</p>
+                                                <p style={{ margin: "0 0 2px", fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "#c084fc" }}>
+                                                    ⚜ Legends of this Age <span style={{ color: "#9aa3b2" }}>· {legends.length}</span>
+                                                </p>
+                                                {oldest && (
+                                                    <p style={{ margin: "0 0 5px", fontSize: ".68rem", color: "#9aa3b2", fontStyle: "italic" }}>
+                                                        It opened with {oldest.player ? <b style={{ color: "#cbd5e1" }}>{oldest.player}</b> : "the first of them"} and the {oldest.title}.
+                                                    </p>
+                                                )}
                                                 <ul style={{ margin: 0, paddingLeft: 16, display: "grid", gap: 2 }}>
                                                     {shown.map((l) => (
                                                         <li key={l.id} style={{ fontSize: ".72rem", color: "#cbd5e1", lineHeight: 1.35 }}>
@@ -649,6 +665,22 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                                                     </button>
                                                 )}
                                             </div>
+                                        );
+                                    })()}
+                                    {e.status === "milestone_active" && e.milestones.length > 0 && (() => {
+                                        // "How close to the next age" — a tonal synthesis of the
+                                        // SAME public milestone fractions the bars below already
+                                        // show. No new data, no rank/rarity, single violet.
+                                        const pct = e.milestones.reduce((a, m) => a + Math.min(1, m.current / Math.max(1, m.required)), 0) / e.milestones.length;
+                                        const met = e.milestones.filter((m) => m.done).length;
+                                        const band = pct >= 0.85 ? "The next age is within reach — the world leans toward it."
+                                            : pct >= 0.5 ? "The next age stirs; more than half its measures are met."
+                                            : pct >= 0.15 ? "The next age is distant, but the world has begun to move."
+                                            : "The next age sleeps — its first stirrings are only beginning.";
+                                        return (
+                                            <p style={{ margin: "4px 0 8px", fontSize: ".74rem", color: "#c4b5fd", fontStyle: "italic" }}>
+                                                {band} <span style={{ color: "#9aa3b2", fontStyle: "normal" }}>({met}/{e.milestones.length} measures met)</span>
+                                            </p>
                                         );
                                     })()}
                                     {e.status === "milestone_active" && e.milestones.map((m) => (
@@ -679,7 +711,12 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         : worldNews.map((a) => (
                             <div key={a.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, borderLeft: `3px solid ${a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#475569"}` }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                                    <b style={{ color: a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#e2e8f0" }}>{a.title}</b>
+                                    <b style={{ color: a.importance === "mythic" ? "#c084fc" : a.importance === "high" ? "#f59e0b" : "#e2e8f0" }}>
+                                        {/* Server-firsts are once-ever world history — mark them so the
+                                            feed distinguishes "first EVER" from "another mythic moment". */}
+                                        {a.type === "server_first" && <span style={{ fontSize: ".6rem", fontWeight: 800, letterSpacing: ".1em", color: "#c084fc", border: "1px solid #c084fc", borderRadius: 4, padding: "1px 5px", marginRight: 6, verticalAlign: "1px" }}>ONCE EVER</span>}
+                                        {a.title}
+                                    </b>
                                     <span style={{ fontSize: ".7rem", color: "#9aa3b2" }}>{new Date(a.ts).toLocaleString()}</span>
                                 </div>
                                 <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{a.message}</p>

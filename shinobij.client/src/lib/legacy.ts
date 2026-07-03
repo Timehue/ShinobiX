@@ -178,7 +178,7 @@ export type EraView = {
     chronicle?: string[];
     status: "locked" | "admin_available" | "milestone_active" | "unlocked";
     milestones: EraMilestoneView[];
-    trigger: { label: string; fired: boolean; firedBy?: string } | null;
+    trigger: { label: string; fired: boolean; firedBy?: string; firedByVillage?: string } | null;
     unlockedBy: string | null; unlockedVillage: string | null; unlockedAt: number | null;
 };
 

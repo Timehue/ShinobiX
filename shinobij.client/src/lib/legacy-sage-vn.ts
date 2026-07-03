@@ -17,9 +17,14 @@ const SPEAKER = "Wandering Sage";
 const SCENE = "/scenes/legacy-sage-offer.png";
 
 export function buildSageVnEvent(offer: SageOfferView, playerName: string): CreatorEvent {
-    const offerLines = offer.offers.map(
-        (o) => `${SPEAKER}: ${o.name}. ${o.flavor}`,
-    );
+    // The Sage names each path in-character — weaving in its favored village and
+    // the signature it yields — so the VN isn't a flat echo of the offer cards.
+    // Uses only fields already on the offer (no rank/rarity).
+    const offerLines = offer.offers.map((o) => {
+        const villagePart = o.villageAffinity ? ` ${o.villageAffinity} still tells stories of the ones who walked it.` : "";
+        const sigPart = o.signature ? ` Prove yourself to it, and the ${o.signature.name} answers to no other hand.` : "";
+        return `${SPEAKER}: The ${o.name}. ${o.flavor}${villagePart}${sigPart}`;
+    });
     const pages: NonNullable<CreatorEvent["vnPages"]> = [
         {
             title: "A Stranger on the Road",
