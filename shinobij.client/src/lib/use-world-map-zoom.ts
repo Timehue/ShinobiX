@@ -299,10 +299,20 @@ export function useWorldMapZoom(): WorldMapZoomApi {
 
     const contentStyle = useMemo<React.CSSProperties>(() => {
         if (!active) return {};
+        // Counter-scale for the pinned markers. They ride the map's `scale(zoom)`,
+        // so on their own they inflate at the SAME rate as the spacing — clustered
+        // sectors would stay overlapping no matter how far you zoom (the "it's just
+        // a magnified picture" problem). Grow them only ~zoom^0.3 (divide their
+        // scale by zoom^0.7) so each pin holds a near-constant, tappable on-screen
+        // size while the gaps between them open up — zooming actually SPREADS the
+        // sectors apart. Consumed by the `.atlas-* { scale(var(--wm-marker-scale)) }`
+        // rules below.
+        const markerScale = clamp(Math.pow(view.zoom, -0.7), 0.34, 1);
         return {
             // Consumed by the `.wm-zoom … { transform: var(--wm-tf) }` rule so it
             // overrides the legacy `transform: none !important` mobile rule.
             ["--wm-tf" as string]: `translate(${view.tx}px, ${view.ty}px) scale(${view.zoom})`,
+            ["--wm-marker-scale" as string]: markerScale.toFixed(3),
             transition: dragging ? "none" : "transform 140ms ease-out",
         } as React.CSSProperties;
     }, [active, view, dragging]);
