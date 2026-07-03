@@ -8,7 +8,7 @@
  * game's big moments share one language.
  */
 import { createPortal } from "react-dom";
-import { RARITY_COLORS, type LegacyRarity } from "../lib/legacy";
+import { type LegacyRarity } from "../lib/legacy";
 import "./RankUpCelebration.css";
 
 const STAGE_ROMAN = ["", "I", "II", "III", "IV", "V"];
@@ -35,7 +35,8 @@ export type LegacyMomentData =
     };
 
 export function LegacyMoment({ moment, onClose }: { moment: LegacyMomentData; onClose: () => void }) {
-    const color = RARITY_COLORS[moment.rarity];
+    // Rank is owner-only — every legacy ceremony uses the same legacy accent.
+    const color = "#c084fc";
     return createPortal(
         <div
             className="rankup-backdrop"

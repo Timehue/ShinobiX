@@ -10,7 +10,7 @@
  * (both generated — docs/legacy-assets.md).
  */
 import type { CreatorEvent } from "../types/vn";
-import { RARITY_LABELS, type SageOfferView } from "./legacy";
+import { type SageOfferView } from "./legacy";
 
 export const SAGE_VN_EVENT_ID = "legacy-sage-offer";
 const SPEAKER = "Wandering Sage";
@@ -18,7 +18,7 @@ const SCENE = "/scenes/legacy-sage-offer.png";
 
 export function buildSageVnEvent(offer: SageOfferView, playerName: string): CreatorEvent {
     const offerLines = offer.offers.map(
-        (o) => `${SPEAKER}: ${o.name} — ${RARITY_LABELS[o.rarity]}. ${o.flavor}`,
+        (o) => `${SPEAKER}: ${o.name}. ${o.flavor}`,
     );
     const pages: NonNullable<CreatorEvent["vnPages"]> = [
         {

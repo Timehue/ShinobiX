@@ -20,7 +20,7 @@ import { sendStandardDuel } from "../lib/duel-challenge";
 import { RankBadge } from "../components/RankBadge";
 import { subscribeFollowing, follow, unfollow } from "../lib/friends";
 import { NindoCard } from "../components/NindoCard";
-import { titleStyleColor, fetchLegacyDefinitions, RARITY_COLORS as LEGACY_RARITY_COLORS, RARITY_LABELS as LEGACY_RARITY_LABELS, type LegacyDefView } from "../lib/legacy";
+import { titleStyleColor, fetchLegacyDefinitions, type LegacyDefView } from "../lib/legacy";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "#f87171", water: "#60a5fa", earth: "#d4a574", lightning: "#fbbf24",
@@ -217,8 +217,8 @@ export function UserView({
                             {professionLabel && <span style={chipStyle("#38bdf8")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
                             {viewedCharacter.legacy && viewedLegacyDef && viewedLegacyDef.id === viewedCharacter.legacy.legacyId && (
                                 <span
-                                    style={{ ...chipStyle(LEGACY_RARITY_COLORS[viewedLegacyDef.rarity]), display: "inline-flex", alignItems: "center", gap: 5 }}
-                                    title={`${viewedLegacyDef.name} — ${LEGACY_RARITY_LABELS[viewedLegacyDef.rarity]} legacy, Stage ${["", "I", "II", "III", "IV", "V"][viewedCharacter.legacy.stage] ?? viewedCharacter.legacy.stage}`}
+                                    style={{ ...chipStyle("#c084fc"), display: "inline-flex", alignItems: "center", gap: 5 }}
+                                    title={`${viewedLegacyDef.name} — Legacy, Stage ${["", "I", "II", "III", "IV", "V"][viewedCharacter.legacy.stage] ?? viewedCharacter.legacy.stage}`}
                                 >
                                     {viewedLegacyDef.badge && (
                                         <img

@@ -66,6 +66,12 @@ type PityState = {
 
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Aura Stones granted once when a legacy is first accepted, by (server-only)
+// rarity. The amount is a soft prestige boon — the player receives the stones
+// but is NEVER told the rank (rank is owner-only). Granted exactly-once via the
+// legacy:aura-granted NX marker so a crash-retry can't double-pay.
+const AURA_STONES_BY_RARITY: Record<string, number> = { mythic: 10, legendary: 8, rare: 5, basic: 3 };
+const auraGrantKey = (p: string) => `legacy:aura-granted:${p}`;
 
 function homeSector(village: unknown, requested: unknown): number {
     const want = Math.floor(num(requested));
@@ -280,11 +286,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the accomplishment to the timeline ("taken up in the Age of ...").
                 const eraBorn = await currentEraNumber();
                 const legacy: CharacterLegacy = { legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [] };
+                const auraReward = AURA_STONES_BY_RARITY[def.rarity] ?? 0;
                 const saveOut = await withKvLock<boolean>(`save:${playerName}`, async () => {
                     const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                     const char = (rec?.character ?? null) as Record<string, unknown> | null;
                     if (!rec || !char) return false;
-                    const updated = { ...char, legacy };
+                    let updated: Record<string, unknown> = { ...char, legacy };
+                    // Aura Stones boon — exactly-once (NX marker survives a crash
+                    // between this save write and any retry, so the repair path
+                    // still pays if the first attempt died before granting).
+                    if (auraReward > 0) {
+                        const granted = await kv.set(auraGrantKey(playerName), { legacyId, amount: auraReward, ts: now }, { nx: true });
+                        if (granted === 'OK') updated = { ...updated, auraStones: num(char.auraStones) + auraReward };
+                    }
                     await kv.set(`save:${playerName}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
                     return true;
                 }, { failClosed: true });

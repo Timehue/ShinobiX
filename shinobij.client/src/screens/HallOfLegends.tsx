@@ -22,7 +22,7 @@ import { WORLD_STATE_API } from "../constants/game";
 import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
-import { fetchHallOfLegends, fetchAnnouncements, fetchEras, isLegacyEnabled, RARITY_COLORS, type HallEntryView, type AnnouncementView, type LegacyRarity, type EraView } from "../lib/legacy";
+import { fetchHallOfLegends, fetchAnnouncements, fetchEras, isLegacyEnabled, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -561,7 +561,7 @@ function HallOfLegends({ character, setScreen, playerRoster, updateCharacter }: 
                         : hallEntries.map((e) => (
                             <div key={e.id} className="card" style={{ padding: "10px 12px", marginBottom: 8, opacity: e.status === "revoked" ? 0.55 : 1 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                                    <b style={{ color: e.rarity ? RARITY_COLORS[e.rarity as LegacyRarity] ?? "#e2e8f0" : "#e2e8f0", textDecoration: e.status === "revoked" ? "line-through" : "none" }}>{e.title}</b>
+                                    <b style={{ color: "#e2e8f0", textDecoration: e.status === "revoked" ? "line-through" : "none" }}>{e.title}</b>
                                     <span style={{ fontSize: ".7rem", color: "#9aa3b2" }}>{new Date(e.ts).toLocaleDateString()}</span>
                                 </div>
                                 <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "#cbd5e1" }}>{e.description}</p>

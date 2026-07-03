@@ -4,7 +4,7 @@ import {
     type TavernMessage,
 } from "../App";
 import { type PlayerRecord } from "../types/character";
-import { titleStyleColor, RARITY_COLORS, isLegacyServerLive, type LegacyRarity } from "../lib/legacy";
+import { titleStyleColor, isLegacyServerLive } from "../lib/legacy";
 import { tavernGossipLine } from "../lib/legacy-rumors";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
@@ -269,7 +269,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                     {(m.legacyStage ?? 0) >= 2 && (
                                         <span
                                             title={`Legacy — Stage ${STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}`}
-                                            style={{ fontSize: ".72rem", fontWeight: 800, color: RARITY_COLORS[(m.legacyRarity as LegacyRarity)] ?? "#c084fc" }}
+                                            style={{ fontSize: ".72rem", fontWeight: 800, color: "#c084fc" }}
                                         >★{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
                                     )}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>

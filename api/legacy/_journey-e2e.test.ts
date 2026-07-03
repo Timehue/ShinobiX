@@ -148,6 +148,12 @@ test('accept seals the path, auto-starts a DECORATED awaken trial, returns the i
     // The legacy is stamped with the world era it was taken up in (>=1, and the
     // launch eras I-IV are unlocked so it lands at 4). Pins it to the timeline.
     assert.ok(typeof b.legacy.eraBorn === 'number' && b.legacy.eraBorn >= 1, 'accept must stamp the world era (eraBorn)');
+    // Accept grants the Aura Stones boon by (hidden) rank — every rank grants >= 3,
+    // written to the save under the accept lock, guarded exactly-once by the
+    // legacy:aura-granted NX marker (so a retry cannot double-pay).
+    const savedChar = (store.get(`save:${P}`) as { character?: { auraStones?: number } })?.character;
+    assert.ok((savedChar?.auraStones ?? 0) >= 3, 'accept must grant the Aura Stones boon');
+    assert.ok(store.get(`legacy:aura-granted:${P}`), 'the aura-grant NX marker must be set exactly once');
     assert.equal(b.trial.kind, 'awaken');
     assert.equal(typeof b.trial.objectives[0]?.progress, 'number', 'objectives must be decorated with progress/done');
     assert.ok((b.intro ?? '').length > 50, 'the Sage narrative intro must ship with the trial');
