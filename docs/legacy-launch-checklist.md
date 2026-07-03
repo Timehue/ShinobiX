@@ -118,7 +118,31 @@ Deliberate flag-off exceptions (they keep working, by design):
 - In-flight emissary errands can still be **claimed** (sealed server-side);
   only new accepts stop.
 
-## 7. Known deferred items
+## 7. Design decisions (owner-signed, documented)
+
+- **Rank is owner-only.** A Legacy's rarity (basic/rare/legendary/mythic) is
+  **never shown to players and never used to separate/sort/colour any
+  player-facing surface** — offer modal, accepted card, Codex, tavern chip,
+  nameplate, Hall, VN. Every legacy renders with the same violet accent. Rarity
+  still exists internally (drives requirement floors, jutsu tier, aura reward,
+  server-first announcements) and is visible **only in the admin panel**.
+- **The 16th slot is intended, additive prestige power.** The Legacy signature
+  is a strictly-additive jutsu on top of the 15-slot loadout (a Legacy player
+  fields one more jutsu than a no-Legacy player) with no offsetting loadout
+  cost. This is accepted because it is **earned** (achievement floors + a
+  5-stage trial), never bought or RNG'd — inside the skill-gated-power pillar.
+  Its only in-combat cost is AP contention + cd 10. Enforced legacy-only + not
+  spoofable in `api/pvp/session.ts`.
+- **Accept boon: Aura Stones**, granted once on accept by rank (mythic 10 /
+  legendary 8 / rare 5 / basic 3), server-side under the accept lock,
+  exactly-once via the `legacy:aura-granted` NX marker. The player receives the
+  stones but is never told the rank.
+- **No Legacy weakness/tradeoff, and no mechanical Bloodline link — by design.**
+  Legacy is a *third*, secondary identity layer; Bloodlines remain the main
+  power identity. Legacy stays pure prestige (signature + title + aura + stones).
+- **Progression depth (post-Stage-5 mastery, per-legacy passives) is deferred.**
+
+## 8. Known deferred items
 
 - **Specialty Jutsu** (plan §10) — **BUILT and live** (owner signed off on PvP).
   All 100 signatures ship in PvP, PvE, and Battle Towers whenever

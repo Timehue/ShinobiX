@@ -47,6 +47,12 @@ const VILLAGE_OUTSKIRTS = {
 };
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Aura Stones granted once when a legacy is first accepted, by (server-only)
+// rarity. The amount is a soft prestige boon — the player receives the stones
+// but is NEVER told the rank (rank is owner-only). Granted exactly-once via the
+// legacy:aura-granted NX marker so a crash-retry can't double-pay.
+const AURA_STONES_BY_RARITY = { mythic: 10, legendary: 8, rare: 5, basic: 3 };
+const auraGrantKey = (p) => `legacy:aura-granted:${p}`;
 function homeSector(village, requested) {
     const want = Math.floor(num(requested));
     if (want >= 1 && want <= 99)
@@ -261,12 +267,21 @@ async function handler(req, res) {
                 // the accomplishment to the timeline ("taken up in the Age of ...").
                 const eraBorn = await (0, _era_js_1.currentEraNumber)();
                 const legacy = { legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [] };
+                const auraReward = AURA_STONES_BY_RARITY[def.rarity] ?? 0;
                 const saveOut = await (0, _lock_js_1.withKvLock)(`save:${playerName}`, async () => {
                     const rec = await _storage_js_1.kv.get(`save:${playerName}`);
                     const char = (rec?.character ?? null);
                     if (!rec || !char)
                         return false;
-                    const updated = { ...char, legacy };
+                    let updated = { ...char, legacy };
+                    // Aura Stones boon — exactly-once (NX marker survives a crash
+                    // between this save write and any retry, so the repair path
+                    // still pays if the first attempt died before granting).
+                    if (auraReward > 0) {
+                        const granted = await _storage_js_1.kv.set(auraGrantKey(playerName), { legacyId, amount: auraReward, ts: now }, { nx: true });
+                        if (granted === 'OK')
+                            updated = { ...updated, auraStones: num(char.auraStones) + auraReward };
+                    }
                     await _storage_js_1.kv.set(`save:${playerName}`, (0, _utils_js_1.mergePreservingImages)((0, _save_version_js_1.bumpSaveVersion)({ ...rec, character: updated }), rec));
                     return true;
                 }, { failClosed: true });
