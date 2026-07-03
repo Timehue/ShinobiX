@@ -1650,7 +1650,7 @@ const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of 
 const INTRO_SIZEUP_END = 1.3;    // s — hold the wide face-off (sizing up)
 const INTRO_CHARGE_END = 2.15;   // s — charge in to the combat gap by here
 const INTRO_TOTAL = 2.5;         // s — brief lock-in beat, then FIGHT (the sim plays)
-const SIZEUP_EXTRA_WX = 3.4;     // world-x each fighter is pushed OUTWARD while sizing up
+const SIZEUP_EXTRA_WX = 4.2;     // world-x each fighter is pushed OUTWARD while sizing up
 const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
 /** 1 = held far apart (sizing up) → 0 = arrived at the face-off. Eased charge-in. */
 function introApproach(introSec: number): number {
@@ -1830,6 +1830,10 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // windup→exit edge. On the real 3D floor the melee lunge ARCS (a small hop).
         let basePose: PetVisualState =
             a0.state === "windup" ? "windup" : a0.state === "stagger" ? "recoil" : a0.state === "dodge" ? "dodge" : "idle";
+        // Opening: both pets play their BUFF / power-up GATHER while sizing each other up
+        // (held far apart), then drop it and CHARGE in. Render-only, intro-phase only.
+        const sizingUp = introSec < INTRO_SIZEUP_END;
+        if (sizingUp) basePose = "charge";
         const curTick = Math.floor(clock.current.t);
         // A SUPPORT cast (heal/shield/buff) winds up as a GATHER/RISE, not the melee
         // coil-back, so a healer reads as drawing power up — not flinching to strike.
@@ -1933,6 +1937,7 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         // Pose: alternate the 2-frame run cycle while traversing (if the pet has
         // one), else the state pose (attack / hurt / cast / idle).
         let cat = poseCategory(DUEL_STATE_POSE[a0.state]);
+        if (sizingUp) cat = "cast";   // the buff / power-up sprite pose during the size-up
         // Generated ATTACK SEQUENCE: a windup frame during the wind-up, then
         // lunge→impact→recover across the strike pulse (melee only) — so the
         // creature really swings. Falls back to the single "attack" pose for pets
@@ -1955,7 +1960,9 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
         if (a0.hp < prevHp.current - 0.5) flash.current = 1;
         prevHp.current = a0.hp;
         flash.current *= 0.86;
-        const fl = flash.current < 0.02 ? 0 : flash.current * 0.9;
+        let fl = flash.current < 0.02 ? 0 : flash.current * 0.9;
+        // Power-up GLOW while sizing up — a pulsing brightness so both pets visibly "buff".
+        if (sizingUp) fl = Math.max(fl, 0.22 + 0.16 * Math.abs(Math.sin(state.clock.elapsedTime * 6)));
         // Status TINT (burn = ember-warm, stun = icy-blue) pulses on the sprite so
         // afflictions read at a glance; the stagger hurt-flash deepens it to red.
         const hurt = a0.state === "stagger" ? 0.5 : 0;
