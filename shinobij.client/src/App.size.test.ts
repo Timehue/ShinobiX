@@ -126,7 +126,14 @@ import { readFileSync } from "node:fs";
 // to types/pet-arena and App keeps only back-compat re-exports.)
 // → 10,128 (origin/main's "summoned PvE pet fights as a real board actor" (ac519261) added
 // App-local board-actor wiring but did not bump this ratchet; measured on main, recorded here).
-const MAX_LINES = 10_128;
+// → 10,137 (+9 mandatory WIRING for the battle-log reflection history (Profile →
+// Battles): the appendBattleHistory import + BattleHistoryEntry type import (+2),
+// the recordBattle callback (a thin setCharacter wrapper that must read App-local
+// state, +5 incl. comment), and the onRecordBattle prop passed to Arena + the PvP
+// screen (+2). All feature logic — building/capping the entry, the reflection panel,
+// and the shared log renderer — lives in lib/battle-log-history.ts +
+// components/{BattleLogHistoryPanel,BattleActionBlock}.tsx, NOT here.
+const MAX_LINES = 10_137;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
