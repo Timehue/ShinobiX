@@ -1558,7 +1558,7 @@ const DUEL_STATE_POSE: Record<DuelState, PetVisualState> = {
     idle: "idle", dash: "lunge", windup: "windup", strike: "lunge",
     recover: "idle", stagger: "recoil", dodge: "dodge", dead: "ko",
 };
-type DuelClock = { t: number; playing: boolean };
+type DuelClock = { t: number; playing: boolean; intro?: number };
 const findActor = (snap: { actors: DuelActorSnap[] }, id: string) => snap.actors.find((a) => a.id === id);
 // ── Tactical STAGE: a fixed painted diorama backdrop (Final-Fantasy-style
 // pre-rendered background) with the fighters composited on top. The diorama is a
@@ -1644,6 +1644,22 @@ const DUEL_FLOOR_Z0 = -0.4;      // centre the action near the camera's look poi
 const DUEL_MIN_WORLD_X = 3.7;    // min world-x gap so two big fighters never merge / cross
 const DUEL_SEP_BAND_Z = 1.7;     // only separate a pair within this depth band
 const DUEL_CONTACT_GAP = 1.7;    // world-x left between sprites at the peak of a melee lunge (close but not overlapping)
+// ── Opening choreography (render-only) — the pets appear FAR apart and "size each
+// other up", then CHARGE in to the combat face-off before the sim plays. Purely
+// cosmetic (the sim's positions are untouched); driven by clock.intro (seconds).
+const INTRO_SIZEUP_END = 1.3;    // s — hold the wide face-off (sizing up)
+const INTRO_CHARGE_END = 2.15;   // s — charge in to the combat gap by here
+const INTRO_TOTAL = 2.5;         // s — brief lock-in beat, then FIGHT (the sim plays)
+const SIZEUP_EXTRA_WX = 3.4;     // world-x each fighter is pushed OUTWARD while sizing up
+const INTRO_WIDE_DOLLY = 15.6;   // camera pull-back distance for the wide size-up shot
+/** 1 = held far apart (sizing up) → 0 = arrived at the face-off. Eased charge-in. */
+function introApproach(introSec: number): number {
+    if (introSec >= INTRO_CHARGE_END) return 0;
+    if (introSec <= INTRO_SIZEUP_END) return 1;
+    const p = (introSec - INTRO_SIZEUP_END) / (INTRO_CHARGE_END - INTRO_SIZEUP_END);
+    const eased = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;   // easeInOutQuad
+    return 1 - eased;
+}
 function duelFieldToFloor(fx: number, fy: number): { wx: number; wz: number } {
     return { wx: (fx / ARENA_X) * DUEL_FLOOR_HALF_W, wz: DUEL_FLOOR_Z0 + (fy / ARENA_Y) * DUEL_FLOOR_HALF_D };
 }
@@ -1791,6 +1807,13 @@ function DuelStandee({ duel, clock, id, pet, mirror, sharedImages }: {
                 if (foeWX === null || Math.abs(of.wx - wx) < Math.abs(foeWX - wx)) foeWX = of.wx;
             }
         }
+
+        // Opening choreography: during the VS intro, hold FAR apart (sizing each other
+        // up), then CHARGE in to the face-off. Render-only — the sim's x/y are untouched,
+        // and this is 0 once the fight plays (introSec ≥ INTRO_CHARGE_END). The movement
+        // registers as speed below → the run cycle plays while they close in.
+        const introSec = clock.current.intro ?? 999;
+        if (introSec < INTRO_CHARGE_END) wx += (myEnemy ? 1 : -1) * SIZEUP_EXTRA_WX * introApproach(introSec);
 
         // Speed (world units) → drives the run cycle + bob.
         const dwx = wx - lastPos.current[0], dwz = wz - lastPos.current[1];
@@ -2355,6 +2378,7 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
     const camAimHold = useRef(0);      // seconds a cut aim is held before easing back to the midpoint
     const camDolly = useRef(CAM_POS[2]); // eased dolly distance (adaptive on the leads' spread)
     const camDollyBias = useRef(0);    // transient extra push-in during a wind-up cut (decays)
+    const introLocked = useRef(false); // fires the "lock-in" shake once when the opening charge completes
     useFrame((state, delta) => {
         const snaps = duel.snapshots;
         const maxT = snaps.length - 1;
@@ -2606,8 +2630,13 @@ function DuelDirector({ duel, clock, advanceClock, onEnd, spawnNumber, spawnImpa
         }
         // Adaptive dolly: pull back to fit the current spread, eased slowly (a gentle
         // breathing zoom, never jitter). Clamped so it never crops or over-tightens.
-        const dollyTarget = Math.max(10.8, Math.min(CAM_POS[2], 9.4 + spread * 1.05));
-        camDolly.current = lerp(camDolly.current, dollyTarget, 0.03);
+        let dollyTarget = Math.max(10.8, Math.min(CAM_POS[2], 9.4 + spread * 1.05));
+        // Opening: pull WIDE for the size-up, then punch in as the pets charge to the face-off,
+        // and give a "lock-in" shake the instant they arrive.
+        const dollyIntro = clock.current.intro ?? 999;
+        if (dollyIntro < INTRO_CHARGE_END) dollyTarget = lerp(dollyTarget, INTRO_WIDE_DOLLY, introApproach(dollyIntro));
+        else if (dollyIntro < 900 && !introLocked.current) { introLocked.current = true; shake.current = Math.max(shake.current, 1.4); }
+        camDolly.current = lerp(camDolly.current, dollyTarget, dollyIntro < INTRO_CHARGE_END ? 0.1 : 0.03);
         const db = camDollyBias.current; camDollyBias.current *= 0.9;
         camera.position.set(CAM_POS[0] + midX * 0.1 + sx, CAM_POS[1] + sy, camDolly.current - zk - db + koPull.current);
         camera.lookAt(camAim.current[0], camAim.current[1], camAim.current[2]);
@@ -2758,7 +2787,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
 
-    const clock = useRef<DuelClock>({ t: 0, playing: false });   // starts paused for the VS intro
+    const clock = useRef<DuelClock>({ t: 0, playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
     const seqRef = useRef(0);
     const [runId, setRunId] = useState(0);
     const [ended, setEnded] = useState(false);
@@ -2784,7 +2813,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIntro(true);
         clock.current.playing = false;
-        const t = window.setTimeout(() => { setIntro(false); clock.current.playing = true; setPaused(false); }, 2000);
+        clock.current.intro = 0;   // restart the size-up → charge-in choreography
+        const t = window.setTimeout(() => { setIntro(false); clock.current.playing = true; setPaused(false); }, INTRO_TOTAL * 1000);
         return () => window.clearTimeout(t);
     }, [runId]);
 
@@ -2841,7 +2871,9 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         window.setTimeout(() => setCutIn((c) => (c && c.id === id ? null : c)), 1500);
     };
     const advanceClock = (maxT: number, delta: number) => {
-        if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
+        // Before the fight plays, advance the opening-choreography clock (size-up → charge-in).
+        if (!clock.current.playing) { clock.current.intro = (clock.current.intro ?? 0) + delta; return; }
+        clock.current.t = Math.min(maxT, clock.current.t + delta * DUEL_TPS);
     };
     const replay = () => { clock.current.t = 0; clock.current.playing = false; setPaused(false); setEnded(false); setNumbers([]); setImpacts([]); setFxList([]); setCutIn(null); setShocks([]); setTrails([]); setFlash(null); setCallout(null); setCombo(null); setAnnounce(null); setMoveCallout(null); setRunId((r) => r + 1); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
